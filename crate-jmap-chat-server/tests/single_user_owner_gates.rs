@@ -11,6 +11,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_ban_set, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -43,7 +44,7 @@ fn owner_space(permissions: Value) -> MemoryBackend {
 
 /// Send a `Space/set` update of [`SPACE_ID`] with `patch` as the owner.
 async fn update_space(backend: &MemoryBackend, patch: Value) -> Value {
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
@@ -102,7 +103,7 @@ async fn owner_without_identity_is_bound_by_add_roles_gates() {
 #[tokio::test]
 async fn owner_without_identity_needs_ban_for_space_ban_create() {
     let create = |backend: MemoryBackend| async move {
-        let (resp, _) = handle_ban_set(
+        let HandlerOutput { primary: resp, .. } = handle_ban_set(
             &backend,
             &(),
             json!({

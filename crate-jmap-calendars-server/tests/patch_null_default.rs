@@ -13,6 +13,7 @@ use jmap_calendars_server::{
     handle_calendar_get, handle_calendar_set, handle_participant_identity_get,
     handle_participant_identity_set,
 };
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 /// Seed `acc1` with Calendar `cal1` whose `sortOrder` and `isVisible`
@@ -75,12 +76,12 @@ async fn update_calendar(backend: &MemoryBackend, patch: Value) -> Value {
     handle_calendar_set(backend, &(), args)
         .await
         .expect("/set must not return a top-level error")
-        .0
+        .primary
 }
 
 async fn get_calendar(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["cal1"] });
-    let (resp, _) = handle_calendar_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_get(backend, &(), args)
         .await
         .expect("/get must not return a top-level error");
     resp["list"][0].clone()
@@ -91,12 +92,12 @@ async fn update_identity(backend: &MemoryBackend, patch: Value) -> Value {
     handle_participant_identity_set(backend, &(), args)
         .await
         .expect("/set must not return a top-level error")
-        .0
+        .primary
 }
 
 async fn get_identity(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["pi1"] });
-    let (resp, _) = handle_participant_identity_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_participant_identity_get(backend, &(), args)
         .await
         .expect("/get must not return a top-level error");
     resp["list"][0].clone()

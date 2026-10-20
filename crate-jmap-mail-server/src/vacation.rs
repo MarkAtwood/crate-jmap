@@ -13,7 +13,7 @@
 //! defined by RFC 8621 §8. The returned `Value` is the corresponding
 //! method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -25,7 +25,7 @@
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_mail_types::VacationResponse;
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -33,7 +33,7 @@ use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -56,7 +56,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend
@@ -84,15 +84,12 @@ pub async fn handle_vacation_get<B: MailBackend>(
     // ids=[] — return empty immediately.
     if let Some(ref ids) = requested_ids {
         if ids.is_empty() {
-            return Ok((
-                json!({
-                    "accountId": account_id.as_ref(),
-                    "state": state.as_ref(),
-                    "list": [],
-                    "notFound": [],
-                }),
-                vec![],
-            ));
+            return Ok(HandlerOutput::new(json!({
+                "accountId": account_id.as_ref(),
+                "state": state.as_ref(),
+                "list": [],
+                "notFound": [],
+            })));
         }
     }
 
@@ -117,15 +114,12 @@ pub async fn handle_vacation_get<B: MailBackend>(
         .map(|v| serde_json::to_value(v).expect("derive(Serialize) on plain data is infallible"))
         .collect();
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "state": state.as_ref(),
-            "list": list_json,
-            "notFound": Value::Array(not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": Value::Array(not_found),
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +147,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend

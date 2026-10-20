@@ -12,6 +12,7 @@ use jmap_chat_server::{
     JmapBackend,
 };
 use jmap_chat_types::Space;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -52,7 +53,7 @@ fn admin_and_regular() -> Value {
 }
 
 async fn update_as(backend: &IdentityBackend, caller: &str, patch: Value) -> Value {
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
@@ -63,7 +64,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, patch: Value) -> Val
 }
 
 async fn space_as(backend: &IdentityBackend, viewer: &str) -> Value {
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &Id::from(viewer),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -86,7 +87,7 @@ async fn close(backend: &IdentityBackend) {
 }
 
 async fn create_invite_as(backend: &IdentityBackend, caller: &str) -> Value {
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "create": { "i": { "spaceId": SPACE_ID } } }),
@@ -166,7 +167,7 @@ async fn closed_space_rejects_channel_message_create() {
         .to_owned();
 
     let send = || async {
-        let (resp, _) = handle_message_set(
+        let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &Id::from("u-regular"),
             json!({

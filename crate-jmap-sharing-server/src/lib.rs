@@ -47,8 +47,8 @@
 //!   signatures are stable within a minor version; argument shapes match
 //!   the dispatcher's `JmapHandler` contract. Direct callers (consumers
 //!   bypassing [`register_sharing_handlers`]) can rely on the
-//!   `(backend, caller, args) -> Result<(Value, Vec<Invocation>),
-//!   JmapError>` shape across `0.1.x`.
+//!   `(backend, caller, args) -> Result<HandlerOutput, JmapError>` shape
+//!   within a minor version.
 //! - **[`register_sharing_handlers`]**: the dispatcher-mutation contract
 //!   (registers the 10 RFC 9670 methods, takes `Arc<B>`) is stable within
 //!   a minor version.

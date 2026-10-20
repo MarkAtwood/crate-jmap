@@ -12,10 +12,11 @@ use common::{InjectableBackend, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{
     handle_chat_set, handle_message_set, handle_position_get, handle_position_set, ChatBackend,
 };
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 async fn create_group<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> String {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
         json!({
@@ -32,7 +33,7 @@ async fn create_group<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> String {
 }
 
 async fn send<B: ChatBackend<CallerCtx = ()>>(backend: &B, chat_id: &str, key: &str) {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({
@@ -46,9 +47,10 @@ async fn send<B: ChatBackend<CallerCtx = ()>>(backend: &B, chat_id: &str, key: &
 }
 
 async fn positions<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> Vec<Value> {
-    let (resp, _) = handle_position_get(backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("ReadPosition/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_position_get(backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("ReadPosition/get");
     resp["list"].as_array().expect("list").clone()
 }
 
@@ -104,7 +106,7 @@ async fn read_position_set_create_and_destroy_forbidden() {
         json!({ "id": rp_id, "chatId": "c1" }),
     );
 
-    let (resp, _) = handle_position_set(
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
         json!({

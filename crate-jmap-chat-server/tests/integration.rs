@@ -20,6 +20,7 @@ use jmap_chat_server::{
     handle_space_set, ChatBackend, JmapBackend,
 };
 use jmap_chat_types::{Chat, ChatKind};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -124,7 +125,11 @@ async fn chat_get_empty() {
     let backend = MemoryBackend::new();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
-    let (resp, invocations) = handle_chat_get(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_chat_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
@@ -145,7 +150,7 @@ async fn chat_get_not_found() {
     let backend = MemoryBackend::new();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["missing1"] }),
@@ -173,7 +178,7 @@ async fn chat_get_missing_account_id() {
 #[tokio::test]
 async fn chat_set_create_group() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -195,7 +200,7 @@ async fn chat_set_create_group() {
 #[tokio::test]
 async fn chat_set_create_direct_with_contact_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -216,7 +221,7 @@ async fn chat_set_create_direct_with_contact_id() {
 #[tokio::test]
 async fn chat_set_create_direct_missing_contact_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -242,7 +247,7 @@ async fn chat_set_create_direct_missing_contact_id() {
 #[tokio::test]
 async fn chat_set_create_channel_missing_space_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -263,7 +268,7 @@ async fn chat_set_create_channel_missing_space_id() {
 #[tokio::test]
 async fn chat_set_create_missing_kind() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -292,7 +297,7 @@ async fn chat_set_create_missing_kind() {
 #[tokio::test]
 async fn chat_set_create_unknown_kind_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -346,7 +351,7 @@ async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
         patch = json!({ "a": patch });
     }
 
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -371,7 +376,9 @@ async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
     );
 
     // Stored object MUST be unchanged — verify by reading back the name.
-    let (get_resp, _) = handle_chat_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_chat_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&chat_id] }),
@@ -393,7 +400,7 @@ async fn chat_set_update_readonly_field_rejected() {
     // Create a chat first.
     let chat_id = make_chat_group(&backend, "G").await;
 
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -417,7 +424,10 @@ async fn chat_set_destroy() {
 
     let chat_id = make_chat_group(&backend, "Temp").await;
 
-    let (destroy_resp, _) = handle_chat_set(
+    let HandlerOutput {
+        primary: destroy_resp,
+        ..
+    } = handle_chat_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [chat_id] }),
@@ -457,7 +467,7 @@ async fn chat_changes_empty() {
     let backend = MemoryBackend::new();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
-    let (resp, _) = handle_chat_changes(
+    let HandlerOutput { primary: resp, .. } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -499,7 +509,7 @@ async fn chat_changes_after_create() {
     .await
     .expect("create");
 
-    let (resp, _) = handle_chat_changes(
+    let HandlerOutput { primary: resp, .. } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -522,9 +532,10 @@ async fn chat_query_empty() {
     // Register the account so account_exists() returns true (the generic
     // handle_query checks this before querying).
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
-    let (resp, _) = handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("handle_chat_query");
+    let HandlerOutput { primary: resp, .. } =
+        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("handle_chat_query");
 
     assert_eq!(resp["ids"], json!([]));
     assert_eq!(resp["position"], 0);
@@ -542,7 +553,7 @@ async fn chat_query_with_calculate_total() {
     .await
     .expect("create");
 
-    let (resp, _) = handle_chat_query(
+    let HandlerOutput { primary: resp, .. } = handle_chat_query(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "calculateTotal": true }),
@@ -583,7 +594,7 @@ async fn chat_query_changes_after_create() {
     .await
     .expect("create");
 
-    let (resp, _) = handle_chat_query_changes(
+    let HandlerOutput { primary: resp, .. } = handle_chat_query_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceQueryState": "0" }),
@@ -632,7 +643,7 @@ async fn chat_typing_returns_success_when_contact_not_blocked() {
     );
     // No ChatContact record — `is_contact_blocked` returns Ok(false).
 
-    let (resp, _) = handle_chat_typing(
+    let HandlerOutput { primary: resp, .. } = handle_chat_typing(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "chatId": "c1", "typing": true }),
@@ -683,7 +694,7 @@ async fn chat_typing_returns_success_when_contact_blocked() {
         }),
     );
 
-    let (resp, _) = handle_chat_typing(
+    let HandlerOutput { primary: resp, .. } = handle_chat_typing(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "chatId": "c1", "typing": true }),
@@ -758,7 +769,7 @@ async fn chat_typing_group_member_succeeds() {
     let backend = MemoryBackend::new();
     seed_group_chat(&backend, "g1", ACCOUNT_ID);
 
-    let (resp, _) = handle_chat_typing(
+    let HandlerOutput { primary: resp, .. } = handle_chat_typing(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "chatId": "g1", "typing": false }),
@@ -858,7 +869,7 @@ async fn chat_typing_consults_is_contact_blocked_on_direct_chat() {
         }),
     );
 
-    let (_, _) = handle_chat_typing(
+    let HandlerOutput { .. } = handle_chat_typing(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "chatId": "c1", "typing": true }),
@@ -903,7 +914,7 @@ async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
         }),
     );
 
-    let (_, _) = handle_chat_typing(
+    let HandlerOutput { .. } = handle_chat_typing(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "chatId": "c1", "typing": true }),
@@ -956,7 +967,7 @@ async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
 #[tokio::test]
 async fn message_set_create_missing_chat_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -978,7 +989,7 @@ async fn message_set_create_missing_chat_id() {
 #[tokio::test]
 async fn message_set_create_success() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1001,7 +1012,10 @@ async fn message_set_create_success() {
 async fn message_set_update_readonly_field() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1013,7 +1027,7 @@ async fn message_set_update_readonly_field() {
     .expect("create");
     let msg_id = create_resp["created"]["m0"]["id"].as_str().expect("id");
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1035,7 +1049,7 @@ async fn message_set_update_readonly_field() {
 async fn message_get_returns_created() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1050,7 +1064,9 @@ async fn message_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id] }),
@@ -1078,7 +1094,7 @@ async fn message_changes_after_create() {
     .await
     .expect("create");
 
-    let (resp, _) = handle_message_changes(
+    let HandlerOutput { primary: resp, .. } = handle_message_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -1107,7 +1123,7 @@ async fn message_query_order() {
         .expect("create");
     }
 
-    let (resp, _) = handle_message_query(
+    let HandlerOutput { primary: resp, .. } = handle_message_query(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "calculateTotal": true, "filter": { "chatId": "c1" } }),
@@ -1125,7 +1141,7 @@ async fn message_query_order() {
 async fn message_set_update_body_injects_edited_at() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1140,7 +1156,10 @@ async fn message_set_update_body_injects_edited_at() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1153,7 +1172,9 @@ async fn message_set_update_body_injects_edited_at() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -1173,7 +1194,7 @@ async fn message_set_update_body_injects_edited_at() {
 async fn message_set_update_delete_for_all_injects_deleted_at() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1188,7 +1209,10 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1201,7 +1225,9 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -1262,7 +1288,10 @@ async fn message_set_update_delete_for_all_purges_content() {
         }),
     );
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1274,7 +1303,9 @@ async fn message_set_update_delete_for_all_purges_content() {
     .expect("update");
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -1347,7 +1378,10 @@ async fn message_set_update_local_delete_purges_content() {
     let backend = MemoryBackend::new();
     insert_deletable_message(&backend, "self");
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1359,7 +1393,9 @@ async fn message_set_update_local_delete_purges_content() {
     .expect("update");
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -1388,7 +1424,10 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
     let backend = MemoryBackend::new();
     insert_deletable_message(&backend, "contact-alice");
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1401,7 +1440,9 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
     assert_eq!(update_resp["notUpdated"]["m1"]["type"], "forbidden");
     assert_eq!(update_resp["updated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -1426,7 +1467,10 @@ async fn message_set_update_edit_rejects_other_sender() {
     let backend = MemoryBackend::new();
     insert_deletable_message(&backend, "contact-alice");
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1439,7 +1483,9 @@ async fn message_set_update_edit_rejects_other_sender() {
     assert_eq!(update_resp["notUpdated"]["m1"]["type"], "forbidden");
     assert_eq!(update_resp["updated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -1461,7 +1507,10 @@ async fn message_set_update_edit_rejects_deleted_message() {
     let backend = MemoryBackend::new();
     insert_deletable_message(&backend, ACCOUNT_ID);
 
-    let (delete_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: delete_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1473,7 +1522,10 @@ async fn message_set_update_edit_rejects_deleted_message() {
     .expect("delete");
     assert_eq!(delete_resp["notUpdated"], json!(null));
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1488,7 +1540,9 @@ async fn message_set_update_edit_rejects_deleted_message() {
     assert_eq!(update_resp["notUpdated"]["m1"]["type"], "forbidden");
     assert_eq!(update_resp["updated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -1503,7 +1557,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
 async fn message_set_update_mark_as_read() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1519,7 +1573,10 @@ async fn message_set_update_mark_as_read() {
         .to_owned();
 
     let read_ts = "2024-01-01T00:00:00Z";
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1532,7 +1589,9 @@ async fn message_set_update_mark_as_read() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -1549,7 +1608,7 @@ async fn message_set_update_mark_as_read() {
 #[tokio::test]
 async fn message_set_read_at_defaults_disposition() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1559,7 +1618,7 @@ async fn message_set_read_at_defaults_disposition() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z" } } }),
@@ -1567,7 +1626,9 @@ async fn message_set_read_at_defaults_disposition() {
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
@@ -1586,7 +1647,7 @@ async fn message_set_read_at_defaults_disposition() {
 #[tokio::test]
 async fn message_set_explicit_disposition_preserved() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1596,7 +1657,7 @@ async fn message_set_explicit_disposition_preserved() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "deleted" } } }),
@@ -1604,7 +1665,9 @@ async fn message_set_explicit_disposition_preserved() {
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
@@ -1622,7 +1685,7 @@ async fn message_set_explicit_disposition_preserved() {
 #[tokio::test]
 async fn message_set_extension_disposition_stored_as_is() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1632,7 +1695,7 @@ async fn message_set_extension_disposition_stored_as_is() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "voice-listened" } } }),
@@ -1640,7 +1703,9 @@ async fn message_set_extension_disposition_stored_as_is() {
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
@@ -1658,7 +1723,7 @@ async fn message_set_extension_disposition_stored_as_is() {
 #[tokio::test]
 async fn message_set_no_read_at_no_disposition_injected() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1668,7 +1733,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "body": "edited text" } } }),
@@ -1678,7 +1743,9 @@ async fn message_set_no_read_at_no_disposition_injected() {
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
@@ -1702,7 +1769,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
 #[tokio::test]
 async fn message_set_lone_read_disposition_is_invalid_properties() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1716,7 +1783,10 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
         json!({ "readDisposition": "deleted" }),
         json!({ "readDisposition": "deleted", "readAt": null }),
     ] {
-        let (update_resp, _) = handle_message_set(
+        let HandlerOutput {
+            primary: update_resp,
+            ..
+        } = handle_message_set(
             &backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
@@ -1730,7 +1800,9 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
         );
     }
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
@@ -1750,7 +1822,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
 #[tokio::test]
 async fn message_set_unsupported_body_type_is_invalid_properties() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": {
@@ -1769,7 +1841,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "bodyType": "text/html" } } }),
@@ -1781,7 +1853,9 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
         json!({ "type": "invalidProperties", "properties": ["bodyType"] })
     );
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
@@ -1799,7 +1873,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
 #[tokio::test]
 async fn message_set_read_at_null_clears_read_disposition() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1818,7 +1892,10 @@ async fn message_set_read_at_null_clears_read_disposition() {
         ),
         ("unread after read", json!({ "readAt": null }), json!(null)),
     ] {
-        let (update_resp, _) = handle_message_set(
+        let HandlerOutput {
+            primary: update_resp,
+            ..
+        } = handle_message_set(
             &backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
@@ -1827,7 +1904,9 @@ async fn message_set_read_at_null_clears_read_disposition() {
         .expect("update");
         assert_eq!(update_resp["notUpdated"], json!(null), "{step}");
 
-        let (get_resp, _) = handle_message_get(
+        let HandlerOutput {
+            primary: get_resp, ..
+        } = handle_message_get(
             &backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
@@ -1854,7 +1933,10 @@ async fn message_set_burn_on_read_fires_on_read_at() {
     let backend = MemoryBackend::new();
 
     // Create a burn-on-read message.
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1882,7 +1964,10 @@ async fn message_set_burn_on_read_fires_on_read_at() {
     );
 
     // Mark the message as read. This should fire the burn.
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1900,7 +1985,9 @@ async fn message_set_burn_on_read_fires_on_read_at() {
     assert_eq!(update_resp["notUpdated"], json!(null));
 
     // Message/get for the id must report notFound — the row is gone.
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -1917,7 +2004,10 @@ async fn message_set_burn_on_read_fires_on_read_at() {
     assert_eq!(not_found[0], msg_id);
 
     // Message/changes from "0" must report the id as destroyed.
-    let (changes_resp, _) = handle_message_changes(
+    let HandlerOutput {
+        primary: changes_resp,
+        ..
+    } = handle_message_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -1939,7 +2029,10 @@ async fn message_set_burn_on_read_fires_on_read_at() {
 #[tokio::test]
 async fn message_set_burn_on_read_no_fire_without_read_at() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1962,7 +2055,10 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
         .to_owned();
 
     // Update the body — readAt is NOT in the patch.
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -1976,7 +2072,9 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
     assert_eq!(update_resp["notUpdated"], json!(null));
 
     // Message must still be there with burnOnRead intact.
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -1994,7 +2092,10 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
 #[tokio::test]
 async fn message_set_no_burn_when_burn_on_read_absent() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2016,7 +2117,10 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
         .to_owned();
 
     // Set readAt. burnOnRead is absent, so no burn.
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2030,7 +2134,9 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
     assert_eq!(update_resp["notUpdated"], json!(null));
 
     // Message still present with readAt set.
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -2047,7 +2153,10 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
 #[tokio::test]
 async fn message_set_burn_on_read_no_fire_on_read_at_null() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2072,7 +2181,10 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
     // PatchObject clear of readAt — readAt has never been set, so this is a
     // no-op on the wire. burnOnRead semantics MUST treat it as not a burn
     // trigger regardless.
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2085,7 +2197,9 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -2104,7 +2218,10 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
 #[tokio::test]
 async fn memory_backend_expire_message_direct_call() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2134,7 +2251,9 @@ async fn memory_backend_expire_message_direct_call() {
         .expect("expire_message must succeed on the reference backend");
 
     // Message/get for the id must report notFound.
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id_str] }),
@@ -2147,7 +2266,10 @@ async fn memory_backend_expire_message_direct_call() {
     assert_eq!(not_found[0], msg_id_str);
 
     // Message/changes must report the id as destroyed.
-    let (changes_resp, _) = handle_message_changes(
+    let HandlerOutput {
+        primary: changes_resp,
+        ..
+    } = handle_message_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -2224,7 +2346,10 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
     // Create a burn-on-read message via the normal handler path. The
     // setup write goes through the inner MemoryBackend with no fault
     // injected.
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2250,7 +2375,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
     // a MemoryError whose Display contains the canary.
     backend.inject("Message", "read_and_burn");
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2327,7 +2452,7 @@ async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_displ
     backend.queue_chat_race_phantom(ACCOUNT_ID, "aaaa", "contact-1");
     backend.inject("Chat", "destroy");
 
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -2408,7 +2533,7 @@ async fn message_get_default_omits_edit_history() {
         }),
     );
 
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -2461,7 +2586,7 @@ async fn message_get_with_retention_returns_edit_history() {
         }),
     );
 
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -2514,7 +2639,7 @@ async fn message_get_properties_does_not_force_edit_history_when_retention_off()
         }),
     );
 
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         &backend,
         &(),
         json!({
@@ -2559,7 +2684,7 @@ async fn memory_backend_retains_edit_history_default_is_false() {
 async fn message_set_create_no_slow_mode_on_memory_backend() {
     let backend = MemoryBackend::new();
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2600,7 +2725,7 @@ async fn message_set_create_slow_mode_rejects_with_retry_after() {
     let retry_after = jmap_types::UTCDate::from("2099-12-31T00:00:00Z");
     let backend = TrackingBackend::with_slow_mode_blocking(retry_after.clone());
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2647,7 +2772,7 @@ async fn message_set_create_slow_mode_rejects_with_retry_after() {
 async fn message_set_create_tracking_backend_default_allows() {
     let backend = TrackingBackend::new();
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2681,7 +2806,7 @@ async fn message_set_create_slow_mode_skipped_when_validation_fails() {
     let retry_after = jmap_types::UTCDate::from("2099-12-31T00:00:00Z");
     let backend = TrackingBackend::with_slow_mode_blocking(retry_after);
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2716,7 +2841,7 @@ async fn message_set_create_with_reply_to() {
     let backend = MemoryBackend::new();
 
     // Create the message that will be replied to.
-    let (first_resp, _) = handle_message_set(
+    let HandlerOutput { primary: first_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2732,7 +2857,7 @@ async fn message_set_create_with_reply_to() {
         .to_owned();
 
     // Create a reply pointing to the first message.
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2769,7 +2894,7 @@ async fn message_set_create_with_reply_to() {
 async fn message_set_create_with_malformed_expiry_rejected() {
     let backend = MemoryBackend::new();
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2805,7 +2930,7 @@ async fn message_set_create_with_malformed_expiry_rejected() {
 async fn message_set_create_with_past_expiry_rejected() {
     let backend = MemoryBackend::new();
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2845,7 +2970,7 @@ async fn message_set_create_with_past_expiry_rejected() {
 #[tokio::test]
 async fn message_set_create_with_malformed_sent_at_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2886,7 +3011,7 @@ async fn message_set_create_with_malformed_sent_at_rejected() {
 #[tokio::test]
 async fn position_set_create_with_malformed_last_read_at_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_position_set(
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
         json!({
@@ -2920,7 +3045,7 @@ async fn position_set_create_with_malformed_last_read_at_rejected() {
 #[tokio::test]
 async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2935,7 +3060,10 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2950,7 +3078,9 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -2979,7 +3109,10 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
 #[tokio::test]
 async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -2994,7 +3127,10 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3008,7 +3144,9 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
     .expect("update");
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -3056,7 +3194,7 @@ async fn message_set_update_reaction_remove_others_rejected_forbidden() {
         }),
     );
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3082,7 +3220,9 @@ async fn message_set_update_reaction_remove_others_rejected_forbidden() {
 
     // The reaction must still be present after the forbidden rejection
     // (the patch should not have been applied).
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
@@ -3129,7 +3269,7 @@ async fn message_set_update_reaction_modify_others_rejected_forbidden() {
         }),
     );
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3151,7 +3291,10 @@ async fn message_set_update_reaction_modify_others_rejected_forbidden() {
 #[tokio::test]
 async fn message_set_update_reaction_pointer_with_slash_rejected() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3166,7 +3309,10 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3188,7 +3334,10 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
 #[tokio::test]
 async fn message_set_update_reaction_non_object_value_rejected() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3203,7 +3352,10 @@ async fn message_set_update_reaction_non_object_value_rejected() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3224,7 +3376,10 @@ async fn message_set_update_reaction_non_object_value_rejected() {
 #[tokio::test]
 async fn message_set_update_reaction_remove_self_succeeds() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3240,7 +3395,9 @@ async fn message_set_update_reaction_remove_self_succeeds() {
         .to_owned();
 
     // Add a reaction.
-    let (add_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: add_resp, ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3255,7 +3412,10 @@ async fn message_set_update_reaction_remove_self_succeeds() {
     assert_eq!(add_resp["notUpdated"], json!(null));
 
     // Now remove it.
-    let (remove_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: remove_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3269,7 +3429,9 @@ async fn message_set_update_reaction_remove_self_succeeds() {
     .expect("remove");
     assert_eq!(remove_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) = handle_message_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
@@ -3290,7 +3452,10 @@ async fn message_set_update_reaction_remove_self_succeeds() {
 #[tokio::test]
 async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3305,7 +3470,10 @@ async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
         .expect("id")
         .to_owned();
 
-    let (update_resp, _) = handle_message_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -3332,7 +3500,7 @@ async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
 #[tokio::test]
 async fn space_set_create_missing_name() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3354,7 +3522,7 @@ async fn space_set_create_missing_name() {
 #[tokio::test]
 async fn space_set_create_success() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3376,7 +3544,9 @@ async fn space_get_returns_created() {
 
     let space_id = make_space(&backend, "The Space").await;
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -3395,7 +3565,7 @@ async fn space_set_update_readonly_fields_rejected() {
     let space_id = make_space(&backend, "Readonly Test").await;
 
     for field in &["roles", "members", "categories", "uncategorizedChannelIds"] {
-        let (resp, _) = handle_space_set(
+        let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &(),
             json!({
@@ -3438,7 +3608,10 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let space_id = make_space(&backend, "Mutation Test").await;
 
     // AddRole then references the assigned id on the subsequent ops.
-    let (add_role_resp, _) = handle_space_set(
+    let HandlerOutput {
+        primary: add_role_resp,
+        ..
+    } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3461,7 +3634,9 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     );
 
     // Discover the server-assigned RoleId via Space/get.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -3476,7 +3651,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
         .to_owned();
 
     // UpdateRole on the assigned id succeeds.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3494,7 +3669,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     );
 
     // AddMember with a valid roleIds reference succeeds.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3512,7 +3687,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     );
 
     // UpdateMember nick: succeeds.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3530,7 +3705,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     );
 
     // RemoveMember on the freshly-added user: succeeds.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3546,7 +3721,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     );
 
     // RemoveRole on the assigned id: succeeds.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3562,7 +3737,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     );
 
     // Removing a non-existent role id surfaces as NotFound, not Forbidden.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3586,7 +3761,7 @@ async fn space_set_update_structural_empty_array_is_empty_patch() {
 
     let space_id = make_space(&backend, "Empty Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3612,7 +3787,7 @@ async fn space_set_update_malformed_structural_rejected() {
     let space_id = make_space(&backend, "Malformed Test").await;
 
     // addRoles wants an array of objects; a bare string is malformed.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3631,7 +3806,7 @@ async fn space_set_update_malformed_structural_rejected() {
     assert_eq!(resp["notUpdated"][&space_id]["properties"][0], "addRoles");
 
     // Whole structural payload not an array → invalidProperties.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3660,7 +3835,7 @@ async fn space_set_add_roles_position_zero_rejected() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3711,7 +3886,7 @@ async fn space_set_add_roles_position_one_passes_handler_check() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3755,7 +3930,7 @@ async fn space_set_update_roles_position_zero_rejected() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3788,7 +3963,7 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Atomic").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3813,7 +3988,9 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
     );
 
     // The metadata rename must NOT have applied (per-target atomicity).
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -3840,7 +4017,7 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
 
     let space_id = make_space(&backend, "Original Name").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3863,7 +4040,9 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
     assert_eq!(resp["notUpdated"][&space_id]["type"], "notFound");
 
     // Re-fetch and confirm the name was NOT changed.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -3884,7 +4063,7 @@ async fn space_set_update_unknown_property_rejected() {
 
     let space_id = make_space(&backend, "Unknown Property Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3959,7 +4138,7 @@ async fn space_set_category_add_assigns_id_and_pushes() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Cat Add Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -3986,7 +4165,9 @@ async fn space_set_category_add_assigns_id_and_pushes() {
     );
 
     // Verify the category landed in space.categories with a server-assigned id.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4019,7 +4200,7 @@ async fn space_set_category_add_without_id_is_accepted() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Cat No Id Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4048,7 +4229,9 @@ async fn space_set_category_add_without_id_is_accepted() {
         "addCategories should land in `updated`: {resp:?}"
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4082,7 +4265,7 @@ async fn space_set_category_add_assigns_unique_ids() {
         (&space_a, "Second"),
         (&space_b, "Third"),
     ] {
-        let (resp, _) = handle_space_set(
+        let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &(),
             json!({
@@ -4103,7 +4286,9 @@ async fn space_set_category_add_assigns_unique_ids() {
         );
     }
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_a, &space_b] }),
@@ -4135,7 +4320,7 @@ async fn space_set_category_add_reassigns_existing_channels() {
     seed_channel(&backend, ACCOUNT_ID, "ch-1", &space_id, None);
     seed_channel(&backend, ACCOUNT_ID, "ch-2", &space_id, None);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4184,7 +4369,7 @@ async fn space_set_category_add_unknown_channel_rejected() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Cat Unknown Channel Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4229,7 +4414,7 @@ async fn space_set_category_remove_unknown_yields_not_found() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Cat Remove Unknown").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4257,7 +4442,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
     // Create a category with two channels via addCategories.
     seed_channel(&backend, ACCOUNT_ID, "ch-a", &space_id, None);
     seed_channel(&backend, ACCOUNT_ID, "ch-b", &space_id, None);
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4281,7 +4466,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
     let cat_id = backend.first_category_id(&Id::from(space_id.as_str()));
 
     // Now remove the category. Both channels should land in uncategorized.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4298,7 +4483,9 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
         resp["notUpdated"]
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4350,7 +4537,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
 
     seed_channel(&backend, ACCOUNT_ID, "ch-x", &space_id, None);
     seed_channel(&backend, ACCOUNT_ID, "ch-y", &space_id, None);
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4375,7 +4562,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
     // Rename the category AND swap its channel membership: ch-x out,
     // ch-y in. Expected: ch-x lands in uncategorized, ch-y leaves
     // uncategorized; both channels' categoryId fields flip.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4399,7 +4586,9 @@ async fn space_set_category_update_rename_and_reassign_channels() {
         resp["notUpdated"]
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4451,7 +4640,9 @@ async fn space_set_category_update_rename_and_reassign_channels() {
 /// `cat-b` (empty), consistent on both sides.
 async fn seed_two_categories(backend: &MemoryBackend, space_id: &str) {
     seed_channel(backend, ACCOUNT_ID, "ch-m", space_id, Some("cat-a"));
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -4478,7 +4669,7 @@ async fn space_set_category_add_moves_channel_out_of_previous_category() {
     let space_id = make_space(&backend, "Cat Add Move Test").await;
     seed_two_categories(&backend, &space_id).await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4503,7 +4694,9 @@ async fn space_set_category_add_moves_channel_out_of_previous_category() {
         resp["notUpdated"]
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4539,7 +4732,7 @@ async fn space_set_category_update_moves_channel_out_of_previous_category() {
     let space_id = make_space(&backend, "Cat Update Move Test").await;
     seed_two_categories(&backend, &space_id).await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4559,7 +4752,9 @@ async fn space_set_category_update_moves_channel_out_of_previous_category() {
         resp["notUpdated"]
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4599,7 +4794,7 @@ async fn space_set_category_cascade_emits_chat_changes() {
     seed_channel(&backend, ACCOUNT_ID, "ch-p", &space_id, None);
     seed_channel(&backend, ACCOUNT_ID, "ch-q", &space_id, None);
 
-    let (_, _) = handle_space_set(
+    let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4621,7 +4816,9 @@ async fn space_set_category_cascade_emits_chat_changes() {
 
     // Chat/changes since "0" must show both channels in `updated`
     // (the cascade set their categoryId).
-    let (changes, _) = handle_chat_changes(
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -4660,7 +4857,7 @@ async fn space_set_channel_add_assigns_id_and_lands_uncategorized() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Add Test").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4680,7 +4877,9 @@ async fn space_set_channel_add_assigns_id_and_lands_uncategorized() {
     );
 
     // The new channel id lands in uncategorizedChannelIds.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4730,7 +4929,7 @@ async fn space_set_channel_add_into_existing_category() {
     let space_id = make_space(&backend, "Channel Add Into Cat").await;
 
     // First, create an empty category to add the new channel into.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4752,7 +4951,7 @@ async fn space_set_channel_add_into_existing_category() {
     assert!(resp["notUpdated"].is_null(), "addCategories: {resp:?}");
     let cat_id = backend.first_category_id(&Id::from(space_id.as_str()));
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4779,7 +4978,9 @@ async fn space_set_channel_add_into_existing_category() {
 
     // The category's channelIds array now carries the new channel id;
     // uncategorizedChannelIds is empty.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4823,7 +5024,7 @@ async fn space_set_channel_add_unknown_category_rejected() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Add Unknown Cat").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4858,7 +5059,9 @@ async fn space_set_channel_add_unknown_category_rejected() {
     );
 
     // No Chat record should have been created.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4881,7 +5084,7 @@ async fn space_set_channel_remove_unknown_yields_not_found() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Remove Unknown").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4909,7 +5112,7 @@ async fn space_set_channel_remove_cascades_messages() {
     let space_id = make_space(&backend, "Channel Remove Cascade").await;
 
     // Add two channels via Space/set so we exercise the real path.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -4926,7 +5129,9 @@ async fn space_set_channel_remove_cascades_messages() {
     .expect("addChannels");
     assert!(resp["notUpdated"].is_null(), "addChannels: {resp:?}");
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -4992,7 +5197,7 @@ async fn space_set_channel_remove_cascades_messages() {
         json!({ "id": "k1", "chatId": keep_id, "body": "keep" }),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5013,7 +5218,10 @@ async fn space_set_channel_remove_cascades_messages() {
     // Message state, the only Message state-bump in this run is the
     // one our removeChannels cascade emits. So a Message/changes since
     // "0" must list exactly m1, m2, m3 in `destroyed`.
-    let (changes_resp, _) = handle_message_changes(
+    let HandlerOutput {
+        primary: changes_resp,
+        ..
+    } = handle_message_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -5034,7 +5242,9 @@ async fn space_set_channel_remove_cascades_messages() {
     );
 
     // Surviving channel still listed in uncategorizedChannelIds.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5061,7 +5271,7 @@ async fn space_set_channel_update_name_and_position() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Update Basic").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5074,7 +5284,9 @@ async fn space_set_channel_update_name_and_position() {
     .await
     .expect("addChannels");
     assert!(resp["notUpdated"].is_null(), "addChannels: {resp:?}");
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5086,7 +5298,7 @@ async fn space_set_channel_update_name_and_position() {
         .expect("channel id")
         .to_owned();
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5124,7 +5336,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Update Clearable").await;
 
-    let (_, _) = handle_space_set(
+    let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5136,7 +5348,9 @@ async fn space_set_channel_update_topic_cleared_by_null() {
     )
     .await
     .expect("addChannels");
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5148,7 +5362,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
         .expect("channel id")
         .to_owned();
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5184,7 +5398,7 @@ async fn space_set_channel_update_category_move() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Update Move Cat").await;
 
-    let (_, _) = handle_space_set(
+    let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5205,7 +5419,9 @@ async fn space_set_channel_update_category_move() {
     .await
     .expect("seed");
     let cat_id = backend.first_category_id(&Id::from(space_id.as_str()));
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5217,7 +5433,7 @@ async fn space_set_channel_update_category_move() {
         .expect("channel id")
         .to_owned();
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5240,7 +5456,9 @@ async fn space_set_channel_update_category_move() {
     let chat = backend.peek_chat(&Id::from(ch_id.as_str()));
     assert_eq!(chat["categoryId"].as_str(), Some(cat_id.as_ref()));
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5276,7 +5494,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
     let space_id = make_space(&backend, "Channel Update Clear Cat").await;
 
     // Seed: create a category with one channel inside it.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5298,7 +5516,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
     assert!(resp["notUpdated"].is_null());
     let cat_id = backend.first_category_id(&Id::from(space_id.as_str()));
 
-    let (_, _) = handle_space_set(
+    let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5313,7 +5531,9 @@ async fn space_set_channel_update_category_cleared_by_null() {
     .await
     .expect("addChannels");
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5326,7 +5546,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
         .to_owned();
 
     // Clear the categoryId.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5347,7 +5567,9 @@ async fn space_set_channel_update_category_cleared_by_null() {
         chat.get("categoryId").is_none(),
         "Chat.categoryId must be absent after clear: {chat:?}"
     );
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5382,7 +5604,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Update Unknown Cat").await;
 
-    let (_, _) = handle_space_set(
+    let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5392,7 +5614,9 @@ async fn space_set_channel_update_unknown_category_rejected() {
     )
     .await
     .expect("addChannels");
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5404,7 +5628,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
         .expect("channel id")
         .to_owned();
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5440,7 +5664,7 @@ async fn space_set_channel_update_unknown_channel_yields_not_found() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Channel Update Unknown Channel").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5474,7 +5698,10 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
 
     // Establish a baseline state for Chat so we know we are looking at
     // the delta introduced by this single patch.
-    let (chat_state_resp, _) = handle_chat_changes(
+    let HandlerOutput {
+        primary: chat_state_resp,
+        ..
+    } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -5491,7 +5718,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
     // the channel destroyed at end-of-call. Read the assigned id from
     // the OpResult-driven uncategorized list snapshot mid-patch is not
     // wire-visible; we look at change-log entries instead.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5506,7 +5733,9 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
     .await
     .expect("addChannels");
     assert!(resp["notUpdated"].is_null(), "addChannels: {resp:?}");
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5519,7 +5748,10 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
         .to_owned();
 
     // Re-fetch baseline (we just bumped Chat state with the create).
-    let (chat_state_resp, _) = handle_chat_changes(
+    let HandlerOutput {
+        primary: chat_state_resp,
+        ..
+    } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": &baseline_state }),
@@ -5543,7 +5775,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
         .to_owned();
 
     // Now destroy the channel.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5558,7 +5790,10 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
     // Chat/changes since the post-create state must show only the
     // destruction. The dedup logic in apply_space_patch ensures the
     // channel id is in `destroyed`, not `updated` or `created`.
-    let (chat_state_resp, _) = handle_chat_changes(
+    let HandlerOutput {
+        primary: chat_state_resp,
+        ..
+    } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": &after_create_state }),
@@ -5601,7 +5836,7 @@ async fn space_set_update_metadata_success() {
 
     let space_id = make_space(&backend, "Original Name").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -5628,7 +5863,9 @@ async fn space_set_update_metadata_success() {
         "updated entry for the space should be present (null sentinel)"
     );
     // Verify the field was actually persisted via Space/get.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -5651,7 +5888,7 @@ async fn space_set_update_metadata_success() {
 #[tokio::test]
 async fn contact_set_create_without_identity_invalid_properties() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({
@@ -5678,7 +5915,7 @@ async fn contact_set_create_without_identity_invalid_properties() {
 #[tokio::test]
 async fn contact_set_destroy_forbidden() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({
@@ -5718,7 +5955,7 @@ async fn contact_set_update_allowed_fields_apply() {
         }),
     );
 
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({
@@ -5734,7 +5971,9 @@ async fn contact_set_update_allowed_fields_apply() {
         "spec-allowed patch must update: {:?}",
         resp["notUpdated"]
     );
-    let (get_resp, _) = handle_contact_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ct1"] }),
@@ -5769,7 +6008,7 @@ async fn contact_set_update_drops_non_allowed_fields() {
         }),
     );
 
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({
@@ -5794,7 +6033,9 @@ async fn contact_set_update_drops_non_allowed_fields() {
     );
 
     // The backend record must be unchanged.
-    let (get_resp, _) = handle_contact_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ct1"] }),
@@ -5834,7 +6075,7 @@ async fn contact_set_update_identity_rejected() {
         }),
     );
 
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({
@@ -5850,7 +6091,9 @@ async fn contact_set_update_identity_rejected() {
         json!({ "type": "invalidProperties", "properties": ["identity"] })
     );
 
-    let (get_resp, _) = handle_contact_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ct1"] }),
@@ -5883,7 +6126,7 @@ async fn contact_set_update_mixed_patch_applies_only_allowed() {
         }),
     );
 
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({
@@ -5898,7 +6141,9 @@ async fn contact_set_update_mixed_patch_applies_only_allowed() {
         resp["notUpdated"].is_null(),
         "patch with at least one allowed field must update"
     );
-    let (get_resp, _) = handle_contact_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ct1"] }),
@@ -5916,7 +6161,9 @@ async fn contact_set_update_mixed_patch_applies_only_allowed() {
 #[tokio::test]
 async fn contact_get_empty() {
     let backend = MemoryBackend::new();
-    let (get_resp, _) = handle_contact_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
@@ -5931,7 +6178,7 @@ async fn contact_get_empty() {
 #[tokio::test]
 async fn contact_changes_empty() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_contact_changes(
+    let HandlerOutput { primary: resp, .. } = handle_contact_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -5956,7 +6203,7 @@ async fn contact_changes_empty() {
 #[tokio::test]
 async fn position_set_create_missing_chat_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_position_set(
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
         json!({
@@ -5978,7 +6225,7 @@ async fn position_set_create_missing_chat_id() {
 #[tokio::test]
 async fn position_set_create_forbidden() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_position_set(
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
         json!({
@@ -6002,7 +6249,7 @@ async fn position_set_create_forbidden() {
 #[tokio::test]
 async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     let backend = MemoryBackend::new();
-    let (first, _) = handle_position_set(
+    let HandlerOutput { primary: first, .. } = handle_position_set(
         &backend,
         &(),
         json!({
@@ -6014,7 +6261,9 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     .expect("first create");
     assert_eq!(first["notCreated"]["rp0"]["type"], "forbidden");
 
-    let (second, _) = handle_position_set(
+    let HandlerOutput {
+        primary: second, ..
+    } = handle_position_set(
         &backend,
         &(),
         json!({
@@ -6028,9 +6277,10 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     assert!(second["notCreated"]["rp1"].is_object());
     assert_eq!(second["notCreated"]["rp1"]["type"], "forbidden");
     assert!(second["created"].as_object().is_none_or(|m| m.is_empty()));
-    let (get, _) = handle_position_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("get");
+    let HandlerOutput { primary: get, .. } =
+        handle_position_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("get");
     assert_eq!(get["list"].as_array().expect("list").len(), 0);
 }
 
@@ -6043,7 +6293,7 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
 #[tokio::test]
 async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_position_set(
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
         json!({
@@ -6081,7 +6331,7 @@ async fn position_set_update_chat_id_rejected() {
         json!({ "id": rp_id, "chatId": "c1" }),
     );
 
-    let (resp, _) = handle_position_set(
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
         json!({
@@ -6111,7 +6361,9 @@ async fn position_get_returns_created() {
         json!({ "id": rp_id, "chatId": "c99" }),
     );
 
-    let (get_resp, _) = handle_position_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_position_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [rp_id] }),
@@ -6165,7 +6417,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
     let backend = MemoryBackend::new();
 
     // First create succeeds.
-    let (resp1, _) = handle_chat_set(
+    let HandlerOutput { primary: resp1, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -6187,7 +6439,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
         .to_owned();
 
     // Second create with same contactId must be rejected.
-    let (resp2, _) = handle_chat_set(
+    let HandlerOutput { primary: resp2, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -6216,7 +6468,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
 async fn chat_set_create_direct_different_contacts_allowed() {
     let backend = MemoryBackend::new();
 
-    let (resp1, _) = handle_chat_set(
+    let HandlerOutput { primary: resp1, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -6228,7 +6480,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
     .expect("create u1");
     assert!(resp1["created"]["c0"].is_object());
 
-    let (resp2, _) = handle_chat_set(
+    let HandlerOutput { primary: resp2, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -6266,7 +6518,7 @@ async fn accounts_are_isolated() {
     .await
     .expect("create in a1");
 
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID_B, "ids": null }),
@@ -6289,10 +6541,13 @@ async fn accounts_are_isolated() {
 #[tokio::test]
 async fn contact_query_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) =
-        handle_contact_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-            .await
-            .expect("handle_contact_query");
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_contact_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        .await
+        .expect("handle_contact_query");
 
     assert!(invocations.is_empty());
     assert_eq!(resp["accountId"], ACCOUNT_ID);
@@ -6318,7 +6573,11 @@ async fn contact_query_changes_requires_since_state() {
 #[tokio::test]
 async fn invite_get_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_invite_get(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_invite_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
@@ -6336,7 +6595,7 @@ async fn invite_get_empty() {
 #[tokio::test]
 async fn invite_set_create_missing_space_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -6359,7 +6618,7 @@ async fn invite_set_create_missing_space_id() {
 #[tokio::test]
 async fn invite_set_create_with_malformed_expiry_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -6387,7 +6646,7 @@ async fn invite_set_create_with_malformed_expiry_rejected() {
 #[tokio::test]
 async fn invite_set_create_success() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -6412,7 +6671,10 @@ async fn invite_set_update_forbidden() {
     let backend = MemoryBackend::new();
 
     // Create an invite first so we have a real id.
-    let (create_resp, _) = handle_invite_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_invite_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "i0": { "spaceId": "s1" } } }),
@@ -6425,7 +6687,7 @@ async fn invite_set_update_forbidden() {
         .to_owned();
 
     // Any update attempt must be rejected with forbidden.
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -6451,7 +6713,10 @@ async fn invite_set_update_forbidden() {
 async fn invite_get_returns_created() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_invite_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_invite_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "i0": { "spaceId": "s2", "maxUses": 10 } } }),
@@ -6463,7 +6728,7 @@ async fn invite_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (resp, _) = handle_invite_get(
+    let HandlerOutput { primary: resp, .. } = handle_invite_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [invite_id] }),
@@ -6488,7 +6753,11 @@ async fn emoji_get_empty() {
     use jmap_chat_server::handle_emoji_get;
 
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_emoji_get(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_emoji_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
@@ -6509,7 +6778,7 @@ async fn emoji_set_create_missing_name() {
     use jmap_chat_server::handle_emoji_set;
 
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6533,7 +6802,7 @@ async fn emoji_set_create_invalid_name() {
     use jmap_chat_server::handle_emoji_set;
 
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6558,7 +6827,7 @@ async fn emoji_set_create_success() {
     use jmap_chat_server::handle_emoji_set;
 
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6581,7 +6850,10 @@ async fn emoji_get_returns_created() {
     use jmap_chat_server::{handle_emoji_get, handle_emoji_set};
 
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_emoji_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6596,7 +6868,9 @@ async fn emoji_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_emoji_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_emoji_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [emoji_id] }),
@@ -6623,7 +6897,7 @@ async fn emoji_set_create_server_global_no_authz_block() {
     use jmap_chat_server::handle_emoji_set;
 
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6653,7 +6927,7 @@ async fn emoji_set_create_space_scoped_no_authz_block() {
     use jmap_chat_server::handle_emoji_set;
 
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6681,7 +6955,7 @@ async fn emoji_set_create_authz_denied_returns_forbidden() {
     use jmap_chat_server::handle_emoji_set;
 
     let backend = TrackingBackend::with_emoji_set_denied();
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6731,7 +7005,7 @@ async fn emoji_set_update_authz_denied_returns_forbidden() {
         }),
     );
 
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6772,7 +7046,7 @@ async fn emoji_set_destroy_authz_denied_returns_forbidden() {
         }),
     );
 
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6807,7 +7081,7 @@ async fn emoji_set_update_missing_id_does_not_consult_gate() {
     // `notFound`.
     let backend = TrackingBackend::with_emoji_set_denied();
 
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -6834,7 +7108,11 @@ async fn emoji_set_update_missing_id_does_not_consult_gate() {
 #[tokio::test]
 async fn ban_get_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_ban_get(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_ban_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
@@ -6852,7 +7130,7 @@ async fn ban_get_empty() {
 #[tokio::test]
 async fn ban_set_create_missing_space_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         json!({
@@ -6875,7 +7153,7 @@ async fn ban_set_create_missing_space_id() {
 #[tokio::test]
 async fn ban_set_create_with_malformed_expiry_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         json!({
@@ -6907,7 +7185,7 @@ async fn ban_set_create_with_malformed_expiry_rejected() {
 #[tokio::test]
 async fn ban_set_create_missing_user_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         json!({
@@ -6929,7 +7207,7 @@ async fn ban_set_create_missing_user_id() {
 #[tokio::test]
 async fn ban_set_create_success() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         json!({
@@ -6953,7 +7231,10 @@ async fn ban_set_create_success() {
 async fn ban_get_returns_created() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_ban_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_ban_set(
         &backend,
         &(),
         json!({
@@ -6968,7 +7249,9 @@ async fn ban_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_ban_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_ban_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [ban_id] }),
@@ -6992,7 +7275,11 @@ async fn ban_get_returns_created() {
 #[tokio::test]
 async fn presence_get_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_presence_get(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_presence_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
@@ -7011,7 +7298,7 @@ async fn presence_get_empty() {
 #[tokio::test]
 async fn presence_set_create_forbidden() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_presence_set(
+    let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({
@@ -7035,7 +7322,7 @@ async fn presence_set_create_forbidden() {
 #[tokio::test]
 async fn presence_set_destroy_forbidden() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_presence_set(
+    let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({
@@ -7057,7 +7344,7 @@ async fn presence_set_destroy_forbidden() {
 #[tokio::test]
 async fn presence_set_update_readonly_id_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_presence_set(
+    let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({
@@ -7080,7 +7367,7 @@ async fn presence_set_update_readonly_id_rejected() {
 #[tokio::test]
 async fn presence_set_update_readonly_updated_at_rejected() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_presence_set(
+    let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({
@@ -7103,7 +7390,7 @@ async fn presence_set_update_readonly_updated_at_rejected() {
 #[tokio::test]
 async fn presence_set_update_not_found() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_presence_set(
+    let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({
@@ -7128,7 +7415,11 @@ async fn presence_set_update_not_found() {
 #[tokio::test]
 async fn presence_changes_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_presence_changes(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_presence_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
@@ -7233,7 +7524,10 @@ async fn space_join_via_invite_code_success() {
     let backend = MemoryBackend::new();
 
     // Create a real Space so the member-add step has an object to patch.
-    let (space_resp, _) = handle_space_set(
+    let HandlerOutput {
+        primary: space_resp,
+        ..
+    } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7249,7 +7543,10 @@ async fn space_join_via_invite_code_success() {
         .to_owned();
 
     // Create an invite for that space.
-    let (create_resp, _) = handle_invite_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -7271,7 +7568,11 @@ async fn space_join_via_invite_code_success() {
     clear_members(&backend, &space_id).await;
 
     // Join using the invite code.
-    let (resp, invocations) = handle_space_join(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_space_join(
         &backend,
         &(),
         json!({
@@ -7287,7 +7588,10 @@ async fn space_join_via_invite_code_success() {
     assert_eq!(resp["spaceId"].as_str().expect("spaceId"), space_id);
 
     // Verify uses was incremented to 1.
-    let (invite_list, _) = handle_invite_get(
+    let HandlerOutput {
+        primary: invite_list,
+        ..
+    } = handle_invite_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [invite_id] }),
@@ -7300,7 +7604,10 @@ async fn space_join_via_invite_code_success() {
     );
 
     // Verify caller was added as a member.
-    let (space_list, _) = handle_space_get(
+    let HandlerOutput {
+        primary: space_list,
+        ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -7330,7 +7637,10 @@ async fn space_join_invite_code_from_other_account_not_found() {
 
     let backend = MemoryBackend::new();
 
-    let (space_resp, _) = handle_space_set(
+    let HandlerOutput {
+        primary: space_resp,
+        ..
+    } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7345,7 +7655,10 @@ async fn space_join_invite_code_from_other_account_not_found() {
         .expect("space id")
         .to_owned();
 
-    let (create_resp, _) = handle_invite_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -7377,7 +7690,10 @@ async fn space_join_invite_code_from_other_account_not_found() {
     assert_eq!(err.error_type.as_str(), "invalidArguments");
     assert_eq!(err.description.as_deref(), Some("invite code not found"));
 
-    let (invite_list, _) = handle_invite_get(
+    let HandlerOutput {
+        primary: invite_list,
+        ..
+    } = handle_invite_get(
         &backend,
         &(),
         json!({ "accountId": "a1", "ids": [invite_id] }),
@@ -7468,7 +7784,11 @@ async fn space_join_public_space_success() {
     .await;
     clear_members(&backend, &space_id).await;
 
-    let (resp, invocations) = handle_space_join(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: invocations,
+        ..
+    } = handle_space_join(
         &backend,
         &(),
         json!({
@@ -7491,7 +7811,7 @@ async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<
     if let Some(e) = expires_at {
         ban["expiresAt"] = json!(e);
     }
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "b0": ban } }),
@@ -7506,7 +7826,9 @@ async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<
 /// §Space/set "Creating a Space"), and `Space/join` rejects a caller who
 /// is already one.
 async fn clear_members(backend: &MemoryBackend, space_id: &str) {
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -7551,7 +7873,10 @@ async fn space_join_public_space_banned_forbidden() {
 async fn space_join_via_invite_banned_forbidden() {
     let backend = MemoryBackend::new();
     let space_id = make_space_with_props(&backend, json!({ "name": "Invite Space" })).await;
-    let (invite_resp, _) = handle_invite_set(
+    let HandlerOutput {
+        primary: invite_resp,
+        ..
+    } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -7591,7 +7916,7 @@ async fn space_join_expired_ban_does_not_block() {
     ban_caller(&backend, &space_id, Some("2020-01-01T00:00:00Z")).await;
     clear_members(&backend, &space_id).await;
 
-    let (resp, _) = handle_space_join(
+    let HandlerOutput { primary: resp, .. } = handle_space_join(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "spaceId": space_id }),
@@ -7639,7 +7964,7 @@ async fn space_join_argument_check_precedes_ban_check() {
 async fn message_set_create_body_too_large() {
     let backend = MemoryBackend::new();
     let long_body: String = "a".repeat(100_001);
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -7662,7 +7987,7 @@ async fn emoji_set_create_name_too_long() {
 
     let backend = MemoryBackend::new();
     let long_name: String = "a".repeat(65);
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({
@@ -7686,7 +8011,7 @@ async fn emoji_set_create_name_too_long() {
 async fn space_set_create_name_too_long() {
     let backend = MemoryBackend::new();
     let long_name: String = "a".repeat(257);
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7709,7 +8034,7 @@ async fn space_set_create_name_too_long() {
 #[tokio::test]
 async fn invite_set_create_max_uses_zero() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -7733,7 +8058,7 @@ async fn invite_set_create_max_uses_zero() {
 async fn ban_set_create_reason_too_long() {
     let backend = MemoryBackend::new();
     let long_reason: String = "a".repeat(1001);
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         json!({
@@ -7770,7 +8095,7 @@ async fn space_set_count_limits_default_caps_allow_normal_patch() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "Default Caps").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7809,7 +8134,7 @@ async fn space_set_count_limits_add_categories_over_cap_rejects() {
     let space_id = make_space(&backend, "Tight Categories").await;
 
     // First add succeeds — fills the 1-category cap.
-    let (resp1, _) = handle_space_set(
+    let HandlerOutput { primary: resp1, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7831,7 +8156,7 @@ async fn space_set_count_limits_add_categories_over_cap_rejects() {
     assert!(resp1["notUpdated"].is_null(), "first add should succeed");
 
     // Second add (any size) puts us over cap.
-    let (resp2, _) = handle_space_set(
+    let HandlerOutput { primary: resp2, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7881,7 +8206,7 @@ async fn space_set_count_limits_atomic_reject_whole_target() {
     let space_id = make_space(&backend, "Atomic Reject").await;
 
     // 3 categories in one op against a cap of 2 — entire target rejected.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7903,7 +8228,9 @@ async fn space_set_count_limits_atomic_reject_whole_target() {
     assert_eq!(resp["notUpdated"][&space_id]["type"], "overQuota");
 
     // Verify atomicity: zero categories actually landed on the Space.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
@@ -7931,7 +8258,7 @@ async fn space_set_count_limits_add_channels_over_cap_rejects() {
     let space_id = make_space(&backend, "Tight Channels").await;
 
     // Fill the cap with two addChannels.
-    let (resp1, _) = handle_space_set(
+    let HandlerOutput { primary: resp1, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7950,7 +8277,7 @@ async fn space_set_count_limits_add_channels_over_cap_rejects() {
     );
 
     // Third channel — over cap.
-    let (resp2, _) = handle_space_set(
+    let HandlerOutput { primary: resp2, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -7987,7 +8314,7 @@ async fn space_set_count_limits_first_offender_surfaces() {
     ));
     let space_id = make_space(&backend, "First Offender").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -8031,7 +8358,7 @@ async fn space_set_count_limits_no_add_ops_bypasses_check() {
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
     let space_id = make_space(&backend, "No-Add Patch").await;
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -8066,7 +8393,7 @@ async fn space_set_count_limits_create_only_unaffected() {
     let backend = MemoryBackend::new();
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -8233,7 +8560,7 @@ async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
     .expect("first add");
 
     // Second add is over-cap and is rejected.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -8395,7 +8722,7 @@ async fn query_has_mention_matches_broadcast_everyone() {
         json!([{"scope": "everyone"}]),
     );
 
-    let (resp, _) = handle_message_query(
+    let HandlerOutput { primary: resp, .. } = handle_message_query(
         &backend,
         &(),
         json!({
@@ -8420,7 +8747,7 @@ async fn query_has_mention_matches_broadcast_here() {
     let backend = MemoryBackend::new();
     seed_message_for_mention_test(&backend, "m-here", json!([]), json!([{"scope": "here"}]));
 
-    let (resp, _) = handle_message_query(
+    let HandlerOutput { primary: resp, .. } = handle_message_query(
         &backend,
         &(),
         json!({
@@ -8449,7 +8776,7 @@ async fn query_has_mention_matches_broadcast_admins() {
         json!([{"scope": "admins"}]),
     );
 
-    let (resp, _) = handle_message_query(
+    let HandlerOutput { primary: resp, .. } = handle_message_query(
         &backend,
         &(),
         json!({
@@ -8473,7 +8800,7 @@ async fn query_has_mention_no_broadcast_no_mention() {
     let backend = MemoryBackend::new();
     seed_message_for_mention_test(&backend, "m-none", json!([]), json!([]));
 
-    let (resp, _) = handle_message_query(
+    let HandlerOutput { primary: resp, .. } = handle_message_query(
         &backend,
         &(),
         json!({
@@ -8502,7 +8829,7 @@ async fn query_has_mention_unknown_scope_no_match() {
         json!([{"scope": "channel"}]),
     );
 
-    let (resp, _) = handle_message_query(
+    let HandlerOutput { primary: resp, .. } = handle_message_query(
         &backend,
         &(),
         json!({

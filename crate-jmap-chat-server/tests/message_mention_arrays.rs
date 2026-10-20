@@ -13,6 +13,7 @@ use common::{make_chat_group, MemoryBackend, TrackingBackend, ACCOUNT_ID};
 use jmap_chat_server::{
     handle_message_get, handle_message_set, handle_space_get, handle_space_set,
 };
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 const RICH: &str = "application/jmap-chat-rich";
@@ -21,7 +22,7 @@ const RICH_MENTION: &str =
     r#"{"spans":[{"type":"text","text":"hi "},{"type":"mention","text":"@u1","userId":"u1"}]}"#;
 
 async fn create_channel(backend: &MemoryBackend) -> String {
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s": { "name": "S" } } }),
@@ -39,7 +40,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
     )
     .await
     .expect("Space/set addChannels");
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -56,7 +57,7 @@ async fn create_on<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
     backend: &B,
     message: Value,
 ) -> Value {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": message } }),
@@ -74,7 +75,7 @@ fn created_id(resp: &Value) -> String {
 }
 
 async fn get_message(backend: &MemoryBackend, msg_id: &str) -> Value {
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id] }),
@@ -177,7 +178,7 @@ async fn edit_adding_rich_broadcast_span_without_array_is_not_gated() {
         )
         .await,
     );
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({

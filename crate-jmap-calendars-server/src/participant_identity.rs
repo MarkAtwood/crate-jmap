@@ -10,7 +10,7 @@
 //! The returned `Value` is the corresponding method-response object per
 //! the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -21,7 +21,7 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_calendars_types::ParticipantIdentity;
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, CalendarsBackend};
@@ -30,7 +30,7 @@ use crate::helpers::{
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
     PLACEHOLDER_ID,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
 // ParticipantIdentity/get
@@ -48,7 +48,7 @@ pub async fn handle_participant_identity_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<ParticipantIdentity, B>(backend, caller, args).await
 }
 
@@ -69,7 +69,7 @@ pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<ParticipantIdentity, B>(backend, caller, args).await
 }
 
@@ -92,7 +92,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
@@ -381,9 +381,10 @@ mod tests {
                 "c1": { "id": "client-chosen-id", "name": "Alice" }
             }
         });
-        let (resp, _) = handle_participant_identity_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_participant_identity_set(&backend, &(), args)
+                .await
+                .expect("must not return top-level error");
         assert_eq!(
             resp["notCreated"]["c1"]["type"], "invalidProperties",
             "must reject client-supplied id with invalidProperties: {resp}"

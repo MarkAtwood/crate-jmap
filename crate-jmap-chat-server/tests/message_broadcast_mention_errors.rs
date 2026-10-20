@@ -15,10 +15,11 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_chat_set, handle_message_set};
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 async fn create_group(backend: &MemoryBackend) -> String {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
         json!({
@@ -35,7 +36,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
 }
 
 async fn create(backend: &MemoryBackend, chat_id: &str, broadcast_mentions: Value) -> Value {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({
@@ -74,7 +75,7 @@ async fn update_rejects_broadcast_mention_without_scope() {
     let msg_id = resp["created"]["m"]["id"]
         .as_str()
         .expect("created message id");
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({

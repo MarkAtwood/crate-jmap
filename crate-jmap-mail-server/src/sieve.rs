@@ -18,7 +18,7 @@
 //! `SieveScript/validate` (RFC 9661 §2.6) is a Sieve-specific method
 //! with its own request/response shape (`accountId`, `blobId` → `error`).
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty** —
 //! activation side effects in `SieveScript/set` are applied inline, not
@@ -38,7 +38,7 @@ pub(crate) const SIEVE_ERR_INVALID: &str = "invalidSieve";
 pub(crate) const SIEVE_ERR_IS_ACTIVE: &str = "sieveIsActive";
 
 use jmap_mail_types::SieveScript;
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, JmapError, PatchObject};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -50,6 +50,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
+    HandlerOutput,
 };
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
@@ -227,7 +228,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: Parse request args.
     let (account_id, args) = extract_account_id(args)?;
 
@@ -300,7 +301,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
         "notFound": not_found_json,
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -324,7 +325,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: Parse request args.
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -1048,7 +1049,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: extract and verify account.
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -1190,7 +1191,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         resp["total"] = json!(total_count as u64);
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -1209,7 +1210,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: Extract accountId.
     let (account_id, args) = crate::helpers::extract_account_id(args)?;
 
@@ -1248,7 +1249,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
                         ),
                     }),
                 });
-                return Ok((resp, vec![]));
+                return Ok(HandlerOutput::new(resp));
             }
             Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
             Err(e) => return Err(server_fail_from_backend(&e)),
@@ -1271,5 +1272,5 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
         "accountId": account_id.as_ref(),
         "error": error_value,
     });
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }

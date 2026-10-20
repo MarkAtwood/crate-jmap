@@ -32,8 +32,10 @@ use axum::{
     Router,
 };
 use http_body_util::LengthLimitError;
-use jmap_server::{parse_request, request_error, Dispatcher, JmapError, JmapHandler, RequestError};
-use jmap_types::{Id, Invocation, State};
+use jmap_server::{
+    parse_request, request_error, Dispatcher, HandlerOutput, JmapError, JmapHandler, RequestError,
+};
+use jmap_types::{Id, State};
 use serde_json::Value;
 
 use crate::auth::{require_bearer_token, AuthState};
@@ -523,7 +525,7 @@ impl JmapHandler<()> for EchoHandler {
     ) -> jmap_server::HandlerFuture {
         // Per RFC 8620 §4 the response is the exact same arguments
         // object the client sent; there are no extra invocations.
-        Box::pin(async move { Ok((args, Vec::<Invocation>::new())) })
+        Box::pin(async move { Ok(HandlerOutput::new(args)) })
     }
 }
 

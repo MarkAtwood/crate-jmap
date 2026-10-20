@@ -22,6 +22,7 @@ mod common;
 
 use common::{IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::handle_space_get;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -86,7 +87,7 @@ async fn member_caller_sees_full_space() {
     seed_space(&backend, /* previewable = */ true, ACCOUNT_ID);
     let caller = Id::from("member-user");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -140,7 +141,7 @@ async fn member_caller_honors_properties_filter() {
     seed_space(&backend, /* previewable = */ true, ACCOUNT_ID);
     let caller = Id::from("member-user");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &caller,
         json!({
@@ -186,7 +187,7 @@ async fn non_member_caller_sees_restricted_view_on_previewable_space() {
     seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -248,7 +249,7 @@ async fn non_member_properties_filter_intersected_with_allowed_cap() {
     seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &outsider,
         json!({
@@ -289,7 +290,7 @@ async fn non_member_properties_filter_full_allowed_set() {
     seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &outsider,
         json!({
@@ -324,7 +325,7 @@ async fn non_member_non_previewable_classified_as_not_found() {
     seed_space(&backend, /* previewable = */ false, "member-user");
     let outsider = Id::from("outsider");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -360,7 +361,9 @@ async fn non_member_cannot_distinguish_non_previewable_from_nonexistent() {
     let outsider = Id::from("outsider");
 
     // Request the seeded non-previewable Space.
-    let (resp_priv, _) = handle_space_get(
+    let HandlerOutput {
+        primary: resp_priv, ..
+    } = handle_space_get(
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -369,7 +372,10 @@ async fn non_member_cannot_distinguish_non_previewable_from_nonexistent() {
     .expect("handle_space_get private");
 
     // Request a Space that does not exist.
-    let (resp_missing, _) = handle_space_get(
+    let HandlerOutput {
+        primary: resp_missing,
+        ..
+    } = handle_space_get(
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": ["does-not-exist"] }),
@@ -414,7 +420,7 @@ async fn member_caller_unaffected_by_non_previewable_classification() {
     seed_space(&backend, /* previewable = */ false, ACCOUNT_ID);
     let caller = Id::from("member-user");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -450,7 +456,7 @@ async fn non_member_previewable_unaffected_by_classification() {
     seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -507,7 +513,7 @@ async fn single_user_mode_sees_full_space() {
         }),
     );
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),

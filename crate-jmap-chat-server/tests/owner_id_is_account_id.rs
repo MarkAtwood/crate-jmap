@@ -12,6 +12,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_get, handle_message_query, handle_message_set};
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 fn insert_message(backend: &MemoryBackend, id: &str, sender_id: &str, extra: Value) {
@@ -38,7 +39,7 @@ fn insert_message(backend: &MemoryBackend, id: &str, sender_id: &str, extra: Val
 }
 
 async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
@@ -49,7 +50,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
 }
 
 async fn get_message(backend: &MemoryBackend, id: &str) -> Value {
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
@@ -74,7 +75,7 @@ fn assert_updated(resp: &Value, id: &str) {
 #[tokio::test]
 async fn created_message_sender_id_is_account_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -222,7 +223,7 @@ async fn has_mention_matches_account_id_and_not_other_mentions() {
         "contact-alice",
         json!({ "mentions": [{ "id": "contact-bob" }] }),
     );
-    let (resp, _) = handle_message_query(
+    let HandlerOutput { primary: resp, .. } = handle_message_query(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": { "hasMention": true } }),

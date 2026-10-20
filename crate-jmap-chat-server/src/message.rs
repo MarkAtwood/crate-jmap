@@ -11,7 +11,7 @@
 //! returned `Value` is the corresponding method-response object per the
 //! same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -30,7 +30,7 @@ use jmap_chat_types::{
     Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
     ReadPosition, Space, BROADCAST_MENTION_SCOPES,
 };
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
+use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -43,7 +43,9 @@ use crate::helpers::{
     reject_unsupported_query, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
-use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // Message/get
@@ -60,7 +62,7 @@ pub async fn handle_message_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
@@ -124,15 +126,12 @@ pub async fn handle_message_get<B: ChatBackend>(
             .collect::<Result<Vec<_>, _>>()?
     };
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "state": state.as_ref(),
-            "list": list_json,
-            "notFound": not_found_json(&not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": not_found_json(&not_found),
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +150,7 @@ pub async fn handle_message_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<Message, B>(backend, caller, args).await
 }
 
@@ -176,7 +175,7 @@ pub async fn handle_message_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     let calculate_total: bool = args
@@ -265,7 +264,7 @@ pub async fn handle_message_query<B: ChatBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -286,7 +285,7 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
@@ -356,7 +355,7 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -615,7 +614,7 @@ pub async fn handle_message_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.3). Reject
@@ -1596,7 +1595,7 @@ mod tests {
     #[tokio::test]
     async fn broadcast_mention_validation_rejects_unknown_scope() {
         let backend = MemoryBackend::new();
-        let (resp, _) = handle_message_set(
+        let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
             json!({
@@ -1632,7 +1631,7 @@ mod tests {
     async fn broadcast_mention_validation_accepts_valid() {
         let backend = MemoryBackend::new();
         let body = "Hello @everyone!";
-        let (resp, _) = handle_message_set(
+        let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
             json!({
@@ -1663,7 +1662,7 @@ mod tests {
     #[tokio::test]
     async fn broadcast_mention_validation_accepts_empty() {
         let backend = MemoryBackend::new();
-        let (resp, _) = handle_message_set(
+        let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
             json!({
@@ -1703,7 +1702,7 @@ mod tests {
     /// Helper: create a group Chat (no spaceId) via handle_chat_set and
     /// return its server-assigned id.
     async fn make_group_chat(backend: &MemoryBackend) -> String {
-        let (resp, _) = crate::chat::handle_chat_set(
+        let HandlerOutput { primary: resp, .. } = crate::chat::handle_chat_set(
             backend,
             &(),
             json!({
@@ -1756,7 +1755,9 @@ mod tests {
         )
         .await
         .expect("make_channel_chat: addChannels");
-        let (get_resp, _) = crate::space::handle_space_get(
+        let HandlerOutput {
+            primary: get_resp, ..
+        } = crate::space::handle_space_get(
             backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -1778,7 +1779,7 @@ mod tests {
         let chat_id = make_group_chat(&backend).await;
 
         let body = "Hello @everyone!";
-        let (resp, _) = handle_message_set(
+        let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
             json!({
@@ -1814,7 +1815,7 @@ mod tests {
         let chat_id = make_channel_chat(&backend).await;
 
         let body = "Hello @everyone!";
-        let (resp, _) = handle_message_set(
+        let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
             json!({
@@ -1848,7 +1849,7 @@ mod tests {
         let backend = MemoryBackend::new();
         let chat_id = make_channel_chat(&backend).await;
 
-        let (resp, _) = handle_message_set(
+        let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
             json!({
@@ -1883,7 +1884,10 @@ mod tests {
 
         // Create a message with broadcastMentions first.
         let body = "Hello @everyone!";
-        let (create_resp, _) = handle_message_set(
+        let HandlerOutput {
+            primary: create_resp,
+            ..
+        } = handle_message_set(
             &backend,
             &(),
             json!({
@@ -1908,7 +1912,10 @@ mod tests {
 
         // Update the message, retaining a non-empty broadcastMentions.
         let new_body = "Hey @here now!";
-        let (update_resp, _) = handle_message_set(
+        let HandlerOutput {
+            primary: update_resp,
+            ..
+        } = handle_message_set(
             &backend,
             &(),
             json!({

@@ -22,6 +22,7 @@ use jmap_chat_server::{
     handle_space_join, handle_space_set, JmapBackend,
 };
 use jmap_chat_types::Space;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -57,11 +58,11 @@ async fn chat_set(backend: &IdentityBackend, args: Value) -> Value {
     handle_chat_set(backend, &owner(), args)
         .await
         .expect("Chat/set")
-        .0
+        .primary
 }
 
 async fn stored_chat_members(backend: &IdentityBackend) -> Vec<Value> {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &owner(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT_ID] }),
@@ -100,7 +101,7 @@ async fn space_set_update(backend: &IdentityBackend, patch: Value) -> Value {
     )
     .await
     .expect("Space/set")
-    .0
+    .primary
 }
 
 /// Stored Space members, read from the backend directly: the owner may
@@ -339,7 +340,7 @@ async fn ban_created_by_owner_records_account_id_as_banned_by() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
 
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &owner(),
         json!({
@@ -360,7 +361,7 @@ async fn invite_created_by_owner_records_account_id_as_created_by() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
 
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &owner(),
         json!({
@@ -381,7 +382,7 @@ async fn emoji_created_by_owner_records_account_id_as_created_by() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
 
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &owner(),
         json!({

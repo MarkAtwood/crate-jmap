@@ -19,6 +19,7 @@ mod common;
 
 use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_ban_set, handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -51,7 +52,7 @@ async fn space_get_owner_member_entry_is_account_id_gets_full_view() {
     let backend = IdentityBackend::new();
     seed_owner_with(&backend, json!([]));
 
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         &backend,
         &caller(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -76,7 +77,7 @@ async fn space_set_metadata_uses_owner_member_entry_permissions() {
     let backend = IdentityBackend::new();
     seed_owner_with(&backend, json!(["manage_space"]));
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller(),
         json!({
@@ -100,7 +101,7 @@ async fn space_set_add_members_uses_owner_member_entry_permissions() {
     let backend = IdentityBackend::new();
     seed_owner_with(&backend, json!(["manage_members"]));
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller(),
         json!({
@@ -125,7 +126,7 @@ async fn space_ban_create_uses_owner_member_entry_permissions() {
     let backend = IdentityBackend::new();
     seed_owner_with(&backend, json!(["ban"]));
 
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &caller(),
         json!({

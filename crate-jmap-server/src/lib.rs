@@ -71,17 +71,45 @@ use std::{collections::HashMap, fmt, future::Future, pin::Pin, sync::Arc};
 use serde_json::Value;
 use tokio::task;
 
+/// The successful result of one [`JmapHandler::call`].
+///
+/// `#[non_exhaustive]` so fields can be added without breaking handler
+/// crates; build it with [`HandlerOutput::new`] and
+/// [`HandlerOutput::with_extra`].
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct HandlerOutput {
+    /// The method's response arguments. The dispatcher pairs this with the
+    /// call's method name and call id as the primary response invocation.
+    pub primary: Value,
+    /// Zero or more invocations appended to `methodResponses` immediately
+    /// after the primary response, in order. Most handlers leave this
+    /// empty. RFC 8621 §7.5 `EmailSubmission/set` uses it for the implicit
+    /// `Email/set` response for `onSuccessUpdateEmail`.
+    pub extra_invocations: Vec<Invocation>,
+}
+
+impl HandlerOutput {
+    /// A handler result with only a primary response.
+    pub fn new(primary: Value) -> Self {
+        Self {
+            primary,
+            extra_invocations: Vec::new(),
+        }
+    }
+
+    /// Set the invocations to append after the primary response.
+    pub fn with_extra(mut self, extra_invocations: Vec<Invocation>) -> Self {
+        self.extra_invocations = extra_invocations;
+        self
+    }
+}
+
 /// The return type for all [`JmapHandler`] implementations.
 ///
 /// Handlers must return a `Send` future.  The concrete type is a heap-allocated
 /// trait object so the trait itself remains object-safe.
-///
-/// The `Vec<Invocation>` holds zero or more additional entries to append to
-/// `methodResponses` immediately after the primary response (in order).  Most
-/// handlers return an empty `Vec`.  RFC 8621 §7.5 `EmailSubmission/set` uses
-/// this to append the implicit `Email/set` invocation for `onSuccessUpdateEmail`.
-pub type HandlerFuture =
-    Pin<Box<dyn Future<Output = Result<(Value, Vec<Invocation>), JmapError>> + Send>>;
+pub type HandlerFuture = Pin<Box<dyn Future<Output = Result<HandlerOutput, JmapError>> + Send>>;
 
 /// Implement this for each JMAP method handler.
 ///
@@ -360,18 +388,19 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             let call_id_clone = call_id.clone();
 
             // Run in a spawned task for panic isolation.
-            let result: Result<
-                Result<(Value, Vec<Invocation>), JmapError>,
-                tokio::task::JoinError,
-            > = task::spawn(async move {
-                handler
-                    .call(method_clone, call_id_clone, args, caller_clone)
-                    .await
-            })
-            .await;
+            let result: Result<Result<HandlerOutput, JmapError>, tokio::task::JoinError> =
+                task::spawn(async move {
+                    handler
+                        .call(method_clone, call_id_clone, args, caller_clone)
+                        .await
+                })
+                .await;
 
             match result {
-                Ok(Ok((primary_value, extra_invocations))) => {
+                Ok(Ok(HandlerOutput {
+                    primary: primary_value,
+                    extra_invocations,
+                })) => {
                     // Accumulate createdIds from /set responses (RFC 8620 §3.4).
                     // Only when the client sent createdIds; otherwise the field
                     // is omitted from the response.
@@ -608,7 +637,7 @@ mod tests {
             _caller: C,
         ) -> HandlerFuture {
             let v = self.0.clone();
-            Box::pin(async move { Ok((v, vec![])) })
+            Box::pin(async move { Ok(HandlerOutput::new(v)) })
         }
     }
 
@@ -642,7 +671,7 @@ mod tests {
             let slot = self.0.clone();
             Box::pin(async move {
                 *slot.lock().expect("test: mutex poisoned") = Some(args);
-                Ok((json!({}), vec![]))
+                Ok(HandlerOutput::new(json!({})))
             })
         }
     }
@@ -661,7 +690,7 @@ mod tests {
             let slot = self.0.clone();
             Box::pin(async move {
                 *slot.lock().expect("test: mutex poisoned") = Some(caller);
-                Ok((json!({}), vec![]))
+                Ok(HandlerOutput::new(json!({})))
             })
         }
     }
@@ -768,7 +797,7 @@ mod tests {
                 Box::pin(async move {
                     let map = args.as_object().cloned().unwrap_or_default();
                     enforce_max_objects_in_set(&map, 1)?;
-                    Ok((json!({"created": {}}), vec![]))
+                    Ok(HandlerOutput::new(json!({"created": {}})))
                 })
             }
         }
@@ -1353,7 +1382,7 @@ mod tests {
                     json!({"type": "extra"}),
                     "x0",
                 )];
-                Ok((primary, extra))
+                Ok(HandlerOutput::new(primary).with_extra(extra))
             })
         }
     }
@@ -1401,7 +1430,7 @@ mod tests {
                 let cap = Arc::clone(&received_clone);
                 Box::pin(async move {
                     *cap.lock().unwrap() = Some(ctx.0.clone());
-                    Ok((serde_json::json!({}), vec![]))
+                    Ok(HandlerOutput::new(serde_json::json!({})))
                 })
             },
         ));
@@ -1431,7 +1460,7 @@ mod tests {
         struct Ctx;
 
         let h = ClosureHandler::new(Arc::new(DummyBackend), |_b, _ci, _a, _ctx| {
-            Box::pin(async { Ok((serde_json::json!({}), vec![])) })
+            Box::pin(async { Ok(HandlerOutput::new(serde_json::json!({}))) })
         });
         assert_handler::<Ctx, _>(&h);
     }

@@ -12,6 +12,7 @@ use common::{MemoryBackend, INVALID_SIEVE_SCRIPT, VALID_SIEVE_SCRIPT};
 use jmap_mail_server::{
     handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate,
 };
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,11 @@ async fn sieve_get_empty_account() {
         "accountId": account_id.as_ref()
     });
 
-    let (resp, extra) = handle_sieve_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_get(&backend, &(), args)
         .await
         .expect("sieve_get_empty_account: must succeed");
 
@@ -90,7 +95,10 @@ async fn sieve_get_by_id() {
             "A": { "name": "get-by-id-script", "blobId": "valid-script-blob" }
         }
     });
-    let (create_resp, _) = handle_sieve_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), create_args)
         .await
         .expect("setup create must succeed");
 
@@ -104,7 +112,11 @@ async fn sieve_get_by_id() {
         "ids": [assigned_id]
     });
 
-    let (resp, extra) = handle_sieve_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_get(&backend, &(), get_args)
         .await
         .expect("sieve_get_by_id: must succeed");
 
@@ -141,7 +153,11 @@ async fn sieve_get_not_found() {
         "ids": ["nonexistent-id"]
     });
 
-    let (resp, extra) = handle_sieve_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_get(&backend, &(), args)
         .await
         .expect("sieve_get_not_found: must succeed");
 
@@ -206,7 +222,11 @@ async fn sieve_set_create_basic() {
         }
     });
 
-    let (resp, extra) = handle_sieve_set(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_set(&backend, &(), args)
         .await
         .expect("sieve_set_create_basic: must succeed");
 
@@ -245,7 +265,11 @@ async fn sieve_set_create_and_activate() {
         "onSuccessActivateScript": "#A"
     });
 
-    let (resp, extra) = handle_sieve_set(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_set(&backend, &(), args)
         .await
         .expect("sieve_set_create_and_activate: must succeed");
 
@@ -299,7 +323,7 @@ async fn sieve_set_at_most_one_active() {
         },
         "onSuccessActivateScript": "#S1"
     });
-    let (resp1, _) = handle_sieve_set(&backend, &(), create_s1)
+    let HandlerOutput { primary: resp1, .. } = handle_sieve_set(&backend, &(), create_s1)
         .await
         .expect("create S1 must succeed");
     let s1_id = resp1["created"]["S1"]["id"]
@@ -323,7 +347,7 @@ async fn sieve_set_at_most_one_active() {
         },
         "onSuccessActivateScript": "#S2"
     });
-    let (resp2, _) = handle_sieve_set(&backend, &(), create_s2)
+    let HandlerOutput { primary: resp2, .. } = handle_sieve_set(&backend, &(), create_s2)
         .await
         .expect("create S2 must succeed");
 
@@ -365,7 +389,10 @@ async fn sieve_set_destroy_active_rejected() {
         },
         "onSuccessActivateScript": "#A"
     });
-    let (create_resp, _) = handle_sieve_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let script_id = create_resp["created"]["A"]["id"]
@@ -378,7 +405,7 @@ async fn sieve_set_destroy_active_rejected() {
         "accountId": account_id.as_ref(),
         "destroy": [script_id]
     });
-    let (resp, _) = handle_sieve_set(&backend, &(), destroy_args)
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(&backend, &(), destroy_args)
         .await
         .expect("set must return Ok even when destroy is rejected");
 
@@ -421,7 +448,7 @@ async fn sieve_set_duplicate_name() {
             "B": { "name": "dup-name", "blobId": "valid-script-blob" }
         }
     });
-    let (resp, _) = handle_sieve_set(&backend, &(), second)
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(&backend, &(), second)
         .await
         .expect("set must return Ok even when create fails");
 
@@ -458,7 +485,10 @@ async fn sieve_set_deactivate_only() {
         },
         "onSuccessActivateScript": "#A"
     });
-    let (create_resp, _) = handle_sieve_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let script_id = create_resp["created"]["A"]["id"]
@@ -471,7 +501,7 @@ async fn sieve_set_deactivate_only() {
         "accountId": account_id.as_ref(),
         "onSuccessDeactivateScript": true
     });
-    let (resp, _) = handle_sieve_set(&backend, &(), deactivate_args)
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(&backend, &(), deactivate_args)
         .await
         .expect("deactivate must succeed");
 
@@ -500,7 +530,10 @@ async fn sieve_set_reactivate() {
         },
         "onSuccessActivateScript": "#A"
     });
-    let (create_resp, _) = handle_sieve_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let s1_id = create_resp["created"]["A"]["id"]
@@ -522,7 +555,7 @@ async fn sieve_set_reactivate() {
         "accountId": account_id.as_ref(),
         "onSuccessActivateScript": s1_id
     });
-    let (resp, _) = handle_sieve_set(&backend, &(), reactivate_args)
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(&backend, &(), reactivate_args)
         .await
         .expect("reactivate must succeed");
 
@@ -588,7 +621,11 @@ async fn sieve_query_filter_active() {
         "accountId": account_id.as_ref(),
         "filter": { "isActive": true }
     });
-    let (resp, extra) = handle_sieve_query(&backend, &(), query_args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_query(&backend, &(), query_args)
         .await
         .expect("sieve_query_filter_active: must succeed");
 
@@ -620,7 +657,11 @@ async fn sieve_validate_valid() {
         "blobId": "valid-script-blob"
     });
 
-    let (resp, extra) = handle_sieve_validate(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_validate(&backend, &(), args)
         .await
         .expect("sieve_validate_valid: must succeed");
 
@@ -650,7 +691,11 @@ async fn sieve_validate_invalid() {
         "blobId": "invalid-script-blob"
     });
 
-    let (resp, extra) = handle_sieve_validate(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_validate(&backend, &(), args)
         .await
         .expect("sieve_validate_invalid: must return Ok (not Err)");
 
@@ -685,7 +730,10 @@ async fn sieve_set_vr_script_destroy_no_protection_by_default() {
             "A": { "name": "vr-test", "blobId": "valid-script-blob" }
         }
     });
-    let (create_resp, _) = handle_sieve_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let script_id = create_resp["created"]["A"]["id"]
@@ -699,7 +747,10 @@ async fn sieve_set_vr_script_destroy_no_protection_by_default() {
         "accountId": account_id.as_ref(),
         "destroy": [script_id.clone()]
     });
-    let (destroy_resp, _) = handle_sieve_set(&backend, &(), destroy_args)
+    let HandlerOutput {
+        primary: destroy_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), destroy_args)
         .await
         .expect("destroy must succeed");
 
@@ -741,7 +792,10 @@ async fn sieve_set_vr_script_blob_update_no_protection_by_default() {
             "A": { "name": "vr-blob-test", "blobId": "valid-script-blob" }
         }
     });
-    let (create_resp, _) = handle_sieve_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let script_id = create_resp["created"]["A"]["id"]
@@ -756,7 +810,10 @@ async fn sieve_set_vr_script_blob_update_no_protection_by_default() {
             script_id.clone(): { "blobId": "second-valid-blob" }
         }
     });
-    let (update_resp, _) = handle_sieve_set(&backend, &(), update_args)
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), update_args)
         .await
         .expect("update must succeed");
 
@@ -787,7 +844,10 @@ async fn sieve_set_on_success_suppressed_on_partial_failure() {
     store_valid_blob(&backend);
 
     // Create first script (will succeed); establishes "existing-script" name in DB.
-    let (create_resp, _) = handle_sieve_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(
         &backend,
         &(),
         serde_json::json!({
@@ -805,7 +865,7 @@ async fn sieve_set_on_success_suppressed_on_partial_failure() {
     // Now: create two scripts where B has duplicate name (will fail) and C is valid
     // (will succeed); onSuccessActivateScript points to "#C".
     // Because B fails, the activation state machine must NOT fire.
-    let (resp, _) = handle_sieve_set(
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(
         &backend,
         &(),
         serde_json::json!({
@@ -899,7 +959,7 @@ async fn sieve_set_create_too_large() {
         }
     });
 
-    let (resp, _) = handle_sieve_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(&backend, &(), args)
         .await
         .expect("handle_sieve_set must not return a method-level error");
 
@@ -932,7 +992,10 @@ async fn sieve_set_update_too_large() {
             "C1": { "name": "update-size-test", "blobId": blob_id.as_ref() }
         }
     });
-    let (create_resp, _) = handle_sieve_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(&backend, &(), create_args)
         .await
         .expect("initial create must succeed");
     let assigned_id = create_resp["created"]["C1"]["id"]
@@ -959,7 +1022,7 @@ async fn sieve_set_update_too_large() {
         }
     });
 
-    let (resp, _) = handle_sieve_set(&backend, &(), update_args)
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(&backend, &(), update_args)
         .await
         .expect("handle_sieve_set must not return a method-level error");
 
@@ -1005,7 +1068,7 @@ async fn sieve_set_create_overquota_respects_backend_cap() {
         }
     });
 
-    let (resp, _) = handle_sieve_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(&backend, &(), args)
         .await
         .expect("handle_sieve_set must not return a method-level error");
 
@@ -1065,7 +1128,11 @@ async fn sieve_validate_too_large() {
         "blobId": blob_id.as_ref(),
     });
 
-    let (resp, extra) = handle_sieve_validate(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_sieve_validate(&backend, &(), args)
         .await
         .expect("handle_sieve_validate must not return a method-level error");
 
@@ -1095,7 +1162,10 @@ async fn sieve_set_update_null_blob_id_is_invalid_properties() {
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
-    let (create_resp, _) = handle_sieve_set(
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_sieve_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1110,7 +1180,9 @@ async fn sieve_set_update_null_blob_id_is_invalid_properties() {
         .expect("A must have id")
         .to_owned();
 
-    let (upd_resp, _) = handle_sieve_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_sieve_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1125,7 +1197,9 @@ async fn sieve_set_update_null_blob_id_is_invalid_properties() {
         "{upd_resp}"
     );
 
-    let (get_resp, _) = handle_sieve_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_sieve_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": account_id.as_ref(), "ids": [&id] }),

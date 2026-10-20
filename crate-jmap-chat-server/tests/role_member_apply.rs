@@ -18,6 +18,7 @@ mod common;
 
 use common::{seed_space, seed_with_admin, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -55,7 +56,7 @@ async fn owner_without_member_entry_cannot_add_roles() {
         }),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -89,7 +90,7 @@ async fn non_member_caller_lacks_all_permissions() {
     seed_with_admin(&backend, "admin-user");
 
     let outsider = Id::from("outsider");
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &outsider,
         json!({
@@ -139,7 +140,7 @@ async fn member_with_only_everyone_role_lacks_permissions() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -166,7 +167,7 @@ async fn admin_with_required_permissions_succeeds() {
     let caller = Id::from("admin-user");
     seed_with_admin(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -215,7 +216,7 @@ async fn add_role_at_caller_position_rejected() {
     );
 
     // Try to add a role AT the same position (50) — must fail.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -241,7 +242,9 @@ async fn add_role_at_caller_position_rejected() {
     );
 
     // A role BELOW the caller's position succeeds.
-    let (resp_ok, _) = handle_space_set(
+    let HandlerOutput {
+        primary: resp_ok, ..
+    } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -294,7 +297,7 @@ async fn update_role_hierarchy_checks_both_old_and_new_position() {
     // Update r-low (position 10, below caller) to position 100 (above
     // caller). Even though caller can modify r-low (existing position
     // 10 < 50), promoting it to 100 (>= 50) is forbidden.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -344,7 +347,7 @@ async fn add_member_with_role_above_caller_rejected() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -412,7 +415,7 @@ async fn remove_role_cascades_demotion_to_everyone() {
         ]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -428,7 +431,9 @@ async fn remove_role_cascades_demotion_to_everyone() {
     );
 
     // Re-fetch and confirm cascade.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -505,7 +510,7 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
 
     // Caller (the only admin) tries to remove themselves and another
     // member → blocked.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -529,7 +534,9 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
 
     // Confirm the admin is still a member (the patch was rejected
     // wholesale; no partial mutation).
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -577,7 +584,7 @@ async fn last_admin_protection_disabled_allows_removal() {
         ]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -623,7 +630,7 @@ async fn last_admin_protection_allows_when_other_admin_remains() {
         ]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -680,7 +687,7 @@ async fn whole_patch_reject_on_permission_failure_no_partial_mutation() {
     //
     // Pre-validation must catch the addMembers permission failure and
     // reject the whole patch; the updateRoles rename must NOT land.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -700,7 +707,9 @@ async fn whole_patch_reject_on_permission_failure_no_partial_mutation() {
     );
 
     // Confirm the legal updateRoles op did NOT mutate state.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -747,7 +756,7 @@ async fn whole_patch_reject_on_hierarchy_failure() {
     // Patch with:
     //   addRoles[0] = legal (position 30 < caller's 50)
     //   addRoles[1] = ILLEGAL (position 100 >= caller's 50)
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -767,7 +776,9 @@ async fn whole_patch_reject_on_hierarchy_failure() {
     );
 
     // Confirm neither role landed.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -817,7 +828,9 @@ async fn member_lifecycle_with_authenticated_admin() {
     );
 
     // AddMember.
-    let (add_resp, _) = handle_space_set(
+    let HandlerOutput {
+        primary: add_resp, ..
+    } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -836,7 +849,9 @@ async fn member_lifecycle_with_authenticated_admin() {
     );
 
     // UpdateMember nick.
-    let (upd_resp, _) = handle_space_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -855,7 +870,9 @@ async fn member_lifecycle_with_authenticated_admin() {
     );
 
     // Verify the nick landed.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -874,7 +891,9 @@ async fn member_lifecycle_with_authenticated_admin() {
     assert_eq!(nick, "Captain Newbie");
 
     // RemoveMember.
-    let (rem_resp, _) = handle_space_set(
+    let HandlerOutput {
+        primary: rem_resp, ..
+    } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -889,7 +908,9 @@ async fn member_lifecycle_with_authenticated_admin() {
         "removeMembers should succeed: {rem_resp:?}"
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -911,7 +932,7 @@ async fn add_member_duplicate_user_id_rejected() {
     let caller = Id::from("admin");
     seed_with_admin(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -937,7 +958,7 @@ async fn add_member_unknown_role_id_rejected() {
     let caller = Id::from("admin");
     seed_with_admin(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -995,7 +1016,7 @@ async fn update_role_color_preserves_all_three_representations() {
         json!([62.5, 12.0, -30.25]),
         json!("#5865f2"),
     ] {
-        let (resp, _) = handle_space_set(
+        let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &caller,
             json!({
@@ -1012,7 +1033,9 @@ async fn update_role_color_preserves_all_three_representations() {
             "updateRoles color {color} rejected: {resp:?}"
         );
 
-        let (get_resp, _) = handle_space_get(
+        let HandlerOutput {
+            primary: get_resp, ..
+        } = handle_space_get(
             &backend,
             &caller,
             json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -1072,7 +1095,7 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
         ]),
         json!([{ "name": "Guest", "permissions": [], "position": 5 }]),
     ] {
-        let (resp, _) = handle_space_set(
+        let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &(),
             json!({
@@ -1092,7 +1115,9 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
         );
     }
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -1150,7 +1175,7 @@ async fn add_roles_after_remove_does_not_reuse_freed_id() {
     let update = |patch: serde_json::Value| {
         let backend = &backend;
         async move {
-            let (resp, _) = handle_space_set(
+            let HandlerOutput { primary: resp, .. } = handle_space_set(
                 backend,
                 &(),
                 json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
@@ -1166,7 +1191,9 @@ async fn add_roles_after_remove_does_not_reuse_freed_id() {
     let role_id_named = |name: &'static str| {
         let backend = &backend;
         async move {
-            let (get_resp, _) = handle_space_get(
+            let HandlerOutput {
+                primary: get_resp, ..
+            } = handle_space_get(
                 backend,
                 &(),
                 json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),

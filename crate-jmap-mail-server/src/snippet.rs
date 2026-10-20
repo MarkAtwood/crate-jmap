@@ -9,7 +9,7 @@
 //! §5.1. The returned `Value` is the corresponding method-response object
 //! per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -19,13 +19,13 @@
 //! RFC 8621 §5.1).
 
 use jmap_mail_types::{query::EmailFilter, SearchSnippet};
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, JmapError};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
 use crate::helpers::extract_account_id;
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 /// Handle a `SearchSnippet/get` method call (RFC 8621 §5.1).
 ///
@@ -60,7 +60,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -128,12 +128,9 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
         .map(|s| serde_json::to_value(s).expect("derive(Serialize) on plain data is infallible"))
         .collect();
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "list": list_json,
-            "notFound": Value::Array(not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "list": list_json,
+        "notFound": Value::Array(not_found),
+    })))
 }

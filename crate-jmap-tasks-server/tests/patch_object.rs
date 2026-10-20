@@ -7,6 +7,7 @@
 mod common;
 
 use common::MemoryBackend;
+use jmap_server::HandlerOutput;
 use jmap_tasks_server::{handle_task_get, handle_task_set};
 use serde_json::{json, Value};
 
@@ -39,12 +40,12 @@ async fn set_update(backend: &MemoryBackend, patch: Value) -> Value {
     handle_task_set(backend, &(), args)
         .await
         .expect("/set must succeed at the top level")
-        .0
+        .primary
 }
 
 async fn get_t1(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["t1"] });
-    let (resp, _) = handle_task_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_get(backend, &(), args)
         .await
         .expect("/get must succeed");
     resp["list"][0].clone()

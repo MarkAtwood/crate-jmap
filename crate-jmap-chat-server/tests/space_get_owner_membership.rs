@@ -13,6 +13,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -43,7 +44,7 @@ fn foreign_space(previewable: bool) -> MemoryBackend {
 }
 
 async fn get_space(backend: &MemoryBackend, id: &str) -> Value {
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
@@ -109,7 +110,9 @@ async fn owner_without_identity_non_member_previewable_space_is_restricted() {
 async fn owner_without_identity_sees_full_view_of_created_space() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from(ACCOUNT_ID));
-    let (created, _) = handle_space_set(
+    let HandlerOutput {
+        primary: created, ..
+    } = handle_space_set(
         &backend,
         &(),
         json!({

@@ -12,6 +12,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::handle_chat_query;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -33,7 +34,7 @@ async fn query(backend: &MemoryBackend, extra: Value) -> Result<Value, Value> {
     }
     handle_chat_query(backend, &(), args)
         .await
-        .map(|(resp, _)| resp)
+        .map(|HandlerOutput { primary: resp, .. }| resp)
         .map_err(|e| serde_json::to_value(&e).expect("JmapError must serialize"))
 }
 

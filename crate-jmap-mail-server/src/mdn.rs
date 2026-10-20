@@ -12,7 +12,7 @@
 //! (which extends the RFC 8620 §5 patterns). The returned `Value` is
 //! the corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3).
 //! `handle_mdn_send` MAY emit one `Email/set` follow-up invocation when
 //! `onSuccessUpdateEmail` is present (RFC 9007 §3.1); `handle_mdn_parse`
@@ -35,7 +35,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{find_immutable_patch_key, set_error_value};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
 #[non_exhaustive]
@@ -315,7 +315,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     caller: &B::CallerCtx,
     args: serde_json::Value,
     call_id: &str,
-) -> Result<(serde_json::Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: Parse request.
     let req: MdnSendRequest = serde_json::from_value(args).map_err(|e| {
         JmapError::invalid_arguments(format!("failed to parse MDN/send arguments: {e}"))
@@ -646,7 +646,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         "notSent": not_sent_value,
     });
 
-    Ok((resp, extra_invocations))
+    Ok(HandlerOutput::new(resp).with_extra(extra_invocations))
 }
 
 // ---------------------------------------------------------------------------
@@ -681,7 +681,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: deserialize the full request structure.
     let req: MdnParseRequest = serde_json::from_value(args).map_err(|e| {
         JmapError::invalid_arguments(format!("failed to parse MDN/parse arguments: {e}"))
@@ -735,7 +735,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     });
 
     // Step 6: return with no extra invocations.
-    Ok((response_json, vec![]))
+    Ok(HandlerOutput::new(response_json))
 }
 
 #[cfg(test)]

@@ -16,12 +16,13 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_chat_set, handle_message_get, handle_message_set};
+use jmap_server::HandlerOutput;
 use serde_json::{json, Map, Value};
 
 const SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 async fn create_group(backend: &MemoryBackend) -> String {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
         json!({
@@ -46,7 +47,7 @@ async fn create(backend: &MemoryBackend, chat_id: &str, extra: Value) -> Value {
     obj.insert("body".into(), json!("hi @bob"));
     obj.entry("bodyType").or_insert(json!("text/plain"));
     obj.insert("sentAt".into(), json!("2024-01-01T00:00:00Z"));
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": obj } }),
@@ -100,7 +101,7 @@ async fn create_stores_optional_properties() {
         .unwrap_or_else(|| panic!("not created: {resp}"))
         .to_owned();
 
-    let (got, _) = handle_message_get(
+    let HandlerOutput { primary: got, .. } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
@@ -273,7 +274,7 @@ async fn create_stores_broadcast_mentions() {
         .unwrap_or_else(|| panic!("not created: {resp}"))
         .to_owned();
 
-    let (got, _) = handle_message_get(
+    let HandlerOutput { primary: got, .. } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),

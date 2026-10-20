@@ -17,7 +17,7 @@
 //! arguments defined by RFC 8621 §7. The returned `Value` is the
 //! corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3).
 //! For the `/get`, `/changes`, `/query`, and `/queryChanges` handlers in
 //! this module the vector is **always empty**. `handle_submission_set`
@@ -47,7 +47,9 @@ use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     find_immutable_patch_key, not_found_json, now_utc_string, serialize_value, set_error_value,
 };
-use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -64,7 +66,7 @@ pub async fn handle_submission_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -106,7 +108,7 @@ pub async fn handle_submission_get<B: MailBackend>(
         "notFound": not_found_json(&not_found),
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +127,7 @@ pub async fn handle_submission_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<EmailSubmission, B>(backend, caller, args).await
 }
 
@@ -147,7 +149,7 @@ pub async fn handle_submission_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -282,7 +284,7 @@ pub async fn handle_submission_query<B: MailBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +305,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -371,7 +373,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -395,7 +397,7 @@ pub async fn handle_submission_set<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -805,7 +807,7 @@ pub async fn handle_submission_set<B: MailBackend>(
         }
     }
 
-    Ok((resp, extra_invocations))
+    Ok(HandlerOutput::new(resp).with_extra(extra_invocations))
 }
 
 // ---------------------------------------------------------------------------

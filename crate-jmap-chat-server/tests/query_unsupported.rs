@@ -15,7 +15,8 @@ use jmap_chat_server::{
     handle_chat_query, handle_contact_query, handle_emoji_query, handle_message_query,
     handle_space_query,
 };
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_server::HandlerOutput;
+use jmap_types::{Id, JmapError};
 use serde_json::{json, Value};
 
 type Handler = for<'a> fn(
@@ -23,7 +24,7 @@ type Handler = for<'a> fn(
     &'a (),
     Value,
 ) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<(Value, Vec<Invocation>), JmapError>> + 'a>,
+    Box<dyn std::future::Future<Output = Result<HandlerOutput, JmapError>> + 'a>,
 >;
 
 /// The five `/query` handlers by method name.
@@ -85,7 +86,7 @@ async fn query(handler: Handler, filter: Value, sort: Value) -> Result<Value, Jm
         json!({ "accountId": ACCOUNT_ID, "filter": filter, "sort": sort }),
     )
     .await
-    .map(|(resp, _)| resp)
+    .map(|HandlerOutput { primary: resp, .. }| resp)
 }
 
 /// A condition naming an undefined clause next to a spec clause is

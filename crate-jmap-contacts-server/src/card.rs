@@ -18,7 +18,7 @@
 //! arguments defined by RFC 9610 §3. The returned `Value` is the
 //! corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -38,7 +38,9 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators, PLACEHOLDER_ID,
 };
-use jmap_server::{apply_patch_object, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    apply_patch_object, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // ContactCard/get
@@ -55,7 +57,7 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<ContactCard, B>(backend, caller, args).await
 }
 
@@ -75,7 +77,7 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<ContactCard, B>(backend, caller, args).await
 }
 
@@ -97,7 +99,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
@@ -365,7 +367,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (to_account_id, mut args) = extract_account_id(args)?;
 
     let from_account_id = args
@@ -659,7 +661,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         ));
     }
 
-    Ok((resp, extra))
+    Ok(HandlerOutput::new(resp).with_extra(extra))
 }
 
 // ---------------------------------------------------------------------------
@@ -680,7 +682,7 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query::<ContactCard, B>(backend, caller, args).await
 }
 
@@ -702,7 +704,7 @@ pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query_changes::<ContactCard, B>(backend, caller, args).await
 }
 
@@ -733,7 +735,7 @@ mod tests {
     async fn changes_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let (resp, _) = handle_contact_card_changes(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_contact_card_changes(&backend, &(), args)
             .await
             .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
@@ -744,7 +746,7 @@ mod tests {
     async fn query_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let (resp, _) = handle_contact_card_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
             .await
             .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
@@ -755,9 +757,10 @@ mod tests {
     async fn query_changes_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceQueryState": "0" });
-        let (resp, _) = handle_contact_card_query_changes(&backend, &(), args)
-            .await
-            .expect("must not error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_query_changes(&backend, &(), args)
+                .await
+                .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
     }
 
@@ -910,9 +913,10 @@ mod tests {
             "fromAccountId": "acc1",
             "create": { "c1": { "id": "card1" } }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_copy(&backend, &(), args, "c0")
+                .await
+                .expect("must not return top-level error");
 
         let copied = &resp["copied"];
         assert!(
@@ -934,7 +938,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let created = &resp["created"];
@@ -970,9 +974,10 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_copy(&backend, &(), args, "c0")
+                .await
+                .expect("must not return top-level error");
 
         let copied = &resp["copied"];
         assert!(copied.is_object(), "copied must be present: {resp}");
@@ -1011,9 +1016,10 @@ mod tests {
                 "c1": { "id": "nonexistent" }
             }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_copy(&backend, &(), args, "c0")
+                .await
+                .expect("must not return top-level error");
 
         assert!(
             resp["copied"].is_null(),
@@ -1084,9 +1090,10 @@ mod tests {
             "ifFromInState": "0", // MockBackend.get_state always returns "0"
             "create": { "c1": { "id": "card1" } }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
-            .await
-            .expect("ifFromInState match must succeed");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_copy(&backend, &(), args, "c0")
+                .await
+                .expect("ifFromInState match must succeed");
         assert!(
             resp["copied"]["c1"].is_object(),
             "copy must succeed when ifFromInState matches: {resp}"
@@ -1110,7 +1117,10 @@ mod tests {
             "onSuccessDestroyOriginal": true,
             "create": { "c1": { "id": "card1" } }
         });
-        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+        let HandlerOutput {
+            extra_invocations: extra,
+            ..
+        } = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("/copy must succeed");
 
@@ -1152,7 +1162,10 @@ mod tests {
             "fromAccountId": "acc1",
             "create": { "c1": { "id": "card1" } }
         });
-        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+        let HandlerOutput {
+            extra_invocations: extra,
+            ..
+        } = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("/copy must succeed");
         assert!(
@@ -1176,7 +1189,10 @@ mod tests {
             "onSuccessDestroyOriginal": true,
             "create": { "c1": { "id": "missing-card" } }
         });
-        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+        let HandlerOutput {
+            extra_invocations: extra,
+            ..
+        } = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("/copy must succeed");
         assert!(
@@ -1202,7 +1218,11 @@ mod tests {
             "destroyFromIfInState": "stale-state-value",
             "create": { "c1": { "id": "card1" } }
         });
-        let (resp, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+        let HandlerOutput {
+            primary: resp,
+            extra_invocations: extra,
+            ..
+        } = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("/copy must succeed (mismatch only affects implicit destroy)");
 
@@ -1249,9 +1269,10 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
-            .await
-            .expect("/copy must not return a top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_copy(&backend, &(), args, "c0")
+                .await
+                .expect("/copy must not return a top-level error");
 
         assert!(
             resp["copied"].is_null(),
@@ -1280,9 +1301,10 @@ mod tests {
             "fromAccountId": "acc1",
             "create": { "c1": spec }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
-            .await
-            .expect("/copy must not return a top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_copy(&backend, &(), args, "c0")
+                .await
+                .expect("/copy must not return a top-level error");
         (resp, backend)
     }
 
@@ -1384,7 +1406,10 @@ mod tests {
             "destroyFromIfInState": "0", // MockBackend.get_state always returns "0"
             "create": { "c1": { "id": "card1" } }
         });
-        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+        let HandlerOutput {
+            extra_invocations: extra,
+            ..
+        } = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("/copy must succeed");
 

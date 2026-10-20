@@ -15,6 +15,7 @@ use jmap_chat_server::{
     handle_message_set, handle_presence_get, handle_presence_set, ChatBackend,
 };
 use jmap_chat_types::Message;
+use jmap_server::HandlerOutput;
 use jmap_types::{Id, PatchObject};
 use serde_json::{json, Map, Value};
 
@@ -30,7 +31,7 @@ fn assert_updated(resp: &Value, id: &str) {
 }
 
 async fn chat_update(backend: &MemoryBackend, id: &str, patch: Value) {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
@@ -41,7 +42,7 @@ async fn chat_update(backend: &MemoryBackend, id: &str, patch: Value) {
 }
 
 async fn chat_get(backend: &MemoryBackend, id: &str) -> Value {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
@@ -114,7 +115,7 @@ async fn contact_blocked_null_resets_to_false() {
         }),
     );
 
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { "ct1": { "blocked": null } } }),
@@ -123,7 +124,7 @@ async fn contact_blocked_null_resets_to_false() {
     .expect("ChatContact/set");
     assert_updated(&resp, "ct1");
 
-    let (resp, _) = handle_contact_get(
+    let HandlerOutput { primary: resp, .. } = handle_contact_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ct1"] }),
@@ -150,7 +151,7 @@ fn seed_presence(backend: &MemoryBackend) {
 }
 
 async fn presence_null_then_get(backend: &MemoryBackend, prop: &str) -> Value {
-    let (resp, _) = handle_presence_set(
+    let HandlerOutput { primary: resp, .. } = handle_presence_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { "ps1": { prop: null } } }),
@@ -159,7 +160,7 @@ async fn presence_null_then_get(backend: &MemoryBackend, prop: &str) -> Value {
     .expect("PresenceStatus/set");
     assert_updated(&resp, "ps1");
 
-    let (resp, _) = handle_presence_get(
+    let HandlerOutput { primary: resp, .. } = handle_presence_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ps1"] }),
@@ -206,7 +207,7 @@ async fn presence_receipt_sharing_null_resets_to_true() {
 /// test belongs to the stored record, not to the handler.
 async fn message_null_then_get(prop: &str) -> Value {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -227,7 +228,7 @@ async fn message_null_then_get(prop: &str) -> Value {
         .await
         .expect("update_object");
 
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&id] }),

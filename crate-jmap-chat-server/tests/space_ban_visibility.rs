@@ -7,6 +7,7 @@ mod common;
 
 use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::handle_ban_get;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -49,7 +50,7 @@ fn seeded(caller_may_ban: bool) -> IdentityBackend {
 
 async fn get(backend: &IdentityBackend, ids: Value) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": ids });
-    let (resp, _) = handle_ban_get(backend, &Id::from("owner"), args)
+    let HandlerOutput { primary: resp, .. } = handle_ban_get(backend, &Id::from("owner"), args)
         .await
         .expect("SpaceBan/get");
     resp

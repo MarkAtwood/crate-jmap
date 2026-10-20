@@ -15,7 +15,7 @@
 //! arguments defined by RFC 9670 §2. The returned `Value` is the
 //! corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -27,7 +27,7 @@
 //! `Ok((Value, ...))`, not as `Err`.
 
 use jmap_sharing_types::Principal;
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, SharingBackend};
@@ -35,7 +35,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators, PLACEHOLDER_ID,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
 // Principal/get
@@ -52,7 +52,7 @@ pub async fn handle_principal_get<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<Principal, B>(backend, caller, args).await
 }
 
@@ -78,7 +78,7 @@ pub async fn handle_principal_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<Principal, B>(backend, caller, args).await
 }
 
@@ -104,7 +104,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: an unknown accountId MUST surface as `accountNotFound`.
@@ -349,7 +349,7 @@ pub async fn handle_principal_query<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query::<Principal, B>(backend, caller, args).await
 }
 
@@ -377,7 +377,7 @@ pub async fn handle_principal_query_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query_changes::<Principal, B>(backend, caller, args).await
 }
 
@@ -426,7 +426,7 @@ mod tests {
                 "P1": { "name": "New Name" }
             }
         });
-        let (resp, _) = handle_principal_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_principal_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_updated = &resp["notUpdated"];
@@ -492,7 +492,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_principal_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_principal_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];

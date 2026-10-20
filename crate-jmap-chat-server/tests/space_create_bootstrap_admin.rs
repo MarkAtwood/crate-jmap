@@ -13,6 +13,7 @@ mod common;
 
 use common::{IdentityBackend, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
@@ -39,7 +40,7 @@ const MAX_UNSIGNED_INT: u64 = 9_007_199_254_740_991;
 /// the full `Space/set` response.
 async fn create_space(backend: &MemoryBackend) -> Value {
     backend.register_account(&Id::from(ACCOUNT_ID));
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s0": { "name": "New" } } }),
@@ -95,7 +96,7 @@ async fn space_create_adds_creator_as_member_with_admin_role() {
         .unwrap_or_else(|| panic!("no server-assigned id: {resp:?}"))
         .to_owned();
 
-    let (get, _) = handle_space_get(
+    let HandlerOutput { primary: get, .. } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -130,7 +131,7 @@ async fn space_create_creator_can_administer_new_space() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let caller = Id::from("user-alice");
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "create": { "s0": { "name": "New" } } }),
@@ -142,7 +143,7 @@ async fn space_create_creator_can_administer_new_space() {
         .unwrap_or_else(|| panic!("no server-assigned id: {resp:?}"))
         .to_owned();
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -172,7 +173,7 @@ async fn space_create_creator_can_administer_new_space() {
 async fn space_create_creator_member_entry_is_account_id_not_principal() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &Id::from("user-alice"),
         json!({ "accountId": ACCOUNT_ID, "create": { "s0": { "name": "New" } } }),

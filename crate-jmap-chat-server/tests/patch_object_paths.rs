@@ -17,12 +17,13 @@ use jmap_chat_server::{
     handle_message_get, handle_message_set, BackendSetError, ChatBackend, SetErrorType,
 };
 use jmap_chat_types::Message;
+use jmap_server::HandlerOutput;
 use jmap_types::{Id, PatchObject};
 use serde_json::{json, Value};
 
 /// Create a Message and return its server id.
 async fn create_message(backend: &MemoryBackend) -> String {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({
@@ -54,7 +55,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Result<(), S
 
 /// Fetch message `id` as its wire JSON.
 async fn get(backend: &MemoryBackend, id: &str) -> Value {
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),

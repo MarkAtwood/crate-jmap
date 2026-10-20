@@ -13,6 +13,7 @@ use jmap_contacts_server::{
     handle_contact_card_changes, handle_contact_card_get, handle_contact_card_query,
     handle_contact_card_set,
 };
+use jmap_server::HandlerOutput;
 use jmap_types::Invocation;
 use serde_json::{json, Value};
 
@@ -62,7 +63,7 @@ async fn address_book_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (resp, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -88,7 +89,7 @@ async fn address_book_get_seeded_and_unknown_id() {
     );
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1", "missing"] });
-    let (resp, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -111,7 +112,7 @@ async fn address_book_changes_empty_store() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let (resp, _) = handle_address_book_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -136,7 +137,7 @@ async fn address_book_set_destroy_empty_book_succeeds() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -169,7 +170,7 @@ async fn address_book_set_destroy_with_contents_returns_error() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -198,7 +199,7 @@ async fn address_book_set_create_with_client_id_rejected() {
             "c1": { "id": "client-id", "name": "Inbox" }
         }
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -243,7 +244,7 @@ async fn contact_card_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (resp, _) = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -260,7 +261,7 @@ async fn contact_card_query_empty_store_returns_no_ids() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "calculateTotal": true });
-    let (resp, _) = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
         .await
         .expect("/query must succeed");
 
@@ -277,7 +278,7 @@ async fn contact_card_changes_empty_store() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let (resp, _) = handle_contact_card_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -301,7 +302,7 @@ async fn address_book_set_state_bumps_visible_via_changes() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     let old_state = resp["oldState"].clone();
@@ -309,7 +310,9 @@ async fn address_book_set_state_bumps_visible_via_changes() {
     assert_ne!(old_state, new_state);
 
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
-    let (changes, _) = handle_address_book_changes(&backend, &(), args)
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_address_book_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -353,7 +356,7 @@ async fn address_book_set_update_is_default_demotes_other_books_in_memory() {
         "accountId": "acc1",
         "update": { "ab2": { "isDefault": true } }
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     assert!(
@@ -363,7 +366,7 @@ async fn address_book_set_update_is_default_demotes_other_books_in_memory() {
 
     // Read both books back and check the invariant holds.
     let args = json!({ "accountId": "acc1", "ids": ["ab1", "ab2"] });
-    let (resp, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let list = resp["list"].as_array().expect("list must be an array");
@@ -407,7 +410,9 @@ async fn address_book_set_update_is_default_records_demoted_books_in_changes() {
 
     // Capture state before the promotion.
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (before, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: before, ..
+    } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let old_state = before["state"].clone();
@@ -424,7 +429,9 @@ async fn address_book_set_update_is_default_records_demoted_books_in_changes() {
     // /changes since old_state must list both ab1 (demoted) and ab2 (promoted)
     // in updated. RFC 8620 §5.2: every modified id surfaces.
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
-    let (changes, _) = handle_address_book_changes(&backend, &(), args)
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_address_book_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
     let updated = changes["updated"]
@@ -470,7 +477,7 @@ async fn address_book_set_update_is_default_no_op_does_not_demote() {
         .expect("/set must succeed");
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1", "ab2"] });
-    let (resp, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let list = resp["list"].as_array().expect("list must be an array");
@@ -513,7 +520,7 @@ async fn address_book_set_create_with_is_default_demotes_existing_default() {
             }
         }
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     assert!(
@@ -523,7 +530,7 @@ async fn address_book_set_create_with_is_default_demotes_existing_default() {
 
     // Fetch ab1 and confirm it was demoted.
     let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
-    let (resp, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let list = resp["list"].as_array().expect("list must be an array");
@@ -547,7 +554,9 @@ async fn address_book_set_create_with_is_default_records_demoted_in_changes() {
 
     // Capture pre-create state.
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (before, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: before, ..
+    } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let old_state = before["state"].clone();
@@ -571,7 +580,9 @@ async fn address_book_set_create_with_is_default_records_demoted_in_changes() {
     // /changes since old_state must list ab1 in `updated` (demoted by
     // the create's invariant pass) per RFC 8620 §5.2.
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
-    let (changes, _) = handle_address_book_changes(&backend, &(), args)
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_address_book_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
     let updated = changes["updated"]
@@ -614,7 +625,7 @@ async fn address_book_set_update_with_is_default_reports_demoted_in_updated_wire
         "accountId": "acc1",
         "update": { "ab2": { "isDefault": true } }
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -657,7 +668,7 @@ async fn address_book_set_create_with_is_default_reports_demoted_in_updated_wire
             }
         }
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -703,7 +714,7 @@ async fn address_book_set_update_no_is_default_change_does_not_pollute_updated()
         "accountId": "acc1",
         "update": { "ab2": { "name": "Renamed" } }
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -750,7 +761,7 @@ async fn contact_card_set_create_with_client_id_rejected() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -791,7 +802,7 @@ async fn contact_card_create_missing_address_book_ids_rejected() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -828,7 +839,7 @@ async fn contact_card_create_empty_address_book_ids_rejected() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -867,7 +878,7 @@ async fn contact_card_update_removing_last_address_book_id_rejected() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -878,7 +889,9 @@ async fn contact_card_update_removing_last_address_book_id_rejected() {
 
     // The stored card is unchanged.
     let args = json!({ "accountId": "acc1", "ids": ["card1"] });
-    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let list = get_resp["list"].as_array().unwrap();
@@ -929,7 +942,7 @@ async fn contact_card_create_duplicate_uid_rejected() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -991,7 +1004,7 @@ async fn contact_card_create_with_uid_matching_seeded_card_rejected() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -1044,7 +1057,7 @@ async fn contact_card_same_uid_different_accounts_allowed() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -1096,7 +1109,7 @@ async fn contact_card_update_to_duplicate_uid_rejected() {
             "card-b": { "uid": "urn:uuid:a" }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -1107,7 +1120,9 @@ async fn contact_card_update_to_duplicate_uid_rejected() {
 
     // The stored card-b must be unchanged.
     let args = json!({ "accountId": "acc1", "ids": ["card-b"] });
-    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     assert_eq!(
@@ -1147,7 +1162,7 @@ async fn contact_card_update_with_same_uid_succeeds() {
             "card-a": { "uid": "urn:uuid:a" }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -1183,7 +1198,7 @@ async fn contact_card_update_unrelated_field_preserves_invariant() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -1231,7 +1246,7 @@ async fn address_book_set_destroy_cascade_destroys_exclusive_card() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -1244,7 +1259,9 @@ async fn address_book_set_destroy_cascade_destroys_exclusive_card() {
 
     // The exclusive card is gone from the store.
     let args = json!({ "accountId": "acc1", "ids": ["card-exclusive"] });
-    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let not_found = get_resp["notFound"]
@@ -1296,7 +1313,7 @@ async fn address_book_set_destroy_cascade_patches_shared_card() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     let destroyed = resp["destroyed"]
@@ -1306,7 +1323,9 @@ async fn address_book_set_destroy_cascade_patches_shared_card() {
 
     // The shared card still exists, with addressBookIds={ab2: true}.
     let args = json!({ "accountId": "acc1", "ids": ["card-shared"] });
-    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be array");
@@ -1360,14 +1379,16 @@ async fn address_book_set_destroy_cascade_mixed_exclusive_and_shared() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     assert_eq!(resp["destroyed"][0], "ab1");
 
     // card-exclusive is gone.
     let args = json!({ "accountId": "acc1", "ids": ["card-exclusive", "card-shared"] });
-    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let not_found: Vec<&str> = get_resp["notFound"]
@@ -1406,7 +1427,7 @@ async fn address_book_set_destroy_cascade_empty_book_proceeds() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     assert_eq!(resp["destroyed"][0], "ab1");
@@ -1461,7 +1482,7 @@ async fn contact_card_query_filter_by_kind_excludes_non_matches() {
         "accountId": "acc1",
         "filter": { "kind": "individual" }
     });
-    let (resp, _) = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
         .await
         .expect("/query must succeed");
 
@@ -1532,7 +1553,7 @@ async fn contact_card_query_sort_by_created_descending() {
         "accountId": "acc1",
         "sort": [ { "property": "created", "isAscending": false } ]
     });
-    let (resp, _) = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
         .await
         .expect("/query must succeed");
 
@@ -1593,7 +1614,11 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
             }
         }
     });
-    let (resp, extra) = handle_contact_card_copy(&backend, &(), args, "call-0")
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_contact_card_copy(&backend, &(), args, "call-0")
         .await
         .expect("/copy must succeed");
 
@@ -1625,7 +1650,9 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
 
     // Verify the source card is actually gone from acc1.
     let args = json!({ "accountId": "acc1", "ids": ["card-source"] });
-    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
     let not_found = get_resp["notFound"]

@@ -17,6 +17,7 @@ use jmap_chat_server::{
     handle_ban_set, handle_chat_set, handle_emoji_set, handle_invite_set, handle_message_set,
     handle_space_set,
 };
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 /// The SetError RFC 8620 §5.3 requires, naming exactly `props`.
@@ -31,7 +32,7 @@ fn args(obj: Value) -> Value {
 #[tokio::test]
 async fn ban_rejects_non_string_reason_and_expires_at() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         args(json!({ "spaceId": "s", "userId": "u", "reason": 42, "expiresAt": 5 })),
@@ -44,7 +45,7 @@ async fn ban_rejects_non_string_reason_and_expires_at() {
 #[tokio::test]
 async fn invite_rejects_negative_max_uses() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         args(json!({ "spaceId": "s", "maxUses": -1 })),
@@ -57,7 +58,7 @@ async fn invite_rejects_negative_max_uses() {
 #[tokio::test]
 async fn invite_rejects_max_uses_above_unsigned_int_range() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         args(json!({ "spaceId": "s", "maxUses": 9_007_199_254_740_992_u64 })),
@@ -70,7 +71,7 @@ async fn invite_rejects_max_uses_above_unsigned_int_range() {
 #[tokio::test]
 async fn invite_rejects_non_string_default_channel_and_expires_at() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         args(json!({ "spaceId": "s", "defaultChannelId": 7, "expiresAt": true })),
@@ -88,7 +89,7 @@ async fn invite_rejects_non_string_default_channel_and_expires_at() {
 async fn invite_accepts_max_unsigned_int_max_uses() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "S").await;
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         args(json!({ "spaceId": space_id, "maxUses": 9_007_199_254_740_991_u64 })),
@@ -105,7 +106,7 @@ async fn invite_accepts_max_unsigned_int_max_uses() {
 #[tokio::test]
 async fn space_rejects_mistyped_optionals() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         args(json!({
@@ -128,7 +129,7 @@ async fn space_rejects_mistyped_optionals() {
 #[tokio::test]
 async fn space_accepts_null_optionals() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         args(json!({ "name": "S", "description": null, "isPublic": null })),
@@ -142,7 +143,7 @@ async fn space_accepts_null_optionals() {
 #[tokio::test]
 async fn chat_rejects_mistyped_optionals() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         args(json!({
@@ -164,7 +165,7 @@ async fn chat_rejects_mistyped_optionals() {
 #[tokio::test]
 async fn chat_rejects_non_string_contact_and_space_ids() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         args(json!({ "kind": "direct", "contactId": 3, "spaceId": false })),
@@ -177,7 +178,7 @@ async fn chat_rejects_non_string_contact_and_space_ids() {
 #[tokio::test]
 async fn message_rejects_mistyped_optionals() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         args(json!({
@@ -208,7 +209,7 @@ async fn message_rejects_mistyped_optionals() {
 #[tokio::test]
 async fn emoji_rejects_non_string_space_id() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         args(json!({ "name": "party", "blobId": "b", "spaceId": 9 })),

@@ -9,7 +9,7 @@
 //! type-specific arguments defined by RFC 8621 §6. The returned `Value`
 //! is the corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -21,7 +21,7 @@
 
 use std::collections::HashSet;
 
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
+use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
@@ -29,7 +29,7 @@ use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
     finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -42,7 +42,7 @@ pub async fn handle_identity_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend
@@ -112,7 +112,7 @@ pub async fn handle_identity_get<B: MailBackend>(
         "notFound": not_found_json(&not_found),
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 /// Handle an `Identity/changes` method call (RFC 8621 §6.2).
@@ -127,7 +127,7 @@ pub async fn handle_identity_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
     if !backend
@@ -166,7 +166,7 @@ pub async fn handle_identity_changes<B: MailBackend>(
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 /// Handle an `Identity/set` method call (RFC 8621 §6.3).
@@ -183,7 +183,7 @@ pub async fn handle_identity_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend

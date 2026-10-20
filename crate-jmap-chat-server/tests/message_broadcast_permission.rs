@@ -12,6 +12,7 @@ mod common;
 
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_set, handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 const RICH: &str = "application/jmap-chat-rich";
@@ -19,7 +20,7 @@ const RICH_BROADCAST: &str = r#"{"spans":[{"type":"text","text":"hi "},{"type":"
 const RICH_PLAIN: &str = r#"{"spans":[{"type":"text","text":"hi"}]}"#;
 
 async fn create_channel(backend: &MemoryBackend) -> String {
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s": { "name": "S" } } }),
@@ -37,7 +38,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
     )
     .await
     .expect("Space/set addChannels");
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -54,7 +55,7 @@ async fn create_on<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
     backend: &B,
     message: Value,
 ) -> Value {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": message } }),
@@ -65,7 +66,7 @@ async fn create_on<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
 }
 
 async fn update(backend: &TrackingBackend, msg_id: &str, patch: Value) -> Value {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id: patch } }),
@@ -116,7 +117,7 @@ async fn edit_retaining_broadcast_mentions_is_forbidden() {
         json!({ "chatId": chat_id, "body": "hi @everyone", "sentAt": "2024-01-01T00:00:00Z" }),
     )
     .await;
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend.inner(),
         &(),
         json!({

@@ -16,6 +16,7 @@ use jmap_calendars_server::{
     handle_calendar_event_query, handle_calendar_event_set, handle_calendar_get,
     handle_calendar_set, handle_participant_identity_get, handle_participant_identity_set,
 };
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 // ---------------------------------------------------------------------------
@@ -72,7 +73,7 @@ async fn calendar_get_empty_account_returns_empty_list() {
         "ids": null
     });
 
-    let (resp, _) = handle_calendar_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_get(&backend, &(), args)
         .await
         .expect("/get must not return top-level error");
 
@@ -105,7 +106,7 @@ async fn calendar_get_seeded_calendar_and_unknown_id() {
         "ids": ["cal1", "does-not-exist"]
     });
 
-    let (resp, _) = handle_calendar_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_get(&backend, &(), args)
         .await
         .expect("/get must not return top-level error");
 
@@ -138,7 +139,7 @@ async fn calendar_changes_no_changes_since_current_state() {
         "sinceState": "0"
     });
 
-    let (resp, _) = handle_calendar_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_changes(&backend, &(), args)
         .await
         .expect("/changes must not return top-level error");
 
@@ -180,7 +181,7 @@ async fn calendar_set_destroy_empty_calendar_succeeds() {
         "destroy": ["cal1"]
     });
 
-    let (resp, _) = handle_calendar_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
         .await
         .expect("/set must not return top-level error");
 
@@ -227,7 +228,7 @@ async fn calendar_set_destroy_with_events_returns_calendar_has_event() {
         // onDestroyRemoveEvents defaults to false
     });
 
-    let (resp, _) = handle_calendar_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
         .await
         .expect("/set must not return top-level error");
 
@@ -259,7 +260,7 @@ async fn calendar_set_create_with_client_id_invalid_properties() {
         }
     });
 
-    let (resp, _) = handle_calendar_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
         .await
         .expect("/set must not return top-level error");
 
@@ -313,7 +314,7 @@ async fn calendar_event_get_empty_account_returns_empty_list() {
         "ids": null
     });
 
-    let (resp, _) = handle_calendar_event_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(&backend, &(), args)
         .await
         .expect("/get must not return top-level error");
 
@@ -343,7 +344,7 @@ async fn calendar_event_query_empty_store_returns_no_ids() {
         "calculateTotal": true
     });
 
-    let (resp, _) = handle_calendar_event_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
         .await
         .expect("/query must not return top-level error");
 
@@ -371,7 +372,7 @@ async fn calendar_event_changes_empty_store_empty_result() {
         "sinceState": "0"
     });
 
-    let (resp, _) = handle_calendar_event_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_changes(&backend, &(), args)
         .await
         .expect("/changes must not return top-level error");
 
@@ -390,7 +391,7 @@ async fn participant_identity_get_empty_and_set_create_rejects_id() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (resp, _) = handle_participant_identity_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_participant_identity_get(&backend, &(), args)
         .await
         .expect("/get must not return top-level error");
     assert!(resp["list"].as_array().unwrap().is_empty());
@@ -403,7 +404,7 @@ async fn participant_identity_get_empty_and_set_create_rejects_id() {
             "p1": { "id": "client-chose-id", "name": "Alice", "sendFrom": "alice@example.com" }
         }
     });
-    let (resp, _) = handle_participant_identity_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_participant_identity_set(&backend, &(), args)
         .await
         .expect("/set must not return top-level error");
     assert_eq!(
@@ -424,7 +425,7 @@ async fn calendar_set_state_bumps_after_each_mutation() {
     backend.seed_object("acc1", "Calendar", "cal1", calendar_fixture("cal1", "Work"));
 
     let args = json!({ "accountId": "acc1", "destroy": ["cal1"] });
-    let (resp, _) = handle_calendar_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
         .await
         .expect("first /set must succeed");
     let state_after_destroy = resp["newState"].clone();
@@ -436,7 +437,7 @@ async fn calendar_set_state_bumps_after_each_mutation() {
         "accountId": "acc1",
         "sinceState": resp["oldState"]
     });
-    let (resp2, _) = handle_calendar_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp2, .. } = handle_calendar_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -470,7 +471,7 @@ async fn calendar_event_set_create_with_client_id_invalid_properties() {
             }
         }
     });
-    let (resp, _) = handle_calendar_event_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_set(&backend, &(), args)
         .await
         .expect("/set must not return top-level error");
 

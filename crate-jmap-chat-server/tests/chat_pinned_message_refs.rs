@@ -16,6 +16,7 @@ use jmap_chat_server::{
     handle_chat_changes, handle_chat_get, handle_chat_set, handle_message_get, handle_message_set,
     ChatBackend,
 };
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -54,7 +55,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str, extra: Value) ->
         unreachable!("both are object literals");
     };
     msg_map.extend(extra_map);
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": msg } }),
@@ -73,11 +74,11 @@ async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
     handle_message_set(backend, &(), args)
         .await
         .expect("Message/set")
-        .0
+        .primary
 }
 
 async fn set_pins(backend: &MemoryBackend, pins: Value) -> Value {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
         json!({
@@ -91,7 +92,7 @@ async fn set_pins(backend: &MemoryBackend, pins: Value) -> Value {
 }
 
 async fn pinned(backend: &MemoryBackend) -> Value {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT] }),
@@ -173,7 +174,7 @@ async fn destroying_pinned_message_unpins_it() {
     seed_chats(&backend);
     let msg = create_message(&backend, CHAT, json!({})).await;
     pin(&backend, &msg).await;
-    let (get, _) = handle_chat_get(
+    let HandlerOutput { primary: get, .. } = handle_chat_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT] }),
@@ -186,7 +187,9 @@ async fn destroying_pinned_message_unpins_it() {
     assert_eq!(resp["destroyed"], json!([msg]), "{resp:?}");
 
     assert_eq!(pinned(&backend).await, json!([]));
-    let (changes, _) = handle_chat_changes(
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
@@ -211,7 +214,7 @@ async fn burn_on_read_unpins_message() {
     )
     .await;
     assert_eq!(resp["notUpdated"], Value::Null, "{resp:?}");
-    let (get, _) = handle_message_get(
+    let HandlerOutput { primary: get, .. } = handle_message_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg] }),

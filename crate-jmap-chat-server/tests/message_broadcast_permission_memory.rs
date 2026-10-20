@@ -10,13 +10,14 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_set, handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 /// Create a Space and one channel in it through the handlers, returning
 /// `(space_id, channel_id)`. Space/set create gives the owner a role
 /// holding every Space permission, `"mention_broadcast"` included.
 async fn create_channel(backend: &MemoryBackend) -> (String, String) {
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s": { "name": "S" } } }),
@@ -45,7 +46,7 @@ async fn create_channel(backend: &MemoryBackend) -> (String, String) {
 }
 
 async fn space(backend: &MemoryBackend, space_id: &str) -> Value {
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
@@ -74,7 +75,7 @@ async fn message_set(backend: &MemoryBackend, body: Value) -> Value {
         unreachable!("both are object literals");
     };
     args_map.extend(body_map);
-    let (resp, _) = handle_message_set(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_message_set(backend, &(), args)
         .await
         .expect("Message/set");
     resp

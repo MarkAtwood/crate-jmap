@@ -11,6 +11,7 @@ use jmap_contacts_server::{
     handle_address_book_get, handle_address_book_set, handle_contact_card_get,
     handle_contact_card_set,
 };
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 /// A minimal valid AddressBook.
@@ -58,13 +59,13 @@ async fn update_card1(backend: &MemoryBackend, patch: Value) -> Value {
     handle_contact_card_set(backend, &(), args)
         .await
         .expect("/set must succeed at the method level")
-        .0
+        .primary
 }
 
 /// Fetch `card1` with `ContactCard/get`.
 async fn get_card1(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["card1"] });
-    let (resp, _) = handle_contact_card_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_get(backend, &(), args)
         .await
         .expect("/get must succeed");
     resp["list"][0].clone()
@@ -174,7 +175,7 @@ async fn update_address_book_sort_order_null_resets_to_default() {
     backend.seed_object("acc1", "AddressBook", "ab1", ab1);
 
     let args = json!({ "accountId": "acc1", "update": { "ab1": { "sortOrder": null } } });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed at the method level");
     assert!(
@@ -183,7 +184,7 @@ async fn update_address_book_sort_order_null_resets_to_default() {
     );
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
-    let (resp, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("AddressBook/get must succeed after sortOrder: null");
     assert_eq!(resp["list"][0]["sortOrder"], json!(0), "{resp}");
@@ -199,7 +200,7 @@ async fn update_address_book_sort_order_null_resets_to_default() {
 async fn address_book_required_name_null_is_invalid_properties() {
     let backend = seeded_backend();
     let args = json!({ "accountId": "acc1", "update": { "ab1": { "name": null } } });
-    let (resp, _) = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
         .expect("AddressBook/set must succeed at the method level");
     assert_eq!(
@@ -208,7 +209,7 @@ async fn address_book_required_name_null_is_invalid_properties() {
     );
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
-    let (resp, _) = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
         .await
         .expect("AddressBook/get must succeed after a rejected update");
     assert_eq!(resp["list"][0]["name"], "ab1", "{resp}");

@@ -35,13 +35,14 @@ mod common;
 use common::{seed_space, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_space_get, handle_space_set, JmapBackend};
 use jmap_chat_types::Space;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
 async fn read_space_description(backend: &IdentityBackend, caller: &Id) -> String {
     // Read back the description through Space/get so we exercise the
     // same path a client would.
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -87,7 +88,7 @@ async fn owner_without_member_entry_cannot_mutate_metadata() {
         }),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -143,7 +144,7 @@ async fn manage_space_holder_can_mutate_description() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -186,7 +187,7 @@ async fn manage_space_holder_can_mutate_all_metadata_fields() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -207,7 +208,9 @@ async fn manage_space_holder_can_mutate_all_metadata_fields() {
         "manage_space holder must succeed on multi-field patch: {resp:?}"
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -249,7 +252,7 @@ async fn everyone_only_member_cannot_mutate_description() {
         ]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -298,7 +301,7 @@ async fn non_member_caller_cannot_mutate_metadata() {
     );
 
     let outsider = Id::from("outsider");
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &outsider,
         json!({
@@ -352,7 +355,7 @@ async fn other_permissions_do_not_subsume_manage_space() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -405,7 +408,7 @@ async fn mixed_patch_metadata_plus_structural_atomic_reject() {
         ]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -428,7 +431,9 @@ async fn mixed_patch_metadata_plus_structural_atomic_reject() {
     let admin = Id::from("admin");
     assert_eq!(read_space_description(&backend, &admin).await, "original");
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &admin,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -465,7 +470,7 @@ async fn mixed_patch_metadata_plus_structural_admin_succeeds() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -485,7 +490,9 @@ async fn mixed_patch_metadata_plus_structural_admin_succeeds() {
     );
 
     assert_eq!(read_space_description(&backend, &caller).await, "renamed");
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -526,7 +533,7 @@ async fn single_field_metadata_patch_still_gated() {
         ]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -542,7 +549,9 @@ async fn single_field_metadata_patch_still_gated() {
         "single-field metadata patch must be gated: {resp:?}"
     );
 
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),

@@ -19,7 +19,7 @@ use std::{
     time::SystemTime,
 };
 
-use jmap_types::{Id, Invocation, JmapError, PushSubscription, State, StateChange, UTCDate};
+use jmap_types::{Id, JmapError, PushSubscription, State, StateChange, UTCDate};
 use serde_json::{json, Map, Value};
 use subtle::ConstantTimeEq;
 
@@ -29,7 +29,7 @@ use crate::helpers::{
     apply_patch_object, enforce_max_objects_in_get, enforce_max_objects_in_set, not_found_json,
     optional_arg, serialize_value, signed_seconds_since_epoch, utc_date_from_epoch_seconds,
 };
-use crate::{ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use crate::{ClosureHandler, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
 
 /// The properties that `PushSubscription/get` never returns and rejects
 /// with `forbidden` when requested (RFC 8620 §7.2.1).
@@ -232,7 +232,7 @@ async fn handle_push_subscription_get<B: PushSubscriptionBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("arguments must be an object"));
     };
@@ -292,13 +292,10 @@ async fn handle_push_subscription_get<B: PushSubscriptionBackend>(
         })
         .collect::<Result<Vec<Value>, JmapError>>()?;
 
-    Ok((
-        json!({
-            "list": list,
-            "notFound": not_found_json(&not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "list": list,
+        "notFound": not_found_json(&not_found),
+    })))
 }
 
 /// `PushSubscription/set` (RFC 8620 §7.2.2).
@@ -315,7 +312,7 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("arguments must be an object"));
     };
@@ -408,17 +405,14 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
             Value::Object(m)
         }
     };
-    Ok((
-        json!({
-            "created": or_null(created),
-            "updated": or_null(updated),
-            "destroyed": if destroyed.is_empty() { Value::Null } else { Value::Array(destroyed) },
-            "notCreated": or_null(not_created),
-            "notUpdated": or_null(not_updated),
-            "notDestroyed": or_null(not_destroyed),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "created": or_null(created),
+        "updated": or_null(updated),
+        "destroyed": if destroyed.is_empty() { Value::Null } else { Value::Array(destroyed) },
+        "notCreated": or_null(not_created),
+        "notUpdated": or_null(not_updated),
+        "notDestroyed": or_null(not_destroyed),
+    })))
 }
 
 /// The `created` entry for `sub`: every property the client did not send,

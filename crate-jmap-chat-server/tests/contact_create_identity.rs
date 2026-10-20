@@ -8,6 +8,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_contact_get, handle_contact_query, handle_contact_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -37,7 +38,7 @@ fn insert_contact(backend: &MemoryBackend, id: &str, identity: &str) {
 
 /// `ChatContact/set` with the given `create` map.
 async fn create(backend: &MemoryBackend, create: Value) -> Value {
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": create }),
@@ -81,7 +82,7 @@ async fn contact_create_by_identity_assigns_id() {
         .unwrap_or_else(|| panic!("created.k1.id missing: {resp}"))
         .to_owned();
 
-    let (get, _) = handle_contact_get(
+    let HandlerOutput { primary: get, .. } = handle_contact_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&id] }),
@@ -181,7 +182,7 @@ async fn contact_query_identity_filter_matches_octet_for_octet() {
     insert_contact(&backend, "ct2", "Alice@example.com");
     insert_contact(&backend, "ct3", "bob@example.com");
 
-    let (resp, _) = handle_contact_query(
+    let HandlerOutput { primary: resp, .. } = handle_contact_query(
         &backend,
         &(),
         json!({

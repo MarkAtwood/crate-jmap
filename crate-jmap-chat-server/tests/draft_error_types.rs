@@ -7,6 +7,7 @@ use common::{make_chat_group, make_space, make_space_with_props, MemoryBackend, 
 use jmap_chat_server::{
     handle_chat_set, handle_message_query, handle_message_set, handle_space_join,
 };
+use jmap_server::HandlerOutput;
 use serde_json::json;
 
 /// Oracle: draft-atwood-jmap-chat-00 §Chat/set — "Creating a Chat with
@@ -16,7 +17,7 @@ use serde_json::json;
 async fn chat_set_create_channel_is_forbidden() {
     let backend = MemoryBackend::new();
     let space_id = make_space(&backend, "S").await;
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({
@@ -47,7 +48,7 @@ async fn chat_set_create_channel_is_forbidden() {
 async fn message_set_create_over_long_body_is_invalid_arguments() {
     let backend = MemoryBackend::new();
     let chat_id = make_chat_group(&backend, "G").await;
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({

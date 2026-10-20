@@ -12,7 +12,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_filenode_server::filenode::handle_filenode_set;
 use jmap_filenode_types::FileNode;
-use jmap_server::JmapBackend;
+use jmap_server::{HandlerOutput, JmapBackend};
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -63,7 +63,7 @@ async fn assert_invalid_patch(bad_patch: Value, ok_patch: Value) {
     seed_file(&backend, "ok");
     let before = stored(&backend, "bad").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({

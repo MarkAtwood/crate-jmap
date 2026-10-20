@@ -33,6 +33,7 @@ use jmap_chat_server::{
     handle_ban_set, handle_emoji_set, handle_invite_get, handle_invite_set, handle_space_get,
     handle_space_join,
 };
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -85,7 +86,7 @@ async fn space_join_single_user_writes_account_id_into_member_id() {
     let backend = MemoryBackend::new();
     seed_public_space_on_memory(&backend);
 
-    let (resp, _) = handle_space_join(
+    let HandlerOutput { primary: resp, .. } = handle_space_join(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "spaceId": SPACE_ID }),
@@ -95,7 +96,10 @@ async fn space_join_single_user_writes_account_id_into_member_id() {
 
     assert_eq!(resp["spaceId"], SPACE_ID);
 
-    let (space_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: space_resp,
+        ..
+    } = handle_space_get(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -128,7 +132,7 @@ async fn space_join_with_identity_writes_account_id_into_member_id() {
     seed_public_space_on_identity(&backend);
     let caller = Id::from(PRINCIPAL_ID);
 
-    let (resp, _) = handle_space_join(
+    let HandlerOutput { primary: resp, .. } = handle_space_join(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "spaceId": SPACE_ID }),
@@ -139,7 +143,10 @@ async fn space_join_with_identity_writes_account_id_into_member_id() {
 
     // Read as another principal: every caller of the account is its
     // owner, whose member entry is the accountId (draft §Terminology).
-    let (space_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: space_resp,
+        ..
+    } = handle_space_get(
         &backend,
         &Id::from("preseeded-admin"),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -209,7 +216,7 @@ async fn invite_set_with_identity_writes_account_id_into_created_by() {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let caller = Id::from(PRINCIPAL_ID);
 
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &caller,
         json!({
@@ -227,7 +234,9 @@ async fn invite_set_with_identity_writes_account_id_into_created_by() {
         .expect("invite id created")
         .to_owned();
 
-    let (inv_get, _) = handle_invite_get(
+    let HandlerOutput {
+        primary: inv_get, ..
+    } = handle_invite_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [invite_id] }),
@@ -251,7 +260,7 @@ async fn invite_set_single_user_writes_account_id_into_created_by() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
-    let (resp, _) = handle_invite_set(
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
         json!({
@@ -286,7 +295,7 @@ async fn ban_set_with_identity_writes_account_id_into_banned_by() {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let caller = Id::from(PRINCIPAL_ID);
 
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &caller,
         json!({
@@ -319,7 +328,7 @@ async fn ban_set_single_user_writes_account_id_into_banned_by() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         json!({
@@ -357,7 +366,7 @@ async fn emoji_set_with_identity_writes_account_id_into_created_by() {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let caller = Id::from(PRINCIPAL_ID);
 
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &caller,
         json!({
@@ -390,7 +399,7 @@ async fn emoji_set_single_user_writes_account_id_into_created_by() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({

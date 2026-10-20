@@ -19,7 +19,7 @@
 //! `Value` is the corresponding method-response object per the same
 //! section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -40,7 +40,9 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators, PLACEHOLDER_ID,
 };
-use jmap_server::{now_utc_string, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // Capability gate
@@ -98,7 +100,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
 
     let fetch_parents = args
@@ -111,8 +113,11 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     // post-processing below extracts it from there rather than
     // duplicating the parse upfront. Matches the canonical
     // jmap-mail-server pass-through pattern.
-    let (mut response, tail) =
-        jmap_server::handlers::handle_get::<FileNode, B>(backend, caller, args).await?;
+    let HandlerOutput {
+        primary: mut response,
+        extra_invocations: tail,
+        ..
+    } = jmap_server::handlers::handle_get::<FileNode, B>(backend, caller, args).await?;
 
     if fetch_parents {
         // Recover account_id from the response shape the generic
@@ -124,7 +129,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
             .and_then(|v| v.as_str())
             .map(Id::from)
         else {
-            return Ok((response, tail));
+            return Ok(HandlerOutput::new(response).with_extra(tail));
         };
         // Read phase: borrow the list immutably to collect ids of nodes
         // already in the response. The immutable borrow ends with this
@@ -164,7 +169,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
             // best-effort if the list shape is unexpected" posture
             // without introducing a refactor-fragile expect/panic.
             let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) else {
-                return Ok((response, tail));
+                return Ok(HandlerOutput::new(response).with_extra(tail));
             };
             for ancestor in ancestors {
                 // Deduplicate: only append if not already in the list.
@@ -182,7 +187,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         }
     }
 
-    Ok((response, tail))
+    Ok(HandlerOutput::new(response).with_extra(tail))
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +206,7 @@ pub async fn handle_filenode_changes<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_changes::<FileNode, B>(backend, caller, args).await
 }
@@ -255,7 +260,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -1190,7 +1195,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::from(s),
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
@@ -1832,10 +1837,11 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
             if if_in_state != from_old_state.as_ref() {
                 let err = json!({ "type": "stateMismatch" });
-                return Ok((
-                    resp,
-                    vec![Invocation::new("error", err, call_id.to_owned())],
-                ));
+                return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
+                    "error",
+                    err,
+                    call_id.to_owned(),
+                )]));
             }
         }
 
@@ -1952,7 +1958,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         ));
     }
 
-    Ok((resp, extra))
+    Ok(HandlerOutput::new(resp).with_extra(extra))
 }
 
 /// Merge override fields from a FileNode/copy create entry over a source node.
@@ -2102,7 +2108,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
     // Extract depth before delegating — the generic handler strips unrecognised args.
     let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -2111,11 +2117,14 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
     // The generic handler owns account_id parsing; we recover it from
     // the response shape if depth > 0 needs it for the recursion call.
     // Matches the canonical jmap-mail-server pass-through pattern.
-    let (mut response, tail) =
-        jmap_server::handlers::handle_query::<FileNode, B>(backend, caller, args).await?;
+    let HandlerOutput {
+        primary: mut response,
+        extra_invocations: tail,
+        ..
+    } = jmap_server::handlers::handle_query::<FileNode, B>(backend, caller, args).await?;
 
     if depth == 0 {
-        return Ok((response, tail));
+        return Ok(HandlerOutput::new(response).with_extra(tail));
     }
 
     let Some(account_id) = response
@@ -2123,7 +2132,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         .and_then(|v| v.as_str())
         .map(Id::from)
     else {
-        return Ok((response, tail));
+        return Ok(HandlerOutput::new(response).with_extra(tail));
     };
 
     // depth > 0: use backend.query_subtree for recursive expansion.
@@ -2135,7 +2144,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         .unwrap_or_default();
 
     if root_ids.is_empty() {
-        return Ok((response, tail));
+        return Ok(HandlerOutput::new(response).with_extra(tail));
     }
 
     // draft-ietf-jmap-filenode-16 §3.2.5: when `depth > 0` the client is
@@ -2162,7 +2171,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         *t = Value::Number(total.into());
     }
 
-    Ok((response, tail))
+    Ok(HandlerOutput::new(response).with_extra(tail))
 }
 
 // ---------------------------------------------------------------------------
@@ -2183,7 +2192,7 @@ pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_query_changes::<FileNode, B>(backend, caller, args).await
 }
@@ -3068,7 +3077,7 @@ mod tests {
                 .with_account("acc1")
                 .with_account("acc2"),
         );
-        let (resp, _) =
+        let HandlerOutput { primary: resp, .. } =
             handle_filenode_get(&backend, &(), json!({"accountId": "acc2", "ids": null}))
                 .await
                 .expect("acc2 supports FileNode");
@@ -3127,7 +3136,7 @@ mod tests {
     async fn get_known_account_returns_empty_list() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null });
-        let (resp, _) = handle_filenode_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
             .await
             .expect("must succeed for known account");
         assert_eq!(resp["accountId"], "acc1");
@@ -3144,7 +3153,7 @@ mod tests {
     async fn get_fetch_parents_false_unchanged() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": false });
-        let (resp, _) = handle_filenode_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -3157,7 +3166,7 @@ mod tests {
     async fn get_fetch_parents_true_no_nodes() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": true });
-        let (resp, _) = handle_filenode_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
             .await
             .expect("must succeed");
         assert!(resp["list"].as_array().unwrap().is_empty());
@@ -3239,7 +3248,7 @@ mod tests {
     async fn changes_returns_standard_shape() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let (resp, _) = handle_filenode_changes(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_changes(&backend, &(), args)
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -3257,7 +3266,7 @@ mod tests {
     async fn query_returns_standard_shape() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -3271,7 +3280,7 @@ mod tests {
     async fn query_depth_absent_flat_query() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed for absent depth");
         assert!(resp["ids"].as_array().unwrap().is_empty());
@@ -3282,7 +3291,7 @@ mod tests {
     async fn query_depth_zero_flat_query() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "depth": 0, "filter": null, "sort": null });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed for depth=0");
         assert!(resp["ids"].as_array().unwrap().is_empty());
@@ -3309,7 +3318,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed for depth=0 with seeded children");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3341,7 +3350,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed for depth=1");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3375,7 +3384,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3405,7 +3414,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3433,7 +3442,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids array");
@@ -3543,7 +3552,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["dir1"]
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -3589,7 +3598,7 @@ mod tests {
             "onDestroyRemoveChildren": true,
             "destroy": ["dir1"]
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -3630,7 +3639,7 @@ mod tests {
             "onDestroyRemoveChildren": true,
             "destroy": ["dir1"]
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -3676,7 +3685,7 @@ mod tests {
                 "node1": { "parentId": "node2" }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -3721,7 +3730,7 @@ mod tests {
                 "node1": { "parentId": 42 }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -3761,7 +3770,7 @@ mod tests {
                 "node1": { "parentId": "node1" }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -3810,7 +3819,7 @@ mod tests {
             "destroy": ["node_parent", "node_child"]
             // onDestroyRemoveChildren is absent (defaults to false)
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -3849,7 +3858,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -3880,7 +3889,7 @@ mod tests {
                 "c2": { "@type": null, "name": "other" }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert!(resp["created"].is_null(), "nothing may be created: {resp}");
@@ -3901,7 +3910,7 @@ mod tests {
             "accountId": "acc1",
             "create": { "c1": { "@type": "directory", "name": "mydir" } }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let err = &resp["notCreated"]["c1"];
@@ -3921,7 +3930,7 @@ mod tests {
                 "c1": { "@type": "Directory", "name": "mydir", "blobId": null, "target": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert!(resp["notCreated"].is_null(), "{resp}");
@@ -3948,7 +3957,7 @@ mod tests {
                 "c1": { "name": "myfile", "@type": "File", "blobId": null, "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -3992,7 +4001,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4025,7 +4034,7 @@ mod tests {
                 "c1": { "name": "mylink", "@type": "SymLink", "target": null, "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4067,7 +4076,7 @@ mod tests {
             }
             // onExists absent → default Reject
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4102,7 +4111,7 @@ mod tests {
                 "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         // With rename, creation should succeed (mock create_object returns Ok).
@@ -4155,7 +4164,7 @@ mod tests {
                 "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
