@@ -11,7 +11,7 @@
 
 mod common;
 
-use common::{make_chat_group, MemoryBackend, ACCOUNT_ID};
+use common::{make_chat_group, seed_group_chat, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{
     handle_ban_get, handle_ban_set, handle_chat_get, handle_chat_set, handle_contact_get,
     handle_contact_set, handle_emoji_get, handle_emoji_set, handle_message_get, handle_message_set,
@@ -77,6 +77,7 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
 #[tokio::test]
 async fn message_body_null_rejected_and_get_succeeds() {
     let backend = MemoryBackend::new();
+    seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),

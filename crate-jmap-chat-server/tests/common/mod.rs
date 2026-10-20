@@ -1703,3 +1703,24 @@ pub async fn make_chat_group(backend: &MemoryBackend, name: &str) -> String {
         .expect("make_chat_group: server-assigned id")
         .to_owned()
 }
+
+/// Store a group Chat with the given `id` in [`ACCOUNT_ID`], with the
+/// account as its admin member, so a `Message/set` create naming that
+/// `chatId` passes the draft-atwood-jmap-chat-00 §Input Validation
+/// `chatId` check. Overwrites any Chat already stored under `id`.
+pub fn seed_group_chat(backend: &MemoryBackend, id: &str) {
+    backend.insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        id,
+        serde_json::json!({
+            "id": id,
+            "kind": "group",
+            "name": "G",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "members": [{ "id": ACCOUNT_ID, "role": "admin", "joinedAt": "2026-01-01T00:00:00Z" }],
+        }),
+    );
+}

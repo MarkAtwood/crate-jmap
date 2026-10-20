@@ -6,7 +6,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_get, handle_message_set, ChatLimits};
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 const CIPHER: &str = "application/mls-ciphertext";
 
 async fn create_message(backend: &MemoryBackend, extra: Value) -> String {
+    seed_group_chat(backend, "c1");
     let mut obj = json!({ "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" });
     obj.as_object_mut()
         .expect("object")
