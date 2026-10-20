@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-peer-auth**: new I/O-free crate for draft-atwood-jmap-chat-federation-00
+  §Peer Authentication Model. `sign` produces the RFC 9421
+  `Signature-Input` / `Signature` (Ed25519, `tag="jmap-chat-peer"`) and RFC
+  9530 `Content-Digest` values; `SignedRequest::parse` and `verify` run
+  verification checks 1 to 6 with the clock, the peer's usable keys and a
+  replay lookup passed in, returning the authenticated peer domain and the
+  nonce record to keep. `PeerSigningKey` reads and writes `peerSigningKeys`
+  JWKs (RFC 7638 `kid`), `usable_keys` applies the DNSSEC precedence rule,
+  and `bind_identity` applies §Identity Binding. Checked against RFC 9421
+  Appendix B.2.6, RFC 8037 Appendix A.3 and RFC 9530 Appendix D.
 - **jmap-web-push**: new support crate for Web Push delivery of RFC 8620
   §7.2 pushes. `encrypt` (RFC 8291 `aes128gcm`, checked against the
   RFC 8291 Appendix A example), `Vapid` (RFC 8292 `Authorization: vapid`

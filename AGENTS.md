@@ -90,6 +90,7 @@ crates, never in a support crate.
 | `crate-jmap-did-types/` | `jmap-did-types` | draft-atwood-jmap-did-00 data types — `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`), `KeyCustody`, `Did` (DID Core §3.1 newtype, `did:web` domain and document URL), `DidKey` (did:key decode and document), `verify_plc_audit_log` (did:plc audit-log verification). No async, no I/O |
 | `crate-jmap-did-resolver/` | `jmap-did-resolver` | Support crate: did:key, did:web and did:plc resolution I/O over the `jmap-did-types` helpers — `Resolver` (TTL cache, `refresh` on signature failure per draft-atwood-jmap-chat-did-00 §Caching), `Fetch` trait, reqwest `HttpFetcher`. No `*-types` or `*-server` crate depends on it |
 | `crate-jmap-web-push/` | `jmap-web-push` | Support crate: Web Push delivery for RFC 8620 §7.2 pushes — RFC 8291 `encrypt` (`aes128gcm` over `ece-native`), RFC 8292 `Vapid` header, `Sender` (RFC 8030 `TTL`/`Urgency`/`Topic`, retry with backoff, `Outcome::Gone` on 404/410). No `*-types` or `*-server` crate depends on it |
+| `crate-jmap-peer-auth/` | `jmap-peer-auth` | draft-atwood-jmap-chat-federation-00 §Peer Authentication Model, no I/O — RFC 9421 `sign` and `SignedRequest::parse`/`verify` (checks 1-6, caller-supplied clock, keys and replay lookup), `PeerSigningKey` (Ed25519 OKP JWK, RFC 7638 `kid`), `usable_keys` with `DnssecAnswer` (§DNSSEC Key Binding), `bind_identity` (§Identity Binding), `PeerDomain`. Not a support crate: `*-server` crates may depend on it; the key-fetch/DNSSEC/replay-store I/O does not live here |
 | `crate-jmap-chat-mimi-types/` | `jmap-chat-mimi-types` | draft-atwood-jmap-chat-mimi-00 data types — `MimiCapability` (`urn:ietf:params:jmap:chat:mimi`), `KeyPackage` object and `/get`/`/set` shapes, `KeyMaterial/fetch` arguments, `Room/create`/`/update`/`/send`/`/unbind` arguments and `chat_room_id`, `GroupInfo/fetch` arguments, MIMI/MLS body-type constants, `Base64Url` byte-string wire shape. No async, no I/O, no MLS dependency |
 | `crate-jmap-chat-federation-types/` | `jmap-chat-federation-types` | draft-atwood-jmap-chat-federation-00 data types — `contact_server_url` and `contact_direct_address` read the `ChatContact.serverUrl` and `.directAddress` extension fields from `ChatContact.extra`. No async, no I/O |
 
@@ -153,6 +154,13 @@ jmap-web-push          — support crate: Web Push delivery of RFC 8620 §7.2
                          VAPID (p256), reqwest POST with retry/backoff.
                          Depends on jmap-types. No *-types or *-server
                          dependent.
+
+jmap-peer-auth         — draft-atwood-jmap-chat-federation-00 peer
+                         authentication, no I/O: RFC 9421 request signing
+                         and verification (sfv, ed25519-dalek), peerSigningKeys
+                         JWK thumbprints, DNSSEC precedence, identity-host
+                         binding. Depends on jmap-did-types (did:web domain).
+                         Server crates may depend on it.
 
 jmap-chat-mimi-types   — draft-atwood-jmap-chat-mimi-00 data types: MimiCapability
                          (urn:ietf:params:jmap:chat:mimi), body-type constants,
