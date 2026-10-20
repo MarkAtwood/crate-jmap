@@ -47,6 +47,18 @@
 //! destroy is `forbidden`, and the backend keeps `activeAvatarCount`; and
 //! `/query` with the draft's default sort and §Filter Validation.
 //!
+//! Visibility (draft §Visibility Contract, §Region Access, §Blocked-Contact
+//! Spatial Presence): `/get` of SceneRegion, SceneObject and SceneAvatar
+//! reports a record in a region the caller has no access to
+//! ([`SceneBackend::may_access_region`]), an object outside the caller's
+//! visibility set ([`SceneBackend::is_object_visible`]) and an avatar of a
+//! user the caller blocked ([`SceneBackend::is_user_blocked`]) in
+//! `notFound`, like a missing id; `SceneObject/set` refuses an update or
+//! destroy of a hidden object with `notFound`. The backend omits the same
+//! records from `/query` and `/queryChanges`. `activeAvatarCount` is the
+//! true count, blocked users included, as the draft says deployments
+//! "SHOULD prefer".
+//!
 //! The crate depends on RFC 8620 only; Chat and VTC bindings live in
 //! separate binding crates, which implement
 //! [`SceneBackend::has_capability`] and [`SceneBackend::region_binding`].

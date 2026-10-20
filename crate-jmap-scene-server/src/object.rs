@@ -22,9 +22,9 @@ use crate::asset::GLTF_BINARY;
 use crate::backend::SceneBackend;
 use crate::helpers::{
     backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
-    extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, invalid,
-    normalized_orientation, not_found, orientation_ok, reject_unsupported_sort, set_error_value,
-    SetAccumulators, PLACEHOLDER_ID,
+    extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
+    invalid, is_visible, normalized_orientation, not_found, orientation_ok,
+    reject_unsupported_sort, set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -48,13 +48,16 @@ const PHYSICS_MODES: &[&str] = &["static", "dynamic", "kinematic", "none"];
 const MAX_DEPTH: usize = 16;
 
 /// Handle `SceneObject/get` (draft-atwood-jmap-scene-00 §SceneObject/get):
-/// standard RFC 8620 §5.1 `/get`.
+/// standard RFC 8620 §5.1 `/get`, with an object in a region the caller
+/// has no access to ([`SceneBackend::may_access_region`]) or outside its
+/// visibility set ([`SceneBackend::is_object_visible`]) reported as
+/// `notFound` (§Visibility Contract, §Region Access).
 pub async fn handle_scene_object_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<SceneObject, B>(backend, caller, args).await
+    handle_get_visible::<SceneObject, B>(backend, caller, args).await
 }
 
 /// Handle `SceneObject/changes` (draft-atwood-jmap-scene-00
@@ -513,8 +516,11 @@ async fn create_scene_object<B: SceneBackend>(
     }))
 }
 
-/// The stored object `id`, or `notFound`, if the caller may modify it
-/// ([`SceneBackend::may_modify_object`]), else `forbidden`.
+/// The stored object `id` if the caller may modify it
+/// ([`SceneBackend::may_modify_object`]), else `forbidden`; `notFound` if
+/// it is missing or hidden from the caller: "The server MUST NOT return
+/// `forbidden`, as that would confirm the object still exists"
+/// (§Visibility Contract).
 async fn fetch_modifiable<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -524,6 +530,12 @@ async fn fetch_modifiable<B: SceneBackend>(
     let object: SceneObject = fetch_one(backend, caller, account_id, id)
         .await?
         .ok_or_else(not_found)?;
+    if !is_visible(backend, caller, account_id, &object)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(not_found());
+    }
     if backend
         .may_modify_object(caller, account_id, &object)
         .await

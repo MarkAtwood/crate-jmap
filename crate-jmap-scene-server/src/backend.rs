@@ -402,6 +402,101 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(true) }
     }
 
+    /// `true` if the caller has access to region `region_id`
+    /// (draft-atwood-jmap-scene-00 §Region Access): under `"public"` "Any
+    /// authenticated user may enter and view objects", under `"invite"`
+    /// "Only users explicitly granted access", under `"space"` only members
+    /// of the bound Space.
+    ///
+    /// `SceneRegion/get`, `SceneObject/get` and `SceneAvatar/get` report a
+    /// region, object or avatar in a region without access as `notFound`:
+    /// "Regardless of `accessPolicy`, the server MUST return `notFound`
+    /// (not `forbidden`) ... This prevents access-policy enumeration."
+    /// `SceneObject/set` reports an update or destroy of such an object as
+    /// `notFound` too, never `forbidden`. A region that no longer exists
+    /// may be treated either way.
+    ///
+    /// The handlers cannot filter a `/query` page they did not cut, so
+    /// `query_objects` and `query_changes` MUST omit what `/get` would
+    /// hide: the server "MUST NOT include a SceneObject in a ...
+    /// `SceneObject/query` result if the authenticated user does not have
+    /// access to the object's containing SceneRegion" (§Visibility
+    /// Contract). The same applies to SceneRegion and SceneAvatar results.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); production backends
+    /// override it.
+    fn may_access_region(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        region_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, region_id);
+        async { Ok(true) }
+    }
+
+    /// `true` if `object` is in the caller's visibility set: "The server
+    /// SHOULD apply visibility filtering to limit the objects returned
+    /// based on the authenticated user's avatar position within the
+    /// region. The specific visibility algorithm is deployment-defined"
+    /// (draft-atwood-jmap-scene-00 §Visibility Contract).
+    ///
+    /// Consulted only for objects in a region the caller may access
+    /// ([`Self::may_access_region`]). `SceneObject/get` reports an object
+    /// outside the set as `notFound`, and `SceneObject/set` refuses an
+    /// update or destroy of it with `notFound`: "The server MUST NOT return
+    /// `forbidden`, as that would confirm the object still exists."
+    /// `query_objects` and `query_changes` MUST omit such objects as well.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)`: "A simple deployment MAY return all objects in
+    /// the region."
+    fn is_object_visible(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        object: &SceneObject,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, object);
+        async { Ok(true) }
+    }
+
+    /// `true` if the caller has blocked `user_id` (draft-atwood-jmap-scene-00
+    /// §Blocked-Contact Spatial Presence): "SceneAvatar records belonging
+    /// to a blocked ChatContact SHOULD be excluded from `SceneAvatar/get`
+    /// responses, `SceneAvatar/query` results, and `SceneAvatar/queryChanges`
+    /// notifications delivered to the blocking user."
+    ///
+    /// Consulted only for avatars in a region the caller may access:
+    /// "Blocked-contact filtering is applied AFTER the visibility
+    /// filtering". `SceneAvatar/get` reports such an avatar exactly as a
+    /// missing one, in `notFound` ("The server MUST NOT return an error, a
+    /// filtered-result indicator, or any other signal"); `query_objects`
+    /// and `query_changes` MUST omit it as well. The handlers leave
+    /// `activeAvatarCount` the true count, which deployments "SHOULD
+    /// prefer".
+    ///
+    /// The Chat lookup (`ChatContact.blocked`) lives in the binding crate:
+    /// "Without `urn:ietf:params:jmap:chat`, there is no blocked-contact
+    /// list and this filtering does not apply."
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(false)`: no one is blocked. This is the workspace's
+    /// fail-open posture for policy hooks (bd:JMAP-bghk).
+    fn is_user_blocked(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        user_id: &str,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, user_id);
+        async { Ok(false) }
+    }
+
     /// Per-backend capability probe: `true` if this backend supports the
     /// JMAP object type `O` for `account_id`. Not called by the handlers;
     /// consumers use it when assembling their Session capabilities

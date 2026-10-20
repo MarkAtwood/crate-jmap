@@ -21,9 +21,9 @@ use serde_json::{json, Map, Value};
 use crate::backend::SceneBackend;
 use crate::helpers::{
     backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
-    extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, invalid,
-    normalized_orientation, not_found, orientation_ok, reject_unsupported_sort, set_error_value,
-    SetAccumulators, PLACEHOLDER_ID,
+    extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
+    invalid, normalized_orientation, not_found, orientation_ok, reject_unsupported_sort,
+    set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -47,13 +47,16 @@ const FIXED_ON_UPDATE: &[&str] = &["id", "regionId", "userId", "joinedAt"];
 const EJECT_PROPERTIES: &[&str] = &["leftAt", "worldState"];
 
 /// Handle `SceneAvatar/get` (draft-atwood-jmap-scene-00 §SceneAvatar/get):
-/// standard RFC 8620 §5.1 `/get`.
+/// standard RFC 8620 §5.1 `/get`, with an avatar in a region the caller
+/// has no access to ([`SceneBackend::may_access_region`]) or of a user the
+/// caller blocked ([`SceneBackend::is_user_blocked`]) reported as
+/// `notFound` (§Region Access, §Blocked-Contact Spatial Presence).
 pub async fn handle_scene_avatar_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<SceneAvatar, B>(backend, caller, args).await
+    handle_get_visible::<SceneAvatar, B>(backend, caller, args).await
 }
 
 /// Handle `SceneAvatar/changes` (draft-atwood-jmap-scene-00

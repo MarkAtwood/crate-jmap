@@ -3,8 +3,13 @@
 use jmap_types::{GetObject, Id, JmapError, JmapObject, State, UTCDate};
 use serde_json::{json, Map, Value};
 
+use jmap_scene_types::{SceneAvatar, SceneObject, SceneRegion};
+
 use crate::backend::{BackendSetError, SceneBackend, SetError, SetErrorType};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    enforce_max_objects_in_get, not_found_json, optional_arg, serialize_value,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
@@ -181,6 +186,164 @@ pub(crate) async fn fetch_one<O: GetObject + Send + Sync, B: SceneBackend>(
         .await
         .map(|(found, _)| found.into_iter().next())
         .map_err(|e| server_fail_value_from_backend(&e))
+}
+
+/// A Scene type whose `/get` hides records from callers.
+pub(crate) trait Visible: GetObject + Send + Sync {
+    /// The record's `id`.
+    fn id(&self) -> &Id;
+
+    /// The region whose access [`SceneBackend::may_access_region`] decides.
+    fn region(&self) -> &Id;
+
+    /// The type's check after region access: the SceneObject visibility
+    /// set, or the SceneAvatar blocked-contact filter.
+    fn visible<B: SceneBackend>(
+        &self,
+        backend: &B,
+        caller: &B::CallerCtx,
+        account_id: &Id,
+    ) -> impl std::future::Future<Output = Result<bool, B::Error>> + Send;
+}
+
+impl Visible for SceneRegion {
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn region(&self) -> &Id {
+        &self.id
+    }
+
+    async fn visible<B: SceneBackend>(
+        &self,
+        _backend: &B,
+        _caller: &B::CallerCtx,
+        _account_id: &Id,
+    ) -> Result<bool, B::Error> {
+        Ok(true)
+    }
+}
+
+impl Visible for SceneObject {
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn region(&self) -> &Id {
+        &self.region_id
+    }
+
+    fn visible<B: SceneBackend>(
+        &self,
+        backend: &B,
+        caller: &B::CallerCtx,
+        account_id: &Id,
+    ) -> impl std::future::Future<Output = Result<bool, B::Error>> + Send {
+        backend.is_object_visible(caller, account_id, self)
+    }
+}
+
+impl Visible for SceneAvatar {
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn region(&self) -> &Id {
+        &self.region_id
+    }
+
+    async fn visible<B: SceneBackend>(
+        &self,
+        backend: &B,
+        caller: &B::CallerCtx,
+        account_id: &Id,
+    ) -> Result<bool, B::Error> {
+        Ok(!backend
+            .is_user_blocked(caller, account_id, &self.user_id)
+            .await?)
+    }
+}
+
+/// `true` if the caller may see `o`: region access first, then the type's
+/// own check ("Blocked-contact filtering is applied AFTER the visibility
+/// filtering").
+pub(crate) async fn is_visible<O: Visible, B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    o: &O,
+) -> Result<bool, B::Error> {
+    Ok(backend
+        .may_access_region(caller, account_id, o.region())
+        .await?
+        && o.visible(backend, caller, account_id).await?)
+}
+
+/// RFC 8620 §5.1 `/get` of `O` that reports a record the caller may not
+/// see ([`is_visible`]) exactly as a missing one: a requested id goes to
+/// `notFound` (in request order, as are the missing ids), and a full
+/// fetch (`ids` `null`) leaves it out. This is the
+/// "MUST return `notFound` (not `forbidden`)" of draft-atwood-jmap-scene-00
+/// §Region Access, and the "MUST NOT return an error, a filtered-result
+/// indicator, or any other signal" of §Blocked-Contact Spatial Presence.
+///
+/// ponytail: one [`is_visible`] call per returned record, O(records)
+/// hook calls on a full fetch, and an O(ids × records) `notFound` scan
+/// bounded by `maxObjectsInGet`; a backend that wants fewer serves a
+/// `/get` of its own.
+pub(crate) async fn handle_get_visible<O: Visible, B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    let (account_id, mut args) = extract_account_id(args)?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
+    let ids: Option<Vec<Id>> = optional_arg(&mut args, "ids", || {
+        JmapError::invalid_arguments("ids must be an Id array")
+    })?;
+    let properties: Option<Vec<String>> = optional_arg(&mut args, "properties", || {
+        JmapError::invalid_arguments("properties must be a string array")
+    })?;
+
+    let (fetched, _) = backend
+        .get_objects::<O>(caller, &account_id, ids.as_deref(), properties.as_deref())
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let mut list = Vec::with_capacity(fetched.len());
+    for o in fetched {
+        if is_visible(backend, caller, &account_id, &o)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            list.push(o);
+        }
+    }
+    // `notFound` in request order, so a hidden id cannot be told from a
+    // missing one by its position either.
+    let not_found: Vec<Id> = ids
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|id| !list.iter().any(|o| o.id() == id))
+        .collect();
+
+    let state = backend
+        .get_state::<O>(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": serialize_value(&list)?,
+        "notFound": not_found_json(&not_found),
+    })))
 }
 
 /// The sortable part of a UTCDate: `YYYY-MM-DDTHH:MM:SS`.
