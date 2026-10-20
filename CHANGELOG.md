@@ -285,6 +285,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: `Chat` has a typed
+  `active_call_id: Option<Id>` for the server-set `activeCallId`
+  property (draft-atwood-jmap-chat-00 §Chat, `String|null`). The value
+  no longer lands in `Chat.extra["activeCallId"]`, and a `Chat` with no
+  active call now serializes `"activeCallId": null`. `Chat/set` still
+  rejects it as a patch key.
+
 - **BREAKING** **jmap-chat-server**: `OwnerFlags`, `PushItem`, `BuiltPush`
   and `StoreOutcome` are `#[non_exhaustive]`, so a field or variant can be
   added after the 0.4 freeze without a breaking change. Code outside the

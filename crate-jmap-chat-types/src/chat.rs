@@ -220,6 +220,12 @@ pub struct Chat {
     /// §4.10). Group chats only; absent while the group is open.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub closed_at: Option<UTCDate>,
+    /// The server-set `activeCallId` property (draft-atwood-jmap-chat-00
+    /// §4.10): the id of the active VTCCall bound to this Chat. Typed
+    /// `String|null`, so `None` serializes as `null`, and it is not a
+    /// `Chat/set` patch key.
+    #[serde(default)]
+    pub active_call_id: Option<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -287,6 +293,7 @@ impl Chat {
             receipt_sharing: None,
             message_expiry_seconds: None,
             closed_at: None,
+            active_call_id: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -526,5 +533,52 @@ mod tests {
         );
         let out = serde_json::to_value(&open).expect("serialize Chat");
         assert!(out.get("closedAt").is_none(), "{out}");
+    }
+
+    // Oracle: draft-atwood-jmap-chat-00 L567-568: "`activeCallId`
+    // (String|null, server-set): ... the id of a VTCCall that is currently
+    // active and bound to this Chat ... `null` when no call is active or
+    // VTC is not available." Hand-written JSON.
+    #[test]
+    fn chat_active_call_id_typed_and_null_when_no_call() {
+        let raw = serde_json::json!({
+            "id": "c1",
+            "kind": "group",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "activeCallId": "call1"
+        });
+        let c: Chat = serde_json::from_value(raw).expect("deserialize Chat");
+        assert_eq!(c.active_call_id.as_ref().map(AsRef::as_ref), Some("call1"));
+        assert!(c.extra.is_empty(), "activeCallId must not land in extra");
+        let back = serde_json::to_value(&c).expect("serialize Chat");
+        assert_eq!(back["activeCallId"], "call1");
+
+        let raw = serde_json::json!({
+            "id": "c2",
+            "kind": "group",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "activeCallId": null
+        });
+        let c: Chat = serde_json::from_value(raw).expect("deserialize Chat");
+        assert!(c.active_call_id.is_none());
+        assert!(c.extra.is_empty(), "activeCallId must not land in extra");
+
+        let idle = Chat::new(
+            Id::from("c3"),
+            ChatKind::Group,
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            0,
+            vec![],
+            false,
+            true,
+        );
+        let out = serde_json::to_value(&idle).expect("serialize Chat");
+        assert_eq!(
+            out.get("activeCallId"),
+            Some(&serde_json::Value::Null),
+            "{out}"
+        );
     }
 }
