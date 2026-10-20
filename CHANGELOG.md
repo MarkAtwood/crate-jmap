@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `ChatBackend::space_extension_properties` lets a
+  Space extension own extra top-level Space properties, such as
+  `calendarId` (draft-atwood-jmap-chat-calendars-00) and `taskListId`
+  (draft-atwood-jmap-chat-tasks-00). `Space/set` stores a listed key on
+  create and passes it to `apply_space_metadata_patch` (behind the
+  `manage_space` gate) on update, where `null` removes it. The default
+  list is empty, so other keys are still rejected as `invalidProperties`.
 - **jmap-chat-server**: `sweep_expired` (module `expiry`) applies the
   time-driven rules of draft-atwood-jmap-chat-00 for one account at a
   caller-supplied time: it hard-deletes Messages past `senderExpiresAt`,

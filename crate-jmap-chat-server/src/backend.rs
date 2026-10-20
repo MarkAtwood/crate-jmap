@@ -1309,6 +1309,40 @@ pub trait ChatBackend: JmapBackend {
         Output = Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>>,
     > + Send;
 
+    /// Extra top-level Space properties owned by a Space extension, such
+    /// as `calendarId` (draft-atwood-jmap-chat-calendars-00 §calendarId)
+    /// or `taskListId` (draft-atwood-jmap-chat-tasks-00 §taskListId).
+    ///
+    /// `Space/set` accepts a listed key instead of rejecting it as
+    /// `invalidProperties`. On `create`, a non-null value is stored in
+    /// [`jmap_chat_types::Space::extra`] through `create_object`. In an
+    /// `update` patch, the key travels in
+    /// [`SpaceMetadataPatch::extra`] through
+    /// [`Self::apply_space_metadata_patch`], so it is subject to that
+    /// method's `manage_space` gate; a `null` value removes the property
+    /// (RFC 7396). `Space/get` returns stored values like any other
+    /// property. The non-member restricted view omits them.
+    ///
+    /// The handler does not validate values. A backend that must check
+    /// one (for example, that `taskListId` names an existing TaskList on
+    /// the same account) rejects it in `create_object` or
+    /// `apply_space_metadata_patch` with an `invalidProperties` SetError
+    /// naming the key. A listed key that is already a core Space property
+    /// or a structural patch key keeps its core meaning.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns an empty list, so no extension property is accepted.
+    /// Backends that implement a Space extension override it.
+    fn space_extension_properties(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> &'static [&'static str] {
+        let _ = (caller, account_id);
+        &[]
+    }
+
     /// Whether the backend should reject any [`Self::apply_space_patch`]
     /// that would leave the target Space with zero members holding
     /// either `manage_members` or `manage_space` permission.
