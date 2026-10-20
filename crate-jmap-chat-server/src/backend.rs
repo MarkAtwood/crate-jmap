@@ -2203,6 +2203,53 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(None)) }
     }
 
+    /// FileNode resolution consulted by `handle_message_set` for each
+    /// create Attachment that carries `filenodeId`.
+    ///
+    /// Per draft-atwood-jmap-chat-filenode-00 §filenodeId: "When
+    /// `filenodeId` is present on an Attachment, the fields `blobId`,
+    /// `filename`, `contentType`, `size`, and `sha256` become OPTIONAL for
+    /// that Attachment entry; the server MUST populate any absent fields
+    /// from the referenced FileNode's properties before storage", and the
+    /// server "MUST verify that the referenced FileNode exists and belongs
+    /// to the same Space" and that "the sender has at least read access".
+    /// `chat` is the message's target Chat. A deployment offering
+    /// `urn:ietf:params:jmap:chat:filenode` implements this with
+    /// `jmap_chat_filenode_server::resolve_filenode_attachment`.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per such Attachment, AFTER the `maxAttachmentsPerMessage`
+    /// check and the `may_send_message` gate, and BEFORE the
+    /// draft-atwood-jmap-chat-00 §Input Validation checks, the
+    /// `maxAttachmentBytes` check and [`Self::attachment_blob`], which all
+    /// apply to the returned Attachment.
+    ///
+    /// # Return mapping
+    ///
+    /// - `Ok(Ok(Some(attachment)))`: store `attachment`, the entry with
+    ///   its absent fields filled.
+    /// - `Ok(Ok(None))`: the extension is not active; the entry must carry
+    ///   all five fields, as an Attachment without `filenodeId` does.
+    /// - `Ok(Err(set_error))`: reject the create with `set_error`.
+    /// - `Err(e)`: `serverFail`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(None))`: no FileNode store, matching the fail-open
+    /// hooks above.
+    fn filenode_attachment(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _attachment: &jmap_chat_types::AttachmentCreate,
+    ) -> impl std::future::Future<
+        Output = Result<Result<Option<jmap_chat_types::Attachment>, SetError>, Self::Error>,
+    > + Send {
+        async { Ok(Ok(None)) }
+    }
+
     /// Visibility gate consulted by `handle_message_get` and
     /// `handle_message_query`.
     ///

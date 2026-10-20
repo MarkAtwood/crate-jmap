@@ -25,8 +25,8 @@
 
 use jmap_chat_types::query::{Filter, MessageComparator, MessageFilter};
 use jmap_chat_types::{
-    Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
-    PresenceStatus, ReadPosition, Space, BROADCAST_MENTION_SCOPES,
+    Attachment, AttachmentCreate, BroadcastMention, Chat, DeliveryState, Mention, Message,
+    MessageAction, PresenceStatus, ReadPosition, Space, BROADCAST_MENTION_SCOPES,
 };
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
@@ -574,8 +574,8 @@ const MAX_SUBJECT_BYTES: usize = 1024;
 /// RFC 8620 §1.3 UnsignedInt upper bound, 2^53 - 1.
 const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 
-/// Copy the optional `Message/set` create properties `attachments`,
-/// `mentions`, `broadcastMentions`, `actions`, `topicId`, `subject` and
+/// Copy the optional `Message/set` create properties `mentions`,
+/// `broadcastMentions`, `actions`, `topicId`, `subject` and
 /// `expiresAfterReadSeconds` from `obj` onto `msg`, applying the
 /// draft-atwood-jmap-chat-00 §Input Validation checks. An absent or
 /// `null` property keeps the default. `broadcastMentions` must already
@@ -585,13 +585,6 @@ const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 /// `invalidProperties` SetError.
 fn apply_create_optionals(obj: &Value, msg: &mut Message) -> Result<(), &'static str> {
     let get = |key: &str| obj.get(key).filter(|v| !v.is_null());
-    if let Some(v) = get("attachments") {
-        let attachments = Vec::<Attachment>::deserialize(v).map_err(|_| "attachments")?;
-        if !attachments.iter().all(valid_attachment) {
-            return Err("attachments");
-        }
-        msg.attachments = attachments;
-    }
     if let Some(v) = get("mentions") {
         msg.mentions = Vec::<Mention>::deserialize(v).map_err(|_| "mentions")?;
     }
@@ -627,6 +620,64 @@ fn apply_create_optionals(obj: &Value, msg: &mut Message) -> Result<(), &'static
     Ok(())
 }
 
+/// Build a `Message/set` create's `attachments` from its wire value `v`
+/// for target Chat `chat`; `Err` holds the SetError value.
+///
+/// draft-atwood-jmap-chat-00 §Denial of Service: "Enforce
+/// `maxAttachmentsPerMessage` at creation and update time"; it is checked
+/// first, so no entry is resolved past the cap, and is `tooLarge`, the
+/// error §Account-Level Capability Object names for `maxBodyBytes`. An
+/// entry with `filenodeId` goes to [`ChatBackend::filenode_attachment`]
+/// (draft-atwood-jmap-chat-filenode-00 §filenodeId). Any other entry, or
+/// one the hook leaves unresolved, must carry every Attachment field. Each
+/// result must pass [`valid_attachment`]. A malformed entry is
+/// `invalidProperties` naming `attachments`.
+async fn create_attachments<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    limits: &ChatLimits,
+    chat: &Chat,
+    v: &Value,
+) -> Result<Vec<Attachment>, Value> {
+    let invalid = || json!({ "type": "invalidProperties", "properties": ["attachments"] });
+    let entries = v.as_array().ok_or_else(invalid)?;
+    if u64::try_from(entries.len()).map_or(true, |n| n > limits.max_attachments_per_message) {
+        return Err(json!({
+            "type": "tooLarge",
+            "description": format!(
+                "attachments exceed maxAttachmentsPerMessage ({})",
+                limits.max_attachments_per_message
+            ),
+        }));
+    }
+    let mut attachments = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let requested = AttachmentCreate::deserialize(entry).map_err(|_| invalid())?;
+        let filled = if requested.filenode_id.is_some() {
+            match backend
+                .filenode_attachment(caller, account_id, chat, &requested)
+                .await
+            {
+                Ok(Ok(filled)) => filled,
+                Ok(Err(set_err)) => return Err(set_error_value(&set_err)),
+                Err(e) => return Err(server_fail_value_from_backend(&e)),
+            }
+        } else {
+            None
+        };
+        let attachment = match filled {
+            Some(a) => a,
+            None => Attachment::deserialize(entry).map_err(|_| invalid())?,
+        };
+        if !valid_attachment(&attachment) {
+            return Err(invalid());
+        }
+        attachments.push(attachment);
+    }
+    Ok(attachments)
+}
+
 /// draft-atwood-jmap-chat-00 §Attachment and §Input Validation:
 /// `filename` holds no `/`, `\` or null byte, `contentType` is a
 /// syntactically valid MIME type, and `sha256` is lowercase hex.
@@ -641,15 +692,14 @@ fn valid_attachment(a: &Attachment) -> bool {
             .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-/// Enforce the attachment limits and blob checks on a `Message/set`
-/// create's validated `attachments`; `None` on success, else the SetError
-/// value.
+/// Enforce the size limit and blob checks on a `Message/set` create's
+/// `attachments` from [`create_attachments`]; `None` on success, else the
+/// SetError value.
 ///
 /// draft-atwood-jmap-chat-00 §Denial of Service: "Enforce `maxBodyBytes`
-/// and `maxAttachmentBytes` at parse time, before any fetch or storage.
-/// Enforce `maxAttachmentsPerMessage` at creation and update time." Both
-/// limits are `tooLarge`, the error §Account-Level Capability Object names
-/// for `maxBodyBytes`. Then each Attachment's `size` and `sha256` are
+/// and `maxAttachmentBytes` at parse time, before any fetch or storage."
+/// The limit is `tooLarge`, the error §Account-Level Capability Object
+/// names for `maxBodyBytes`. Then each Attachment's `size` and `sha256` are
 /// checked against [`ChatBackend::attachment_blob`]; a mismatch is
 /// `invalidProperties` naming `attachments` (§Input Validation).
 async fn check_attachments<B: ChatBackend>(
@@ -659,15 +709,6 @@ async fn check_attachments<B: ChatBackend>(
     limits: &ChatLimits,
     attachments: &[Attachment],
 ) -> Option<Value> {
-    if u64::try_from(attachments.len()).map_or(true, |n| n > limits.max_attachments_per_message) {
-        return Some(json!({
-            "type": "tooLarge",
-            "description": format!(
-                "attachments exceed maxAttachmentsPerMessage ({})",
-                limits.max_attachments_per_message
-            ),
-        }));
-    }
     if attachments
         .iter()
         .any(|a| a.size > limits.max_attachment_bytes)
@@ -1366,6 +1407,15 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
             msg.burn_on_read = burn_on_read;
 
+            if let Some(v) = obj_val.get("attachments").filter(|v| !v.is_null()) {
+                match create_attachments(backend, caller, &account_id, &limits, &chat, v).await {
+                    Ok(attachments) => msg.attachments = attachments,
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), err);
+                        continue;
+                    }
+                }
+            }
             if let Err(property) = apply_create_optionals(obj_val, &mut msg) {
                 not_created.insert(
                     create_id.clone(),

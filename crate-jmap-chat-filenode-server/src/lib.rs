@@ -14,6 +14,7 @@
 //! | `FileNodeBackend::create_object::<FileNode>`, before the insert | [`check_root_create`] |
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
 //! | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
+//! | `ChatBackend::filenode_attachment` | [`resolve_filenode_attachment`] |
 //!
 //! Each function takes the backends it reads, with their own caller
 //! contexts and error types.
@@ -23,19 +24,20 @@
 use std::collections::HashSet;
 use std::fmt;
 
-use jmap_chat_server::{ChatBackend, MANAGE_SPACE};
-use jmap_chat_types::Space;
+use jmap_chat_server::{ChatBackend, MANAGE_CHANNELS, MANAGE_SPACE, SEND, VIEW};
+use jmap_chat_types::{Attachment, AttachmentCreate, Chat, ChatKind, Space};
 use jmap_filenode_server::FileNodeBackend;
 use jmap_filenode_types::{FileNode, FileNodeFilterCondition, NodeRole};
 use jmap_server::{BackendQueryError, BackendSetError, SetError, SetErrorType};
 use jmap_types::Id;
 
-/// A storage failure while checking a FileNode create.
+/// A storage failure while checking a FileNode create or a `filenodeId`
+/// Attachment.
 #[derive(Debug)]
 pub enum RootCheckError<C, F> {
     /// The Chat backend failed to read the Space.
     Chat(C),
-    /// The FileNode backend failed the `role` and `spaceId` query.
+    /// The FileNode backend failed to read the Space file tree.
     Files(BackendQueryError<F>),
 }
 
@@ -43,7 +45,7 @@ impl<C, F> fmt::Display for RootCheckError<C, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
             Self::Chat(_) => "reading the Space failed",
-            Self::Files(_) => "querying the Space file tree root failed",
+            Self::Files(_) => "reading the Space file tree failed",
         })
     }
 }
@@ -129,10 +131,10 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
         )
         .await
         .map_err(RootCheckError::Chat)?;
-    let Some(member) = spaces
+    let Some(permissions) = spaces
         .iter()
         .find(|s| &s.id == space_id)
-        .and_then(|s| Some((s, s.members.iter().find(|m| &m.id == account_id)?)))
+        .and_then(|s| member_permissions(s, account_id, everyone))
     else {
         return Ok(Err(forbidden(
             "spaceId does not name a Space the caller is a member of",
@@ -161,15 +163,7 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
             .with_description("the Space already has a file tree root")));
     }
 
-    let (space, member) = member;
-    let role_ids: HashSet<&Id> = member.role_ids.iter().collect();
-    let may_manage = everyone.contains(MANAGE_SPACE)
-        || space
-            .roles
-            .iter()
-            .filter(|r| role_ids.contains(&r.id))
-            .any(|r| r.permissions.iter().any(|p| p == MANAGE_SPACE));
-    Ok(if may_manage {
+    Ok(if permissions.contains(MANAGE_SPACE) {
         Ok(())
     } else {
         Err(forbidden(
@@ -289,6 +283,188 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
     files
         .create_object(caller, account_id, "spaceFileTree", root)
         .await
+}
+
+/// Resolve draft-atwood-jmap-chat-filenode-00 §filenodeId for an
+/// Attachment of a `Message/set` create in `message_chat`, filling the
+/// fields the client left out. Call it from
+/// `ChatBackend::filenode_attachment` and return its result.
+///
+/// An `attachment` without `filenodeId` gives `Ok(Ok(None))`. Otherwise,
+/// in this order:
+///
+/// - "the server MUST verify that the referenced FileNode exists and
+///   belongs to the same Space. If validation fails, the server MUST
+///   return a SetError of type `invalidProperties` naming `filenodeId`."
+///   The node must have an ancestor that is the Space file tree root
+///   (role `urn:jmap:chat:filenode:space`, `spaceId` the Chat's
+///   `spaceId`); §Attachment filenodeId Validation: "Servers SHOULD NOT
+///   permit a `filenodeId` referencing a FileNode from a different Space
+///   or from outside any Space file tree". A message to a Chat that is
+///   not a channel has no Space, so it fails the same way. A node without
+///   a blob, such as a Directory, fails too, as "the server uses that
+///   FileNode's blob as the attachment blob".
+/// - "The sender has at least read access to the FileNode under the
+///   mapping in {{permissions}}": every row of that table grants Read, so
+///   the sender must be a Space member holding `view`, `send`,
+///   `manage_channels` or `manage_space` through a SpaceRole or
+///   `everyone`, the implicit `@everyone` role's permissions. Otherwise
+///   the create fails with `forbidden`, which the draft does not name.
+/// - "the server MUST populate any absent fields from the referenced
+///   FileNode's properties": `blobId`, `filename`, `contentType`, `size`
+///   and `sha256` from the node's `blobId`, `name`, `mediaType`, `size` and
+///   `sha256`. "If the client supplies these fields, the server MAY
+///   validate them against the FileNode and MAY reject the create with an
+///   `invalidProperties` SetError naming `attachments` if they conflict":
+///   a supplied `blobId`, `size` or `sha256` that differs from the node's
+///   is rejected, as those describe the blob; a supplied `filename` or
+///   `contentType` is kept. A field that is neither supplied nor on the
+///   node is also `invalidProperties` naming `attachments`.
+///
+/// The sender is the owner of `account_id`, named by `account_id` in
+/// Space member lists, and `account_id` is the account of both the Space
+/// and the FileNode, as for [`check_root_create`]. The node is only read:
+/// "The FileNode is not modified when linked as an attachment."
+///
+/// # Errors
+///
+/// Returns [`RootCheckError::Files`] if reading the node or its ancestors
+/// fails, and [`RootCheckError::Chat`] if reading the Space fails.
+#[allow(clippy::too_many_arguments)]
+pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
+    files: &F,
+    files_caller: &F::CallerCtx,
+    account_id: &Id,
+    message_chat: &Chat,
+    attachment: &AttachmentCreate,
+    everyone: &HashSet<String>,
+) -> Result<Result<Option<Attachment>, SetError>, RootCheckError<C::Error, F::Error>> {
+    let Some(node_id) = &attachment.filenode_id else {
+        return Ok(Ok(None));
+    };
+    let not_in_space = || {
+        Ok(Err(SetError::new(SetErrorType::InvalidProperties)
+            .with_properties(["filenodeId"])
+            .with_description(
+                "filenodeId does not name a file in the channel's Space file tree",
+            )))
+    };
+    let space_id = match &message_chat.space_id {
+        Some(id) if message_chat.kind == ChatKind::Channel => id,
+        _ => return not_in_space(),
+    };
+
+    let node_ids = std::slice::from_ref(node_id);
+    let files_err = |e| RootCheckError::Files(BackendQueryError::Other(e));
+    let (nodes, _) = files
+        .get_objects::<FileNode>(files_caller, account_id, Some(node_ids), None)
+        .await
+        .map_err(files_err)?;
+    let Some(node) = nodes.into_iter().find(|n| &n.id == node_id) else {
+        return not_in_space();
+    };
+    let Some(blob_id) = node.blob_id.clone() else {
+        return not_in_space();
+    };
+    let ancestors = files
+        .get_ancestors(files_caller, account_id, node_ids)
+        .await
+        .map_err(files_err)?;
+    if !ancestors.iter().any(|n| {
+        n.parent_id.is_none()
+            && n.role == Some(NodeRole::ChatSpace)
+            && n.space_id.as_ref() == Some(space_id)
+    }) {
+        return not_in_space();
+    }
+
+    let (spaces, _) = chat
+        .get_objects::<Space>(
+            chat_caller,
+            account_id,
+            Some(std::slice::from_ref(space_id)),
+            None,
+        )
+        .await
+        .map_err(RootCheckError::Chat)?;
+    let may_read = spaces
+        .iter()
+        .find(|s| &s.id == space_id)
+        .and_then(|s| member_permissions(s, account_id, everyone))
+        .is_some_and(|p| {
+            [VIEW, SEND, MANAGE_CHANNELS, MANAGE_SPACE]
+                .iter()
+                .any(|r| p.contains(r))
+        });
+    if !may_read {
+        return Ok(Err(forbidden(
+            "the sender has no read access to the Space file tree",
+        )));
+    }
+
+    // The node's sha256 is readable by the sender (FileNode/get), so the
+    // plain comparison leaks nothing.
+    let conflicts = attachment.blob_id.as_ref().is_some_and(|b| *b != blob_id)
+        || attachment.size.is_some_and(|s| node.size != Some(s))
+        || attachment
+            .sha256
+            .as_ref()
+            .is_some_and(|h| node.sha256.as_ref().map(|d| d.as_str()) != Some(h.as_str()));
+    let invalid = |description: &str| {
+        Ok(Err(SetError::new(SetErrorType::InvalidProperties)
+            .with_properties(["attachments"])
+            .with_description(description)))
+    };
+    if conflicts {
+        return invalid("blobId, size or sha256 conflicts with the FileNode");
+    }
+
+    let mut filled = serde_json::to_value(attachment).expect("AttachmentCreate serializes to JSON");
+    if let Some(obj) = filled.as_object_mut() {
+        for (key, value) in [
+            ("blobId", Some(blob_id.as_ref().into())),
+            ("filename", Some(node.name.clone().into())),
+            ("contentType", node.media_type.clone().map(Into::into)),
+            ("size", node.size.map(Into::into)),
+            ("sha256", node.sha256.as_ref().map(|d| d.as_str().into())),
+        ] {
+            if let Some(v) = value {
+                obj.entry(key).or_insert(v);
+            }
+        }
+    }
+    match serde_json::from_value(filled) {
+        Ok(filled) => Ok(Ok(Some(filled))),
+        Err(_) => invalid("the FileNode lacks a required Attachment field"),
+    }
+}
+
+/// The Space permissions `account_id` holds as a member of `space`: the
+/// union over the member's SpaceRoles plus `everyone`, the implicit
+/// `@everyone` role's permissions (draft-atwood-jmap-chat-00 §Space
+/// Permission Resolution step 1). `None` if `account_id` is not a member.
+/// ChannelPermission overrides are not applied: they "do not restrict
+/// file-tree access" (draft-atwood-jmap-chat-filenode-00 §Permission
+/// Mapping).
+fn member_permissions<'a>(
+    space: &'a Space,
+    account_id: &Id,
+    everyone: &'a HashSet<String>,
+) -> Option<HashSet<&'a str>> {
+    let member = space.members.iter().find(|m| &m.id == account_id)?;
+    let role_ids: HashSet<&Id> = member.role_ids.iter().collect();
+    Some(
+        space
+            .roles
+            .iter()
+            .filter(|r| role_ids.contains(&r.id))
+            .flat_map(|r| r.permissions.iter())
+            .chain(everyone)
+            .map(String::as_str)
+            .collect(),
+    )
 }
 
 /// A `forbidden` SetError with `description`.

@@ -28,6 +28,21 @@ wire behaviour that a conforming peer can observe.
   inserts a Space's file tree root for a server advertising
   `autoCreateFileTree: true` (draft-atwood-jmap-chat-filenode-00
   §Account-Level Capability Object).
+- **jmap-chat-server**: `ChatBackend::filenode_attachment`, consulted by
+  `Message/set` create for each Attachment carrying `filenodeId`, returns
+  the Attachment with its absent `blobId`, `filename`, `contentType`,
+  `size` and `sha256` filled in, or a SetError. The default returns
+  `None`, leaving the five fields required as before. The
+  `maxAttachmentsPerMessage` check now runs before any entry is resolved
+  (draft-atwood-jmap-chat-filenode-00 §filenodeId).
+- **jmap-chat-filenode-server**: `resolve_filenode_attachment`, called from
+  `ChatBackend::filenode_attachment`, requires a `filenodeId` to name a file
+  in the channel's Space file tree (`invalidProperties` naming
+  `filenodeId`) that the sender can read under §Permission Mapping
+  (`forbidden`), rejects a conflicting `blobId`, `size` or `sha256`
+  (`invalidProperties` naming `attachments`), and fills the absent fields
+  from the FileNode (draft-atwood-jmap-chat-filenode-00 §filenodeId,
+  §Attachment filenodeId Validation).
 - **jmap-filenode-types**, **jmap-filenode-server**:
   `FileNodeFilterCondition.space_id` (`spaceId` on the wire), matched by the
   in-memory backend against the node's `spaceId` property, so
