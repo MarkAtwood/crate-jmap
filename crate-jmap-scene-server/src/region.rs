@@ -26,7 +26,7 @@ use jmap_server::{
     HandlerOutput, SetError, SetErrorType,
 };
 
-const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
+pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 const JMAP_VTC_URI: &str = "urn:ietf:params:jmap:vtc";
 
 /// "The server sets `id`, `accountId`, `activeAvatarCount` (to `0`),

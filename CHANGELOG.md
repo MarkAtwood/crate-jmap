@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: `should_deliver`, the delivery-time check of
+  draft-atwood-jmap-scene-wss-00 for one Scene event on one connection —
+  `eventTypes` and `regionIds` filters, region access and an active avatar
+  of the recipient in the event's region, the `SceneObject/get`
+  visibility contract for object and interaction events, and
+  blocked-sender suppression (`userId`, or a non-null `updatedBy`) only
+  when the account has `urn:ietf:params:jmap:chat`. `validate_interaction`
+  checks a client-sent `SceneInteractionEvent` before relay: `userId` is
+  the caller, an active avatar in `regionId`, and an `interactable`
+  object in that region.
 - **jmap-scene-server**: `ephemeral` module for draft-atwood-jmap-scene-wss-00
   §SceneStreamEnable. `SceneEphemeralSubscription::replace_with` replaces
   the connection's subscription in its entirety, drops unrecognized

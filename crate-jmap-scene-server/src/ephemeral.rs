@@ -18,9 +18,25 @@
 //! region produces events is decided per event at delivery time, not here.
 //! That lets events "begin (or resume) without a new `SceneStreamEnable`"
 //! when the user enters or re-enters a listed region.
+//!
+//! # Delivery and relay
+//!
+//! Before sending an event to a connection, the transport asks
+//! [`should_deliver`] whether that connection may receive it. A
+//! `SceneInteractionEvent` frame a client sends goes through
+//! [`validate_interaction`] first; the transport silently discards it on
+//! `false` and otherwise relays it to every connection for which
+//! [`should_deliver`] holds (§Client-to-Server Submission).
 
-use jmap_scene_types::{SceneStreamEnable, SCENE_EVENT_TYPES};
+use jmap_scene_types::{
+    ObjectEventKind, SceneAvatar, SceneEvent, SceneInteractionEvent, SceneObject,
+    SceneStreamEnable, SCENE_EVENT_TYPES,
+};
 use jmap_types::{Id, JmapError};
+
+use crate::helpers::is_visible;
+use crate::region::JMAP_CHAT_URI;
+use crate::SceneBackend;
 
 /// Which regions a subscription covers.
 #[non_exhaustive]
@@ -129,4 +145,170 @@ impl SceneEphemeralSubscription {
     pub fn filter(&self) -> Option<&SceneStreamFilter> {
         self.active.as_ref()
     }
+}
+
+/// Whether `event` may be delivered on a connection whose subscription is
+/// `subscription`.
+///
+/// `caller` is the connection's authenticated identity, the recipient.
+/// The transport calls this at delivery time, for each event and
+/// connection. The originating user is never told of a suppression
+/// (draft-atwood-jmap-scene-wss-00 §Blocked-Sender Suppression).
+///
+/// Delivery needs an active subscription whose `eventTypes` includes the
+/// event's `@type`; an unrecognized `@type` is never delivered. All
+/// three events are per-region (§Event Summary): the event's region must
+/// be in the subscription's [`RegionScope`], the recipient must have
+/// access to it ([`SceneBackend::may_access_region`]) and an active
+/// avatar (`leftAt` `null`) in it. Then:
+///
+/// - `SceneObjectEvent` and `SceneInteractionEvent` need the named object
+///   to pass the `SceneObject/get` visibility contract for the recipient
+///   ([`SceneBackend::is_object_visible`]; §Visibility Filtering). A
+///   `"destroyed"` event whose object the backend no longer returns has
+///   no record to check and needs region access only; any other event
+///   for an object the backend does not return is dropped.
+/// - When the account has `urn:ietf:params:jmap:chat`
+///   ([`SceneBackend::has_capability`]), the event is dropped if the
+///   recipient blocked its originating user
+///   ([`SceneBackend::is_user_blocked`]): the `userId` of a
+///   `SceneAvatarEvent` or `SceneInteractionEvent`, the `updatedBy` of a
+///   `SceneObjectEvent`. A `SceneObjectEvent` with `updatedBy` `null` is
+///   never suppressed. Without Chat no blocked-sender filtering applies.
+///
+/// This function does not rate-limit; the §Rate Limiting SHOULD rules are
+/// the transport's or deployment's to apply.
+///
+/// # Errors
+///
+/// Returns the backend's error if reading the recipient's userId, its
+/// avatars, the object, region access, visibility or block status fails.
+pub async fn should_deliver<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    subscription: &SceneEphemeralSubscription,
+    event: &SceneEvent,
+) -> Result<bool, B::Error> {
+    let Some(filter) = subscription.filter() else {
+        return Ok(false);
+    };
+    if !filter.includes(event.type_name()) {
+        return Ok(false);
+    }
+    let (region_id, object, origin) = match event {
+        SceneEvent::Avatar(e) => (&e.region_id, None, Some(e.user_id.as_str())),
+        SceneEvent::Object(e) => (
+            &e.region_id,
+            Some((&e.object_id, e.event == ObjectEventKind::Destroyed)),
+            e.updated_by.as_deref(),
+        ),
+        SceneEvent::Interaction(e) => (
+            &e.region_id,
+            Some((&e.object_id, false)),
+            Some(e.user_id.as_str()),
+        ),
+        _ => return Ok(false),
+    };
+    if !filter.region_ids().covers(region_id)
+        || !backend
+            .may_access_region(caller, account_id, region_id)
+            .await?
+    {
+        return Ok(false);
+    }
+    let me = backend.caller_user_id(caller, account_id).await?;
+    if !has_active_avatar(backend, caller, account_id, &me, region_id).await? {
+        return Ok(false);
+    }
+    if let Some((object_id, destroyed)) = object {
+        let visible = match fetch_object(backend, caller, account_id, object_id).await? {
+            Some(o) => {
+                o.region_id == *region_id && is_visible(backend, caller, account_id, &o).await?
+            }
+            None => destroyed,
+        };
+        if !visible {
+            return Ok(false);
+        }
+    }
+    Ok(match origin {
+        Some(user) if backend.has_capability(caller, account_id, JMAP_CHAT_URI) => {
+            !backend.is_user_blocked(caller, account_id, user).await?
+        }
+        _ => true,
+    })
+}
+
+/// Whether a `SceneInteractionEvent` frame a client sent may be relayed
+/// (draft-atwood-jmap-scene-wss-00 §Client-to-Server Submission).
+///
+/// `caller` is the sending connection's authenticated identity. The frame
+/// is relayable when its `userId` is the caller's userId, the caller has
+/// an active avatar (`leftAt` `null`) in its `regionId`, and its
+/// `objectId` is a SceneObject in that region with `interactable` `true`.
+/// On `false` the transport "MUST silently discard the frame (no error is
+/// returned to the sender)"; on `true` it relays the event, filtered per
+/// recipient by [`should_deliver`].
+///
+/// The opaque `data` is not inspected; size limits on it are
+/// deployment-defined, as is the §Rate Limiting SHOULD of five events per
+/// user per region per second.
+///
+/// # Errors
+///
+/// Returns the backend's error if reading the caller's userId, its
+/// avatars or the object fails.
+pub async fn validate_interaction<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    event: &SceneInteractionEvent,
+) -> Result<bool, B::Error> {
+    let me = backend.caller_user_id(caller, account_id).await?;
+    if event.user_id != me
+        || !has_active_avatar(backend, caller, account_id, &me, &event.region_id).await?
+    {
+        return Ok(false);
+    }
+    Ok(fetch_object(backend, caller, account_id, &event.object_id)
+        .await?
+        .is_some_and(|o| o.region_id == event.region_id && o.interactable))
+}
+
+/// `true` if `user_id` has an avatar in `region_id` with `leftAt` `null`.
+///
+/// ponytail: reads every SceneAvatar in the account; O(avatars) per
+/// check. Upgrade: a backend hook for the user's active avatar once a
+/// deployment needs it.
+async fn has_active_avatar<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    user_id: &str,
+    region_id: &Id,
+) -> Result<bool, B::Error> {
+    let (avatars, _) = backend
+        .get_objects::<SceneAvatar>(caller, account_id, None, None)
+        .await?;
+    Ok(avatars
+        .iter()
+        .any(|a| a.region_id == *region_id && a.user_id == user_id && a.left_at.is_none()))
+}
+
+async fn fetch_object<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    object_id: &Id,
+) -> Result<Option<SceneObject>, B::Error> {
+    let (objects, _) = backend
+        .get_objects::<SceneObject>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(object_id)),
+            None,
+        )
+        .await?;
+    Ok(objects.into_iter().next())
 }
