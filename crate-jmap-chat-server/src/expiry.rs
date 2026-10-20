@@ -14,6 +14,10 @@
 //!   after setting `readAt`". `Message/set` already does this atomically
 //!   through [`ChatBackend::read_and_burn_message`]; the sweep deletes any
 //!   read `burnOnRead` message that reached the store another way.
+//!
+//!   Both read-based rules apply "only to the receiving mailbox; the
+//!   sender's own copy is not affected", so the sweep skips them for a
+//!   Message whose `senderId` is the account itself.
 //! - §Chat `muteUntil`: "Servers SHOULD clear `muted` and `muteUntil`
 //!   automatically when the time passes."
 //! - §PresenceStatus `expiresAt`: "the server SHOULD clear `statusText`
@@ -82,12 +86,13 @@ pub async fn sweep_expired<B: ChatBackend>(
             .find(|c| c.id == msg.chat_id)
             .and_then(|c| c.message_expiry_seconds)
             .filter(|&s| s > 0);
-        let read_deadline = msg.read_at.as_ref().is_some_and(|read| {
-            msg.burn_on_read == Some(true)
-                || msg
-                    .expires_after_read_seconds
-                    .is_some_and(|s| passed(read, s))
-        });
+        let read_deadline = msg.sender_id != *account_id
+            && msg.read_at.as_ref().is_some_and(|read| {
+                msg.burn_on_read == Some(true)
+                    || msg
+                        .expires_after_read_seconds
+                        .is_some_and(|s| passed(read, s))
+            });
         // "older than this many seconds": strictly more than `s` elapsed.
         let expired = msg.sender_expires_at.as_ref().is_some_and(|t| passed(t, 0))
             || policy.is_some_and(|s| s < u64::MAX && passed(&msg.received_at, s + 1))
