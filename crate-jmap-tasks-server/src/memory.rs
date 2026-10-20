@@ -483,8 +483,11 @@ impl JmapBackend for MemoryBackend {
     ///
     /// # Filter and sort are NOT honored
     ///
-    /// This reference implementation does **not** support any filter or sort
-    /// shape. RFC 8620 §5.5 mandates that an unsupported `filter` produces
+    /// This reference implementation supports exactly one filter shape: a
+    /// Task filter whose only set field is `taskListId` (draft-tasks-06
+    /// §4.6), which the `TaskList/set` `onDestroyRemoveTasks` cascade
+    /// (draft-tasks-06 §3.4) needs. It does **not** support any other filter
+    /// or any sort shape. RFC 8620 §5.5 mandates that an unsupported `filter` produces
     /// `unsupportedFilter` at the method level, and an unsupported `sort`
     /// produces `unsupportedSort`. A production backend MUST inspect both
     /// arguments against the type's [`QueryObject`] supported sets and
@@ -495,8 +498,9 @@ impl JmapBackend for MemoryBackend {
     /// `MemoryBackend` module rustdoc), this method **fails loud** when
     /// either argument is non-trivial:
     ///
-    /// - `filter` is `Some` carrying any non-null field → returns
-    ///   [`MemoryError`] with a `filter not supported` message.
+    /// - `filter` is `Some` carrying any non-null field other than a Task
+    ///   `taskListId` → returns [`MemoryError`] with a `filter not
+    ///   supported` message.
     /// - `sort` is `Some` with one or more comparators → returns
     ///   [`MemoryError`] with a `sort not supported` message.
     ///
@@ -505,9 +509,8 @@ impl JmapBackend for MemoryBackend {
     /// path through the backend would require a richer error variant on
     /// the `JmapBackend` trait).
     ///
-    /// Callers (handlers, internal `TaskList/set` destroy cascade if it
-    /// grew one in future) that want "all tasks in this account" continue
-    /// to work — they pass `filter = None`, `sort = None`.
+    /// Callers that want "all objects in this account" pass
+    /// `filter = None`, `sort = None`.
     ///
     /// Mirrors the reference-impl correctness teaching applied to
     /// [`TasksBackend::enforce_is_draft_atomically`] (bd:JMAP-h47t.4): the
@@ -532,10 +535,18 @@ impl JmapBackend for MemoryBackend {
         // FilterCondition` here, so `to_value(&f)` is infallible. A future
         // custom-serde change that breaks the roundtrip surfaces as a panic
         // rather than silently dropping the filter.
+        let mut in_task_list: Option<Id> = None;
         if let Some(f) = filter {
             let v = serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
             let any_field_set = match v.as_object() {
-                Some(m) => m.values().any(|val| !val.is_null()),
+                Some(m) => {
+                    if O::TYPE_NAME == "Task" {
+                        in_task_list = Inner::task_list_id_of(&v);
+                    }
+                    m.iter().any(|(k, val)| {
+                        !val.is_null() && !(in_task_list.is_some() && k == "taskListId")
+                    })
+                }
                 // Filter serialized as something other than an object (e.g. a
                 // FilterOperator variant from a future spec revision): treat
                 // as non-trivial.
@@ -570,7 +581,13 @@ impl JmapBackend for MemoryBackend {
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
             .map(|m| {
-                let mut keys: Vec<Id> = m.keys().cloned().collect();
+                let mut keys: Vec<Id> = m
+                    .iter()
+                    .filter(|(_, v)| {
+                        in_task_list.is_none() || Inner::task_list_id_of(v) == in_task_list
+                    })
+                    .map(|(k, _)| k.clone())
+                    .collect();
                 keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
                 keys
             })

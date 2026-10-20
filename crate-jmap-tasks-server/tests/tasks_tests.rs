@@ -197,6 +197,90 @@ async fn task_list_set_destroy_with_tasks_returns_error() {
 }
 
 // ---------------------------------------------------------------------------
+// Test 5b: TaskList/set onDestroyRemoveTasks=true destroys the list's Tasks
+// Oracle: draft-tasks-06 §3.4 — "If true, any Tasks that were in the
+// TaskList will be removed from it, and they will be destroyed." RFC 8620
+// §5.2: a destroyed record appears in `destroyed` of /changes since a prior
+// state. Tasks in other lists are untouched. Bead: JMAP-ji1v.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
+    backend.seed_object("acc1", "TaskList", "tl2", task_list_fixture("tl2", "Work"));
+    backend.seed_object("acc1", "Task", "t1", task_fixture("t1", "tl1", "Buy milk"));
+    backend.seed_object("acc1", "Task", "t2", task_fixture("t2", "tl1", "Buy eggs"));
+    backend.seed_object(
+        "acc1",
+        "Task",
+        "t3",
+        task_fixture("t3", "tl2", "File report"),
+    );
+
+    let HandlerOutput {
+        primary: before, ..
+    } = handle_task_get(&backend, &(), json!({ "accountId": "acc1", "ids": null }))
+        .await
+        .expect("Task/get must succeed");
+    let task_state = before["state"].clone();
+
+    let args = json!({
+        "accountId": "acc1",
+        "destroy": ["tl1"],
+        "onDestroyRemoveTasks": true
+    });
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    assert_eq!(
+        resp["destroyed"],
+        json!(["tl1"]),
+        "list must be destroyed: {resp}"
+    );
+    assert!(
+        resp["notDestroyed"].is_null(),
+        "no destroy failures: {resp}"
+    );
+
+    let HandlerOutput { primary: got, .. } = handle_task_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["t1", "t2", "t3"] }),
+    )
+    .await
+    .expect("Task/get must succeed");
+    assert_eq!(
+        got["notFound"],
+        json!(["t1", "t2"]),
+        "tl1 tasks destroyed: {got}"
+    );
+    assert_eq!(got["list"][0]["id"], "t3", "tl2 task survives: {got}");
+
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_task_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "sinceState": task_state }),
+    )
+    .await
+    .expect("Task/changes must succeed");
+    let mut destroyed: Vec<&str> = changes["destroyed"]
+        .as_array()
+        .expect("destroyed array")
+        .iter()
+        .map(|v| v.as_str().expect("id string"))
+        .collect();
+    destroyed.sort_unstable();
+    assert_eq!(
+        destroyed,
+        ["t1", "t2"],
+        "Task/changes reports cascade: {changes}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Test 6: TaskList/set create rejects client-supplied id
 // Oracle: RFC 8620 §5.3.
 // ---------------------------------------------------------------------------
@@ -467,7 +551,7 @@ async fn task_set_isdraft_revert_rejected_by_memory_backend() {
 //
 // Oracle: RFC 8620 §5.5 — "A server MUST reject the call with an
 // `unsupportedFilter` error if it cannot process the given filter."
-// The reference MemoryBackend cannot process any filter, so a query
+// The reference MemoryBackend cannot process this filter, so a query
 // carrying one must surface a method-level error rather than silently
 // matching all objects. The reference impl uses `serverFail` as a
 // workspace-canonical approximation (a richer error variant on
@@ -484,7 +568,7 @@ async fn task_query_with_filter_fails_loud_on_memory_backend() {
 
     let args = json!({
         "accountId": "acc1",
-        "filter": { "taskListId": "tl1" }
+        "filter": { "title": "milk" }
     });
     let err = handle_task_query(&backend, &(), args)
         .await
