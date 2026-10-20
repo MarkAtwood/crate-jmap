@@ -25,6 +25,8 @@ memory = ["dep:getrandom", "dep:uuid"]
 [dependencies]
 jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
+# `Did` parses ChatContact/set `did` (draft-atwood-jmap-chat-did-00).
+jmap-did-types = { workspace = true }
 jmap-server = { workspace = true }
 # `serde::de::DeserializeOwned` trait bound on Space/set patch-entry parsers;
 # matches sibling jmap-mail-server / jmap-server dep set.

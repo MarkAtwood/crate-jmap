@@ -24,6 +24,7 @@
 
 use jmap_chat_types::query::{ChatContactComparator, ChatContactFilter};
 use jmap_chat_types::ChatContact;
+use jmap_did_types::Did;
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
@@ -150,12 +151,14 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 /// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
 /// maps).
 ///
-/// `create` accepts only `identity`, which is required; the server sets
+/// `create` accepts `identity`, which is required, and the optional `did`
+/// of draft-atwood-jmap-chat-did-00 §Optional `did` field; the server sets
 /// `id`, `login` (to the `identity`), `firstSeenAt` and `lastSeenAt`
 /// (to now) and `blocked` (`false`). A create that omits `identity`,
-/// gives it as anything but a string with a non-whitespace character, or
-/// carries any other property is rejected with `invalidProperties` naming
-/// each offending property. A create whose `identity` equals
+/// gives it as anything but a string with a non-whitespace character,
+/// gives `did` as anything but a string that is a valid DID Core §3.1 DID
+/// (`null` counts as absent), or carries any other property is rejected
+/// with `invalidProperties` naming each offending property. A create whose `identity` equals
 /// [`ChatBackend::owner_user_id`] is rejected with `invalidProperties`
 /// naming `identity`. A create whose `identity` another ChatContact
 /// already holds is rejected by the backend with `alreadyExists` and
@@ -200,7 +203,8 @@ pub async fn handle_contact_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     // create — draft-atwood-jmap-chat-00 §ChatContact/set: "`create`
     // accepts only `identity`, which is required; the server assigns `id`
-    // and sets the other server-set properties."
+    // and sets the other server-set properties." The optional `did` of
+    // draft-atwood-jmap-chat-did-00 §Optional `did` field is accepted too.
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         let owner_user_id = if create_map.is_empty() {
@@ -223,11 +227,23 @@ pub async fn handle_contact_set<B: ChatBackend>(
                 .into_iter()
                 .flat_map(|m| m.keys())
                 .map(String::as_str)
-                .filter(|&k| k != "identity")
+                .filter(|&k| k != "identity" && k != "did")
                 .collect();
             if identity.is_none() {
                 bad_props.push("identity");
             }
+            // draft-atwood-jmap-chat-did-00 §Optional `did` field: "`did`
+            // (String, optional): A DID URI ({{DID-CORE}})". Null is absent.
+            let did = match obj_val.get("did") {
+                None | Some(Value::Null) => None,
+                Some(v) => {
+                    let parsed = v.as_str().and_then(|s| Did::parse(s).ok());
+                    if parsed.is_none() {
+                        bad_props.push("did");
+                    }
+                    parsed
+                }
+            };
             let Some(identity) = identity.filter(|_| bad_props.is_empty()) else {
                 not_created.insert(
                     create_id.clone(),
@@ -249,7 +265,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
             }
 
             let now = UTCDate::from(now_utc_string().as_ref());
-            let contact = ChatContact::new(
+            let mut contact = ChatContact::new(
                 Id::from(PLACEHOLDER_ID),
                 identity,
                 identity,
@@ -257,6 +273,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
                 now,
                 false,
             );
+            contact.did = did;
             match backend
                 .create_object::<ChatContact>(caller, &account_id, create_id, contact)
                 .await

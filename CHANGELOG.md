@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `ChatContact.did` (`Option<jmap_did_types::Did>`),
+  the optional DID bound to a ChatContact for the pseudonymous case
+  (draft-atwood-jmap-chat-did-00 §Optional `did` field). jmap-chat-types
+  now depends on jmap-did-types.
+- **jmap-chat-server**: `ChatContact/set` create accepts the optional
+  `did`; a value that is not a string or not a valid DID Core §3.1 DID is
+  rejected with `invalidProperties` naming `did`, and `null` counts as
+  absent.
+
 - **jmap-chat-types**: `JMAP_CHAT_DID_URI` (`urn:ietf:params:jmap:chat:did`
   marker capability, value `{}`), `MANDATORY_DID_METHODS` (`web`, `key`,
   `plc`) and `may_advertise_chat_did`, which is `true` only when
@@ -302,6 +311,10 @@ wire behaviour that a conforming peer can observe.
   (§Attachment), comparing the digest in constant time.
 
 ### Changed
+
+- **BREAKING** **jmap-chat-types**: a `ChatContact` whose JSON carries a
+  `did` that is not a valid DID now fails to deserialize; before, any
+  `did` value was kept verbatim in `extra`.
 
 - **BREAKING** **jmap-chat-types**: `Chat` has a typed
   `active_call_id: Option<Id>` for the server-set `activeCallId`
