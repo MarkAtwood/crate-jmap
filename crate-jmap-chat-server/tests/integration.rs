@@ -4553,7 +4553,7 @@ async fn space_set_category_remove_unknown_yields_not_found() {
 }
 
 /// Oracle: Space/set removeCategories cascades channels into
-/// uncategorizedChannelIds (draft §Space/set line 1126).
+/// uncategorizedChannelIds (draft §Space/set L1292).
 #[tokio::test]
 async fn space_set_category_remove_cascades_channels_to_uncategorized() {
     let backend = MemoryBackend::new();
@@ -4962,7 +4962,8 @@ async fn space_set_category_cascade_emits_chat_changes() {
 // ---------------------------------------------------------------------------
 // Space/set Channel variants (bd:JMAP-g7wu.2.4.4)
 //
-// Oracle source: draft-atwood-jmap-chat-00 §Space/set lines 1114-1120.
+// Oracle source: draft-atwood-jmap-chat-00 §Space/set L1280-1286
+// (jmap-chat-spec 91672c9).
 // Hand-written JSON fixtures derived from the spec; no oracle is computed
 // by code-under-test (test-integrity rule from workspace AGENTS.md).
 // ---------------------------------------------------------------------------
@@ -5223,7 +5224,7 @@ async fn space_set_channel_remove_unknown_yields_not_found() {
 }
 
 /// Oracle: removeChannels destroys the Chat record and cascades to
-/// every Message in that channel (draft §Space/set line 1117). The
+/// every Message in that channel (draft §Space/set L1283). The
 /// Space-side cross-reference (uncategorized or per-category) is
 /// pruned. Other channels in the Space are untouched.
 #[tokio::test]
@@ -6051,7 +6052,7 @@ async fn contact_set_destroy_forbidden() {
     assert_eq!(resp["notDestroyed"]["some-id"]["type"], "forbidden");
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §ChatContact/set (line 878):
+/// Oracle: draft-atwood-jmap-chat-00 §ChatContact/set (L974):
 /// "update supports: blocked, displayName."
 ///
 /// A patch carrying spec-allowed fields lands them on the object.

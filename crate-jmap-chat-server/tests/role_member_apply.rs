@@ -190,8 +190,8 @@ async fn admin_with_required_permissions_succeeds() {
 // Criterion 2: role-position hierarchy
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-g7wu.2.4.3 criterion 2 + draft §Space/set lines
-/// 1096, 1102. A caller may only add or modify roles whose `position`
+/// Oracle: bd:JMAP-g7wu.2.4.3 criterion 2 + draft §Space/set
+/// L1260, L1266. A caller may only add or modify roles whose `position`
 /// is STRICTLY less than their own highest-position role.
 #[tokio::test]
 async fn add_role_at_caller_position_rejected() {
@@ -371,8 +371,8 @@ async fn add_member_with_role_above_caller_rejected() {
 // Criterion 4: RemoveRole cascade demotes members to @everyone-only
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-g7wu.2.4.3 criterion 4 + draft §Space/set line
-/// 1099. RemoveRole strips the role id from every member's
+/// Oracle: bd:JMAP-g7wu.2.4.3 criterion 4 + draft §Space/set
+/// L1263. RemoveRole strips the role id from every member's
 /// `roleIds`. Members whose only role was the removed one end up
 /// with empty `roleIds` (the @everyone-only state).
 #[tokio::test]

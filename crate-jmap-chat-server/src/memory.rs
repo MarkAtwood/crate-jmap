@@ -2401,7 +2401,7 @@ fn apply_space_metadata_patch_impl(
 ///   they leave their previous category or `uncategorizedChannelIds`.
 /// - `removeCategories`: removes the named category. Channels currently
 ///   pointing at that category have their `categoryId` cleared and are
-///   appended to `space.uncategorizedChannelIds` (cascade per line 1126).
+///   appended to `space.uncategorizedChannelIds` (cascade per §Space/set L1292).
 /// - `updateCategories`: applies the per-field patch. A `channelIds`
 ///   wholesale-replacement updates each channel's `categoryId` to match:
 ///   channels that left the list get `categoryId = None` and join
@@ -2519,7 +2519,7 @@ fn apply_category_op(
         SpacePatchOp::RemoveCategory(target_id) => {
             // Find the category. Cascade: every channel currently in this
             // category gets its category_id cleared and is appended to
-            // uncategorized. Per draft §Space/set line 1126.
+            // uncategorized. Per draft §Space/set L1292.
             let pos = categories
                 .iter()
                 .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
@@ -2707,7 +2707,7 @@ fn apply_category_op(
 
 /// Apply one [`SpacePatchOp::AddChannel`] to the in-memory Space.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set (lines 1114-1117):
+/// Per draft-atwood-jmap-chat-00 §Space/set `addChannels` (L1280):
 /// - The server creates a Chat record of `kind: "channel"` with
 ///   `spaceId` set to this Space's id and a fresh server-assigned id.
 /// - If `categoryId` is provided, validate that the named category
@@ -2872,7 +2872,7 @@ fn apply_add_channel(
 
 /// Apply one [`SpacePatchOp::RemoveChannel`] to the in-memory Space.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set line 1117: removeChannels
+/// Per draft-atwood-jmap-chat-00 §Space/set L1283: removeChannels
 /// "Cascades to all Messages in those channels." This implementation:
 ///
 /// 1. Verifies the named id refers to a channel-kind Chat with
@@ -2963,7 +2963,7 @@ fn apply_remove_channel(
 
 /// Apply one [`SpacePatchOp::UpdateChannel`] to the in-memory Space.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set line 1120: `updateChannels`
+/// Per draft-atwood-jmap-chat-00 §Space/set L1286: `updateChannels`
 /// patches one of `name`, `topic`, `categoryId`, `position`,
 /// `slowModeSeconds`, `permissionOverrides`. The nullable fields use
 /// [`jmap_chat_types::clearable::Clearable`] semantics: `null` clears
@@ -3248,7 +3248,7 @@ fn apply_add_role(
 
 /// Apply `SpacePatchOp::RemoveRole`: remove the named role and cascade-
 /// demote any members whose only remaining role would be the removed
-/// one (draft-atwood-jmap-chat-00 §Space/set line 1099). Permission
+/// one (draft-atwood-jmap-chat-00 §Space/set L1263). Permission
 /// and hierarchy checks happen in [`validate_space_patch_ops`].
 #[allow(clippy::result_large_err)]
 fn apply_remove_role(
@@ -3288,7 +3288,7 @@ fn apply_remove_role(
     // Cascade: members holding the removed role have it stripped from
     // their `roleIds`. Members whose only role was the removed one
     // are left with an empty `roleIds`, which is the `@everyone`-only
-    // state (draft-atwood-jmap-chat-00 §Space/set line 1099 + the
+    // state (draft-atwood-jmap-chat-00 §Space/set L1263 + the
     // conventional empty-role-ids representation).
     if let Some(members) = space_val.get_mut("members").and_then(|v| v.as_array_mut()) {
         for member in members.iter_mut() {
@@ -3780,7 +3780,7 @@ fn check_count_caps(
 ///     `UpdateCategory`): `manage_channels`
 /// - **Role-position hierarchy** (criterion 2): the caller may only
 ///   add or modify roles whose `position` is strictly less than their
-///   own highest-position role (draft §Space/set lines 1096, 1102).
+///   own highest-position role (draft §Space/set L1260, L1266).
 ///   Cross-cuts AddRole, UpdateRole, AddMember (when `role_ids` is
 ///   non-empty), and UpdateMember (when `patch.role_ids` is set: every
 ///   role the patch grants or removes, i.e. the symmetric difference
@@ -4052,7 +4052,7 @@ fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetE
     SetError::new(SetErrorType::Forbidden).with_description(format!(
         "{op_label}: target role position {target_pos} is not strictly less than \
          caller's highest role position {caller_highest} (role-position hierarchy, \
-         draft §Space/set lines 1096, 1102)"
+         draft §Space/set L1260, L1266)"
     ))
 }
 

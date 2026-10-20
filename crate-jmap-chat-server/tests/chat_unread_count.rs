@@ -13,11 +13,11 @@
 //! - L1350-1352, §ReadPosition/set: "`update` supports:
 //!   `lastReadMessageId`. The server sets `lastReadAt` to the current
 //!   time and recomputes `Chat.unreadCount` for the affected Chat."
-//! - L907-908, §ReadPosition: "The server creates a ReadPosition record
+//! - L909, §ReadPosition: "The server creates a ReadPosition record
 //!   automatically when a Chat first becomes visible to the owner, and
 //!   destroys it when the Chat is destroyed. [...] For channel Chats, a
 //!   ReadPosition is created when the owner joins the containing Space."
-//! - L921, `lastReadAt` "(UTCDate, server-set)"; RFC 8620 §5.3 rejects a
+//! - L920, `lastReadAt` "(UTCDate, server-set)"; RFC 8620 §5.3 rejects a
 //!   client write of a server-set property with `invalidProperties`.
 //! - RFC 8620 §5.1: "If the data changes, this string MUST change", so
 //!   `ReadPosition/changes` reports the cascaded destroy, and a change
@@ -205,7 +205,7 @@ async fn compliance_11_1_unread_count_from_read_position() {
     assert_eq!(unread_of(&backend, "g").await, 2);
     assert_eq!(unread_of(&backend, "h").await, 1, "other Chat unaffected");
 
-    // L1351: the count is recomputed on each ReadPosition/set.
+    // L1350: the count is recomputed on each ReadPosition/set.
     set_last_read(&backend, "rp-g", json!({ "lastReadMessageId": M5 })).await;
     assert_eq!(unread_of(&backend, "g").await, 0);
 }
@@ -228,7 +228,7 @@ async fn unread_count_in_full_get() {
     assert_eq!(count("h"), 1);
 }
 
-/// L1351: "The server sets `lastReadAt` to the current time".
+/// L1350: "The server sets `lastReadAt` to the current time".
 #[tokio::test]
 async fn read_position_set_updates_last_read_at() {
     let backend = MemoryBackend::new();
@@ -246,7 +246,7 @@ async fn read_position_set_updates_last_read_at() {
     );
 }
 
-/// L921 `lastReadAt` is server-set: a client write is `invalidProperties`
+/// L920 `lastReadAt` is server-set: a client write is `invalidProperties`
 /// (RFC 8620 §5.3) and the record is unchanged.
 #[tokio::test]
 async fn client_last_read_at_is_rejected() {
@@ -273,7 +273,7 @@ async fn client_last_read_at_is_rejected() {
     assert!(list[0].get("lastReadMessageId").is_none(), "{list:?}");
 }
 
-/// L907: the server "destroys it when the Chat is destroyed"; RFC 8620
+/// L909: the server "destroys it when the Chat is destroyed"; RFC 8620
 /// §5.1 makes `ReadPosition/changes` report it.
 #[tokio::test]
 async fn chat_destroy_destroys_its_read_position() {
@@ -351,7 +351,7 @@ fn seed_space_with_channels(backend: &MemoryBackend, is_public: bool, owner_memb
     );
 }
 
-/// L908: "For channel Chats, a ReadPosition is created when the owner
+/// L909: "For channel Chats, a ReadPosition is created when the owner
 /// joins the containing Space." Only that Space's channels get one.
 #[tokio::test]
 async fn space_join_creates_read_positions_for_its_channels() {
@@ -373,7 +373,7 @@ async fn space_join_creates_read_positions_for_its_channels() {
     }
 }
 
-/// L907 "destroys it when the Chat is destroyed" holds for a channel
+/// L909 "destroys it when the Chat is destroyed" holds for a channel
 /// removed by `Space/set` `removeChannels`.
 #[tokio::test]
 async fn remove_channels_destroys_their_read_positions() {
@@ -404,7 +404,7 @@ async fn remove_channels_destroys_their_read_positions() {
 }
 
 /// Destroying a Space destroys its channel Chats (§Destroying a Space),
-/// so their ReadPositions go too (L907).
+/// so their ReadPositions go too (L909).
 #[tokio::test]
 async fn space_destroy_destroys_channel_read_positions() {
     let backend = MemoryBackend::new();
@@ -457,7 +457,7 @@ async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
     resp
 }
 
-/// L1351 "recomputes `Chat.unreadCount` for the affected Chat" changes
+/// L1350 "recomputes `Chat.unreadCount` for the affected Chat" changes
 /// Chat data, so (RFC 8620 §5.1) the Chat state moves and (§5.2)
 /// `Chat/changes` lists only the affected Chat.
 #[tokio::test]
