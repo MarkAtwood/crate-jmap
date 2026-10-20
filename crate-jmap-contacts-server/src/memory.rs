@@ -172,15 +172,6 @@ struct Inner {
     aux: HashMap<String, AccountAux>,
     /// Explicitly registered account ids (accounts may exist with no objects yet).
     known_accounts: HashSet<String>,
-    /// `(type_name, account_id)` → monotonic counter used by
-    /// `demo_next_id` to mint deterministic ids without collisions.
-    /// Increments on every mint; never decrements on delete (bd:JMAP-qz9v.14).
-    ///
-    /// Only present in the default (non-`realistic-demo-ids`) mode —
-    /// the realistic-demo-ids mode uses a process-global atomic
-    /// counter and never touches this field.
-    #[cfg(not(feature = "realistic-demo-ids"))]
-    next_ids: HashMap<(&'static str, String), u64>,
 }
 
 impl Inner {
@@ -482,114 +473,6 @@ impl MemoryBackend {
             // `seed_object` is only called from test/demo setup so the
             // `O(N)` cost is acceptable.
             inner.recompute_address_book_card_counts(account_id);
-        }
-    }
-
-    /// Demo-grade id minter for the in-memory reference backend.
-    ///
-    /// NOT A PRODUCTION PATTERN. Both modes below are explicitly
-    /// demonstration-quality; production backends must mint real ULIDs
-    /// (or equivalent globally-unique, monotonic, persistent-across-restarts
-    /// ids) and never use this helper as a copy-paste source.
-    ///
-    /// Behavior is controlled by the `realistic-demo-ids` cargo feature:
-    ///
-    /// - **Default (deterministic):** returns `"<type><n:016x>"` where `n`
-    ///   is a per-(type, account) monotonic counter that increments on
-    ///   every mint and never decrements on delete (bd:JMAP-qz9v.14).
-    ///   Lex-orderable within a (type, account) namespace, repeatable
-    ///   across test runs, easy to read in test debug output. Resets to
-    ///   0 on every process restart (not persistent — the whole store
-    ///   is in-memory).
-    /// - **`realistic-demo-ids` enabled:** returns `"{n:016x}"` matching
-    ///   the canonical `jmap-mail-server` pattern at `email.rs:1748` —
-    ///   process-start nanos as base, atomic counter, no type prefix,
-    ///   no per-account scoping. Lex-orderable globally within a process,
-    ///   not repeatable across runs.
-    ///
-    /// # Feature stability (bd:JMAP-ic0j.63 / bd:JMAP-qz9v.31)
-    ///
-    /// The exact id format produced by either mode is NOT part of the
-    /// public API surface. Switching the `realistic-demo-ids` feature
-    /// on or off across minor versions may silently change the format
-    /// (e.g. a future minor could swap "atomic counter base + offset"
-    /// for "ULID"); the format may also change within a single mode
-    /// across minor versions pre-1.0. The only guarantees are:
-    ///
-    /// - Ids are valid [`Id`](jmap_types::Id) values (opaque server
-    ///   strings per RFC 8620 §1.2).
-    /// - Within a single process, ids minted from this helper are
-    ///   collision-free (bd:JMAP-qz9v.14 — the deterministic-mode
-    ///   monotonic counter never recycles across deletes within the
-    ///   lifetime of one process).
-    ///
-    /// Downstream consumers MUST NOT depend on a specific id shape
-    /// from `MemoryBackend`. The deterministic-mode format
-    /// (`"<type><n:016x>"`) is reserved for use by this crate's own
-    /// unit tests under
-    /// `#[cfg(all(test, not(feature = "realistic-demo-ids")))]` —
-    /// where the test source IS the reference for what the format is.
-    ///
-    /// This feature has no analog in the canonical `jmap-mail-server`,
-    /// which mints unconditionally in the realistic mode. The
-    /// divergence is deliberate: the deterministic default makes test
-    /// debugging easier (repeatable ids in assertions) without
-    /// requiring a separate test backend. Do NOT propagate this
-    /// feature to extension-server siblings that do not already have
-    /// it (mail, filenode) as a canonical-template change.
-    fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {
-        #[cfg(feature = "realistic-demo-ids")]
-        {
-            use std::sync::atomic::{AtomicU64, Ordering};
-            use std::sync::OnceLock;
-            use std::time::{SystemTime, UNIX_EPOCH};
-
-            let _ = (inner, type_name, account_id);
-            static COUNTER: AtomicU64 = AtomicU64::new(0);
-            static BASE: OnceLock<u64> = OnceLock::new();
-            let base = *BASE.get_or_init(|| {
-                // bd:JMAP-qz9v.47 — `Duration::as_nanos()` returns u128.
-                // `u64::try_from` makes the year-2554 narrowing explicit
-                // and falls back to the same sentinel as a `now()`
-                // failure rather than silently wrapping.
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .ok()
-                    .and_then(|d| u64::try_from(d.as_nanos()).ok())
-                    .unwrap_or(1_000_000_000)
-            });
-            let n = base.wrapping_add(COUNTER.fetch_add(1, Ordering::Relaxed));
-            Id::from(format!("{n:016x}"))
-        }
-
-        #[cfg(not(feature = "realistic-demo-ids"))]
-        {
-            // CARGO-CULT WARNING: do NOT copy this into a production backend.
-            // This deterministic mode uses a per-(type, account) in-memory
-            // counter that:
-            //   - resets to 0 on every process restart
-            //   - is not unique across (type, account) namespaces
-            //   - is not globally collision-resistant
-            // Production-grade id minting needs a real ULID or equivalent.
-            //
-            // It IS, however, monotonic within a single (type, account)
-            // namespace across deletes (bd:JMAP-qz9v.14) — a destroyed
-            // object's id will not be re-minted for a later create.
-            let key = (type_name, account_id.to_owned());
-            let counter = inner.next_ids.entry(key).or_insert(0);
-            *counter += 1;
-            let n = *counter;
-            let new_id = Id::from(format!("{}{:016x}", type_name.to_ascii_lowercase(), n));
-            debug_assert!(
-                !inner
-                    .objects_ref(type_name, account_id)
-                    .is_some_and(|m| m.contains_key(&new_id)),
-                "MemoryBackend demo_next_id collision: the monotonic counter \
-                 produced an id that already exists in the store. This indicates \
-                 the counter was somehow rewound, which should not happen — the \
-                 counter is increment-only."
-            );
-            new_id
         }
     }
 }
@@ -946,7 +829,7 @@ impl ContactsBackend for MemoryBackend {
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
 
-        let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
+        let server_id = Id::from(uuid::Uuid::new_v4().to_string());
 
         let mut val = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
@@ -1273,7 +1156,7 @@ impl ContactsBackend for MemoryBackend {
             .known_accounts
             .insert(to_account_id.as_ref().to_owned());
 
-        let new_id = Self::demo_next_id(&mut inner, "ContactCard", to_account_id.as_ref());
+        let new_id = Id::from(uuid::Uuid::new_v4().to_string());
 
         let mut val = serde_json::to_value(&card).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("serialize copied card: {e}")))
@@ -2153,87 +2036,6 @@ mod query_filter_tests {
             compare_contact_cards_by_property(&present, &absent, "created"),
             Ordering::Greater
         );
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tests for demo_next_id (bd:JMAP-qz9v.14)
-// ---------------------------------------------------------------------------
-
-#[cfg(all(test, not(feature = "realistic-demo-ids")))]
-mod demo_id_tests {
-    use super::*;
-
-    /// Oracle (bd:JMAP-qz9v.14): minting an id, destroying the object,
-    /// then minting again MUST produce a different id. The previous
-    /// `len()`-based counter re-minted the destroyed id, causing the
-    /// same Id to appear as both `created[K+2]` and `destroyed[K]` in
-    /// the change log — silently corrupting client-side caches.
-    #[test]
-    fn id_not_recycled_after_destroy() {
-        let mut inner = Inner::default();
-        let acc = "acc1";
-
-        // Mint id1 and stash a placeholder in the objects map so a
-        // future debug_assert would catch a re-mint.
-        let id1 = MemoryBackend::demo_next_id(&mut inner, "AddressBook", acc);
-        inner
-            .objects_mut("AddressBook", acc)
-            .insert(id1.clone(), serde_json::Value::Null);
-
-        // Destroy id1 by removing it from the store.
-        inner.objects_mut("AddressBook", acc).remove(&id1);
-
-        // The next mint MUST yield a different id even though the store
-        // is now empty for this (type, account).
-        let id2 = MemoryBackend::demo_next_id(&mut inner, "AddressBook", acc);
-        assert_ne!(
-            id1.as_ref(),
-            id2.as_ref(),
-            "destroyed id must not be re-minted: id1={id1}, id2={id2}"
-        );
-    }
-
-    /// Oracle: the counter is per-(type, account), so two distinct
-    /// (type, account) pairs do not share id space. A card in account
-    /// "a" and a book in account "a" can both start at the n=1
-    /// numbering without colliding.
-    #[test]
-    fn id_namespace_is_per_type_and_account() {
-        let mut inner = Inner::default();
-
-        let book_a = MemoryBackend::demo_next_id(&mut inner, "AddressBook", "acc1");
-        let card_a = MemoryBackend::demo_next_id(&mut inner, "ContactCard", "acc1");
-        let book_b = MemoryBackend::demo_next_id(&mut inner, "AddressBook", "acc2");
-
-        // Different type → different prefix even at same counter value.
-        assert_ne!(book_a.as_ref(), card_a.as_ref());
-        // Different account → independent counter, same prefix but n=1.
-        assert_eq!(
-            book_a.as_ref(),
-            "addressbook0000000000000001",
-            "counter starts at 1 for the first mint in a namespace"
-        );
-        assert_eq!(
-            book_b.as_ref(),
-            "addressbook0000000000000001",
-            "different account namespace gets its own counter starting at 1"
-        );
-    }
-
-    /// Oracle: the counter is monotonic — successive mints in the same
-    /// (type, account) namespace yield strictly increasing ids.
-    #[test]
-    fn ids_are_monotonic_within_namespace() {
-        let mut inner = Inner::default();
-        let acc = "acc1";
-
-        let id1 = MemoryBackend::demo_next_id(&mut inner, "AddressBook", acc);
-        let id2 = MemoryBackend::demo_next_id(&mut inner, "AddressBook", acc);
-        let id3 = MemoryBackend::demo_next_id(&mut inner, "AddressBook", acc);
-
-        assert!(id1.as_ref() < id2.as_ref());
-        assert!(id2.as_ref() < id3.as_ref());
     }
 }
 
