@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `vocabulary::COMPANION_EPHEMERAL_DATA_TYPES` lists the
+  companion-registered `ChatStreamEnable` `dataTypes` values `"vtc"`
+  (draft-atwood-jmap-vtc-wss-00) and `"scene"`
+  (draft-atwood-jmap-scene-wss-00), per draft-atwood-jmap-chat-wss-00
+  §Enabling Ephemeral Push.
 - **jmap-chat-server**: `EphemeralSubscription` holds one WebSocket
   connection's normalized ephemeral subscription (draft-atwood-jmap-chat-wss-00
   §ChatStreamEnable). `replace_with` replaces it in full from a

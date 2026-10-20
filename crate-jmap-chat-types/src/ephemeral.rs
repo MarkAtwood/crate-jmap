@@ -17,7 +17,9 @@ pub struct ChatStreamEnable {
     ///
     /// Spec-enumerated values: `"typing"` and `"presence"`. Full
     /// list exported as
-    /// [`crate::vocabulary::SPEC_EPHEMERAL_DATA_TYPES`]. A request
+    /// [`crate::vocabulary::SPEC_EPHEMERAL_DATA_TYPES`]. Companion
+    /// specifications register `"vtc"` and `"scene"`, listed in
+    /// [`crate::vocabulary::COMPANION_EPHEMERAL_DATA_TYPES`]. A request
     /// containing ONLY unrecognized values MUST be rejected by the
     /// server with a `RequestError`. Unrecognized values appearing
     /// alongside recognized values MUST be silently ignored.
