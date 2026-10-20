@@ -274,6 +274,13 @@ wire behaviour that a conforming peer can observe.
   checked only for the roles in the new set).
   `required_permissions_for_op` returns `[manage_roles]` for a `roleIds`-only
   entry.
+- **jmap-chat-server**: `Message/set` create rejections in `notCreated` use
+  RFC 8620 SetErrors instead of `invalidArguments` (jmap-chat-spec 91672c9):
+  `tooLarge` for a body over `maxBodyBytes`; `invalidProperties` with
+  `properties: ["broadcastMentions"]` for an unrecognized broadcast scope;
+  `invalidProperties` listing each non-empty ciphertext-only field for an
+  encrypted `bodyType`; and `invalidProperties` with
+  `properties: ["bodyType"]` for a server-reserved `bodyType`.
 
 ### Added
 
