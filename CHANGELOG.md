@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-cid-types**: CIDv1 conversion for `Sha256`, per
+  draft-atwood-jmap-cid-00 §Mapping to CIDv1: `to_cidv1` /
+  `from_cidv1` for the `b`-prefixed lowercase base32 string form and
+  `to_cidv1_bytes` / `from_cidv1_bytes` for the 36-byte binary form
+  (`0x01 0x55 0x12 0x20` followed by the digest). The reverse direction
+  rejects any other multibase, version, codec or hash, and
+  non-canonical base32, with the new `CidV1Error`.
 - **jmap-filenode-client**: `SessionClient::filenode_download` and
   `FileNodeDownload`, per draft-atwood-jmap-cid-00 §FileNode Extension
   "Client Usage". A `File` node with a `sha256` downloads as `Verified`

@@ -68,6 +68,25 @@ SHA-256 hash function (e.g. `sha2::Sha256`) without going through a
 hex string. The capability URI `"urn:ietf:params:jmap:cid"` is
 detected via the `Session.capabilities` map in `jmap-base-client`.
 
+Convert a digest to and from its CIDv1 (`raw` codec, `sha2-256`
+multihash), per the draft's informative §Mapping to CIDv1 appendix:
+
+```rust
+use jmap_cid_types::Sha256;
+
+let digest: Sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    .parse()?;
+let cid = digest.to_cidv1();
+assert_eq!(cid, "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
+assert_eq!(Sha256::from_cidv1(&cid)?, digest);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+`to_cidv1_bytes` / `from_cidv1_bytes` do the same for the 36-byte
+binary CID. The reverse direction accepts only multibase `b`, CID
+version 1, codec `raw` and `sha2-256`; anything else is a
+`CidV1Error`.
+
 ## How it works
 
 - [`Sha256`] is a `String`-backed newtype with parse-time ABNF
@@ -115,6 +134,8 @@ detected via the `Session.capabilities` map in `jmap-base-client`.
 - [draft-atwood-jmap-cid-00] — JMAP Blob Content Identifiers (normative
   for `Sha256` and the `urn:ietf:params:jmap:cid` capability)
 - [RFC 8620] — JMAP Core (Blob upload §6.1 is the binding point)
+- [RFC 4648] — base32 alphabet used by the CIDv1 string form
 
 [draft-atwood-jmap-cid-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
+[RFC 4648]: https://www.rfc-editor.org/rfc/rfc4648
