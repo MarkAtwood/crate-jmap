@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-filenode-server**: new crate, the Chat binding for
+  `jmap-filenode-server`. `check_root_create`, called before a FileNode
+  insert, refuses a Space file tree root without `spaceId`
+  (`invalidProperties`), for a Space that does not exist or that the caller
+  is not a member of (`forbidden`), for a Space that already has a root
+  (`alreadyExists` with `existingId`), or without `manage_space`
+  (`forbidden`) (draft-atwood-jmap-chat-filenode-00 §Creating the File Tree
+  Root, §Permission Mapping).
 - **jmap-filenode-types**, **jmap-filenode-server**:
   `FileNodeFilterCondition.space_id` (`spaceId` on the wire), matched by the
   in-memory backend against the node's `spaceId` property, so

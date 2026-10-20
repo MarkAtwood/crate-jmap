@@ -1,0 +1,25 @@
+[package]
+name = "jmap-chat-filenode-server"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Chat binding for the JMAP FileNode server (draft-atwood-jmap-chat-filenode-00): Space file tree root validation"
+keywords = ["jmap", "filenode", "chat", "server"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-chat-types = { workspace = true }
+jmap-chat-server = { workspace = true }
+jmap-filenode-types = { workspace = true }
+jmap-filenode-server = { workspace = true }
+jmap-server = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+serde_json = { workspace = true }
+jmap-chat-server = { workspace = true, features = ["memory"] }
+jmap-filenode-server = { workspace = true, features = ["memory"] }

@@ -1528,6 +1528,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-chat-filenode-server"
+version = "0.3.0"
+dependencies = [
+ "jmap-chat-server",
+ "jmap-chat-types",
+ "jmap-filenode-server",
+ "jmap-filenode-types",
+ "jmap-server",
+ "jmap-types",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "jmap-chat-mimi-types"
 version = "0.3.0"
 dependencies = [
