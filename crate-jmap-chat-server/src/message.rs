@@ -861,6 +861,7 @@ pub async fn find_message_by_sender_msg_id<B: ChatBackend>(
 
 /// The result of [`store_server_message`].
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum StoreOutcome {
     /// The Message was stored under this server-assigned id.
     Stored(Id),

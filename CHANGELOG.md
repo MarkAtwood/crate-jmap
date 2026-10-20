@@ -146,6 +146,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `OwnerFlags`, `PushItem`, `BuiltPush`
+  and `StoreOutcome` are `#[non_exhaustive]`, so a field or variant can be
+  added after the 0.4 freeze without a breaking change. Code outside the
+  crate can no longer build `OwnerFlags` or `PushItem` with a struct literal:
+  use the new `OwnerFlags::new(active, admin)` and
+  `PushItem::new(message, chat, sender)`, then set `sender_member` and
+  `space` on the result. A `match` on `StoreOutcome` needs a wildcard arm.
+
 - **BREAKING** **jmap-chat-types**, **jmap-chat-client**: `ChatMemberRole`
   moves from jmap-chat-client into jmap-chat-types, and `ChatMember.role` and
   `ChatMember::new` now take `ChatMemberRole` instead of `String`, so server

@@ -29,10 +29,7 @@ const ENCRYPTED_BODY_TYPE: &str = "message/mls";
 const FUTURE: &str = "2099-01-01T00:00:00Z";
 const PAST: &str = "2000-01-01T00:00:00Z";
 
-const NOBODY: OwnerFlags = OwnerFlags {
-    active: false,
-    admin: false,
-};
+const NOBODY: OwnerFlags = OwnerFlags::new(false, false);
 
 fn account() -> Id {
     Id::from(ACCOUNT)

@@ -25,10 +25,7 @@ const SPACE: &str = "space-1";
 const SENT_AT: &str = "2026-10-19T12:00:00Z";
 const ENCRYPTED_BODY_TYPE: &str = "message/mls";
 
-const NOBODY: OwnerFlags = OwnerFlags {
-    active: false,
-    admin: false,
-};
+const NOBODY: OwnerFlags = OwnerFlags::new(false, false);
 
 fn id(s: &str) -> Id {
     serde_json::from_value(json!(s)).expect("valid Id")
@@ -137,20 +134,9 @@ fn build(
     sender: &ChatContact,
     sender_member: Option<&SpaceMember>,
 ) -> BuiltPush {
-    build_chat_message_push(
-        &id(ACCOUNT),
-        state("s42"),
-        cfg,
-        &cap(),
-        owner,
-        PushItem {
-            message: msg,
-            chat,
-            sender,
-            sender_member,
-            space: None,
-        },
-    )
+    let mut item = PushItem::new(msg, chat, sender);
+    item.sender_member = sender_member;
+    build_chat_message_push(&id(ACCOUNT), state("s42"), cfg, &cap(), owner, item)
 }
 
 /// The single entry of `push`, as wire JSON.
@@ -271,20 +257,11 @@ fn acme_space() -> Space {
 /// Build a payload for a plain message in `chat` with `space` passed as
 /// the containing Space.
 fn build_with_space(cfg: &ChatPushConfig, chat: &Chat, space: &Space) -> BuiltPush {
-    build_chat_message_push(
-        &id(ACCOUNT),
-        state("s42"),
-        cfg,
-        &cap(),
-        NOBODY,
-        PushItem {
-            message: &plain("hi"),
-            chat,
-            sender: &bob(),
-            sender_member: None,
-            space: Some(space),
-        },
-    )
+    let msg = plain("hi");
+    let sender = bob();
+    let mut item = PushItem::new(&msg, chat, &sender);
+    item.space = Some(space);
+    build_chat_message_push(&id(ACCOUNT), state("s42"), cfg, &cap(), NOBODY, item)
 }
 
 /// draft-atwood-jmap-chat-push-00 §ChatPushConfig (push:121): "The server
@@ -333,10 +310,7 @@ fn state_and_account_match_input() {
 fn has_mention_comes_only_from_mentions_ids() {
     let cfg = config(json!({ "properties": ["hasMention"] }));
     let chat = group_chat();
-    let owner = OwnerFlags {
-        active: true,
-        admin: true,
-    };
+    let owner = OwnerFlags::new(true, true);
 
     let broadcast_only = message(
         "@everyone hi",
@@ -410,17 +384,11 @@ fn mention_scopes_filtered_by_owner_flags_and_deduplicated() {
     };
     assert_eq!(scopes(NOBODY), sorted(&["everyone"]));
     assert_eq!(
-        scopes(OwnerFlags {
-            active: true,
-            admin: false
-        }),
+        scopes(OwnerFlags::new(true, false)),
         sorted(&["everyone", "here"])
     );
     assert_eq!(
-        scopes(OwnerFlags {
-            active: false,
-            admin: true
-        }),
+        scopes(OwnerFlags::new(false, true)),
         sorted(&["everyone", "admins"])
     );
 

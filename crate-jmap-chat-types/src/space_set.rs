@@ -433,7 +433,12 @@ pub enum SpacePatchOp {
     /// Members holding only the removed role are demoted to `@everyone`.
     RemoveRole(Id),
     /// Update an existing role (one entry from wire key `updateRoles`).
-    UpdateRole { id: Id, patch: RolePatch },
+    UpdateRole {
+        /// The id of the SpaceRole to update.
+        id: Id,
+        /// The role fields to change.
+        patch: RolePatch,
+    },
     /// Add a member to the Space (one entry from wire key `addMembers`).
     AddMember(MemberCreate),
     /// Remove a member from the Space (one entry from wire key `removeMembers`).
@@ -441,7 +446,12 @@ pub enum SpacePatchOp {
     /// The owner cannot be removed.
     RemoveMember(Id),
     /// Update an existing member (one entry from wire key `updateMembers`).
-    UpdateMember { user_id: Id, patch: MemberPatch },
+    UpdateMember {
+        /// The ChatContact id of the member to update (wire key `id`).
+        user_id: Id,
+        /// The member fields to change.
+        patch: MemberPatch,
+    },
     /// Add a channel to the Space (one entry from wire key `addChannels`).
     ///
     /// The server creates a [`crate::Chat`] of `kind: "channel"` with the
@@ -452,7 +462,12 @@ pub enum SpacePatchOp {
     /// Cascades to all Messages in the channel.
     RemoveChannel(Id),
     /// Update an existing channel (one entry from wire key `updateChannels`).
-    UpdateChannel { id: Id, patch: ChannelPatch },
+    UpdateChannel {
+        /// The id of the channel Chat to update.
+        id: Id,
+        /// The channel fields to change.
+        patch: ChannelPatch,
+    },
     /// Add a category to the Space (one entry from wire key `addCategories`).
     ///
     /// The contained [`Category`]'s `id` is a **client-side
@@ -468,7 +483,12 @@ pub enum SpacePatchOp {
     /// Channels in the removed category move to `uncategorizedChannelIds`.
     RemoveCategory(Id),
     /// Update an existing category (one entry from wire key `updateCategories`).
-    UpdateCategory { id: Id, patch: CategoryPatch },
+    UpdateCategory {
+        /// The id of the Category to update.
+        id: Id,
+        /// The category fields to change.
+        patch: CategoryPatch,
+    },
 }
 
 #[cfg(test)]
