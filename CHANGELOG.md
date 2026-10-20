@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-server**: new crate for the server rules of
+  draft-atwood-jmap-chat-federation-00. `FederationCaller` is implemented
+  by a dispatcher `CallerCtx` to say whether the caller is a peer on a
+  `role: "peer"` account; `check_method_access` returns `forbidden` for a
+  peer calling a method outside `PEER_METHODS` (§Account-Level Capability)
+  and for any other caller calling a `Peer/*` method (§Server-to-Server
+  Methods).
 - **jmap-chat-federation-types**: `session` module for
   draft-atwood-jmap-chat-federation-00 §Session Object Extensions for
   Federation. `FederationSession` holds `ownerUserId`, `peerSigningKeys`
