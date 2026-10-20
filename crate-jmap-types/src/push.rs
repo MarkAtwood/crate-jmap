@@ -14,7 +14,7 @@
 //! receiver that dispatched on `@type` (or on an SSE event name) has already
 //! established what the object is.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt;
 
 use serde::de::DeserializeOwned;
@@ -51,7 +51,7 @@ pub struct StateChange {
     ///
     /// Outer key: account [`Id`].  Inner key: JMAP data-type name (e.g. `"Email"`).
     /// Inner value: new opaque state string; pass to `Email/changes` etc. as `sinceState`.
-    pub changed: HashMap<Id, HashMap<String, State>>,
+    pub changed: BTreeMap<Id, BTreeMap<String, State>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -62,7 +62,7 @@ pub struct StateChange {
 
 impl StateChange {
     /// A `StateChange` with the given `changed` map and no extension fields.
-    pub fn new(changed: HashMap<Id, HashMap<String, State>>) -> Self {
+    pub fn new(changed: BTreeMap<Id, BTreeMap<String, State>>) -> Self {
         Self {
             changed,
             extra: serde_json::Map::new(),

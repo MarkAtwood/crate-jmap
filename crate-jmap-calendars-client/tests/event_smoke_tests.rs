@@ -14,7 +14,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_calendars_client::methods::CalendarEventGetParams;
 use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilterCondition};
@@ -453,7 +453,7 @@ async fn calendar_event_copy_success_passthrough() {
         "calendarIds": { "cal-1": true },
     }))
     .expect("CalendarEvent must deserialize from minimal fixture");
-    let mut create = HashMap::new();
+    let mut create = BTreeMap::new();
     create.insert("newCopy".to_owned(), event);
 
     let from_account = Id::from("src-acc");

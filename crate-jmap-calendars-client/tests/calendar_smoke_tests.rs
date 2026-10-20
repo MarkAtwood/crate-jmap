@@ -143,7 +143,7 @@ async fn calendar_event_set_smoke() {
         "showWithoutTime": false
     }))
     .expect("CalendarEvent must deserialize from spec example fields");
-    let mut create_map = std::collections::HashMap::new();
+    let mut create_map = std::collections::BTreeMap::new();
     create_map.insert("newEv".to_owned(), event);
     let resp = sc
         .calendar_event_set(Some(create_map), None, None, None)
@@ -247,7 +247,7 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
         "id": "src-event-id",
     }))
     .expect("CalendarEvent must deserialize from minimal fixture");
-    let mut create = std::collections::HashMap::new();
+    let mut create = std::collections::BTreeMap::new();
     create.insert(String::new(), event); // empty creation id
 
     let from_account = Id::from("src_acc");

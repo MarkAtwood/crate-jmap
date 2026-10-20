@@ -16,7 +16,7 @@
 //!   - Success hooks on /set:                         "onSuccessUpdateEmail",
 //!     "onSuccessDestroyEmail" (§7.5)
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -281,7 +281,7 @@ impl super::SessionClient {
     pub async fn email_submission_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<HashMap<Id, PatchObject>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<EmailSubmissionSetParams>,

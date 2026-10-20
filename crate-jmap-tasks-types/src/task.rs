@@ -5,7 +5,7 @@
 //!   - RFC 8984 §4 — JSCalendar common properties
 //!   - RFC 8984 §5.2 — JSCalendar Task-specific properties
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -314,7 +314,7 @@ pub struct Task {
 
     /// Map of related object UIDs to relation type objects (RFC 8984 §4.1.3).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub related_to: Option<HashMap<String, serde_json::Value>>,
+    pub related_to: Option<BTreeMap<String, serde_json::Value>>,
 
     /// Product identifier of the software that last modified this task.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -351,15 +351,15 @@ pub struct Task {
 
     /// Map of location id → Location objects (RFC 8984 §4.2.5).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub locations: Option<HashMap<Id, serde_json::Value>>,
+    pub locations: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// Map of virtual location id → VirtualLocation objects (RFC 8984 §4.2.6).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub virtual_locations: Option<HashMap<Id, serde_json::Value>>,
+    pub virtual_locations: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// Map of link id → Link objects (RFC 8984 §4.2.7).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub links: Option<HashMap<Id, serde_json::Value>>,
+    pub links: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// BCP 47 language tag for the task content.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -368,11 +368,11 @@ pub struct Task {
     /// Map of keyword strings to `true` (RFC 8984 §4.2.10).
     /// Per-user in shared task lists.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keywords: Option<HashMap<String, bool>>,
+    pub keywords: Option<BTreeMap<String, bool>>,
 
     /// Map of category strings to `true` (RFC 8984 §4.2.11).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub categories: Option<HashMap<String, bool>>,
+    pub categories: Option<BTreeMap<String, bool>>,
 
     /// CSS color name or `#rrggbb` value; per-user in shared lists.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -398,7 +398,7 @@ pub struct Task {
 
     /// Map of LocalDateTime → PatchObject for per-instance overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recurrence_overrides: Option<HashMap<String, PatchObject>>,
+    pub recurrence_overrides: Option<BTreeMap<String, PatchObject>>,
 
     /// If true, this instance is excluded from the recurrence set.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -419,7 +419,7 @@ pub struct Task {
 
     /// Map of method → URI for iTIP scheduling replies (RFC 8984 §4.4.4).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reply_to: Option<HashMap<String, String>>,
+    pub reply_to: Option<BTreeMap<String, String>>,
 
     /// Email address of the entity that sent this task on behalf of the
     /// organizer.
@@ -429,7 +429,7 @@ pub struct Task {
     /// Map of participant id → Participant objects (RFC 8984 §4.4.6).
     /// Assignees extension.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub participants: Option<HashMap<Id, serde_json::Value>>,
+    pub participants: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// iTIP request status (RFC 8984 §4.4.7).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -444,13 +444,13 @@ pub struct Task {
 
     /// Map of alert id → Alert objects (RFC 8984 §4.5.2).  Per-user.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub alerts: Option<HashMap<Id, serde_json::Value>>,
+    pub alerts: Option<BTreeMap<Id, serde_json::Value>>,
 
     // --- JSCalendar Multilingual Properties (RFC 8984 §4.6) ---
     // Gated on the multilingual extension at the handler layer.
     /// Map of BCP 47 language tag → patch object for localised property values.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub localizations: Option<HashMap<String, PatchObject>>,
+    pub localizations: Option<BTreeMap<String, PatchObject>>,
 
     // --- JSCalendar Time Zone Properties (RFC 8984 §4.7) ---
     /// IANA Time Zone Database id for interpreting `start` and `due`.
@@ -460,7 +460,7 @@ pub struct Task {
     /// Map of time zone id → custom TimeZone objects (RFC 8984 §4.7.2).
     /// Customtimezones extension.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_zones: Option<HashMap<String, serde_json::Value>>,
+    pub time_zones: Option<BTreeMap<String, serde_json::Value>>,
 
     // --- JSCalendar Task-specific Properties (RFC 8984 §5.2) ---
     /// Due date/time (LocalDateTime; RFC 8984 §5.2.1).
@@ -500,11 +500,11 @@ pub struct Task {
 
     /// Map of checklist id → Checklist objects (draft-tasks-06 §4.2.3).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub checklists: Option<HashMap<Id, Checklist>>,
+    pub checklists: Option<BTreeMap<Id, Checklist>>,
 
     /// Map of comment id → Comment objects (draft-tasks-06 §4.2.4).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub comments: Option<HashMap<Id, Comment>>,
+    pub comments: Option<BTreeMap<Id, Comment>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

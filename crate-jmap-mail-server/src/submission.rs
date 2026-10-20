@@ -31,7 +31,7 @@
 //! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_mail_types::{
     query::EmailSubmissionFilter,
@@ -970,7 +970,7 @@ async fn process_create<B: MailBackend>(
 
     // --- Build delivery status for each rcptTo ---
     // Delivery has not yet occurred; reflect queued state.
-    let mut delivery_status: HashMap<String, DeliveryStatus> = HashMap::new();
+    let mut delivery_status: BTreeMap<String, DeliveryStatus> = BTreeMap::new();
     for rcpt in &envelope.rcpt_to {
         delivery_status.insert(
             rcpt.email.clone(),

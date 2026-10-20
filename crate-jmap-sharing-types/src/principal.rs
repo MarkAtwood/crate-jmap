@@ -4,7 +4,7 @@
 //! A Principal represents an individual, a group, a location, a resource, or
 //! another entity in a collaborative JMAP environment.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
@@ -87,7 +87,7 @@ pub struct Principal {
     ///
     /// Uses `serde_json::Value` because each capability's object schema is defined
     /// by its own specification; this crate cannot enumerate all possible shapes.
-    pub capabilities: HashMap<String, Value>,
+    pub capabilities: BTreeMap<String, Value>,
 
     /// Map of Account id to Account object for each Account containing data for
     /// this Principal that the user has access to, or `null` if none.
@@ -96,7 +96,7 @@ pub struct Principal {
     /// the rationale.
     ///
     /// Serializes as `null` when `None` (required-but-nullable per RFC 9670 §2).
-    pub accounts: Option<HashMap<Id, Value>>,
+    pub accounts: Option<BTreeMap<Id, Value>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

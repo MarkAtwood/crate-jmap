@@ -136,7 +136,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -176,7 +176,7 @@ pub struct Name {
 
     /// Sort-as overrides: `kind` → verbatim string to compare.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sort_as: Option<HashMap<String, String>>,
+    pub sort_as: Option<BTreeMap<String, String>>,
 
     /// The script used by the `phonetic` property on components.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -240,7 +240,7 @@ pub struct Nickname {
 
     /// Contexts in which to use the nickname (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -283,7 +283,7 @@ pub struct Organization {
 
     /// Contexts in which association applies (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -343,7 +343,7 @@ pub struct SpeakToAs {
     /// of the character set (`A-Z`, `a-z`, `0-9`, `-`, `_`, length
     /// 1–255) is the caller's responsibility.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub pronouns: Option<HashMap<String, Pronouns>>,
+    pub pronouns: Option<BTreeMap<String, Pronouns>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -367,7 +367,7 @@ pub struct Pronouns {
 
     /// Contexts in which to use these pronouns (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -435,7 +435,7 @@ pub struct EmailAddress {
 
     /// Contexts in which to use the address (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -481,7 +481,7 @@ pub struct OnlineService {
 
     /// Contexts in which to use the service (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -517,11 +517,11 @@ pub struct Phone {
     /// Feature flags (key → `true`): `"mobile"`, `"voice"`, `"text"`,
     /// `"video"`, `"main-number"`, `"textphone"`, `"fax"`, `"pager"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub features: Option<HashMap<String, bool>>,
+    pub features: Option<BTreeMap<String, bool>>,
 
     /// Contexts in which to use the number (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -555,7 +555,7 @@ pub struct LanguagePref {
 
     /// Contexts in which to use the language (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -613,7 +613,7 @@ pub struct Calendar {
 
     /// Contexts in which to use the resource (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -647,7 +647,7 @@ pub struct SchedulingAddress {
 
     /// Contexts in which to use the scheduling address (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -709,7 +709,7 @@ pub struct Address {
     /// Contexts (key → `true`); extra keys beyond common contexts are
     /// `"billing"` and `"delivery"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// The full address as a single string.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -805,7 +805,7 @@ pub struct CryptoKey {
 
     /// Contexts in which to use the resource (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -859,7 +859,7 @@ pub struct Directory {
 
     /// Contexts in which to use the resource (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -920,7 +920,7 @@ pub struct Link {
 
     /// Contexts in which to use the resource (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -974,7 +974,7 @@ pub struct Media {
 
     /// Contexts in which to use the resource (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub contexts: Option<HashMap<String, bool>>,
+    pub contexts: Option<BTreeMap<String, bool>>,
 
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1376,7 +1376,7 @@ pub struct Relation {
     /// `"emergency"`, `"friend"`, `"kin"`, `"me"`, `"met"`, `"muse"`,
     /// `"neighbor"`, `"parent"`, `"sibling"`, `"spouse"`, `"sweetheart"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relation: Option<HashMap<String, bool>>,
+    pub relation: Option<BTreeMap<String, bool>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -2281,6 +2281,20 @@ mod tests {
             json!({"@type": "Timestamp", "utc": "2022-05-22T03:30:00Z"}),
             "acmeCorpTimezone",
             json!("UTC"),
+        );
+    }
+
+    /// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    /// maps serialize in sorted key order. Input keys are written out of
+    /// order; expected bytes are hand-written.
+    #[test]
+    fn nickname_contexts_serialize_in_sorted_key_order() {
+        let raw = r#"{"name":"Bob","contexts":{"work":true,"private":true}}"#;
+        let n: Nickname = serde_json::from_str(raw).expect("deserialize");
+        let j = serde_json::to_string(&n).expect("serialize");
+        assert_eq!(
+            j,
+            r#"{"name":"Bob","contexts":{"private":true,"work":true}}"#
         );
     }
 }

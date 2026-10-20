@@ -8,7 +8,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -128,7 +128,7 @@ impl super::SessionClient {
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
     ///
-    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
+    /// `update` is `Option<BTreeMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
@@ -143,7 +143,7 @@ impl super::SessionClient {
     ///   patch map (pathological conditions only — allocation failure,
     ///   or a `PatchObject` whose JSON tree exceeds `serde_json`'s
     ///   recursion limit). The transient memory peak for very large
-    ///   `update` maps is roughly 3-4× the `HashMap`'s in-memory size
+    ///   `update` maps is roughly 3-4× the `BTreeMap`'s in-memory size
     ///   (source map + `serde_json::Value` tree + serialized `Vec<u8>`
     ///   body); callers dealing with thousands of patches per call may
     ///   prefer to batch.
@@ -157,7 +157,7 @@ impl super::SessionClient {
     pub async fn principal_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<HashMap<Id, PatchObject>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
     ) -> Result<SetResponse<jmap_sharing_types::Principal>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {

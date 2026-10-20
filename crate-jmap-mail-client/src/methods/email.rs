@@ -8,7 +8,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -163,7 +163,7 @@ impl super::SessionClient {
     /// optional; pass `None` to omit any operation from the request.
     /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard.
     ///
-    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
+    /// `update` is `Option<BTreeMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
@@ -176,15 +176,15 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `update` is `Some` and `serde_json::to_value` fails on the
     ///   patch map. In practice this happens only under pathological
-    ///   conditions (allocation failure on a very large `HashMap`, or
+    ///   conditions (allocation failure on a very large `BTreeMap`, or
     ///   a `PatchObject` whose JSON tree exceeds `serde_json`'s
     ///   recursion limit). The size of `update` is otherwise bounded
     ///   only by available memory; the wire request is buffered by the
     ///   HTTP client (`reqwest::RequestBuilder::json` calls
     ///   `serde_json::to_vec` upfront), so the transient peak holds
-    ///   the source `HashMap`, the intermediate `serde_json::Value`
+    ///   the source `BTreeMap`, the intermediate `serde_json::Value`
     ///   tree, and the serialized `Vec<u8>` body simultaneously —
-    ///   roughly 3-4× the `HashMap`'s in-memory size. Callers dealing
+    ///   roughly 3-4× the `BTreeMap`'s in-memory size. Callers dealing
     ///   with thousands of patches per call may prefer to batch.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
@@ -192,7 +192,7 @@ impl super::SessionClient {
     pub async fn email_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<HashMap<Id, PatchObject>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_mail_types::Email>, jmap_base_client::ClientError> {
@@ -493,7 +493,7 @@ impl super::SessionClient {
     ///   [`EmailImportResponse::not_created`].
     pub async fn email_import(
         &self,
-        emails: &HashMap<String, EmailImportInput<'_>>,
+        emails: &BTreeMap<String, EmailImportInput<'_>>,
         if_in_state: Option<&State>,
     ) -> Result<EmailImportResponse, jmap_base_client::ClientError> {
         if emails.is_empty() {

@@ -16,7 +16,7 @@ pub mod custom_emoji;
 pub mod filenode;
 pub mod quota;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
@@ -54,10 +54,10 @@ pub struct PushSubscriptionCreateResponse {
     #[serde(default)]
     pub account_id: Option<Id>,
     /// Successfully created subscriptions, keyed by the caller-supplied creation key.
-    pub created: Option<HashMap<String, serde_json::Value>>,
+    pub created: Option<BTreeMap<String, serde_json::Value>>,
     /// Creation failures, keyed by the caller-supplied creation key.
     #[serde(default)]
-    pub not_created: Option<HashMap<String, SetError>>,
+    pub not_created: Option<BTreeMap<String, SetError>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -1719,29 +1719,22 @@ pub struct PushSubscriptionCreateInput<'a> {
     /// Per-account ChatPushConfig entries for inline push. Each entry is
     /// `(accountId, config)`. Pass `None` to omit the `chatPush` property.
     ///
-    /// # Why a slice-of-pairs, not a `HashMap`?
+    /// # Why a slice-of-pairs, not a `BTreeMap`?
     ///
-    /// The wire form is a JSON object keyed by accountId (a `HashMap`
+    /// The wire form is a JSON object keyed by accountId (a map
     /// shape). The slice-of-pairs input form is deliberate:
     ///
     /// * Most callers know their per-account configs at construction
     ///   time and can supply them as an array literal; forcing
-    ///   `&HashMap<Id, _>` would require a `.collect()` or a
-    ///   `HashMap::from([...])` site at every call.
-    /// * [`Id`] does not derive [`Ord`], so a
-    ///   deterministic-iteration alternative would have to be
-    ///   `BTreeMap<Id, _>`, which requires a workspace-wide Ord
-    ///   propagation pass to add. `HashMap<Id, _>` would give
-    ///   non-deterministic JSON output (test fixtures and snapshot
-    ///   tests would become order-flaky).
+    ///   `&BTreeMap<Id, _>` would require a `.collect()` or a
+    ///   `BTreeMap::from([...])` site at every call.
     /// * The runtime duplicate-accountId check
     ///   ([`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument))
     ///   is small, shared between create and update via
     ///   `build_chat_push_map`, and has unit-test coverage.
     ///
     /// The trade-off is one runtime check per call site against an
-    /// ergonomic gain for the common case. If a future workspace pass
-    /// adds [`Ord`] to [`Id`], a follow-up bead can re-evaluate.
+    /// ergonomic gain for the common case.
     pub chat_push: Option<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>,
 }
 
@@ -1839,7 +1832,7 @@ pub struct PushSubscriptionPatch<'a> {
     ///
     /// See the rustdoc on
     /// [`PushSubscriptionCreateInput::chat_push`] for the rationale
-    /// behind the slice-of-pairs input shape (vs `HashMap<Id, _>`).
+    /// behind the slice-of-pairs input shape (vs `BTreeMap<Id, _>`).
     pub chat_push: Patch<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>,
 }
 

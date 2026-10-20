@@ -2,7 +2,7 @@
 //!
 //! Normative reference: draft-ietf-jmap-calendars-26 §4.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
@@ -141,18 +141,18 @@ pub struct Calendar {
     /// Default alerts for timed events when `useDefaultAlerts` is true.
     /// Keys are UUIDs; values are Alert objects (RFC 8984 §4.5.2).
     /// Complex sub-objects passed through as opaque JSON.
-    pub default_alerts_with_time: Option<HashMap<String, serde_json::Value>>,
+    pub default_alerts_with_time: Option<BTreeMap<String, serde_json::Value>>,
 
     /// Default alerts for all-day events when `useDefaultAlerts` is true.
     /// Keys are UUIDs; values are Alert objects (RFC 8984 §4.5.2).
-    pub default_alerts_without_time: Option<HashMap<String, serde_json::Value>>,
+    pub default_alerts_without_time: Option<BTreeMap<String, serde_json::Value>>,
 
     /// IANA Time Zone Database id; `null` to inherit from the account Principal.
     pub time_zone: Option<String>,
 
     /// Map of Principal id → rights; `null` if not shared.
     /// May only be modified by a user with `may_share` right.
-    pub share_with: Option<HashMap<Id, CalendarRights>>,
+    pub share_with: Option<BTreeMap<Id, CalendarRights>>,
 
     /// Access rights the authenticated user holds for this calendar (server-set).
     pub my_rights: CalendarRights,

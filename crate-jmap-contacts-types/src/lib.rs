@@ -148,7 +148,7 @@ pub use jmap_jscontact_types::{
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use jmap_types::Id;
     use serde_json::json;
@@ -522,7 +522,7 @@ mod tests {
         assert!(serialized.get("kind").is_none());
     }
 
-    /// `localizations` round-trips as a `HashMap<String, PatchObject>` and
+    /// `localizations` round-trips as a `BTreeMap<String, PatchObject>` and
     /// is byte-identical on the wire (proving `#[serde(transparent)]` on
     /// `PatchObject` introduces no wrapper key).
     ///
@@ -740,7 +740,7 @@ mod tests {
         assert_eq!(back, card.name.unwrap());
     }
 
-    /// Deserialize the sloppy `nicknames` field through `HashMap<String, Nickname>`.
+    /// Deserialize the sloppy `nicknames` field through `BTreeMap<String, Nickname>`.
     /// Oracle: RFC 9553 Figure 21.
     #[test]
     fn sloppy_field_nicknames_roundtrips_through_jscontact_nickname_map() {
@@ -750,14 +750,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let nicks: HashMap<String, Nickname> =
+        let nicks: BTreeMap<String, Nickname> =
             serde_json::from_value(card.nicknames.clone().unwrap()).unwrap();
         assert_eq!(nicks["k391"].name, "Johnny");
         let back = serde_json::to_value(&nicks).unwrap();
         assert_eq!(back, card.nicknames.unwrap());
     }
 
-    /// Deserialize the sloppy `organizations` field through `HashMap<String, Organization>`.
+    /// Deserialize the sloppy `organizations` field through `BTreeMap<String, Organization>`.
     /// Oracle: RFC 9553 Figure 22.
     #[test]
     fn sloppy_field_organizations_roundtrips_through_jscontact_organization_map() {
@@ -774,7 +774,7 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let orgs: HashMap<String, Organization> =
+        let orgs: BTreeMap<String, Organization> =
             serde_json::from_value(card.organizations.clone().unwrap()).unwrap();
         assert_eq!(orgs["o1"].name.as_deref(), Some("ABC, Inc."));
         let back = serde_json::to_value(&orgs).unwrap();
@@ -799,7 +799,7 @@ mod tests {
         assert_eq!(back, card.speak_to_as.unwrap());
     }
 
-    /// Deserialize the sloppy `titles` field through `HashMap<String, Title>`.
+    /// Deserialize the sloppy `titles` field through `BTreeMap<String, Title>`.
     /// Oracle: RFC 9553 Figure 24.
     #[test]
     fn sloppy_field_titles_roundtrips_through_jscontact_title_map() {
@@ -809,14 +809,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let titles: HashMap<String, Title> =
+        let titles: BTreeMap<String, Title> =
             serde_json::from_value(card.titles.clone().unwrap()).unwrap();
         assert_eq!(titles["le9"].name, "Research Scientist");
         let back = serde_json::to_value(&titles).unwrap();
         assert_eq!(back, card.titles.unwrap());
     }
 
-    /// Deserialize the sloppy `emails` field through `HashMap<String, EmailAddress>`.
+    /// Deserialize the sloppy `emails` field through `BTreeMap<String, EmailAddress>`.
     /// Oracle: RFC 9553 Figure 25.
     #[test]
     fn sloppy_field_emails_roundtrips_through_jscontact_email_address_map() {
@@ -826,14 +826,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let emails: HashMap<String, EmailAddress> =
+        let emails: BTreeMap<String, EmailAddress> =
             serde_json::from_value(card.emails.clone().unwrap()).unwrap();
         assert_eq!(emails["e1"].address, "jqpublic@xyz.example.com");
         let back = serde_json::to_value(&emails).unwrap();
         assert_eq!(back, card.emails.unwrap());
     }
 
-    /// Deserialize the sloppy `onlineServices` field through `HashMap<String, OnlineService>`.
+    /// Deserialize the sloppy `onlineServices` field through `BTreeMap<String, OnlineService>`.
     /// Oracle: RFC 9553 Figure 26.
     #[test]
     fn sloppy_field_online_services_roundtrips_through_jscontact_online_service_map() {
@@ -843,13 +843,13 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let svcs: HashMap<String, OnlineService> =
+        let svcs: BTreeMap<String, OnlineService> =
             serde_json::from_value(card.online_services.clone().unwrap()).unwrap();
         let back = serde_json::to_value(&svcs).unwrap();
         assert_eq!(back, card.online_services.unwrap());
     }
 
-    /// Deserialize the sloppy `phones` field through `HashMap<String, Phone>`.
+    /// Deserialize the sloppy `phones` field through `BTreeMap<String, Phone>`.
     /// Oracle: RFC 9553 Figure 27.
     #[test]
     fn sloppy_field_phones_roundtrips_through_jscontact_phone_map() {
@@ -864,14 +864,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let phones: HashMap<String, Phone> =
+        let phones: BTreeMap<String, Phone> =
             serde_json::from_value(card.phones.clone().unwrap()).unwrap();
         assert_eq!(phones["tel0"].number, "tel:+1-555-555-5555;ext=5555");
         let back = serde_json::to_value(&phones).unwrap();
         assert_eq!(back, card.phones.unwrap());
     }
 
-    /// Deserialize the sloppy `preferredLanguages` field through `HashMap<String, LanguagePref>`.
+    /// Deserialize the sloppy `preferredLanguages` field through `BTreeMap<String, LanguagePref>`.
     /// Oracle: RFC 9553 Figure 28.
     #[test]
     fn sloppy_field_preferred_languages_roundtrips_through_jscontact_language_pref_map() {
@@ -881,14 +881,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let langs: HashMap<String, LanguagePref> =
+        let langs: BTreeMap<String, LanguagePref> =
             serde_json::from_value(card.preferred_languages.clone().unwrap()).unwrap();
         assert_eq!(langs["l1"].language, "en");
         let back = serde_json::to_value(&langs).unwrap();
         assert_eq!(back, card.preferred_languages.unwrap());
     }
 
-    /// Deserialize the sloppy `calendars` field through `HashMap<String, Calendar>`.
+    /// Deserialize the sloppy `calendars` field through `BTreeMap<String, Calendar>`.
     /// Oracle: RFC 9553 Figure 29.
     #[test]
     fn sloppy_field_calendars_roundtrips_through_jscontact_calendar_map() {
@@ -898,13 +898,13 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let cals: HashMap<String, Calendar> =
+        let cals: BTreeMap<String, Calendar> =
             serde_json::from_value(card.calendars.clone().unwrap()).unwrap();
         let back = serde_json::to_value(&cals).unwrap();
         assert_eq!(back, card.calendars.unwrap());
     }
 
-    /// Deserialize the sloppy `schedulingAddresses` field through `HashMap<String, SchedulingAddress>`.
+    /// Deserialize the sloppy `schedulingAddresses` field through `BTreeMap<String, SchedulingAddress>`.
     /// Oracle: RFC 9553 Figure 30.
     #[test]
     fn sloppy_field_scheduling_addresses_roundtrips_through_jscontact_scheduling_address_map() {
@@ -914,14 +914,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let scheds: HashMap<String, SchedulingAddress> =
+        let scheds: BTreeMap<String, SchedulingAddress> =
             serde_json::from_value(card.scheduling_addresses.clone().unwrap()).unwrap();
         assert_eq!(scheds["sched1"].uri, "mailto:janedoe@example.com");
         let back = serde_json::to_value(&scheds).unwrap();
         assert_eq!(back, card.scheduling_addresses.unwrap());
     }
 
-    /// Deserialize the sloppy `addresses` field through `HashMap<String, Address>`.
+    /// Deserialize the sloppy `addresses` field through `BTreeMap<String, Address>`.
     /// Oracle: RFC 9553 Figure 31.
     #[test]
     fn sloppy_field_addresses_roundtrips_through_jscontact_address_map() {
@@ -939,14 +939,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let addrs: HashMap<String, Address> =
+        let addrs: BTreeMap<String, Address> =
             serde_json::from_value(card.addresses.clone().unwrap()).unwrap();
         assert_eq!(addrs["k23"].country_code.as_deref(), Some("US"));
         let back = serde_json::to_value(&addrs).unwrap();
         assert_eq!(back, card.addresses.unwrap());
     }
 
-    /// Deserialize the sloppy `cryptoKeys` field through `HashMap<String, CryptoKey>`.
+    /// Deserialize the sloppy `cryptoKeys` field through `BTreeMap<String, CryptoKey>`.
     /// Oracle: RFC 9553 Figure 34.
     #[test]
     fn sloppy_field_crypto_keys_roundtrips_through_jscontact_crypto_key_map() {
@@ -956,13 +956,13 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let keys: HashMap<String, CryptoKey> =
+        let keys: BTreeMap<String, CryptoKey> =
             serde_json::from_value(card.crypto_keys.clone().unwrap()).unwrap();
         let back = serde_json::to_value(&keys).unwrap();
         assert_eq!(back, card.crypto_keys.unwrap());
     }
 
-    /// Deserialize the sloppy `directories` field through `HashMap<String, Directory>`.
+    /// Deserialize the sloppy `directories` field through `BTreeMap<String, Directory>`.
     /// Oracle: RFC 9553 Figure 36.
     #[test]
     fn sloppy_field_directories_roundtrips_through_jscontact_directory_map() {
@@ -975,14 +975,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let dirs: HashMap<String, Directory> =
+        let dirs: BTreeMap<String, Directory> =
             serde_json::from_value(card.directories.clone().unwrap()).unwrap();
         assert_eq!(dirs["dir1"].kind.as_deref(), Some("entry"));
         let back = serde_json::to_value(&dirs).unwrap();
         assert_eq!(back, card.directories.unwrap());
     }
 
-    /// Deserialize the sloppy `links` field through `HashMap<String, Link>`.
+    /// Deserialize the sloppy `links` field through `BTreeMap<String, Link>`.
     /// Oracle: RFC 9553 Figure 37.
     #[test]
     fn sloppy_field_links_roundtrips_through_jscontact_link_map() {
@@ -992,13 +992,13 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let links: HashMap<String, Link> =
+        let links: BTreeMap<String, Link> =
             serde_json::from_value(card.links.clone().unwrap()).unwrap();
         let back = serde_json::to_value(&links).unwrap();
         assert_eq!(back, card.links.unwrap());
     }
 
-    /// Deserialize the sloppy `media` field through `HashMap<String, Media>`.
+    /// Deserialize the sloppy `media` field through `BTreeMap<String, Media>`.
     /// Oracle: RFC 9553 Figure 38.
     #[test]
     fn sloppy_field_media_roundtrips_through_jscontact_media_map() {
@@ -1008,14 +1008,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let media: HashMap<String, Media> =
+        let media: BTreeMap<String, Media> =
             serde_json::from_value(card.media.clone().unwrap()).unwrap();
         assert_eq!(media["res47"].kind.as_deref(), Some("logo"));
         let back = serde_json::to_value(&media).unwrap();
         assert_eq!(back, card.media.unwrap());
     }
 
-    /// Deserialize the sloppy `anniversaries` field through `HashMap<String, Anniversary>`.
+    /// Deserialize the sloppy `anniversaries` field through `BTreeMap<String, Anniversary>`.
     /// Oracle: RFC 9553 Figure 41.
     #[test]
     fn sloppy_field_anniversaries_roundtrips_through_jscontact_anniversary_map() {
@@ -1028,14 +1028,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let annivs: HashMap<String, Anniversary> =
+        let annivs: BTreeMap<String, Anniversary> =
             serde_json::from_value(card.anniversaries.clone().unwrap()).unwrap();
         assert_eq!(annivs["k8"].kind, "birth");
         let back = serde_json::to_value(&annivs).unwrap();
         assert_eq!(back, card.anniversaries.unwrap());
     }
 
-    /// Deserialize the sloppy `notes` field through `HashMap<String, Note>`.
+    /// Deserialize the sloppy `notes` field through `BTreeMap<String, Note>`.
     /// Oracle: RFC 9553 Figure 43.
     #[test]
     fn sloppy_field_notes_roundtrips_through_jscontact_note_map() {
@@ -1049,7 +1049,7 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let notes: HashMap<String, Note> =
+        let notes: BTreeMap<String, Note> =
             serde_json::from_value(card.notes.clone().unwrap()).unwrap();
         assert_eq!(
             notes["n1"].author.as_ref().unwrap().name.as_deref(),
@@ -1059,7 +1059,7 @@ mod tests {
         assert_eq!(back, card.notes.unwrap());
     }
 
-    /// Deserialize the sloppy `personalInfo` field through `HashMap<String, PersonalInfo>`.
+    /// Deserialize the sloppy `personalInfo` field through `BTreeMap<String, PersonalInfo>`.
     /// Oracle: RFC 9553 Figure 44.
     #[test]
     fn sloppy_field_personal_info_roundtrips_through_jscontact_personal_info_map() {
@@ -1069,14 +1069,14 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let info: HashMap<String, PersonalInfo> =
+        let info: BTreeMap<String, PersonalInfo> =
             serde_json::from_value(card.personal_info.clone().unwrap()).unwrap();
         assert_eq!(info["pi2"].kind, "expertise");
         let back = serde_json::to_value(&info).unwrap();
         assert_eq!(back, card.personal_info.unwrap());
     }
 
-    /// Deserialize the sloppy `relatedTo` field through `HashMap<String, Relation>`.
+    /// Deserialize the sloppy `relatedTo` field through `BTreeMap<String, Relation>`.
     /// Oracle: RFC 9553 Figure 13.
     #[test]
     fn sloppy_field_related_to_roundtrips_through_jscontact_relation_map() {
@@ -1088,7 +1088,7 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let rels: HashMap<String, Relation> =
+        let rels: BTreeMap<String, Relation> =
             serde_json::from_value(card.related_to.clone().unwrap()).unwrap();
         let back = serde_json::to_value(&rels).unwrap();
         assert_eq!(back, card.related_to.unwrap());
@@ -1099,7 +1099,7 @@ mod tests {
     ///
     /// RFC 9553 §2.8.2 declares `keywords` as `String[Boolean]` — there is
     /// no JSContact object type for keywords, only a tag→true map. The
-    /// field is typed as `Option<HashMap<String, bool>>` to match the
+    /// field is typed as `Option<BTreeMap<String, bool>>` to match the
     /// sibling `members` and `address_book_ids` fields and the spec's
     /// closed shape (JMAP-glx8.3).
     #[test]
@@ -1213,7 +1213,7 @@ mod tests {
     // `addressBookIds`, `members`, and `keywords` are JMAP `Id[Boolean]` /
     // `String[Boolean]` sets where the spec requires each value MUST be
     // `true` (RFC 9610 §3, RFC 9553 §2.1.6, RFC 9553 §2.8.2). The type
-    // shape `HashMap<_, bool>` cannot enforce that — caller / server is
+    // shape `BTreeMap<_, bool>` cannot enforce that — caller / server is
     // responsible for rejecting `false`. The tests below pin the
     // deserialise-cleanly contract so handler-layer validators know what
     // they will see on the wire, matching the canonical `Email.mailbox_ids`
@@ -1595,5 +1595,19 @@ mod tests {
                 .expect_err(&format!("{field} collision must be detected"));
             assert_eq!(err.keys(), &[field.to_string()]);
         }
+    }
+
+    /// Oracle: workspace map-ordering policy (bd:JMAP-pdux, bd:JMAP-glx8.20)
+    /// — wire-format maps serialize in sorted key order. Input keys are
+    /// written out of order; expected bytes are hand-written.
+    #[test]
+    fn contact_card_maps_serialize_in_sorted_key_order() {
+        let raw = r#"{"addressBookIds":{"ab2":true,"ab1":true},"localizations":{"fr":{"name/full":"Jean"},"de":{"name/full":"Johann"}}}"#;
+        let card: ContactCard = serde_json::from_str(raw).expect("deserialize");
+        let j = serde_json::to_string(&card).expect("serialize");
+        assert_eq!(
+            j,
+            r#"{"addressBookIds":{"ab1":true,"ab2":true},"localizations":{"de":{"name/full":"Johann"},"fr":{"name/full":"Jean"}}}"#
+        );
     }
 }

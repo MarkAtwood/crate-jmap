@@ -12,7 +12,7 @@
 //! consumer's job; this module only decides what may be sent.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     fmt,
     future::Future,
     sync::Arc,
@@ -627,12 +627,12 @@ pub fn is_deliverable(stored: &StoredPushSubscription, now_secs: i64) -> bool {
 /// see; the caller passes only those.
 pub fn state_change_for(
     sub: &PushSubscription,
-    changed: &HashMap<Id, HashMap<String, State>>,
+    changed: &BTreeMap<Id, BTreeMap<String, State>>,
 ) -> Option<StateChange> {
-    let filtered: HashMap<Id, HashMap<String, State>> = changed
+    let filtered: BTreeMap<Id, BTreeMap<String, State>> = changed
         .iter()
         .map(|(account, types)| {
-            let kept: HashMap<String, State> = types
+            let kept: BTreeMap<String, State> = types
                 .iter()
                 .filter(|(t, _)| sub.types.as_ref().is_none_or(|wanted| wanted.contains(t)))
                 .map(|(t, s)| (t.clone(), s.clone()))

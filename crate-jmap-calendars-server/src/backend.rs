@@ -792,7 +792,7 @@ pub trait CalendarsBackend: JmapBackend {
         let not_parsable = blob_ids.to_vec();
         async move {
             Ok(CalendarEventParseResult {
-                parsed: std::collections::HashMap::new(),
+                parsed: std::collections::BTreeMap::new(),
                 not_found: vec![],
                 not_parsable,
             })
@@ -966,7 +966,8 @@ impl CalendarsLimits {
 #[derive(Debug, Default)]
 pub struct CalendarEventParseResult {
     /// Successfully parsed: blobId → list of parsed [`CalendarEvent`](jmap_calendars_types::CalendarEvent)s.
-    pub parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
+    pub parsed:
+        std::collections::BTreeMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
     /// Blob IDs that were not found in the blob store.
     pub not_found: Vec<jmap_types::Id>,
     /// Blob IDs that could not be parsed as iCalendar data.
@@ -986,7 +987,7 @@ impl CalendarEventParseResult {
     ///
     /// Future fields added to `CalendarEventParseResult` are an
     /// **additive non-breaking change**: the new field MUST have a
-    /// `Default` value (typical for `HashMap` / `Vec` / `Option`) and
+    /// `Default` value (typical for `BTreeMap` / `Vec` / `Option`) and
     /// the new field is exposed via a `with_*`-style builder setter
     /// rather than being appended as a fourth positional argument to
     /// this constructor. `new(parsed, not_found, not_parsable)`
@@ -995,7 +996,10 @@ impl CalendarEventParseResult {
     /// workspace pattern for `#[non_exhaustive]` types with builder
     /// setters.
     pub fn new(
-        parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
+        parsed: std::collections::BTreeMap<
+            jmap_types::Id,
+            Vec<jmap_calendars_types::CalendarEvent>,
+        >,
         not_found: Vec<jmap_types::Id>,
         not_parsable: Vec<jmap_types::Id>,
     ) -> Self {
@@ -1010,7 +1014,10 @@ impl CalendarEventParseResult {
     #[must_use]
     pub fn with_parsed(
         mut self,
-        parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
+        parsed: std::collections::BTreeMap<
+            jmap_types::Id,
+            Vec<jmap_calendars_types::CalendarEvent>,
+        >,
     ) -> Self {
         self.parsed = parsed;
         self
@@ -1311,7 +1318,7 @@ mod tests {
 
     #[test]
     fn calendar_event_parse_result_new_populates_all_three() {
-        let mut parsed = std::collections::HashMap::new();
+        let mut parsed = std::collections::BTreeMap::new();
         parsed.insert(jmap_types::Id::from("blob-1"), vec![]);
         let not_found = vec![jmap_types::Id::from("blob-2")];
         let not_parsable = vec![jmap_types::Id::from("blob-3")];
@@ -1324,7 +1331,7 @@ mod tests {
 
     #[test]
     fn calendar_event_parse_result_with_setters_replace_fields() {
-        let mut parsed = std::collections::HashMap::new();
+        let mut parsed = std::collections::BTreeMap::new();
         parsed.insert(jmap_types::Id::from("blob-a"), vec![]);
         let r = CalendarEventParseResult::default()
             .with_parsed(parsed)

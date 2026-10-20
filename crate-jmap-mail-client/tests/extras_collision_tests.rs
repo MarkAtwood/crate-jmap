@@ -14,7 +14,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_mail_client::{EmailGetParams, EmailImportInput, EmailParseParams};
 use jmap_types::Id;
@@ -116,7 +116,7 @@ async fn email_import_typed_field_wins_over_colliding_extra() {
     extra.insert("blobId".into(), json!("SPOOF"));
     extra.insert("mailboxIds".into(), json!({ "evil": true }));
     extra.insert("acmeCorpX".into(), json!("kept"));
-    let mut emails = HashMap::new();
+    let mut emails = BTreeMap::new();
     emails.insert(
         "k1".to_owned(),
         EmailImportInput {

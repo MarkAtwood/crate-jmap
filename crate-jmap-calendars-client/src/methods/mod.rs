@@ -13,7 +13,7 @@ pub mod event_parse;
 pub mod participant_identity;
 pub mod principal_availability;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
@@ -51,7 +51,7 @@ pub struct CalendarEventParseResponse {
     pub account_id: Id,
     /// Parsed `CalendarEvent` objects keyed by source blob id (a blob may
     /// contain multiple VEVENT components).
-    pub parsed: Option<HashMap<Id, Vec<jmap_calendars_types::CalendarEvent>>>,
+    pub parsed: Option<BTreeMap<Id, Vec<jmap_calendars_types::CalendarEvent>>>,
     /// Blob ids that could not be found in the account's blob store.
     pub not_found: Option<Vec<Id>>,
     /// Blob ids whose contents were not parseable as iCalendar data.

@@ -8,7 +8,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_mail_client::EmailSubmissionSetParams;
 use jmap_types::PatchObject;
@@ -125,7 +125,7 @@ async fn email_submission_set_on_success_update_email() {
     let sc = helpers::make_client(&server);
     // Patch the draft keyword off the email upon successful send.
     // Oracle: RFC 8621 §7.5 — onSuccessUpdateEmail is Id[PatchObject].
-    let mut on_success = HashMap::new();
+    let mut on_success = BTreeMap::new();
     let mut patch_map = serde_json::Map::new();
     patch_map.insert("keywords/$draft".to_owned(), serde_json::Value::Null);
     on_success.insert("#k1490".to_owned(), PatchObject::from_map(patch_map));

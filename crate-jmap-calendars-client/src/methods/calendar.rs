@@ -8,7 +8,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -147,8 +147,8 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::calendar_get`].
     pub async fn calendar_set(
         &self,
-        create: Option<HashMap<String, jmap_calendars_types::Calendar>>,
-        update: Option<HashMap<Id, PatchObject>>,
+        create: Option<BTreeMap<String, jmap_calendars_types::Calendar>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
         if_in_state: Option<&State>,
         params: Option<super::CalendarSetParams>,

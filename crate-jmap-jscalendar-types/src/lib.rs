@@ -72,7 +72,7 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -173,7 +173,7 @@ pub trait TypeDiscriminator {
 /// MUST treat the inner string as opaque-but-presumed-well-formed and
 /// validate at the system boundary.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct LocalDateTime(String);
 
 impl From<String> for LocalDateTime {
@@ -593,7 +593,7 @@ pub struct Location {
 
     /// Map of location type URIs → `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub location_types: Option<HashMap<String, bool>>,
+    pub location_types: Option<BTreeMap<String, bool>>,
 
     /// Relation of this location to the event: `"start"` or `"end"`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -609,7 +609,7 @@ pub struct Location {
 
     /// Attachments and images associated with this location.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub links: Option<HashMap<String, Link>>,
+    pub links: Option<BTreeMap<String, Link>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -682,7 +682,7 @@ pub struct VirtualLocation {
 
     /// Map of feature type URIs → `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub features: Option<HashMap<String, bool>>,
+    pub features: Option<BTreeMap<String, bool>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -939,7 +939,7 @@ pub struct Relation {
 
     /// Map of relationship type URIs → `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relation: Option<HashMap<String, bool>>,
+    pub relation: Option<BTreeMap<String, bool>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -1004,7 +1004,7 @@ pub struct Participant {
 
     /// Map of scheduling method → URI for sending scheduling messages.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub send_to: Option<HashMap<String, String>>,
+    pub send_to: Option<BTreeMap<String, String>>,
 
     /// Kind of participant: `"individual"`, `"group"`, `"location"`, `"resource"`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1016,7 +1016,7 @@ pub struct Participant {
     /// participant".  The non-empty mandate is NOT enforced by the type
     /// system or by deserialize; use [`Participant::validate_roles`]
     /// for an opt-in check.
-    pub roles: HashMap<String, bool>,
+    pub roles: BTreeMap<String, bool>,
 
     /// Id of the location this participant is associated with.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1052,19 +1052,19 @@ pub struct Participant {
 
     /// Map of participant ids → `true` for participants this one delegated to.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delegated_to: Option<HashMap<String, bool>>,
+    pub delegated_to: Option<BTreeMap<String, bool>>,
 
     /// Map of participant ids → `true` for participants who delegated to this one.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delegated_from: Option<HashMap<String, bool>>,
+    pub delegated_from: Option<BTreeMap<String, bool>>,
 
     /// Map of group participant ids → `true` that this participant is a member of.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub member_of: Option<HashMap<String, bool>>,
+    pub member_of: Option<BTreeMap<String, bool>>,
 
     /// Links associated with this participant.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub links: Option<HashMap<String, Link>>,
+    pub links: Option<BTreeMap<String, Link>>,
 
     /// iTIP scheduling sequence number for this participant (RFC 8984 §5.2.1).
     ///
@@ -1177,12 +1177,12 @@ impl Participant {
     ///
     /// Per RFC 8984 §4.4.6 the `roles` map MUST be non-empty: "At least
     /// one role MUST be specified for the participant".  This
-    /// constructor accepts any `HashMap`, including an empty one — the
+    /// constructor accepts any `BTreeMap`, including an empty one — the
     /// non-empty mandate is not enforced at construction time so that
     /// partial in-flight values round-trip cleanly.  Callers SHOULD
     /// populate at least one role entry before serializing.  Use
     /// [`Participant::validate_roles`] to check.
-    pub fn new(roles: HashMap<String, bool>) -> Self {
+    pub fn new(roles: BTreeMap<String, bool>) -> Self {
         Self {
             at_type: "Participant".to_owned(),
             name: None,
@@ -1473,7 +1473,7 @@ pub struct Alert {
 
     /// Related alerts (e.g. for snooze chains); keys are alert ids.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub related_to: Option<HashMap<String, Relation>>,
+    pub related_to: Option<BTreeMap<String, Relation>>,
 
     /// How to present the alert: `"display"` or `"email"` (default `"display"`).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1560,12 +1560,12 @@ pub struct TimeZoneRule {
     /// [`TimeZoneRule::validate_recurrence_overrides_empty`] for an
     /// opt-in check that every value is the empty patch.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recurrence_overrides: Option<HashMap<LocalDateTime, PatchObject>>,
+    pub recurrence_overrides: Option<BTreeMap<LocalDateTime, PatchObject>>,
 
     /// TZNAME properties from iCalendar — set of human-readable names
     /// for this rule. The map value MUST be `true` for each key.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub names: Option<HashMap<String, bool>>,
+    pub names: Option<BTreeMap<String, bool>>,
 
     /// COMMENT properties from iCalendar — order MUST be preserved.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1706,7 +1706,7 @@ pub struct TimeZone {
     /// TZID-ALIAS-OF properties from iCalendar (RFC 7808). Map keys are
     /// the alias identifiers; the value MUST be `true` for each key.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub aliases: Option<HashMap<String, bool>>,
+    pub aliases: Option<BTreeMap<String, bool>>,
 
     /// STANDARD sub-components from iCalendar. Order MUST be preserved.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1819,7 +1819,7 @@ mod tests {
         let vloc = VirtualLocation::new("https://example.com/m");
         let link = Link::with_href("https://example.com/x");
         let rel = Relation::new();
-        let mut roles = HashMap::new();
+        let mut roles = BTreeMap::new();
         roles.insert("attendee".to_owned(), true);
         let part = Participant::new(roles);
         let off = OffsetTrigger::new(SignedDuration::from("-PT15M"));
@@ -2156,7 +2156,7 @@ mod tests {
         assert_eq!(p_empty.validate_roles(), Err(ParticipantRolesError::Empty));
 
         // Non-empty roles — validate accepts.
-        let mut roles = HashMap::new();
+        let mut roles = BTreeMap::new();
         roles.insert("attendee".to_owned(), true);
         let p_good = Participant::new(roles);
         assert!(p_good.validate_roles().is_ok());
@@ -2657,5 +2657,30 @@ mod tests {
             }
             _ => panic!("trigger MUST deserialize as OffsetTrigger variant"),
         }
+    }
+
+    /// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    /// maps serialize in sorted key order. Expected bytes are hand-written.
+    #[test]
+    fn recurrence_overrides_serialize_in_sorted_key_order() {
+        let mut rule =
+            TimeZoneRule::new(LocalDateTime::from("2024-01-01T00:00:00"), "+0100", "+0200");
+        let mut overrides = BTreeMap::new();
+        overrides.insert(
+            LocalDateTime::from("2024-06-01T00:00:00"),
+            PatchObject::default(),
+        );
+        overrides.insert(
+            LocalDateTime::from("2024-03-01T00:00:00"),
+            PatchObject::default(),
+        );
+        rule.recurrence_overrides = Some(overrides);
+        let j = serde_json::to_string(&rule).expect("serialize");
+        assert!(
+            j.contains(
+                r#""recurrenceOverrides":{"2024-03-01T00:00:00":{},"2024-06-01T00:00:00":{}}"#
+            ),
+            "recurrenceOverrides keys must be sorted: {j}"
+        );
     }
 }

@@ -2,7 +2,7 @@
 //!
 //! Normative reference: draft-ietf-jmap-tasks-06 §3.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
@@ -134,11 +134,11 @@ pub struct TaskList {
 
     /// Map of keyword strings to display colors (CSS color name or `#rrggbb`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keyword_colors: Option<HashMap<String, String>>,
+    pub keyword_colors: Option<BTreeMap<String, String>>,
 
     /// Map of category strings to display colors.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub category_colors: Option<HashMap<String, String>>,
+    pub category_colors: Option<BTreeMap<String, String>>,
 
     /// Client UI sort position; lower values sort first.  0 ≤ n < 2^31.
     #[serde(default)]
@@ -162,7 +162,7 @@ pub struct TaskList {
     /// `null` means the list is not shared.  May only be modified by a user
     /// with `may_admin` right.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub share_with: Option<HashMap<Id, TaskRights>>,
+    pub share_with: Option<BTreeMap<Id, TaskRights>>,
 
     /// Access rights the authenticated user holds for this list (server-set).
     pub my_rights: TaskRights,
@@ -170,12 +170,12 @@ pub struct TaskList {
     /// Map of alert id → Alert object (RFC 8984 §4.5.2) for timed tasks
     /// when `useDefaultAlerts` is true.  Alerts extension only.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_alerts_with_time: Option<HashMap<Id, serde_json::Value>>,
+    pub default_alerts_with_time: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// Map of alert id → Alert object for all-day tasks when
     /// `useDefaultAlerts` is true.  Alerts extension only.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_alerts_without_time: Option<HashMap<Id, serde_json::Value>>,
+    pub default_alerts_without_time: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

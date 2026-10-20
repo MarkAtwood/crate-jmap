@@ -2,7 +2,7 @@
 //!
 //! Provides [`FileNode`], [`NodeType`], [`NodeRole`], and [`FilesRights`].
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize, Serializer};
@@ -265,7 +265,7 @@ pub struct FileNode {
     /// Required-and-nullable: always present in wire JSON.
     /// `null` when the requesting user lacks `myRights.mayShare` or the node is
     /// not shared.
-    pub share_with: Option<HashMap<Id, FilesRights>>,
+    pub share_with: Option<BTreeMap<Id, FilesRights>>,
 
     /// Special role identifying this directory's purpose.  `Directory` only
     /// (§3.1.3 type: `String|null`), where it serializes as `null` when unset.
@@ -310,7 +310,7 @@ impl Serialize for FileNode {
             is_subscribed: bool,
             #[serde(skip_serializing_if = "Option::is_none")]
             my_rights: Option<&'a FilesRights>,
-            share_with: Option<&'a HashMap<Id, FilesRights>>,
+            share_with: Option<&'a BTreeMap<Id, FilesRights>>,
             #[serde(skip_serializing_if = "Option::is_none")]
             role: Option<Option<&'a NodeRole>>,
             #[serde(flatten)]

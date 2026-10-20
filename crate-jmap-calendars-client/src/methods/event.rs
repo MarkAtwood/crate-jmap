@@ -2,7 +2,7 @@
 //!
 //! Note: CalendarEvent/copy lives in event_copy.rs.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilterCondition};
 use jmap_types::{Id, PatchObject, State};
@@ -163,8 +163,8 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::calendar_event_get`].
     pub async fn calendar_event_set(
         &self,
-        create: Option<HashMap<String, jmap_calendars_types::CalendarEvent>>,
-        update: Option<HashMap<Id, PatchObject>>,
+        create: Option<BTreeMap<String, jmap_calendars_types::CalendarEvent>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
         if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>

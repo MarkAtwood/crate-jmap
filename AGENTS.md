@@ -502,7 +502,35 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
     `JMAP-sc1b.111`).
   - `JMAP-sc1b.108` — the parallel jscontact-types propagation that
     triggered this policy discussion.
-- **Set-as-map idiom on the wire stays as `HashMap<String, bool>`**
+- **Wire-format maps are `BTreeMap`, never `HashMap`** (decided
+  2026-10-19, bd:JMAP-pdux; supersedes bd:JMAP-o7v4, covers
+  bd:JMAP-glx8.20). Every public field, constructor argument or
+  method parameter that serializes as a JSON object keyed by data
+  (`mailboxIds`, `keywords`, `localizations`, `recurrenceOverrides`,
+  `createdIds`, `/set` `create`/`update`/`created`/`notUpdated`/...,
+  `StateChange.changed`, etc.) uses `std::collections::BTreeMap`.
+  serde_json writes a `HashMap` in its randomized iteration order,
+  so any map with two or more entries produced different bytes on
+  each run. RFC 8259 §4 gives object member order no meaning, but
+  content hashes, E-Tags, golden-file tests and HTTP diff tooling
+  all compare bytes. `BTreeMap` gives sorted, deterministic output
+  with no new dependency, which matches what `serde_json::Map`
+  already does without `preserve_order`. `indexmap` was rejected as
+  a new dependency.
+
+  Rules:
+  - Map key newtypes (`Id`, `State`, `Keyword`, `LocalDateTime`)
+    derive `PartialOrd, Ord`. Their derived order equals the inner
+    `str` order, so `Borrow<str>` lookups stay correct.
+  - Server/backend result types that feed a wire map (e.g.
+    `MdnSendResult`, `CalendarEventParseResult`) use `BTreeMap` too.
+  - Internal state that never reaches the wire (dispatch tables,
+    in-memory stores, lookup indexes) may stay `HashMap`.
+  - Each type crate has a test that inserts two or more keys out of
+    order and compares `serde_json::to_string` output against a
+    hand-written sorted JSON literal.
+
+- **Set-as-map idiom on the wire stays as `BTreeMap<String, bool>`**
   (decided 2026-05-17, bd:JMAP-sgrr.18). Several IETF JMAP-family
   specs use the set-as-map idiom — a JSON object whose keys carry
   the meaning and whose values are always the literal `true` — for
@@ -513,15 +541,15 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   addressBookIds maps on JMAP Contacts; etc.
 
   Workspace type crates model these fields as
-  `Option<HashMap<String, bool>>` (or `HashMap<String, bool>` when
-  mandatory), NOT as `HashSet<String>` with a serde adapter. The
+  `Option<BTreeMap<String, bool>>` (or `BTreeMap<String, bool>` when
+  mandatory), NOT as `BTreeSet<String>` with a serde adapter. The
   spec wire form permits the construction. Callers building a fresh
   value MUST set every value to `true` (per RFC 9553 §1.5.1 et al.);
   deserialize does not reject inputs that include `false` values,
   but downstream code that iterates the map should match on the key
   alone and treat the value as a redundant assertion.
 
-  Why not `HashSet<String>` with a `{key: true}` serde adapter:
+  Why not `BTreeSet<String>` with a `{key: true}` serde adapter:
 
   1. **Cross-crate breaking change is large.** The idiom appears on
      16+ fields in `jmap-jscontact-types` alone, plus an unknown
@@ -539,15 +567,15 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
      Tightening this one field shape would be the outlier.
 
   3. **The defensive cost of the current shape is low.** Iterating
-     `HashMap<&String, &bool>` and matching on the key is no harder
-     than iterating `HashSet<&String>`. Code that asserts
+     `BTreeMap<&String, &bool>` and matching on the key is no harder
+     than iterating `BTreeSet<&String>`. Code that asserts
      `value == true` before treating the key as set-membership is a
      three-character match-arm.
 
   Future work: if a downstream consumer accumulates enough evidence
   that `false`-valued wire inputs cause real bugs, the right
   follow-up is a custom serde adapter at the kit level
-  (`jmap-types`) that maps `HashMap<String, bool>` → `HashSet<String>`
+  (`jmap-types`) that maps `BTreeMap<String, bool>` → `BTreeSet<String>`
   on deserialize-and-back. That would be a separate workspace epic
   driven by `jmap-mail-types` as the canonical extension-types
   template; do not start a piecemeal per-crate migration.

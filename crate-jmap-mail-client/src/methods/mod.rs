@@ -13,7 +13,7 @@ pub mod submission;
 pub mod thread;
 pub mod vacation;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, State};
 
@@ -173,7 +173,7 @@ pub struct EmailSubmissionSetParams {
     /// the same `create` map. Wire format is unchanged from a plain JSON
     /// object because `PatchObject` is `#[serde(transparent)]`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_success_update_email: Option<HashMap<String, jmap_types::PatchObject>>,
+    pub on_success_update_email: Option<BTreeMap<String, jmap_types::PatchObject>>,
 
     /// Email IDs (or `#`-prefixed creation keys) to destroy if the submission
     /// is created successfully (RFC 8621 §7.5).
@@ -311,11 +311,11 @@ pub struct EmailImportResponse {
     pub new_state: State,
     /// Successfully imported Emails keyed by creation id.
     #[serde(default)]
-    pub created: Option<HashMap<String, EmailImportCreated>>,
+    pub created: Option<BTreeMap<String, EmailImportCreated>>,
     /// Failures keyed by creation id (RFC 8621 §4.8 errors include
     /// `alreadyExists`, `invalidProperties`, `overQuota`, `invalidEmail`).
     #[serde(default)]
-    pub not_created: Option<HashMap<String, SetError>>,
+    pub not_created: Option<BTreeMap<String, SetError>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -410,7 +410,7 @@ pub struct EmailParseResponse {
     pub account_id: Id,
     /// Parsed Emails keyed by source blob id.
     #[serde(default)]
-    pub parsed: Option<HashMap<Id, jmap_mail_types::Email>>,
+    pub parsed: Option<BTreeMap<Id, jmap_mail_types::Email>>,
     /// Blob ids whose contents were not parseable as RFC 5322 messages.
     #[serde(default)]
     pub not_parsable: Option<Vec<Id>>,

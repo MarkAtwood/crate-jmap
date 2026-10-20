@@ -2,7 +2,7 @@
 
 use crate::id::{Id, State};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// A JMAP method invocation (RFC 8620 §3.2).
 ///
@@ -74,7 +74,7 @@ pub struct JmapRequest {
     pub method_calls: Vec<Invocation>,
     /// Client-supplied creation ID map (optional, RFC 8620 §3.3).
     #[serde(rename = "createdIds", skip_serializing_if = "Option::is_none")]
-    pub created_ids: Option<HashMap<Id, Id>>,
+    pub created_ids: Option<BTreeMap<Id, Id>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -97,7 +97,7 @@ pub struct JmapResponse {
     /// Maps client-supplied creation IDs to server-assigned IDs.
     /// Omitted when no objects were created in the batch (RFC 8620 §3.4).
     #[serde(rename = "createdIds", skip_serializing_if = "Option::is_none")]
-    pub created_ids: Option<HashMap<Id, Id>>,
+    pub created_ids: Option<BTreeMap<Id, Id>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -114,7 +114,7 @@ impl JmapRequest {
     pub fn new(
         using: Vec<String>,
         method_calls: Vec<Invocation>,
-        created_ids: Option<HashMap<Id, Id>>,
+        created_ids: Option<BTreeMap<Id, Id>>,
     ) -> Self {
         Self {
             using,
@@ -133,7 +133,7 @@ impl JmapResponse {
     pub fn new(
         method_responses: Vec<Invocation>,
         session_state: State,
-        created_ids: Option<HashMap<Id, Id>>,
+        created_ids: Option<BTreeMap<Id, Id>>,
     ) -> Self {
         Self {
             method_responses,
@@ -233,7 +233,7 @@ mod tests {
     // Oracle: RFC 8620 §3.4 — createdIds present when objects were created.
     #[test]
     fn created_ids_present_when_some() {
-        let mut ids = std::collections::HashMap::new();
+        let mut ids = std::collections::BTreeMap::new();
         ids.insert(Id::from("c0"), Id::from("server-1"));
         let resp = JmapResponse {
             method_responses: vec![],
@@ -409,6 +409,26 @@ mod tests {
         assert!(
             err.to_string().contains("duplicate field"),
             "error must mention duplicate field; got: {err}"
+        );
+    }
+
+    // Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    // maps serialize in sorted key order. Expected bytes are hand-written.
+    #[test]
+    fn created_ids_serialize_in_sorted_key_order() {
+        let mut ids = std::collections::BTreeMap::new();
+        ids.insert(Id::from("c2"), Id::from("server-2"));
+        ids.insert(Id::from("c1"), Id::from("server-1"));
+        let resp = JmapResponse {
+            method_responses: vec![],
+            session_state: "s-1".into(),
+            created_ids: Some(ids),
+            extra: serde_json::Map::new(),
+        };
+        let j = serde_json::to_string(&resp).expect("serialize");
+        assert!(
+            j.contains(r#""createdIds":{"c1":"server-1","c2":"server-2"}"#),
+            "createdIds keys must be sorted: {j}"
         );
     }
 }

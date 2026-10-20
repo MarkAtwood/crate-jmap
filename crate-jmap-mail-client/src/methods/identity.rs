@@ -8,7 +8,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -113,7 +113,7 @@ impl super::SessionClient {
     ///
     /// Pass `create`, `update`, and/or `destroy` as needed. Pass `None` to omit.
     ///
-    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
+    /// `update` is `Option<BTreeMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
@@ -134,7 +134,7 @@ impl super::SessionClient {
     pub async fn identity_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<HashMap<Id, PatchObject>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
     ) -> Result<SetResponse<jmap_mail_types::Identity>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {

@@ -5,7 +5,7 @@
 //! Note: the spec defines no `AddressBook/query` method, so no
 //! `AddressBookFilterCondition` type exists.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
@@ -118,7 +118,7 @@ pub struct AddressBook {
     /// always present in wire JSON; serializes as `null` when not shared.
     /// The spec §4.1 example shows `"shareWith": null` explicitly — never absent.
     #[serde(default)]
-    pub share_with: Option<HashMap<Id, AddressBookRights>>,
+    pub share_with: Option<BTreeMap<Id, AddressBookRights>>,
     /// ACL rights the authenticated user has on this AddressBook; server-set.
     pub my_rights: AddressBookRights,
 

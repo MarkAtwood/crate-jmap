@@ -8,7 +8,7 @@
 //! `accountCapabilities` map).  Session-level values are empty objects for
 //! all Tasks capabilities.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_jscalendar_types::LocalDateTime;
 use jmap_types::Id;
@@ -166,5 +166,5 @@ pub struct PrincipalTasksCapability {
     /// address for each.  `null` or absent when the principal cannot be
     /// sent to.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub send_to: Option<HashMap<String, String>>,
+    pub send_to: Option<BTreeMap<String, String>>,
 }

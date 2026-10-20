@@ -1,6 +1,6 @@
 //! JMAP Calendars — ParticipantIdentity/* method implementations on SessionClient.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -122,8 +122,8 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::participant_identity_get`].
     pub async fn participant_identity_set(
         &self,
-        create: Option<HashMap<String, jmap_calendars_types::ParticipantIdentity>>,
-        update: Option<HashMap<Id, PatchObject>>,
+        create: Option<BTreeMap<String, jmap_calendars_types::ParticipantIdentity>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
         if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_calendars_types::ParticipantIdentity>, jmap_base_client::ClientError>

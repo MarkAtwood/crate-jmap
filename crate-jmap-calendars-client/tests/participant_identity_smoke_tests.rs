@@ -11,7 +11,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, State};
 use serde_json::json;
@@ -199,7 +199,7 @@ async fn participant_identity_set_create_round_trip() {
         "isDefault": false
     }))
     .expect("ParticipantIdentity must deserialize from §3 example shape");
-    let mut create_map = HashMap::new();
+    let mut create_map = BTreeMap::new();
     create_map.insert("newPi".to_owned(), identity);
     let resp = sc
         .participant_identity_set(Some(create_map), None, None, None)

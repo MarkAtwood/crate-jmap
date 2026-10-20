@@ -68,7 +68,7 @@
 
 pub mod seed;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 // MIME body parsing (jmap-mime + mime-tree) — used in import_email and parse_email.
@@ -1325,9 +1325,9 @@ impl MailBackend for MemoryBackend {
 
         // Build the Email object outside the lock (uses only local data).
         let email_id = Id::from(uuid::Uuid::new_v4().to_string());
-        let mailbox_map: HashMap<Id, bool> =
+        let mailbox_map: BTreeMap<Id, bool> =
             mailbox_ids.iter().map(|id| (id.clone(), true)).collect();
-        let kw_map: HashMap<Keyword, bool> = keywords.iter().map(|k| (k.clone(), true)).collect();
+        let kw_map: BTreeMap<Keyword, bool> = keywords.iter().map(|k| (k.clone(), true)).collect();
 
         let received = received_at
             .cloned()
@@ -1597,7 +1597,7 @@ impl MailBackend for MemoryBackend {
             assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references)
         };
 
-        let mailbox_map = HashMap::new();
+        let mailbox_map = BTreeMap::new();
         let received = UTCDate::from("1970-01-01T00:00:00Z");
         let mut email = Email::new(
             email_id,
@@ -1681,9 +1681,9 @@ impl MailBackend for MemoryBackend {
         };
 
         let new_id = Id::from(uuid::Uuid::new_v4().to_string());
-        let mailbox_map: HashMap<Id, bool> =
+        let mailbox_map: BTreeMap<Id, bool> =
             mailbox_ids.iter().map(|id| (id.clone(), true)).collect();
-        let kw_map: HashMap<Keyword, bool> = keywords.iter().map(|k| (k.clone(), true)).collect();
+        let kw_map: BTreeMap<Keyword, bool> = keywords.iter().map(|k| (k.clone(), true)).collect();
 
         let mut new_email = Email::new(
             new_id.clone(),
@@ -2538,14 +2538,10 @@ impl MdnBackend for MemoryBackend {
         _caller: &(),
         _account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
-        send: std::collections::HashMap<
-            String,
-            (jmap_mail_types::mdn::Mdn, jmap_mail_types::Email),
-        >,
+        send: BTreeMap<String, (jmap_mail_types::mdn::Mdn, jmap_mail_types::Email)>,
     ) -> Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>> {
-        let mut sent: std::collections::HashMap<String, Mdn> = std::collections::HashMap::new();
-        let mut not_sent: std::collections::HashMap<String, SetError> =
-            std::collections::HashMap::new();
+        let mut sent: BTreeMap<String, Mdn> = BTreeMap::new();
+        let mut not_sent: BTreeMap<String, SetError> = BTreeMap::new();
 
         for (creation_id, (mdn, email)) in send {
             // The handler (handle_mdn_send) has already:
@@ -2700,8 +2696,7 @@ impl MdnBackend for MemoryBackend {
         account_id: &jmap_types::Id,
         blob_ids: Vec<jmap_types::Id>,
     ) -> Result<MdnParseResult, Self::Error> {
-        let mut parsed: std::collections::HashMap<jmap_types::Id, Mdn> =
-            std::collections::HashMap::new();
+        let mut parsed: BTreeMap<jmap_types::Id, Mdn> = BTreeMap::new();
         let mut not_parsable: Vec<jmap_types::Id> = Vec::new();
         let mut not_found: Vec<jmap_types::Id> = Vec::new();
 

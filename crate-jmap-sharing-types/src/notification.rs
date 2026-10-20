@@ -7,7 +7,7 @@
 //! access a shared object change.  Notifications are created only by the server;
 //! clients may only query and destroy them.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -80,12 +80,12 @@ pub struct ShareNotification {
     /// `myRights` on the object before the change, or `null` if newly granted.
     ///
     /// Serializes as `null` when `None` (required-but-nullable per RFC 9670 §3).
-    pub old_rights: Option<HashMap<String, bool>>,
+    pub old_rights: Option<BTreeMap<String, bool>>,
 
     /// `myRights` on the object after the change, or `null` if access removed.
     ///
     /// Serializes as `null` when `None` (required-but-nullable per RFC 9670 §3).
-    pub new_rights: Option<HashMap<String, bool>>,
+    pub new_rights: Option<BTreeMap<String, bool>>,
 
     /// Name of the shared object at the time of the notification.
     pub name: String,

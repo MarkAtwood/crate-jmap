@@ -8,7 +8,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -117,7 +117,7 @@ impl super::SessionClient {
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
     ///
-    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
+    /// `update` is `Option<BTreeMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
@@ -147,7 +147,7 @@ impl super::SessionClient {
     pub async fn task_list_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<HashMap<Id, PatchObject>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         params: Option<super::TaskListSetParams>,
     ) -> Result<SetResponse<jmap_tasks_types::TaskList>, jmap_base_client::ClientError> {
