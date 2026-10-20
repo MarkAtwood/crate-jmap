@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: `ephemeral` module for draft-atwood-jmap-scene-wss-00
+  §SceneStreamEnable. `SceneEphemeralSubscription::replace_with` replaces
+  the connection's subscription in its entirety, drops unrecognized
+  `eventTypes` next to recognized ones, and returns `invalidArguments`
+  (leaving the subscription unchanged) for an empty or all-unrecognized
+  `eventTypes`. `RegionScope::All` (`regionIds: null`, dynamic) or
+  `RegionScope::Only` (static, entries kept even without an active avatar)
+  and `SceneStreamFilter::includes` give the filters.
 - **jmap-scene-types**: draft-atwood-jmap-scene-wss-00 wire types.
   `JMAP_SCENE_WEBSOCKET_URI` (`urn:ietf:params:jmap:scene:websocket`);
   the `event` module with `SceneAvatarEvent`, `SceneObjectEvent`,
