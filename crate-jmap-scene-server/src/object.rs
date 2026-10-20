@@ -21,9 +21,10 @@ use serde_json::{json, Map, Value};
 use crate::asset::GLTF_BINARY;
 use crate::backend::SceneBackend;
 use crate::helpers::{
-    backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, not_found, numbers,
-    reject_unsupported_sort, set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
+    extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, invalid,
+    normalized_orientation, not_found, orientation_ok, reject_unsupported_sort, set_error_value,
+    SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -45,13 +46,6 @@ const PHYSICS_MODES: &[&str] = &["static", "dynamic", "kinematic", "none"];
 /// object is at depth 1. A deployment that wants another limit registers
 /// its own `SceneObject/set`.
 const MAX_DEPTH: usize = 16;
-
-/// ponytail: "Servers MAY reject quaternions whose magnitude deviates from
-/// 1.0 by more than a deployment-defined epsilon"; this one is 1e-3, which
-/// accepts the draft's own three-decimal examples (L1461 `[0, 0.707, 0,
-/// 0.707]`, magnitude 0.99985; L1488 `[0, 0.383, 0, 0.924]`, 1.00023).
-/// Accepted values are normalized (see [`normalized_orientation`]).
-const ORIENTATION_EPSILON: f64 = 1e-3;
 
 /// Handle `SceneObject/get` (draft-atwood-jmap-scene-00 §SceneObject/get):
 /// standard RFC 8620 §5.1 `/get`.
@@ -126,55 +120,20 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
     Ok(args)
 }
 
-/// §Filter Validation, in every condition of a FilterOperator tree.
-///
-/// ponytail: "If `regionId` is absent, the server MUST return
-/// `invalidArguments`" is applied to every condition, and an operator
-/// with no conditions counts as absent, so no filter tree can reach past
-/// the regions it names.
+/// §Filter Validation: the shared region-scoped and spatial checks of
+/// [`check_region_filter`], and "If `physicsMode` contains a value not in
+/// the defined set, the server MUST return `invalidArguments`."
 fn check_filter(filter: &Value) -> Result<(), JmapError> {
-    if let Some(conditions) = filter.get("conditions") {
-        return match conditions.as_array() {
-            Some(c) if !c.is_empty() => c.iter().try_for_each(check_filter),
-            _ => Err(JmapError::invalid_arguments(
-                "filter.regionId is required in every condition",
-            )),
-        };
-    }
-    if filter.get("regionId").is_none_or(Value::is_null) {
-        return Err(JmapError::invalid_arguments("filter.regionId is required"));
-    }
-    if let Some(m) = filter.get("physicsMode") {
-        if !m.as_str().is_some_and(|m| PHYSICS_MODES.contains(&m)) {
-            return Err(JmapError::invalid_arguments(format!(
+    check_region_filter(filter, &|c| {
+        match c.get("physicsMode") {
+        Some(m) if !m.as_str().is_some_and(|m| PHYSICS_MODES.contains(&m)) => {
+            Err(JmapError::invalid_arguments(format!(
                 "filter physicsMode must be \"static\", \"dynamic\", \"kinematic\" or \"none\"; got {m}"
-            )));
+            )))
         }
+        _ => Ok(()),
     }
-    // "`radius` (Number, required): Radius in meters. MUST be positive."
-    if let Some(r) = filter
-        .pointer("/withinRadius/radius")
-        .and_then(Value::as_f64)
-    {
-        if r <= 0.0 {
-            return Err(JmapError::invalid_arguments(
-                "filter withinRadius.radius must be positive",
-            ));
-        }
-    }
-    // "Each component MUST be greater than or equal to the corresponding
-    // component of `min`."
-    if let Some(b) = filter.get("withinBounds") {
-        let corner = |k| b.get(k).and_then(|c| numbers(c, 3));
-        if let (Some(min), Some(max)) = (corner("min"), corner("max")) {
-            if min.iter().zip(&max).any(|(lo, hi)| hi < lo) {
-                return Err(JmapError::invalid_arguments(
-                    "filter withinBounds.max must be >= withinBounds.min on every axis",
-                ));
-            }
-        }
-    }
-    Ok(())
+    })
 }
 
 /// Handle `SceneObject/set` (draft-atwood-jmap-scene-00 §SceneObject/set).
@@ -273,36 +232,6 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
 
     finalize_set_response::<B, SceneObject>(backend, caller, &account_id, old_state, mutated, acc)
         .await
-}
-
-/// `v` is an array of exactly 3 finite Numbers: "Position components MUST
-/// be finite Numbers", "Scale factors must be finite."
-fn finite3(v: &Value) -> bool {
-    numbers(v, 3).is_some_and(|n| n.iter().all(|c| c.is_finite()))
-}
-
-/// The magnitude of `v` if it is a quaternion: 4 Numbers.
-fn magnitude(v: &Value) -> Option<f64> {
-    numbers(v, 4).map(|q| q.iter().map(|c| c * c).sum::<f64>().sqrt())
-}
-
-/// "`orientation` is not a unit quaternion | Magnitude must be within
-/// epsilon of 1.0. NaN or Infinity components are rejected."
-fn orientation_ok(v: &Value) -> bool {
-    magnitude(v).is_some_and(|n| (n - 1.0).abs() <= ORIENTATION_EPSILON)
-}
-
-/// The unit-length form of the accepted `orientation` in `m` when it
-/// differs from the stored value: "If the server does not reject the
-/// value, it MUST normalize the quaternion to unit length before storage."
-fn normalized_orientation(m: &Map<String, Value>) -> Option<Value> {
-    let v = m.get("orientation")?;
-    let n = magnitude(v)?;
-    if n == 1.0 {
-        return None;
-    }
-    let q: Vec<f64> = numbers(v, 4)?.iter().map(|c| c / n).collect();
-    Some(json!(q))
 }
 
 /// The properties of object `m` that break a §Create Errors
