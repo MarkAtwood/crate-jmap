@@ -304,24 +304,39 @@ pub(crate) const ACTIVE_SPEAKER: &str = "VTCActiveSpeakerEvent";
 pub(crate) const UNMUTE_REQUEST: &str = "VTCUnmuteRequestEvent";
 pub(crate) const RECORDING_STATE: &str = "VTCRecordingStateEvent";
 
+impl VtcEvent {
+    /// The event's `@type`, such as `"VTCRingEvent"`; for
+    /// [`VtcEvent::Unknown`], the original wire value.
+    pub fn type_name(&self) -> &str {
+        match self {
+            VtcEvent::Ring(_) => RING,
+            VtcEvent::CallEnd(_) => CALL_END,
+            VtcEvent::GatewaySignal(_) => GATEWAY_SIGNAL,
+            VtcEvent::Participant(_) => PARTICIPANT,
+            VtcEvent::MediaState(_) => MEDIA_STATE,
+            VtcEvent::ActiveSpeaker(_) => ACTIVE_SPEAKER,
+            VtcEvent::UnmuteRequest(_) => UNMUTE_REQUEST,
+            VtcEvent::RecordingState(_) => RECORDING_STATE,
+            VtcEvent::Unknown { type_name, .. } => type_name,
+        }
+    }
+}
+
 impl Serialize for VtcEvent {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let (tag, body) = match self {
-            VtcEvent::Ring(e) => (RING, serde_json::to_value(e)),
-            VtcEvent::CallEnd(e) => (CALL_END, serde_json::to_value(e)),
-            VtcEvent::GatewaySignal(e) => (GATEWAY_SIGNAL, serde_json::to_value(e)),
-            VtcEvent::Participant(e) => (PARTICIPANT, serde_json::to_value(e)),
-            VtcEvent::MediaState(e) => (MEDIA_STATE, serde_json::to_value(e)),
-            VtcEvent::ActiveSpeaker(e) => (ACTIVE_SPEAKER, serde_json::to_value(e)),
-            VtcEvent::UnmuteRequest(e) => (UNMUTE_REQUEST, serde_json::to_value(e)),
-            VtcEvent::RecordingState(e) => (RECORDING_STATE, serde_json::to_value(e)),
-            VtcEvent::Unknown { type_name, payload } => (
-                type_name.as_str(),
-                Ok(serde_json::Value::Object(payload.clone())),
-            ),
+        let body = match self {
+            VtcEvent::Ring(e) => serde_json::to_value(e),
+            VtcEvent::CallEnd(e) => serde_json::to_value(e),
+            VtcEvent::GatewaySignal(e) => serde_json::to_value(e),
+            VtcEvent::Participant(e) => serde_json::to_value(e),
+            VtcEvent::MediaState(e) => serde_json::to_value(e),
+            VtcEvent::ActiveSpeaker(e) => serde_json::to_value(e),
+            VtcEvent::UnmuteRequest(e) => serde_json::to_value(e),
+            VtcEvent::RecordingState(e) => serde_json::to_value(e),
+            VtcEvent::Unknown { payload, .. } => Ok(serde_json::Value::Object(payload.clone())),
         };
         let body = body.map_err(serde::ser::Error::custom)?;
-        crate::wire::with_tag(body, tag)
+        crate::wire::with_tag(body, self.type_name())
             .map_err(serde::ser::Error::custom)?
             .serialize(s)
     }
@@ -519,6 +534,21 @@ mod tests {
             json!({"@type": "VTCCallEndEvent", "callId": "C1"})
         )
         .is_err());
+    }
+
+    #[test]
+    fn type_name_is_the_wire_type() {
+        // Oracle: the `@type` written in each hand-written frame.
+        let ev: VtcEvent = serde_json::from_value(json!({
+            "@type": "VTCActiveSpeakerEvent",
+            "callId": "C1",
+            "participantId": "P1"
+        }))
+        .unwrap();
+        assert_eq!(ev.type_name(), "VTCActiveSpeakerEvent");
+        let ev: VtcEvent =
+            serde_json::from_value(json!({"@type": "VTCCaptionEvent", "callId": "C1"})).unwrap();
+        assert_eq!(ev.type_name(), "VTCCaptionEvent");
     }
 
     #[test]

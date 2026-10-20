@@ -26,7 +26,8 @@
 //! `/set` with each type's state machine, the `VTCRecordingStateEvent`
 //! consent signal, and `streamKey` redaction in `VTCLivestream/get`.
 //! The [`ephemeral`] module holds the per-connection `VTCStreamEnable`
-//! subscription state of draft-atwood-jmap-vtc-wss-00.
+//! subscription state of draft-atwood-jmap-vtc-wss-00 and the
+//! [`should_deliver`] delivery-time check for its events.
 //! The crate depends on RFC 8620 only; the Chat binding (membership,
 //! `start_call`, `Chat.activeCallId`) lives in a separate binding crate.
 //!
@@ -64,7 +65,7 @@ pub use call::{
     end_call, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
     handle_vtc_call_query_changes, handle_vtc_call_set,
 };
-pub use ephemeral::{CallScope, VtcEphemeralSubscription, VtcStreamFilter};
+pub use ephemeral::{should_deliver, CallScope, VtcEphemeralSubscription, VtcStreamFilter};
 pub use media::{
     handle_vtc_livestream_changes, handle_vtc_livestream_get, handle_vtc_livestream_query,
     handle_vtc_livestream_query_changes, handle_vtc_livestream_set, handle_vtc_recording_changes,

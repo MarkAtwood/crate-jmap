@@ -79,6 +79,8 @@ struct Inner {
     advertised: HashSet<(String, String)>,
     /// Every `VTCRecordingStateEvent` delivered, in order.
     recording_events: Vec<VtcRecordingStateEvent>,
+    /// `(blocking userId, blocked userId)` pairs.
+    blocked: HashSet<(String, String)>,
 }
 
 impl Inner {
@@ -166,6 +168,15 @@ impl MemoryBackend {
         self.lock()
             .advertised
             .insert((account_id.as_ref().to_owned(), uri.to_owned()));
+    }
+
+    /// Make `user` blocked by `blocker`, for
+    /// [`VtcBackend::is_user_blocked`].
+    #[doc(hidden)]
+    pub fn block(&self, blocker: &str, user: &str) {
+        self.lock()
+            .blocked
+            .insert((blocker.to_owned(), user.to_owned()));
     }
 
     /// The `VTCRecordingStateEvent`s delivered so far, in order.
@@ -739,6 +750,18 @@ impl VtcBackend for MemoryBackend {
                     && p.user_id.as_ref() == Some(caller)
                     && p.role == CallRole::Moderator
             }))
+    }
+
+    async fn is_user_blocked(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+        user_id: &str,
+    ) -> Result<bool, MemoryError> {
+        Ok(self
+            .lock()
+            .blocked
+            .contains(&(caller.clone(), user_id.to_owned())))
     }
 
     fn supports_type<O: JmapObject>(&self, _caller: &String, _account_id: &Id) -> bool {
