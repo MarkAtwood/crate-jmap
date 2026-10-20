@@ -132,6 +132,10 @@ struct Inner {
     /// object. Accounts not in the map do not advertise the capability.
     /// Set via [`MemoryBackend::set_chat_push_capability_for_test`].
     chat_push_caps: HashMap<Id, ChatPushCapability>,
+    /// Served by [`ChatBackend::space_extension_properties`]. Empty by
+    /// default. Set via
+    /// [`MemoryBackend::set_space_extension_properties_for_test`].
+    space_extension_properties: &'static [&'static str],
 }
 
 impl Inner {
@@ -263,6 +267,17 @@ impl MemoryBackend {
     pub fn set_protect_last_admin_for_test(&self, value: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.protect_last_admin = value;
+    }
+
+    /// Test-only: set the list returned by
+    /// [`ChatBackend::space_extension_properties`], standing in for a
+    /// Space extension that owns those properties. Production callers
+    /// must not use this method; the API stability disclaimer on the
+    /// `memory` feature applies doubly here.
+    #[doc(hidden)]
+    pub fn set_space_extension_properties_for_test(&self, keys: &'static [&'static str]) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.space_extension_properties = keys;
     }
 
     /// Test-only: set the owner's identity for `account_id`, as returned
@@ -1084,6 +1099,19 @@ impl ChatBackend for MemoryBackend {
     fn protect_last_admin(&self, _caller: &(), _account_id: &Id) -> bool {
         let inner = self.inner.lock().unwrap();
         inner.protect_last_admin
+    }
+
+    /// Reference implementation of
+    /// [`ChatBackend::space_extension_properties`]: the list set via
+    /// [`MemoryBackend::set_space_extension_properties_for_test`], empty
+    /// by default. Values are stored unvalidated.
+    fn space_extension_properties(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> &'static [&'static str] {
+        let inner = self.inner.lock().unwrap();
+        inner.space_extension_properties
     }
 
     /// Reference implementation of [`ChatBackend::apply_space_patch`].
@@ -2245,7 +2273,7 @@ fn apply_space_metadata_patch_impl(
     // Apply the merge patch in place. The wire-shape JSON object is
     // canonical for in-memory storage (extras-preservation policy);
     // the patch keys have already been filtered to METADATA_FIELDS
-    // by the handler.
+    // and the registered extension properties by the handler.
     //
     // A `MergePatchError::DepthExceeded` return (bd:JMAP-wlip.1) surfaces
     // as `SetErrorType::InvalidPatch` — the depth cap is a DoS guard,

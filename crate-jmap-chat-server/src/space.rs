@@ -968,6 +968,9 @@ const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
 /// Validation enforced here (not in the backend):
 /// - `name` is required on create.
 /// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates.
+/// - Keys listed by [`ChatBackend::space_extension_properties`] are
+///   accepted on create and update; any other unknown update key is
+///   `invalidProperties`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_set<B: ChatBackend>(
@@ -999,6 +1002,7 @@ pub async fn handle_space_set<B: ChatBackend>(
     let mut destroyed_list: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
+    let extension_props = backend.space_extension_properties(caller, &account_id);
 
     // -----------------------------------------------------------------------
     // create
@@ -1091,6 +1095,14 @@ pub async fn handle_space_set<B: ChatBackend>(
             if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
                 space.description = Some(desc.to_owned());
             }
+            for &key in extension_props {
+                match obj_val.get(key) {
+                    None | Some(Value::Null) => {}
+                    Some(v) => {
+                        space.extra.insert(key.to_owned(), v.clone());
+                    }
+                }
+            }
 
             match backend
                 .create_object::<Space>(caller, &account_id, create_id, space)
@@ -1167,7 +1179,9 @@ pub async fn handle_space_set<B: ChatBackend>(
             // Walk every key on the patch object and bucket it as:
             //   - structural (parsed into SpacePatchOp values via the
             //     StructuralKey enum, defined at module top),
-            //   - metadata (forwarded to update_object),
+            //   - metadata or a backend-registered extension property
+            //     (`ChatBackend::space_extension_properties`), forwarded
+            //     to apply_space_metadata_patch,
             //   - unknown (rejected as invalidProperties).
             // Any parse error on a structural entry is fatal for this target.
             //
@@ -1188,7 +1202,9 @@ pub async fn handle_space_set<B: ChatBackend>(
                             break;
                         }
                     }
-                } else if SPACE_METADATA_FIELDS.contains(&key.as_str()) {
+                } else if SPACE_METADATA_FIELDS.contains(&key.as_str())
+                    || extension_props.contains(&key.as_str())
+                {
                     clean_patch.insert(key, value);
                 } else {
                     unknown_keys.push(key);
@@ -1378,7 +1394,8 @@ pub async fn handle_space_set<B: ChatBackend>(
 
             // Decode the wire patch's metadata-key subset into the typed
             // SpaceMetadataPatch shape (bd:JMAP-x2gd.39). The handler has
-            // already filtered to METADATA_FIELDS, so unknown-key
+            // already filtered to METADATA_FIELDS plus the backend's
+            // extension properties (which land in `extra`), so unknown-key
             // rejection is impossible here; the remaining failure mode is
             // a wire `null` on a non-nullable field (`isPublic` /
             // `isPubliclyPreviewable`) which surfaces as
