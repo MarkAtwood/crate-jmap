@@ -11,6 +11,20 @@
 //! permission floor, attachment fetching ([`FetchedBlob`]), and direct
 //! Chats stored under a peer-chosen id.
 //!
+//! ## Peer/receipt, Peer/typing, Peer/retract, Peer/groupUpdate
+//!
+//! [`handle_peer_receipt`] records a recipient's delivery and read
+//! receipt on the owner's Message, subject to the owner's
+//! `receiptSharing`. [`handle_peer_typing`] checks membership, blocking
+//! and `receiveTypingIndicators`, then hands the typing event to
+//! [`FederationBackend::forward_typing`]. [`handle_peer_retract`]
+//! tombstones a Message for its original sender. [`handle_peer_group_update`]
+//! creates a group Chat or applies a membership, role or metadata change,
+//! with the draft's admin checks.
+//!
+//! Every handler checks the caller-identity field against the
+//! authenticated peer first, and rejects before its first write.
+//!
 //! ## Peer-role access control
 //!
 //! The `urn:ietf:params:jmap:chat` account capability carries a `role` of
@@ -52,8 +66,16 @@
 #![forbid(unsafe_code)]
 
 mod deliver;
+mod group_update;
+mod receipt;
+mod retract;
+mod typing;
 
 pub use deliver::{handle_peer_deliver, AuthenticatedPeer, FederationBackend, FetchedBlob};
+pub use group_update::handle_peer_group_update;
+pub use receipt::handle_peer_receipt;
+pub use retract::handle_peer_retract;
+pub use typing::handle_peer_typing;
 
 use jmap_types::JmapError;
 

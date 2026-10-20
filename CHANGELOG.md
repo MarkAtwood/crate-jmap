@@ -30,8 +30,21 @@ wire behaviour that a conforming peer can observe.
   runs over the new `FederationBackend` trait, a `ChatBackend` that also
   supplies the `AuthenticatedPeer`, the `@everyone` permission floor,
   attachment fetching (`FetchedBlob`; the SSRF policy stays with the
-  deployment), fresh Message ids for silent drops, and direct Chats under a
-  peer-chosen id.
+  deployment), fresh Message ids for silent drops, and Chats under a
+  peer-chosen id (`create_chat`).
+- **jmap-chat-federation-server**: `handle_peer_receipt`,
+  `handle_peer_typing`, `handle_peer_retract` and `handle_peer_group_update`,
+  the receivers of draft-atwood-jmap-chat-federation-00 §Peer/receipt,
+  §Peer/typing, §Peer/retract and §Peer/groupUpdate. `Peer/receipt` stores
+  the receipt in `deliveryReceipts` under the reader's ChatContact id for
+  every Chat kind, raises `deliveryState`, and records only `deliveredAt`
+  when the owner's effective `receiptSharing` is `false`. `Peer/typing`
+  checks membership, `blocked` and `receiveTypingIndicators`, then calls the
+  new required `FederationBackend::forward_typing`. `Peer/retract`
+  tombstones the sender's own Message. `Peer/groupUpdate` creates group
+  Chats with placeholder ChatContacts for unknown members and applies member,
+  role and metadata changes, `leave` and `close` with the draft's admin and
+  `closedAt` checks.
 - **jmap-chat-federation-types**: `session` module for
   draft-atwood-jmap-chat-federation-00 §Session Object Extensions for
   Federation. `FederationSession` holds `ownerUserId`, `peerSigningKeys`

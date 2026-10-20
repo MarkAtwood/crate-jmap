@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Chat federation server rules (draft-atwood-jmap-chat-federation-00): peer-role method access control and Peer/deliver validation"
+description = "JMAP Chat federation server rules (draft-atwood-jmap-chat-federation-00): peer-role method access control and the Peer/deliver, Peer/receipt, Peer/typing, Peer/retract and Peer/groupUpdate handlers"
 keywords = ["jmap", "chat", "federation", "server"]
 categories = ["network-programming", "web-programming::http-server"]
 
