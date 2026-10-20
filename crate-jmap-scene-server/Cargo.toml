@@ -1,0 +1,34 @@
+[package]
+name = "jmap-scene-server"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Scene method handlers (draft-atwood-jmap-scene-00 SceneAsset) — backend-agnostic, plugs into jmap-server Dispatcher"
+keywords = ["jmap", "scene", "spatial", "server"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[features]
+# Public, feature-gated in-memory reference implementation of SceneBackend.
+# Not production — intended as a reference impl, integration-test harness, and
+# documentation example. API stability is opt-in via this feature and may
+# break across minor versions pre-1.0. Mirrors the canonical
+# jmap-mail-server `memory` feature (JMAP-hwdv.1).
+memory = ["dep:ulid"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-scene-types = { workspace = true }
+jmap-server = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ulid = { version = "1", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Tests use the public MemoryBackend reference impl from `src/memory.rs`.
+# Self-dep with the `memory` feature ensures integration tests get the
+# reference impl without exposing it to downstream users by default.
+jmap-scene-server = { workspace = true, features = ["memory"] }
