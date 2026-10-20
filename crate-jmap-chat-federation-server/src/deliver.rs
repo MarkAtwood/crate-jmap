@@ -6,7 +6,11 @@
 //! over a [`FederationBackend`], which is a [`ChatBackend`] plus the few
 //! things federation needs that the chat backend does not carry: the
 //! authenticated peer, the `@everyone` permission floor, attachment
-//! fetching, and Chat records whose id the peer chose.
+//! fetching, Chat records whose id the peer chose, and typing events
+//! forwarded to the owner's clients.
+//!
+//! The identity resolution, peer check and placeholder creation here are
+//! shared with the other `Peer/*` handlers of this crate.
 
 use std::collections::{HashMap, HashSet};
 
@@ -19,8 +23,8 @@ use jmap_chat_server::{
     BackendSetError, ChatBackend, ChatLimits, SetErrorType, StoreOutcome, MANAGE_CHANNELS, SEND,
 };
 use jmap_chat_types::{
-    BroadcastMention, Chat, ChatContact, ChatKind, DeliveryState, Mention, Message, Space,
-    SpaceBan, BROADCAST_MENTION_SCOPES,
+    BroadcastMention, Chat, ChatContact, ChatKind, ChatTypingEvent, DeliveryState, Mention,
+    Message, Space, SpaceBan, BROADCAST_MENTION_SCOPES,
 };
 use jmap_peer_auth::{bind_identity, IdentityBinding, PeerDomain};
 use jmap_server::{now_utc_string, serialize_value, server_fail_from_backend, HandlerOutput};
@@ -30,7 +34,7 @@ use subtle::ConstantTimeEq;
 
 /// The `id` [`ChatBackend::create_object`] documents as the placeholder it
 /// replaces with a server-assigned id.
-const PLACEHOLDER_ID: &str = "placeholder";
+pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
 
 /// Implementation-defined maximum byte length of `subject`, the value
 /// `Message/set` applies (draft-atwood-jmap-chat-00 §Message `subject`
@@ -83,7 +87,7 @@ impl FetchedBlob {
     }
 }
 
-/// What [`handle_peer_deliver`] needs beyond [`ChatBackend`].
+/// What the `Peer/*` handlers need beyond [`ChatBackend`].
 ///
 /// None of these methods has a default: each one carries data or an
 /// action the draft requires and that no neutral value stands in for.
@@ -93,10 +97,9 @@ pub trait FederationBackend: ChatBackend {
     ///
     /// Return `Some` only after the request passed §Request Signing
     /// checks 1 to 6 (for example through `jmap_peer_auth_io::authenticate`)
-    /// and the peer domain published an `ownerUserId`. `None` makes
-    /// [`handle_peer_deliver`] return `forbidden` (§Server-to-Server
-    /// Methods: "Callers without the `"peer"` role MUST receive
-    /// `forbidden`").
+    /// and the peer domain published an `ownerUserId`. `None` makes every
+    /// `Peer/*` handler return `forbidden` (§Server-to-Server Methods:
+    /// "Callers without the `"peer"` role MUST receive `forbidden`").
     fn authenticated_peer(&self, caller: &Self::CallerCtx) -> Option<AuthenticatedPeer>;
 
     /// The permissions of the implicit `@everyone` role in `space`
@@ -133,12 +136,15 @@ pub trait FederationBackend: ChatBackend {
         attachment: &PeerAttachment,
     ) -> impl std::future::Future<Output = Result<Result<FetchedBlob, JmapError>, Self::Error>> + Send;
 
-    /// Store `chat`, a direct Chat, under its own `id`.
+    /// Store `chat` under its own `id`.
     ///
-    /// Step 3: "create a new Chat record with this chatId".
-    /// [`ChatBackend::create_object`] assigns ids, so it cannot. Record
-    /// the create in Chat state and changes as `create_object` does.
-    fn create_direct_chat(
+    /// `Peer/deliver` step 3 for a direct Chat: "create a new Chat record
+    /// with this chatId"; `Peer/groupUpdate` `"create"` for a group Chat:
+    /// "The receiver MUST create a new Chat record of `kind: "group"` with
+    /// this chatId". [`ChatBackend::create_object`] assigns ids, so it
+    /// cannot. Record the create in Chat state and changes as
+    /// `create_object` does.
+    fn create_chat(
         &self,
         caller: &Self::CallerCtx,
         account_id: &Id,
@@ -159,6 +165,113 @@ pub trait FederationBackend: ChatBackend {
         from: &Id,
         to: &Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
+
+    /// Send `event` to the connected clients of the owner of `account_id`.
+    ///
+    /// §Peer/typing "Receiver Behavior": "If all checks pass, the server
+    /// MUST forward a typing push event (as defined in {{JMAP-CHAT}}) to
+    /// the owner's connected clients." [`crate::handle_peer_typing`] calls
+    /// this only after those checks pass. The event is not stored.
+    ///
+    /// The draft's per-peer rate limit ("no more than one `Peer/typing`
+    /// call per peer per chat per 3 seconds; calls received above this
+    /// rate MAY be silently discarded") belongs here, with the transport,
+    /// as `jmap_chat_server`'s typing limits do.
+    fn forward_typing(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        event: &ChatTypingEvent,
+    ) -> impl std::future::Future<Output = ()> + Send;
+}
+
+/// Steps 1 and 2 of §New Message Validation, which every `Peer/*` method
+/// applies to its caller-identity field: "Servers MUST validate all such
+/// fields identically against the peer identity" (§Server-to-Server
+/// Methods). The peer identity must be bound to the authenticated peer
+/// domain (§Identity Binding) and equal `claimed` octet for octet.
+pub(crate) fn authenticate<B: FederationBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    claimed: &str,
+) -> Result<(), JmapError> {
+    let peer = backend
+        .authenticated_peer(caller)
+        .ok_or_else(JmapError::forbidden)?;
+    if bind_identity(&peer.peer_identity, &peer.peer_domain) != IdentityBinding::Bound
+        || claimed != peer.peer_identity
+    {
+        return Err(JmapError::forbidden());
+    }
+    Ok(())
+}
+
+/// `accountNotFound` unless `account_id` exists.
+pub(crate) async fn check_account<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+) -> Result<(), JmapError> {
+    if backend
+        .account_exists(caller, account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        Ok(())
+    } else {
+        Err(JmapError::account_not_found())
+    }
+}
+
+/// The Chat `chat_id` of `account_id`, if it exists.
+pub(crate) async fn get_chat<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    chat_id: &Id,
+) -> Result<Option<Chat>, JmapError> {
+    let (chats, _) = backend
+        .get_objects::<Chat>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(chat_id)),
+            None,
+        )
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    Ok(chats.into_iter().find(|c| &c.id == chat_id))
+}
+
+/// Whether the ChatContact `contact_id` takes part in `chat`: the
+/// direct Chat's `contactId`, a group member, or a member of a channel's
+/// Space.
+pub(crate) async fn is_participant<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    chat: &Chat,
+    contact_id: &Id,
+) -> Result<bool, JmapError> {
+    Ok(match chat.kind {
+        ChatKind::Direct => chat.contact_id.as_ref() == Some(contact_id),
+        ChatKind::Group => chat.members.iter().flatten().any(|m| &m.id == contact_id),
+        ChatKind::Channel => match &chat.space_id {
+            Some(space_id) => backend
+                .get_objects::<Space>(
+                    caller,
+                    account_id,
+                    Some(std::slice::from_ref(space_id)),
+                    None,
+                )
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?
+                .0
+                .iter()
+                .any(|s| &s.id == space_id && s.members.iter().any(|m| &m.id == contact_id)),
+            None => false,
+        },
+        _ => false,
+    })
 }
 
 /// Handle a `Peer/deliver` method call.
@@ -222,27 +335,12 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
         }
     };
 
-    // Step 1: the signature was verified by the transport; the identity
-    // binding is checked here.
-    let peer = backend
-        .authenticated_peer(caller)
-        .ok_or_else(JmapError::forbidden)?;
-    if bind_identity(&peer.peer_identity, &peer.peer_domain) != IdentityBinding::Bound {
-        return Err(JmapError::forbidden());
-    }
-    // Step 2.
-    if args.sender_user_id != peer.peer_identity {
-        return Err(JmapError::forbidden());
-    }
+    // Steps 1 and 2: the signature was verified by the transport; the
+    // identity binding and `senderUserId` are checked here.
+    authenticate(backend, caller, &args.sender_user_id)?;
 
     let account_id = &args.account_id;
-    if !backend
-        .account_exists(caller, account_id)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?
-    {
-        return Err(JmapError::account_not_found());
-    }
+    check_account(backend, caller, account_id).await?;
     let now = now_utc_string();
     let identities = Identities::load(backend, caller, account_id).await?;
     let sender = match identities.lookup(&args.sender_user_id) {
@@ -288,14 +386,7 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
         return drop.respond(backend, caller, &payload, &target).await;
     }
 
-    let mut ctx = Commit {
-        backend,
-        caller,
-        account_id,
-        now: &now,
-        identities,
-        created: HashMap::new(),
-    };
+    let mut ctx = Commit::new(backend, caller, account_id, &now, identities);
     match payload {
         Payload::Message(m) => deliver_message(&mut ctx, &args, m, &target).await,
         Payload::Edit(e) => deliver_edit(&mut ctx, e, &target, sender_id.as_ref()).await,
@@ -311,7 +402,7 @@ enum Payload<'a> {
 }
 
 /// A user an identity string names (§User References in Peer Methods).
-enum Who<'a> {
+pub(crate) enum Who<'a> {
     /// The receiving server's own `ownerUserId`.
     Owner,
     /// The ChatContact with that `identity`.
@@ -321,13 +412,13 @@ enum Who<'a> {
 }
 
 /// The owner's identity and the account's ChatContacts.
-struct Identities {
+pub(crate) struct Identities {
     owner: Option<String>,
     contacts: Vec<ChatContact>,
 }
 
 impl Identities {
-    async fn load<B: ChatBackend>(
+    pub(crate) async fn load<B: ChatBackend>(
         backend: &B,
         caller: &B::CallerCtx,
         account_id: &Id,
@@ -344,7 +435,7 @@ impl Identities {
     }
 
     /// "The receiving server compares identity strings octet for octet".
-    fn lookup(&self, identity: &str) -> Who<'_> {
+    pub(crate) fn lookup(&self, identity: &str) -> Who<'_> {
         if self.owner.as_deref() == Some(identity) {
             return Who::Owner;
         }
@@ -626,22 +717,39 @@ fn respond(
     Ok(HandlerOutput::new(serialize_value(&response)?))
 }
 
-/// Writes for an accepted delivery.
-struct Commit<'a, B: FederationBackend> {
-    backend: &'a B,
-    caller: &'a B::CallerCtx,
-    account_id: &'a Id,
-    now: &'a UTCDate,
-    identities: Identities,
+/// Writes for an accepted request.
+pub(crate) struct Commit<'a, B: FederationBackend> {
+    pub(crate) backend: &'a B,
+    pub(crate) caller: &'a B::CallerCtx,
+    pub(crate) account_id: &'a Id,
+    pub(crate) now: &'a UTCDate,
+    pub(crate) identities: Identities,
     /// Placeholders created by this request, by identity.
     created: HashMap<String, Id>,
 }
 
-impl<B: FederationBackend> Commit<'_, B> {
+impl<'a, B: FederationBackend> Commit<'a, B> {
+    pub(crate) fn new(
+        backend: &'a B,
+        caller: &'a B::CallerCtx,
+        account_id: &'a Id,
+        now: &'a UTCDate,
+        identities: Identities,
+    ) -> Self {
+        Self {
+            backend,
+            caller,
+            account_id,
+            now,
+            identities,
+            created: HashMap::new(),
+        }
+    }
+
     /// The local id of the user `identity` names, creating a placeholder
     /// ChatContact for an unknown one (§User References in Peer Methods
     /// rules 1 to 3).
-    async fn local_id(&mut self, identity: &str) -> Result<Id, JmapError> {
+    pub(crate) async fn local_id(&mut self, identity: &str) -> Result<Id, JmapError> {
         match self.identities.lookup(identity) {
             Who::Owner => return Ok(self.account_id.clone()),
             Who::Contact(c) => return Ok(c.id.clone()),
@@ -700,7 +808,7 @@ impl<B: FederationBackend> Commit<'_, B> {
                 );
                 chat.contact_id = Some(sender_id.clone());
                 self.backend
-                    .create_direct_chat(self.caller, self.account_id, chat)
+                    .create_chat(self.caller, self.account_id, chat)
                     .await
                     .map_err(set_failure)
             }
@@ -729,7 +837,7 @@ impl<B: FederationBackend> Commit<'_, B> {
 
 /// Map a write failure: a placeholder limit (`rateLimit`) is `rateLimited`
 /// (§Placeholder ChatContact Creation); anything else is `serverFail`.
-fn set_failure<E: std::error::Error>(e: BackendSetError<E>) -> JmapError {
+pub(crate) fn set_failure<E: std::error::Error>(e: BackendSetError<E>) -> JmapError {
     match e {
         BackendSetError::SetError(s) if s.error_type == SetErrorType::RateLimit => {
             JmapError::custom("rateLimited")
