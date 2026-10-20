@@ -21,7 +21,10 @@ wire behaviour that a conforming peer can observe.
 - **jmap-chat-server**: `ChatContact/set` create accepts the optional
   `did`; a value that is not a string or not a valid DID Core §3.1 DID is
   rejected with `invalidProperties` naming `did`, and `null` counts as
-  absent.
+  absent. A create whose `identity` parses as a DID different from its
+  `did` is rejected with `invalidProperties` naming `identity` and `did`
+  (draft-atwood-jmap-chat-did-00 §Optional `did` field, §Cross-method
+  consistency).
 
 - **jmap-chat-types**: `JMAP_CHAT_DID_URI` (`urn:ietf:params:jmap:chat:did`
   marker capability, value `{}`), `MANDATORY_DID_METHODS` (`web`, `key`,
