@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-types**: draft-atwood-jmap-scene-wss-00 wire types.
+  `JMAP_SCENE_WEBSOCKET_URI` (`urn:ietf:params:jmap:scene:websocket`);
+  the `event` module with `SceneAvatarEvent`, `SceneObjectEvent`,
+  `SceneInteractionEvent`, `AvatarEventKind`, `ObjectEventKind` and the
+  `@type`-dispatched `SceneEvent`; the `stream` module with
+  `SceneStreamEnable`, `SceneStreamDisable`, the `@type`-dispatched
+  `SceneStreamMessage` and the `SCENE_EVENT_TYPES` vocabulary. Unknown
+  `@type` values decode to an `Unknown` variant and re-serialize verbatim.
 - **jmap-scene-client** (new crate): `AssetFetcher` for
   draft-atwood-jmap-scene-00 §assetUri Is Untrusted. `fetch` refuses an
   `assetUri` whose scheme is not `https:` before connecting
