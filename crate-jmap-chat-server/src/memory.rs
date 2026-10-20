@@ -842,6 +842,9 @@ impl ChatBackend for MemoryBackend {
         if O::TYPE_NAME == "Space" {
             destroy_space_channels(&mut inner, account_id.as_ref(), id);
         }
+        if O::TYPE_NAME == "Chat" {
+            destroy_read_positions(&mut inner, account_id.as_ref(), std::slice::from_ref(id));
+        }
         Ok(())
     }
 
@@ -1801,6 +1804,7 @@ fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
     for chat_id in &chat_ids {
         chats.remove(chat_id);
     }
+    destroy_read_positions(inner, account_id, &chat_ids);
     let new_state = inner.bump_state("Chat", account_id);
     inner.change_log_mut("Chat", account_id).push(ChangeEntry {
         new_state,
@@ -2005,6 +2009,8 @@ fn apply_space_patch_impl(
                 destroyed: vec![],
             });
     }
+
+    destroy_read_positions(inner, account_id.as_ref(), &chats_destroyed);
 
     // Same batching rationale: one Chat change-log entry per call,
     // combining every channel created, updated, and destroyed by
@@ -4157,6 +4163,45 @@ fn scan_messages_in_chat(inner: &Inner, account_id: &str, chat_id: &Id) -> Vec<I
         .filter(|(_, v)| v.get("chatId").and_then(|c| c.as_str()) == Some(chat_id.as_ref()))
         .map(|(id, _)| id.clone())
         .collect()
+}
+
+/// Destroy the ReadPosition of every Chat in `chat_ids`, recording one
+/// `ReadPosition` change entry when anything was removed.
+///
+/// draft-atwood-jmap-chat-00 §ReadPosition: the server "destroys it when
+/// the Chat is destroyed". The caller holds the lock that destroyed the
+/// Chats, so the cascade is atomic with it.
+fn destroy_read_positions(inner: &mut Inner, account_id: &str, chat_ids: &[Id]) {
+    let doomed: Vec<Id> = inner
+        .objects_ref("ReadPosition", account_id)
+        .map(|positions| {
+            positions
+                .iter()
+                .filter(|(_, v)| {
+                    v.get("chatId")
+                        .and_then(|c| c.as_str())
+                        .is_some_and(|c| chat_ids.iter().any(|id| id.as_ref() == c))
+                })
+                .map(|(id, _)| id.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+    if doomed.is_empty() {
+        return;
+    }
+    let positions = inner.objects_mut("ReadPosition", account_id);
+    for id in &doomed {
+        positions.remove(id);
+    }
+    let new_state = inner.bump_state("ReadPosition", account_id);
+    inner
+        .change_log_mut("ReadPosition", account_id)
+        .push(ChangeEntry {
+            new_state,
+            created: vec![],
+            updated: vec![],
+            destroyed: doomed,
+        });
 }
 
 /// True if `chat_id` names an existing Chat with kind=channel and

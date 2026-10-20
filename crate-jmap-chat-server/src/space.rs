@@ -32,7 +32,9 @@ use jmap_chat_types::space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
 };
 use jmap_chat_types::vocabulary::SPEC_PERMISSION_NAMES;
-use jmap_chat_types::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
+use jmap_chat_types::{
+    Category, Chat, ChatKind, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole,
+};
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
@@ -1684,7 +1686,10 @@ pub async fn handle_space_join<B: ChatBackend>(
             .await
             .map_err(|e| server_fail_from_backend(&e))?
         {
-            Ok(()) => joined(),
+            Ok(()) => {
+                create_channel_read_positions(backend, caller, &account_id, &space_id).await;
+                joined()
+            }
             Err(InviteJoinRefusal::NotFound) => {
                 Err(JmapError::invalid_arguments("invite code not found"))
             }
@@ -1815,7 +1820,35 @@ pub async fn handle_space_join<B: ChatBackend>(
         // the Space, which is the join's contract.
     }
 
+    create_channel_read_positions(backend, caller, &account_id, &space_id).await;
     joined()
+}
+
+/// Create the owner's ReadPosition for every channel Chat of `space_id`.
+///
+/// draft-atwood-jmap-chat-00 §ReadPosition: "For channel Chats, a
+/// ReadPosition is created when the owner joins the containing Space."
+/// Best effort, like [`crate::message::ensure_read_positions`]: the join
+/// is already stored, so a failure here is not a method-level error; a
+/// missed record is created by the next delivery to that channel.
+async fn create_channel_read_positions<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+) {
+    let Ok((chats, _)) = backend
+        .get_objects::<Chat>(caller, account_id, None, None)
+        .await
+    else {
+        return;
+    };
+    let channel_ids: Vec<Id> = chats
+        .into_iter()
+        .filter(|c| c.kind == ChatKind::Channel && c.space_id.as_ref() == Some(space_id))
+        .map(|c| c.id)
+        .collect();
+    crate::message::ensure_read_positions(backend, caller, account_id, channel_ids).await;
 }
 
 #[cfg(test)]

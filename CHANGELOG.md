@@ -30,6 +30,12 @@ wire behaviour that a conforming peer can observe.
   `replyCount` and, on thread roots, `unreadReplyCount`
   (draft-atwood-jmap-chat-00 §Message), and `Message/query` accepts the
   `threadRootId` filter, which the reference `MemoryBackend` implements.
+- **jmap-chat-server**: `Chat/get` computes `unreadCount` from the
+  owner's ReadPosition (draft-atwood-jmap-chat-00 §Chat): the number of
+  Messages in the Chat whose id sorts after `lastReadMessageId`, or all of
+  them when it is absent. It was previously the stored value, always `0`.
+  `Space/join` creates the owner's ReadPosition for each channel of the
+  joined Space (§ReadPosition).
 
 ### Changed
 
@@ -57,6 +63,16 @@ wire behaviour that a conforming peer can observe.
   that breaks the draft-atwood-jmap-chat-00 §Thread Model assignment
   rules, with `invalidProperties`; both were previously stored unchecked.
   An omitted `threadRootId` on a reply is now set by the server.
+- **BREAKING** **jmap-chat-server**: `ReadPosition/set` update sets
+  `lastReadAt` to the current time, and rejects a client-supplied
+  `lastReadAt` (server-set per draft-atwood-jmap-chat-00 §ReadPosition)
+  or a non-String `lastReadMessageId` with `invalidProperties`.
+- **BREAKING** **jmap-chat-server**: the `ChatBackend::destroy_object`
+  and `apply_space_patch` contracts now require every Chat destroy,
+  including the Space-destroy and `removeChannels` cascades, to destroy
+  that Chat's ReadPosition and advance the `ReadPosition` state
+  (draft-atwood-jmap-chat-00 §ReadPosition: the server "destroys it when
+  the Chat is destroyed"). The reference `MemoryBackend` does so.
 
 ### Fixed
 
