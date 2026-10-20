@@ -12,7 +12,8 @@ use common::MemoryBackend;
 use jmap_server::HandlerOutput;
 use jmap_tasks_server::{
     handle_task_changes, handle_task_get, handle_task_list_changes, handle_task_list_get,
-    handle_task_list_set, handle_task_notification_set, handle_task_query, handle_task_set,
+    handle_task_list_set, handle_task_notification_set, handle_task_query,
+    handle_task_query_changes, handle_task_set,
 };
 use serde_json::{json, Value};
 
@@ -648,4 +649,80 @@ async fn task_query_with_no_filter_or_sort_succeeds() {
     // id-lexicographic order; t1 < t2.
     assert_eq!(ids[0], "t1");
     assert_eq!(ids[1], "t2");
+}
+
+// ---------------------------------------------------------------------------
+// Test: Task/queryChanges honours the `taskListId` filter of the query.
+//
+// Oracle: RFC 8620 §5.6 — `removed`: "The "id" for every Foo that was in
+// the query results in the old state and that is not in the results in
+// the new state."; `added`: "The id and index in the query results (in
+// the new state) for every Foo that has been added to the results since
+// the old state". draft-tasks-06 §4: "taskListId: Id The TaskList id this
+// task belongs to." Moving t1 out of tl1 removes it from the tl1 query,
+// moving t2 in adds it at index 0 (the only tl1 task), and a task created
+// in tl2 is not part of the tl1 results. Bead: JMAP-y3f2.14.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_query_changes_honours_task_list_filter() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
+    backend.seed_object("acc1", "TaskList", "tl2", task_list_fixture("tl2", "Work"));
+    backend.seed_object("acc1", "Task", "t1", task_fixture("t1", "tl1", "Buy milk"));
+    backend.seed_object(
+        "acc1",
+        "Task",
+        "t2",
+        task_fixture("t2", "tl2", "File report"),
+    );
+
+    let filter = json!({ "taskListId": "tl1" });
+    let HandlerOutput { primary: query, .. } = handle_task_query(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "filter": filter }),
+    )
+    .await
+    .expect("Task/query must succeed");
+    assert_eq!(query["ids"], json!(["t1"]), "{query}");
+
+    let HandlerOutput { primary: set, .. } = handle_task_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": {
+                "t1": { "taskListId": "tl2" },
+                "t2": { "taskListId": "tl1" }
+            },
+            "create": {
+                "c3": { "@type": "Task", "uid": "c3-uid", "title": "Call", "taskListId": "tl2" }
+            }
+        }),
+    )
+    .await
+    .expect("Task/set must succeed");
+    assert!(set["notUpdated"].is_null(), "{set}");
+    assert!(set["notCreated"].is_null(), "{set}");
+
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_task_query_changes(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "filter": filter,
+            "sinceQueryState": query["queryState"]
+        }),
+    )
+    .await
+    .expect("Task/queryChanges must succeed");
+    assert_eq!(changes["removed"], json!(["t1"]), "{changes}");
+    assert_eq!(
+        changes["added"],
+        json!([{ "id": "t2", "index": 0 }]),
+        "{changes}"
+    );
 }

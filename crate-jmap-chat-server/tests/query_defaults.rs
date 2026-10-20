@@ -10,6 +10,9 @@
 //!   `chatId` is present; `receivedAt` descending when `chatId` is absent."
 //! - L1306 §Space/query and L1399 §CustomEmoji/query: "Default sort: `name`
 //!   ascending."
+//! - RFC 8620 §5.6 `added`: "The id and index in the query results (in the
+//!   new state) for every Foo that has been added to the results since the
+//!   old state" (bd:JMAP-y3f2.14).
 //! - L1310 §Space/query: "When the request includes an `isPublic: true`
 //!   filter condition, the server MUST include in the result `ids` array
 //!   the identifiers of Spaces for which the caller is not a member but
@@ -22,8 +25,8 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{
-    handle_chat_query, handle_emoji_query, handle_emoji_set, handle_message_query,
-    handle_space_query,
+    handle_chat_query, handle_emoji_query, handle_emoji_query_changes, handle_emoji_set,
+    handle_message_query, handle_space_query,
 };
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
@@ -170,6 +173,44 @@ async fn emoji_query_unsorted_is_name_ascending() {
             .await
             .expect("CustomEmoji/query");
     assert_eq!(ids(&resp), ["e2", "e3", "e1"]);
+}
+
+/// L1399 with RFC 8620 §5.6: `/queryChanges` reports "the id and index
+/// in the query results (in the new state)", and an unsorted
+/// `CustomEmoji/query` is ordered by `name` ascending, so the indices of
+/// the created emoji follow their names, not their creation order.
+#[tokio::test]
+async fn emoji_query_changes_unsorted_indexes_by_name_ascending() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from(ACCOUNT_ID));
+    let created = emoji_set(
+        &backend,
+        json!({ "create": {
+            "z": { "name": "zebra", "blobId": "b1" },
+            "a": { "name": "apple", "blobId": "b2" },
+            "m": { "name": "mango", "blobId": "b3" },
+        } }),
+    )
+    .await;
+    let id = |k: &str| created["created"][k]["id"].clone();
+
+    let HandlerOutput { primary: resp, .. } = handle_emoji_query_changes(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "sinceQueryState": "0" }),
+    )
+    .await
+    .expect("CustomEmoji/queryChanges");
+    let mut added = resp["added"].as_array().expect("added").clone();
+    added.sort_by_key(|a| a["index"].as_u64());
+    assert_eq!(
+        added,
+        [
+            json!({ "id": id("a"), "index": 0 }),
+            json!({ "id": id("m"), "index": 1 }),
+            json!({ "id": id("z"), "index": 2 }),
+        ]
+    );
 }
 
 /// L1310: an `isPublic: true` query includes a public, previewable Space

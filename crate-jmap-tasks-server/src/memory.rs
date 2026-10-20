@@ -622,42 +622,21 @@ impl JmapBackend for MemoryBackend {
 
     /// Returns the changes to a `/query` result set since `since_query_state`.
     ///
-    /// # Filter and sort are NOT honored
-    ///
-    /// RFC 8620 §5.6 requires `/queryChanges` to report `added` /
-    /// `removed` entries that reflect filter and sort over **mutable**
-    /// properties — i.e. ids that were in the previous query result and
-    /// are now excluded by an updated filter-affecting property must
-    /// appear in `removed`. This reference implementation cannot
-    /// implement that faithfully without re-deriving each type's filter
-    /// algebra, so it ignores `filter` and `sort` entirely and returns
-    /// `added` / `removed` purely from the change-log (`created` →
-    /// `added`, `destroyed` → `removed`, with `updated` ignored).
-    ///
-    /// The trade-off is documented (rather than fixed) because:
-    ///
-    /// - `query_objects` here is itself filter-and-sort-blind (and now
-    ///   fails loud on non-trivial filter/sort), so a `/queryChanges`
-    ///   that did honor filter/sort would be lying about consistency
-    ///   with its `/query` sibling.
-    /// - Re-deriving the type's filter algebra in the reference impl
-    ///   would couple `MemoryBackend` to every QueryObject's wire-format
-    ///   property names — a layering hazard for a reference impl whose
-    ///   purpose is to demonstrate the trait shape, not to be feature-
-    ///   complete.
-    ///
-    /// A production backend MUST track filter-affecting property
-    /// transitions in its change log and emit `removed` for them per
-    /// §5.6. See the canonical sibling `jmap-mail-server`'s
-    /// `MemoryBackend::query_changes` for the shape that an
-    /// implementation with mature filter/sort would take.
+    /// RFC 8620 §5.6: `/queryChanges` reports changes to the results of
+    /// the same query, so `filter` and `sort` are those of the original
+    /// `/query` and are applied by re-running [`Self::query_objects`]
+    /// (a filter it refuses fails here the same way). `removed` holds the
+    /// destroyed ids and the updated ids that no longer match (a Task moved
+    /// out of the queried `taskListId`); `added` holds the created and
+    /// updated ids that match now, with their index in the current result.
+    /// Mirrors the canonical `jmap-mail-server` `MemoryBackend::query_changes`.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         caller: &(),
         account_id: &Id,
         since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
         max_changes: Option<u64>,
         _up_to_id: Option<&Id>,
         _collapse_threads: bool,
@@ -666,39 +645,46 @@ impl JmapBackend for MemoryBackend {
             .get_changes::<O>(caller, account_id, since_query_state, max_changes)
             .await?;
 
-        let inner = self.inner.lock().unwrap();
-        let new_query_state = State::from(
-            inner
-                .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string()
-                .as_str(),
-        );
+        // The current result of the same query, unpaginated: `added`
+        // indices are positions in it (RFC 8620 §5.6).
+        let current = self
+            .query_objects::<O>(caller, account_id, filter, sort, None, 0, None, 0)
+            .await
+            .map_err(|e| match e {
+                // Changes to a query the server cannot run cannot be
+                // calculated; the client's follow-up /query receives the
+                // method error itself.
+                BackendQueryError::Method(_) => BackendChangesError::CannotCalculate,
+                BackendQueryError::Other(e) => BackendChangesError::Other(e),
+            })?;
+        let current_set: HashSet<&Id> = current.ids.iter().collect();
+        let created_set: HashSet<&Id> = changes.created.iter().collect();
+        let updated_set: HashSet<&Id> = changes.updated.iter().collect();
 
-        let current_ids: Vec<Id> = inner
-            .objects_ref(O::TYPE_NAME, account_id.as_ref())
-            .map(|m| {
-                let mut keys: Vec<Id> = m.keys().cloned().collect();
-                keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                keys
-            })
-            .unwrap_or_default();
-
-        let removed: Vec<Id> = changes.destroyed;
-        let added: Vec<AddedItem> = changes
-            .created
+        // Destroyed ids, and updated ids that no longer match the query.
+        let mut removed: Vec<Id> = changes
+            .destroyed
             .iter()
-            .filter_map(|id| {
-                current_ids
-                    .iter()
-                    .position(|cur| cur == id)
-                    .map(|idx| AddedItem::new(id.clone(), idx as u64))
-            })
+            .chain(changes.updated.iter())
+            .filter(|id| !current_set.contains(id))
+            .cloned()
+            .collect();
+        removed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        removed.dedup();
+
+        // Created or updated ids that match the query now.
+        let added: Vec<AddedItem> = current
+            .ids
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| created_set.contains(id) || updated_set.contains(id))
+            .map(|(pos, id)| AddedItem::new(id.clone(), pos as u64))
             .collect();
 
         Ok(QueryChangesResult::new(
             since_query_state.clone(),
-            new_query_state,
-            Some(current_ids.len() as u64),
+            changes.new_state,
+            current.total,
             removed,
             added,
         ))

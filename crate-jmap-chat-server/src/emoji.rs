@@ -245,78 +245,15 @@ pub async fn handle_emoji_query<B: ChatBackend>(
 pub async fn handle_emoji_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    args: Value,
+    mut args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let (account_id, args) = extract_account_id(args)?;
-
-    let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
-        Some(s) => State::from(s),
-        None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
-    };
-
-    let max_changes: Option<u64> = match args.get("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
-
-    let up_to_id: Option<Id> = match args.get("upToId") {
-        None | Some(Value::Null) => None,
-        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
-        Some(_) => {
-            return Err(JmapError::invalid_arguments(
-                "upToId must be a string Id or null",
-            ))
-        }
-    };
-
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let result = backend
-        .query_changes::<CustomEmoji>(
-            caller,
-            &account_id,
-            &since_query_state,
-            None,
-            None,
-            max_changes,
-            up_to_id.as_ref(),
-            false,
-        )
-        .await
-        .map_err(JmapError::from)?;
-
-    let removed: Vec<&str> = result.removed.iter().map(|id| id.as_ref()).collect();
-    let added: Vec<Value> = result
-        .added
-        .iter()
-        .map(|item| {
-            json!({
-                "id": item.id.as_ref(),
-                "index": item.index,
-            })
-        })
-        .collect();
-
-    let mut resp = json!({
-        "accountId": account_id.as_ref(),
-        "oldQueryState": result.old_query_state.as_ref(),
-        "newQueryState": result.new_query_state.as_ref(),
-        "removed": removed,
-        "added": added,
-    });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    // RFC 8620 §5.6: the `filter` and `sort` are those of the original
+    // query, so the §CustomEmoji/query default sort applies here too.
+    if let Value::Object(map) = &mut args {
+        default_sort(map, json!([{ "property": "name" }]));
     }
-
-    Ok(HandlerOutput::new(resp))
+    reject_unsupported_sort::<CustomEmojiComparator>(args.get("sort"))?;
+    jmap_server::handlers::handle_query_changes::<CustomEmoji, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
