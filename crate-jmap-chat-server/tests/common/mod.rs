@@ -254,6 +254,29 @@ pub struct TrackingBackend {
     /// kit's wire response is unchanged regardless of the predicate
     /// result, see `handle_chat_typing` doc-comment).
     is_contact_blocked_calls: Arc<AtomicU64>,
+    /// When `true`, the per-Chat restriction hooks apply the
+    /// draft-atwood-jmap-chat-mimi-00 rules to every Chat whose extension
+    /// properties hold `roomId`. When `false`, they forward to `inner`.
+    room_restricted: bool,
+}
+
+/// The Chat/set patch keys draft-atwood-jmap-chat-mimi-00 L251 forbids on
+/// a Chat with a `roomId`.
+const ROOM_FORBIDDEN_CHAT_KEYS: &[&str] = &[
+    "name",
+    "description",
+    "avatarBlobId",
+    "addMembers",
+    "removeMembers",
+    "updateMemberRoles",
+];
+
+/// The Message properties draft-atwood-jmap-chat-mimi-00 L426 forbids
+/// changing in a Chat with a `roomId`.
+const ROOM_FROZEN_MESSAGE_PROPS: &[&str] = &["body", "bodyType", "reactions"];
+
+fn is_room_chat(chat: &jmap_chat_types::Chat) -> bool {
+    chat.extra.contains_key("roomId")
 }
 
 impl TrackingBackend {
@@ -275,6 +298,7 @@ impl TrackingBackend {
             broadcast_mention_deny: false,
             chat_view_deny: false,
             is_contact_blocked_calls: Arc::default(),
+            room_restricted: false,
         }
     }
 
@@ -289,6 +313,7 @@ impl TrackingBackend {
             broadcast_mention_deny: false,
             chat_view_deny: false,
             is_contact_blocked_calls: Arc::default(),
+            room_restricted: false,
         }
     }
 
@@ -307,6 +332,16 @@ impl TrackingBackend {
     pub fn with_chat_view_denied() -> Self {
         Self {
             chat_view_deny: true,
+            ..Self::default()
+        }
+    }
+
+    /// Configure the wrapper so the per-Chat restriction hooks enforce
+    /// the draft-atwood-jmap-chat-mimi-00 rules for Chats with a
+    /// `roomId`. The wrapped `MemoryBackend` is otherwise functional.
+    pub fn with_room_restrictions() -> Self {
+        Self {
+            room_restricted: true,
             ..Self::default()
         }
     }
@@ -577,6 +612,71 @@ impl ChatBackend for TrackingBackend {
         self.is_contact_blocked_calls.fetch_add(1, Ordering::SeqCst);
         self.inner
             .is_contact_blocked(caller, account_id, contact_id)
+            .await
+    }
+
+    async fn may_create_message(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat: &jmap_chat_types::Chat,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        if self.room_restricted && is_room_chat(chat) {
+            return Ok(Err(SetError::new(SetErrorType::Forbidden)
+                .with_description(
+                    "messages in a MIMI room are sent with Room/send",
+                )));
+        }
+        self.inner
+            .may_create_message(caller, account_id, chat)
+            .await
+    }
+
+    async fn may_update_message(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat: &jmap_chat_types::Chat,
+        message: &jmap_chat_types::Message,
+        patch_keys: &[&str],
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        if self.room_restricted && is_room_chat(chat) {
+            let mut changed: Vec<String> = Vec::new();
+            for key in patch_keys {
+                let top = key.split('/').next().unwrap_or(key);
+                if ROOM_FROZEN_MESSAGE_PROPS.contains(&top) && !changed.iter().any(|c| c == top) {
+                    changed.push(top.to_owned());
+                }
+            }
+            if !changed.is_empty() {
+                return Ok(Err(
+                    SetError::new(SetErrorType::InvalidProperties).with_properties(changed)
+                ));
+            }
+        }
+        self.inner
+            .may_update_message(caller, account_id, chat, message, patch_keys)
+            .await
+    }
+
+    async fn may_update_chat(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat: &jmap_chat_types::Chat,
+        patch_keys: &[&str],
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        if self.room_restricted
+            && is_room_chat(chat)
+            && patch_keys
+                .iter()
+                .any(|k| ROOM_FORBIDDEN_CHAT_KEYS.contains(k))
+        {
+            return Ok(Err(SetError::new(SetErrorType::Forbidden)
+                .with_description("a MIMI room is changed with Room/update")));
+        }
+        self.inner
+            .may_update_chat(caller, account_id, chat, patch_keys)
             .await
     }
 

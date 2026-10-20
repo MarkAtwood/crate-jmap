@@ -1001,6 +1001,37 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
 
+            // Per-Chat restrictions of extension-bound Chats; see
+            // `ChatBackend::may_update_chat`. A Chat that does not
+            // resolve is left for update_object to surface `notFound`.
+            let stored = match backend
+                .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
+                .await
+            {
+                Ok((chats, _)) => chats.into_iter().next(),
+                Err(e) => {
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
+            if let Some(chat) = stored {
+                let patch_keys: Vec<&str> = patch.as_map().keys().map(String::as_str).collect();
+                match backend
+                    .may_update_chat(caller, &account_id, &chat, &patch_keys)
+                    .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_updated.insert(id_str, set_error_value(&set_err));
+                        continue;
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
             // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
             // set, the server MUST reject with a `forbidden` SetError ...
             // every `Chat/set` update that changes membership ... or
