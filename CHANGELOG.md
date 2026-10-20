@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-vtc-server**: new crate, the VTC binding for
+  `jmap-scene-server` (draft-atwood-jmap-scene-00 with
+  draft-atwood-jmap-vtc-00). `clear_active_call_id`, called from
+  `VtcBackend::update_object`, clears `SceneRegion.activeCallId` to `null`
+  and advances the SceneRegion state when the referenced VTCCall ends,
+  whether through `VTCCall/set` or `jmap_vtc_server::end_call`.
 - **jmap-chat-vtc-server**: new crate, the Chat binding for
   `jmap-vtc-server` (draft-atwood-jmap-vtc-00 with draft-atwood-jmap-chat-00).
   `check_call_create` applies the `chatId` access and membership rules and
