@@ -135,7 +135,8 @@ wire behaviour that a conforming peer can observe.
   `task_chat_id` reading the Task `chatId` extension
   (`TASK_CHAT_ID_PROPERTY`) from a Task's extension map, the
   `urn:jmap:chat:cap:task` MessageAction metadata shape `TaskMetadata`, and
-  `JmapUri::task_ids` for `jmap:task:<accountId>:<taskListId>:<taskId>`.
+  `JMAP_URI_TASK_TYPE`, the type name of the `jmap:task:<accountId>:<taskId>`
+  object URI (parse it with `jmap_types::JmapUri`).
 - **jmap-chat-types**: draft-atwood-jmap-chat-calendars-00 types:
   `JMAP_CHAT_CALENDARS_URI`, `ChatCalendarsCapability` (`mayBindCalendar`,
   `supportsIcsParsing`, `supportsAvailabilityLookup`), `Space::calendar_id`
@@ -682,12 +683,16 @@ wire behaviour that a conforming peer can observe.
   (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent, draft-atwood-jmap-chat-00
   §Presence Events). It drops the event when the contact is blocked on the
   recipient's own contact list, and delivers `"invisible"` as `"offline"`.
-- **jmap-chat-types**: `JmapUri` parses and builds the private-use
-  `jmap:<type>:<accountId>:<objectId>` URI
-  (draft-atwood-jmap-chat-calendars-00 §MessageAction format), including the
-  four-part `jmap:task:<accountId>:<taskListId>:<taskId>` form
-  (draft-atwood-jmap-chat-tasks-00 §MessageAction format), validating every
-  id segment per RFC 8620 §1.2. `vocabulary::CHAT_CAP_VTC`,
+- **jmap-types**: `JmapUri` and `JmapUriError` parse and build the
+  `jmap:<type>:<accountId>:<objectId>` JMAP object URI
+  (draft-atwood-jmap-object-uri-00 §JMAP Object URIs), validating the type
+  name and both ids. Exactly one object id follows the account: a URI with
+  further segments, such as the retired
+  `jmap:task:<accountId>:<taskListId>:<taskId>` form, is rejected
+  (§Other Forms). The type lives in the foundation crate so chat,
+  calendars, tasks and graph crates share it; `jmap-chat-types` does not
+  re-export it.
+- **jmap-chat-types**: `vocabulary::CHAT_CAP_VTC`,
   `CHAT_CAP_CALENDAR_EVENT`, `CHAT_CAP_AVAILABILITY` and `CHAT_CAP_TASK`
   name the `urn:jmap:chat:cap:*` Endpoint / MessageAction types.
 - **jmap-chat-server**: `ChatBackend::may_create_message`,

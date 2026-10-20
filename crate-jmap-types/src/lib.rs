@@ -2,7 +2,8 @@
 //!
 //! Provides [`Id`], [`UTCDate`], [`State`], [`JmapError`],
 //! [`JmapRequest`], [`JmapResponse`], [`Filter`], [`ResultReference`], and
-//! the RFC 8620 §7 push types ([`StateChange`], [`PushSubscription`]) —
+//! the RFC 8620 §7 push types ([`StateChange`], [`PushSubscription`]), and
+//! the draft-atwood-jmap-object-uri-00 object reference [`JmapUri`] —
 //! the primitives shared by all crates in the `jmap-*` family.
 //!
 //! This crate is types-only: no method handlers, no async, no network I/O.
@@ -32,6 +33,7 @@
 pub mod backend;
 pub mod error;
 pub mod id;
+pub mod jmap_uri;
 pub mod methods;
 pub mod patch;
 pub mod push;
@@ -48,6 +50,7 @@ mod string_enum;
 pub use backend::{GetObject, JmapObject, QueryObject, SetObject};
 pub use error::JmapError;
 pub use id::{Date, Id, State, UTCDate, ValidationError};
+pub use jmap_uri::{JmapUri, JmapUriError};
 pub use methods::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
     SetResponse,

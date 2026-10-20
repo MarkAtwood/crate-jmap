@@ -20,6 +20,7 @@ spec requires.
 | `JmapResponse` | §3.4 | HTTP response envelope |
 | `ResultReference` | §9 | Reference to a prior method's result |
 | `Argument<T>` | §9 | A method argument that is either a value or a `ResultReference` |
+| `JmapUri` | draft-atwood-jmap-object-uri-00 | `jmap:<type>:<accountId>:<objectId>` object reference |
 
 The `query` module also re-exports the generic filter algebra used across the
 crate family: `Filter<T>`, `FilterOperator<T>`, and `Operator` (RFC 8620 §5.5).

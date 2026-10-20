@@ -13,15 +13,16 @@
 //!   [`CHAT_CAP_TASK`](crate::vocabulary::CHAT_CAP_TASK). Cast with
 //!   `serde_json::from_value` at the consumer boundary. The draft treats
 //!   both `uri` and `metadata` as "peer-supplied and untrusted".
-//! - [`JmapUri::task_ids`] extracts the `taskListId` and `taskId` from a
-//!   `jmap:task:<accountId>:<taskListId>:<taskId>` URI.
+//! - [`JMAP_URI_TASK_TYPE`] is the type name of the
+//!   `jmap:task:<accountId>:<taskId>` object URI; parse it with
+//!   [`jmap_types::JmapUri`].
 //!
 //! The capability object is [`ChatTasksCapability`](crate::ChatTasksCapability).
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-use crate::{JmapUri, Space};
+use crate::Space;
 
 /// Wire name of the Space extension property binding a TaskList
 /// (draft-atwood-jmap-chat-tasks-00 §taskListId).
@@ -31,8 +32,9 @@ pub const SPACE_TASK_LIST_ID_PROPERTY: &str = "taskListId";
 /// Chat (draft-atwood-jmap-chat-tasks-00 §chatId).
 pub const TASK_CHAT_ID_PROPERTY: &str = "chatId";
 
-/// The `<type>` segment of a `jmap:` URI that references a Task
-/// (draft-atwood-jmap-chat-tasks-00 §MessageAction format).
+/// The `type-name` of a JMAP object URI that references a Task
+/// (draft-atwood-jmap-chat-tasks-00 §MessageAction format:
+/// `jmap:task:<accountId>:<taskId>`).
 pub const JMAP_URI_TASK_TYPE: &str = "task";
 
 impl Space {
@@ -69,23 +71,6 @@ pub fn task_chat_id(
     task_extra
         .get(TASK_CHAT_ID_PROPERTY)
         .map_or(Ok(None), Option::<Id>::deserialize)
-}
-
-impl JmapUri {
-    /// The `(taskListId, taskId)` pair of a
-    /// `jmap:task:<accountId>:<taskListId>:<taskId>` URI
-    /// (draft-atwood-jmap-chat-tasks-00 §MessageAction format).
-    ///
-    /// Returns `None` unless the type is `task` and exactly two segments
-    /// follow the account.
-    pub fn task_ids(&self) -> Option<(&Id, &Id)> {
-        match self.object_ids() {
-            [task_list_id, task_id] if self.data_type() == JMAP_URI_TASK_TYPE => {
-                Some((task_list_id, task_id))
-            }
-            _ => None,
-        }
-    }
 }
 
 /// `metadata` of a `urn:ietf:params:jmap:chat:cap:task` MessageAction

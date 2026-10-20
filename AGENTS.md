@@ -110,7 +110,7 @@ crates, never in a support crate.
 ## Dependency Tree
 
 ```
-jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference, JmapError. No async.
+jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference, JmapError, JmapUri. No async.
     ├── jmap-server         — dispatcher, parse_request, ResultReference resolution, HTTP helpers.
     ├── jmap-base-client    — RFC 8620 base client: auth, session fetch, blob, SSE, WebSocket.
     │       ├── jmap-chat-client   — JMAP Chat method implementations.

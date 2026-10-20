@@ -8,9 +8,10 @@
 //! they define.
 
 use jmap_chat_types::{
-    task_chat_id, ChatTasksCapability, JmapUri, MessageAction, Space, TaskMetadata,
-    JMAP_CHAT_TASKS_URI, SPACE_TASK_LIST_ID_PROPERTY, TASK_CHAT_ID_PROPERTY,
+    task_chat_id, ChatTasksCapability, MessageAction, Space, TaskMetadata, JMAP_CHAT_TASKS_URI,
+    JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY, TASK_CHAT_ID_PROPERTY,
 };
+use jmap_types::JmapUri;
 use serde_json::{json, Map, Value};
 
 #[test]
@@ -225,28 +226,20 @@ fn task_metadata_priority_is_integer() {
 }
 
 #[test]
-fn task_uri_yields_task_list_and_task_ids() {
-    // L185: "A `jmap:` URI in the form
-    // `jmap:task:<accountId>:<taskListId>:<taskId>`, referencing a Task on
-    // the named account."
-    let uri: JmapUri = "jmap:task:A1:TL1:T9".parse().expect("parse");
-    let (list, task) = uri.task_ids().expect("task form");
+fn task_uri_names_one_task() {
+    // L191: "A JMAP object URI ({{JMAP-OBJECT-URI}}) of type `task`, in
+    // the form `jmap:task:<accountId>:<taskId>`, referencing a Task on the
+    // named account."
+    let uri: JmapUri = "jmap:task:A1:T9".parse().expect("parse");
+    assert_eq!(uri.data_type(), JMAP_URI_TASK_TYPE);
     assert_eq!(uri.account_id().as_ref(), "A1");
-    assert_eq!(list.as_ref(), "TL1");
-    assert_eq!(task.as_ref(), "T9");
+    assert_eq!(uri.object_id().as_ref(), "T9");
 }
 
 #[test]
-fn non_task_form_uris_have_no_task_ids() {
-    // L185 fixes two segments after the account for `jmap:task:`; the
-    // calendars form (draft-atwood-jmap-chat-calendars-00 L153,
-    // "`jmap:calendarevent:<accountId>:<calendarEventId>`") is not a Task.
-    for input in [
-        "jmap:task:A1:T9",
-        "jmap:task:A1:TL1:T9:X",
-        "jmap:calendarevent:A1:E42",
-    ] {
-        let uri: JmapUri = input.parse().expect("parse");
-        assert_eq!(uri.task_ids(), None, "{input}");
-    }
+fn task_uri_with_task_list_segment_rejected() {
+    // L191 carries no taskListId; draft-atwood-jmap-object-uri-00 L96: "A
+    // receiver treats a `jmap` URI that matches no form it implements as
+    // unresolvable."
+    assert!("jmap:task:A1:TL1:T9".parse::<JmapUri>().is_err());
 }
