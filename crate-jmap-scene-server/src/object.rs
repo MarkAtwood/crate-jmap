@@ -474,6 +474,13 @@ async fn create_scene_object<B: SceneBackend>(
     fetch_one::<SceneRegion, B>(backend, caller, account_id, &region_id)
         .await?
         .ok_or_else(not_found)?;
+    if !backend
+        .may_access_region(caller, account_id, &region_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(not_found());
+    }
     if let Some(r) = m.get("visualRef").and_then(Value::as_str) {
         check_visual_ref(backend, caller, account_id, r).await?;
     }

@@ -332,6 +332,30 @@ async fn region_set_without_access_is_not_found_never_forbidden() {
     );
 }
 
+/// SceneObject/set Create Errors L1666: "`regionId` does not exist or
+/// caller lacks access | The server returns `notFound` (not `forbidden`)
+/// per the enumeration-safe access-control rule." [`BOB`] is not invited
+/// to [`INVITE`] (L2362), so a create there is `notFound`, the same as for
+/// [`MISSING`]; the same create in [`PUBLIC`] succeeds.
+#[tokio::test]
+async fn object_create_without_region_access_is_not_found() {
+    let backend = scene();
+    let resp = call!(
+        handle_scene_object_set,
+        &backend,
+        BOB,
+        json!({ "create": {
+            "hidden": { "regionId": INVITE, "position": [0, 0, 0] },
+            "missing": { "regionId": MISSING, "position": [0, 0, 0] },
+            "open": { "regionId": PUBLIC, "position": [0, 0, 0] }
+        } })
+    );
+    assert_eq!(resp["notCreated"]["hidden"]["type"], "notFound", "{resp}");
+    assert_eq!(resp["notCreated"]["missing"]["type"], "notFound", "{resp}");
+    assert!(resp["created"]["open"]["id"].is_string(), "{resp}");
+    assert!(resp["created"].get("hidden").is_none(), "{resp}");
+}
+
 /// SceneAvatar/set Update Errors L2222: "The avatar id does not exist or
 /// caller lacks access to the containing region | Same enumeration-safe
 /// rule." L2216 "Users MUST NOT update other users' avatars" still gives
