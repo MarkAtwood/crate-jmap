@@ -116,6 +116,15 @@ wire behaviour that a conforming peer can observe.
   `jmap_mail_types::MAILBOX_FILTER_CONDITION_KEYS` and the
   `jmap_chat_types::query::*_FILTER_CONDITION_KEYS` constants are removed;
   the typed decode now does their job.
+- **jmap-calendars-client**: `calendar_event_query`,
+  `calendar_event_query_changes`, `calendar_event_notification_query` and
+  `calendar_event_notification_query_changes` take `filter` as the typed
+  `CalendarEventFilter` / `NotificationFilter` (`jmap_types::query::Filter`),
+  so callers can send RFC 8620 §5.5 `AND` / `OR` / `NOT` operators. Wrap a
+  bare condition in `Filter::Condition`. The `*_query_changes` methods no
+  longer take `serde_json::Value`: `calendar_event_query_changes` sort is
+  `&[CalendarEventComparator]`, and `calendar_event_notification_query_changes`
+  sort is `&[serde_json::Value]`, matching their `/query` methods.
 
 ### Breaking: wire behaviour
 

@@ -18,6 +18,7 @@ use std::collections::BTreeMap;
 
 use jmap_calendars_client::methods::CalendarEventGetParams;
 use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilterCondition};
+use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
 
 // CalendarEventGetParams, CalendarEventFilterCondition, and
@@ -240,6 +241,7 @@ async fn calendar_event_query_filter_sort_expand_recurrences_passthrough() {
     comparator.property = "start".to_owned();
     comparator.is_ascending = false;
     let sort = vec![comparator];
+    let filter = Filter::Condition(filter);
     let _ = sc
         .calendar_event_query(Some(&filter), Some(&sort), Some(0), Some(10), Some(true))
         .await
@@ -541,11 +543,17 @@ async fn calendar_event_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs5");
     let up_to = Id::from("ev-100");
+    let mut condition = CalendarEventFilterCondition::default();
+    condition.in_calendar = Some(Id::from("cal-1"));
+    let filter = Filter::Condition(condition);
+    let mut comparator = CalendarEventComparator::default();
+    comparator.property = "start".to_owned();
+    comparator.is_ascending = true;
     sc.calendar_event_query_changes(
         &since,
         None,
-        Some(json!({ "inCalendar": "cal-1" })),
-        Some(json!([{ "property": "start", "isAscending": true }])),
+        Some(&filter),
+        Some(&[comparator]),
         Some(&up_to),
         Some(true),
     )
@@ -634,5 +642,141 @@ async fn calendar_event_query_changes_all_none_omits_optional_wire_keys() {
     assert!(
         args.get("maxChanges").is_none(),
         "maxChanges must be omitted"
+    );
+}
+
+/// Mount a canned `CalendarEvent/query` or `CalendarEvent/queryChanges`
+/// response and return the `filter` argument the client sent.
+async fn sent_event_filter(
+    method_name: &str,
+    response_args: serde_json::Value,
+    call: impl AsyncFnOnce(&jmap_calendars_client::SessionClient),
+) -> serde_json::Value {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[method_name, response_args, "r1"]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = helpers::make_client(&server);
+    call(&sc).await;
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    body["methodCalls"][0][1]["filter"].clone()
+}
+
+/// `CalendarEvent/query` accepts a compound `NOT` filter.
+///
+/// Oracle: RFC 8620 §5.5 — a FilterOperator object has `operator`
+/// ("AND" | "OR" | "NOT"; "NOT: None of the conditions must match for
+/// the filter to match") and `conditions` (`Filter[]`); a FilterCondition
+/// is a plain object without an `operator` property.
+/// draft-ietf-jmap-calendars-26 §5.11 — `inCalendar` and `text` are
+/// CalendarEvent FilterCondition properties. The expected JSON is
+/// hand-written from those definitions.
+#[tokio::test]
+async fn calendar_event_query_not_filter_wire_shape() {
+    let mut in_cal = CalendarEventFilterCondition::default();
+    in_cal.in_calendar = Some(Id::from("cal-1"));
+    let mut text = CalendarEventFilterCondition::default();
+    text.text = Some("standup".to_owned());
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::Not,
+        vec![Filter::Condition(in_cal), Filter::Condition(text)],
+    ));
+
+    let sent = sent_event_filter(
+        "CalendarEvent/query",
+        json!({
+            "accountId": "A13824",
+            "queryState": "qs1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": [],
+            "total": null,
+            "limit": null
+        }),
+        async |sc| {
+            sc.calendar_event_query(Some(&filter), None, None, None, None)
+                .await
+                .expect("calendar_event_query: must succeed");
+        },
+    )
+    .await;
+
+    assert_eq!(
+        sent,
+        json!({
+            "operator": "NOT",
+            "conditions": [
+                { "inCalendar": "cal-1" },
+                { "text": "standup" }
+            ]
+        }),
+        "NOT FilterOperator wire shape mismatch (RFC 8620 §5.5)"
+    );
+}
+
+/// `CalendarEvent/queryChanges` accepts the same compound filter as
+/// `/query`, including a nested operator (RFC 8620 §5.6: `filter` is "The
+/// filter argument that was used with Foo/query").
+///
+/// Oracle: RFC 8620 §5.5 FilterOperator definition (`conditions` is
+/// `(FilterOperator|FilterCondition)[]`, so operators nest);
+/// draft-ietf-jmap-calendars-26 §5.11 `inCalendar`. Expected JSON is
+/// hand-written.
+#[tokio::test]
+async fn calendar_event_query_changes_nested_and_not_filter_wire_shape() {
+    let mut cal1 = CalendarEventFilterCondition::default();
+    cal1.in_calendar = Some(Id::from("cal-1"));
+    let mut cal2 = CalendarEventFilterCondition::default();
+    cal2.in_calendar = Some(Id::from("cal-2"));
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::And,
+        vec![
+            Filter::Condition(cal1),
+            Filter::Operator(FilterOperator::new(
+                Operator::Not,
+                vec![Filter::Condition(cal2)],
+            )),
+        ],
+    ));
+    let since = State::from("qs5");
+
+    let sent = sent_event_filter(
+        "CalendarEvent/queryChanges",
+        json!({
+            "accountId": "A13824",
+            "oldQueryState": "qs5",
+            "newQueryState": "qs6",
+            "removed": [],
+            "added": []
+        }),
+        async |sc| {
+            sc.calendar_event_query_changes(&since, None, Some(&filter), None, None, None)
+                .await
+                .expect("calendar_event_query_changes: must succeed");
+        },
+    )
+    .await;
+
+    assert_eq!(
+        sent,
+        json!({
+            "operator": "AND",
+            "conditions": [
+                { "inCalendar": "cal-1" },
+                { "operator": "NOT", "conditions": [{ "inCalendar": "cal-2" }] }
+            ]
+        }),
+        "nested AND/NOT FilterOperator wire shape mismatch (RFC 8620 §5.5)"
     );
 }

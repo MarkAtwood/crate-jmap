@@ -14,6 +14,7 @@
 mod helpers;
 
 use jmap_calendars_types::NotificationFilterCondition;
+use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -277,6 +278,7 @@ async fn calendar_event_notification_query_filter_passthrough() {
     filter.notification_type = Some("invitation".to_owned());
     filter.calendar_event_ids = Some(vec![Id::from("ev-1")]);
     let sort = [json!({ "property": "created", "isAscending": false })];
+    let filter = Filter::Condition(filter);
 
     let _ = sc
         .calendar_event_notification_query(Some(&filter), Some(&sort), None, Some(20))
@@ -406,11 +408,15 @@ async fn calendar_event_notification_query_changes_with_filter_sort_upto_calcula
     let sc = helpers::make_client(&server);
     let since = State::from("nqs1");
     let up_to = Id::from("notif-100");
+    let mut condition = NotificationFilterCondition::default();
+    condition.calendar_event_ids = Some(vec![Id::from("ev-1")]);
+    let filter = Filter::Condition(condition);
+    let sort = [json!({ "property": "created", "isAscending": false })];
     sc.calendar_event_notification_query_changes(
         &since,
         None,
-        Some(json!({ "calendarEventIds": ["ev-1"] })),
-        Some(json!([{ "property": "created", "isAscending": false }])),
+        Some(&filter),
+        Some(&sort),
         Some(&up_to),
         Some(true),
     )
@@ -506,5 +512,126 @@ async fn calendar_event_notification_query_changes_all_none_omits_optional_wire_
     assert!(
         args.get("maxChanges").is_none(),
         "maxChanges must be omitted"
+    );
+}
+
+/// Mount a canned `CalendarEventNotification/*` response and return the
+/// `filter` argument the client sent.
+async fn sent_notification_filter(
+    method_name: &str,
+    response_args: serde_json::Value,
+    call: impl AsyncFnOnce(&jmap_calendars_client::SessionClient),
+) -> serde_json::Value {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[method_name, response_args, "r1"]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = helpers::make_client(&server);
+    call(&sc).await;
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    body["methodCalls"][0][1]["filter"].clone()
+}
+
+/// `CalendarEventNotification/query` accepts a compound `NOT` filter.
+///
+/// Oracle: RFC 8620 §5.5 — FilterOperator is `{"operator": "AND" | "OR" |
+/// "NOT", "conditions": Filter[]}`; draft-ietf-jmap-calendars-26 §7.4 —
+/// `type` is a CalendarEventNotification FilterCondition property.
+/// Expected JSON is hand-written.
+#[tokio::test]
+async fn calendar_event_notification_query_not_filter_wire_shape() {
+    let mut destroyed = NotificationFilterCondition::default();
+    destroyed.notification_type = Some("destroyed".to_owned());
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::Not,
+        vec![Filter::Condition(destroyed)],
+    ));
+
+    let sent = sent_notification_filter(
+        "CalendarEventNotification/query",
+        json!({
+            "accountId": "A13824",
+            "queryState": "nqs1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": [],
+            "total": null,
+            "limit": null
+        }),
+        async |sc| {
+            sc.calendar_event_notification_query(Some(&filter), None, None, None)
+                .await
+                .expect("calendar_event_notification_query: must succeed");
+        },
+    )
+    .await;
+
+    assert_eq!(
+        sent,
+        json!({ "operator": "NOT", "conditions": [{ "type": "destroyed" }] }),
+        "NOT FilterOperator wire shape mismatch (RFC 8620 §5.5)"
+    );
+}
+
+/// `CalendarEventNotification/queryChanges` accepts a compound `OR`
+/// filter, matching the shape `/query` accepts (RFC 8620 §5.6).
+///
+/// Oracle: RFC 8620 §5.5 FilterOperator definition;
+/// draft-ietf-jmap-calendars-26 §7.4 `type`. Expected JSON is
+/// hand-written.
+#[tokio::test]
+async fn calendar_event_notification_query_changes_or_filter_wire_shape() {
+    let mut created = NotificationFilterCondition::default();
+    created.notification_type = Some("created".to_owned());
+    let mut updated = NotificationFilterCondition::default();
+    updated.notification_type = Some("updated".to_owned());
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::Or,
+        vec![Filter::Condition(created), Filter::Condition(updated)],
+    ));
+    let since = State::from("nqs1");
+
+    let sent = sent_notification_filter(
+        "CalendarEventNotification/queryChanges",
+        json!({
+            "accountId": "A13824",
+            "oldQueryState": "nqs1",
+            "newQueryState": "nqs2",
+            "removed": [],
+            "added": []
+        }),
+        async |sc| {
+            sc.calendar_event_notification_query_changes(
+                &since,
+                None,
+                Some(&filter),
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("calendar_event_notification_query_changes: must succeed");
+        },
+    )
+    .await;
+
+    assert_eq!(
+        sent,
+        json!({
+            "operator": "OR",
+            "conditions": [{ "type": "created" }, { "type": "updated" }]
+        }),
+        "OR FilterOperator wire shape mismatch (RFC 8620 §5.5)"
     );
 }

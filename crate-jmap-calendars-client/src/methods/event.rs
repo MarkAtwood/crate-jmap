@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilterCondition};
+use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilter};
 use jmap_types::{Id, PatchObject, State};
 
 use super::{
@@ -215,8 +215,10 @@ impl super::SessionClient {
     /// Query `CalendarEvent` IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §5.11).
     ///
-    /// - `filter`: typed [`CalendarEventFilterCondition`].
-    ///   Pass `None` to omit the `filter` argument.
+    /// - `filter`: typed [`CalendarEventFilter`] — a bare condition
+    ///   (`Filter::Condition`) or an RFC 8620 §5.5 `FilterOperator`
+    ///   combining sub-filters with `AND` / `OR` / `NOT`. Pass `None` to
+    ///   omit the `filter` argument.
     /// - `sort`: typed comparator slice. Pass `None` to omit the `sort`
     ///   argument.
     /// - `expand_recurrences`: if `true`, include individual recurrence
@@ -244,7 +246,7 @@ impl super::SessionClient {
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn calendar_event_query(
         &self,
-        filter: Option<&CalendarEventFilterCondition>,
+        filter: Option<&CalendarEventFilter>,
         sort: Option<&[CalendarEventComparator]>,
         position: Option<u64>,
         limit: Option<u64>,
@@ -288,7 +290,8 @@ impl super::SessionClient {
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the
     /// original `CalendarEvent/query` call that returned `since_query_state`
     /// — RFC 8620 §5.6 is explicit that the server uses them to compute
-    /// which entries entered or left the result set.
+    /// which entries entered or left the result set. They take the same
+    /// typed shapes as [`Self::calendar_event_query`].
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
@@ -298,6 +301,9 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::calendar_event_changes`]).
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `serde_json::to_value` fails on the typed `filter` or `sort`
+    ///   (pathological conditions only; see [`Self::calendar_event_query`]).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
@@ -312,8 +318,8 @@ impl super::SessionClient {
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&CalendarEventFilter>,
+        sort: Option<&[CalendarEventComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -329,10 +335,18 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_query_changes: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_query_changes: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

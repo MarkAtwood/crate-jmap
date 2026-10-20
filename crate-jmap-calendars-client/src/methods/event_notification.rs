@@ -4,7 +4,7 @@
 //! The server must reject create and update operations with `forbidden`.
 //! This method accepts only `destroy` to prevent constructing invalid requests.
 
-use jmap_calendars_types::NotificationFilterCondition;
+use jmap_calendars_types::NotificationFilter;
 use jmap_types::{Id, State};
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
@@ -179,7 +179,9 @@ impl super::SessionClient {
     /// Query `CalendarEventNotification` IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §7.4).
     ///
-    /// - `filter`: typed [`NotificationFilterCondition`].
+    /// - `filter`: typed [`NotificationFilter`] — a bare condition
+    ///   (`Filter::Condition`) or an RFC 8620 §5.5 `FilterOperator`
+    ///   combining sub-filters with `AND` / `OR` / `NOT`.
     /// - `sort`: comparator slice. `CalendarEventNotification`'s Comparator
     ///   type in `jmap-calendars-types` is `serde_json::Value` because the
     ///   spec's sort properties for notifications are minimal (just
@@ -192,7 +194,7 @@ impl super::SessionClient {
     ///   `urn:ietf:params:jmap:calendars`.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `filter` is `Some` and serializing it fails (pathological
-    ///   conditions only — `NotificationFilterCondition` is a typed
+    ///   conditions only — `NotificationFilter` is a typed
     ///   wire shape, so serde failure indicates allocation pressure
     ///   rather than malformed input).
     /// - Any transport / protocol variant returned by
@@ -205,7 +207,7 @@ impl super::SessionClient {
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn calendar_event_notification_query(
         &self,
-        filter: Option<&NotificationFilterCondition>,
+        filter: Option<&NotificationFilter>,
         sort: Option<&[serde_json::Value]>,
         position: Option<u64>,
         limit: Option<u64>,
@@ -245,7 +247,8 @@ impl super::SessionClient {
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the
     /// original `CalendarEventNotification/query` call that returned
     /// `since_query_state` — RFC 8620 §5.6 is explicit that the server uses
-    /// them to compute which entries entered or left the result set.
+    /// them to compute which entries entered or left the result set. They
+    /// take the same shapes as [`Self::calendar_event_notification_query`].
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
@@ -256,6 +259,9 @@ impl super::SessionClient {
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see
     ///   [`Self::calendar_event_notification_changes`]).
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `filter` is `Some` and serializing it fails (pathological
+    ///   conditions only; see [`Self::calendar_event_notification_query`]).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
@@ -271,8 +277,8 @@ impl super::SessionClient {
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&NotificationFilter>,
+        sort: Option<&[serde_json::Value]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -289,10 +295,14 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_notification_query_changes: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::Value::Array(s.to_vec());
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
