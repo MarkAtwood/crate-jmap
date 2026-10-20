@@ -1,7 +1,7 @@
 //! Per-recipient `ChatTypingEvent` delivery, `should_deliver_typing`
 //! (bd:JMAP-yuut.2, bd:JMAP-x2gd.16).
 //!
-//! Oracle: draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:248-252)
+//! Oracle: draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:250-254)
 //! and draft-atwood-jmap-chat-00 `receiveTypingIndicators` (chat:562) and
 //! §Chat/typing Server Behavior (chat:1086), at jmap-chat-spec commit
 //! 91672c9. Each test quotes the sentence it enforces. Fixtures are
@@ -82,7 +82,7 @@ fn backend_with(chat: Option<Value>, sender_blocked: bool) -> MemoryBackend {
     backend
 }
 
-/// The wss:238-245 example frame, with `chatId` and `senderId` set.
+/// The wss:240-245 example frame, with `chatId` and `senderId` set.
 fn event(chat_id: &str, sender_id: &str) -> ChatTypingEvent {
     serde_json::from_value(json!({
         "@type": "ChatTypingEvent",
@@ -120,7 +120,7 @@ async fn sender_is_not_a_recipient() {
     assert!(!decide(&backend, &event(CHAT, RECIPIENT)).await);
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:250): "Servers
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:252): "Servers
 /// MUST verify at delivery time that the owner remains a current member
 /// of the identified Chat. If the owner is no longer a member, the event
 /// MUST be dropped silently." A group whose `members` no longer lists the
@@ -131,7 +131,7 @@ async fn non_member_recipient_is_dropped() {
     assert!(!decide(&backend, &event(CHAT, SENDER)).await);
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:250): "If the
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:252): "If the
 /// owner is no longer a member, the event MUST be dropped silently." A
 /// Chat the recipient's account does not hold has no membership to keep.
 #[tokio::test]
@@ -140,7 +140,7 @@ async fn chat_missing_from_recipient_account_is_dropped() {
     assert!(!decide(&backend, &event(CHAT, SENDER)).await);
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:248): "For direct
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:250): "For direct
 /// and group Chats, servers MUST check each recipient's
 /// `receiveTypingIndicators` field ... If `receiveTypingIndicators` is
 /// `false`, the server MUST silently drop the `ChatTypingEvent`".
@@ -159,7 +159,7 @@ async fn receive_typing_indicators_false_drops_group_and_direct() {
 /// draft-atwood-jmap-chat-00 `receiveTypingIndicators` (chat:562): it
 /// "Applies to direct and group chats only; for channel chats, servers
 /// MUST store the value if set via `Chat/set` but MUST NOT use it to
-/// suppress typing events." wss:248: "This check does not apply to
+/// suppress typing events." wss:250: "This check does not apply to
 /// channel Chats." The channel and its Space come from the handlers, so
 /// the owner is a Space member; the value is stored through `Chat/set`.
 #[tokio::test]
@@ -216,7 +216,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
     assert!(decide(&backend, &event(&channel_id, SENDER)).await);
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:252): "Servers
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:254): "Servers
 /// MUST NOT deliver a `ChatTypingEvent` whose `senderId` corresponds to a
 /// ChatContact that is `blocked` on the recipient's ChatContact record."
 #[tokio::test]
@@ -225,7 +225,7 @@ async fn blocked_sender_is_dropped() {
     assert!(!decide(&backend, &event(CHAT, SENDER)).await);
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:252): the block is
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:254): the block is
 /// read from "the recipient's ChatContact record" (bd:JMAP-x2gd.16). The
 /// same ChatContact blocked on another account's list does not suppress
 /// delivery to this recipient, who has not blocked it.

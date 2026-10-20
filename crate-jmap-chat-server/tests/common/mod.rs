@@ -27,10 +27,10 @@ use std::sync::{Arc, Mutex};
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
-    ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
-    QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError,
-    SpacePatchOp,
+    AttachmentBlob, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
+    ChatBackend, ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend, JmapObject,
+    OpResult, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    SlowModeError, SpacePatchOp,
 };
 use jmap_types::{Id, PatchObject, State, UTCDate};
 
@@ -266,6 +266,11 @@ pub struct TrackingBackend {
     /// The `id` of every object passed to [`ChatBackend::create_object`],
     /// in call order.
     create_input_ids: Arc<Mutex<Vec<serde_json::Value>>>,
+    /// When `Some`, [`ChatBackend::attachment_blob`] returns
+    /// `Ok(Err(<this>))`.
+    attachment_blob_reject: Option<SetError>,
+    /// When `true`, [`ChatBackend::attachment_blob`] returns `Err`.
+    attachment_blob_fail: bool,
 }
 
 /// The Chat/set patch keys draft-atwood-jmap-chat-mimi-00 L251 forbids on
@@ -350,6 +355,26 @@ impl TrackingBackend {
     pub fn with_get_objects_failing(type_name: &'static str) -> Self {
         Self {
             get_objects_fail: Some(type_name),
+            ..Self::default()
+        }
+    }
+
+    /// Configure the wrapper so [`ChatBackend::attachment_blob`] rejects
+    /// every blob with `set_error`. The wrapped `MemoryBackend` is
+    /// otherwise functional.
+    pub fn with_attachment_blob_rejected(set_error: SetError) -> Self {
+        Self {
+            attachment_blob_reject: Some(set_error),
+            ..Self::default()
+        }
+    }
+
+    /// Configure the wrapper so [`ChatBackend::attachment_blob`] fails
+    /// with a backend error. The wrapped `MemoryBackend` is otherwise
+    /// functional.
+    pub fn with_attachment_blob_failing() -> Self {
+        Self {
+            attachment_blob_fail: true,
             ..Self::default()
         }
     }
@@ -739,6 +764,23 @@ impl ChatBackend for TrackingBackend {
     ) -> Result<(), BackendSetError<Self::Error>> {
         self.inner
             .read_and_burn_message(caller, account_id, message_id, patch)
+            .await
+    }
+
+    async fn attachment_blob(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Result<Option<AttachmentBlob>, SetError>, Self::Error> {
+        if self.attachment_blob_fail {
+            return Err(MemoryError::new("injected attachment_blob failure"));
+        }
+        if let Some(set_error) = &self.attachment_blob_reject {
+            return Ok(Err(set_error.clone()));
+        }
+        self.inner
+            .attachment_blob(caller, account_id, blob_id)
             .await
     }
 }

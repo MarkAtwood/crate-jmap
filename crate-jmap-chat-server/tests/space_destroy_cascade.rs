@@ -8,7 +8,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
+use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{
     handle_chat_changes, handle_chat_get, handle_message_changes, handle_message_get,
     handle_space_set,
@@ -197,4 +197,53 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
         ["m1"],
         "{message_changes:?}"
     );
+}
+
+/// §Destroying a Space "Cascades to all channel Chats": when the channel
+/// Chats cannot be read, the cascade cannot run, so the Space is not
+/// destroyed. RFC 8620 §5.3: `notDestroyed` is "A map of the id to a
+/// SetError for each record that failed to be destroyed", and
+/// `serverFail` is a SetError type. Nothing is removed.
+#[tokio::test]
+async fn channel_read_failure_leaves_space_and_channels() {
+    let backend = TrackingBackend::with_get_objects_failing("Chat");
+    seed(backend.inner());
+
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
+    )
+    .await
+    .expect("Space/set");
+    assert_eq!(
+        resp["notDestroyed"][SPACE_ID]["type"], "serverFail",
+        "{resp}"
+    );
+    assert!(
+        !resp["destroyed"]
+            .as_array()
+            .is_some_and(|d| d.contains(&json!(SPACE_ID))),
+        "{resp}"
+    );
+
+    let inner = backend.inner();
+    let HandlerOutput { primary: chats, .. } = handle_chat_get(
+        inner,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["ch1", "ch2"] }),
+    )
+    .await
+    .expect("Chat/get");
+    assert_eq!(chats["notFound"], json!([]), "{chats:?}");
+    let space = jmap_chat_server::JmapBackend::get_objects::<jmap_chat_types::Space>(
+        inner,
+        &(),
+        &Id::from(ACCOUNT_ID),
+        Some(&[Id::from(SPACE_ID)]),
+        None,
+    )
+    .await
+    .expect("read");
+    assert_eq!(space.0.len(), 1, "the Space must survive");
 }

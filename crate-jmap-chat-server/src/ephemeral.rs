@@ -75,7 +75,11 @@ impl EphemeralSubscription {
     ///
     /// Returns an `invalidArguments` [`JmapError`] when `dataTypes` is
     /// empty or holds neither `"typing"` nor `"presence"`. The transport
-    /// sends it to the client as an RFC 8887 §4.3.4 `RequestError` frame.
+    /// sends it to the client as an RFC 8887 §4.3.4 `RequestError` frame
+    /// whose `type` is the full URN
+    /// `"urn:ietf:params:jmap:error:invalidArguments"`
+    /// (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push, L195);
+    /// the returned [`JmapError`] carries the short method-level name.
     pub fn from_enable(enable: &ChatStreamEnable) -> Result<Self, JmapError> {
         let has = |tag: &str| enable.data_types.iter().any(|t| t == tag);
         let subscription = Self {

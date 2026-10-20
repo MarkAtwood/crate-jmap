@@ -250,6 +250,36 @@ async fn space_query_is_public_includes_non_member_previewable_space() {
     assert_eq!(got, ["mine-public", "open"]);
 }
 
+/// L815 `isPubliclyPreviewable`: "When the Space also has `isPublic:
+/// true`, non-members may discover its existence via `Space/query`
+/// requests that include an `isPublic: true` filter condition", and L1310
+/// admits non-member Spaces only "When the request includes an `isPublic:
+/// true` filter condition". An unfiltered query returns the caller's own
+/// Spaces only.
+#[tokio::test]
+async fn space_query_unfiltered_hides_non_member_public_space() {
+    let backend = seeded(
+        "Space",
+        &[
+            (
+                "open",
+                json!({
+                    "name": "x",
+                    "members": [{ "id": "someone-else" }],
+                    "isPublic": true,
+                    "isPubliclyPreviewable": true,
+                }),
+            ),
+            ("mine", member_space("x")),
+        ],
+    );
+    let HandlerOutput { primary: resp, .. } =
+        handle_space_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("Space/query");
+    assert_eq!(ids(&resp), ["mine"]);
+}
+
 async fn emoji_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
@@ -310,4 +340,33 @@ async fn emoji_update_onto_held_name_is_invalid_properties() {
     let resp = emoji_set(&backend, json!({ "update": { b: { "name": "catjam" } } })).await;
     assert_eq!(resp["notUpdated"][b]["type"], "invalidProperties");
     assert_eq!(resp["notUpdated"][b]["properties"], json!(["name"]));
+}
+
+/// L837: a name is unique "within its scope", so renaming an emoji to a
+/// name no emoji in its scope holds is accepted, as is an update that
+/// keeps the emoji's own name: no other emoji holds it. RFC 8620 §5.3:
+/// `updated` has an entry for each record successfully updated.
+#[tokio::test]
+async fn emoji_update_onto_free_or_own_name_is_updated() {
+    let backend = MemoryBackend::new();
+    let resp = emoji_set(
+        &backend,
+        json!({ "create": { "a": { "name": "catjam", "blobId": "b1" } } }),
+    )
+    .await;
+    let a = resp["created"]["a"]["id"].as_str().expect("created id");
+
+    let resp = emoji_set(&backend, json!({ "update": { a: { "name": "catjam" } } })).await;
+    assert!(resp["updated"].get(a).is_some(), "own name: {resp}");
+
+    let resp = emoji_set(&backend, json!({ "update": { a: { "name": "dogjam" } } })).await;
+    assert!(resp["updated"].get(a).is_some(), "free name: {resp}");
+    let HandlerOutput { primary: got, .. } = jmap_chat_server::handle_emoji_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [a] }),
+    )
+    .await
+    .expect("CustomEmoji/get");
+    assert_eq!(got["list"][0]["name"], "dogjam", "{got}");
 }

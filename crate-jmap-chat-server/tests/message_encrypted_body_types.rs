@@ -97,6 +97,63 @@ async fn configured_type_rejects_fields_like_mls_ciphertext_on_create() {
     }
 }
 
+/// L1732 create half for `broadcastMentions` and `attachments`: each,
+/// non-empty under an encrypted `bodyType`, is rejected naming itself, and
+/// both together are named together.
+#[tokio::test]
+async fn encrypted_type_rejects_broadcast_mentions_and_attachments_on_create() {
+    let backend = backend(&[CIPHER, FANOUT]);
+    let broadcast = json!([{ "scope": "everyone" }]);
+    let attachments = json!([{
+        "blobId": "b1",
+        "filename": "a.txt",
+        "contentType": "text/plain",
+        "size": 3,
+        // SHA-256("abc"), FIPS 180-2 Appendix B.1.
+        "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    }]);
+    let cases = [
+        (
+            json!({ "broadcastMentions": broadcast }),
+            json!(["broadcastMentions"]),
+        ),
+        (
+            json!({ "attachments": attachments }),
+            json!(["attachments"]),
+        ),
+        (
+            json!({ "broadcastMentions": broadcast, "attachments": attachments }),
+            json!(["broadcastMentions", "attachments"]),
+        ),
+    ];
+    for (extra, properties) in cases {
+        for body_type in [CIPHER, FANOUT] {
+            let mut extra = extra.clone();
+            extra["bodyType"] = json!(body_type);
+            let resp = create(&backend, &extra).await;
+            assert_eq!(
+                resp["notCreated"]["m0"]["type"], "invalidProperties",
+                "{extra} -> {resp}"
+            );
+            let mut got: Vec<String> = resp["notCreated"]["m0"]["properties"]
+                .as_array()
+                .unwrap_or_else(|| panic!("no properties: {resp}"))
+                .iter()
+                .map(|p| p.as_str().expect("string").to_owned())
+                .collect();
+            got.sort();
+            let mut want: Vec<String> = properties
+                .as_array()
+                .expect("array")
+                .iter()
+                .map(|p| p.as_str().expect("string").to_owned())
+                .collect();
+            want.sort();
+            assert_eq!(got, want, "{extra} -> {resp}");
+        }
+    }
+}
+
 /// L1732 update half: a patch switching `bodyType` to the configured type
 /// over a stored `topicId` and `subject` is rejected naming both.
 #[tokio::test]

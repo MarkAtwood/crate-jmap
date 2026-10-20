@@ -608,7 +608,7 @@ pub trait ChatBackend: JmapBackend {
     ///   handler's rollback closes the race correctly. See
     ///   draft-atwood-jmap-chat-00 §Chat.
     ///
-    /// The reference [`crate::memory::MemoryBackend`] does NOT
+    /// The reference `MemoryBackend` does NOT
     /// enforce the `ReadPosition` `(account, chatId)` uniqueness
     /// constraint at the storage layer — it is single-Mutex
     /// per-call so concurrent racing cannot occur in practice, but a
@@ -2370,9 +2370,11 @@ pub trait ChatBackend: JmapBackend {
     /// scheduler hook, not a `/set`-shaped call, and there is no
     /// JMAP wire surface for per-message expiry rejection.
     ///
-    /// Burn-on-read does not use this hook; `Message/set` calls
-    /// [`Self::read_and_burn_message`] so the `readAt` write and the
-    /// hard-delete are atomic.
+    /// A `Message/set` read of a `burnOnRead` Message does not use this
+    /// hook; it calls [`Self::read_and_burn_message`] so the `readAt`
+    /// write and the hard-delete are atomic. The expiry sweep
+    /// ([`crate::sweep_expired`]) does call it for a read
+    /// `burnOnRead` Message that reached the store another way.
     ///
     /// # Default implementation
     ///

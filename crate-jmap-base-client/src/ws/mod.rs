@@ -225,7 +225,9 @@ type SharedSink = Arc<futures::lock::Mutex<futures::stream::SplitSink<Inner, Mes
 /// - **The underlying TCP / TLS connection is closed.** No `Close` frame is
 ///   sent — dropping skips the WebSocket close handshake. Callers that want
 ///   the server to see a clean shutdown should arrange to receive the
-///   server's `Close` (which `next_frame` returns as `None`) before drop;
+///   server's `Close` (which `next_frame` returns as `None`, or as
+///   `Some(Err(ClientError::WsClosed { code: 1008, .. }))` for status
+///   1008) before drop;
 ///   this crate does not currently expose an explicit client-initiated
 ///   `close()` method.
 /// - **Resumption is the caller's job.** If you need to recover the
@@ -358,7 +360,8 @@ fn classify_message(msg: &Message) -> MessageDisposition {
 enum MessageDisposition {
     /// Text frame: hand to `parse_ws_frame` and return its result.
     Text,
-    /// Close frame: end the stream by returning `None`.
+    /// Close frame: end the stream by returning `None`, or
+    /// `Some(Err(ClientError::WsClosed { .. }))` for status code 1008.
     Close,
     /// Binary frame: violates RFC 8887 §4.1; surface as
     /// `UnexpectedResponse` immediately on the first occurrence.

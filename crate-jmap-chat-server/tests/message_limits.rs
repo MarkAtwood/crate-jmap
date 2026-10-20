@@ -8,8 +8,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_chat_set, handle_message_set, AttachmentBlob, ChatLimits};
+use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
+use jmap_chat_server::{
+    handle_chat_set, handle_message_set, AttachmentBlob, ChatBackend, ChatLimits, SetError,
+    SetErrorType,
+};
 use jmap_server::HandlerOutput;
 use serde_json::{json, Map, Value};
 
@@ -26,7 +29,7 @@ fn digest(hex: &str) -> [u8; 32] {
     out
 }
 
-async fn create_group(backend: &MemoryBackend) -> String {
+async fn create_group<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
@@ -44,7 +47,12 @@ async fn create_group(backend: &MemoryBackend) -> String {
 }
 
 /// One Message/set create of `body` plus `extra`; returns the response.
-async fn create(backend: &MemoryBackend, chat_id: &str, body: &str, extra: Value) -> Value {
+async fn create<B: ChatBackend<CallerCtx = ()>>(
+    backend: &B,
+    chat_id: &str,
+    body: &str,
+    extra: Value,
+) -> Value {
     let mut obj: Map<String, Value> = extra.as_object().expect("extra object").clone();
     obj.insert("chatId".into(), json!(chat_id));
     obj.insert("body".into(), json!(body));
@@ -198,4 +206,55 @@ async fn attachment_size_and_sha256_are_checked_against_the_blob() {
     // Differs from SHA256_ABC in the final hex digit only.
     let last_digit = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ac";
     assert_attachments_invalid(&create(&backend, &chat_id, "hi", with(3, last_digit)).await);
+}
+
+/// `ChatBackend::attachment_blob` return mapping: "`Ok(Err(set_error))`:
+/// reject the create with `set_error`, e.g. `invalidProperties` naming
+/// `attachments` for an unknown `blobId`". RFC 8620 §5.3: `notCreated` is
+/// "A map of the creation id to a SetError for each record that failed to
+/// be created". The rejection precedes `create_object`, so no Message is
+/// stored.
+#[tokio::test]
+async fn attachment_blob_set_error_rejects_the_create() {
+    let backend = TrackingBackend::with_attachment_blob_rejected(
+        SetError::new(SetErrorType::InvalidProperties).with_properties(["attachments"]),
+    );
+    let chat_id = create_group(&backend).await;
+    let resp = create(
+        &backend,
+        &chat_id,
+        "hi",
+        json!({ "attachments": [attachment("unknown", 3, SHA256_ABC)] }),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["m"],
+        json!({ "type": "invalidProperties", "properties": ["attachments"] }),
+        "{resp}"
+    );
+    assert_eq!(backend.create_input_ids().len(), 1, "only the Chat: {resp}");
+}
+
+/// `ChatBackend::attachment_blob` return mapping: "`Err(e)`:
+/// `serverFail`". RFC 8620 §5.3 lists `serverFail` among the SetError
+/// types; the backend's error text is not echoed to the client.
+#[tokio::test]
+async fn attachment_blob_backend_error_is_server_fail() {
+    let backend = TrackingBackend::with_attachment_blob_failing();
+    let chat_id = create_group(&backend).await;
+    let resp = create(
+        &backend,
+        &chat_id,
+        "hi",
+        json!({ "attachments": [attachment("abc", 3, SHA256_ABC)] }),
+    )
+    .await;
+    assert_eq!(resp["notCreated"]["m"]["type"], "serverFail", "{resp}");
+    assert!(
+        !resp
+            .to_string()
+            .contains("injected attachment_blob failure"),
+        "{resp}"
+    );
+    assert_eq!(backend.create_input_ids().len(), 1, "only the Chat: {resp}");
 }
