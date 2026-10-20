@@ -162,14 +162,14 @@ fn chat_id_non_string_is_an_error() {
 fn task_metadata_round_trips_draft_keys() {
     // L177-199: a `urn:ietf:params:jmap:chat:cap:task` MessageAction with `uri` in the
     // "`jmap:task:<accountId>:<taskListId>:<taskId>`" form, a `label`, and
-    // `metadata` keys `status` (String), `due` (UTCDate), `assigneeIds`
-    // (String[]) and `priority` (Integer).
+    // (6bcd9d8 L197-203) `metadata` keys `progress` (String), `due`
+    // (UTCDate), `assigneeIds` (String[]) and `priority` (Integer).
     let action = json!({
         "type": "urn:ietf:params:jmap:chat:cap:task",
         "uri": "jmap:task:A1:TL1:T9",
         "label": "Ship the release notes",
         "metadata": {
-            "status": "in-process",
+            "progress": "in-process",
             "due": "2026-10-23T17:00:00Z",
             "assigneeIds": ["CC1", "A1"],
             "priority": 3
@@ -178,7 +178,7 @@ fn task_metadata_round_trips_draft_keys() {
     let a: MessageAction = serde_json::from_value(action.clone()).expect("action");
     let m: TaskMetadata =
         serde_json::from_value(a.metadata.clone().expect("metadata")).expect("metadata shape");
-    assert_eq!(m.status.as_deref(), Some("in-process"));
+    assert_eq!(m.progress.as_deref(), Some("in-process"));
     assert_eq!(
         m.due.as_ref().map(AsRef::as_ref),
         Some("2026-10-23T17:00:00Z")
@@ -210,9 +210,9 @@ fn task_metadata_keys_are_optional() {
 
 #[test]
 fn task_metadata_keeps_unknown_keys() {
-    // L200: "Servers MAY include other type-specific keys; clients MUST
-    // ignore unknown keys."
-    let raw = json!({ "status": "completed", "acmeStoryPoints": 5 });
+    // 6bcd9d8 L204: "Servers MAY include other type-specific keys; clients
+    // ignore unknown keys per the MessageAction definition".
+    let raw = json!({ "progress": "completed", "acmeStoryPoints": 5 });
     let m: TaskMetadata = serde_json::from_value(raw.clone()).expect("deserialize");
     assert_eq!(m.extra.get("acmeStoryPoints"), Some(&json!(5)));
     assert_eq!(serde_json::to_value(&m).expect("serialize"), raw);
