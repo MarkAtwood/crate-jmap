@@ -251,7 +251,7 @@ where
 /// `None`, making `null` and absent indistinguishable.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MailboxFilterCondition {
     /// See type-level docs for three-way semantics.
     #[serde(
@@ -277,17 +277,6 @@ pub struct MailboxFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_subscribed: Option<bool>,
 }
-
-/// The wire-format field names accepted by [`MailboxFilterCondition`]
-/// (RFC 8621 §2.3). Server crates use this to pre-validate
-/// `Mailbox/query.filter` against unknown keys per RFC 8620 §5.5
-/// (return `unsupportedFilter`) before deserialising into the typed
-/// struct. The drift-check unit test in this module asserts that the
-/// list matches every field actually serialised by the struct, so a
-/// new field on `MailboxFilterCondition` cannot quietly diverge from
-/// this list — `cargo test -p jmap-mail-types` will fail.
-pub const MAILBOX_FILTER_CONDITION_KEYS: &[&str] =
-    &["parentId", "name", "role", "hasAnyRole", "isSubscribed"];
 
 #[cfg(test)]
 mod tests {
@@ -429,52 +418,5 @@ mod tests {
                 "{label} rejection must cite the spec rule; got: {msg}"
             );
         }
-    }
-
-    /// Oracle: [`MAILBOX_FILTER_CONDITION_KEYS`] is a single source of truth
-    /// for the wire-format keys of [`MailboxFilterCondition`]. Mirror the
-    /// const against the actual serialised field names, derived by
-    /// fully-populating the struct and asking serde for the JSON keys. A
-    /// future contributor who adds a new field but forgets to update the
-    /// const trips this test (`cargo test -p jmap-mail-types`), avoiding
-    /// the silent server-side drift documented in `bd:JMAP-j7pa.3`.
-    ///
-    /// Independent oracle: the JSON object produced by `serde_json::to_value`
-    /// over a hand-built struct value. The struct is owned by this crate;
-    /// the const is owned by this crate; the test compares one against the
-    /// other at compile-equivalent time. No JMAP-server code is involved.
-    #[test]
-    fn mailbox_filter_condition_keys_matches_struct_fields() {
-        use std::collections::BTreeSet;
-
-        // Every field gets a non-None value so every key is serialised.
-        let mut cond = MailboxFilterCondition {
-            parent_id: Some(serde_json::Value::String("any-id".into())),
-            name: Some("inbox".into()),
-            role: Some("inbox".into()),
-            has_any_role: Some(true),
-            is_subscribed: Some(true),
-        };
-        // Touch the `cond` binding via serialisation; the let-binding is
-        // intentionally mutable to force this test to be updated alongside
-        // any future field addition that lands without an obvious default.
-        let _ = &mut cond;
-
-        let value = serde_json::to_value(&cond).expect("serialisation must succeed");
-        let serialised_keys: BTreeSet<&str> = value
-            .as_object()
-            .expect("filter condition must serialise as an object")
-            .keys()
-            .map(String::as_str)
-            .collect();
-
-        let declared_keys: BTreeSet<&str> = MAILBOX_FILTER_CONDITION_KEYS.iter().copied().collect();
-
-        assert_eq!(
-            declared_keys, serialised_keys,
-            "MAILBOX_FILTER_CONDITION_KEYS must match every serialised field of MailboxFilterCondition; \
-             declared={declared_keys:?}, serialised={serialised_keys:?}. \
-             If you added a field to MailboxFilterCondition, add its camelCase wire name to the const."
-        );
     }
 }

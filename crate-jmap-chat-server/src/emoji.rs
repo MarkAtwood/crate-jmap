@@ -23,9 +23,7 @@
 //! deny path) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::query::{
-    CustomEmojiComparator, CustomEmojiFilter, CUSTOM_EMOJI_FILTER_CONDITION_KEYS,
-};
+use jmap_chat_types::query::{CustomEmojiComparator, CustomEmojiFilter};
 use jmap_chat_types::CustomEmoji;
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
@@ -33,7 +31,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ChatBackend, EmojiSetOp};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_query,
+    finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_sort,
     serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
@@ -190,11 +188,7 @@ pub async fn handle_emoji_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    reject_unsupported_query::<CustomEmojiComparator>(
-        args.get("filter"),
-        args.get("sort"),
-        CUSTOM_EMOJI_FILTER_CONDITION_KEYS,
-    )?;
+    reject_unsupported_sort::<CustomEmojiComparator>(args.get("sort"))?;
     let filter: Option<CustomEmojiFilter> =
         optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 

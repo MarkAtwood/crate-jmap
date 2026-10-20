@@ -221,7 +221,8 @@ the type crate simply documents it on the `blob_id` field.
 `FileNodeFilter` uses the same `#[serde(untagged)]` pattern as `jmap-mail-types`:
 `Operator` variant before `Condition`. Serde tries variants in declaration order;
 `FilterOperator` requires an `"operator"` key and fails fast when absent.
-`FileNodeFilterCondition` must NOT use `#[serde(deny_unknown_fields)]`.
+`FileNodeFilterCondition` uses `#[serde(deny_unknown_fields)]`, so an unknown
+key fails the decode instead of matching every FileNode.
 
 ## Module Layout
 

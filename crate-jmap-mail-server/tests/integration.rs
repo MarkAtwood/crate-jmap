@@ -14054,3 +14054,146 @@ async fn vacation_set_update_null_is_enabled_is_invalid_properties() {
     .expect("VacationResponse/get must succeed after rejected update");
     assert_eq!(get_resp["list"][0]["isEnabled"], true, "{get_resp}");
 }
+
+// ---------------------------------------------------------------------------
+// Unknown filter keys (RFC 8620 §5.5 unsupportedFilter)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.5 — "unsupportedFilter: The "filter" is
+/// syntactically valid, but the server cannot process it." RFC 8621
+/// §4.4.1 defines the Email FilterCondition properties (`inMailbox`, ...);
+/// `in_mailbox` and `bogus` are not among them, and RFC 8620 §5.5 gives an
+/// operator node only `operator` and `conditions`. Each malformed filter
+/// below must be refused rather than matching every Email.
+#[tokio::test]
+async fn email_query_unknown_filter_keys_return_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+
+    for filter in [
+        serde_json::json!({ "in_mailbox": "inbox" }),
+        serde_json::json!({ "inMailbox": "inbox", "bogus": 1 }),
+        serde_json::json!({ "operator": "AND", "conditions": [], "inMailbox": "inbox" }),
+        serde_json::json!({ "opperator": "AND", "conditions": [] }),
+        serde_json::json!({
+            "operator": "OR",
+            "conditions": [{ "operator": "NOT", "conditions": [{ "in_mailbox": "x" }] }],
+        }),
+    ] {
+        let args = serde_json::json!({ "accountId": "account1", "filter": filter });
+        let err = handle_email_query(&backend, &(), args)
+            .await
+            .expect_err("unknown filter key must be refused");
+        assert_eq!(
+            err.error_type, "unsupportedFilter",
+            "filter {filter}: {err:?}"
+        );
+    }
+
+    // Negative control: RFC 8621 §4.4.1 keys under an operator decode.
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "filter": {
+            "operator": "AND",
+            "conditions": [{ "inMailbox": "inbox" }, { "hasKeyword": "$seen" }],
+        },
+    });
+    handle_email_query(&backend, &(), args)
+        .await
+        .expect("known filter keys must be accepted");
+}
+
+/// Oracle: RFC 8620 §5.6 — /queryChanges takes the same `filter` as
+/// /query, so the §5.5 unsupportedFilter rule applies to it too.
+#[tokio::test]
+async fn email_query_changes_unknown_filter_key_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "sinceQueryState": "0",
+        "filter": { "has_keyword": "$seen" },
+    });
+    let err = handle_email_query_changes(&backend, &(), args)
+        .await
+        .expect_err("unknown filter key must be refused");
+    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+}
+
+/// Oracle: RFC 8621 §2.3 Mailbox/query FilterCondition properties are
+/// `parentId`, `name`, `role`, `hasAnyRole`, `isSubscribed`. This server
+/// decodes Mailbox filters as a bare FilterCondition, so an RFC 8620 §5.5
+/// operator tree is a filter it cannot process: unsupportedFilter, not a
+/// match-all.
+#[tokio::test]
+async fn mailbox_query_operator_tree_and_unknown_key_return_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    for filter in [
+        serde_json::json!({ "operator": "AND", "conditions": [{ "role": "inbox" }] }),
+        serde_json::json!({ "has_any_role": true }),
+    ] {
+        let args = serde_json::json!({ "accountId": "account1", "filter": filter });
+        let err = handle_mailbox_query(&backend, &(), args)
+            .await
+            .expect_err("filter must be refused");
+        assert_eq!(
+            err.error_type, "unsupportedFilter",
+            "filter {filter}: {err:?}"
+        );
+    }
+    let args = serde_json::json!({ "accountId": "account1", "filter": { "role": "inbox" } });
+    handle_mailbox_query(&backend, &(), args)
+        .await
+        .expect("known filter key must be accepted");
+}
+
+/// Oracle: RFC 8621 §7.3 EmailSubmission/query FilterCondition properties
+/// are `identityIds`, `emailIds`, `threadIds`, `undoStatus`, `before`,
+/// `after`; RFC 8620 §5.5 unsupportedFilter for anything else.
+#[tokio::test]
+async fn submission_query_unknown_filter_key_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "filter": { "undo_status": "pending" },
+    });
+    let err = handle_submission_query(&backend, &(), args)
+        .await
+        .expect_err("unknown filter key must be refused");
+    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+}
+
+/// Oracle: RFC 9661 §2.5 SieveScript/query FilterCondition properties are
+/// `name` and `isActive`; RFC 8620 §5.5 unsupportedFilter for anything else.
+#[tokio::test]
+async fn sieve_query_unknown_filter_key_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "filter": { "is_active": true },
+    });
+    let err = jmap_mail_server::handle_sieve_query(&backend, &(), args)
+        .await
+        .expect_err("unknown filter key must be refused");
+    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+}
+
+/// Oracle: RFC 8621 §5.1 SearchSnippet/get — "unsupportedFilter: The
+/// server is unable to process the given "filter" for any reason."
+#[tokio::test]
+async fn search_snippet_get_unknown_filter_key_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "emailIds": ["e1"],
+        "filter": { "txet": "hello" },
+    });
+    let err = handle_search_snippet_get(&backend, &(), args)
+        .await
+        .expect_err("unknown filter key must be refused");
+    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+}

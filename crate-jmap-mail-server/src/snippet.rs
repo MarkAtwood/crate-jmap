@@ -100,8 +100,8 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     let condition = match args.get("filter") {
         None | Some(Value::Null) => None,
         Some(v) => {
-            let filter = EmailFilter::deserialize(v)
-                .map_err(|_| JmapError::invalid_arguments("invalid filter"))?;
+            let filter =
+                EmailFilter::deserialize(v).map_err(|_| JmapError::unsupported_filter())?;
             match filter {
                 jmap_mail_types::query::Filter::Condition(c) => Some(c),
                 _ => None,

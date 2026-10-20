@@ -73,46 +73,20 @@ pub(crate) fn mistyped_create_props(obj: &Value, props: &[(&str, PropType)]) -> 
     (!bad.is_empty()).then(|| json!({ "type": "invalidProperties", "properties": bad }))
 }
 
-/// Reject a `/query` `filter` clause or `sort` property this server does
-/// not define: RFC 8620 §5.5 `unsupportedFilter` and `unsupportedSort`.
+/// Reject a `/query` `sort` property this server does not define: RFC 8620
+/// §5.5 `unsupportedSort`.
 ///
-/// `condition_keys` is the object's `*_FILTER_CONDITION_KEYS` from
-/// `jmap_chat_types::query`, and `C` its comparator type. An operator node
-/// may carry only `operator` and `conditions`, so a misspelt key cannot
-/// decode as a match-all condition (see `jmap_types::query::Filter`).
-/// Values that are not objects (filter) or arrays (sort) are left for the
-/// typed decode to reject.
-pub(crate) fn reject_unsupported_query<C: serde::de::DeserializeOwned>(
-    filter: Option<&Value>,
+/// `C` is the object's comparator type. A value that is not an array is
+/// left for the typed decode to reject. Unknown `filter` keys need no check
+/// here: the chat filter types carry `#[serde(deny_unknown_fields)]`, so
+/// the typed decode fails and maps to `unsupportedFilter`.
+pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned>(
     sort: Option<&Value>,
-    condition_keys: &[&str],
 ) -> Result<(), JmapError> {
-    if let Some(filter) = filter {
-        reject_unknown_filter_keys(filter, condition_keys)?;
-    }
     if let Some(Value::Array(comparators)) = sort {
         for c in comparators {
             <C as serde::Deserialize>::deserialize(c).map_err(|_| JmapError::unsupported_sort())?;
         }
-    }
-    Ok(())
-}
-
-fn reject_unknown_filter_keys(filter: &Value, condition_keys: &[&str]) -> Result<(), JmapError> {
-    let Value::Object(node) = filter else {
-        return Ok(());
-    };
-    if node.contains_key("operator") {
-        if node.keys().any(|k| k != "operator" && k != "conditions") {
-            return Err(JmapError::unsupported_filter());
-        }
-        if let Some(Value::Array(conditions)) = node.get("conditions") {
-            for c in conditions {
-                reject_unknown_filter_keys(c, condition_keys)?;
-            }
-        }
-    } else if node.keys().any(|k| !condition_keys.contains(&k.as_str())) {
-        return Err(JmapError::unsupported_filter());
     }
     Ok(())
 }

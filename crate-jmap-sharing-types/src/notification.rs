@@ -131,7 +131,7 @@ pub struct ShareNotification {
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ShareNotificationFilterCondition {
     /// Notifications created on or after this date match.
     #[serde(default, skip_serializing_if = "Option::is_none")]

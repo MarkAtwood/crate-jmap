@@ -49,8 +49,8 @@ use crate::helpers::{
     finalize_set_response, set_error_value, SetAccumulators,
 };
 use jmap_server::{
-    resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
-    HandlerOutput,
+    filter_arg, resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend,
+    take_bool_arg, HandlerOutput,
 };
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
@@ -170,7 +170,7 @@ pub trait SieveBackend: jmap_server::JmapBackend {
 /// Only `name` (substring match) and `isActive` (exact match) are defined by
 /// the spec. Both are optional.
 #[derive(Debug, Default, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct SieveScriptFilter {
     name: Option<String>,
     is_active: Option<bool>,
@@ -1061,13 +1061,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     }
 
     // Step 2: parse filter (optional).
-    let filter: Option<SieveScriptFilter> = match args.remove("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
-        ),
-    };
+    let filter: Option<SieveScriptFilter> = filter_arg(&mut args)?;
 
     // Step 3: parse pagination arguments.
     let position: i64 = match args.remove("position") {

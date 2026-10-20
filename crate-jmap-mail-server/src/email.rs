@@ -40,8 +40,8 @@ use crate::helpers::{
     set_error_value, SetAccumulators,
 };
 use jmap_server::{
-    bool_arg, resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend,
-    take_bool_arg, HandlerOutput,
+    bool_arg, filter_arg, resolve_query_offset, server_fail_from_backend,
+    server_fail_value_from_backend, take_bool_arg, HandlerOutput,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -782,13 +782,7 @@ pub async fn handle_email_query<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let filter: Option<jmap_mail_types::EmailFilter> = match args.remove("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
-        ),
-    };
+    let filter: Option<jmap_mail_types::EmailFilter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
         None | Some(Value::Null) => None,
@@ -1028,13 +1022,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         _ => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
     };
 
-    let filter: Option<jmap_mail_types::EmailFilter> = match args.remove("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
-        ),
-    };
+    let filter: Option<jmap_mail_types::EmailFilter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
         None | Some(Value::Null) => None,

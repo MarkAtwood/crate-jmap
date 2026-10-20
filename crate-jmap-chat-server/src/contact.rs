@@ -22,9 +22,7 @@
 //! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::query::{
-    ChatContactComparator, ChatContactFilter, CHAT_CONTACT_FILTER_CONDITION_KEYS,
-};
+use jmap_chat_types::query::{ChatContactComparator, ChatContactFilter};
 use jmap_chat_types::ChatContact;
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
@@ -33,7 +31,7 @@ use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::PLACEHOLDER_ID;
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_query,
+    finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_sort,
     serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{
@@ -483,11 +481,7 @@ pub async fn handle_contact_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    reject_unsupported_query::<ChatContactComparator>(
-        args.get("filter"),
-        args.get("sort"),
-        CHAT_CONTACT_FILTER_CONDITION_KEYS,
-    )?;
+    reject_unsupported_sort::<ChatContactComparator>(args.get("sort"))?;
     let filter: Option<ChatContactFilter> =
         optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 

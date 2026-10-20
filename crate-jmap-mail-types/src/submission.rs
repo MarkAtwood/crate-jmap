@@ -264,7 +264,7 @@ impl EmailSubmission {
 /// logical operators.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmailSubmissionFilterCondition {
     /// The submission's `identityId` must be in this list.
     #[serde(skip_serializing_if = "Option::is_none")]

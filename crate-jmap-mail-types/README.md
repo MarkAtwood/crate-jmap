@@ -373,9 +373,10 @@ enum Filter<T> {
 with `#[serde(untagged)]`. Serde tries `FilterOperator` first (distinguished by the
 presence of the `"operator"` key) and falls through to `T` for everything else. RFC
 8620 §4.4 guarantees a filter is either an operator object or a condition object, so
-this unambiguously covers all valid inputs. Unknown fields in a condition object are
-silently ignored (no `deny_unknown_fields`) — this is intentional and required for
-correct `untagged` deserialization.
+this unambiguously covers all valid inputs. `FilterOperator` and every condition struct
+carry `#[serde(deny_unknown_fields)]`, which composes with `untagged`: an unknown or
+misspelt key at any depth fails the decode (servers answer `unsupportedFilter`, RFC 8620
+§5.5) instead of decoding as an empty, match-everything condition.
 
 ### `EmailBodyPart.type_`
 

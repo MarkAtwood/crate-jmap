@@ -15,10 +15,10 @@
 //! who need filterable custom fields should use `draft-ietf-jmap-metadata`
 //! (`jmap-metadata-types`, bd JMAP-ua37).
 //!
-//! Do not add `#[serde(deny_unknown_fields)]` to the condition structs: it
-//! breaks `#[serde(untagged)]` deserialization of [`Filter`]. Servers reject
-//! unknown clauses by checking the raw filter keys against the
-//! `*_FILTER_CONDITION_KEYS` constants instead.
+//! The condition structs carry `#[serde(deny_unknown_fields)]`, which
+//! composes with the `#[serde(untagged)]` [`Filter`]: an unknown or
+//! misspelt property at any depth fails the decode, and servers map that
+//! failure to RFC 8620 §5.5 `unsupportedFilter`.
 //!
 //! Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 //!
@@ -71,7 +71,7 @@ pub type CustomEmojiComparator = Comparator<CustomEmojiComparatorProperty>;
 /// When several fields are set, all must match.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChatContactFilterCondition {
     /// The contact's `blocked` property must equal this value.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -84,15 +84,12 @@ pub struct ChatContactFilterCondition {
     pub identity: Option<String>,
 }
 
-/// Wire keys of [`ChatContactFilterCondition`].
-pub const CHAT_CONTACT_FILTER_CONDITION_KEYS: &[&str] = &["blocked", "presence", "identity"];
-
 /// Filter condition for `Chat/query` (draft-atwood-jmap-chat-00 §Chat/query).
 ///
 /// When several fields are set, all must match.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChatFilterCondition {
     /// The Chat's `kind` must equal this value.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -102,9 +99,6 @@ pub struct ChatFilterCondition {
     pub muted: Option<bool>,
 }
 
-/// Wire keys of [`ChatFilterCondition`].
-pub const CHAT_FILTER_CONDITION_KEYS: &[&str] = &["kind", "muted"];
-
 /// Filter condition for `Message/query`
 /// (draft-atwood-jmap-chat-00 §Message/query).
 ///
@@ -113,7 +107,7 @@ pub const CHAT_FILTER_CONDITION_KEYS: &[&str] = &["kind", "muted"];
 /// set, all must match.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MessageFilterCondition {
     /// Restrict results to this Chat.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -135,22 +129,12 @@ pub struct MessageFilterCondition {
     pub has_mention: Option<bool>,
 }
 
-/// Wire keys of [`MessageFilterCondition`].
-pub const MESSAGE_FILTER_CONDITION_KEYS: &[&str] = &[
-    "chatId",
-    "text",
-    "threadRootId",
-    "topicId",
-    "hasAttachment",
-    "hasMention",
-];
-
 /// Filter condition for `Space/query` (draft-atwood-jmap-chat-00 §Space/query).
 ///
 /// When several fields are set, all must match.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SpaceFilterCondition {
     /// The Space's `name` must contain this substring.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -160,23 +144,17 @@ pub struct SpaceFilterCondition {
     pub is_public: Option<bool>,
 }
 
-/// Wire keys of [`SpaceFilterCondition`].
-pub const SPACE_FILTER_CONDITION_KEYS: &[&str] = &["name", "isPublic"];
-
 /// Filter condition for `CustomEmoji/query`
 /// (draft-atwood-jmap-chat-00 §CustomEmoji/query).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CustomEmojiFilterCondition {
     /// Restrict results to this Space's emoji. When absent, all emoji
     /// accessible to the account are returned, including server-global ones.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<Id>,
 }
-
-/// Wire keys of [`CustomEmojiFilterCondition`].
-pub const CUSTOM_EMOJI_FILTER_CONDITION_KEYS: &[&str] = &["spaceId"];
 
 /// Sort property for `ChatContact/query`
 /// (draft-atwood-jmap-chat-00 §ChatContact/query "Sort properties").
@@ -281,26 +259,15 @@ mod tests {
     use serde_json::{json, Value};
 
     /// `wire` uses every filter property the draft lists for the object.
-    /// It must decode, re-encode to the same JSON, and name exactly `keys`.
+    /// It must decode and re-encode to the same JSON.
     fn assert_spec_condition<
         T: Serialize + DeserializeOwned + Default + PartialEq + std::fmt::Debug,
     >(
         wire: Value,
-        keys: &[&str],
     ) {
         let cond: T = serde_json::from_value(wire.clone()).expect("decode");
         assert_ne!(cond, T::default(), "every field must decode: {wire}");
         assert_eq!(serde_json::to_value(&cond).expect("encode"), wire);
-        let mut wire_keys: Vec<&str> = wire
-            .as_object()
-            .expect("object")
-            .keys()
-            .map(String::as_str)
-            .collect();
-        let mut keys = keys.to_vec();
-        wire_keys.sort_unstable();
-        keys.sort_unstable();
-        assert_eq!(wire_keys, keys);
     }
 
     /// §ChatContact/query: "Filter properties: `blocked` (Boolean),
@@ -309,54 +276,69 @@ mod tests {
     fn chat_contact_condition_matches_spec_properties() {
         assert_spec_condition::<ChatContactFilterCondition>(
             json!({"blocked": true, "presence": "away", "identity": "alice@example.com"}),
-            CHAT_CONTACT_FILTER_CONDITION_KEYS,
         );
     }
 
     /// §Chat/query: "Filter properties: `kind` (String), `muted` (Boolean)."
     #[test]
     fn chat_condition_matches_spec_properties() {
-        assert_spec_condition::<ChatFilterCondition>(
-            json!({"kind": "group", "muted": false}),
-            CHAT_FILTER_CONDITION_KEYS,
-        );
+        assert_spec_condition::<ChatFilterCondition>(json!({"kind": "group", "muted": false}));
     }
 
     /// §Message/query filter properties: `chatId`, `text`, `threadRootId`,
     /// `topicId`, `hasAttachment`, `hasMention`.
     #[test]
     fn message_condition_matches_spec_properties() {
-        assert_spec_condition::<MessageFilterCondition>(
-            json!({
-                "chatId": "c1",
-                "text": "hello",
-                "threadRootId": "m1",
-                "topicId": "t1",
-                "hasAttachment": true,
-                "hasMention": true,
-            }),
-            MESSAGE_FILTER_CONDITION_KEYS,
-        );
+        assert_spec_condition::<MessageFilterCondition>(json!({
+            "chatId": "c1",
+            "text": "hello",
+            "threadRootId": "m1",
+            "topicId": "t1",
+            "hasAttachment": true,
+            "hasMention": true,
+        }));
     }
 
     /// §Space/query: "Filter properties: `name` (String, substring match),
     /// `isPublic` (Boolean)."
     #[test]
     fn space_condition_matches_spec_properties() {
-        assert_spec_condition::<SpaceFilterCondition>(
-            json!({"name": "rust", "isPublic": true}),
-            SPACE_FILTER_CONDITION_KEYS,
-        );
+        assert_spec_condition::<SpaceFilterCondition>(json!({"name": "rust", "isPublic": true}));
     }
 
     /// §CustomEmoji/query: "Filter properties: `spaceId` (String, optional
     /// ...)".
     #[test]
     fn custom_emoji_condition_matches_spec_properties() {
-        assert_spec_condition::<CustomEmojiFilterCondition>(
-            json!({"spaceId": "s1"}),
-            CUSTOM_EMOJI_FILTER_CONDITION_KEYS,
-        );
+        assert_spec_condition::<CustomEmojiFilterCondition>(json!({"spaceId": "s1"}));
+    }
+
+    /// RFC 8620 §5.5: "unsupportedFilter: The "filter" is syntactically
+    /// valid, but the server cannot process it." A key outside the
+    /// draft's filter properties, at any depth, or an extra key on an
+    /// operator node must fail the decode rather than match every record.
+    #[test]
+    fn filters_reject_unknown_keys() {
+        fn rejects<T: DeserializeOwned>(raw: Value) {
+            assert!(
+                serde_json::from_value::<T>(raw.clone()).is_err(),
+                "{raw} must be rejected"
+            );
+        }
+        rejects::<ChatContactFilter>(json!({"is_blocked": true}));
+        rejects::<ChatFilter>(json!({"kind": "group", "bogus": 1}));
+        rejects::<MessageFilter>(json!({"chat_id": "c1"}));
+        rejects::<MessageFilter>(json!({
+            "operator": "AND",
+            "conditions": [{"operator": "NOT", "conditions": [{"chat_id": "c1"}]}],
+        }));
+        rejects::<MessageFilter>(json!({
+            "operator": "AND",
+            "conditions": [{"chatId": "c1"}],
+            "chatId": "c2",
+        }));
+        rejects::<SpaceFilter>(json!({"is_public": true}));
+        rejects::<CustomEmojiFilter>(json!({"space_id": "s1"}));
     }
 
     /// RFC 8620 §5.5: a FilterOperator has `operator` ("AND" | "OR" |

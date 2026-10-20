@@ -110,9 +110,26 @@ wire behaviour that a conforming peer can observe.
 - **jmap-chat-server**: `PushItem`, `OwnerFlags` and `BuiltPush` are not
   `#[non_exhaustive]`, so a field added to any of them later is a breaking
   change.
+- **jmap-types and all type crates**: `FilterOperator` and every
+  `*FilterCondition` struct carry `#[serde(deny_unknown_fields)]`, so
+  deserializing a filter with a key the type does not define fails.
+  `jmap_mail_types::MAILBOX_FILTER_CONDITION_KEYS` and the
+  `jmap_chat_types::query::*_FILTER_CONDITION_KEYS` constants are removed;
+  the typed decode now does their job.
 
 ### Breaking: wire behaviour
 
+- **All servers**: a `/query`, `/queryChanges` or `SearchSnippet/get`
+  `filter` with an unknown or misspelt key at any depth, an extra key on an
+  operator node, or an operator tree sent to an object whose filter is a
+  bare FilterCondition returns `unsupportedFilter` (RFC 8620 §5.5). Before,
+  most such filters decoded as an empty condition and matched every record.
+  `Email/query`, `Email/queryChanges`, `Mailbox/query`,
+  `EmailSubmission/query`, `SieveScript/query`, `SearchSnippet/get` and
+  `CalendarEvent/query` return `unsupportedFilter` instead of
+  `invalidArguments` for a filter object that fails to decode; a non-object
+  filter is still `invalidArguments` (except `SearchSnippet/get`, which
+  returns `unsupportedFilter` for any bad filter, RFC 8621 §5.1).
 - **All servers**: a `/set` over `maxObjectsInSet` returns method error
   `requestTooLarge` instead of `limit`.
 - **All servers**: a `/get` (including `SearchSnippet/get` `emailIds`) whose
@@ -193,6 +210,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `filter_arg`, which decodes a hand-written handler's
+  `filter` argument and maps failures to `unsupportedFilter` or
+  `invalidArguments` (RFC 8620 §5.5).
 - **jmap-types**: `push` module with `PushSubscription`, `PushKeys` and
   `PushVerification`, plus `StateChange::new`.
 - **jmap-server**: `PushSubscription/get` and `PushSubscription/set` handlers

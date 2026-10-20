@@ -202,7 +202,7 @@ fn default_true() -> bool {
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CalendarFilterCondition {
     /// Calendar name must contain this string.
     #[serde(skip_serializing_if = "Option::is_none")]

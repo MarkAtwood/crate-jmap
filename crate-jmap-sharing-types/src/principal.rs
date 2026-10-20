@@ -139,7 +139,7 @@ pub struct Principal {
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PrincipalFilterCondition {
     /// Match Principals that own at least one of these Account ids.
     #[serde(skip_serializing_if = "Option::is_none")]
