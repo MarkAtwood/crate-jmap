@@ -67,6 +67,12 @@
 //! §Interaction with Chat Push rule that an avatar enter or leave already
 //! announced by a bound Chat's push is not sent at `normal` or higher.
 //!
+//! Ephemeral subscriptions (draft-atwood-jmap-scene-wss-00
+//! §SceneStreamEnable): the [`ephemeral`] module holds the per-connection
+//! subscription a `SceneStreamEnable` frame replaces in its entirety, with
+//! a dynamic ([`RegionScope::All`]) or static ([`RegionScope::Only`])
+//! region scope and the `invalidArguments` check on `eventTypes`.
+//!
 //! The crate depends on RFC 8620 only; Chat and VTC bindings live in
 //! separate binding crates, which implement
 //! [`SceneBackend::has_capability`] and [`SceneBackend::region_binding`].
@@ -87,6 +93,7 @@ use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 pub mod asset;
 pub mod avatar;
 pub mod backend;
+pub mod ephemeral;
 mod helpers;
 /// In-memory reference implementation of [`SceneBackend`].
 ///
@@ -111,6 +118,7 @@ pub use backend::{
     ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
     QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
 };
+pub use ephemeral::{RegionScope, SceneEphemeralSubscription, SceneStreamFilter};
 pub use object::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,
     handle_scene_object_query_changes, handle_scene_object_set,
