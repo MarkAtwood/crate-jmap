@@ -164,7 +164,9 @@ blob is accessible. `mediaType` (formerly `type` in -14) is a `"File"` property.
 When the server advertises `urn:ietf:params:jmap:cid`, override
 `FileNodeBackend::blob_sha256` to return the stored blob's digest. A `"File"` create
 and an update that sets `blobId` store that digest as the node's server-set `sha256`
-(a client-supplied value is replaced), and an update echoes it in `updated`. The
+(a client-supplied value is dropped on create; an update patch that sets `sha256` to
+anything but its current value fails with `invalidProperties`, per RFC 8620 §5.3),
+and an update echoes it in `updated`. The
 default returns `Ok(None)`, meaning the capability is not advertised: the node gets
 no `sha256`. Return `Err` when the capability is advertised but the digest cannot be
 computed; that create or update fails with `serverFail`.
