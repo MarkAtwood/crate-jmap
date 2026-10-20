@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-a250",
+  "title": "clippy useless_borrows_in_formatting in chat-server integration test",
+  "description": "Rust 1.98 clippy lint useless_borrows_in_formatting fails -D warnings on crate-jmap-chat-server/tests/integration.rs (assert! with \u0026space_id, ~line 3239). Pre-existing at e3c96183, not caused by JMAP-mrod work. Fix: drop the \u0026.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:40:53.435051131Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:14:49.656074265Z",
+  "closed_at": "2026-10-18T05:14:49.656074265Z",
+  "close_reason": "fixed in working tree, verified"
+}

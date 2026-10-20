@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.15",
+  "title": "MemoryBackend mints identical Category ids",
+  "description": "memory.rs apply_category_op AddCategory uses demo_next_id(inner, \"Category\", ..), which counts objects_ref(\"Category\"). Categories are never stored there, so every category in every Space is given id category0000000000000001. As a result updateCategories/removeCategories cannot address any category but the first by id. Draft Space/set addCategories says 'Server assigns ULIDs', so the ids must be unique. Found during JMAP-yt1w.6; that item's tests seed distinct ids directly to work around it.",
+  "notes": "Done in b91f9544: tests space_set_category_add_assigns_unique_ids; changed existing tests: none",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T01:34:42.824784204Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T03:33:44.175497212Z",
+  "started_at": "2026-10-19T03:28:26.560310153Z",
+  "closed_at": "2026-10-19T03:33:44.175497212Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.15",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T01:34:42.94821455Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

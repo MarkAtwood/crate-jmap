@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.25",
+  "title": "Return notFound, not forbidden, for policy-denied region entry",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Return notFound, not forbidden, for policy-denied region entry\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L2132: \"The server SHOULD also return `notFound` when the caller has no access to the region under its `accessPolicy` (for example, an `\\\"invite\\\"` region whose `invitedUserIds` does not list the caller, or a `\\\"space\\\"` region whose Space the caller is not a member of), so that the response does not reveal that the region exists.\"\nCode: crate-jmap-scene-server/src/avatar.rs:362-368\nNow: When may_enter_region is false, enter_region returns forbidden(\"The caller may not enter this region.\").\nChange: Return not_found() there. Keep forbidden only for ban/eject cooldown and the different-user case. Update tests that assert forbidden for invite or space denial to the new oracle.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:32.31022376Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:32.31022376Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.25",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:32.445035933Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

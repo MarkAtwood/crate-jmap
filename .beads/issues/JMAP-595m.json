@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-595m",
+  "title": "vtc spec: unspecified errors for lobby/breakout/limit gates",
+  "description": "Found implementing JMAP-8mem.2 (jmap-vtc-server). draft-atwood-jmap-vtc-00 at jmap-chat-spec 3227c0f leaves these undefined, so jmap-vtc-server does not enforce them: (1) VTCCall/set with lobbyEnabled when supportsLobby is false (L168) or parentCallId when supportsBreakoutRooms is false (L171) has no error named; (2) maxParticipantsPerCall, maxConcurrentCalls, maxBreakoutRooms (L177-185) name no SetError when exceeded; (3) VTCCall/query sort on endedAt does not say where null endedAt sorts (L759; implementation puts them last); (4) the scheduled create example scheduledStartAt 2026-06-06T10:00:00Z (L676) is now in the past, so the example as written must be rejected per L685. Decide in the spec, then implement in jmap-vtc-server.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T13:10:17.199485447Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T13:10:30.754494063Z"
+}

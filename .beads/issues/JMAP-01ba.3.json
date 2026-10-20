@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-01ba.3",
+  "title": "filenode-client: sha256 verification helper (dir null vs legacy null)",
+  "description": "Client verification helper distinguishing a directory null from a legacy-file null (draft-atwood-jmap-cid-00 L228-239). Comparison MUST be constant-time (jmap-chat-compliance-tests.md §14.13).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests per L228-239 cases with FIPS 180-4 vectors; mismatch detected; constant-time compare used.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:47.048312355Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:20.523422358Z",
+  "closed_at": "2026-10-20T10:19:20.523422358Z",
+  "close_reason": "Landed in 8a3e26ed feat(filenode-client): verified FileNode download (hash after amend; see git log -1) (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-01ba.3",
+      "depends_on_id": "JMAP-01ba",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:47.180800806Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

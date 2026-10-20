@@ -1,0 +1,1 @@
+{"id":"01a15681-07f4-7895-b52b-3dc7a8c33cc1","issue_id":"JMAP-q2wa.7.5","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as 0bb0a4a5 (fix(filenode-server): close q2wa sibling gaps). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:59.188563013Z"}

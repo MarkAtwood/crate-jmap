@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.15",
+  "title": "Reply counts change without Message state",
+  "description": "From batch-5 verify of y3f2.3 (b7b2afbc). Message/get returns server-set replyCount/unreadReplyCount, but creating a reply or advancing ReadPosition does not mark the parent Message changed, so Message/changes never reports it and clients keep stale counts (RFC 8620 §5.2). Sibling of y3f2.12 (Chat unreadCount).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:03:20.732274078Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:17.061629117Z",
+  "closed_at": "2026-10-20T10:19:17.061629117Z",
+  "close_reason": "Landed in 8b53aa52 fix(chat-server)!: thread counts bump Message state (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.15",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:03:20.856933859Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

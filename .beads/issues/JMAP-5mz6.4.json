@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-5mz6.4",
+  "title": "chat-server: cascade callbacks on Chat/Space destroy and SpaceBan create",
+  "description": "Add callbacks fired on Chat destroy, Space destroy and SpaceBan create. Consumers: chat-tasks L167, vtc L421 and L1587, filenode L199.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: a registered callback receives each event exactly once, with the destroyed/ banned ids, per the cited consumer lines.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:41.626304109Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:53.585499879Z",
+  "closed_at": "2026-10-20T07:02:53.585499879Z",
+  "close_reason": "Landed in 1bbc0a01 feat(chat-server): Chat/Space/SpaceBan callbacks (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-5mz6.4",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:41.729742573Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

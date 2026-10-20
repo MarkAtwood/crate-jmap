@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-y3f2.2",
+  "title": "chat-server: channel destroy forbidden; Group admin-only updates and create fields",
+  "description": "(a) Chat/set destroy of a channel returns forbidden (draft-atwood-jmap-chat-00.md L1049); chat.rs ~L904-940 goes straight to destroy_object with no kind check (forbidden only on create, L484). (b) Group name/description/avatarBlobId updates are admin-only with an allowlist of update keys (L1026-1030). (c) Group create accepts avatarBlobId and messageExpirySeconds and returns overQuota (L1010-1020). Space destroy manage_space is JMAP-wwwx (not repeated here); Space metadata updates are already gated (space.rs L1366, memory.rs L1136).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: channel destroy -\u003e notDestroyed forbidden (L1049); non-admin Group name update -\u003e forbidden; disallowed update key rejected; Group create with avatarBlobId/messageExpirySeconds round-trips; over quota -\u003e overQuota (L1010-1020).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:37.879602126Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:50.708960762Z",
+  "closed_at": "2026-10-20T07:02:50.708960762Z",
+  "close_reason": "Landed in 39f3ac25 fix(chat-server): enforce Chat/set per-kind rules (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.2",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:38.008903326Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

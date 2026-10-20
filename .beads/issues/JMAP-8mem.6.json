@@ -1,0 +1,34 @@
+{
+  "id": "JMAP-8mem.6",
+  "title": "vtc-server: Chat binding (activeCallId set/clear, start_call gate)",
+  "description": "Chat.activeCallId set and cleared atomically from VTC (draft-atwood-jmap-chat-00 L567-578; JMAP-3m1s). Server-set/patch rejection already exists (chat.rs L279, L690). start_call gate (vtc L1585); Space/channel destroy clears references (L421); SpaceBan ejects participants (L1587); blocked-ring suppression (L1329). Needs the Chat extension seams epic.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: call start sets activeCallId, call end clears it in the same change (L567-578); banned user ejected (L1587); blocked caller's ring suppressed (L1329).",
+  "notes": "DECIDED by Mark 2026-10-20: cross-layer bindings go in binding crates: crate-jmap-chat-vtc-server, crate-jmap-chat-scene-server, crate-jmap-scene-vtc-server. vtc-* and scene-* base crates stay independent of chat (RFC 8620 only); build their core parts now.\n2026-10-20 implementation: crate-jmap-chat-vtc-server landed check_call_create (chatId access/membership, start_call), sync_active_call_id, clear_space/channel_references, contact_identity, is_blocked_by_contact. SpaceBan ejection (vtc L1587) split to JMAP-8mem.10: VtcParticipant lacks SetObject at HEAD (blocked on JMAP-8mem.3).\nSpec 63e9d08 changed this area after implementation; follow-up in JMAP-0x0q.36 (check what batch 7 landed before re-doing).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:52.066215718Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:38:17.772055129Z",
+  "closed_at": "2026-10-20T20:38:17.772055129Z",
+  "close_reason": "Committed and adversarially verified (batch 7); open-epic dependency only",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.6",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:52.186512064Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-8mem.6",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "blocks",
+      "created_at": "2026-10-20T00:46:19.154950563Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

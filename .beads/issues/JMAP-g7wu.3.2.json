@@ -2,21 +2,19 @@
   "close_reason": "completed",
   "closed_at": "2026-05-11T02:37:49Z",
   "compaction_level": 0,
-  "content_hash": "45547ac092f31b8dded1adbdc179c8eb0bf267eebf900fd90a9ab4b54606c88e",
   "created_at": "2026-05-11T00:06:56Z",
   "created_by": "Mark Atwood",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-g7wu.3.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "helpers.rs builder-struct refactor in jmap-chat-server (propagate from canonical)",
   "updated_at": "2026-05-11T02:37:49Z",
   "dependencies": [
@@ -25,8 +23,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-g7wu.3",
       "id": "8ed6a0df-b9a9-5590-a1e3-fd24ad1c991e",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -4,22 +4,20 @@
   "close_reason": "Added expandRecurrences and recurrenceOverrides backend contract docs to CalendarsBackend trait; cargo doc shows 0 new warnings",
   "closed_at": "2026-05-05T15:47:09Z",
   "compaction_level": 0,
-  "content_hash": "65bf1bb4dc3bc8a580edef28ca9541095714648cba693d4648fd5cb27e283db5",
   "created_at": "2026-05-05T03:02:11Z",
   "created_by": "Mark Atwood",
-  "description": "**What:** Add explicit documentation of two backend contracts that are currently implicit/undocumented. Oracle: \u00a75.11 (expandRecurrences), \u00a75.9.1 (recurrenceOverrides two-level patch).\n\n**Algorithm:**\n1. Add CalendarQueryError enum with expandDurationTooLarge and cannotCalculateOccurrences variants. Update handle_calendar_event_query to map these to correct JMAP error responses.\n2. Add doc comment block to handle_calendar_event_set citing \u00a75.9.1: explains two-level patch semantics pass-through to backend.\n3. Add unit test: patch key 'recurrenceOverrides/2025-03-05T09:00:00/status' reaches MockBackend.update_object with the key preserved unchanged (handler must not mangle it).\n4. In CalendarsBackend doc comment: document expandRecurrences, synthetic ids, cannotCalculateOccurrences requirements. Oracle: \u00a75.11.\n\n**Acceptance criteria:**\n- CalendarQueryError variants documented with spec citations.\n- Patch key passthrough test passes.\n- cargo test -p jmap-calendars-server exits 0.",
-  "ephemeral": 0,
+  "description": "**What:** Add explicit documentation of two backend contracts that are currently implicit/undocumented. Oracle: §5.11 (expandRecurrences), §5.9.1 (recurrenceOverrides two-level patch).\n\n**Algorithm:**\n1. Add CalendarQueryError enum with expandDurationTooLarge and cannotCalculateOccurrences variants. Update handle_calendar_event_query to map these to correct JMAP error responses.\n2. Add doc comment block to handle_calendar_event_set citing §5.9.1: explains two-level patch semantics pass-through to backend.\n3. Add unit test: patch key 'recurrenceOverrides/2025-03-05T09:00:00/status' reaches MockBackend.update_object with the key preserved unchanged (handler must not mangle it).\n4. In CalendarsBackend doc comment: document expandRecurrences, synthetic ids, cannotCalculateOccurrences requirements. Oracle: §5.11.\n\n**Acceptance criteria:**\n- CalendarQueryError variants documented with spec citations.\n- Patch key passthrough test passes.\n- cargo test -p jmap-calendars-server exits 0.",
+  "ephemeral": false,
   "id": "JMAP-qksw.6",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Document expandRecurrences and recurrenceOverrides backend contracts",
   "updated_at": "2026-06-26T19:57:32Z",
   "dependencies": [
@@ -28,8 +26,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-qksw",
       "id": "5275a0ce-a760-5010-a861-00cac6859b78",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

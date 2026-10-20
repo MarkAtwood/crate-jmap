@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-yt1w.39",
+  "title": "PushSubscription/get: reject invalid properties with invalidArguments",
+  "description": "RFC 8620 §5.1 (rfc8620.txt:1609-1611): \"If an invalid property is requested, the call MUST be rejected with an \\\"invalidArguments\\\" error.\" §7.2.1 inherits §5.1. crate-jmap-server/src/push.rs handle_push_subscription_get (bd:JMAP-nbk3.2) only rejects url/keys (forbidden) and silently drops unknown names. The generic layer cannot know extension properties (chatPush, draft-atwood-jmap-chat-push-00), so the fix needs a way for the backend to name its valid extension properties (or a fixed RFC set plus a backend hook). Generic handle_get likewise delegates this to the backend.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:42:09.905651034Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T18:42:09.905651034Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.39",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:42:10.00842277Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

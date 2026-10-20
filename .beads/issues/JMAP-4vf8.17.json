@@ -1,0 +1,29 @@
+{
+  "id": "JMAP-4vf8.17",
+  "title": "filenode-server PLAN.md says mediaType rename in -16, was -15",
+  "description": "crate-jmap-filenode-server/PLAN.md:339-340; -16 changelog puts type-\u003emediaType rename under -15.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:38:27.946906846Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:49:06.550875574Z",
+  "started_at": "2026-10-18T04:45:32.757889827Z",
+  "closed_at": "2026-10-18T04:49:06.550875574Z",
+  "close_reason": "fixed in working tree, verified",
+  "labels": [
+    "review"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.17",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:38:28.084737877Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

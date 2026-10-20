@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.8",
+  "title": "FileNode capability: add supportedNodeTypes (-16 §2.1)",
+  "description": "draft-ietf-jmap-filenode-16 §2.1 adds supportedNodeTypes to the capability object. crate-jmap-filenode-types capability.rs lacks it and still cites -14. Client test fixtures in crate-jmap-filenode-client also still use -14 keys (no assertions depend on them).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:49:32.446116195Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:14:49.148067302Z",
+  "started_at": "2026-10-18T05:10:08.239102848Z",
+  "closed_at": "2026-10-18T05:14:49.148067302Z",
+  "close_reason": "fixed in working tree, verified",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.8",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:49:32.674809558Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-6mh7.2",
+  "title": "vtc-server: VTCStreamEnable validator",
+  "description": "invalidArguments, replace semantics, ignore callIds the user is not in (draft-atwood-jmap-vtc-wss-00 L168-183).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L168-183.",
+  "notes": "Spec 63e9d08 changed this area after implementation; follow-up in JMAP-0x0q.32 (check what batch 7 landed before re-doing).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:08.864596057Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:38.636221148Z",
+  "closed_at": "2026-10-20T20:37:38.636221148Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6mh7.2",
+      "depends_on_id": "JMAP-6mh7",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:08.99094208Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,31 +1,26 @@
 {
-  "compaction_level": 0,
-  "content_hash": "8c9f2410dce8998396bcf20f777023cff21ea60c7372090470a625a75d28a3f1",
+  "id": "JMAP-1j9k.2",
+  "title": "calendar_event_query and calendar_event_notification_query filter param locks out compound AND/OR/NOT",
+  "description": "Scenario: callers want to express CalendarEventFilterCondition AND/OR another condition, or NOT a condition (RFC 8620 §5.5 Filter algebra). The shipped signatures are filter: Option\u003c\u0026CalendarEventFilterCondition\u003e (src/methods/event.rs:154) and filter: Option\u003c\u0026NotificationFilterCondition\u003e (src/methods/event_notification.rs:138) — bare conditions only, no FilterOperator wrapper. The canonical sibling jmap-mail-client uses filter: Option\u003cserde_json::Value\u003e (crate-jmap-mail-client/src/methods/email.rs:143), which permits compound filters at the cost of typing. Consequence: every caller that needs a compound filter is blocked on an API break. jmap-types::Filter\u003cT\u003e already exists (crate-jmap-types/src/query.rs:104) so accepting Option\u003c\u0026Filter\u003cCalendarEventFilterCondition\u003e\u003e is a typed alternative. Decide before 0.1.x ships widely: typed Filter wrapper (preferred — matches the workspace's typed-from-day-one stance) or align with the mail-client serde_json::Value shape. Picking neither and shipping is the worst option — the next caller will file an issue and we'll break the API.",
+  "notes": "DECISION NEEDED (triage 2026-10-19 at 9fdbbbcf): Question for Mark: what is the workspace shape for the filter parameter on extension-client /query and /queryChanges methods? The bead was escalated on 2026-05-17 and still has no answer. JMAP-tjvm.19 and JMAP-ops7.20 depend on the same answer.\n\nOptions:\n(a) Untyped, matching the canonical sibling. Calendars /query takes `filter: Option\u003cserde_json::Value\u003e` and `sort: Option\u003cserde_json::Value\u003e`, the shape its own *_query_changes methods and the mail, tasks and contacts clients already use. Smallest change (S, breaking, calendars-client only). It gives up the type checking the calendars crate has today, and if tjvm.19 later lands typed filters, this API breaks a second time.\n(b) Typed `Filter\u003cT\u003e` across the workspace. Calendars /query and /queryChanges take `filter: Option\u003c\u0026jmap_types::query::Filter\u003cCalendarEventFilterCondition\u003e\u003e` (and `Filter\u003cNotificationFilterCondition\u003e`). The mail, tasks and contacts clients then follow under JMAP-tjvm.19 in a dedicated epic. Calendars alone is size M and breaking; the full sweep is L.\n(c) Leave the shapes as they are and document the reason per crate. Rejected: callers stay unable to send compound filters, and /query cannot use the filter that /queryChanges accepts.\n\nRecommendation: (b), starting with calendars. The type already exists in jmap-types and supports AND/OR/NOT. The calendars crate is already typed, so moving to `Filter\u003cT\u003e` is a widening break (a caller migrates with `Filter::Condition(c)`). Option (a) would make this crate less typed now and break it again if tjvm.19 is accepted. Concrete change: replace both /query filter params and both /query_changes filter params with `Option\u003c\u0026Filter\u003c...\u003e\u003e` and serialize them with `serde_json::to_value`. Add a smoke test that sends `{\"operator\":\"NOT\",\"conditions\":[{...}]}` and checks the wire JSON against the RFC 8620 §5.5 FilterOperator text (\"operator\": \"AND\"/\"OR\"/\"NOT\", \"conditions\": Filter[]). If Mark instead decides the canonical mail-client stays untyped, use (a) for consistency.\nDECIDED by Mark 2026-10-19: option (b). All extension-client /query and /queryChanges take Option\u003c\u0026jmap_types::query::Filter\u003cXFilterCondition\u003e\u003e (and typed sort where available). Calendars first (CalendarEvent + Notification query and query_changes), then mail/tasks/contacts/filenode under JMAP-tjvm.19 and JMAP-ops7.20. Test: send {\"operator\":\"NOT\",\"conditions\":[...]} and compare wire JSON to RFC 8620 §5.5 FilterOperator. Breaking, 0.3.0.\nDECIDED by Mark 2026-10-20 (refines the typed Filter\u003cT\u003e decision): extension-client /query and /queryChanges take generic Option\u003c\u0026jmap_types::query::Filter\u003cC\u003e\u003e with C: Serialize. Default callers use the crate's typed *FilterCondition; metadata-02 §3.5 callers use a typed wrapper WithMetadata\u003cC\u003e in jmap-metadata-types ({ #[serde(flatten)] base: C, metadataExists/metadataTextContains/... optional fields }). No change to *FilterCondition structs or servers (keeps JMAP-ua37.4). Redo calendars (60b9294f) generically, then mail (canonical shape), tasks, contacts, filenode, sharing, chat as applicable. Settles JMAP-ua37.7. Tests: typed AND/OR/NOT wire JSON (RFC 8620 §5.5) and a WithMetadata leaf (metadata-02 §3.5 example).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-15T01:01:50Z",
   "created_by": "Mark Atwood",
-  "description": "Scenario: callers want to express CalendarEventFilterCondition AND/OR another condition, or NOT a condition (RFC 8620 \u00a75.5 Filter algebra). The shipped signatures are filter: Option<&CalendarEventFilterCondition> (src/methods/event.rs:154) and filter: Option<&NotificationFilterCondition> (src/methods/event_notification.rs:138) \u2014 bare conditions only, no FilterOperator wrapper. The canonical sibling jmap-mail-client uses filter: Option<serde_json::Value> (crate-jmap-mail-client/src/methods/email.rs:143), which permits compound filters at the cost of typing. Consequence: every caller that needs a compound filter is blocked on an API break. jmap-types::Filter<T> already exists (crate-jmap-types/src/query.rs:104) so accepting Option<&Filter<CalendarEventFilterCondition>> is a typed alternative. Decide before 0.1.x ships widely: typed Filter wrapper (preferred \u2014 matches the workspace's typed-from-day-one stance) or align with the mail-client serde_json::Value shape. Picking neither and shipping is the worst option \u2014 the next caller will file an issue and we'll break the API.",
-  "ephemeral": 0,
-  "id": "JMAP-1j9k.2",
-  "is_blocked": 0,
-  "is_template": 0,
-  "issue_type": "task",
+  "updated_at": "2026-10-20T03:38:39.388314967Z",
+  "closed_at": "2026-10-20T03:38:39.388314967Z",
+  "close_reason": "Landed as 8827090e: generic Option\u003c\u0026Filter\u003cC\u003e\u003e on all 29 client /query and /queryChanges methods, WithMetadata\u003cC\u003e in metadata-types, typed comparators where defined. Review passed. CI green at 88929342 (stable+beta 3516 passed).",
   "metadata": {},
-  "no_history": 0,
-  "owner": "mark@reviewcommit.com",
-  "pinned": 0,
-  "priority": 1,
-  "status": "open",
-  "timeout_ns": 0,
-  "title": "calendar_event_query and calendar_event_notification_query filter param locks out compound AND/OR/NOT",
-  "updated_at": "2026-05-15T01:01:50Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T18:01:49Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-1j9k",
-      "id": "fd0c31f4-7c62-5f73-9b7c-06139d66156d",
-      "metadata": {},
-      "type": "parent-child"
+      "metadata": "{}"
     }
   ]
 }

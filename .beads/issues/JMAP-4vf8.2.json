@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-4vf8.2",
+  "title": "FileNode set: 'unsupported @type' error omits value and accepted set",
+  "description": "crate-jmap-filenode-server/src/filenode.rs:697. The -16 rename turns every -14 client create ('directory', 'file', 'symlink') into invalidProperties 'unsupported @type'. The client cannot tell the case changed. Include the rejected value and the accepted names, e.g. format!(\"unsupported @type {s:?}; expected File, Directory, or SymLink\"). This needs the description to be a String rather than \u0026'static str in the consistency_error tuple.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:19:16.928691802Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:38:25.294541629Z",
+  "started_at": "2026-10-18T04:26:57.822724481Z",
+  "closed_at": "2026-10-18T04:38:25.294541629Z",
+  "close_reason": "fixed in working tree (uncommitted), verified by adversarial reviewer + cargo test",
+  "labels": [
+    "review",
+    "readability"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.2",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:19:17.048150456Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

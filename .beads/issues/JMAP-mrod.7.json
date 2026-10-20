@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.7",
+  "title": "FileNode create must reject other-type properties",
+  "description": "draft-ietf-jmap-filenode-16 §3.1: non-null properties defined for another @type must be rejected on create. Server only checks blobId and target. Found during JMAP-mrod.2.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:49:31.921466905Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:14:48.881549164Z",
+  "started_at": "2026-10-18T05:05:06.81778366Z",
+  "closed_at": "2026-10-18T05:14:48.881549164Z",
+  "close_reason": "fixed in working tree, verified",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.7",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:49:32.150013709Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

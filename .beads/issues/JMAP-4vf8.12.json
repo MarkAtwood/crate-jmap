@@ -1,0 +1,29 @@
+{
+  "id": "JMAP-4vf8.12",
+  "title": "filenode-client integration_set_copy.rs fixtures still -14 shape",
+  "description": "tests/integration_set_copy.rs ~39-49 and ~208-218: no @type, type/blobId/target null. Stale keys land in extra and node_type is None, so tests silently stop checking the wire format (same class as JMAP-4vf8.7).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:38:26.680257878Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:49:05.48497644Z",
+  "started_at": "2026-10-18T04:45:29.779200989Z",
+  "closed_at": "2026-10-18T04:49:05.48497644Z",
+  "close_reason": "fixed in working tree, verified",
+  "labels": [
+    "review"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.12",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:38:26.782330693Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

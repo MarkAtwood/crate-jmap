@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-02T05:17:29Z",
   "compaction_level": 0,
-  "content_hash": "cde1e05cb93a21789b2eba68cefb280ebf08cff6c49376017bb3f2689afe357d",
   "created_at": "2026-05-02T05:09:25Z",
   "created_by": "Mark Atwood",
   "description": "In apply_header_form (email.rs line 290), the AsText branch calls unfolded.trim_start().to_string(). trim_start() returns &str; calling .to_string() on &str triggers Clippy's str_to_string lint. The idiomatic replacement is .to_owned(), which makes clear that this is a simple heap allocation rather than a Display-based conversion.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-fr0.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "email.rs apply_header_form: trim_start().to_string() should be .to_owned()",
   "updated_at": "2026-05-02T05:17:29Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-fr0",
       "id": "0df0c8c3-904c-5c4a-a240-4060f1f189b5",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

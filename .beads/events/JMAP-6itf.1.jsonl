@@ -1,0 +1,2 @@
+{"id":"01a156c5-88c2-7abe-ad65-9c8dd2bffcd2","issue_id":"JMAP-6itf.1","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:48.610705304Z"}
+{"id":"01a158d2-a247-7b5a-bdf3-ff858df89d17","issue_id":"JMAP-6itf.1","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 3e826964 feat(did-types): add DID capability objects (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:21.543744481Z"}

@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.9",
+  "title": "Message/set edit of others' messages allowed",
+  "description": "draft-atwood-jmap-chat-00 Message/set (new in 1e33ec7): edits of body/bodyType/mentions/broadcastMentions apply 'on a message where senderId is \"self\" and deletedAt is absent. The server MUST reject an edit of any other message with a forbidden SetError.' message.rs:698-1110 update path has no sender/deletedAt check for these fields; the edit applies and editedAt is injected (:766-770). Found by the 1e33ec7 audit (wf_af4656ea-dbb, both refuters upheld). Fix with a failing test quoting the draft; extend chat_client_wire.rs where the client exercises it.",
+  "notes": "fix done in 5542091d: tests message_set_update_edit_rejects_other_sender, message_set_update_edit_rejects_deleted_message (chat-server integration), message_edit_after_delete_is_forbidden (testjig chat_client_wire)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T22:58:40.334076626Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T02:03:48.307017233Z",
+  "started_at": "2026-10-18T23:17:30.952530522Z",
+  "closed_at": "2026-10-19T02:03:48.307017233Z",
+  "close_reason": "Fixed against jmap-chat-spec 1e33ec7; test-first, reviewed, gates green (stable/beta/1.88)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.9",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-18T22:58:40.447907657Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

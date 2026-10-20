@@ -1,0 +1,35 @@
+{
+  "id": "JMAP-nbk3.2",
+  "title": "N2 jmap-server: PushSubscriptionBackend + /get",
+  "description": "Caller-scoped PushSubscriptionBackend trait; PushSubscription/get handler (no accountId/state; url and keys never returned; forbidden if requested); register_push_subscription_handlers; in-module mock backend. See JMAP-nbk3 design field (approved plan) for scope, acceptance and quoted RFC/draft lines.",
+  "notes": "Regression test (attempt 1): crate-jmap-server/tests/push_subscription_get.rs (3 tokio tests, RFC 8620 7.2.1/7.2.3 oracles). Fails at HEAD with E0432: PushSubscriptionBackend, StoredPushSubscription, register_push_subscription_handlers not yet exported. Mock implements only list_push_subscriptions and builds StoredPushSubscription by struct literal {subscription, expected_code}.\nImplemented (uncommitted): crate-jmap-server/src/push.rs (StoredPushSubscription w/ redacting Debug, PushSubscriptionBackend::list_push_subscriptions only - N3 adds create/update/destroy, register_push_subscription_handlers, private handler); lib.rs re-exports + PushSubscription re-export; README. ids cap is a fixed 500 (ponytail:) since max_objects_in_get is per-account. No in-module mock added: tests/push_subscription_get.rs mock covers N2 acceptance. Follow-up JMAP-yt1w.39 (invalid property -\u003e invalidArguments). Gates green.\nDone in bf138213: tests get_null_ids_matches_rfc_example_without_account_id_state_url_or_keys, get_explicitly_requesting_url_or_keys_is_forbidden, get_returns_only_subscriptions_of_the_requesting_credentials; changed existing tests: none",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:25:23.682392335Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T18:45:12.962289214Z",
+  "started_at": "2026-10-19T18:36:20.988608819Z",
+  "closed_at": "2026-10-19T18:45:12.962289214Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-nbk3.2",
+      "depends_on_id": "JMAP-nbk3",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:25:23.804133683Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-nbk3.2",
+      "depends_on_id": "JMAP-nbk3.1",
+      "type": "blocks",
+      "created_at": "2026-10-19T18:25:25.459605386Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

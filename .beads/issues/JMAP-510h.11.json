@@ -2,22 +2,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-14T21:32:26Z",
   "compaction_level": 0,
-  "content_hash": "f55140360a3c62dbfb8f6e4bb40dcf122a80a4a400b3e216fbd3920a84ff4bce",
   "created_at": "2026-05-14T19:50:31Z",
   "created_by": "Mark Atwood",
-  "description": "draft-ietf-jmap-filenode-13 \u00a73.2.4 references the standard Foo/copy semantics from RFC 8620 \u00a75.4: each create entry is a 'copy of the source object with the given properties overridden'. The spec example at lines 643+ shows arbitrary FileNode property keys in the create map (name, parentId, type, role, shareWith, etc.).\n\nThe current src/filenode.rs:814-825 only applies parentId and name from obj_val onto source_node; all other override fields supplied by the client (type, role, shareWith, blobId override) are silently discarded.\n\nTrigger: client sends FileNode/copy create: { 'c1': { 'id': 'src1', 'name': 'copy', 'role': 'archive' } }. Bad behavior: the role override is dropped and the copy retains the source node's role.\n\nRequired: deserialize obj_val as a PatchObject (or as FileNode with all-optional fields), and merge over source_node before serializing back. The handler must mirror the behavior of FileNode/set update \u2014 apply every supplied field as an override.",
-  "ephemeral": 0,
+  "description": "draft-ietf-jmap-filenode-13 §3.2.4 references the standard Foo/copy semantics from RFC 8620 §5.4: each create entry is a 'copy of the source object with the given properties overridden'. The spec example at lines 643+ shows arbitrary FileNode property keys in the create map (name, parentId, type, role, shareWith, etc.).\n\nThe current src/filenode.rs:814-825 only applies parentId and name from obj_val onto source_node; all other override fields supplied by the client (type, role, shareWith, blobId override) are silently discarded.\n\nTrigger: client sends FileNode/copy create: { 'c1': { 'id': 'src1', 'name': 'copy', 'role': 'archive' } }. Bad behavior: the role override is dropped and the copy retains the source node's role.\n\nRequired: deserialize obj_val as a PatchObject (or as FileNode with all-optional fields), and merge over source_node before serializing back. The handler must mirror the behavior of FileNode/set update — apply every supplied field as an override.",
+  "ephemeral": false,
   "id": "JMAP-510h.11",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "handle_filenode_copy only applies parentId and name overrides; spec allows arbitrary property overrides",
   "updated_at": "2026-05-14T21:32:26Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-510h",
       "id": "f35cdabd-29cf-504e-9dc5-4385dd881967",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

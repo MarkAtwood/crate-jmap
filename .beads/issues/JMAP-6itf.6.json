@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-6itf.6",
+  "title": "Decide placement of DID resolution I/O and cache",
+  "description": "Decision bead: where DID resolution I/O and cache live — a support crate under AGENTS.md L60-68 rules.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Decision recorded in notes and AGENTS.md.",
+  "notes": "DECIDED by Mark 2026-10-20: own support crate crate-jmap-did-resolver (per AGENTS.md §Support crates): did:web and did:plc HTTPS fetch, cache, built on the pure helpers in crate-jmap-did-types (did:key derivation, did:web URI-to-URL, document parsing, PLC op-log verification over supplied bytes). Usable by servers and clients. No *-types/*-server crate depends on it. Check crates.io for maintained DID resolver crates first; prefer a thin adapter.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:50.097013999Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:03:50.8408766Z",
+  "closed_at": "2026-10-20T07:03:50.8408766Z",
+  "close_reason": "Decided by Mark 2026-10-20; decision recorded in notes",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6itf.6",
+      "depends_on_id": "JMAP-6itf",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:50.220609038Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

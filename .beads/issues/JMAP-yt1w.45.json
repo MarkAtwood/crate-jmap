@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-yt1w.45",
+  "title": "base-client: reject ws:// WebSocket URLs by default",
+  "description": "Oracle: jmap-chat-wss-guide.md L401-402: \"Clients MUST always connect to `wss://`, never `ws://`. The Session object's WebSocket URL will always be `wss://`; clients MUST reject any URL that does not begin with `wss://` rather than downgrading the connection.\" Same text in jmap-scene-wss-guide.md L666-667. Current: crate-jmap-base-client/src/ws/mod.rs L826-833 (connect_ws_with_limit) accepts ws or wss. ws:// is used by examples and testjig (JMAP-26di.29), so keep plaintext only behind an explicit opt-in (e.g. a ClientConfig flag or loopback-only), not by default. Source: JMAP-x3lu audit.",
+  "acceptance_criteria": "connect_ws/connect_ws_with_limit return ClientError::InvalidArgument for a ws:// URL unless the caller opts in; wss:// unchanged; test asserts both; examples/testjig paths still work via the opt-in.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:10:41.785831589Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:33.021807985Z",
+  "closed_at": "2026-10-20T20:37:33.021807985Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.45",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:10:42.640031842Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

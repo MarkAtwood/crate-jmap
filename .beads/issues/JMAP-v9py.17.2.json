@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.17.2",
+  "title": "chat-calendars-server: Space calendarId bind/unbind rules",
+  "description": "Space/set calendarId bind/unbind gated on manage_space and mayBindCalendar with same-account check (draft-atwood-jmap-chat-calendars-00 L114-118, L272); auto-bind on create (L120); destroy semantics (L122); co-advertisement check (L87). Uses the Space property extension hook.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L87/L114-122/L272.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:05.818992652Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:49.607883677Z",
+  "closed_at": "2026-10-20T20:37:49.607883677Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.17.2",
+      "depends_on_id": "JMAP-v9py.17",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:05.923900858Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

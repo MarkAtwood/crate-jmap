@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-lrgt.4",
+  "title": "chat-server: outbound seams for receipt, typing and presence",
+  "description": "Seam gap (additive, but blocks the JMAP-lrgt acceptance claim that seams suffice for federation). OutboundEvent (crate-jmap-chat-server/src/outbound.rs) covers Retract, Edit and GroupUpdate; JMAP-5mz6.7 adds reactions and new Messages. Still missing: (a) outbound Peer/receipt when the owner sets readAt (draft-atwood-jmap-chat-federation-00 §Peer/receipt Sender Behavior L470-472; chat-00 L945 receiptSharing suppression); (b) Chat/typing: handle_chat_typing (chat.rs ~L1365-1394) validates and returns with no hook, so neither local WS fan-out nor outbound Peer/typing can learn a typing event without re-registering the Chat/typing handler; (c) outbound Peer/presence on PresenceStatus/set change for subscribed peers (federation §Peer/subscribePresence Behavior L706). Add non_exhaustive OutboundEvent variants (or one defaulted hook) and emit them; no required method or signature change needed. Inbound handlers are JMAP-v9py.15.5.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:01:57.504767848Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:16.592145556Z",
+  "closed_at": "2026-10-20T10:19:16.592145556Z",
+  "close_reason": "Landed in 23d878c8 feat(chat-server): receipt, typing, presence seam (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lrgt.4",
+      "depends_on_id": "JMAP-lrgt",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:01:57.608202468Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

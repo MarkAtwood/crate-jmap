@@ -1,0 +1,40 @@
+{
+  "id": "JMAP-hz4q.5",
+  "title": "chinwag: clients work end to end",
+  "description": "Check that jmap-chat-client and jmap-chat-js (~/PROJECT/jmap-chat-js) can sign in, create chats, send and receive messages, and get push against a running chinwag. Record any divergence as its own bead citing the spec.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:18:36.766540192Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:32:41.150520396Z",
+  "closed_at": "2026-10-18T20:32:41.150520396Z",
+  "close_reason": "Moved to ~/PROJECT/chinwag as chinwag-nuqe.5",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-hz4q.5",
+      "depends_on_id": "JMAP-hz4q",
+      "type": "parent-child",
+      "created_at": "2026-10-18T20:18:36.870382401Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-hz4q.5",
+      "depends_on_id": "JMAP-hz4q.2",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:18:39.087748538Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-hz4q.5",
+      "depends_on_id": "JMAP-hz4q.3",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:18:39.495505204Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

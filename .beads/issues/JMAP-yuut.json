@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-yuut",
+  "title": "Ephemeral delivery rules (chat-wss and SSE)",
+  "description": "Layer: Chat ephemeral. Extends crate-jmap-chat-server, crate-jmap-chat-types, crate-jmap-base-client. Depends on: JMAP-x2gd.16 (folded in: cross-account scoping of is_contact_blocked). Spec: draft-atwood-jmap-chat-wss-00 (L133-135, L179-195, L189-193, L246-252, L267, L289-291), draft-atwood-jmap-chat-00 L562, L1086-1102, L1552-1559. Critic correction: the ephemeral.rs L58-59 sender_id doc is CORRECT (commit e8ad58d2, compliance test 2.2); the stale text is wss L232, filed as spec bug jmap-chat-spec-b9gx. Absent vs null chatIds/contactIds is spec bug jmap-chat-spec-td03. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:44.249654225Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:03:20.053844164Z",
+  "closed_at": "2026-10-20T07:03:20.053844164Z",
+  "close_reason": "All 6 children landed in batch 5"
+}

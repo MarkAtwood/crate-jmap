@@ -1,0 +1,2 @@
+{"id":"01a15003-3c4a-79fd-bc73-8052328f9f02","issue_id":"JMAP-4azw","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-18T17:15:51.754656273Z"}
+{"id":"01a15083-4121-7e19-9f1e-8214401c7efb","issue_id":"JMAP-4azw","event_type":"closed","actor":"agent","old_value":"","new_value":"Enforced in chat-server: added-id refs checked, hard deletes unpin; 7 tests.","created_at":"2026-10-18T19:35:41.601925304Z"}

@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-yt1w.41",
+  "title": "PushSubscription/set rejects fractional-second expires",
+  "description": "RFC 8620 §1.4 (rfc8620.txt:346-347): 'the \"time-secfrac\" MUST always be omitted if zero', so a non-zero fraction such as 2026-01-01T00:00:00.5Z is a valid UTCDate. UTCDate::to_epoch_seconds (crate-jmap-types/src/id.rs) accepts only the 20-character ...SSZ form, so jmap-server PushSubscription/set (limit_expires in crate-jmap-server/src/push.rs, bd:JMAP-nbk3.3) answers invalidProperties [\"expires\"] for a valid fractional expires, and is_deliverable treats a stored fractional expires as expired (fails closed). The JMAP-nbk3 plan section 3 recorded the to_epoch_seconds limitation as pre-existing and out of scope. Fix options: make to_epoch_seconds accept and floor a time-secfrac, or truncate the fraction in limit_expires.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:55:35.78265866Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T18:55:35.78265866Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.41",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:55:35.927253139Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

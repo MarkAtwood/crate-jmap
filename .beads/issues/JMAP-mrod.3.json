@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.3",
+  "title": "Delete-for-all must clear editHistory",
+  "description": "draft-atwood-jmap-chat-00 (jmap-chat-spec 10dec30): a Message with deletedAt set MUST NOT carry editHistory. crate-jmap-chat-server/src/message.rs:738-741 sets deletedAt but keeps stored editHistory when retains_edit_history() is true.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:36:18.918188405Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T02:53:04.181237034Z",
+  "started_at": "2026-10-18T02:36:41.552611531Z",
+  "closed_at": "2026-10-18T02:53:04.181237034Z",
+  "close_reason": "Fixed in dfbc7383/379d0c4b/ec422bce",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.3",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:36:19.028036602Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

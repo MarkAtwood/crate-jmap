@@ -1,0 +1,17 @@
+{
+  "id": "JMAP-7uxp",
+  "title": "mail-server writes keywords {} to stored Email even on rejected patch",
+  "description": "crate-jmap-mail-server/src/memory/mod.rs update_object inserts the RFC 8621 keywords default into the stored object before apply_patch_object; a rejected patch still leaves raw 'keywords': {}. Not client-visible (typed read drops it). Move the default into the clone.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T05:56:24.019143158Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:58:47.805301557Z",
+  "closed_at": "2026-10-18T05:58:47.805301557Z",
+  "close_reason": "fixed in working tree: patch a copy; unit test rejected_email_patch_leaves_stored_json_unchanged (fails before)",
+  "labels": [
+    "review"
+  ]
+}

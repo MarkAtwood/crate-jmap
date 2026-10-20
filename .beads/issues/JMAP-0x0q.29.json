@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.29",
+  "title": "Stop honoring client position/orientation on avatar create",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Stop honoring client position/orientation on avatar create\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L2095-2097: \"Optional: `displayName` (String), `visualRef` (String), `visualType` (String), `worldState` (Object). The server sets `id`, `userId` (to the caller's userId), `position` (to the region's `spawnPosition`), `orientation` (to the region's `spawnOrientation`), ...\" (the 'position ... if explicitly supplied' create-error row was removed).\nCode: crate-jmap-scene-server/src/avatar.rs:32-37; crate-jmap-scene-server/src/avatar.rs:380-386\nNow: SERVER_SET_ON_CREATE omits position and orientation, citing the removed 'teleport-on-entry' row. A client-supplied position or orientation on create is kept.\nChange: Add position and orientation to SERVER_SET_ON_CREATE (invalidProperties), or always overwrite them with the spawn values.\nVerifier correction: Add position and orientation to SERVER_SET_ON_CREATE (invalidProperties, the RFC 8620 handling for server-set properties). Update the avatar_set.rs:326 test, whose oracle is the removed teleport-on-entry row.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:34.121329289Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:34.121329289Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.29",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:34.249149138Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

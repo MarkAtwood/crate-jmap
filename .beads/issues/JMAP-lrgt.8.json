@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-lrgt.8",
+  "title": "chat-client: settle post-ops7.20 pub surface for 0.4",
+  "description": "Freeze blocker from the third 2026-10-20 freeze review. Two open chat-client API-shape decisions are not linked to JMAP-lrgt and have no 'bd:' commit; deciding either after 0.4 would break semver. (1) JMAP-y7iy: crate-jmap-chat-client/src/types.rs:23 pub enum ContactPresenceFilter (+ TryFrom at L36) is still exported, but JMAP-ops7.20 (14c2765c) removed its only consumer, so it is dead public API. (2) JMAP-ops7.22: grep -c 'pub fn new' crate-jmap-chat-client/src/methods/*.rs finds 16 constructors on *Input/*Patch types, where sibling clients use Default + struct literals. The ops7.20 comment said to decide ops7.7, ops7.20 and ops7.22 together; only ops7.20 was decided (positional). Decide on both (remove or keep, Default vs new) before 0.4 and close y7iy and ops7.22 to match.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:34:10.285057358Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:34:10.285057358Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lrgt.8",
+      "depends_on_id": "JMAP-lrgt",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:34:10.401700393Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

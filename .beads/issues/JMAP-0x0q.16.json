@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.16",
+  "title": "Re-cite chatPush capability rule in push.rs docs",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-ext] Re-cite chatPush capability rule in push.rs docs\nSpec (57243ea): draft-atwood-jmap-chat-push-00.md:110 \"If a `PushSubscription/set` create or update includes a `chatPush` entry for an account whose `accountCapabilities` does not include `urn:jmap:chat:push`, the server MUST return an `invalidProperties` SetError whose `properties` names the offending entry (e.g., `chatPush/\u003cid\u003e`) and MUST NOT store the subscription change.\" (replaces \"Servers MUST NOT include `chatPush` entries for accounts whose `accountCapabilities` does not include ...\")\nCode: crate-jmap-chat-server/src/push.rs:74-77 (validate_chat_push doc quotes removed sentence); crate-jmap-chat-server/src/push.rs:136-149 (strip_unsupported_chat_push justified only by the removed sentence); crate-jmap-chat-server/src/memory.rs:1827; crate-jmap-chat-server/tests/chat_push_validation.rs:75,143; crate-jmap-chat-server/tests/chat_push_memory.rs:102; crate-jmap-chat-server/tests/chat_push_should_push.rs:344\nNow: validate_chat_push already rejects the entry with invalidProperties chatPush/\u003caccountId\u003e, and memory.rs:1845/1871 rejects before storing, so the behavior conforms. But the docs and test oracles quote a sentence that no longer exists, and strip_unsupported_chat_push enforces a read-side rule the draft no longer states.\nChange: Re-quote :110 in the validate_chat_push docs and test oracles. Decide whether to keep strip_unsupported_chat_push, which the spec now neither requires nor forbids for a capability lost after storage. If kept, re-justify it, for example as matching should_push, which treats such an entry as absent.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:29.734874586Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:29.734874586Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.16",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:29.85284711Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

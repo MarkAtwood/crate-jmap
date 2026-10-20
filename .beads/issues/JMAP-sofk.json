@@ -1,0 +1,19 @@
+{
+  "id": "JMAP-sofk",
+  "title": "PatchObject null should reset to property default, not always remove",
+  "description": "RFC 8620 5.3: null means 'set to the default value if specified for this property; otherwise, remove the property'. apply_patch_object always removes. Typed defaults (serde default) usually mask this on read; audit servers (tasks noted) for properties whose default is not 'absent'.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T05:56:23.95203682Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T06:07:44.022807439Z",
+  "started_at": "2026-10-18T05:57:38.839079734Z",
+  "closed_at": "2026-10-18T06:07:44.022807439Z",
+  "close_reason": "serde defaults for spec-defaulted fields across mail/contacts/calendars/tasks/chat types; tests per server. Remaining gaps filed separately.",
+  "labels": [
+    "review"
+  ]
+}

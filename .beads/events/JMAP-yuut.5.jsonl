@@ -1,0 +1,2 @@
+{"id":"01a156c5-7cf4-7072-a17a-5c04d110ac1d","issue_id":"JMAP-yuut.5","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:45.588031182Z"}
+{"id":"01a1581e-cc10-7748-9ff3-aaa42ca7bf57","issue_id":"JMAP-yuut.5","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 8f4e3699 feat(chat-types): companion dataTypes vtc, scene (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:55.760477754Z"}

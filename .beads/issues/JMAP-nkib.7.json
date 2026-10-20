@@ -3,23 +3,21 @@
   "close_reason": "Decision: generic S: AsRef<str> is correct and ergonomic. No code change needed.",
   "closed_at": "2026-05-02T22:11:46Z",
   "compaction_level": 0,
-  "content_hash": "b342454ddb2a3cdf694ae1fe4c9e63e62b2b963c04bf6e80634f64f1e3b05166",
   "created_at": "2026-05-02T22:09:09Z",
   "created_by": "Mark Atwood",
   "description": "Generalizing from &[&str] to &[S] where S: AsRef<str> is the correct API design. It lets callers pass &[String] (e.g., Vec<String> of capabilities loaded from config at startup) without requiring .as_str() conversions or &strs lifetime-pinned to temporaries. A future contributor might suggest reverting to &[&str] for 'simplicity'. Reject that: the generic version is strictly more usable with zero performance cost and identical semantics.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-nkib.7",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "decision",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "check_known_capabilities generic S: AsRef<str> \u2014 correct and should be defended",
+  "title": "check_known_capabilities generic S: AsRef<str> — correct and should be defended",
   "updated_at": "2026-05-02T22:11:46Z",
   "dependencies": [
     {
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-nkib",
       "id": "031f8465-f33d-51a3-96e8-2eedfd5305f0",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

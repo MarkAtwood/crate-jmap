@@ -2,22 +2,20 @@
   "close_reason": "Fixed in commit (above)",
   "closed_at": "2026-05-07T21:26:10Z",
   "compaction_level": 0,
-  "content_hash": "f0ce950e9dc3967947d7c9b182a5312ecde1b75ec4a677c3180f819a399c7508",
   "created_at": "2026-05-07T20:43:20Z",
   "created_by": "Mark Atwood",
-  "description": "Each crate-jmap-{calendars,chat,contacts,filenode,mail,sharing,tasks}-client/src/methods/<X>.rs returns `Result<_, jmap_base_client::ClientError>` from every public method.\n\nCallers must add a separate dependency on jmap-base-client to spell the error type they receive. This is a leaky abstraction \u2014 the convention is that a high-level crate either re-exports its public error type or wraps it.\n\nFix: add `pub use jmap_base_client::ClientError;` to each of the 7 client crates' lib.rs. Trivial, mechanical, ~7 lines added.\n\nThis makes downstream usage:\n\n```rust\nuse jmap_mail_client::ClientError;  // works\n```\n\ninstead of:\n\n```rust\nuse jmap_base_client::ClientError;  // requires extra dep\n```",
-  "ephemeral": 0,
+  "description": "Each crate-jmap-{calendars,chat,contacts,filenode,mail,sharing,tasks}-client/src/methods/<X>.rs returns `Result<_, jmap_base_client::ClientError>` from every public method.\n\nCallers must add a separate dependency on jmap-base-client to spell the error type they receive. This is a leaky abstraction — the convention is that a high-level crate either re-exports its public error type or wraps it.\n\nFix: add `pub use jmap_base_client::ClientError;` to each of the 7 client crates' lib.rs. Trivial, mechanical, ~7 lines added.\n\nThis makes downstream usage:\n\n```rust\nuse jmap_mail_client::ClientError;  // works\n```\n\ninstead of:\n\n```rust\nuse jmap_base_client::ClientError;  // requires extra dep\n```",
+  "ephemeral": false,
   "id": "JMAP-sc1b.44",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "P2: 7 client crates' public API returns ClientError but none re-export it",
   "updated_at": "2026-05-07T21:26:10Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-sc1b",
       "id": "0896f90d-2346-5f20-bab6-939605e6cb52",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -8,5 +8,11 @@
   "compact_tier2_days": "90",
   "compact_tier2_dep_levels": "5",
   "compaction_enabled": "false",
-  "issue_prefix": "JMAP"
+  "issue_prefix": "JMAP",
+  "kv.memory.bd-update-notes-replaces-a-bead-s-notes": "bd update --notes REPLACES a bead's notes; use --append-notes to add. On 2026-10-18 --notes wiped earlier notes on 75 beads (mimid + crate-jmap); restored from .beads/events old_value history.",
+  "kv.memory.build-cache-cleanup": "Mark 2026-10-20: standing OK to clean build caches whenever no longer needed (shared ~/Cache/cargo-target, stale scratchpad target dirs marked by CACHEDIR.TAG). Never while a cargo build/workflow is running in it; do it between batches (e.g. rm -rf ~/Cache/cargo-target/debug after CI passes). Never delete non-cache work products.",
+  "kv.memory.jmap-spec-operator-shoulds": "Mark 2026-10-20: JMAP drafts cannot compel arbitrary JMAP operators to adopt strict ops policy (e.g. Agora's profile MUSTs): operator/deployment policy (witnesses, portability, method allow-lists, versionId recording) is SHOULD/MAY. Verifier rules already mandated by a referenced method spec (e.g. DIF did:webvh log verification) are not restated as our own MUSTs; defer to the reference ('as defined in DIF did:webvh v1.0').",
+  "kv.memory.spec-method-defaults": "Decided by Mark 2026-10-19 (JMAP-ic0j.26): backend trait methods carrying spec semantics get NO default impl when a no-op default would put wrong data on the wire (e.g. availability, blob parsing); defaults are OK when the result is merely absent or the spec permits ignoring. Permission/policy hooks stay fail-open (JMAP-bghk).",
+  "kv.memory.workflow-ci-agent-foreground": "Workflow CI-gate agents must run every command in the foreground: one agent armed Monitor and returned 'I'll wait' without running any gate (2026-10-18). Always check the CI result text has per-gate exit codes before trusting it.",
+  "kv.memory.workflow-verifier-worktree-pin": "Workflow agent isolation:'worktree' can create the worktree at the run's starting HEAD, not the current HEAD (seen 2026-10-18: .16/.17 verified at abf6969a). For HEAD-pinned adversarial checks, have the verifier run git worktree add --detach at an explicitly resolved rev and report it; re-verify if head_sha != expected parent."
 }

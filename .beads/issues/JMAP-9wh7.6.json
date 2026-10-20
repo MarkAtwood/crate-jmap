@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-10T22:22:26Z",
   "compaction_level": 0,
-  "content_hash": "3f9b507f3f86462838711a985cd2a819554dbf84d7df3b9e90895bc240c03d14",
   "created_at": "2026-05-10T21:31:54Z",
   "created_by": "Mark Atwood",
-  "description": "Add rustdoc to the filter algebra types in crate-jmap-filenode-types documenting their exclusion from the workspace extras-preservation policy (JMAP-lbdy \"Decision: filter algebra excluded\", 2026-05-10).\n\n## Types in scope\n\n- `crate-jmap-filenode-types/src/filter.rs:20` \u2014 `FileNodeFilterCondition`\n\n## Required rustdoc content\n\nMirror canonical wording from .1 (jmap-types) and .2 (jmap-mail-types) per cookie-cutter rule:\n- exclusion notice,\n- three-reason rationale,\n- IETF-track future hook pointing at `draft-ietf-jmap-metadata` / workspace tracker JMAP-06zp,\n- pre-IETF escape (sloppy-value `serde_json::Value` or fork FilterCondition),\n- JMAP-lbdy cross-reference.\n\n## Acceptance criteria\n\n- `FileNodeFilterCondition` carries the exclusion notice with wording consistent with siblings and both future-hook paths.\n- `cargo doc --no-deps -p jmap-filenode-types` clean.\n- `cargo clippy -p jmap-filenode-types -- -D warnings` clean.\n- `cargo test -p jmap-filenode-types` clean.\n\nNo code changes beyond doc comments.\n",
-  "ephemeral": 0,
+  "description": "Add rustdoc to the filter algebra types in crate-jmap-filenode-types documenting their exclusion from the workspace extras-preservation policy (JMAP-lbdy \"Decision: filter algebra excluded\", 2026-05-10).\n\n## Types in scope\n\n- `crate-jmap-filenode-types/src/filter.rs:20` — `FileNodeFilterCondition`\n\n## Required rustdoc content\n\nMirror canonical wording from .1 (jmap-types) and .2 (jmap-mail-types) per cookie-cutter rule:\n- exclusion notice,\n- three-reason rationale,\n- IETF-track future hook pointing at `draft-ietf-jmap-metadata` / workspace tracker JMAP-06zp,\n- pre-IETF escape (sloppy-value `serde_json::Value` or fork FilterCondition),\n- JMAP-lbdy cross-reference.\n\n## Acceptance criteria\n\n- `FileNodeFilterCondition` carries the exclusion notice with wording consistent with siblings and both future-hook paths.\n- `cargo doc --no-deps -p jmap-filenode-types` clean.\n- `cargo clippy -p jmap-filenode-types -- -D warnings` clean.\n- `cargo test -p jmap-filenode-types` clean.\n\nNo code changes beyond doc comments.\n",
+  "ephemeral": false,
   "id": "JMAP-9wh7.6",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Add filter-algebra exclusion rustdoc to jmap-filenode-types",
   "updated_at": "2026-05-10T22:22:26Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-9wh7",
       "id": "0f23158e-e00b-5ba5-8346-af3a31b91074",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

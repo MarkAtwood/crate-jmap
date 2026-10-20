@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-lu95.3",
+  "title": "metadata-04: filter paths at any depth, reject bad ~",
+  "description": "draft-ietf-jmap-metadata-04 allows filter paths at any depth and requires rejecting malformed paths.\n\n-04 §3.6 MetadataTextMatch.path: \"a namespace identifier, optionally followed by a JSON Pointer [RFC6901] into the namespace value (for example, \u003cnamespace\u003e, \u003cnamespace\u003e/\u003ckey\u003e or \u003cnamespace\u003e/\u003ckey\u003e/\u003csubkey\u003e). Object members are addressed by name; a path that would traverse an array or a scalar addresses no value. A path that is not well formed (for example, one with an invalid ~ escape) MUST be rejected with an \"invalidArguments\" error.\"\n-04 §3.6 metadataExists: \"A path, with the syntax defined for MetadataTextMatch.\"\n(-02 limited paths to \u003cnamespace\u003e or \u003cnamespace\u003e/\u003ckey\u003e.)\n\nAffected:\n- crate-jmap-metadata-server/src/filter.rs:46-56 resolve_path uses split_once('/'), so \"ns/a/b\" looks up a single key \"a/b\" instead of walking ns -\u003e a -\u003e b. Walk every segment; when a segment lands on an array or a scalar, return None.\n- crate-jmap-metadata-server/src/filter.rs:30-36 unescape_rfc6901 accepts invalid escapes (a \"~\" not followed by 0 or 1). -04 requires invalidArguments for those, so callers need a fallible check. Proposed: an additive pub fn (for example, a path validator returning Result/bool) so the existing bool predicates metadata_path_exists/metadata_text_contains/metadata_text_equals (filter.rs:80, 116, 145) keep their signatures.\n- crate-jmap-metadata-server/src/filter.rs:80-92 metadata_path_exists namespace-only branch: -04 keeps \"present and not {}\". Only multi-segment paths change.\n- Docs that state the -02 two-segment form: crate-jmap-metadata-types/src/filter.rs:40-52 (MetadataTextMatch), :125-126 (WithMetadata.metadata_exists); crate-jmap-metadata-server/src/filter.rs:40-41.\n- Tests: add deep-path, array-traversal (None) and invalid-~ cases. Oracle: the -04 §3.6 text above and RFC 6901 §4.\n\nRelated -04 §3.6 change, no code needed: \"Conditions are evaluated against the stored data whether or not the namespace is supported\". The helpers already ignore support, but the module docs should not imply otherwise.\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T15:49:41.603311148Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T15:49:41.603311148Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lu95.3",
+      "depends_on_id": "JMAP-lu95",
+      "type": "parent-child",
+      "created_at": "2026-10-20T15:49:41.724221066Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-dav1",
+  "title": "ponytail comment on Space bootstrap Admin role",
+  "description": "Mark 2026-10-19: Space/set create's fixed bootstrap role (JMAP-yt1w.34, 90a18713; name Admin, every permission, position 2^53-1, in handle_space_set) is deliberate library policy for a server-defined choice. Add a ponytail: comment there naming the ceiling (one fixed policy for every backend) and the upgrade path (a ChatBackend hook returning the bootstrap role, default = current behaviour) if a consumer needs different policy. Do after the JMAP-nbk3 workflow finishes (same working tree).",
+  "notes": "Done in 7d531680.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:37:17.323860665Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T19:46:47.88259648Z",
+  "closed_at": "2026-10-19T19:46:47.88259648Z",
+  "close_reason": "Closed"
+}

@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-y3f2.13",
+  "title": "chat-server: isPublic patch gate has no spec basis",
+  "description": "permissions.rs MANAGE_SPACE doc, memory.rs (validate top-level metadata, ~L2298) and backend.rs (~L1336) state that §Space/set gates isPublic and isPubliclyPreviewable on manage_space. At jmap-chat-spec 91672c9 §Space/set L1256-1257 lists only name, description, iconBlobId as metadata patch keys; the draft names no patch key or permission for isPublic/isPubliclyPreviewable. Decide: raise a spec issue to add them under manage_space, or reject them as unknown keys. Found during JMAP-y3f2.10.",
+  "notes": "DECIDED by Mark 2026-10-20: keep manage_space (matches chat-00 L812/L815). Spec fix: add isPublic, isPubliclyPreviewable to the §Space/set patch-key list (chat-00 L1256). Crate behaviour unchanged; only citations need fixing (done under JMAP-y3f2.17).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T06:50:12.649649921Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:05:47.019983403Z",
+  "closed_at": "2026-10-20T10:05:47.019983403Z",
+  "close_reason": "Decided: keep manage_space; spec fixed in jmap-chat-spec 3227c0f; crate citations under JMAP-y3f2.17",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.13",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T06:50:12.775768943Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

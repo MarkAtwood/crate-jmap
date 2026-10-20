@@ -1,0 +1,23 @@
+{
+  "id": "JMAP-38uq.10",
+  "title": "scene spec: clarify region destroy eject and update echo",
+  "description": "Two draft-atwood-jmap-scene-00 ambiguities found implementing JMAP-38uq.3: (1) L1117 says destroy 'removes ... all contained SceneObject and SceneAvatar records' and also 'Active avatars are ejected (their leftAt is set)'; setting leftAt on a record that is then destroyed is unobservable over JMAP. Implementation destroys the avatars (SceneAvatar/changes reports them destroyed). (2) L1104 example shows updated: {id: null}, but RFC 8620 §5.3 echoes server-changed properties; the implementation echoes {updatedAt}. Spec should state the intended behaviour.",
+  "notes": "Mark 2026-10-20: Scene specs have known bugs; no further Scene crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T15:11:47.008195416Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:55:34.086110425Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-38uq.10",
+      "depends_on_id": "JMAP-38uq",
+      "type": "parent-child",
+      "created_at": "2026-10-20T15:11:47.117850209Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-y3f2.17",
+  "title": "Doc drift and test gaps from batch 5",
+  "description": "From batch-5 verify. Docs: expire_message doc omits burnOnRead sweep path (backend.rs ~L2031); base-client ws MessageDisposition::Close doc says returns None (now Some(Err(WsClosed)) for 1008); ephemeral.rs from_enable should say full URN urn:ietf:params:jmap:error:invalidArguments (wss L195); integration.rs ~L618-664, L973-1019 comments describe old is_contact_blocked framing; typing_delivery.rs wss line cites off by two vs 91672c9; MANAGE_SPACE doc credits L1256 with isPublic keys (ties to y3f2.13); cargo doc -p jmap-chat-server with default features fails on intra-doc link crate::memory::MemoryBackend (backend.rs:611) - check docs.rs metadata. Tests missing: tasks cascade-failure path (notDestroyed, list survives); attachment_blob hook Ok(Err)/Err paths; Space destroy when channel read fails; outbound Edit negatives (edit+delete, forbidden edit); Space/query unfiltered hides non-member public Space; CustomEmoji successful update; dfo4 default-permit Chat/set; encrypted-type broadcastMentions/attachments; non-manage_space member patching extension key.",
+  "notes": "Per JMAP-y3f2.13 decision (Mark 2026-10-20): the chat-00 §Space/set patch-key list now reads 'name, description, iconBlobId, isPublic, isPubliclyPreviewable: Metadata fields. Require manage_space' (jmap-chat-spec working tree, ~L1256; property defs L812/L815). Cite those lines in MANAGE_SPACE doc, memory.rs ~L2298 and backend.rs ~L1336. No behaviour change.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:03:21.263422281Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:17.774634654Z",
+  "closed_at": "2026-10-20T10:19:17.774634654Z",
+  "close_reason": "Landed in f799fb5c test(chat,tasks): batch-5 doc drift, test gaps (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.17",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:03:21.377242602Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

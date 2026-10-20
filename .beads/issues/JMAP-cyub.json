@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-cyub",
+  "title": "Interop testing against Stalwart",
+  "description": "Opt-in interop and differential testing of crate-jmap against Stalwart (real JMAP server). Not in default CI; nothing links or vendors Stalwart (AGPL), it runs only as an external test server.\nFindings 2026-10-18: crate-jmap has no external-server interop today. Rootless podman 4.9.3 works (docker daemon not accessible). docker.io/stalwartlabs/stalwart:latest = v0.16 boots, but starts in bootstrap mode (temporary admin shown once, setup expected via web UI; /.well-known/jmap 307 until set up). STALWART_RECOVERY_ADMIN=admin:\u003cpassword\u003e pins a credential; unattended setup needs a config file + management API calls (to research).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:10:18.122389559Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:10:18.122389559Z"
+}

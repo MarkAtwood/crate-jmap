@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.1",
+  "title": "ChatMessageEntry.hasMention must be optional",
+  "description": "draft-atwood-jmap-chat-push-00 (jmap-chat-spec f0fda4c): hasMention and mentionScopes are optional and MUST be omitted when encrypted is true. crate-jmap-chat-types/src/push.rs:115 has_mention: bool fails to deserialize such entries. Make Option\u003cbool\u003e. Fix together with JMAP-51lu (has_mention_all -\u003e mentionScopes).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:36:18.001949543Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T02:53:03.57671483Z",
+  "started_at": "2026-10-18T02:36:41.234872873Z",
+  "closed_at": "2026-10-18T02:53:03.57671483Z",
+  "close_reason": "Fixed in dfbc7383/379d0c4b/ec422bce",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.1",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:36:18.104119121Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

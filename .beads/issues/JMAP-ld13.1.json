@@ -3,22 +3,20 @@
   "close_reason": "Implemented in crate-jmap-jscontact; 27 tests pass; clippy clean",
   "closed_at": "2026-05-05T18:57:11Z",
   "compaction_level": 0,
-  "content_hash": "b57ae2bd4c7550548e33afb79f21d07e25f46dcc49a27e9515fc0459ff7ece09",
   "created_at": "2026-05-05T18:48:11Z",
   "created_by": "Mark Atwood",
   "description": "Create crate-jmap-jscontact/ directory structure. Dependencies: jmap-types (path), serde+serde_json only. Module layout: src/lib.rs, src/name.rs, src/contact.rs, src/address.rs, src/resource.rs, src/anniversary.rs, src/note.rs, src/personal.rs, src/string_enum.rs. The string_enum macro generates forward-compatible enums (like in jmap-filenode-types). Add to workspace Cargo.toml members list.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-ld13.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "jmap-jscontact: crate scaffold, Cargo.toml, lib.rs, string_enum macro",
   "updated_at": "2026-05-05T18:57:11Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-ld13",
       "id": "76f9839d-36ff-5fe7-a820-243ac4a01e05",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

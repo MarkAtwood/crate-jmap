@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-v9py.17.5",
+  "title": "Decide ICS handling; bounded ICS parser with sanitization",
+  "description": "Decision plus parser crate with size, recursion and recurrence limits and sanitization (draft-atwood-jmap-chat-calendars-00 L210-228, L292-296). Default to needs-action; never auto-RSVP.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Decision recorded; parser tests use RFC 5545 examples and oversized/deeply nested fixtures.",
+  "notes": "DECIDED by Mark 2026-10-20: not supported for now. The chat-calendars capability advertises supportsIcsParsing: false; no iCalendar parser dependency; .ics attachments stay plain files and clients may parse client-side (draft-atwood-jmap-chat-calendars-00 L218, L230). Document the constraint in the chat-calendars crate docs. Revisit if a consumer needs server-side parsing (then evaluate wrapping a maintained crate such as calcard with the L290-296 limits).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:06.63514188Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:03:50.632481952Z",
+  "closed_at": "2026-10-20T07:03:50.632481952Z",
+  "close_reason": "Decided by Mark 2026-10-20; decision recorded in notes",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.17.5",
+      "depends_on_id": "JMAP-v9py.17",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:06.743869892Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

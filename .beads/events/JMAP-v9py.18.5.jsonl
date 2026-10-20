@@ -1,0 +1,2 @@
+{"id":"01a156c5-d50f-75bb-b3a9-74dc24bcffde","issue_id":"JMAP-v9py.18.5","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:46:08.143377043Z"}
+{"id":"01a15b09-53da-7a88-ab65-b39fd27089f9","issue_id":"JMAP-v9py.18.5","event_type":"closed","actor":"agent","old_value":"","new_value":"Committed and adversarially verified (batch 7); open-epic dependency only","created_at":"2026-10-20T20:38:20.37869181Z"}

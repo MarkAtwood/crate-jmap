@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-8tuq.5",
+  "title": "chat-server: DID cache refreshed on signature failure",
+  "description": "DID cache that refreshes when a signature check fails (draft-atwood-jmap-chat-did-00 L205, L248).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L205/L248.",
+  "notes": "DECIDED by Mark 2026-10-20: cache and refresh-on-failure live in crate-jmap-did-resolver; chat-server takes a resolved DID document and returns a typed 'signature failed with cached document' outcome so the caller refreshes and retries once. chat-server stays I/O-free.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:12.253189843Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:38:00.98436071Z",
+  "closed_at": "2026-10-20T20:38:00.98436071Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8tuq.5",
+      "depends_on_id": "JMAP-8tuq",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:12.355254829Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.14",
+  "title": "queryChanges ignores filter/view/default sort",
+  "description": "From batch-5 verify (ji1v, y3f2.1, y3f2.7). RFC 8620 §5.6: /queryChanges reports changes to the results of the same query. (1) tasks-server MemoryBackend::query_changes ignores the new taskListId filter that query_objects honours; its rustdoc premise is now false. (2) chat-server MemoryBackend::query_changes ignores the view filter (Message) and the non-member hiding (Space) that query_objects now applies, so it can announce ids /query and /get hide. (3) the chat /query handlers now pass the draft default sort but the /queryChanges handlers do not. Fix: apply the same filter/visibility/sort in query_changes, or return cannotCalculateChanges when it cannot.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:03:20.46613785Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:17.303188488Z",
+  "closed_at": "2026-10-20T10:19:17.303188488Z",
+  "close_reason": "Landed in 7d522090 fix(chat,tasks)!: queryChanges honours the query (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.14",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:03:20.577924871Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

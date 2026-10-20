@@ -3,22 +3,20 @@
   "close_reason": "Extracted parse_mailbox_ids(entry, rfc_ref) and parse_keywords_field(entry) helpers. handle_email_import and handle_email_copy now each call these instead of duplicating the 25-line parsing blocks.",
   "closed_at": "2026-05-04T15:49:34Z",
   "compaction_level": 0,
-  "content_hash": "d07feda4f6f3b607f6d3ea689a8ed345d1b5d21df04a2a49da4406ccb6d258d5",
   "created_at": "2026-05-02T02:56:04Z",
   "created_by": "Mark Atwood",
-  "description": "The logic for parsing keywords (raw_keywords_map \u2192 validate_and_normalize_keywords \u2192 Vec<Keyword>) and mailboxIds (filter true values \u2192 Vec<Id>) is copy-pasted verbatim in handle_email_import (email.rs:1742-1768, 1718-1740) and handle_email_copy (email.rs:2047-2073, 2023-2045). These blocks are identical except for the key names used in error messages. Suggested rewrite: extract parse_keywords(entry, key_name) -> Result<Vec<Keyword>, Value> and parse_mailbox_ids(entry, key_name) -> Result<Vec<Id>, Value> as shared private helpers.",
-  "ephemeral": 0,
+  "description": "The logic for parsing keywords (raw_keywords_map → validate_and_normalize_keywords → Vec<Keyword>) and mailboxIds (filter true values → Vec<Id>) is copy-pasted verbatim in handle_email_import (email.rs:1742-1768, 1718-1740) and handle_email_copy (email.rs:2047-2073, 2023-2045). These blocks are identical except for the key names used in error messages. Suggested rewrite: extract parse_keywords(entry, key_name) -> Result<Vec<Keyword>, Value> and parse_mailbox_ids(entry, key_name) -> Result<Vec<Id>, Value> as shared private helpers.",
+  "ephemeral": false,
   "id": "JMAP-yqo.17",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Email/set and Email/import duplicate keyword+mailboxIds parsing code",
   "updated_at": "2026-05-04T15:49:34Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-yqo",
       "id": "fde8c680-4aaa-5a76-8614-73bfb90633d1",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

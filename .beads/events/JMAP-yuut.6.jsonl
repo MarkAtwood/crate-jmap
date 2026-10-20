@@ -1,0 +1,2 @@
+{"id":"01a156c5-7e28-73d0-86ed-2e7ab620709a","issue_id":"JMAP-yuut.6","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:45.896250852Z"}
+{"id":"01a1581e-cd07-76ed-be90-480f1062a207","issue_id":"JMAP-yuut.6","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 658fe20c feat(base-client): surface WebSocket close 1008 (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:56.00745476Z"}

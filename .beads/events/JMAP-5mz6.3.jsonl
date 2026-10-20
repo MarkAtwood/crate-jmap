@@ -1,0 +1,2 @@
+{"id":"01a156c5-6c98-725e-843b-77b2d23bf1d0","issue_id":"JMAP-5mz6.3","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:41.400155876Z"}
+{"id":"01a1581e-c293-7845-b675-6e3f77f9ac36","issue_id":"JMAP-5mz6.3","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 3827a9e0 feat(chat-server): configurable encrypted types (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:53.331543Z"}

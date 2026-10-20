@@ -4,23 +4,21 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-04T23:48:08Z",
   "compaction_level": 0,
-  "content_hash": "a8683c3f869eae5ec825e175f19e592234fcc8c7e3c694d4b594f09944a170d5",
   "created_at": "2026-05-04T15:06:40Z",
   "created_by": "Mark Atwood",
-  "description": "WHAT: Port from ~/PROJECT/crate-jmapchat-client/src/methods/misc.rs. Methods: read_position_get, read_position_update, read_position_changes, presence_status_get, presence_status_update, presence_status_changes, push_subscription_create. SPECIAL: push_subscription_create does NOT use session_parts() \u2014 PushSubscriptions are not account-scoped; use api_url() directly. DEFENSIVE: No unwrap(). ACCEPTANCE: cargo check passes; clippy clean",
-  "ephemeral": 0,
+  "description": "WHAT: Port from ~/PROJECT/crate-jmapchat-client/src/methods/misc.rs. Methods: read_position_get, read_position_update, read_position_changes, presence_status_get, presence_status_update, presence_status_changes, push_subscription_create. SPECIAL: push_subscription_create does NOT use session_parts() — PushSubscriptions are not account-scoped; use api_url() directly. DEFENSIVE: No unwrap(). ACCEPTANCE: cargo check passes; clippy clean",
+  "ephemeral": false,
   "id": "JMAP-787e",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "jmap-chat-client: methods/misc.rs \u2014 ReadPosition, PresenceStatus, PushSubscription",
+  "title": "jmap-chat-client: methods/misc.rs — ReadPosition, PresenceStatus, PushSubscription",
   "updated_at": "2026-06-26T19:57:32Z",
   "dependencies": [
     {
@@ -28,7 +26,7 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-gb1w",
       "id": "1770defb-c355-5294-8f63-85a15dcd8e10",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     },
     {
@@ -36,7 +34,7 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-ds04",
       "id": "71be5167-a46e-5837-af58-8b04fc8beedf",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     },
     {
@@ -44,8 +42,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-s1ei",
       "id": "ec06fd23-f329-5092-8768-0dbb68dc1acf",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     }
-  ]
+  ],
+  "timeout": 0
 }

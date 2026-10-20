@@ -1,0 +1,32 @@
+{
+  "id": "JMAP-hz4q.3",
+  "title": "chinwag: accounts and auth",
+  "description": "Bearer-token auth for clients (RFC 8620 §1.7 leaves the method to the server): accounts and tokens stored in the database, created with a CLI subcommand (chinwag user add / token create). Tokens hashed at rest. No passwords over the wire in v1.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:18:36.210411249Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:32:40.497806747Z",
+  "closed_at": "2026-10-18T20:32:40.497806747Z",
+  "close_reason": "Moved to ~/PROJECT/chinwag as chinwag-nuqe.3",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-hz4q.3",
+      "depends_on_id": "JMAP-hz4q",
+      "type": "parent-child",
+      "created_at": "2026-10-18T20:18:36.33860564Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-hz4q.3",
+      "depends_on_id": "JMAP-hz4q.1",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:18:38.185886673Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

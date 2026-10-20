@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-ccy6",
+  "title": "Chat rich body spans (application/jmap-chat-rich)",
+  "description": "Layer: Chat base. Extends crate-jmap-chat-types, -client and -server (push). Depends on: nothing (Tier 0). Spec: draft-atwood-jmap-chat-00.md L1447-1481, L1692, L1094-1096; draft-atwood-jmap-chat-push-00 L188, L309. Folded-in: JMAP-nbk3.8 (push bodySnippet from span text, strip markdown/HTML, remove the D8 omission at push.rs:284). Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:42.539657945Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:22.779357749Z",
+  "closed_at": "2026-10-20T10:19:22.779357749Z",
+  "close_reason": "All children landed in batch 6"
+}

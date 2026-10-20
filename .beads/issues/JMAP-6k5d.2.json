@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-6k5d.2",
+  "title": "mimi-server: KeyPackage/get and /set rules",
+  "description": "Update returns forbidden; six create checks (draft-atwood-jmap-chat-mimi-00 L187, L197); signature-key account binding and ref dedup; overQuota at maxKeyPackages; last-resort replacement (L195-201).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests use RFC 9420 KeyPackage test vectors (MLS interop test-vectors) and quote L187-201.",
+  "notes": "Mark 2026-10-20 DECISION: (A) raise [workspace.package] rust-version to 1.91 and CI msrv job to 1.91.0; CHANGELOG [Unreleased] BREAKING (MSRV). Applies to 6k5d.8 too.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:03.367042141Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:44:28.022236528Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6k5d.2",
+      "depends_on_id": "JMAP-6k5d",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:03.463772573Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

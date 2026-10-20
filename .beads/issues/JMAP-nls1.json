@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-nls1",
+  "title": "chat-server: MemoryBackend Message ids are uuid v4, not ULIDs",
+  "description": "draft-atwood-jmap-chat-00.md L591: 'Message IDs are ULIDs, assigned by the receiving mailbox at storage time. ULIDs are lexicographically ordered by time'. MemoryBackend::create_object (memory.rs ~L758) assigns uuid::Uuid::new_v4() to every type, so id order is random. Chat.unreadCount (L548, JMAP-y3f2.4) and unreadReplyCount (L642, computed in message.rs fill_reply_counts since JMAP-y3f2.3) both compare ids lexicographically, so on MemoryBackend they are only correct for seeded ULID ids. Fix: assign ULIDs to Message (and Chat, L489) in MemoryBackend. Found while implementing JMAP-y3f2.3.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T04:37:34.131110066Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T04:37:34.131110066Z"
+}

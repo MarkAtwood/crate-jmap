@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-8lwx",
+  "title": "Message/set burnOnRead burns sender's own copy",
+  "description": "crate-jmap-chat-server/src/message.rs ~L1646-1658: when a patch sets readAt, pre_patch_burn_on_read checks only burn_on_read, not sender_id != account_id, so an owner marking their own sent burnOnRead message read hard-deletes it via read_and_burn_message. Spec draft-atwood-jmap-chat-00 L660: 'Applies only to the receiving mailbox; the sender's own copy is not affected.' Found during review fix of JMAP-y3f2.6 (sweep_expired fixed there).",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T05:14:26.551195044Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T05:14:26.551195044Z"
+}

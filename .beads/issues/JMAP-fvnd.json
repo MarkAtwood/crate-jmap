@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-fvnd",
+  "title": "crate-jmap-chat-mimi-types: typed JMAP surface of draft-atwood-jmap-chat-mimi-00",
+  "description": "New workspace crate holding the wire types of the urn:ietf:params:jmap:chat:mimi extension, so mimid and clients share one definition (replaces the plan in mimid-1wgh.12.2). Types only: no server logic. Byte-string properties are unpadded base64url of exact TLS-encoded octets (draft §Conventions): keep them as validated base64url strings, never re-encode. Follow workspace AGENTS.md conventions (extras preservation, non_exhaustive, serde camelCase, spec-quoted tests with hand-written JSON oracles from the draft's Examples section).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T20:54:34.346769296Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:23.292671863Z",
+  "closed_at": "2026-10-20T10:19:23.292671863Z",
+  "close_reason": "All children landed in batch 6"
+}

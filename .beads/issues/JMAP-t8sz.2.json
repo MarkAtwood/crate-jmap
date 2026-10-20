@@ -3,22 +3,20 @@
   "close_reason": "Opinion: #[allow(deprecated)] attribute is self-explanatory. No comment needed.",
   "closed_at": "2026-05-02T22:19:23Z",
   "compaction_level": 0,
-  "content_hash": "b916800c7a5b1dc58693938976bdb05f4808dc0c642e26495fb9d2f6368a9025",
   "created_at": "2026-05-02T22:18:12Z",
   "created_by": "Mark Atwood",
   "description": "The #[allow(deprecated)] on jmap_error_all_constructors_serialize has no comment explaining why the deprecated constructor is intentionally exercised. A contributor who sees this suppression in six months may wonder if it was laziness or intentional. Suggested addition: a comment on the unknown_capability() call inside the vec\\! like '// intentionally testing deprecated constructor for serialization coverage' so the purpose is clear without reading the test name.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-t8sz.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 4,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "#[allow(deprecated)] in test lacks inline explanation",
   "updated_at": "2026-05-02T22:19:23Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-t8sz",
       "id": "76e665e1-3afc-5f11-8372-967798dbbbb4",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

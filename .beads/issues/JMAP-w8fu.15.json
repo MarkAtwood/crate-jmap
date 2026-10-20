@@ -1,21 +1,19 @@
 {
   "compaction_level": 0,
-  "content_hash": "7095a33c6b3f2e9ea43c98916392f8fd1128d1edc1d19b9f918d3018f0b81593",
   "created_at": "2026-06-13T21:49:20Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-chat-types/src/presence.rs has 5/7 lines covered (71.4%). Only 2 uncovered lines \u2014 likely the Presence::Other variant serde path. Trivial fix: add a round-trip test for Presence::Other(String).",
-  "ephemeral": 0,
+  "description": "crate-jmap-chat-types/src/presence.rs has 5/7 lines covered (71.4%). Only 2 uncovered lines — likely the Presence::Other variant serde path. Trivial fix: add a round-trip test for Presence::Other(String).",
+  "ephemeral": false,
   "id": "JMAP-w8fu.15",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@wolfssl.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 4,
   "status": "open",
-  "timeout_ns": 0,
   "title": "Test coverage: chat-types presence.rs (71.4%)",
   "updated_at": "2026-06-13T21:49:20Z",
   "dependencies": [
@@ -24,8 +22,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-w8fu",
       "id": "6f0fdcd3-e5aa-5b56-a082-815dac4ea224",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

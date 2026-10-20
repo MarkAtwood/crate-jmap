@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-11T20:47:58Z",
   "compaction_level": 0,
-  "content_hash": "147ac6c41708d1886a3c7f288b9a214b6f85a7c8d9d0c4458b0b3718136f0901",
   "created_at": "2026-05-11T00:06:09Z",
   "created_by": "Mark Atwood",
-  "description": "Site: crate-jmap-mail-server/src/mailbox.rs:225\n\nComment reads: 'For very large accounts (IMAP migration), push filter/sort into the backend query.'\n\nCurrent implementation loads all mailbox objects and filter/sorts in memory \u2014 acceptable for typical account sizes but O(n) for IMAP-migration accounts.\n\nRefactor needs:\n1. Extend MailBackend::query_objects to accept filter and sort args (currently None, None).\n2. Update MemoryBackend test fixture to honour those args.\n3. Document the contract for production backends.\n\nLikely best done after JMAP-hwdv (MemoryBackend extraction) lands, but not strictly blocked on it.",
-  "ephemeral": 0,
+  "description": "Site: crate-jmap-mail-server/src/mailbox.rs:225\n\nComment reads: 'For very large accounts (IMAP migration), push filter/sort into the backend query.'\n\nCurrent implementation loads all mailbox objects and filter/sorts in memory — acceptable for typical account sizes but O(n) for IMAP-migration accounts.\n\nRefactor needs:\n1. Extend MailBackend::query_objects to accept filter and sort args (currently None, None).\n2. Update MemoryBackend test fixture to honour those args.\n3. Document the contract for production backends.\n\nLikely best done after JMAP-hwdv (MemoryBackend extraction) lands, but not strictly blocked on it.",
+  "ephemeral": false,
   "id": "JMAP-g7wu.6",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Push Mailbox filter/sort into MailBackend query for large-account scale",
   "updated_at": "2026-05-11T20:47:58Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-g7wu",
       "id": "9381b358-73ff-5a87-b160-d2553c301352",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

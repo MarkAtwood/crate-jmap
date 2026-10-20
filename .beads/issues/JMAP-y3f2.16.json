@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.16",
+  "title": "Chat-server handler edge cases from batch 5",
+  "description": "From batch-5 verify. (a) chat.rs ~L1012: Chat/set destroy prefetch uses map_err(server_fail)? so a backend error becomes method-level serverFail after creates/updates already committed; should be per-id notDestroyed. (b) Chat/set create stores avatarBlobId on a direct Chat; spec L1018 lists it only for group create (name/description likewise?). (c) message.rs store_server_message passes msg.id to create_object instead of the documented 'placeholder' sentinel (backend.rs ~L531). (d) space.rs L1098: Space create copies a listed extension key into extra even when it is a core Space property, contrary to backend.rs doc. (e) dfo4 added duplicate get_objects reads on Chat/set and Message/set update paths; reuse the first fetch.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:03:21.021323226Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:17.542891098Z",
+  "closed_at": "2026-10-20T10:19:17.542891098Z",
+  "close_reason": "Landed in 3416e557 fix(chat-server)!: batch-5 set handler edge cases (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.16",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:03:21.125051749Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

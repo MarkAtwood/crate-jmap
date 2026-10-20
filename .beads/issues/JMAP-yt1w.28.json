@@ -1,0 +1,23 @@
+{
+  "id": "JMAP-yt1w.28",
+  "title": "chat-server MemoryBackend: ChatContact/query ignores blocked/presence filters",
+  "description": "draft-atwood-jmap-chat-00 §ChatContact/query: 'Filter properties: blocked (Boolean), presence (String), identity (String; ...)'. MemoryBackend::query_objects (crate-jmap-chat-server/src/memory.rs) applies only the identity filter for ChatContact (added by JMAP-405z.3); blocked and presence are silently ignored, so a filtered query returns every contact. query_changes also ignores filter for all types. Pre-existing; found while working JMAP-405z.3.",
+  "notes": "Folded into JMAP-v9py.15 (Layer E: Implement draft-atwood-jmap-chat-federation-00) by the 2026-10-19 spec gap audit.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T05:07:52.528529425Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:46:02.619526433Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.28",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T05:07:52.645303502Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

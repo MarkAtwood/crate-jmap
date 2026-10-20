@@ -1,0 +1,2 @@
+{"id":"01a156c5-83e5-7d76-aa31-d2a5dd2cda81","issue_id":"JMAP-01ba.4","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:47.365884457Z"}
+{"id":"01a158d2-9f4f-7a23-988b-4e35e924a0c4","issue_id":"JMAP-01ba.4","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 6ee3b62a feat(cid-types): CIDv1 conversion helpers (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:20.783665163Z"}

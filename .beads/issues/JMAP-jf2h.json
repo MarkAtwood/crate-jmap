@@ -3,22 +3,20 @@
   "close_reason": "all steps complete",
   "closed_at": "2026-05-05T15:47:37Z",
   "compaction_level": 0,
-  "content_hash": "718279cd68da8e2754425eb550d633bf696926866d305b5e3a82d0402639b4ad",
   "created_at": "2026-05-05T00:47:13Z",
   "created_by": "Mark Atwood",
   "description": "Implement draft-ietf-jmap-contacts-10 method handlers. Defines ContactsBackend trait. Registers 9 methods: AddressBook/get, AddressBook/changes, AddressBook/set (onDestroyRemoveContents, onSuccessSetIsDefault), ContactCard/get, ContactCard/changes, ContactCard/set (photo blobId validation, addressBookHasContents error), ContactCard/copy, ContactCard/query (filter with slash-keyed fields), ContactCard/queryChanges. Note: no AddressBook/query or AddressBook/queryChanges per spec. Entry point: register_contacts_handlers. Spec: draft-ietf-jmap-contacts-10. Pattern: jmap-mail-server. Blocked by: jmap-contacts-types epic.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-jf2h",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "epic",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "jmap-contacts-server: JMAP Contacts method handlers",
   "updated_at": "2026-06-26T19:57:32Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-6mmk",
       "id": "fba92c7d-c62e-557c-aee3-95aad48401ae",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     }
-  ]
+  ],
+  "timeout": 0
 }

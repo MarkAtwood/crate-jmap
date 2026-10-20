@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.32",
+  "title": "Deliver VTCRecordingStateEvent regardless of eventTypes",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[vtc] Deliver VTCRecordingStateEvent regardless of eventTypes\nSpec (6024601): draft-atwood-jmap-vtc-wss-00.md L168-170: \"`VTCRecordingStateEvent` is the recording consent signal ({{JMAP-VTC}}), so the server delivers it for every call the subscription covers whether or not `eventTypes` lists it.\"\nCode: crate-jmap-vtc-server/src/ephemeral.rs:193-195; crate-jmap-vtc-server/src/ephemeral.rs:146-148\nNow: should_deliver returns false for any event whose @type is not in filter.includes(), including VTCRecordingStateEvent.\nChange: Skip the eventTypes check for VtcEvent::RecordingState. Keep the callIds and current-participant checks.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:36.951412153Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:36.951412153Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.32",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:37.084560299Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

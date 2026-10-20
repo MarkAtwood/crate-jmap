@@ -1,0 +1,17 @@
+{
+  "id": "JMAP-9iio",
+  "title": "calendars-server never sets CalendarEvent isOrigin; calendarIds not enforced on create",
+  "description": "calendars draft-33 ~1482: isOrigin and calendarIds MUST be present in /get. isOrigin is server-set but nothing in crate-jmap-calendars-server/src sets is_origin; calendarIds should be required at create. Split from JMAP-dqg1 (type crate can't invent a default).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T16:56:56.251426065Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T17:09:48.07396061Z",
+  "closed_at": "2026-10-18T17:09:48.07396061Z",
+  "close_reason": "isOrigin computed on create/copy/organizer change; client isOrigin patch rejected; calendarIds non-empty enforced on create/copy/update. 8 tests.",
+  "labels": [
+    "review"
+  ]
+}

@@ -4,22 +4,20 @@
   "close_reason": "Quality gates pass: fmt ok, clippy clean, cargo test --workspace all green. filenode-types epic complete.",
   "closed_at": "2026-05-05T04:04:10Z",
   "compaction_level": 0,
-  "content_hash": "353dcc539b7d8f77fe648a1f76194006a4c6c0360d2509a1cc55b681ba2a4b75",
   "created_at": "2026-05-05T02:51:05Z",
   "created_by": "Mark Atwood",
   "description": "**What:** Final quality gate for jmap-filenode-types.\n\n**Algorithm:**\n1. cargo fmt --all -- check: no diff.\n2. cargo clippy --workspace -- -D warnings: zero warnings.\n3. cargo test --workspace: all pass.\n4. Close B1 and B2.\n5. Close epic JMAP-p3i5.\n\n**Acceptance criteria:**\n- All three commands exit 0.\n- No open child beads under JMAP-p3i5.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-p3i5.3",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Close JMAP-p3i5 after all filenode-types tests pass",
   "updated_at": "2026-05-05T04:04:10Z",
   "dependencies": [
@@ -28,7 +26,7 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-p3i5.1",
       "id": "995f00a2-d472-542f-b1bf-3fc99dfcf20d",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     },
     {
@@ -36,7 +34,7 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-p3i5.2",
       "id": "c35e9fe6-2e6b-5383-a3fe-36c5dc155197",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     },
     {
@@ -44,8 +42,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-p3i5",
       "id": "e9a7cf3e-fa9f-5efa-a13f-a1201611f9e4",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

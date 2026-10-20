@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-03T00:19:53Z",
   "compaction_level": 0,
-  "content_hash": "07a3de3d52de55c4d72a36cafc71652cb8f9b44e466b1857bc16f8fb843c2de4",
   "created_at": "2026-05-03T00:19:07Z",
   "created_by": "Mark Atwood",
-  "description": "The 'outer label on the extension_fields for-loop and 'error_crlf on the error for-loop are redundant \u2014 bare 'break' would do the same thing (breaks innermost loop, not the enclosing if-let). Clippy may flag these. Fix: remove both labels and use plain 'break'.",
-  "ephemeral": 0,
+  "description": "The 'outer label on the extension_fields for-loop and 'error_crlf on the error for-loop are redundant — bare 'break' would do the same thing (breaks innermost loop, not the enclosing if-let). Clippy may flag these. Fix: remove both labels and use plain 'break'.",
+  "ephemeral": false,
   "id": "JMAP-n47i.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Redundant loop labels 'outer and 'error_crlf in CRLF check loop",
   "updated_at": "2026-05-03T00:19:53Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-n47i",
       "id": "bc32ee75-7efe-52a6-9534-f9eee3cf9f99",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.2",
+  "title": "FileNode wire format: upgrade -14 to -16",
+  "description": "draft-ietf-jmap-filenode-16: nodeType -\u003e @type (required on create, no inference; values File/Directory/SymLink); File type -\u003e mediaType; filters type/typeMatch -\u003e mediaType/mediaTypeMatch; properties not defined for a node's type MUST be omitted, not null. Sites: crate-jmap-filenode-types/src/filenode.rs:30-44,152,187,215; filter.rs:126,132; crate-jmap-filenode-server/src/filenode.rs:649-663.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:36:18.668957918Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T02:53:03.988922193Z",
+  "started_at": "2026-10-18T02:36:44.421233752Z",
+  "closed_at": "2026-10-18T02:53:03.988922193Z",
+  "close_reason": "Fixed in dfbc7383/379d0c4b/ec422bce",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.2",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:36:18.780716054Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

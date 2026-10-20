@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.16",
+  "title": "Message/set create drops broadcastMentions",
+  "description": "draft-atwood-jmap-chat-00 Message/set create lists broadcastMentions (BroadcastMention[]) as an optional create property, but crate-jmap-chat-server/src/message.rs apply_create_optionals never copies it onto the Message, so a validated non-empty broadcastMentions on create is silently discarded (created object returns []). Found while fixing JMAP-yt1w.8; that item's retain test seeds broadcastMentions via update instead.",
+  "notes": "Done in e2ed330f: tests create_stores_broadcast_mentions; changed existing tests: none\nRe-verified 2026-10-18 at correct base b91f9544 (workflow verifier had used abf6969a): create_stores_broadcast_mentions fails only on stored broadcastMentions [] vs [everyone, here]; patch identical to e2ed330f.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T01:41:19.258205017Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T03:58:20.726307869Z",
+  "started_at": "2026-10-19T03:33:51.734661204Z",
+  "closed_at": "2026-10-19T03:38:07.15908667Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.16",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T01:41:19.373437444Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -3,23 +3,21 @@
   "close_reason": "Decision: empty-using test with non-empty known is the correct boundary. No code change needed.",
   "closed_at": "2026-05-02T22:11:47Z",
   "compaction_level": 0,
-  "content_hash": "7294b812101b2ce9c05f93855d7f696880c3627f8b806bb23db060e6f456e624",
   "created_at": "2026-05-02T22:09:15Z",
   "created_by": "Mark Atwood",
   "description": "The previous test used empty known=[] with empty using=[]. An empty known set trivially accepts any empty using because there is nothing to check. The correct boundary test is: empty using[] with a non-empty known set should still return Ok. This verifies the algorithm correctly short-circuits on the empty loop rather than incorrectly returning an error. The change is a real test improvement and should not be reverted.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-nkib.8",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "decision",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "empty using[] test uses non-empty known set \u2014 correct boundary test",
+  "title": "empty using[] test uses non-empty known set — correct boundary test",
   "updated_at": "2026-05-02T22:11:47Z",
   "dependencies": [
     {
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-nkib",
       "id": "e19f578c-6cf4-5359-b27e-1eae343278d2",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-5mz6.5",
+  "title": "chat-server: outbound-event hook for retract, groupUpdate and edit",
+  "description": "Add an outbound-event hook for Peer/retract, groupUpdate and edit (draft-atwood-jmap-chat-federation-00 L585; draft-atwood-jmap-chat-00 L1020-1043).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: deletedForAll, member change and edit each emit one event shaped per fed L585 / chat-00 L1020-1043.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:41.883629924Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:53.822030042Z",
+  "closed_at": "2026-10-20T07:02:53.822030042Z",
+  "close_reason": "Landed in b43f1382 feat(chat-server): outbound-event hook (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-5mz6.5",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:41.995043978Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

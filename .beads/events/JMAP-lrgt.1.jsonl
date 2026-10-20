@@ -1,0 +1,2 @@
+{"id":"01a1581d-e586-79ce-b8ee-1b2427ccef3f","issue_id":"JMAP-lrgt.1","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T07:01:56.742643545Z"}
+{"id":"01a158d2-8aec-7aaf-a7d7-981ddbf22123","issue_id":"JMAP-lrgt.1","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 3ab0aec7 feat(chat-types)!: AttachmentCreate input type (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:15.564700885Z"}

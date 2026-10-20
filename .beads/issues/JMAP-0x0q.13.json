@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.13",
+  "title": "Allow DID-bearing property in update when value is unchanged",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[did-cid] Allow DID-bearing property in update when value is unchanged\nSpec (48e3fa1): draft-atwood-jmap-did-00.md L247 (HEAD): \"**Server-set.** Clients omit DID-bearing properties when creating objects, as {{RFC8620}} Section 1.1 requires for server-set properties; an update can include one only with its current value ({{RFC8620}} Section 5.3). Servers MUST reject a create that includes a DID-bearing property, or an update that changes one, with a SetError of type `invalidProperties`, listing the DID-bearing property name in the `properties` array.\"\nCode: crate-jmap-server/src/helpers.rs:1024-1058; crate-jmap-server/src/helpers.rs:1033-1038; crate-jmap-server/src/helpers.rs:1076-1080; crate-jmap-server/src/helpers.rs:1121-1135; crate-jmap-server/src/lib.rs:54\nNow: reject_did_bearing_properties(entry, did_properties) rejects any create or update entry that names a DID-bearing property, whatever its value. Its rustdoc says this is deliberately \"stricter than RFC 8620 §5.3\" and cites the removed text \"Clients MUST NOT include DID-bearing properties in create or update operations\". The function has no production callers yet; it is exported publicly from jmap-server.\nChange: Split the create and update semantics. Create keeps rejecting presence. Update must accept a patch that sets a DID-bearing property to its current stored value and reject only a change, which needs the current object, so the signature changes (for example, take the stored object, or add a separate update helper). Path patches under the property (\"did/x\") still change it and stay rejected. Update the rustdoc. Rewrite the unit tests to the new L247 text: did_update_patch_of_immutable_did_is_rejected cannot express \"same value\" with the current signature.\nVerifier correction: As stated. Also rewrite the oracle in did_lists_every_did_bearing_property_named (helpers.rs:1105-1119). It quotes the removed L198 'a delegation record might carry both `delegatorDid` and `delegateeDid`' and treats both as DID-bearing, but HEAD now labels `delegateeDid` DID-referencing and has dropped the 'MAY define multiple DID-bearing properties' sentence. Use a different oracle, or test multiple names without citing that example.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:28.878897826Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:28.878897826Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.13",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:29.006864354Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

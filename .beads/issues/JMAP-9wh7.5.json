@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-10T22:21:45Z",
   "compaction_level": 0,
-  "content_hash": "373852f49ade179d46c0dbb3db1f5f55f43271bbd88f6c0bf68e849f924938ff",
   "created_at": "2026-05-10T21:31:53Z",
   "created_by": "Mark Atwood",
-  "description": "Add rustdoc to the filter algebra types in crate-jmap-tasks-types documenting their exclusion from the workspace extras-preservation policy (JMAP-lbdy \"Decision: filter algebra excluded\", 2026-05-10).\n\n## Types in scope\n\n- `crate-jmap-tasks-types/src/task.rs:438` \u2014 `TaskFilterCondition`\n- `crate-jmap-tasks-types/src/filter.rs:23` \u2014 `TaskComparator`\n- `crate-jmap-tasks-types/src/filter.rs:44` \u2014 `TaskNotificationComparator`\n- `crate-jmap-tasks-types/src/notification.rs:100` \u2014 `TaskNotificationFilterCondition`\n\n## Required rustdoc content\n\nMirror canonical wording from .1 (jmap-types) and .2 (jmap-mail-types) per cookie-cutter rule. Each type carries:\n- exclusion notice,\n- three-reason rationale,\n- IETF-track future hook pointing at `draft-ietf-jmap-metadata` / workspace tracker JMAP-06zp,\n- pre-IETF escape (sloppy-value `serde_json::Value` or fork FilterCondition),\n- JMAP-lbdy cross-reference.\n\n## Acceptance criteria\n\n- All four types carry the exclusion notice with wording consistent with siblings and both future-hook paths.\n- `cargo doc --no-deps -p jmap-tasks-types` clean.\n- `cargo clippy -p jmap-tasks-types -- -D warnings` clean.\n- `cargo test -p jmap-tasks-types` clean.\n\nNo code changes beyond doc comments.\n",
-  "ephemeral": 0,
+  "description": "Add rustdoc to the filter algebra types in crate-jmap-tasks-types documenting their exclusion from the workspace extras-preservation policy (JMAP-lbdy \"Decision: filter algebra excluded\", 2026-05-10).\n\n## Types in scope\n\n- `crate-jmap-tasks-types/src/task.rs:438` — `TaskFilterCondition`\n- `crate-jmap-tasks-types/src/filter.rs:23` — `TaskComparator`\n- `crate-jmap-tasks-types/src/filter.rs:44` — `TaskNotificationComparator`\n- `crate-jmap-tasks-types/src/notification.rs:100` — `TaskNotificationFilterCondition`\n\n## Required rustdoc content\n\nMirror canonical wording from .1 (jmap-types) and .2 (jmap-mail-types) per cookie-cutter rule. Each type carries:\n- exclusion notice,\n- three-reason rationale,\n- IETF-track future hook pointing at `draft-ietf-jmap-metadata` / workspace tracker JMAP-06zp,\n- pre-IETF escape (sloppy-value `serde_json::Value` or fork FilterCondition),\n- JMAP-lbdy cross-reference.\n\n## Acceptance criteria\n\n- All four types carry the exclusion notice with wording consistent with siblings and both future-hook paths.\n- `cargo doc --no-deps -p jmap-tasks-types` clean.\n- `cargo clippy -p jmap-tasks-types -- -D warnings` clean.\n- `cargo test -p jmap-tasks-types` clean.\n\nNo code changes beyond doc comments.\n",
+  "ephemeral": false,
   "id": "JMAP-9wh7.5",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Add filter-algebra exclusion rustdoc to jmap-tasks-types",
   "updated_at": "2026-05-10T22:21:45Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-9wh7",
       "id": "b1e34660-6767-5388-9da8-3a4efc855c0d",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

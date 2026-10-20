@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-4vf8.7",
+  "title": "filenode-client fixtures still use -14 FileNode wire shape",
+  "description": "crate-jmap-filenode-client/tests/integration_get_query.rs:27-38,65-66,138 builds FileNode fixtures with \"nodeType\": \"file\"/\"directory\" and \"type\": null. Line 381-404 asserts a filter of nodeType \"file\" (lowercase; NodeType is now \"File\"). src/methods/filenode.rs:703-735 has a set_response test whose fixture cites draft-13 and uses \"type\": null. After the filenode-types change these keys no longer map to fields (FileNode reads @type and mediaType). The stale keys fall into extra, node_type is None, and the tests still pass, so they no longer test the real wire format. Update the fixtures to the -16 shape (@type PascalCase, mediaType, type-specific properties omitted).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:19:52.024952411Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:38:26.3367056Z",
+  "started_at": "2026-10-18T04:26:56.673601725Z",
+  "closed_at": "2026-10-18T04:38:26.3367056Z",
+  "close_reason": "fixed in working tree (uncommitted), verified by adversarial reviewer + cargo test",
+  "labels": [
+    "review",
+    "api"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.7",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:19:52.973710087Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

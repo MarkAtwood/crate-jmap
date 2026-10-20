@@ -1,0 +1,2 @@
+{"id":"01a156c5-7a94-74d2-b07f-c913abb49fa3","issue_id":"JMAP-yuut.3","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:44.980317213Z"}
+{"id":"01a1581e-ca31-7b69-bf16-d4a578fde2d8","issue_id":"JMAP-yuut.3","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 782071e7 feat(chat-server): per-recipient presence projection (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:55.281748579Z"}

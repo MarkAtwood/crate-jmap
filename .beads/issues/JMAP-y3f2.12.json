@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.12",
+  "title": "chat-server: Chat state does not change when unreadCount changes",
+  "description": "Chat.unreadCount is computed on every Chat/get since JMAP-y3f2.4 (draft-atwood-jmap-chat-00 L547-548), but Message/set create/destroy and ReadPosition/set do not advance the Chat state token. RFC 8620 §5.1: 'If the data changes, this string MUST change'; §ReadPosition/set L1351 says the server 'recomputes Chat.unreadCount for the affected Chat'. A client syncing Chats via Chat/changes never learns the count changed. Fix: record a Chat update (state bump + change entry with the Chat id) whenever a Message create/destroy or a ReadPosition update changes a Chat's count. Found while implementing JMAP-y3f2.4.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T04:45:48.070531968Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:16.827979592Z",
+  "closed_at": "2026-10-20T10:19:16.827979592Z",
+  "close_reason": "Landed in already fixed (f5838646, 336a3c5e under JMAP-y3f2.4) (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.12",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T04:45:48.185323694Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "id": "JMAP-hz4q.7",
+  "title": "chinwag: federation (Peer/* methods, domain discovery)",
+  "description": "Implement the five REQUIRED Peer methods (deliver, receipt, typing, retract, groupUpdate) in jmap-chat-server and chinwag, discovery via /.well-known/jmap on the contact's mailbox domain, and the peer-auth mechanism decided in the federation-auth bead. Presence methods are OPTIONAL and come later.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:18:37.277745905Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:32:41.817135565Z",
+  "closed_at": "2026-10-18T20:32:41.817135565Z",
+  "close_reason": "Moved to ~/PROJECT/chinwag as chinwag-nuqe.7",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-hz4q.7",
+      "depends_on_id": "JMAP-hz4q",
+      "type": "parent-child",
+      "created_at": "2026-10-18T20:18:37.39685535Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-hz4q.7",
+      "depends_on_id": "JMAP-hz4q.6",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:18:39.916445088Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-hz4q.7",
+      "depends_on_id": "JMAP-hz4q.5",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:18:40.504526465Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -3,22 +3,20 @@
   "close_reason": "Fixed in email.rs build_email_from_create",
   "closed_at": "2026-05-01T16:32:42Z",
   "compaction_level": 0,
-  "content_hash": "87c4dfd1c46b260a0ba8fd1338d3474278772aa73788a3c8e466e3f719b9df5d",
   "created_at": "2026-05-01T16:29:06Z",
   "created_by": "Mark Atwood",
-  "description": "RFC 8621 \u00a75.5.3 lists 'size' as a server-set property (immutable, must not be set by the client). build_email_from_create reads it: let size: u64 = obj_val.get(\"size\").and_then(|v| v.as_u64()).unwrap_or(0). A client that sends size:0 in the create payload will have that value stored and echoed back. The server should ignore the field entirely and always set size=0 (or the real value from the blob), never accepting it from the client. Trigger: any Email/set create request that includes a 'size' key. Bad behavior: client-controlled size is stored and returned as a server fact.",
-  "ephemeral": 0,
+  "description": "RFC 8621 §5.5.3 lists 'size' as a server-set property (immutable, must not be set by the client). build_email_from_create reads it: let size: u64 = obj_val.get(\"size\").and_then(|v| v.as_u64()).unwrap_or(0). A client that sends size:0 in the create payload will have that value stored and echoed back. The server should ignore the field entirely and always set size=0 (or the real value from the blob), never accepting it from the client. Trigger: any Email/set create request that includes a 'size' key. Bad behavior: client-controlled size is stored and returned as a server fact.",
+  "ephemeral": false,
   "id": "JMAP-wdy.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 0,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Email/set create silently accepts client-supplied size",
   "updated_at": "2026-05-01T16:32:42Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-wdy",
       "id": "861850c0-6404-591d-ba2d-8a47a03ef845",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

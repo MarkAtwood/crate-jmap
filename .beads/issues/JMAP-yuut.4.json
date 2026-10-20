@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-yuut.4",
+  "title": "Decide: typing/presence rate limits stay with consumer or pure limiter",
+  "description": "Decision bead: typing and presence rate limits (draft-atwood-jmap-chat-wss-00 L246, L289) either stay with the consumer (record that in AGENTS.md/docs) or get a pure limiter in chat-server.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Decision recorded; if a limiter is added, tests quote L246/L289 limits.",
+  "notes": "DECIDED by Mark 2026-10-20: leave to consumer. No limiter, constants or helper in the library. Document in chat-server docs (ephemeral delivery section) that draft-atwood-jmap-chat-wss-00 L246 (typing: \u003c=1 per sender per chat per 3 s) and L289 (presence: \u003c=1 per contact per 30 s) are deployment responsibilities. Docs-only task.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:45.259201439Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:55.507715371Z",
+  "closed_at": "2026-10-20T07:02:55.507715371Z",
+  "close_reason": "Landed in 34958144 docs(chat-server): rate limits are the consumer's (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yuut.4",
+      "depends_on_id": "JMAP-yuut",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:45.397914309Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-98zb",
+  "title": "Generic handle_query maps a non-object filter to unsupportedFilter",
+  "description": "jmap-server handlers.rs handle_query/handle_query_changes decode filter via optional_arg(..., JmapError::unsupported_filter), so filter: 42 yields unsupportedFilter, while the bespoke mail/calendars sites (jmap_server::filter_arg, added in JMAP-v4eq) return invalidArguments for a non-object and unsupportedFilter only for an object that fails to decode (RFC 8620 §5.5: unsupportedFilter is for a syntactically valid filter; bd:JMAP-ic0j.45). Decision: switch the generic handlers to filter_arg for one rule workspace-wide, or keep them as is. Switching changes wire behaviour for tasks/contacts/filenode/sharing/chat and needs any tests that pin unsupportedFilter for scalars reviewed.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T02:10:54.513992013Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T02:10:54.513992013Z"
+}

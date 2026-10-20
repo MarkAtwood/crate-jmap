@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-v9py.16.7",
+  "title": "chat-filenode: destroy file tree with Space after grace period",
+  "description": "Destroy the file tree with the Space, with a grace period (filenode L199-203). Uses chat-server cascade callbacks; benefits from CID sha256.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test with injected clock per L199-203.",
+  "notes": "DECIDED by Mark 2026-10-20: no grace period: destroy the Space's file tree with the Space (filenode L201 grace is MAY).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:57.506125154Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:48.693038617Z",
+  "closed_at": "2026-10-20T20:37:48.693038617Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.16.7",
+      "depends_on_id": "JMAP-v9py.16",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:57.616509998Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

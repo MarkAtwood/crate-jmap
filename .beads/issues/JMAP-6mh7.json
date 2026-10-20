@@ -1,0 +1,31 @@
+{
+  "id": "JMAP-6mh7",
+  "title": "VTC WebSocket extension (draft-atwood-jmap-vtc-wss-00)",
+  "description": "Layer: VTC ephemeral. Extends the crate-jmap-vtc-* crates (following chat-wss landing inside chat-* crates). Depends on: VTC base, ephemeral delivery rules epic, base-client WsSession. Spec: draft-atwood-jmap-vtc-wss-00 L97-594. Folded-in: none. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "notes": "Mark 2026-10-20: VTC specs have known bugs; no further VTC crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:08.445529347Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:55:30.595179689Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6mh7",
+      "depends_on_id": "JMAP-8mem",
+      "type": "blocks",
+      "created_at": "2026-10-20T00:46:16.664853195Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-6mh7",
+      "depends_on_id": "JMAP-yuut",
+      "type": "blocks",
+      "created_at": "2026-10-20T00:46:17.050399175Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.13",
+  "title": "chat-server: addRoles requires client-supplied id",
+  "description": "crate-jmap-chat-server/src/space.rs:143 parses each Space/set addRoles entry with parse_entry::\u003cSpaceRole\u003e, which requires `id`. Draft 1e33ec7 §Space/set addRoles: \"Each entry: name (String), permissions (String[]), position (UnsignedInt), and optionally color ... Server assigns ULIDs.\" jmap-chat-client SpaceAddRoleInput (correctly) sends no id, so every client addRoles fails with invalidProperties \"addRoles[0]: failed to parse entry: missing field `id`\". Found while writing a chat_client_wire.rs round-trip test for JMAP-yt1w.2 role colors; once fixed, add that wire test (addRoles with hex/Design Tokens/CAM16 colors, then Space/get returns each color verbatim).",
+  "notes": "Done in c9cb992: tests add_roles_without_id_get_distinct_server_assigned_ids, add_roles_after_remove_does_not_reuse_freed_id, space_add_roles_round_trips_each_color_representation; changed existing tests: none",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T23:28:21.636546028Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T03:17:50.212080671Z",
+  "started_at": "2026-10-19T02:47:02.545940633Z",
+  "closed_at": "2026-10-19T03:17:50.212080671Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.13",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-18T23:28:21.750364518Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

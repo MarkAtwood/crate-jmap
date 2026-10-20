@@ -1,0 +1,23 @@
+{
+  "id": "JMAP-38uq.12",
+  "title": "scene-server: SceneObject/set create into a region without access",
+  "description": "Found during JMAP-38uq.6. SceneObject/set create checks that regionId names a stored region but never consults SceneBackend::may_access_region, so a user without access to an \"invite\" region can create objects in it (and a create learns that the region exists). draft-atwood-jmap-scene-00 §Region Access (L2362, L2367) only names SceneAvatar/set create (forbidden) and the /get methods (notFound); the draft is silent on SceneObject create. Decide: treat an inaccessible regionId like a missing one (enumeration-safe), or forbidden, or file a spec bead.",
+  "notes": "Mark 2026-10-20: Scene specs have known bugs; no further Scene crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T15:49:20.366784833Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:55:34.61309518Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-38uq.12",
+      "depends_on_id": "JMAP-38uq",
+      "type": "parent-child",
+      "created_at": "2026-10-20T15:49:20.487010797Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

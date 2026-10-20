@@ -1,0 +1,1 @@
+{"id":"01a15680-ff45-77ba-872f-16a61a20708d","issue_id":"JMAP-q2wa.7.1","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as 40ba145b (fix(chat-server): reject mistyped create optionals). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:56.96550691Z"}

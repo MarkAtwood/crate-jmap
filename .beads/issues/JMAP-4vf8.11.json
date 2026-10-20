@@ -1,0 +1,29 @@
+{
+  "id": "JMAP-4vf8.11",
+  "title": "jmap-chat-types/jmap-filenode-types break public API without version bump",
+  "description": "Both crates are published on crates.io at 0.1.2, and Cargo.toml still says 0.1.2 after this series. Breaking changes: (1) crate-jmap-chat-types/src/push.rs:119,127: ChatMessageEntry.has_mention changes from bool to Option\u003cbool\u003e, has_mention_all is removed, mention_scopes is added, plaintext() takes Vec\u003cString\u003e in place of bool, and encrypted() drops two parameters. (2) crate-jmap-filenode-types/src/filter.rs:126: pub field type_match is renamed to media_type_match. (3) crate-jmap-filenode-types/src/filenode.rs: NodeType wire strings change (file-\u003eFile, etc.) and FileNode's @type/mediaType wire names change, so existing data and peers using the -14 format no longer interoperate. Under Cargo semver, 0.1.2 -\u003e 0.1.3 is treated as compatible, so a downstream crate with jmap-chat-types = \"0.1\" fails to compile after cargo update. Fix: bump both crates (and their dependents in the workspace) to 0.2.0 and record the breaks in the changelog. Same class as JMAP-6xs8.3, which covers jmap-types only.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:20:44.569512149Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:21:03.762221811Z",
+  "closed_at": "2026-10-18T04:21:03.762221811Z",
+  "close_reason": "duplicate of JMAP-4vf8.5",
+  "labels": [
+    "review",
+    "risk",
+    "api-contract"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.11",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:20:44.696297247Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

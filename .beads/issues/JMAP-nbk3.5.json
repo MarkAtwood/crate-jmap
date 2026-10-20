@@ -1,0 +1,43 @@
+{
+  "id": "JMAP-nbk3.5",
+  "title": "N5 chat-server: chatPush validation and StateChange split",
+  "description": "validate_chat_push (capability, urgency/mentionUrgency in supportedUrgencyValues -\u003e invalidProperties per D4, known kinds/properties per D9), strip_unsupported_chat_push on /get, chat_state_change_for dropping Message for live chatPush accounts (D10). See JMAP-nbk3 design field (approved plan) for scope, acceptance and quoted RFC/draft lines.",
+  "notes": "Regression test written: crate-jmap-chat-server/tests/chat_push_validation.rs (9 tests against plan API sketch: validate_chat_push, strip_unsupported_chat_push, chat_state_change_for at crate root). Fails at HEAD with E0432 (functions absent); type-checks cleanly against stubs. MemoryBackend-level '/get shows nothing stored' not covered: MemoryBackend has no API yet to supply per-account ChatPushCapability.\nImplemented (uncommitted): crate-jmap-chat-server/src/push.rs (validate_chat_push, strip_unsupported_chat_push, chat_state_change_for, re-exported at crate root); MemoryBackend gains set_chat_push_capability_for_test (doc(hidden)), validates chatPush on create/update under the lock, strips on list. New tests/chat_push_memory.rs covers push:124 create/update-not-stored and push:108 strip after capability withdrawal. Gates green. --all-features integration failure chat_set_duplicate_direct_cleanup_* is pre-existing at HEAD (JMAP-v8y0/JMAP-b7jn).\nDone in 1040195: tests valid_config_is_accepted, chat_push_for_account_without_capability_is_rejected, urgency_outside_supported_values_is_rejected, mention_urgency_outside_supported_values_is_rejected, unknown_kind_is_rejected, unknown_entry_property_is_rejected, strip_removes_entries_for_accounts_without_capability, state_change_drops_message_for_chat_push_account, state_change_is_none_when_only_message_changed_in_chat_push_account; changed existing tests: none",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:25:24.487482185Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T19:18:15.206293097Z",
+  "started_at": "2026-10-19T19:10:11.239579017Z",
+  "closed_at": "2026-10-19T19:18:15.206293097Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-nbk3.5",
+      "depends_on_id": "JMAP-nbk3",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:25:24.604276745Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-nbk3.5",
+      "depends_on_id": "JMAP-nbk3.3",
+      "type": "blocks",
+      "created_at": "2026-10-19T18:25:26.748642299Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-nbk3.5",
+      "depends_on_id": "JMAP-nbk3.4",
+      "type": "blocks",
+      "created_at": "2026-10-19T18:25:27.168773147Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-4vf8.10",
+  "title": "FileNode/copy skips @type validation that FileNode/set create enforces",
+  "description": "crate-jmap-filenode-server/src/filenode.rs:1233 (merge_filenode_overrides) through 1615 (create_object). Commit 379d0c4b adds the -16 @type checks only to the /set create path (lines 305, 673-697): unsupported @type is rejected, and so are File without blobId and SymLink without target. The copy path deserializes the merged override and passes it straight to create_object with none of these checks. Scenario: a FileNode/copy entry {\"id\":\"\u003cdir\u003e\",\"@type\":\"Bogus\"} creates a node with NodeType::Other(\"Bogus\"); {\"id\":\"\u003cdir\u003e\",\"@type\":\"File\"} creates a File with no blobId. Spec draft-ietf-jmap-filenode-16 §3.1.1: 'A server MUST reject the creation of a node with an @type that is not in the supportedNodeTypes capability with an invalidProperties error'. §3.2.4: copy has 'the same behaviour' and 'the same additional errors as FileNode/set'. Fix: move the type/consistency checks into a helper and call it from both paths. Related to JMAP-mrod.6 and JMAP-mrod.7 (both cover /set only).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:20:39.992821195Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:38:26.534234274Z",
+  "started_at": "2026-10-18T04:26:57.68515926Z",
+  "closed_at": "2026-10-18T04:38:26.534234274Z",
+  "close_reason": "fixed in working tree (uncommitted), verified by adversarial reviewer + cargo test",
+  "labels": [
+    "review",
+    "correctness"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.10",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:20:40.125419794Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

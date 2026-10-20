@@ -1,0 +1,2 @@
+{"id":"01a156c5-8b0b-7573-aad2-a79361f62a46","issue_id":"JMAP-6itf.3","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:49.195358478Z"}
+{"id":"01a158d2-a443-7011-824c-13377656422b","issue_id":"JMAP-6itf.3","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in fc75d5ff feat(server): reject client-set DID properties (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:22.05100507Z"}

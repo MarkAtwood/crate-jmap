@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.4",
+  "title": "Delete-for-all must clear body and attachments",
+  "description": "draft-atwood-jmap-chat-00 §Message deletedAt: when set, body is empty and attachments is empty. crate-jmap-chat-server/src/message.rs deletedForAll branch (~line 738) injects deletedAt and (after JMAP-mrod.3) clears editHistory, but leaves body and attachments as stored, so a deleted-for-all Message still returns its content. Found while fixing JMAP-mrod.3; left out of scope.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:40:53.296609806Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T02:53:04.3638211Z",
+  "started_at": "2026-10-18T02:41:15.962111294Z",
+  "closed_at": "2026-10-18T02:53:04.3638211Z",
+  "close_reason": "Fixed in dfbc7383/379d0c4b/ec422bce",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.4",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:40:53.395489406Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

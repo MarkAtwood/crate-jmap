@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-yuut.3",
+  "title": "chat-server: presence projection (invisible-\u003eoffline, blocked drop)",
+  "description": "Presence projection mapping invisible to offline (wss L267) and dropping events from blocked contacts (wss L291; chat-00 L1552-1559).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: invisible user observed as offline (L267); blocked contact's presence not delivered (L291).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:44.975407126Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:55.275494078Z",
+  "closed_at": "2026-10-20T07:02:55.275494078Z",
+  "close_reason": "Landed in 782071e7 feat(chat-server): per-recipient presence projection (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yuut.3",
+      "depends_on_id": "JMAP-yuut",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:45.097616955Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

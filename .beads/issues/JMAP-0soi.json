@@ -4,23 +4,21 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-04T23:48:07Z",
   "compaction_level": 0,
-  "content_hash": "d4df4603eea2eba7509d3914082fb76fa2995e964548f21d84c2e4110dd7d79d",
   "created_at": "2026-05-04T15:06:31Z",
   "created_by": "Mark Atwood",
   "description": "WHAT: Port ChatContact methods from ~/PROJECT/crate-jmapchat-client/src/methods/contact.rs. Methods: chat_contact_get, chat_contact_changes, chat_contact_update, chat_contact_query, chat_contact_query_changes. Uses ContactPresenceFilter from crate::types. Type: jmap_chat_types::ChatContact. DEFENSIVE: No unwrap(). ACCEPTANCE: cargo check passes; clippy clean",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-0soi",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "jmap-chat-client: methods/contact.rs \u2014 ChatContact/* methods",
+  "title": "jmap-chat-client: methods/contact.rs — ChatContact/* methods",
   "updated_at": "2026-06-26T19:57:32Z",
   "dependencies": [
     {
@@ -28,7 +26,7 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-gb1w",
       "id": "5af5d228-a184-5656-984b-d8a9af1a0d43",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     },
     {
@@ -36,7 +34,7 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-ds04",
       "id": "8a2483a8-b89c-5cf2-8fa1-2fb71126522d",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     },
     {
@@ -44,8 +42,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-s1ei",
       "id": "f28e232b-10b8-5d7f-8b29-f77a0c598bb2",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     }
-  ]
+  ],
+  "timeout": 0
 }

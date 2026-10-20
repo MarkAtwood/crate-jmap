@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T15:14:54Z",
   "compaction_level": 0,
-  "content_hash": "2d03edc94a988073eaf930a11da5caaf4b6e27575a5a44f2d53583e32b9f034b",
   "created_at": "2026-05-01T15:13:06Z",
   "created_by": "Mark Atwood",
-  "description": "mailbox.rs:467,571 \u2014 .map_or(false, |r| ...) should be .is_some_and(|r| ...)",
-  "ephemeral": 0,
+  "description": "mailbox.rs:467,571 — .map_or(false, |r| ...) should be .is_some_and(|r| ...)",
+  "ephemeral": false,
   "id": "JMAP-2jv.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "fix: unnecessary map_or (2 instances in mailbox.rs)",
   "updated_at": "2026-05-01T15:14:54Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-2jv",
       "id": "5b57b92b-7842-51e7-9934-3a36eb8fb78c",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

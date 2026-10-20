@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-ccy6.3",
+  "title": "chat-client: hide typing indicator after ~10 s helper",
+  "description": "Client helper that hides a typing indicator after about 10 s without refresh (draft-atwood-jmap-chat-00.md L1094-1096).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test with an injected clock: indicator visible at \u003c10 s, hidden after the L1094-1096 timeout.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:43.260839428Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:18.494981856Z",
+  "closed_at": "2026-10-20T10:19:18.494981856Z",
+  "close_reason": "Landed in 1ab858cf feat(chat-client): typing indicator decay timer (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ccy6.3",
+      "depends_on_id": "JMAP-ccy6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:43.370286736Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

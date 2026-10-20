@@ -2,22 +2,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-02T00:55:07Z",
   "compaction_level": 0,
-  "content_hash": "399d140596e8aab25e4732ab091600d81f310d56c2552b3a1e22f52553841dc4",
   "created_at": "2026-05-02T00:44:28Z",
   "created_by": "Mark Atwood",
   "description": "SetErrorType is #[non_exhaustive] and has a Display impl with an exhaustive match and no wildcard arm. Adding a new variant (the expected use of #[non_exhaustive]) will cause a compile error in the Display impl, requiring two simultaneous edits. Contributors adding a new error type will encounter this friction on every addition. A _ => fallback or a macro-derived Display would be safer.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-e53.35",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "SetErrorType Display impl will fail to compile on new variant",
   "updated_at": "2026-05-02T00:55:07Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-e53",
       "id": "74c10e70-f7a6-576a-80ec-2360a2ee7334",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

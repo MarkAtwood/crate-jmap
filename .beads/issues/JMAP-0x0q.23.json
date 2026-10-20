@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.23",
+  "title": "Re-enter regions via update; alreadyExists for departed avatars",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Re-enter regions via update; alreadyExists for departed avatars\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L2189: \"When the user already has a SceneAvatar record in the same region, whether present or departed, the server MUST NOT create a second record and MUST return an `alreadyExists` SetError ... A user who has left re-enters by updating that record.\" L2314: \"re-enters the same region by updating their existing SceneAvatar record to set `leftAt` to `null`. The server sets `joinedAt` to the current time, `position` to the region's `spawnPosition`, and `orientation` to the region's `spawnOrientation`. ... The access checks and errors for entering a region apply.\"\nCode: crate-jmap-scene-server/src/memory.rs:217-224; crate-jmap-scene-server/src/memory.rs:252-262; crate-jmap-scene-server/src/avatar.rs:461-475; crate-jmap-scene-server/src/memory.rs:834-851\nNow: A create for a departed avatar silently reuses the record (memory.rs:252-262), and alreadyExists is returned only when leftAt is null. An update with leftAt:null is rejected: avatar.rs:464 says 'already left' and avatar.rs:470-474 'leftAt must be a UTCDate; re-enter with a create'. The memory update_object also re-checks double-leave on any leftAt key. Re-entry never resets orientation.\nChange: In enter(), return alreadyExists with existingId for any existing record in the region. In update_avatar, accept leftAt:null when the stored leftAt is non-null, as re-entry: run the enter access checks (notFound), overQuota and auto-eject from other regions; set joinedAt=now and position/orientation from the region spawn; allow displayName/visual*/worldState in the same patch; recount activeAvatarCount. Keep double-leave invalid only for a non-null leftAt.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:31.735216211Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:31.735216211Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.23",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:31.870256684Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

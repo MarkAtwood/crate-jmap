@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-38uq.4",
+  "title": "scene-server: SceneObject handlers (graph, recursive destroy, spatial query)",
+  "description": "Parent graph cycles, depth and cross-region references; recursive destroy; spatial query (scene L1344-1896, L1651-1747).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: cycle and over-depth rejected; recursive destroy; withinRadius/withinBounds results match hand-computed geometry.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:54.198137451Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:40.486875532Z",
+  "closed_at": "2026-10-20T20:37:40.486875532Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-38uq.4",
+      "depends_on_id": "JMAP-38uq",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:54.327002496Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

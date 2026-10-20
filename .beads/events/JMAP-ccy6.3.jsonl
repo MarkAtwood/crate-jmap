@@ -1,0 +1,2 @@
+{"id":"01a156c5-73e5-7679-8e6d-4e2db7bc25db","issue_id":"JMAP-ccy6.3","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:43.269425522Z"}
+{"id":"01a158d2-9665-7225-b383-b7ce20c664cf","issue_id":"JMAP-ccy6.3","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 1ab858cf feat(chat-client): typing indicator decay timer (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:18.50114145Z"}

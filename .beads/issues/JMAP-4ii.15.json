@@ -2,22 +2,20 @@
   "close_reason": "documented CallerCtx limitation on register_*_handlers",
   "closed_at": "2026-05-02T06:42:15Z",
   "compaction_level": 0,
-  "content_hash": "441695e01bf946e5ab8f660af2e36211156d5b84794c4940ca65d6d1600e396c",
   "created_at": "2026-05-02T03:56:06Z",
   "created_by": "Mark Atwood",
   "description": "register_mail_handlers and register_chat_handlers are public functions whose ClosureHandler type erases CallerCtx and call_id for most methods. Once consumers depend on this API, adding CallerCtx forwarding or any new per-call parameter to the closure type is a breaking change. The current design is intentional for simple backends, but it is underdocumented as a deliberate limitation vs. a temporary one. Before v0.1 the function signature should be either stabilized with a clear statement of what it does not support, or replaced with a builder that makes CallerCtx forwarding opt-in.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-4ii.15",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "register_*_handlers closure shape is a frozen public API surface",
   "updated_at": "2026-05-02T06:42:15Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-4ii",
       "id": "a4ab86b1-ca46-524e-9b2b-530812bf6a2d",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -3,22 +3,20 @@
   "close_reason": "Fixed: upToId in EmailSubmission/queryChanges now returns invalidArguments for non-string values",
   "closed_at": "2026-05-01T05:21:32Z",
   "compaction_level": 0,
-  "content_hash": "0791feebd0395c746670ebe86fd985c5355b5c73321b8cbe6d0b25d03d5997d4",
   "created_at": "2026-05-01T05:19:43Z",
   "created_by": "Mark Atwood",
-  "description": "submission.rs:213-216 uses v.as_str().map(Id::from) \u2014 maps non-string, non-null upToId to None without error. Email/queryChanges and Mailbox/queryChanges reject this with invalidArguments. Inconsistency: backend receives None upToId instead of an error, silently ignoring the client's intent.",
-  "ephemeral": 0,
+  "description": "submission.rs:213-216 uses v.as_str().map(Id::from) — maps non-string, non-null upToId to None without error. Email/queryChanges and Mailbox/queryChanges reject this with invalidArguments. Inconsistency: backend receives None upToId instead of an error, silently ignoring the client's intent.",
+  "ephemeral": false,
   "id": "JMAP-2dz.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "EmailSubmission/queryChanges silently drops invalid upToId",
   "updated_at": "2026-05-01T05:21:32Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-2dz",
       "id": "38241c10-4f5c-572a-ba2a-486153f7e6e5",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

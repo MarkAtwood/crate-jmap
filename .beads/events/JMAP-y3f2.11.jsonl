@@ -1,0 +1,2 @@
+{"id":"01a15759-e77d-7458-9fe3-a05f26c590c5","issue_id":"JMAP-y3f2.11","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T03:27:52.189285428Z"}
+{"id":"01a1581e-bc42-7c24-bb9e-050b70499583","issue_id":"JMAP-y3f2.11","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 3425ee50 fix(chat-server): check edits like creates (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:51.714796367Z"}

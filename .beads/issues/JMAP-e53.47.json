@@ -2,23 +2,21 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-02T00:55:01Z",
   "compaction_level": 0,
-  "content_hash": "a1c6a743ea3daa430b6098dd5f66a39f2596895c697e374ec4b99c14b1239fc0",
   "created_at": "2026-05-02T00:47:41Z",
   "created_by": "Mark Atwood",
-  "description": "email.rs parse_header_property() lines 143-167: when parts[1] == \"all\", the code immediately returns (HeaderForm::Raw, true) without checking whether parts[2] exists. So 'header:Subject:all:garbage' is accepted as a valid Raw/all property request instead of being rejected. RFC 8621 \u00a74.1.3 specifies only two suffix forms: ':all' and ':{form}' optionally followed by ':all'. A property like 'header:Name:all:extra' is syntactically invalid and should return invalidArguments. Trigger: Email/get with properties=[\"header:Subject:all:garbage\"]. Bad behavior: request succeeds; :garbage is silently ignored.",
-  "ephemeral": 0,
+  "description": "email.rs parse_header_property() lines 143-167: when parts[1] == \"all\", the code immediately returns (HeaderForm::Raw, true) without checking whether parts[2] exists. So 'header:Subject:all:garbage' is accepted as a valid Raw/all property request instead of being rejected. RFC 8621 §4.1.3 specifies only two suffix forms: ':all' and ':{form}' optionally followed by ':all'. A property like 'header:Name:all:extra' is syntactically invalid and should return invalidArguments. Trigger: Email/get with properties=[\"header:Subject:all:garbage\"]. Bad behavior: request succeeds; :garbage is silently ignored.",
+  "ephemeral": false,
   "id": "JMAP-e53.47",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "parse_header_property accepts 'header:Name:all:extra' \u2014 extra suffix silently ignored",
+  "title": "parse_header_property accepts 'header:Name:all:extra' — extra suffix silently ignored",
   "updated_at": "2026-05-02T00:55:01Z",
   "dependencies": [
     {
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-e53",
       "id": "2839ee58-f899-53a3-adc1-de4ec5b824fa",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

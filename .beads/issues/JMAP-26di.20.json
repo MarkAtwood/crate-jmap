@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-17T17:54:51Z",
   "compaction_level": 0,
-  "content_hash": "c85aea888bd29cf31ff1d7f718e1dd3d81a64ab4d24fa8b5ac58ecf8cc0bcc4d",
   "created_at": "2026-05-15T20:29:37Z",
   "created_by": "Mark Atwood",
   "description": "src/methods/message.rs:253-263 and 271-282. ReactionChange::Add and ReactionChange::Remove arms both duplicate the empty-check + JSON-Pointer-char check (~/, escape). Extract to a private helper like `fn validate_reaction_id(id: &str) -> Result<(), ClientError>` and call from both arms. ~10 LoC saved, single source of truth for the validation rule.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-26di.20",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "ReactionChange JSON-Pointer validation duplicated across Add/Remove arms",
   "updated_at": "2026-05-17T17:54:51Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-26di",
       "id": "0c16be7b-882f-51bd-ac0f-f40e7cc23c51",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

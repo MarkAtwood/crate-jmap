@@ -1,31 +1,25 @@
 {
-  "compaction_level": 0,
-  "content_hash": "002cc098ca97696539fdb549692b0fa112690695a85bbef1bb88000572274b58",
+  "id": "JMAP-x2gd.5",
+  "title": "Message/set reaction modification check uses sender-tagging not caller identity",
+  "description": "Site: crate-jmap-chat-server/src/message.rs:669-688 (forbidden-reaction check).\n\nCode:\n    for (_, suffix) in \u0026decoded {\n        if let Some(existing) = msg.reactions.get(suffix) {\n            if existing.sender_id != SenderId::Owner {\n                bad.push(suffix.clone());\n            }\n        }\n    }\n\nSpec context (draft-atwood-jmap-chat-00 §Reaction): only the original sender of a reaction may modify it. The handler's intent is to enforce that.\n\nProblem: SenderId::Owner is a tag meaning 'the account that owns this mailbox', not 'this specific caller'. In any deployment with:\n- shared mailboxes (multiple users authenticating to the same account)\n- delegated access (admin/assistant access)\n- multi-user JMAP accounts\n\n…the check 'existing.sender_id != SenderId::Owner' returns false for ANY reaction tagged Owner, regardless of which user actually authored it. That lets user A modify user B's reactions whenever both share an account.\n\nThe correct check requires caller-identity comparison: a reaction has a specific authoring principal (or a 'self' marker resolved against B::principal_id(caller)). The kit's foundation seam provides principal_id; the type system stores SenderId::Owner|Peer (no principal id discriminator).\n\nTwo fix paths:\n1. Extend Reaction to carry an authoring principal id at storage time; compare on read.\n2. Resolve principal_id at modify time, and the backend per-reaction maintains an authoring map; if absent, reject (fail closed).\n\nEither way, the current implementation collapses 'original sender' to 'this account' and breaks the spec rule in multi-user deployments.\n\nSingle-user-mode tests pass because the check trivially holds; the bug is invisible until a real identity backend is wired.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T03:12:53Z",
   "created_by": "Mark Atwood",
-  "description": "Site: crate-jmap-chat-server/src/message.rs:669-688 (forbidden-reaction check).\n\nCode:\n    for (_, suffix) in &decoded {\n        if let Some(existing) = msg.reactions.get(suffix) {\n            if existing.sender_id != SenderId::Owner {\n                bad.push(suffix.clone());\n            }\n        }\n    }\n\nSpec context (draft-atwood-jmap-chat-00 \u00a7Reaction): only the original sender of a reaction may modify it. The handler's intent is to enforce that.\n\nProblem: SenderId::Owner is a tag meaning 'the account that owns this mailbox', not 'this specific caller'. In any deployment with:\n- shared mailboxes (multiple users authenticating to the same account)\n- delegated access (admin/assistant access)\n- multi-user JMAP accounts\n\n\u2026the check 'existing.sender_id != SenderId::Owner' returns false for ANY reaction tagged Owner, regardless of which user actually authored it. That lets user A modify user B's reactions whenever both share an account.\n\nThe correct check requires caller-identity comparison: a reaction has a specific authoring principal (or a 'self' marker resolved against B::principal_id(caller)). The kit's foundation seam provides principal_id; the type system stores SenderId::Owner|Peer (no principal id discriminator).\n\nTwo fix paths:\n1. Extend Reaction to carry an authoring principal id at storage time; compare on read.\n2. Resolve principal_id at modify time, and the backend per-reaction maintains an authoring map; if absent, reject (fail closed).\n\nEither way, the current implementation collapses 'original sender' to 'this account' and breaks the spec rule in multi-user deployments.\n\nSingle-user-mode tests pass because the check trivially holds; the bug is invisible until a real identity backend is wired.",
-  "ephemeral": 0,
-  "id": "JMAP-x2gd.5",
-  "is_blocked": 0,
-  "is_template": 0,
-  "issue_type": "bug",
+  "updated_at": "2026-10-19T21:42:26.16919701Z",
+  "closed_at": "2026-10-19T21:42:26.16919701Z",
+  "close_reason": "Triage 2026-10-19 at 9fdbbbcf, OBSOLETE (3-skeptic check 3/3 upheld): The bead depends on two things that are no longer true at HEAD 9fdbbbcf.\n\n(1) The `SenderId::Owner` sentinel no longer exists. Commit e8ad58d2 (\"fix(chat)!: owner senderId is the accountId\", Refs JMAP-405z.2) removed `jmap_chat_types::SenderId`. `Reaction.sender_id` is now `Id` (crate-jmap-chat-types/src/message.rs:317), documented as \"The accountId for the owner's reaction, otherwise the reacting user's ChatContact.id\". The check in crate-jmap-chat-server/src/message.rs:1235-1272 (Message/set update, the `reactions/{id}` pointer path) now reads `if existing.sender_id != account_id { bad.push(...) }` and rejects with `forbidden`.\n\n(2) The spec has since settled the \"account vs principal\" question the bead's comment escalated, and it chose per-account (Path A). draft-atwood-jmap-chat-00.md:217 says: \"The owner has no ChatContact: a client-facing reference to the owner carries the accountI",
   "metadata": {},
-  "no_history": 0,
-  "owner": "mark@reviewcommit.com",
-  "pinned": 0,
-  "priority": 1,
-  "status": "open",
-  "timeout_ns": 0,
-  "title": "Message/set reaction modification check uses sender-tagging not caller identity",
-  "updated_at": "2026-05-14T03:12:53Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-13T20:12:52Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-x2gd",
-      "id": "8f530e0f-13c8-56e6-98e0-e5b93a52804e",
-      "metadata": {},
-      "type": "parent-child"
+      "metadata": "{}"
     }
   ]
 }

@@ -1,25 +1,23 @@
 {
   "assignee": "Mark Atwood",
-  "close_reason": "Applied is_none_or replacement at crate-jmap-metadata-server/src/metadata.rs:1042. cargo clippy --tests -- -D warnings clean. cargo test --all-features clean. Workspace MSRV 1.88 vs is_none_or stable since 1.82 \u2014 in-bounds.",
+  "close_reason": "Applied is_none_or replacement at crate-jmap-metadata-server/src/metadata.rs:1042. cargo clippy --tests -- -D warnings clean. cargo test --all-features clean. Workspace MSRV 1.88 vs is_none_or stable since 1.82 — in-bounds.",
   "closed_at": "2026-05-15T08:47:04Z",
   "compaction_level": 0,
-  "content_hash": "91002b4ca58cf9d7a8ecb166aac0802e30dda80be211c071cde55311bb32d651",
   "created_at": "2026-05-15T08:46:21Z",
   "created_by": "Mark Atwood",
-  "description": "Pre-existing clippy lint surfaced by cargo clippy -p jmap-metadata-server --all-features --tests -- -D warnings:\n\n  --> crate-jmap-metadata-server/src/metadata.rs:1042:13\n       |\n  1042 |             err.get(\"properties\").map_or(true, Value::is_null),\n       |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nFix: replace with err.get(\"properties\").is_none_or(Value::is_null).\n\nSingle-call-site mechanical refactor. is_none_or stabilized in Rust 1.82; workspace MSRV check needed but the lint suggests it is in-MSRV.\n\nTrigger discovered during JMAP-826m.51 cleanup. Lint does not fire on the non-test clippy run, which is why earlier /review-rusty passes missed it (same root cause as JMAP-826m.51 \u2014 the prior reviewer ran clippy without --tests).",
-  "ephemeral": 0,
+  "description": "Pre-existing clippy lint surfaced by cargo clippy -p jmap-metadata-server --all-features --tests -- -D warnings:\n\n  --> crate-jmap-metadata-server/src/metadata.rs:1042:13\n       |\n  1042 |             err.get(\"properties\").map_or(true, Value::is_null),\n       |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nFix: replace with err.get(\"properties\").is_none_or(Value::is_null).\n\nSingle-call-site mechanical refactor. is_none_or stabilized in Rust 1.82; workspace MSRV check needed but the lint suggests it is in-MSRV.\n\nTrigger discovered during JMAP-826m.51 cleanup. Lint does not fire on the non-test clippy run, which is why earlier /review-rusty passes missed it (same root cause as JMAP-826m.51 — the prior reviewer ran clippy without --tests).",
+  "ephemeral": false,
   "id": "JMAP-826m.54",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "clippy::unnecessary_map_or at metadata.rs:1042 \u2014 use is_none_or instead of map_or(true, Value::is_null)",
+  "title": "clippy::unnecessary_map_or at metadata.rs:1042 — use is_none_or instead of map_or(true, Value::is_null)",
   "updated_at": "2026-05-15T08:47:04Z",
   "dependencies": [
     {
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-826m",
       "id": "3954daf1-e9c4-5a66-adca-7a8414f5d224",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

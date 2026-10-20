@@ -2,22 +2,20 @@
   "close_reason": "deferred or decision record",
   "closed_at": "2026-05-01T05:22:51Z",
   "compaction_level": 0,
-  "content_hash": "c231a01c0b8d862834fe6a9bae863f0fd0b63d1fe491892285bf38ee50169a37",
   "created_at": "2026-05-01T05:20:01Z",
   "created_by": "Mark Atwood",
   "description": "email.rs:807-823: thread-id generation uses OnceLock<u64> seeded from SystemTime and AtomicU64 counter. Caveats are documented. This is correct for the in-process MemoryBackend use case. Replacing with UUID would add a dependency; replacing with a random-per-call timestamp would have worse collision properties.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-2dz.5",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "decision",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "next_id() atomic-counter + clock-seed design is appropriate",
   "updated_at": "2026-05-01T05:22:51Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-2dz",
       "id": "ee903671-f62f-5dae-a48a-c2bc1c65252a",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

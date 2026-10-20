@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-8tuq",
+  "title": "Chat DID binding (draft-atwood-jmap-chat-did-00)",
+  "description": "Layer: Chat binding. Extends crate-jmap-chat-types and -server. Depends on: JMAP DID base types epic and chat federation peer auth (JMAP-v9py.15 / JMAP-kz4f). Spec: draft-atwood-jmap-chat-did-00 L96-264. Folded-in: none. Decision recorded here: did:webvh is deferred (L142); no bead. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:11.093793614Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:46:11.093793614Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8tuq",
+      "depends_on_id": "JMAP-6itf",
+      "type": "blocks",
+      "created_at": "2026-10-20T00:46:18.293037904Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-8tuq",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "blocks",
+      "created_at": "2026-10-20T00:46:18.720955496Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

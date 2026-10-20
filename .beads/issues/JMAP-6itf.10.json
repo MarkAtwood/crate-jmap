@@ -1,0 +1,38 @@
+{
+  "id": "JMAP-6itf.10",
+  "title": "did-resolver: fetch did:webvh log and witness file",
+  "description": "Support crate crate-jmap-did-resolver: did:webvh resolution I/O per DIF did:webvh v1.0 (DID-to-HTTPS URL transform, fetch did.jsonl and did-witness.json), hand bytes to the did-types verifier (JMAP-6itf.9), cache keyed by versionId; refresh-on-signature-failure per JMAP-8tuq.5 decision. Offline tests with a local stub.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T10:25:38.335387958Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:25:38.335387958Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6itf.10",
+      "depends_on_id": "JMAP-6itf",
+      "type": "parent-child",
+      "created_at": "2026-10-20T10:25:38.442478175Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-6itf.10",
+      "depends_on_id": "JMAP-6itf.9",
+      "type": "blocks",
+      "created_at": "2026-10-20T10:25:38.807714475Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-6itf.10",
+      "depends_on_id": "JMAP-6itf.7",
+      "type": "blocks",
+      "created_at": "2026-10-20T10:25:39.248720503Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

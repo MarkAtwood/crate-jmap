@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-405z.2",
+  "title": "chat-server: owner id is accountId, drop \"self\"",
+  "description": "Draft: the owner's local id is the JMAP accountId everywhere a client-facing field means the owner (senderId, reaction keys, deliveryReceipts condition, members, Mention.id, self-leave, hasMention, Space self-removal/self-nick, SpaceBan own records). The literal \"self\" is removed. No ChatContact may have the accountId as id. Update chat-server, chat-client, testjig.",
+  "notes": "Implemented (uncommitted): SenderId removed in chat-types; chat-server message.rs/memory.rs use accountId; tests updated with cefc217 quotes. Follow-up for multi-user principal vs accountId: JMAP-yt1w.29.\nDone in e8ad58d2: tests created_message_sender_id_is_account_id, added_reaction_sender_id_is_account_id, removing_reaction_whose_sender_id_is_account_id_is_permitted, removing_reaction_whose_sender_id_is_literal_self_is_forbidden, edit_of_message_whose_sender_id_is_account_id_is_permitted, edit_of_message_whose_sender_id_is_literal_self_is_forbidden, delete_for_all_of_message_whose_sender_id_is_account_id_is_permitted, delete_for_all_of_message_whose_sender_id_is_literal_self_is_forbidden, has_mention_matches_account_id_and_not_other_mentions; changed existing tests: message_set_update_delete_for_all_purges_content, message_set_update_edit_rejects_deleted_message, message_set_update_reaction_add_overrides_sender_id_to_self (renamed message_set_update_reaction_add_overrides_sender_id_to_account_id), message_set_update_reaction_add_overrides_client_supplied_sender_id, message_set_update_delete_for_all_rejects_other_sender, message_set_update_edit_rejects_other_sender, message_set_update_reaction_remove_others_rejected_forbidden, message_set_update_reaction_remove_self_succeeds (doc/comments only), sender_id_self_sentinel_collision_documented_on_wire (deleted), message_deser_minimal, message_deser_with_reactions, message_new_has_empty_broadcast_mentions, typing_event_self_sentinel_routes_to_owner (deleted); typing_event_roundtrip (assert retyped), push_entry_self_sentinel_routes_to_owner (deleted); encrypted_entry_has_no_snippet, plaintext_entry_carries_snippet, plaintext_entry_no_snippet (args retyped), message_get_decodes_populated_message, ws.rs tests::typing event decode (inline), message_create_and_query_round_trip area (m1.sender_id assert) and reactions_add_then_remove, plus doc of message_edit_after_delete_is_forbidden",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T04:37:04.329136161Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T05:25:21.256369735Z",
+  "started_at": "2026-10-19T05:15:10.159943952Z",
+  "closed_at": "2026-10-19T05:25:21.256369735Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-405z.2",
+      "depends_on_id": "JMAP-405z",
+      "type": "parent-child",
+      "created_at": "2026-10-19T04:37:04.456151012Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

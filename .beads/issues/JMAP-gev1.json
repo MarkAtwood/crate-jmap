@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-gev1",
+  "title": "queryChanges removed omits updated ids still in results",
+  "description": "Found during JMAP-y3f2.14. RFC 8620 §5.6 removed: 'If the \"filter\" or \"sort\" includes a mutable property, the server MUST include all Foos in the current results for which this property may have changed.' and added includes 'every Foo in the current results that was included in the \"removed\" array'. The canonical jmap-mail-server MemoryBackend::query_changes (memory/mod.rs) puts an updated id that still matches only in added, not in removed, so a client applying removed-then-added duplicates it. jmap-chat-server and jmap-tasks-server mirror this since JMAP-y3f2.14. Fix in mail first (removed = destroyed ∪ updated), then mirror to siblings.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:47:36.079924397Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:47:36.079924397Z"
+}

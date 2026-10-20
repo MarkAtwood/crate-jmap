@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-lu95.1",
+  "title": "metadata-04: require lowercase namespace identifiers",
+  "description": "draft-ietf-jmap-metadata-04 requires lowercase namespace identifiers.\n\n-04 §2.1 (registered names): \"a sequence of lowercase US-ASCII letters, digits, hyphens, and underscores, with no dot (\".\").\"\n-04 §2.1 (domain names): \"Domain-name identifiers MUST be in lowercase, with internationalized labels in A-label form. Servers MUST reject, with an \"invalidProperties\" SetError, a /set operation that uses a key that is not a valid namespace identifier, including a domain name containing uppercase ASCII letters.\"\n-04 §8.2.3: \"MUST consist of lowercase US-ASCII letters, digits, hyphens, and underscores, and MUST NOT contain a dot.\"\n(-02 allowed any-case US-ASCII letters.)\n\nAffected:\n- crate-jmap-metadata-types/src/namespace.rs:22-28 is_registered_namespace: uses is_ascii_alphanumeric(), accepts uppercase. Use is_ascii_lowercase() || is_ascii_digit().\n- crate-jmap-metadata-types/src/namespace.rs:48-56 is_vendor_namespace: accepts any is_ascii_graphic() byte, including uppercase. Reject uppercase ASCII; an A-label is ASCII, so non-ASCII stays rejected.\n- crate-jmap-metadata-types/src/namespace.rs:90 test registered_with_hyphens_underscores_digits asserts \"A1-b2_c3\" is valid. That oracle was -02; under -04 it must be invalid. Update to the -04 oracle and add uppercase-rejection cases for both kinds (oracle: -04 §2.1 text above).\n- crate-jmap-metadata-types/src/capability.rs:43-44 doc (\"US-ASCII letters\") -\u003e \"lowercase\".\n\nEffect: is_namespace_supported (crate-jmap-metadata-server/src/validate.rs:106) inherits the stricter check. Function signatures do not change; behavior does (uppercase now rejected).\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T15:49:41.045449046Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T15:49:41.045449046Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lu95.1",
+      "depends_on_id": "JMAP-lu95",
+      "type": "parent-child",
+      "created_at": "2026-10-20T15:49:41.163792715Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

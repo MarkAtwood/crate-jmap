@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-kyjz",
+  "title": "Mailbox/queryChanges ignores the filter and sort arguments",
+  "description": "crate-jmap-mail-server/src/mailbox.rs handle_mailbox_query_changes passes None/None for filter and sort to backend.query_changes::\u003cMailbox\u003e, so a filtered Mailbox/queryChanges returns the unfiltered delta and never validates the filter (RFC 8620 §5.6: filter/sort are the same as the original /query). Found while working JMAP-v4eq. Fix: decode with jmap_server::filter_arg::\u003cMailboxFilterCondition\u003e (unsupportedFilter on unknown keys) and forward it, mirroring handle_mailbox_query.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T02:10:54.459063295Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T02:10:54.459063295Z"
+}

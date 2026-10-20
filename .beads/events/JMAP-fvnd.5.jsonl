@@ -1,0 +1,2 @@
+{"id":"01a155f1-d93a-7549-8052-fb9cf36d951c","issue_id":"JMAP-fvnd.5","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-19T20:54:35.578347206Z"}
+{"id":"01a158d2-9b62-7d34-97f5-7db659e84612","issue_id":"JMAP-fvnd.5","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in e30356d7 feat(chat-mimi-types): GroupInfo/fetch types (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:19.77886604Z"}

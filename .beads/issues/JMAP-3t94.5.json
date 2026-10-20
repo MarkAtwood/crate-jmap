@@ -1,32 +1,27 @@
 {
+  "id": "JMAP-3t94.5",
+  "title": "MemoryBackend::demo_next_id diverges from canonical mail-server's uuid-based create_object",
+  "description": "crate-jmap-sharing-server/src/memory.rs:193-235 implements MemoryBackend::demo_next_id with a two-mode helper (deterministic len()-based default, or realistic-demo-ids feature for a process-global timestamp+counter). The canonical mail-server (crate-jmap-mail-server/src/memory.rs:961-979) does NOT use demo_next_id; it uses uuid::Uuid::new_v4() directly inside create_object. The canonical's pattern is collision-free and persistent-across-restarts ish; the sharing sibling's default mode has documented collision-on-delete (per the inline comment at memory.rs:215-220 and the workspace-tracked bead bd:JMAP-qz9v.14).\n\nPer workspace AGENTS.md 'Canonical Templates': if a sibling reshapes its impl in a way that diverges from the canonical, the canonical changes first then the sibling propagates. The reverse is a regression of cookie-cutter intent.\n\nThe 920fb0d commit landed demo_next_id in 6 siblings (chat, calendars, contacts, metadata, sharing, tasks) but explicitly excluded mail-server. The commit message acknowledges the workspace-wide drift as a deliberate mitigation against cargo-culting the worse mail-server pattern — but that reverses the canonical-template precedence rule.\n\nTwo resolutions:\n  (a) Propagate demo_next_id to mail-server's create_object as the new canonical (drop uuid::Uuid::new_v4()).\n  (b) Revert the 6 siblings to use uuid::Uuid::new_v4() matching the canonical (then revisit the cargo-cult concern that motivated 920fb0d).\n\nNeither is a one-line fix. This is the meta-finding the cookie-cutter rule says review should catch. Cross-references: bd:JMAP-qz9v.14, bd:JMAP-826m.18, bd:JMAP-qz9v.47, bd:JMAP-qz9v.46, bd:JMAP-ayoz.20, bd:JMAP-x2gd.63.",
+  "notes": "DECISION NEEDED (triage 2026-10-19 at 9fdbbbcf): Question for Mark: should the extension-server MemoryBackend id minting follow canonical mail-server's uuid v4, or should demo_next_id become the convention?\n\nOptions:\n(a) Make demo_next_id canonical. Add demo_next_id, with contacts-server's monotonic next_ids default and the realistic-demo-ids feature, to mail-server's create_object and replace uuid::Uuid::new_v4 there. This adds a feature to mail-server (not breaking) and adds moving parts to the canonical.\n(b) Use uuid v4 everywhere. Delete demo_next_id, the next_ids counters, the debug_asserts and the realistic-demo-ids feature from the 5 siblings, add the uuid dependency, and call Uuid::new_v4 in create_object, matching mail-server. This breaks API because a published cargo feature is removed. It needs a few deterministic-id test literals in calendars, chat and contacts replaced with ids taken from the create responses. It also makes JMAP-h7jp moot, since there is no counter left to collide.\n(c) Record a documented exception. Add an AGENTS.md note, like the existing max_\u003cthing\u003e 'older pattern, NOT retroactively reshaped' note: mail-server's uuid minting predates the convention, demo_next_id with the contacts-style monotonic counter is the extension-sibling convention, and neither is propagated to the other. Then close this bead as a decision and widen JMAP-h7jp to cover sharing and tasks too, since both still have the len() collision.\n\nRecommendation: (b). It removes a whole category of code (a feature flag, two cfg modes, counters, collision asserts and the JMAP-h7jp sweep) and puts the workspace back on the canonical. Removing the feature is a small break in pre-1.0 demo backends. If deterministic ids matter for testjig snapshots or docs, choose (c), the cheapest documented constraint, rather than (a).\nDECIDED by Mark 2026-10-19: option (b). All MemoryBackends mint ids with uuid v4 like canonical mail-server. Delete demo_next_id, next_ids counters, collision debug_asserts and the realistic-demo-ids feature from the 5 siblings; tests read ids from create responses instead of literals. Makes JMAP-h7jp moot (close it). Breaking (feature removed), 0.3.0.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
   "assignee": "Mark Atwood",
-  "compaction_level": 0,
-  "content_hash": "d5dc6a83cc983963edf34f14217ee405c8c416c7747d753d97af4561968c7196",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T21:51:11Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-sharing-server/src/memory.rs:193-235 implements MemoryBackend::demo_next_id with a two-mode helper (deterministic len()-based default, or realistic-demo-ids feature for a process-global timestamp+counter). The canonical mail-server (crate-jmap-mail-server/src/memory.rs:961-979) does NOT use demo_next_id; it uses uuid::Uuid::new_v4() directly inside create_object. The canonical's pattern is collision-free and persistent-across-restarts ish; the sharing sibling's default mode has documented collision-on-delete (per the inline comment at memory.rs:215-220 and the workspace-tracked bead bd:JMAP-qz9v.14).\n\nPer workspace AGENTS.md 'Canonical Templates': if a sibling reshapes its impl in a way that diverges from the canonical, the canonical changes first then the sibling propagates. The reverse is a regression of cookie-cutter intent.\n\nThe 920fb0d commit landed demo_next_id in 6 siblings (chat, calendars, contacts, metadata, sharing, tasks) but explicitly excluded mail-server. The commit message acknowledges the workspace-wide drift as a deliberate mitigation against cargo-culting the worse mail-server pattern \u2014 but that reverses the canonical-template precedence rule.\n\nTwo resolutions:\n  (a) Propagate demo_next_id to mail-server's create_object as the new canonical (drop uuid::Uuid::new_v4()).\n  (b) Revert the 6 siblings to use uuid::Uuid::new_v4() matching the canonical (then revisit the cargo-cult concern that motivated 920fb0d).\n\nNeither is a one-line fix. This is the meta-finding the cookie-cutter rule says review should catch. Cross-references: bd:JMAP-qz9v.14, bd:JMAP-826m.18, bd:JMAP-qz9v.47, bd:JMAP-qz9v.46, bd:JMAP-ayoz.20, bd:JMAP-x2gd.63.",
-  "ephemeral": 0,
-  "id": "JMAP-3t94.5",
-  "is_blocked": 0,
-  "is_template": 0,
-  "issue_type": "task",
+  "updated_at": "2026-10-20T02:59:05.617466251Z",
+  "closed_at": "2026-10-20T02:59:05.617466251Z",
+  "close_reason": "Landed as 2a8bf0aa (uuid v4 MemoryBackend ids; realistic-demo-ids feature removed). Review passed. CI green at 8e240e18 (stable+beta 3502 passed).",
   "metadata": {},
-  "no_history": 0,
-  "owner": "mark@reviewcommit.com",
-  "pinned": 0,
-  "priority": 1,
-  "status": "open",
-  "timeout_ns": 0,
-  "title": "MemoryBackend::demo_next_id diverges from canonical mail-server's uuid-based create_object",
-  "updated_at": "2026-05-14T22:15:17Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T14:51:11Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-3t94",
-      "id": "e65067b1-9d51-512f-9a42-7a58719e58a8",
-      "metadata": {},
-      "type": "parent-child"
+      "metadata": "{}"
     }
   ]
 }

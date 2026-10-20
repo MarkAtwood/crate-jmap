@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-ccy6.1",
+  "title": "chat-types: Span model for application/jmap-chat-rich",
+  "description": "Add a Span model (draft-atwood-jmap-chat-00.md L1447-1479). Unknown span types must round-trip (L1481).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests deserialize/serialize the draft's rich-body examples (L1447-1479) byte-for-value; an unknown span type round-trips unchanged (L1481).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:42.683973547Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:18.006540441Z",
+  "closed_at": "2026-10-20T10:19:18.006540441Z",
+  "close_reason": "Landed in 52c0e30b feat(chat-types): rich body Span model (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ccy6.1",
+      "depends_on_id": "JMAP-ccy6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:42.780977034Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

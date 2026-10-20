@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-ua37.7",
+  "title": "chat/calendars clients cannot send metadata-02 filters",
+  "description": "Per draft-ietf-jmap-metadata-02 §3.5 each opted-in type's Foo/query FilterCondition gains metadataExists / privateMetadataExists / metadata{TextContains,TextEquals} / privateMetadata{TextContains,TextEquals}. Per JMAP-ua37.4 the typed per-type FilterCondition structs carry no metadata fields; jmap-metadata-client's builders return serde_json::Value. mail/contacts/tasks/filenode/sharing clients take Option\u003cserde_json::Value\u003e filters and work. These take typed filters and cannot carry metadata conditions: jmap-chat-client (chat_query, message_query, space_query, custom_emoji_query, contact query + their queryChanges), jmap-calendars-client calendar_event_query / calendar_event_notification_query (+ queryChanges). Needs a decision: Value filter, typed metadata fields, or document as unsupported. Found during JMAP-ua37.6.",
+  "notes": "2026-10-19: fold into the typed client Filter\u003cT\u003e sweep (JMAP-1j9k.2 decision) in batch 3.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:14:01.779698887Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T03:38:39.929773935Z",
+  "closed_at": "2026-10-20T03:38:39.929773935Z",
+  "close_reason": "Covered by 8827090e for calendars (all four methods) and chat *_query_changes via WithMetadata. Remaining chat *_query methods tracked in JMAP-a4gi (depends on JMAP-ops7.20). CI green at 88929342 (stable+beta 3516 passed).",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ua37.7",
+      "depends_on_id": "JMAP-ua37",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:14:01.891908996Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -3,22 +3,20 @@
   "close_reason": "Replaced N serial get_objects calls with one batch call; collected results into HashMap<Id,Email> for O(1) keyword lookup per entry.",
   "closed_at": "2026-05-03T02:41:34Z",
   "compaction_level": 0,
-  "content_hash": "0fe8115e1874d1ccd9733158123c7c31dcd740c0acf75db037f39660b23794b0",
   "created_at": "2026-05-03T02:38:51Z",
   "created_by": "Mark Atwood",
-  "description": "handle_mdn_send Step 5 (mdn.rs lines 325-348) iterates over send_map and calls backend.get_objects::<Email>() once per entry \u2014 N serial round-trips for N MDNs. get_objects already accepts a slice of IDs, so all N IDs could be fetched in a single call, then the results correlated by ID. For MDN/send the batch is typically 1, but a well-designed handler should use the batch API it was given. Impact at scale: linear latency multiplication on any backend with non-trivial per-call overhead.",
-  "ephemeral": 0,
+  "description": "handle_mdn_send Step 5 (mdn.rs lines 325-348) iterates over send_map and calls backend.get_objects::<Email>() once per entry — N serial round-trips for N MDNs. get_objects already accepts a slice of IDs, so all N IDs could be fetched in a single call, then the results correlated by ID. For MDN/send the batch is typically 1, but a well-designed handler should use the batch API it was given. Impact at scale: linear latency multiplication on any backend with non-trivial per-call overhead.",
+  "ephemeral": false,
   "id": "JMAP-ocea.4",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "N serial get_objects calls in mdnsent pre-check of handle_mdn_send",
   "updated_at": "2026-05-03T02:41:34Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-ocea",
       "id": "4b55fee0-3b6d-5477-91d8-e953671dd296",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

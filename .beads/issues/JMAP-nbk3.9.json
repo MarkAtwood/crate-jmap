@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-nbk3.9",
+  "title": "chat-server: fit ChatMessagePush to a platform size limit",
+  "description": "Oracle: jmap-chat-push-platform-guide.md L272-274: \"Servers MUST NOT drop: `@type`, `accountId`, `state` (on the outer object), `messageId`, `chatId`, `chatKind`, `senderId`, `hasMention`, `mentionScopes`, `encrypted`.\" L283-285: \"If a single minimal entry still exceeds the platform limit, servers MUST fall back to a plain `StateChange` for that subscription rather than sending an invalid or oversized payload.\" Droppable-field order (SHOULD) L252-262: bodySnippet, spaceId, sentAt, spaceName, chatName, senderDisplayName. Web Push limit oracle: jmap-push-platform-guide.md L498-499 \"Servers MUST keep plaintext under **3993 bytes**\". Current: crate-jmap-chat-server/src/push.rs builds the payload (build_chat_message_push) and truncates only bodySnippet to maxSnippetBytes; nothing fits the serialized payload to a byte limit or signals the StateChange fallback. Per JMAP-vjm0 payload construction stays in chat-server; the limit value is the caller's (delivery layer, JMAP-gxxm). Source: JMAP-x3lu audit.",
+  "acceptance_criteria": "A pure helper takes a built ChatMessagePush and a max byte count, drops fields in the guide order, never drops the MUST-keep fields, and returns None when a minimal single entry still exceeds the limit (caller sends StateChange). Tests assert serialized length \u003c= limit and the MUST-keep set against hand-written JSON.",
+  "notes": "Spec 63e9d08 changed this area after implementation; follow-up in JMAP-0x0q.15 (check what batch 7 landed before re-doing).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:11:00.182947981Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:33.566564291Z",
+  "closed_at": "2026-10-20T20:37:33.566564291Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-nbk3.9",
+      "depends_on_id": "JMAP-nbk3",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:11:00.660576129Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

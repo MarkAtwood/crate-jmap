@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-6mh7.5",
+  "title": "vtc-client: VtcWsFrame parser and enable/disable helpers",
+  "description": "VtcWsFrame parser over WsFrame::Unknown, enable/disable helpers, re-enable on reconnect (draft-atwood-jmap-vtc-wss-00 L332-338, L388-391).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests parse draft frame examples.",
+  "notes": "Mark 2026-10-20: VTC specs have known bugs; no further VTC crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:09.626801819Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:55:33.831177545Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6mh7.5",
+      "depends_on_id": "JMAP-6mh7",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:09.729762762Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

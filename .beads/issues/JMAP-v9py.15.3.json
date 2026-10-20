@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.15.3",
+  "title": "federation-server: peer-role access control in CallerCtx",
+  "description": "Peer-role access control in CallerCtx (draft-atwood-jmap-chat-federation-00 L260, L302).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L260/L302: peer caller limited to Peer/* methods.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:59.956859889Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:54.100615864Z",
+  "closed_at": "2026-10-20T20:37:54.100615864Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.15.3",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:00.24273176Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

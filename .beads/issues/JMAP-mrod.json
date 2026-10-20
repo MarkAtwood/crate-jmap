@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-mrod",
+  "title": "Track jmap-chat-spec 10dec30 + filenode-16 wire changes",
+  "description": "Spec commits a371068..10dec30 in jmap-chat-spec plus upstream draft-ietf-jmap-filenode-16 break existing crate-jmap wire behavior. Three fixes, one commit each.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:36:17.848229228Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:15:38.831698386Z",
+  "closed_at": "2026-10-18T05:15:38.831698386Z",
+  "close_reason": "all children closed; fixes pushed through c5981683"
+}

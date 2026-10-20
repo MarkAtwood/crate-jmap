@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-8mem",
+  "title": "VTC base (draft-atwood-jmap-vtc-00)",
+  "description": "Layer: VTC. Creates crate-jmap-vtc-types, -server, -client. Depends on: RFC 8620 only; the Chat binding task needs the Chat extension seams epic; ring delivery needs JMAP-gxxm. Spec: draft-atwood-jmap-vtc-00 (L140-1655), draft-atwood-jmap-chat-00 L567-578. Folded-in: JMAP-3m1s. Critic correction: Chat.activeCallId is ALREADY server-set and rejected as a patch key (crate-jmap-chat-server/src/chat.rs L279, L690; tests/chat_server_set_fields.rs L59). Only VTC-driven atomic set/clear is missing. SetError tables use invalidArguments as a SetError: see spec bug jmap-chat-spec-up1n. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "notes": "Mark 2026-10-20: VTC specs have known bugs; no further VTC crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:50.28097783Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:55:30.453732961Z"
+}

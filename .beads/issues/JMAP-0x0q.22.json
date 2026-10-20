@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.22",
+  "title": "Add supportsSceneAsset capability field and unknownMethod gate",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Add supportsSceneAsset capability field and unknownMethod gate\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L228-229: \"`supportsSceneAsset` (Boolean): `true` if the server supports the SceneAsset methods on this account. When `false`, a call to any SceneAsset method returns an `unknownMethod` error ({{RFC8620}} Section 3.6.2).\"\nCode: crate-jmap-scene-types/src/capability.rs:53-71; crate-jmap-scene-server/src/asset.rs:53-130; crate-jmap-scene-server/src/backend.rs:526-534\nNow: SceneCapability has no supports_scene_asset field. The SceneAsset handlers never check support. supports_type is documented as 'Not called by the handlers'.\nChange: Add `supports_scene_asset: bool` to SceneCapability (consider serde default true for older peers). In each SceneAsset/* handler, return JmapError::unknown_method() when the account capability says false (or supports_type::\u003cSceneAsset\u003e is false).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:31.441264519Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:31.441264519Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.22",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:31.568263973Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

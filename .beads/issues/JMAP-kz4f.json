@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-kz4f",
+  "title": "Federation peer auth: no-I/O spec parts (RFC 9421 signing/verification)",
+  "description": "Per decision JMAP-vjm0: the spec-defined, I/O-free parts of draft-atwood-jmap-chat-federation-00 §Peer Authentication Model (jmap-chat-spec 03985ef, L174-230) go in crate-jmap. Key fetching over HTTPS, DNSSEC/TXT lookups, key cache, refetch rate limit and replay store stay in the caller/support crate.\n\nScope (pure functions, clock and lookups passed in):\n1. peerSigningKeys types: Ed25519 OKP JWK; RFC 7638 thumbprint; usable-key filter (kty OKP, crv Ed25519, recomputed thumbprint == kid, no private members -\u003e ignore entry) (§Key Publication).\n2. keyid format/parse '\u003cpeer-domain\u003e#\u003ckid\u003e'.\n3. Signing: build the RFC 9421 signature base and Signature-Input/Signature for @method, @target-uri, content-digest (when content), params tag=jmap-chat-peer, alg=ed25519, keyid, created, expires (\u003c= created+300), nonce (\u003e=128-bit CSPRNG, base64url). Private key supplied by the caller.\n4. Verification checks 1-4 and 6 of §Request Signing: exactly one jmap-chat-peer signature, alg, covered components, keyid -\u003e usable key, Ed25519 verify, clock window (60s skew, 300s lifetime), RFC 9530 sha-256 content-digest match. Check 5 (nonce replay) via a caller-supplied seen(domain, nonce) and a returned (domain, nonce, forget_after = expires+60s) to record. Result: authenticated peer domain or a typed rejection (all map to HTTP 403).\n5. DNSSEC precedence (§DNSSEC Key Binding) as a pure fn over a caller-supplied validation result enum {Secure(kids), SecureDenial, Insecure, NoRecords, Indeterminate, LookupFailed, Bogus}: Secure with records filters keys to listed kids; Bogus rejects; all others use HTTPS keys alone. Parse 'v=jmappeer1; kid=\u003ckid\u003e' TXT values.\n6. Identity-host binding rule (§identity-binding) as a pure predicate.\n\nOpen at start: placement (new crate e.g. crate-jmap-peer-auth vs feature-gated module of jmap-chat-server) and deps (ed25519 + sha2 needed; check crates.io for a maintained RFC 9421 crate and prefer a thin adapter, per JMAP-vjm0). No HTTP client, DNS, or persistence deps.",
+  "acceptance_criteria": "Tests use external oracles only: RFC 8037 App. A.3 Ed25519 JWK thumbprint (kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k, also the draft's keyid example); RFC 9421 App. B.2.6 ed25519 signature test vector; RFC 9530 sha-256 Content-Digest examples. Each verification check has a negative test quoting the draft rule. DNSSEC precedence covered for every enum case.",
+  "notes": "2026-10-19: with support crates now in this workspace (JMAP-vjm0 amended), placement option: one peer-auth crate holding these pure parts with the I/O half (JMAP-atfj) behind a feature, so jmap-chat-server can depend on the pure part without HTTP/DNS deps. Decide at start.\nFolded into JMAP-v9py.15 (Layer E: Implement draft-atwood-jmap-chat-federation-00) by the 2026-10-19 spec gap audit.\nDECIDED by Mark 2026-10-20: pure RFC 9421 peer-auth goes in a new I/O-free crate crate-jmap-peer-auth; key fetch/DNSSEC/cache/replay store stay in the support crate (JMAP-atfj). Server crates may depend on peer-auth, never on atfj.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T21:15:10.94268999Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:36.54825876Z",
+  "closed_at": "2026-10-20T20:37:36.54825876Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-kz4f",
+      "depends_on_id": "JMAP-5qez",
+      "type": "blocks",
+      "created_at": "2026-10-19T21:15:11.32289497Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

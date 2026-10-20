@@ -1,0 +1,2 @@
+{"id":"01a157a1-40ae-7062-af9a-7c89b2f4f1f2","issue_id":"JMAP-y3f2.12","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T04:45:48.078026045Z"}
+{"id":"01a158d2-8fe1-7adb-bb30-f9a54f28efa0","issue_id":"JMAP-y3f2.12","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in already fixed (f5838646, 336a3c5e under JMAP-y3f2.4) (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:16.833712123Z"}

@@ -1,0 +1,5 @@
+{"id":"01a14d3d-979c-7c0e-adf5-fd48230b6024","issue_id":"JMAP-4vf8.11","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-18T04:20:44.572791202Z"}
+{"id":"01a14d3d-97a0-7842-9b54-cbb54feeb5c2","issue_id":"JMAP-4vf8.11","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-18T04:20:44.576541815Z"}
+{"id":"01a14d3d-97a3-7ac5-af11-043a5f440a30","issue_id":"JMAP-4vf8.11","event_type":"label_added","actor":"agent","comment":"Added label: risk","created_at":"2026-10-18T04:20:44.579706525Z"}
+{"id":"01a14d3d-97a6-7c38-a064-03805e7c06c7","issue_id":"JMAP-4vf8.11","event_type":"label_added","actor":"agent","comment":"Added label: api-contract","created_at":"2026-10-18T04:20:44.582801382Z"}
+{"id":"01a14d3d-e298-7c98-8dee-92c38fccb0cb","issue_id":"JMAP-4vf8.11","event_type":"closed","actor":"agent","old_value":"","new_value":"duplicate of JMAP-4vf8.5","created_at":"2026-10-18T04:21:03.768826492Z"}

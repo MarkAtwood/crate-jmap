@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-v9py.18.4",
+  "title": "chat-tasks-server: Task.chatId write rules",
+  "description": "No existence check but same account (draft-atwood-jmap-chat-tasks-00 L155, L240); optionally hide from readers without Chat access (L268-270).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L155/L240.",
+  "notes": "DECIDED by Mark 2026-10-20: add a fail-open hook letting the backend redact Task.chatId per reader (tasks L270 MAY).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:07.882704145Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:51.832242027Z",
+  "closed_at": "2026-10-20T20:37:51.832242027Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.18.4",
+      "depends_on_id": "JMAP-v9py.18",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:07.98114066Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

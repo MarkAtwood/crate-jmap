@@ -1,0 +1,29 @@
+{
+  "id": "JMAP-4vf8.19",
+  "title": "FileNodeOnExists lacks newest and unchanged variants",
+  "description": "draft-ietf-jmap-filenode-16 §3.2.3 defines onExists values replace, rename, newest, unchanged; crate-jmap-filenode-client FileNodeOnExists has only Replace and Rename. Check server support too.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:49:08.696658447Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:01:21.346879552Z",
+  "started_at": "2026-10-18T04:57:21.230153598Z",
+  "closed_at": "2026-10-18T05:01:21.346879552Z",
+  "close_reason": "fixed in working tree, verified",
+  "labels": [
+    "review"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.19",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:49:09.584691695Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

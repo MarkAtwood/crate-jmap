@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-405z.6",
+  "title": "Federation identity mapping (after chinwag-nuqe.7)",
+  "description": "Peer/* user-reference fields (senderUserId, readerUserId, groupUpdate members/removed/role ids, ownerUserId, Mention ids, action-metadata user refs, Peer/presence identity (renamed from contactId)) carry identities; receiver maps identity -\u003e local ChatContact (placeholder MUST for groupUpdate; cap -\u003e rateLimited); ownerUserId \u003c-\u003e accountId. Blocked on Peer methods (chinwag-nuqe.7).",
+  "notes": "Folded into JMAP-v9py.15 (Layer E: Implement draft-atwood-jmap-chat-federation-00) by the 2026-10-19 spec gap audit. Audit scope: identity mapping and placeholder ChatContacts with a cap (federation L304-318, L875).\nDECIDED by Mark 2026-10-20: crate-jmap goes first: implement identity mapping per federation-00 L304-318; dependency on chinwag-nuqe.7 removed (chinwag adapts).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T04:37:05.470053055Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:58.187421938Z",
+  "closed_at": "2026-10-20T20:37:58.187421938Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-405z.6",
+      "depends_on_id": "JMAP-405z",
+      "type": "parent-child",
+      "created_at": "2026-10-19T04:37:05.582666795Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

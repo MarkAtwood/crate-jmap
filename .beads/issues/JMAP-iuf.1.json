@@ -2,21 +2,19 @@
   "close_reason": "Fix already committed; parent epic closed",
   "closed_at": "2026-05-01T15:11:37Z",
   "compaction_level": 0,
-  "content_hash": "27bda885d669b789dbd483e6d2fba64b326d236ee5cbf628d3af0503983d9056",
   "created_at": "2026-05-01T12:36:31Z",
   "created_by": "Mark Atwood",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-iuf.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "SetError missing max_size for tooLarge",
   "updated_at": "2026-05-01T15:11:37Z",
   "dependencies": [
@@ -25,8 +23,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-iuf",
       "id": "2bfa6b6a-d45c-53f4-b927-03eeefc2b8d7",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

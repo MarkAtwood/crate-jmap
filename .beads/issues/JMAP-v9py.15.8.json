@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-v9py.15.8",
+  "title": "jmap-server: per-call access hook so federation peer-role check covers all handlers",
+  "description": "draft-atwood-jmap-chat-federation-00 L260: a peer caller MUST receive forbidden for any non-Peer/* method. JMAP-v9py.15.3 added jmap_chat_federation_server::check_method_access, but jmap_server::Dispatcher has no pre-handler hook, so handlers registered by register_chat_handlers (and the other register_* fns) never run it and a deployment cannot insert it per method call (dropping/rewriting calls breaks result references and response ordering). Needs a decision (foundation API change): options (a) additive Dispatcher method guard, e.g. Dispatcher::set_guard(Arc\u003cdyn Fn(\u0026str, \u0026CallerCtx) -\u003e Result\u003c(), JmapError\u003e + Send + Sync\u003e) run before handler lookup; (b) leave to deployments that run their own dispatch loop. Recommendation: (a).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T19:00:26.248535555Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:00:26.248535555Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.15.8",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "parent-child",
+      "created_at": "2026-10-20T19:00:26.360773236Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

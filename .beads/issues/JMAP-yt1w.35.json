@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.35",
+  "title": "chat-server: MemoryBackend has no mention_broadcast gate",
+  "description": "MemoryBackend inherits ChatBackend::may_broadcast_mention's permit-all default, so a channel Message/set create or edit with broadcastMentions is never refused. Draft-atwood-jmap-chat-00 (cefc217) §BroadcastMention: 'Sending a Message with a non-empty broadcastMentions array requires the \"mention_broadcast\" Space permission. Servers MUST reject Message/set create or update requests that would write a broadcast mention from a sender lacking this permission with forbidden.' The reference impl should check mention_broadcast against the owner's member entry (accountId) in the channel's Space, as the other gates do since JMAP-yt1w.33. Found while fixing JMAP-yt1w.33; src/message.rs unit tests and tests/message_broadcast_permission.rs currently rely on the permissive default.",
+  "notes": "Fix implemented (uncommitted): MemoryBackend::may_broadcast_mention checks permissions::MENTION_BROADCAST (new const) against account_id's effective perms in the Space; missing Space permits. src/message.rs make_channel_chat fixture role now grants mention_broadcast. Gates: fmt, clippy, test chat-server+testjig, doc all pass.\nDone in e5eddc27: tests create_in_channel_without_mention_broadcast_is_forbidden, update_retaining_broadcast_without_mention_broadcast_is_forbidden, update_adding_broadcast_without_mention_broadcast_is_forbidden; changed existing tests: broadcast_mention_create_in_channel_succeeds, broadcast_mention_update_retaining_broadcast_succeeds (shared fixture make_channel_chat), module doc only (no test logic changed)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T17:02:35.771082084Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T17:46:11.712362848Z",
+  "started_at": "2026-10-19T17:40:25.252542992Z",
+  "closed_at": "2026-10-19T17:46:11.712362848Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.35",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T17:02:35.888894891Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

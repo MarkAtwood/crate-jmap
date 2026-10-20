@@ -1,0 +1,35 @@
+{
+  "id": "JMAP-nbk3.4",
+  "title": "N4 chat-server: MemoryBackend push subscriptions",
+  "description": "Reference PushSubscriptionBackend in chat-server MemoryBackend (D2): cap -\u003e overQuota, 16-byte getrandom base64url fixed-length codes. No zeroize (amended by Mark 2026-10-19: demonstration-quality backend; secure erase is a consumer MUST on the trait). See JMAP-nbk3 design field (approved plan) for scope, acceptance and quoted RFC/draft lines.",
+  "notes": "N4 implemented in crate-jmap-chat-server/src/memory.rs (uncommitted): MAX_PUSH_SUBSCRIPTIONS=50 cap under the Inner mutex -\u003e overQuota; 16-byte getrandom unpadded base64url codes (22 chars). Regression test push_subscription_memory.rs needed one added wildcard match arm (BackendSetError is #[non_exhaustive]). Gates green.\nDone in ac88266e: tests verification_codes_are_fixed_length_and_distinct, create_over_cap_returns_over_quota; changed existing tests: create_over_cap_returns_over_quota",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:25:24.219068262Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T19:10:03.876196331Z",
+  "started_at": "2026-10-19T19:04:26.343135099Z",
+  "closed_at": "2026-10-19T19:10:03.876196331Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-nbk3.4",
+      "depends_on_id": "JMAP-nbk3",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:25:24.328208146Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-nbk3.4",
+      "depends_on_id": "JMAP-nbk3.3",
+      "type": "blocks",
+      "created_at": "2026-10-19T18:25:26.310611251Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

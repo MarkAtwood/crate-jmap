@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-559u",
+  "title": "chat-server: pin and mention_broadcast gates skip channel overrides",
+  "description": "draft-atwood-jmap-chat-00 §Space Permission Resolution L1619: 'When determining whether a member may perform an action in a channel Chat, servers MUST evaluate permissions in this order' (role deny/allow, member deny/allow). MemoryBackend may_set_pinned_messages and may_broadcast_mention use caller_effective_permissions (Space-level union only), so a channel permissionOverrides deny/allow of pin or mention_broadcast is ignored. JMAP-y3f2.1 added permissions::resolve_channel_permissions and memory.rs owner_channel_permissions; reuse them. may_broadcast_mention takes space_id only, so it needs a chat_id parameter (breaking ChatBackend change, pre-0.4 freeze JMAP-lrgt). Found while implementing JMAP-y3f2.1.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T04:17:41.644055323Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T04:17:41.644055323Z"
+}

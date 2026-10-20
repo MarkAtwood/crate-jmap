@@ -3,22 +3,20 @@
   "close_reason": "Added #[deprecated] to unknown_capability(); existing tests use #[allow(deprecated)]",
   "closed_at": "2026-05-02T22:12:53Z",
   "compaction_level": 0,
-  "content_hash": "b898f60fe9a8cc4cd468f5eac7124a802ce2b870321a2cbecc2eac8091f34ef6",
   "created_at": "2026-05-02T22:06:18Z",
   "created_by": "Mark Atwood",
   "description": "unknown_capability() has no #[deprecated] attribute pointing to unknown_capability_with_detail(). A future contributor (or the existing response.rs test which calls it directly) will continue using the no-detail path. Without a deprecation warning, the 'use this in preference' doc comment is invisible at call sites. The improvement will not actually propagate unless the old constructor is deprecated or removed.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-nkib.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "unknown_capability() not deprecated: old no-detail constructor still callable with no warning",
   "updated_at": "2026-05-02T22:12:53Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-nkib",
       "id": "4df6fe8e-0923-56fc-88b9-a9313a59477b",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

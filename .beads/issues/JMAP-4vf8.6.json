@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-4vf8.6",
+  "title": "filenode-server README still documents -14 nodeType inference",
+  "description": "crate-jmap-filenode-server/README.md:145-152 says FileNode/set create infers nodeType from blobId/target when absent. After this change, src/filenode.rs:303-311 rejects a create with no @type (invalidProperties ['@type'], per draft-16 §3.1.1). The README also cites draft-ietf-jmap-filenode-14 (lines 5, 47, 253, 256), as do module and fn docs in src/filenode.rs (lines 1, 18, 49, 53, 122, 160, ...). PLAN.md:257-341 has the same stale inference text. Implementers reading the README will omit @type and get errors. Update the README section and the rustdoc spec citations to -16.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:19:50.923806968Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:38:26.128709179Z",
+  "started_at": "2026-10-18T04:26:56.732517304Z",
+  "closed_at": "2026-10-18T04:38:26.128709179Z",
+  "close_reason": "fixed in working tree (uncommitted), verified by adversarial reviewer + cargo test",
+  "labels": [
+    "review",
+    "api"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.6",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:19:51.226487444Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

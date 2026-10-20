@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.33",
+  "title": "chat-server: lib.rs says principal_id None MUST reject, reference impl and trait docs skip gate",
+  "description": "Found while fixing JMAP-yt1w.32. crate-jmap-chat-server/src/lib.rs crate docs say: 'A None return from JmapBackend::principal_id means the deployment has not wired identity; chat permission semantics cannot be honored and the backend MUST reject the patch rather than fail open.' But ChatBackend::apply_space_metadata_patch docs (backend.rs) say the gate is skipped when principal_id returns None, and MemoryBackend (the reference impl) skips every identity-dependent gate in single-user mode (criterion 7 of JMAP-g7wu.2.4.3). One of the two statements is wrong; decide the single-user posture and make the docs agree.",
+  "notes": "Mark decision 2026-10-19: option 1. Chat permission/hierarchy gates are always enforced against the owner's member entry (accountId); remove the principal_id==None single-user skip everywhere in chat-server (MemoryBackend gates, ChatBackend docs) and remove the lib.rs 'MUST reject ... fail open' sentence. Update the workspace AGENTS.md 'Caller identity (foundation seam)' text accordingly (Mark approved this AGENTS.md edit). Delegates acting on an account get the owner's Space permissions (account-level sharing per RFC 9670 is the place to restrict delegates). Breaking: record on JMAP-yt1w.3.\nImplemented (uncommitted): removed the caller_id/principal_id None skip from MemoryBackend Space/set patch-op gates, metadata manage_space gate, pinnedMessageIds gate and SpaceBan gate; deleted the doc(hidden) *_with_caller_id helpers (IdentityBackend now forwards to the trait methods); lib.rs MUST-reject sentence and backend.rs skip text removed; workspace AGENTS.md updated. chat-server tests 456/456 pass; jmap-testjig has 4 failures caused by JMAP-yt1w.34 (Space/set create does not make the creator an admin). Follow-ups: JMAP-yt1w.34, .35, .36, .37; note appended to JMAP-yt1w.20.\nDone in 90a18713 (combined with JMAP-yt1w.34; file sets overlap in tests/integration.rs and tests/common/mod.rs): Space permission gates always enforced against the accountId member entry; principal_id None skips and doc(hidden) *_with_caller_id helpers removed; AGENTS.md seam updated; new tests/single_user_owner_gates.rs; chat-server test fixtures grant the owner the needed role. Breaking notes already on JMAP-yt1w.3.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T06:01:13.680563367Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T17:19:17.294496489Z",
+  "started_at": "2026-10-19T16:50:51.218276037Z",
+  "closed_at": "2026-10-19T17:19:17.294496489Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.33",
+      "depends_on_id": "JMAP-405z",
+      "type": "parent-child",
+      "created_at": "2026-10-19T16:50:45.683599808Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.16.1",
+  "title": "filenode: spaceId in FileNodeFilterCondition and memory filter",
+  "description": "Add spaceId to FileNodeFilterCondition and the memory filter (draft-atwood-jmap-chat-filenode-00 L124, L138). Today the key is probably dropped at parse (crate-jmap-filenode-types filter.rs:42-140), so space_file_tree_root breaks with 2+ Space trees (inferred, not tested).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test: two Spaces with trees; filter by spaceId returns only the matching root (L124/L138).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:55.720887265Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:46.476302086Z",
+  "closed_at": "2026-10-20T20:37:46.476302086Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.16.1",
+      "depends_on_id": "JMAP-v9py.16",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:55.848945952Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+{"id":"01a15688-d7a5-7809-9daa-681671b59d24","issue_id":"JMAP-vlac","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-19T23:39:31.109527399Z"}
+{"id":"01a1573f-9254-738e-90af-16ba3357a91c","issue_id":"JMAP-vlac","event_type":"closed","actor":"agent","old_value":"","new_value":"Fixed by 2a8bf0aa: race-cleanup test phantom id now '0', which sorts before every uuid v4; deterministic under all features. CI green at 8e240e18 (stable+beta 3502 passed).","created_at":"2026-10-20T02:59:06.452234007Z"}

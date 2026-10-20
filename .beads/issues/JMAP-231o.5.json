@@ -3,22 +3,20 @@
   "close_reason": "Fixed in commit b39e3ca: docstring rewritten.",
   "closed_at": "2026-05-10T05:28:45Z",
   "compaction_level": 0,
-  "content_hash": "d97d01e45162dfe64313a7cb0027a863e072942ce44f8f9bc7c7e934ea967d41",
   "created_at": "2026-05-08T03:12:07Z",
   "created_by": "Mark Atwood",
-  "description": "src/methods/mod.rs:172 \u2014 doc comment reads 'included in the response as implicit implicit implicit-fetch'. Either copy-paste error or a search-and-replace that ran more times than intended. Renders verbatim in rustdoc and ships with the crate's docs.rs page.\n\nSuggested fix: 'included in the response via implicit fetch'.",
-  "ephemeral": 0,
+  "description": "src/methods/mod.rs:172 — doc comment reads 'included in the response as implicit implicit implicit-fetch'. Either copy-paste error or a search-and-replace that ran more times than intended. Renders verbatim in rustdoc and ships with the crate's docs.rs page.\n\nSuggested fix: 'included in the response via implicit fetch'.",
+  "ephemeral": false,
   "id": "JMAP-231o.5",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 4,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Triple 'implicit' typo in CalendarEventGetParams.fetch_calendars docstring",
   "updated_at": "2026-05-10T05:28:45Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-231o",
       "id": "fe201b0e-4136-5edb-b115-d8aeeb941e81",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

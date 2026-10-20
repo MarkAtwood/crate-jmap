@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.12",
+  "title": "Message bodyType not checked vs supportedBodyTypes",
+  "description": "draft-atwood-jmap-chat-00: bodyType 'MUST be in supportedBodyTypes'; Security Considerations lists 'bodyType: validate against supportedBodyTypes' and 1e33ec7 adds that a Message/set failing such a check with no other named error MUST be rejected with invalidProperties naming the property. message.rs:501-505 reads bodyType with a default and never validates it. Error-code half overlaps JMAP-yt1w.4(e). Found by the 1e33ec7 audit (wf_af4656ea-dbb, both refuters upheld). Fix with a failing test quoting the draft; extend chat_client_wire.rs where the client exercises it.",
+  "notes": "fix done in abf6969a: tests added message_set_unsupported_body_type_is_invalid_properties (chat-server integration.rs), message_unsupported_body_type_is_invalid_properties (testjig chat_client_wire.rs)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T22:58:41.215786157Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T02:03:49.01342411Z",
+  "started_at": "2026-10-19T01:43:33.430599965Z",
+  "closed_at": "2026-10-19T02:03:49.01342411Z",
+  "close_reason": "Fixed against jmap-chat-spec 1e33ec7; test-first, reviewed, gates green (stable/beta/1.88)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.12",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-18T22:58:41.334653717Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

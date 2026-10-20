@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-y7iy",
+  "title": "chat-client ContactPresenceFilter orphaned after JMAP-ops7.20",
+  "description": "JMAP-ops7.20 removed ChatContactQueryInput, the only consumer of jmap_chat_client::types::ContactPresenceFilter (re-exported from lib.rs). chat_contact_query now takes Filter\u003cChatContactFilterCondition\u003e, whose presence field is jmap_chat_types::Presence. The type and its TryFrom\u003cPresence\u003e impl and unit tests are now unused public API; PLAN.md cites it as the example auxiliary type. Decide: remove (breaking, pre-0.4) or keep.",
+  "notes": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-core] Drop ContactPresenceFilter::Invisible (contacts never invisible)\nSpec (80ae683): draft-atwood-jmap-chat-00.md L520: \"`presence` (String, optional, server-set): Last known presence state: `\\\"online\\\"`, `\\\"away\\\"`, `\\\"busy\\\"`, or `\\\"offline\\\"`. A contact whose own presence is `\\\"invisible\\\"` appears as `\\\"offline\\\"`.\"\nCode: crate-jmap-chat-client/src/types.rs:30-31 (Invisible variant); crate-jmap-chat-client/src/types.rs:48 (TryFrom maps Presence::Invisible)\nNow: The client filter enum offers a ChatContact presence value the spec no longer allows. The type is already orphaned public API. The server side is correct: Peer/presence rejects invisible (chat-federation-server/src/presence.rs:197-205), and the outbound and ephemeral paths map invisible to offline (presence.rs:119, chat-server/src/ephemeral.rs:224).\nChange: Resolve as part of JMAP-y7iy: either remove the type, or at least remove Invisible and make TryFrom reject Presence::Invisible.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T11:21:12.535480014Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:27.305136838Z"
+}

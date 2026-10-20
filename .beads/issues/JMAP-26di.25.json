@@ -1,21 +1,19 @@
 {
   "compaction_level": 0,
-  "content_hash": "4c98d6c00df123b8ae087f49533d0c1f16991cb0a6b933b0cc37857202db535b",
   "created_at": "2026-05-15T20:30:03Z",
   "created_by": "Mark Atwood",
-  "description": "src/session.rs:21-23 ChatCapability uses two separate attribute lines:\n```\n#[serde(rename_all = \"camelCase\")]\n#[serde(default)]\n```\nsrc/session.rs:79-81 ChatPushCapability uses the combined form:\n```\n#[serde(rename_all = \"camelCase\", default)]\n```\nBoth compile; the difference is purely stylistic. AGENTS.md 'Canonical Templates' pushes cookie-cutter consistency hard between sibling types. Pick one form and apply uniformly. Combined form is one line shorter and matches AccountInfo precedent in base-client. (Note: the underlying #[serde(default)] is itself flagged by JMAP-26di.4 as a correctness issue \u2014 resolve that first; this is a cosmetic follow-up if both keep the attribute.)",
-  "ephemeral": 0,
+  "description": "src/session.rs:21-23 ChatCapability uses two separate attribute lines:\n```\n#[serde(rename_all = \"camelCase\")]\n#[serde(default)]\n```\nsrc/session.rs:79-81 ChatPushCapability uses the combined form:\n```\n#[serde(rename_all = \"camelCase\", default)]\n```\nBoth compile; the difference is purely stylistic. AGENTS.md 'Canonical Templates' pushes cookie-cutter consistency hard between sibling types. Pick one form and apply uniformly. Combined form is one line shorter and matches AccountInfo precedent in base-client. (Note: the underlying #[serde(default)] is itself flagged by JMAP-26di.4 as a correctness issue — resolve that first; this is a cosmetic follow-up if both keep the attribute.)",
+  "ephemeral": false,
   "id": "JMAP-26di.25",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 4,
   "status": "open",
-  "timeout_ns": 0,
   "title": "session.rs sibling structs use inconsistent serde-attribute placement",
   "updated_at": "2026-05-15T20:30:03Z",
   "dependencies": [
@@ -24,8 +22,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-26di",
       "id": "d4b5e1b0-08e6-562d-8e70-1b57bb8cab3e",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

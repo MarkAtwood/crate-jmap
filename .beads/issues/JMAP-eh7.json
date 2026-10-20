@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T23:46:54Z",
   "compaction_level": 0,
-  "content_hash": "0f5033d53bffbba8846778acb3d3ca766ccf74899676655996b939f515682797",
   "created_at": "2026-05-01T23:01:53Z",
   "created_by": "Mark Atwood",
   "description": "Missing thread-related validation: (1) threadRootId must reference a valid existing message in the same chat (spec lines 508-515); (2) replyTo must reference an existing message in the same chat. Missing expiry/retention fields: senderExpiresAt must be in the future at creation time; burnOnRead handling; messageExpirySeconds on the chat sets per-chat TTL.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-eh7",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "feature",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 4,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Message/set: thread support and expiry validation",
   "updated_at": "2026-05-01T23:46:54Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-x09",
       "id": "98b5a71d-9b01-5029-b846-d87b606477cf",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

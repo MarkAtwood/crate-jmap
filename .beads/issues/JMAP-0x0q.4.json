@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.4",
+  "title": "Add server-set Chat.activeCallAccountId and set it with activeCallId",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-core] Add server-set Chat.activeCallAccountId and set it with activeCallId\nSpec (57243ea): draft-atwood-jmap-chat-00.md L656-657: \"`activeCallAccountId` (Id|null, server-set): The id of the account hosting the VTCCall named by `activeCallId`, so a client can join a call held in another account. The server sets and clears this field together with `activeCallId`, in the same state change: it is non-null exactly when `activeCallId` is non-null. Like `activeCallId`, it is not a `Chat/set` patch key.\"\nCode: crate-jmap-chat-types/src/chat.rs:223-228 (only active_call_id; no active_call_account_id); crate-jmap-chat-types/src/chat.rs:296 (constructor default); crate-jmap-chat-vtc-server/src/lib.rs:149-181 sync_active_call_id (patches only \"activeCallId\"; takes a single account_id with no VTC hosting-account parameter); crate-jmap-chat-server/tests/chat_server_set_fields.rs:60-79 (patch-rejection test covers closedAt/activeCallId only)\nNow: Chat has no activeCallAccountId property, so Chat/get never returns it. sync_active_call_id writes only activeCallId. Chat/set already rejects unknown keys through the CHAT_UPDATE_ALLOWED allowlist (crate-jmap-chat-server/src/chat.rs:63), so the no-patch rule holds automatically.\nChange: Add `#[serde(default)] pub active_call_account_id: Option\u003cId\u003e` (serializes null) to Chat. In sync_active_call_id, take the VTCCall's hosting account id and patch activeCallId and activeCallAccountId together in one update_object call: both set on active, both null on ended. Add test coverage for activeCallAccountId patch rejection and for paired set/clear.\n\n[vtc] Set Chat.activeCallAccountId alongside activeCallId\nSpec (77984ff): draft-atwood-jmap-vtc-00.md L159: \"**Active call banner** is signaled via the `activeCallId` and `activeCallAccountId` fields on Chat (see {{JMAP-CHAT}}).\"; L2028: \"a call created with a `chatId` would also set that Chat's `activeCallId` and `activeCallAccountId`\"\nCode: crate-jmap-chat-vtc-server/src/lib.rs:149-181\nNow: sync_active_call_id patches only activeCallId. No crate defines activeCallAccountId (grep finds nothing, including jmap-chat-types).\nChange: Patch activeCallAccountId to the call's hosting account when setting activeCallId, and to null when clearing it. This depends on Chat gaining the field in jmap-chat-types, which the chat-draft workflow owns.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:25.71418888Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:25.71418888Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.4",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:25.843492774Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

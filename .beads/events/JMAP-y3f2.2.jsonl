@@ -1,0 +1,2 @@
+{"id":"01a156c5-5ede-712f-a31d-126210f62b7a","issue_id":"JMAP-y3f2.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:37.886078567Z"}
+{"id":"01a1581e-b85a-7c7b-bf59-052247bf7168","issue_id":"JMAP-y3f2.2","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 39f3ac25 fix(chat-server): enforce Chat/set per-kind rules (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:50.714818461Z"}

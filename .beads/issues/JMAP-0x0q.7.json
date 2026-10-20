@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.7",
+  "title": "Fix Design Tokens color examples to use a color-object $value",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-core] Fix Design Tokens color examples to use a color-object $value\nSpec (57243ea): draft-atwood-jmap-chat-00.md L297: \"a `\\\"$value\\\"` that is a Design Tokens color object with `colorSpace` and `components` members and optional `alpha` and `hex` members, not a CSS color string ... For example: `{\\\"$type\\\": \\\"color\\\", \\\"$value\\\": {\\\"colorSpace\\\": \\\"srgb\\\", \\\"components\\\": [0.345, 0.396, 0.949], \\\"hex\\\": \\\"#5865f2\\\"}}`\"\nCode: crate-jmap-chat-client/src/methods/mod.rs:1342 (doc: `{\"$type\": \"color\", \"$value\": \"...\"}`); crate-jmap-chat-types/src/space.rs:657 (test vector $value \"oklch(0.7 0.15 250)\"); crate-jmap-chat-types/src/space_set.rs:537 (same test vector)\nNow: The color type is raw serde_json::Value, so the wire behavior already preserves any representation. Only the client doc and two round-trip test vectors still show the now-invalid CSS-string $value form.\nChange: Update the doc example and the test vectors to the spec's color-object example (oracle text changed). No type change is needed.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:26.560070929Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:26.560070929Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.7",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:26.674809075Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

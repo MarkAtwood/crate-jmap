@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-yt1w.40",
+  "title": "now_utc_string_checked: wrong time of day before epoch",
+  "description": "crate-jmap-server/src/helpers.rs now_utc_string_checked computes minutes and hours as (secs / 60).rem_euclid(60) and (secs / 3600).rem_euclid(24). Rust '/' truncates toward zero, so for negative secs the time of day is wrong: secs = -1 formats as 1969-12-31T00:00:59.mmmZ, but GNU 'date -u -d @-1' gives 1969-12-31T23:59:59Z. The function's rustdoc claims the rem_euclid/div_euclid math handles arbitrarily large negative offsets. Fix: derive h/m/s from secs.rem_euclid(86400), as utc_date_from_epoch_seconds (bd:JMAP-nbk3.3) does. Found during JMAP-nbk3.3; out of scope there.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:55:35.418291078Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T18:55:35.418291078Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.40",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:55:35.575623745Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

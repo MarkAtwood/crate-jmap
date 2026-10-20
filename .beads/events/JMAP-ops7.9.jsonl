@@ -1,0 +1,1 @@
+{"id":"01a15681-3391-7c31-a72d-b426753c0bae","issue_id":"JMAP-ops7.9","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as e6f2687f (fix(tasks-types)!: type date caps as LocalDateTime; draft-tasks-06 1.6.1 LocalDate, not UTCDate). Review passed; integration CI green at 9e113188.","created_at":"2026-10-19T23:31:10.353799791Z"}

@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-6itf",
+  "title": "JMAP DID base types (draft-atwood-jmap-did-00)",
+  "description": "Layer: Horizontal. Creates crate-jmap-did-types (following crate-jmap-cid-types). Depends on: nothing (Tier 0). Spec: draft-atwood-jmap-did-00 L111-206, L375; draft-atwood-jmap-chat-did-00 L137-138. Folded-in: none (no beads existed). Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:48.415689506Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:48.415689506Z"
+}

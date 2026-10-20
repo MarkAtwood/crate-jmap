@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.18",
+  "title": "Add accountId to Scene ephemeral event types",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Add accountId to Scene ephemeral event types\nSpec (9d02170): draft-atwood-jmap-scene-wss-00.md L178: \"Every event carries an `accountId` (String) property: the id of the region's hosting account ... SceneRegion and SceneObject ids are unique only within an account, so `regionId` alone does not identify a region.\"\nCode: crate-jmap-scene-types/src/event.rs:59; crate-jmap-scene-types/src/event.rs:84; crate-jmap-scene-types/src/event.rs:114; crate-jmap-scene-types/src/event.rs:137-148; crate-jmap-scene-server/src/ephemeral.rs:182-188\nNow: SceneAvatarEvent, SceneObjectEvent and SceneInteractionEvent have no account_id field. A wire accountId lands in `extra` and is never required. should_deliver takes account_id as a separate argument that is never cross-checked against the event.\nChange: Add `account_id: Id` to all three event structs and to SceneInteractionEvent::new. should_deliver should use the event's accountId, or reject a mismatch. Update the doc examples and the wss spec example tests to the new examples.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:30.301633078Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:30.301633078Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.18",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:30.428348406Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

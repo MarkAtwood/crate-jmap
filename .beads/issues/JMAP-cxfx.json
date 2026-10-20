@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-cxfx",
+  "title": "contacts-client: address_book_set drops AddressBookSetParams.extra",
+  "description": "crate-jmap-contacts-client/src/methods/addressbook.rs address_book_set copies only on_destroy_remove_contents and on_success_set_is_default from params; params.extra never reaches the wire. Violates workspace AGENTS.md extras-preservation policy (method-argument structs in *-client crates must route extra onto the wire). Fix: merge p.extra into args with entry().or_insert() after the typed fields, as mailbox_set / calendar_set do; add a wiremock test asserting a vendor acmeCorp* key appears in the request body. Found while fixing JMAP-tjvm.38.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T23:19:20.374356525Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T23:19:20.374356525Z"
+}

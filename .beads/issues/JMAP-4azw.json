@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-4azw",
+  "title": "chat-server: enforce pinnedMessageIds references and hard-delete removal",
+  "description": "draft-atwood-jmap-chat-00 Chat pinnedMessageIds (spec change pending in jmap-chat-spec): each id MUST be a Message in this Chat; Chat/set update adding any other id -\u003e invalidProperties; server MUST remove a pinned id when that Message is hard-deleted (senderExpiresAt, burnOnRead, expiry). crate-jmap-chat-server does neither yet.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T17:15:51.743387419Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T19:35:41.589924338Z",
+  "closed_at": "2026-10-18T19:35:41.589924338Z",
+  "close_reason": "Enforced in chat-server: added-id refs checked, hard deletes unpin; 7 tests."
+}

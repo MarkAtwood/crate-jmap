@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-01ba.1",
+  "title": "filenode-types: typed FileNode.sha256: Option\u003cSha256\u003e",
+  "description": "Add typed FileNode.sha256: Option\u003cSha256\u003e (draft-atwood-jmap-cid-00 L206-220).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests round-trip the draft's FileNode example (L206-220) and reject a malformed digest.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:46.4203553Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:20.024289696Z",
+  "closed_at": "2026-10-20T10:19:20.024289696Z",
+  "close_reason": "Landed in e9eb2a54 feat(filenode-types): typed FileNode.sha256 (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-01ba.1",
+      "depends_on_id": "JMAP-01ba",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:46.551457847Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

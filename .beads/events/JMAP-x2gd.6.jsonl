@@ -1,0 +1,1 @@
+{"id":"01a15680-fdd9-7d62-999d-cfe0dc09e504","issue_id":"JMAP-x2gd.6","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as 577ee4c4 (fix(chat-server)!: burn on read atomically). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:56.601877894Z"}

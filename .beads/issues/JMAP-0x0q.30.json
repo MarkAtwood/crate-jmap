@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.30",
+  "title": "Add accountId to every VTC ephemeral event",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[vtc] Add accountId to every VTC ephemeral event\nSpec (9d02170): draft-atwood-jmap-vtc-wss-00.md L296-303: \"When delivered over the WebSocket, every event in this table carries an `accountId` (String) property in addition to the properties defined in {{JMAP-VTC}}: the id of the call's hosting account ... This applies whether the event is delivered through `VTCStreamEnable` or through `ChatStreamEnable`\"\nCode: crate-jmap-vtc-types/src/event.rs:88; crate-jmap-vtc-types/src/event.rs:110; crate-jmap-vtc-types/src/event.rs:129; crate-jmap-vtc-types/src/event.rs:157; crate-jmap-vtc-types/src/event.rs:181; crate-jmap-vtc-types/src/event.rs:201; crate-jmap-vtc-types/src/event.rs:219; crate-jmap-vtc-types/src/event.rs:242; crate-jmap-vtc-server/src/media.rs:671-676\nNow: None of the eight event structs has an account_id field: an incoming accountId falls into `extra`. The server builds VTCRecordingStateEvent (media.rs:671) without accountId, so emitted events lack the now-required property.\nChange: Add `pub account_id: Id` to all eight event structs. Fill it with the hosting account in media.rs deliver(), and in any other event builder.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:35.051198088Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:35.051198088Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.30",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:35.1630218Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

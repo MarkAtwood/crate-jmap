@@ -1,0 +1,55 @@
+{
+  "id": "JMAP-lrgt",
+  "title": "Milestone 0.4: API freeze for chat crates",
+  "description": "Freeze the public API of jmap-chat-types, jmap-chat-server (esp. the ChatBackend trait) and jmap-chat-client once the epics that still reshape it land: JMAP-y3f2 (chat core conformance, incl. the channel permission resolver y3f2.1), JMAP-5mz6 (extension seams: Space property hook, cascade callbacks, outbound-event hook, room restrictions dfo4, server-created messages 53vd) and JMAP-yuut (ephemeral delivery rules). After the freeze, federation, MIMI, DID and VTC should land additively through the seams. Status at 2026-10-20 audit: chat-00 135 requirements, 68 implemented / 41 partial / 22 missing. 0.3.0 ships as explicitly pre-stable.",
+  "acceptance_criteria": "All three dependency epics closed; a review pass confirms ChatBackend needs no further required methods for the planned federation/MIMI/DID/VTC work (seams suffice); CHANGELOG and crate docs declare the 0.4 API stable for the chat crates.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T03:29:33.560994931Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T03:29:33.560994931Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lrgt",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "blocks",
+      "created_at": "2026-10-20T03:29:33.903929157Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-lrgt",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "blocks",
+      "created_at": "2026-10-20T03:29:34.363521145Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-lrgt",
+      "depends_on_id": "JMAP-yuut",
+      "type": "blocks",
+      "created_at": "2026-10-20T03:29:34.835778126Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-lrgt",
+      "depends_on_id": "JMAP-ops7.20",
+      "type": "blocks",
+      "created_at": "2026-10-20T10:15:37.946239697Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-lrgt",
+      "depends_on_id": "JMAP-a4gi",
+      "type": "blocks",
+      "created_at": "2026-10-20T10:15:38.40516443Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

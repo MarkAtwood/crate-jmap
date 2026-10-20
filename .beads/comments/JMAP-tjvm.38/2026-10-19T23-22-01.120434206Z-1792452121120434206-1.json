@@ -1,0 +1,7 @@
+{
+  "id": "1792452121120434206-1",
+  "issue_id": "JMAP-tjvm.38",
+  "author": "agent",
+  "text": "Fix-shape decision (AC1), recorded during review of lane-types commit 3522bd65: *-client handlers use option C without rejection. The handler takes extra out of the params struct before to_value, merges the typed map first and extra last with or_insert, so the typed field wins. This matches the existing client rustdoc ('typed-field value wins on the wire'). *-types data objects are out of scope by workspace policy: AGENTS.md 'Caller contract - wire-key collisions' (commit 1bb178f8, 2026-05-17, after this bead's 'no autonomous action' comment) enforces no-collision at the doc/convention layer, not with a wrapper type or custom Serialize. The regression test crate-jmap-mail-types/src/email.rs extra_collision_with_typed_field_round_trip_fails locks in that behavior. Options B and D are not adopted. AC3 types-crate propagation is therefore satisfied by that policy, not by code. If the policy changes, file a new bead.",
+  "created_at": "2026-10-19T23:22:01.120434206Z"
+}
