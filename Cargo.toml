@@ -15,6 +15,7 @@ members = [
     "crate-jmap-cid-types",
     "crate-jmap-did-types",
     "crate-jmap-did-resolver",
+    "crate-jmap-web-push",
     "crate-jmap-chat-mimi-types",
     "crate-jmap-chat-federation-types",
     "crate-jmap-server",
@@ -76,6 +77,7 @@ jmap-metadata-types    = { path = "crate-jmap-metadata-types",   version = "0.3"
 jmap-cid-types         = { path = "crate-jmap-cid-types",        version = "0.3" }
 jmap-did-types         = { path = "crate-jmap-did-types",        version = "0.3" }
 jmap-did-resolver      = { path = "crate-jmap-did-resolver",     version = "0.3" }
+jmap-web-push          = { path = "crate-jmap-web-push",         version = "0.3" }
 jmap-chat-mimi-types   = { path = "crate-jmap-chat-mimi-types",  version = "0.3" }
 jmap-chat-federation-types = { path = "crate-jmap-chat-federation-types", version = "0.3" }
 jmap-mime              = { path = "crate-jmap-mime",             version = "0.3" }

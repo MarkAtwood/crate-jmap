@@ -1,0 +1,33 @@
+[package]
+name = "jmap-web-push"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Web Push delivery (RFC 8291 encryption, RFC 8292 VAPID, retry) for JMAP push messages"
+keywords = ["jmap", "web-push", "vapid", "push"]
+categories = ["network-programming", "asynchronous"]
+
+[dependencies]
+base64 = "0.22"
+ece-native = "0.5"
+getrandom = { workspace = true, features = ["std"] }
+hkdf = "0.12"
+jmap-types = { workspace = true }
+p256 = { version = "0.13", default-features = false, features = ["ecdh", "ecdsa", "std"] }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = "0.10"
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+url = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Independent RFC 8291 decryptor: the oracle that a delivered body
+# decrypts with the user agent's keys.
+web-push-native = { version = "0.5", default-features = false }
+wiremock = { workspace = true }
