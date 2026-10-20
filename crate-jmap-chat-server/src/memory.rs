@@ -893,6 +893,11 @@ impl ChatBackend for MemoryBackend {
             BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
 
+        let reply_parent = if O::TYPE_NAME == "Message" {
+            stored_reply_parent(&inner, account_id.as_ref(), &val)
+        } else {
+            None
+        };
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -906,6 +911,11 @@ impl ChatBackend for MemoryBackend {
                 updated: vec![],
                 destroyed: vec![],
             });
+        record_thread_count_changes(
+            &mut inner,
+            account_id.as_ref(),
+            reply_parent.into_iter().collect(),
+        );
 
         Ok((server_id, stored_obj))
     }
@@ -929,6 +939,16 @@ impl ChatBackend for MemoryBackend {
             ));
         }
 
+        let unread_changed = if O::TYPE_NAME == "ReadPosition" {
+            let old = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .and_then(|m| m.get(id))
+                .cloned()
+                .unwrap_or_default();
+            roots_with_unread_change(&inner, account_id.as_ref(), &old, &current)
+        } else {
+            Vec::new()
+        };
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -941,6 +961,7 @@ impl ChatBackend for MemoryBackend {
                 updated: vec![id.clone()],
                 destroyed: vec![],
             });
+        record_thread_count_changes(&mut inner, account_id.as_ref(), unread_changed);
 
         Ok(None)
     }
@@ -1952,12 +1973,15 @@ fn patched_copy<O: SetObject>(
 ///
 /// draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "When a pinned
 /// Message is hard-deleted, the server MUST remove its id from this
-/// list." Bumps `Chat` state when a pin is removed; the caller records
-/// the `Message` change. Returns whether the Message existed.
+/// list." Bumps `Chat` state when a pin is removed, and records the
+/// `replyTo` parent's `replyCount` change; the caller records the
+/// `Message` destroy. Returns whether the Message existed.
 fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
     let Some(msg) = inner.objects_mut("Message", account_id).remove(id) else {
         return false;
     };
+    let reply_parent = stored_reply_parent(inner, account_id, &msg);
+    record_thread_count_changes(inner, account_id, reply_parent.into_iter().collect());
     let Some(chat_id) = msg.get("chatId").and_then(|v| v.as_str()).map(Id::from) else {
         return true;
     };
@@ -1980,6 +2004,84 @@ fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
         });
     }
     true
+}
+
+/// The still-stored Message that `msg`'s `replyTo` names, whose
+/// `replyCount` ("Count of messages in this chat with `replyTo` equal to
+/// this message's `id`", draft-atwood-jmap-chat-00 §Message) changes when
+/// `msg` is created or destroyed.
+fn stored_reply_parent(inner: &Inner, account_id: &str, msg: &serde_json::Value) -> Option<Id> {
+    let parent = Id::from(msg.get("replyTo")?.as_str()?);
+    inner
+        .objects_ref("Message", account_id)?
+        .contains_key(&parent)
+        .then_some(parent)
+}
+
+/// Thread roots whose `unreadReplyCount` differs between ReadPosition
+/// `old` and `new` (draft-atwood-jmap-chat-00 §Message: "Count of
+/// replies to this message received after the owner's
+/// `ReadPosition.lastReadMessageId` in this Chat", only when
+/// "`threadRootId` is absent"). A reply is unread when its id sorts after
+/// `lastReadMessageId`, or always when that is absent, as
+/// `fill_reply_counts` computes it.
+fn roots_with_unread_change(
+    inner: &Inner,
+    account_id: &str,
+    old: &serde_json::Value,
+    new: &serde_json::Value,
+) -> Vec<Id> {
+    let last_read = |rp: &serde_json::Value| {
+        rp.get("lastReadMessageId")
+            .and_then(|v| v.as_str())
+            .map(str::to_owned)
+    };
+    let (old_read, new_read) = (last_read(old), last_read(new));
+    if old_read == new_read {
+        return Vec::new();
+    }
+    let chat_id = new.get("chatId");
+    let Some(msgs) = inner.objects_ref("Message", account_id) else {
+        return Vec::new();
+    };
+    let unread = |read: &Option<String>, id: &str| read.as_deref().is_none_or(|l| id > l);
+    let mut roots: Vec<Id> = Vec::new();
+    for (id, reply) in msgs {
+        if reply.get("chatId") != chat_id
+            || unread(&old_read, id.as_ref()) == unread(&new_read, id.as_ref())
+        {
+            continue;
+        }
+        let Some(parent) = reply.get("replyTo").and_then(|v| v.as_str()).map(Id::from) else {
+            continue;
+        };
+        let is_root = msgs
+            .get(&parent)
+            .is_some_and(|p| p.get("threadRootId").is_none_or(serde_json::Value::is_null));
+        if is_root && !roots.contains(&parent) {
+            roots.push(parent);
+        }
+    }
+    roots
+}
+
+/// Record `ids` as updated Messages because a server-computed thread
+/// count changed (see "State and change log" on
+/// [`ChatBackend::create_object`]). A no-op when `ids` is empty or
+/// `supportsThreads` is off, since the counts are then not returned.
+fn record_thread_count_changes(inner: &mut Inner, account_id: &str, ids: Vec<Id>) {
+    if ids.is_empty() || !inner.limits_override.unwrap_or_default().supports_threads {
+        return;
+    }
+    let new_state = inner.bump_state("Message", account_id);
+    inner
+        .change_log_mut("Message", account_id)
+        .push(ChangeEntry {
+            new_state,
+            created: vec![],
+            updated: ids,
+            destroyed: vec![],
+        });
 }
 
 /// Destroy every channel Chat of Space `space_id`, and their Messages.
