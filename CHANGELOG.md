@@ -243,7 +243,8 @@ wire behaviour that a conforming peer can observe.
   older than the Chat's `messageExpirySeconds` (from `receivedAt`), past
   `readAt` + `expiresAfterReadSeconds`, or read with `burnOnRead` (the
   two read rules skip the account's own sent copies), through
-  `ChatBackend::expire_message`; clears `muted` and `muteUntil` once
+  `ChatBackend::expire_message`, and writes each affected Chat's
+  recomputed `unreadCount` so the `Chat` state advances; clears `muted` and `muteUntil` once
   `muteUntil` passes; and at `PresenceStatus.expiresAt` nulls `statusText`
   and `statusEmoji`, resets `presence` to `"online"` and clears
   `expiresAt`. The kit still runs no scheduler; deployments call it from

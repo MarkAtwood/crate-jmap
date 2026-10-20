@@ -27,6 +27,14 @@
 //!   clear `statusText` and `statusEmoji` (setting them to null) at this
 //!   time, and SHOULD reset `presence` to `"online"`."
 //!
+//! - L547-548, §Chat `unreadCount`: "Count of Messages in this Chat whose
+//!   `id` ULID is lexicographically greater than
+//!   `ReadPosition.lastReadMessageId`. [...] If `lastReadMessageId` is
+//!   absent, all messages are counted as unread." An expired Message
+//!   lowers that count, and RFC 8620 §5.1 ("If the data changes, this
+//!   string MUST change") then requires the `Chat` state to move
+//!   (bd:JMAP-y3f2.18).
+//!
 //! Clock values are hand-computed: 2024-01-01T00:00:00Z is Unix time
 //! 1_704_067_200.
 
@@ -36,7 +44,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{
-    handle_chat_get, handle_message_changes, handle_message_get, handle_presence_get, sweep_expired,
+    handle_chat_changes, handle_chat_get, handle_message_changes, handle_message_get,
+    handle_presence_get, sweep_expired,
 };
 use jmap_types::Id;
 use serde_json::{json, Value};
@@ -312,4 +321,48 @@ async fn presence_expires_at_resets_status() {
         after.get("statusEmoji").is_none_or(Value::is_null),
         "{after}"
     );
+}
+
+async fn chat_state(b: &MemoryBackend) -> Value {
+    handle_chat_get(b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }))
+        .await
+        .expect("Chat/get")
+        .primary["state"]
+        .clone()
+}
+
+/// L547-548 with RFC 8620 §5.1/§5.2: expiring an unread Message lowers
+/// its Chat's `unreadCount`, so `Chat/changes` lists exactly that Chat;
+/// a re-run at the same time changes nothing.
+#[tokio::test]
+async fn expiry_records_chat_unread_count_change() {
+    let b = backend();
+    seed_chat(&b, "c1", json!({}));
+    seed_chat(&b, "c2", json!({}));
+    seed_message(
+        &b,
+        "m1",
+        "c1",
+        json!({ "senderExpiresAt": "2024-01-01T00:00:10Z" }),
+    );
+    seed_message(&b, "m2", "c2", json!({}));
+    let since = chat_state(&b).await;
+
+    sweep(&b, at(10)).await;
+
+    assert_eq!(chat(&b, "c1").await["unreadCount"], json!(0));
+    assert_eq!(chat(&b, "c2").await["unreadCount"], json!(1));
+    let changes = handle_chat_changes(
+        &b,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
+    )
+    .await
+    .expect("Chat/changes")
+    .primary;
+    assert_eq!(changes["updated"], json!(["c1"]), "{changes}");
+
+    let after = chat_state(&b).await;
+    sweep(&b, at(10)).await;
+    assert_eq!(chat_state(&b).await, after, "re-run changes no state");
 }
