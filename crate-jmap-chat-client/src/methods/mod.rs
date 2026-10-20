@@ -30,10 +30,10 @@ use jmap_types::Id;
 // one canonical set of /get, /set, /changes, /query, /queryChanges shapes.
 // The wire format is identical to the previous local definitions.
 //
-// JMAP Chat extends `SetError` with a `serverRetryAfter` field for slow-mode
-// rate limiting. The base `SetError` captures unknown extension fields in
-// `extra` via `#[serde(flatten)]`; the [`server_retry_after`] free function
-// at the bottom of this module reads that field.
+// This workspace extends the slow-mode `rateLimit` `SetError` with a
+// `serverRetryAfter` field. The base `SetError` captures unknown extension
+// fields in `extra` via `#[serde(flatten)]`; the [`server_retry_after`] free
+// function at the bottom of this module reads that field.
 
 pub use jmap_types::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
@@ -1755,12 +1755,12 @@ impl std::error::Error for ServerRetryAfterError {}
 /// JMAP Chat slow-mode workspace convention.
 ///
 /// The base [`jmap_types::SetError`] type captures unknown extension
-/// fields in its `extra` map via `#[serde(flatten)]`. JMAP Chat's
-/// `rateLimited` error includes a `serverRetryAfter` UTCDate telling
-/// the client when it may retry. This accessor distinguishes the three
+/// fields in its `extra` map via `#[serde(flatten)]`. The chat server's
+/// slow-mode `rateLimit` error (RFC 8620 §5.3) includes a
+/// `serverRetryAfter` UTCDate telling the client when it may retry. This accessor distinguishes the three
 /// possible outcomes so callers can react appropriately:
 ///
-/// - `Ok(None)` — the field is absent. The server is using `rateLimited`
+/// - `Ok(None)` — the field is absent. The server is using `rateLimit`
 ///   without a retry hint; the caller may apply a default backoff.
 /// - `Ok(Some(t))` — the field is present and parsed; honour `t`.
 /// - `Err(ServerRetryAfterError::Malformed(raw))` — the field is

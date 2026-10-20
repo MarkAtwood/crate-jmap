@@ -988,6 +988,14 @@ wire behaviour that a conforming peer can observe.
   "with a `rateLimit` SetError ({{RFC8620, Section 5.3}}) on the offending
   `Message/set` create"; `rateLimited` is the method-level error of the
   Peer/* methods). The `serverRetryAfter` extra field is unchanged.
+- **BREAKING** **jmap-chat-client**: `message_create` maps a `rateLimit`
+  SetError on its creation key to `ClientError::RateLimited`, not the
+  custom `rateLimited` (draft-atwood-jmap-chat-00 §Chat `slowModeSeconds`:
+  "Clients MAY simply attempt the send and react to `rateLimit`"). A
+  `rateLimited` SetError now comes back in `not_created` on `Ok`. Since
+  RFC 8620 defines no `serverRetryAfter`, a `rateLimit` without it yields
+  `RateLimited` with `retry_after` set to the receive time, as for an HTTP
+  429 without `Retry-After`, instead of `UnexpectedResponse`.
 - **BREAKING** **jmap-filenode-server**: `FileNode/set` rejects an update
   that sets `role` to `chatspace` on a node that is not a Space file tree
   root, with `invalidProperties` naming `role`, as it already did for an

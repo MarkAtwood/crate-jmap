@@ -9,7 +9,7 @@
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 //!
 //! SPECIAL: `message_create` additionally inspects `SetResponse.not_created` for
-//! `error_type == "rateLimited"` and surfaces it as `ClientError::RateLimited`.
+//! `error_type == "rateLimit"` and surfaces it as `ClientError::RateLimited`.
 
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
@@ -207,15 +207,19 @@ impl super::SessionClient {
     ///
     /// # Rate limiting
     ///
-    /// If the server rejects the message with `error_type == "rateLimited"` in
-    /// `not_created`, this method returns `Err(ClientError::RateLimited)` with
-    /// the `retry_after` timestamp from `serverRetryAfter`. If `serverRetryAfter`
-    /// is absent the method returns `Err(ClientError::UnexpectedResponse)`.
+    /// A channel in slow mode rejects the create with the RFC 8620 §5.3
+    /// `rateLimit` SetError in `not_created` (draft-atwood-jmap-chat-00
+    /// §Chat `slowModeSeconds`). This method returns
+    /// `Err(ClientError::RateLimited)` for it. `retry_after` is the
+    /// `serverRetryAfter` timestamp when the server supplies one; RFC 8620
+    /// does not define that field, so when it is absent `retry_after` is
+    /// the time the response was received and the caller should apply its
+    /// own backoff, as for an HTTP 429 without `Retry-After`.
     ///
     /// # Return value
     ///
-    /// Returns `Err(ClientError::RateLimited)` when the server returns a `rateLimited`
-    /// set error with a `serverRetryAfter` field.
+    /// Returns `Err(ClientError::RateLimited)` when the server returns a
+    /// `rateLimit` set error for the creation key.
     ///
     /// For all other server-side rejections (e.g., `invalidProperties`, `forbidden`),
     /// this method returns `Ok(set_resp)` with the error recorded in
@@ -230,12 +234,11 @@ impl super::SessionClient {
     ///   (pathological conditions only).
     /// - [`ClientError::RateLimited`](jmap_base_client::ClientError::RateLimited)
     ///   if the server rejects the message with `error_type ==
-    ///   "rateLimited"` and supplies a valid `serverRetryAfter`
-    ///   timestamp. The `retry_after` field carries the server-supplied
-    ///   deadline.
+    ///   "rateLimit"`. The `retry_after` field carries the
+    ///   `serverRetryAfter` deadline, or the receive time when it is absent.
     /// - [`ClientError::UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse)
-    ///   if the server emits a `rateLimited` SetError without
-    ///   `serverRetryAfter`, or with a malformed timestamp value.
+    ///   if the server emits a `rateLimit` SetError whose
+    ///   `serverRetryAfter` is not a valid `UTCDate`.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -308,19 +311,15 @@ impl super::SessionClient {
         // Check for server-side rate limiting on the creation key.
         if let Some(not_created) = &set_resp.not_created {
             if let Some(err) = not_created.get(client_id_str) {
-                if err.error_type == "rateLimited" {
+                if err.error_type == "rateLimit" {
                     let retry_after = match super::server_retry_after(err) {
                         Ok(Some(t)) => t,
-                        Ok(None) => {
-                            return Err(jmap_base_client::ClientError::UnexpectedResponse(
-                                "rateLimited SetError missing serverRetryAfter".into(),
-                            ));
-                        }
+                        Ok(None) => jmap_types::UTCDate::from(
+                            chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                        ),
                         Err(super::ServerRetryAfterError::Malformed(raw)) => {
                             return Err(jmap_base_client::ClientError::UnexpectedResponse(
-                                format!(
-                                    "rateLimited SetError has malformed serverRetryAfter: {raw}"
-                                ),
+                                format!("rateLimit SetError has malformed serverRetryAfter: {raw}"),
                             ));
                         }
                     };

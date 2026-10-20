@@ -623,9 +623,12 @@ async fn message_create_serializes_create_object() {
     );
 }
 
-/// `Message/set` create that returns a `rateLimited` SetError on the
+/// `Message/set` create that returns a `rateLimit` SetError on the
 /// caller's creation key must surface as
-/// `ClientError::RateLimited { retry_after }` (message.rs:188-202).
+/// `ClientError::RateLimited { retry_after }`. draft-atwood-jmap-chat-00
+/// (jmap-chat-spec 6bcd9d8) L617: slow mode rejects "with a `rateLimit`
+/// SetError ({{RFC8620, Section 5.3}}) on the offending `Message/set`
+/// create".
 #[tokio::test]
 async fn message_create_rate_limited_surfaces_as_error() {
     let server = MockServer::start().await;
@@ -638,7 +641,7 @@ async fn message_create_rate_limited_surfaces_as_error() {
         json!({
             "notCreated": {
                 "client-msg-1": {
-                    "type": "rateLimited",
+                    "type": "rateLimit",
                     "description": "slow down",
                     "serverRetryAfter": "2024-06-15T09:00:07Z"
                 }
@@ -660,11 +663,11 @@ async fn message_create_rate_limited_surfaces_as_error() {
     let err = sc
         .message_create(&input)
         .await
-        .expect_err("message_create must surface rateLimited as error");
+        .expect_err("message_create must surface rateLimit as error");
     match err {
         jmap_base_client::ClientError::RateLimited { retry_after } => {
             // `serverRetryAfter` is a *workspace convention* paired with
-            // the `rateLimited` SetError type — it is NOT declared by
+            // the `rateLimit` SetError type — it is NOT declared by
             // draft-atwood-jmap-chat-00 (the spec defines `slowModeSeconds`
             // on Chat objects but does not name `serverRetryAfter`) and it
             // is NOT declared by RFC 8620.
@@ -686,6 +689,58 @@ async fn message_create_rate_limited_surfaces_as_error() {
                 retry_after.as_ref(),
                 "2024-06-15T09:00:07Z",
                 "retry_after must equal the wire serverRetryAfter UTCDate verbatim"
+            );
+        }
+        other => panic!("expected RateLimited, got {other:?}"),
+    }
+}
+
+/// A `rateLimit` SetError carrying only the RFC 8620 §5.3 fields (no
+/// `serverRetryAfter`) is still slow mode: draft-atwood-jmap-chat-00
+/// (jmap-chat-spec 6bcd9d8) L617, "Clients MAY simply attempt the send and
+/// react to `rateLimit`". It must surface as `ClientError::RateLimited`
+/// with `retry_after` set to the receive time, the same fallback the base
+/// client uses for an HTTP 429 without `Retry-After`. The oracle is the
+/// wall clock read before and after the call.
+#[tokio::test]
+async fn message_create_rate_limit_without_hint_retries_now() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_OLD,
+        json!({
+            "notCreated": {
+                "client-msg-1": { "type": "rateLimit" }
+            }
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let input = jmap_chat_client::methods::MessageCreateInput::new(
+        &chat_id,
+        "hello",
+        jmap_chat_client::BodyType::Plain,
+        &sent_at,
+    )
+    .with_client_id("client-msg-1");
+    let now = || chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let before = now();
+    let err = sc
+        .message_create(&input)
+        .await
+        .expect_err("message_create must surface rateLimit without a hint as error");
+    let after = now();
+    match err {
+        jmap_base_client::ClientError::RateLimited { retry_after } => {
+            // Fixed-width `YYYY-MM-DDTHH:MM:SSZ` strings order lexically.
+            let at = retry_after.as_ref();
+            assert!(
+                before.as_str() <= at && at <= after.as_str(),
+                "retry_after {at} must lie between {before} and {after}"
             );
         }
         other => panic!("expected RateLimited, got {other:?}"),
