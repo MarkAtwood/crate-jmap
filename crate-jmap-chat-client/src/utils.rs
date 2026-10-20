@@ -1,5 +1,8 @@
 //! Display-formatting and composing helpers for JMAP Chat clients.
 
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
 use chrono::{DateTime, Datelike, Timelike, Utc};
 
 use jmap_chat_types::{BroadcastMention, Mention, RichBody, SpanType};
@@ -62,6 +65,80 @@ pub fn broadcast_mentions_from_spans(body: &RichBody) -> Vec<BroadcastMention> {
         }
     }
     out
+}
+
+/// How long a typing indicator stays visible without a refreshing typing
+/// event (draft-atwood-jmap-chat-00 §Chat/typing: "if no typing event is
+/// received for a given `(chatId, senderId)` pair within approximately 10
+/// seconds, the client SHOULD hide the typing indicator for that pair").
+pub const TYPING_DECAY: Duration = Duration::from_secs(10);
+
+/// Client-side typing-indicator state with the [`TYPING_DECAY`] timer.
+///
+/// Feed every received typing event to [`record`](Self::record); ask
+/// [`is_typing`](Self::is_typing) or [`typing_in`](Self::typing_in) when
+/// rendering. An indicator is hidden on a `typing: false` event or once
+/// [`TYPING_DECAY`] has elapsed since the last `typing: true` event for the
+/// pair. The caller supplies `now`, normally [`Instant::now`].
+///
+/// ```rust
+/// use std::time::{Duration, Instant};
+/// use jmap_chat_client::TypingIndicators;
+/// use jmap_types::Id;
+///
+/// let (chat, alice) = (Id::from("chat-1"), Id::from("alice"));
+/// let start = Instant::now();
+/// let mut typing = TypingIndicators::new();
+/// typing.record(&chat, &alice, true, start);
+/// assert!(typing.is_typing(&chat, &alice, start + Duration::from_secs(5)));
+/// assert!(!typing.is_typing(&chat, &alice, start + Duration::from_secs(11)));
+/// ```
+#[derive(Debug, Clone, Default)]
+pub struct TypingIndicators {
+    last_seen: HashMap<(Id, Id), Instant>,
+}
+
+impl TypingIndicators {
+    /// An empty tracker: no one is typing.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a typing event for `(chat_id, sender_id)` received at `now`.
+    ///
+    /// `typing: true` shows (or refreshes) the indicator; `typing: false`
+    /// hides it. Expired entries are dropped so the tracker does not grow
+    /// without bound.
+    pub fn record(&mut self, chat_id: &Id, sender_id: &Id, typing: bool, now: Instant) {
+        // ponytail: O(n) expiry sweep per event; n is the number of senders
+        // seen typing in the last 10 s, which is small.
+        self.last_seen
+            .retain(|_, seen| now.saturating_duration_since(*seen) < TYPING_DECAY);
+        let key = (chat_id.clone(), sender_id.clone());
+        if typing {
+            self.last_seen.insert(key, now);
+        } else {
+            self.last_seen.remove(&key);
+        }
+    }
+
+    /// Whether the indicator for `(chat_id, sender_id)` is visible at `now`.
+    pub fn is_typing(&self, chat_id: &Id, sender_id: &Id, now: Instant) -> bool {
+        self.last_seen
+            .get(&(chat_id.clone(), sender_id.clone()))
+            .is_some_and(|seen| now.saturating_duration_since(*seen) < TYPING_DECAY)
+    }
+
+    /// The senders whose indicator in `chat_id` is visible at `now`, in no
+    /// particular order.
+    pub fn typing_in<'a>(&'a self, chat_id: &'a Id, now: Instant) -> impl Iterator<Item = &'a Id> {
+        self.last_seen
+            .iter()
+            .filter(move |((chat, _), seen)| {
+                chat == chat_id && now.saturating_duration_since(**seen) < TYPING_DECAY
+            })
+            .map(|((_, sender), _)| sender)
+    }
 }
 
 /// Format a receipt timestamp without exposing sub-minute precision.
