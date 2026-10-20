@@ -617,6 +617,12 @@ pub trait ChatBackend: JmapBackend {
     /// [`expire_message`](Self::expire_message) does. That change is
     /// a Chat update.
     ///
+    /// `destroy_object::<Space>` MUST also destroy every channel Chat
+    /// whose `spaceId` is the Space and every Message in those Chats
+    /// (draft-atwood-jmap-chat-00 §Destroying a Space: "Cascades to all
+    /// channel Chats and their Messages. Hard-deletes all records; no
+    /// tombstones are retained."). Those are Chat and Message destroys.
+    ///
     /// If the backend itself changes another record because of the
     /// destroy, it MUST advance that record type's state and record the
     /// change in the same atomic step, so `/changes` on that type sees it.

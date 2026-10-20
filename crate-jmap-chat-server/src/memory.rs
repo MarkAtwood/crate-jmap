@@ -927,6 +927,9 @@ impl ChatBackend for MemoryBackend {
                 updated: vec![],
                 destroyed: vec![id.clone()],
             });
+        if O::TYPE_NAME == "Space" {
+            destroy_space_channels(&mut inner, account_id.as_ref(), id);
+        }
         Ok(())
     }
 
@@ -1785,6 +1788,59 @@ fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
         });
     }
     true
+}
+
+/// Destroy every channel Chat of Space `space_id`, and their Messages.
+///
+/// draft-atwood-jmap-chat-00 §Destroying a Space: "Cascades to all
+/// channel Chats and their Messages. Hard-deletes all records; no
+/// tombstones are retained." Records one `Chat` and one `Message`
+/// change entry when anything was removed. The caller holds the lock
+/// that destroyed the Space, so the cascade is atomic with it.
+fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
+    let chat_ids: Vec<Id> = inner
+        .objects_ref("Chat", account_id)
+        .map(|chats| {
+            chats
+                .keys()
+                .filter(|id| channel_belongs_to_space(inner, account_id, id, space_id))
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+    if chat_ids.is_empty() {
+        return;
+    }
+    let message_ids: Vec<Id> = chat_ids
+        .iter()
+        .flat_map(|chat_id| scan_messages_in_chat(inner, account_id, chat_id))
+        .collect();
+    let msgs = inner.objects_mut("Message", account_id);
+    for msg_id in &message_ids {
+        msgs.remove(msg_id);
+    }
+    let chats = inner.objects_mut("Chat", account_id);
+    for chat_id in &chat_ids {
+        chats.remove(chat_id);
+    }
+    let new_state = inner.bump_state("Chat", account_id);
+    inner.change_log_mut("Chat", account_id).push(ChangeEntry {
+        new_state,
+        created: vec![],
+        updated: vec![],
+        destroyed: chat_ids,
+    });
+    if !message_ids.is_empty() {
+        let new_state = inner.bump_state("Message", account_id);
+        inner
+            .change_log_mut("Message", account_id)
+            .push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: vec![],
+                destroyed: message_ids,
+            });
+    }
 }
 
 /// Apply a [`SpacePatchOp`] sequence to the in-memory Space store.
