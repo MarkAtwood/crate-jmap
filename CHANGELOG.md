@@ -19,6 +19,14 @@ wire behaviour that a conforming peer can observe.
   `participants/{key}/participationStatus` patch for `CalendarEvent/set`, and
   `own_participant_key` matching the user's ParticipantIdentity
   `calendarAddress` values after RFC 3986 §6.2.2 normalisation.
+- **jmap-chat-types**: draft-atwood-jmap-chat-tasks-00 types:
+  `JMAP_CHAT_TASKS_URI`, `ChatTasksCapability` (`mayBindTaskList`,
+  `mayBackReferenceChat`), `Space::task_list_id` reading the `taskListId`
+  extension (`SPACE_TASK_LIST_ID_PROPERTY`) from `Space::extra`,
+  `task_chat_id` reading the Task `chatId` extension
+  (`TASK_CHAT_ID_PROPERTY`) from a Task's extension map, the
+  `urn:jmap:chat:cap:task` MessageAction metadata shape `TaskMetadata`, and
+  `JmapUri::task_ids` for `jmap:task:<accountId>:<taskListId>:<taskId>`.
 - **jmap-chat-types**: draft-atwood-jmap-chat-calendars-00 types:
   `JMAP_CHAT_CALENDARS_URI`, `ChatCalendarsCapability` (`mayBindCalendar`,
   `supportsIcsParsing`, `supportsAvailabilityLookup`), `Space::calendar_id`
