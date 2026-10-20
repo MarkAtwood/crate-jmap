@@ -1,5 +1,6 @@
-//! `VTCCall/query` filter and comparator types
-//! (draft-atwood-jmap-vtc-00 §VTCCall/query; RFC 8620 §5.5).
+//! `VTCCall/query`, `VTCRecording/query` and `VTCLivestream/query` filter
+//! and comparator types (draft-atwood-jmap-vtc-00 §VTCCall/query,
+//! §VTCRecording/query, §VTCLivestream/query; RFC 8620 §5.5).
 //!
 //! # Excluded from extras preservation
 //!
@@ -25,7 +26,7 @@
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-use crate::{CallState, CallType};
+use crate::{CallState, CallType, LivestreamState, RecordingState};
 
 pub use jmap_types::query::{Filter, FilterOperator, Operator};
 
@@ -118,6 +119,95 @@ fn default_true() -> bool {
     true
 }
 
+/// Filter for `VTCRecording/query`.
+pub type VtcRecordingFilter = Filter<VtcRecordingFilterCondition>;
+
+/// Filter condition for `VTCRecording/query`
+/// (draft-atwood-jmap-vtc-00 §VTCRecording/query).
+///
+/// "All filter properties are combined with logical AND."
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VtcRecordingFilterCondition {
+    /// "Filter to recordings for this call."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub call_id: Option<Id>,
+    /// The recording's `state` must equal this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<RecordingState>,
+    /// "Filter to recordings started by this userId."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initiated_by: Option<String>,
+    /// "Recordings started at or after this time."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub started_after: Option<UTCDate>,
+    /// "Recordings started before this time."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub started_before: Option<UTCDate>,
+}
+
+/// Filter for `VTCLivestream/query`.
+pub type VtcLivestreamFilter = Filter<VtcLivestreamFilterCondition>;
+
+/// Filter condition for `VTCLivestream/query`
+/// (draft-atwood-jmap-vtc-00 §VTCLivestream/query).
+///
+/// "All filter properties are combined with logical AND."
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VtcLivestreamFilterCondition {
+    /// "Filter to livestreams for this call."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub call_id: Option<Id>,
+    /// The livestream's `state` must equal this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<LivestreamState>,
+    /// "Filter by platform identifier."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub platform: Option<String>,
+}
+
+/// Sort property for `VTCRecording/query` and `VTCLivestream/query`: "Sort
+/// properties: `startedAt`. Default sort: `startedAt` descending."
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VtcMediaSortProperty {
+    /// Sort by `startedAt`.
+    StartedAt,
+}
+
+/// RFC 8620 §5.5 `Comparator` for `VTCRecording/query` and
+/// `VTCLivestream/query`.
+///
+/// `is_ascending` defaults to `true` (RFC 8620 §5.5).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VtcMediaComparator {
+    /// The property to sort by.
+    pub property: VtcMediaSortProperty,
+    /// Sort ascending when `true`, descending when `false`.
+    #[serde(default = "default_true")]
+    pub is_ascending: bool,
+    /// Collation algorithm for string comparison (RFC 8620 §5.5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl VtcMediaComparator {
+    /// An ascending comparator on `property` with no collation.
+    pub fn new(property: VtcMediaSortProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,6 +257,51 @@ mod tests {
         assert!(c.is_ascending);
         assert!(
             serde_json::from_value::<VtcCallComparator>(json!({"property": "subject"})).is_err()
+        );
+    }
+
+    #[test]
+    fn recording_condition_carries_every_spec_filter_property() {
+        // Oracle: draft-atwood-jmap-vtc-00 L1110-1123 lists `callId`,
+        // `state`, `initiatedBy`, `startedAfter`, `startedBefore`.
+        let wire = json!({
+            "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+            "state": "paused",
+            "initiatedBy": "user:bob@example.com",
+            "startedAfter": "2026-06-01T00:00:00Z",
+            "startedBefore": "2026-07-01T00:00:00Z"
+        });
+        let cond: VtcRecordingFilterCondition = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(cond.state, Some(RecordingState::Paused));
+        assert_eq!(serde_json::to_value(&cond).unwrap(), wire);
+        assert!(serde_json::from_value::<VtcRecordingFilter>(json!({"platform": "x"})).is_err());
+    }
+
+    #[test]
+    fn livestream_condition_carries_every_spec_filter_property() {
+        // Oracle: L1215-1222 lists `callId`, `state`, `platform`.
+        let wire = json!({
+            "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+            "state": "live",
+            "platform": "youtube"
+        });
+        let cond: VtcLivestreamFilterCondition = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(cond.state, Some(LivestreamState::Live));
+        assert_eq!(serde_json::to_value(&cond).unwrap(), wire);
+        assert!(
+            serde_json::from_value::<VtcLivestreamFilter>(json!({"initiatedBy": "x"})).is_err()
+        );
+    }
+
+    #[test]
+    fn media_comparator_accepts_only_started_at() {
+        // Oracle: L1127 and L1226 "Sort properties: `startedAt`."
+        let c: VtcMediaComparator =
+            serde_json::from_value(json!({"property": "startedAt"})).unwrap();
+        assert_eq!(c.property, VtcMediaSortProperty::StartedAt);
+        assert!(c.is_ascending);
+        assert!(
+            serde_json::from_value::<VtcMediaComparator>(json!({"property": "stoppedAt"})).is_err()
         );
     }
 }

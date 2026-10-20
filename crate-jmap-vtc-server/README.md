@@ -1,6 +1,7 @@
 # jmap-vtc-server
 
-Method handlers for the `VTCCall` data type of the JMAP VTC extension
+Method handlers for the `VTCCall`, `VTCRecording` and `VTCLivestream`
+data types of the JMAP VTC extension
 (draft-atwood-jmap-vtc-00), backend-agnostic, for a
 `jmap-server` `Dispatcher`. You supply storage through the `VtcBackend`
 trait.
@@ -15,9 +16,12 @@ trait.
 | `handle_vtc_call_query`, `handle_vtc_call_query_changes` | §VTCCall/query, §VTCCall/queryChanges |
 | `call_already_active_on_chat` | §VTCCall/set: at most one active call per Chat |
 | `query::call_matches`, `query::compare_calls` | §VTCCall/query filter and sort |
-| `VtcBackend` | storage, capability object, caller userId, moderator hook |
+| `handle_vtc_recording_*` | §VTCRecording Methods: get, changes, set, query, queryChanges |
+| `handle_vtc_livestream_*` | §VTCLivestream Methods, with §Livestream Key Exposure in `/get` |
+| `query::recording_matches`, `query::livestream_matches`, `compare_*` | §VTCRecording/query, §VTCLivestream/query filter and sort |
+| `VtcBackend` | storage, capability object, caller userId, moderator hook, recording consent event |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_vtc_handlers` | wires the five `VTCCall/*` methods |
+| `register_vtc_handlers` | wires the fifteen `VTCCall/*`, `VTCRecording/*` and `VTCLivestream/*` methods |
 
 ## What it's for
 
@@ -25,7 +29,7 @@ A JMAP server that offers voice and video calls wires these handlers next
 to its other extensions. The crate depends on `jmap-types`, `jmap-server`
 and `jmap-vtc-types` only. The Chat binding (`chatId` membership,
 `start_call`, `Chat.activeCallId`) goes in a separate binding crate.
-VTCParticipant, VTCRecording and VTCLivestream methods are not here yet.
+VTCParticipant methods are not here yet.
 
 ## How to use
 
@@ -55,6 +59,17 @@ An update may only request `"ended"`, and only from `ringing`, `active`
 or `pending`. The handler adds `endedAt` and an `endReason` of
 `completed` or `cancelled`. Ending a call, `lobbyEnabled`, `policy`,
 `e2eeEnabled` and breakout rooms are gated on `VtcBackend::is_moderator`.
+Every `VTCRecording/set` and `VTCLivestream/set` operation needs
+`is_moderator` on the object's call. A create also needs
+`supportsRecording` / `supportsLivestream`, a call that is not
+`e2eeEnabled`, and a call in state `"active"`; `VtcBackend::create_object`
+rechecks `"active"` atomically with the insert. Recordings move
+`recording` ⇄ `paused` → `stopped` only, and each change (and the create)
+is followed by `VtcBackend::deliver_recording_state_event`. A livestream
+can only be stopped, from `starting` or `live`, and its `streamUri`,
+`streamKey` and `platform` change only while `stopped` or `failed`.
+`VTCLivestream/get` returns `streamKey` and `streamUri` as `""` to callers
+who are not moderators on the livestream's call.
 The backend trait is not object-safe (generic methods); every public type
 is `#[non_exhaustive]`.
 
@@ -68,6 +83,16 @@ is `#[non_exhaustive]`.
   `/queryChanges` always returns `cannotCalculateChanges`.
 - The draft does not say where a `null` `endedAt` sorts. `compare_calls`
   puts calls that have not ended last.
+- `is_moderator`'s fail-open default also means every caller sees
+  `streamKey` and may start, stop and delete recordings and livestreams.
+- A call with `e2eeEnabled: true` can never be recorded or streamed
+  through these handlers: the draft's key-holding recorder or bridge is
+  not implemented. Register your own `/set` handler if you run one.
+- `deliver_recording_state_event` has no default: the draft calls it a
+  mandatory consent signal. It runs after the change commits, so a failed
+  delivery does not undo the change.
+- The draft does not say where a livestream with a `null` `startedAt`
+  sorts. `compare_livestreams` puts it last.
 - Transitions driven by participants (answer, join, leave, decline) and
   the ring timeout need VTCParticipant/set and are not handled here.
 

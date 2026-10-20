@@ -20,6 +20,9 @@
 //!
 //! The `VTCCall/*` methods: create with the capability gates, the state
 //! machine, ending a call, the call-level moderator actions and `/query`.
+//! The `VTCRecording/*` and `VTCLivestream/*` methods: moderator-only
+//! `/set` with each type's state machine, the `VTCRecordingStateEvent`
+//! consent signal, and `streamKey` redaction in `VTCLivestream/get`.
 //! The crate depends on RFC 8620 only; the Chat binding (membership,
 //! `start_call`, `Chat.activeCallId`) lives in a separate binding crate.
 //!
@@ -39,6 +42,7 @@ use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 pub mod backend;
 pub mod call;
 mod helpers;
+mod media;
 /// In-memory reference implementation of [`VtcBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production.
@@ -55,6 +59,12 @@ pub use call::{
     handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
     handle_vtc_call_query_changes, handle_vtc_call_set,
 };
+pub use media::{
+    handle_vtc_livestream_changes, handle_vtc_livestream_get, handle_vtc_livestream_query,
+    handle_vtc_livestream_query_changes, handle_vtc_livestream_set, handle_vtc_recording_changes,
+    handle_vtc_recording_get, handle_vtc_recording_query, handle_vtc_recording_query_changes,
+    handle_vtc_recording_set,
+};
 
 /// Capability URI for `urn:ietf:params:jmap:vtc`.
 pub use jmap_vtc_types::JMAP_VTC_URI;
@@ -63,12 +73,13 @@ pub use jmap_vtc_types::JMAP_VTC_URI;
 /// re-exported for the registration macro.
 pub use jmap_server::ClosureHandler;
 
-/// Register the `VTCCall/*` method handlers with `dispatcher`.
+/// Register the `VTCCall/*`, `VTCRecording/*` and `VTCLivestream/*` method
+/// handlers with `dispatcher`.
 ///
-/// After this call the dispatcher handles `VTCCall/get`,
-/// `VTCCall/changes`, `VTCCall/set`, `VTCCall/query` and
-/// `VTCCall/queryChanges`. [`Dispatcher::register`] silently replaces an
-/// existing handler of the same name, so register overrides afterwards.
+/// After this call the dispatcher handles `/get`, `/changes`, `/set`,
+/// `/query` and `/queryChanges` for each of the three types.
+/// [`Dispatcher::register`] silently replaces an existing handler of the
+/// same name, so register overrides afterwards.
 ///
 /// This only wires dispatch. The consumer advertises
 /// [`JMAP_VTC_URI`] in its Session capabilities, with the same
@@ -94,4 +105,20 @@ where
     reg!("VTCCall/set", handle_vtc_call_set);
     reg!("VTCCall/query", handle_vtc_call_query);
     reg!("VTCCall/queryChanges", handle_vtc_call_query_changes);
+    reg!("VTCRecording/get", handle_vtc_recording_get);
+    reg!("VTCRecording/changes", handle_vtc_recording_changes);
+    reg!("VTCRecording/set", handle_vtc_recording_set);
+    reg!("VTCRecording/query", handle_vtc_recording_query);
+    reg!(
+        "VTCRecording/queryChanges",
+        handle_vtc_recording_query_changes
+    );
+    reg!("VTCLivestream/get", handle_vtc_livestream_get);
+    reg!("VTCLivestream/changes", handle_vtc_livestream_changes);
+    reg!("VTCLivestream/set", handle_vtc_livestream_set);
+    reg!("VTCLivestream/query", handle_vtc_livestream_query);
+    reg!(
+        "VTCLivestream/queryChanges",
+        handle_vtc_livestream_query_changes
+    );
 }

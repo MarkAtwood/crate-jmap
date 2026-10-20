@@ -15,7 +15,7 @@ pub use jmap_server::{
     SetObject,
 };
 
-use jmap_vtc_types::{VtcCall, VtcCapability};
+use jmap_vtc_types::{VtcCall, VtcCapability, VtcRecordingStateEvent};
 
 /// The `invalidProperties` SetError that
 /// draft-atwood-jmap-vtc-00 §VTCCall/set requires for a second active call
@@ -128,6 +128,48 @@ pub trait VtcBackend: JmapBackend {
         ring_targets: &[String],
     ) -> impl std::future::Future<Output = Result<VtcCall, BackendSetError<Self::Error>>> + Send;
 
+    /// Create a `VTCRecording` or `VTCLivestream`.
+    ///
+    /// The handler has validated `obj` against draft-atwood-jmap-vtc-00
+    /// §Starting a Recording or §Starting a Livestream and filled its
+    /// server-set properties; its `id` is a placeholder. The backend MUST,
+    /// in one atomic step, assign the `id` ("Opaque server-assigned
+    /// identifier"), refuse with `invalidProperties` naming `callId` when
+    /// the object's `callId` names no call in state `"active"` ("The call
+    /// MUST be in state `"active"`", rechecked here because the call can end
+    /// after the handler read it), and store the object. A livestream
+    /// backend then starts the outbound stream.
+    ///
+    /// Returns the assigned id and the stored object. `create_id` is the
+    /// client's creation id. Error mapping, state-counter and change-log
+    /// rules are those of the canonical `jmap-mail-server` `create_object`:
+    /// the state advances only when the create commits.
+    fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        create_id: &str,
+        obj: O,
+    ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
+           + Send;
+
+    /// Deliver `event` to every participant in `event.call_id`
+    /// (draft-atwood-jmap-vtc-00 §VTCRecordingStateEvent: "Delivered to all
+    /// participants when recording state changes. This is a mandatory
+    /// consent signal.").
+    ///
+    /// `VTCRecording/set` calls this after each create, pause, resume and
+    /// stop has committed. There is no default: §Recording Consent says
+    /// "the signaling mechanism MUST be present regardless of
+    /// jurisdiction". Delivery failures are the backend's to log or retry;
+    /// the recording change has already committed.
+    fn deliver_recording_state_event(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        event: VtcRecordingStateEvent,
+    ) -> impl std::future::Future<Output = ()> + Send;
+
     /// Apply an RFC 8620 §5.3 PatchObject to an existing object.
     ///
     /// `Ok(Some(o))` echoes server-changed properties; `Ok(None)` means the
@@ -151,7 +193,10 @@ pub trait VtcBackend: JmapBackend {
     /// Destroy an object by id. Unknown `id` is `notFound`; the state
     /// advances only when the destroy commits.
     ///
-    /// The handler has already applied the permission check. When the
+    /// The handler has already applied the permission check. For a
+    /// `VTCLivestream` the backend MUST stop the outbound stream first:
+    /// "the server MUST NOT leave an orphaned stream running after the
+    /// metadata is removed" (§Destroying a Livestream). When the
     /// destroyed `VTCCall` is a breakout room (`parentCallId` set), the
     /// backend MUST also remove its id from the parent's `breakoutRoomIds`
     /// in the same atomic step, as for closing one via `update_object`.
@@ -169,7 +214,10 @@ pub trait VtcBackend: JmapBackend {
     ///
     /// `VTCCall/set` returns `forbidden` to a non-moderator who ends a
     /// call, changes `lobbyEnabled`, `policy` or `e2eeEnabled`, or creates
-    /// a breakout room under this call.
+    /// a breakout room under this call. `VTCRecording/set` and
+    /// `VTCLivestream/set` return `forbidden` to a non-moderator for every
+    /// create, update and destroy, and `VTCLivestream/get` returns
+    /// `streamKey` and `streamUri` as `""` to a non-moderator.
     ///
     /// # Default implementation
     ///

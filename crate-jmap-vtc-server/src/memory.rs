@@ -5,7 +5,8 @@
 //! `MemoryBackend` backs this crate's integration tests and is a readable
 //! example for anyone writing a real backend. All state lives in
 //! `HashMap`s behind a `std::sync::Mutex`; nothing is persisted, and no
-//! ring notification is actually delivered.
+//! ring notification is actually delivered. A `VTCRecordingStateEvent` is
+//! recorded, not sent; `recording_events_for_test` returns them.
 //!
 //! # Caller context
 //!
@@ -15,8 +16,8 @@
 //!
 //! # Query
 //!
-//! `VTCCall/query` evaluates the filter and sort with
-//! [`crate::query::call_matches`] and [`crate::query::compare_calls`].
+//! `VTCCall/query`, `VTCRecording/query` and `VTCLivestream/query` evaluate
+//! the filter and sort with the [`crate::query`] functions.
 //! `/queryChanges` is not implemented: results say
 //! `canCalculateChanges: false` and `/queryChanges` returns
 //! `cannotCalculateChanges` (RFC 8620 §5.6).
@@ -33,13 +34,21 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
-use jmap_vtc_types::query::{VtcCallComparator, VtcCallFilter};
-use jmap_vtc_types::{CallRole, CallState, VtcCall, VtcCapability, VtcParticipant};
+use jmap_vtc_types::query::{
+    VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator, VtcRecordingFilter,
+};
+use jmap_vtc_types::{
+    CallRole, CallState, VtcCall, VtcCapability, VtcLivestream, VtcParticipant, VtcRecording,
+    VtcRecordingStateEvent,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::call_already_active_on_chat;
-use crate::query::{call_matches, compare_calls};
+use crate::query::{
+    call_matches, compare_calls, compare_livestreams, compare_recordings, livestream_matches,
+    recording_matches,
+};
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
@@ -68,6 +77,8 @@ struct Inner {
     accounts: HashMap<String, VtcCapability>,
     /// `(account_id, capability URI)` pairs advertised besides VTC.
     advertised: HashSet<(String, String)>,
+    /// Every `VTCRecordingStateEvent` delivered, in order.
+    recording_events: Vec<VtcRecordingStateEvent>,
 }
 
 impl Inner {
@@ -109,10 +120,15 @@ impl Inner {
     }
 
     fn participants(&self, account_id: &Id) -> impl Iterator<Item = VtcParticipant> + '_ {
-        self.objects(VtcParticipant::TYPE_NAME, account_id)
+        self.all(account_id)
+    }
+
+    /// Every stored object of type `O` that decodes.
+    fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ {
+        self.objects(O::TYPE_NAME, account_id)
             .into_iter()
             .flat_map(HashMap::values)
-            .filter_map(|v| VtcParticipant::deserialize(v).ok())
+            .filter_map(|v| O::deserialize(v).ok())
     }
 }
 
@@ -150,6 +166,12 @@ impl MemoryBackend {
         self.lock()
             .advertised
             .insert((account_id.as_ref().to_owned(), uri.to_owned()));
+    }
+
+    /// The `VTCRecordingStateEvent`s delivered so far, in order.
+    #[doc(hidden)]
+    pub fn recording_events_for_test(&self) -> Vec<VtcRecordingStateEvent> {
+        self.lock().recording_events.clone()
     }
 
     /// Store `value` as object `id` of `type_name` without validation or a
@@ -343,42 +365,69 @@ impl JmapBackend for MemoryBackend {
         anchor: Option<&Id>,
         anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
-        if O::TYPE_NAME != VtcCall::TYPE_NAME {
-            return Err(BackendQueryError::Other(MemoryError::new(format!(
-                "query of {} is not implemented",
-                O::TYPE_NAME
-            ))));
-        }
-        // `O` is `VtcCall`, so its filter and comparators re-decode as the
-        // VTCCall types.
+        // `O` is one of the queryable VTC types, so its filter and
+        // comparators re-decode as that type's.
         let recode = |v: Result<Value, serde_json::Error>| {
             v.map_err(|e| BackendQueryError::Other(MemoryError::new(e.to_string())))
         };
-        let filter: Option<VtcCallFilter> = filter
-            .map(|f| recode(serde_json::to_value(f)).and_then(|v| recode_as(&v)))
+        let filter = filter
+            .map(|f| recode(serde_json::to_value(f)))
             .transpose()?;
-        let sort: Vec<VtcCallComparator> = match sort {
-            Some(s) => recode(serde_json::to_value(s)).and_then(|v| recode_as(&v))?,
-            None => Vec::new(),
+        let sort = match sort {
+            Some(s) => recode(serde_json::to_value(s))?,
+            None => Value::Array(Vec::new()),
         };
 
         let inner = self.lock();
-        let attended: HashSet<(Id, String)> = inner
-            .participants(account_id)
-            .filter_map(|p| p.user_id.map(|u| (p.call_id, u)))
-            .collect();
-        let mut calls: Vec<VtcCall> = inner
-            .calls(account_id)
-            .filter(|c| {
-                filter.as_ref().is_none_or(|f| {
-                    call_matches(f, c, &|u: &str| {
-                        attended.contains(&(c.id.clone(), u.to_owned()))
+        let ids: Vec<Id> = match O::TYPE_NAME {
+            VtcCall::TYPE_NAME => {
+                let filter: Option<VtcCallFilter> = filter.as_ref().map(recode_as).transpose()?;
+                let sort: Vec<VtcCallComparator> = recode_as(&sort)?;
+                let attended: HashSet<(Id, String)> = inner
+                    .participants(account_id)
+                    .filter_map(|p| p.user_id.map(|u| (p.call_id, u)))
+                    .collect();
+                let mut calls: Vec<VtcCall> = inner
+                    .calls(account_id)
+                    .filter(|c| {
+                        filter.as_ref().is_none_or(|f| {
+                            call_matches(f, c, &|u: &str| {
+                                attended.contains(&(c.id.clone(), u.to_owned()))
+                            })
+                        })
                     })
-                })
-            })
-            .collect();
-        calls.sort_by(|a, b| compare_calls(a, b, &sort));
-        let ids: Vec<Id> = calls.into_iter().map(|c| c.id).collect();
+                    .collect();
+                calls.sort_by(|a, b| compare_calls(a, b, &sort));
+                calls.into_iter().map(|c| c.id).collect()
+            }
+            VtcRecording::TYPE_NAME => {
+                let filter: Option<VtcRecordingFilter> =
+                    filter.as_ref().map(recode_as).transpose()?;
+                let sort: Vec<VtcMediaComparator> = recode_as(&sort)?;
+                let mut list: Vec<VtcRecording> = inner
+                    .all(account_id)
+                    .filter(|r| filter.as_ref().is_none_or(|f| recording_matches(f, r)))
+                    .collect();
+                list.sort_by(|a, b| compare_recordings(a, b, &sort));
+                list.into_iter().map(|r| r.id).collect()
+            }
+            VtcLivestream::TYPE_NAME => {
+                let filter: Option<VtcLivestreamFilter> =
+                    filter.as_ref().map(recode_as).transpose()?;
+                let sort: Vec<VtcMediaComparator> = recode_as(&sort)?;
+                let mut list: Vec<VtcLivestream> = inner
+                    .all(account_id)
+                    .filter(|l| filter.as_ref().is_none_or(|f| livestream_matches(f, l)))
+                    .collect();
+                list.sort_by(|a, b| compare_livestreams(a, b, &sort));
+                list.into_iter().map(|l| l.id).collect()
+            }
+            other => {
+                return Err(BackendQueryError::Other(MemoryError::new(format!(
+                    "query of {other} is not implemented"
+                ))))
+            }
+        };
 
         let total = ids.len() as u64;
         let start = resolve_query_start(&ids, position, anchor, anchor_offset)
@@ -542,6 +591,56 @@ impl VtcBackend for MemoryBackend {
             );
         }
         Ok(call)
+    }
+
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        _caller: &String,
+        account_id: &Id,
+        _create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
+        let mut value = serde_json::to_value(&obj)
+            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+        let mut inner = self.lock();
+        // "The call MUST be in state `"active"`", rechecked under the lock.
+        if matches!(
+            O::TYPE_NAME,
+            VtcRecording::TYPE_NAME | VtcLivestream::TYPE_NAME
+        ) {
+            let call_id = value.get("callId").and_then(Value::as_str).map(Id::from);
+            let active = call_id.is_some_and(|cid| {
+                inner
+                    .calls(account_id)
+                    .any(|c| c.id == cid && c.state == CallState::Active)
+            });
+            if !active {
+                return Err(BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidProperties).with_properties(["callId"]),
+                ));
+            }
+        }
+        let id = Id::from(ulid::Ulid::new().to_string());
+        value["id"] = json!(id);
+        let stored: O = decode(&value).map_err(BackendSetError::Other)?;
+        inner
+            .objects_mut(O::TYPE_NAME, account_id)
+            .insert(id.clone(), value);
+        inner.commit(
+            O::TYPE_NAME,
+            account_id,
+            vec![(id.clone(), Change::Created)],
+        );
+        Ok((id, stored))
+    }
+
+    async fn deliver_recording_state_event(
+        &self,
+        _caller: &String,
+        _account_id: &Id,
+        event: VtcRecordingStateEvent,
+    ) {
+        self.lock().recording_events.push(event);
     }
 
     async fn update_object<O: SetObject + Send + Sync>(

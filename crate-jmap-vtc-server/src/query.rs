@@ -1,18 +1,39 @@
-//! `VTCCall/query` filter evaluation and ordering
-//! (draft-atwood-jmap-vtc-00 §VTCCall/query).
+//! `/query` filter evaluation and ordering for VTCCall, VTCRecording and
+//! VTCLivestream (draft-atwood-jmap-vtc-00 §VTCCall/query,
+//! §VTCRecording/query, §VTCLivestream/query).
 //!
 //! Pure functions a backend's `query_objects` can apply to its stored
-//! calls; the reference `MemoryBackend` uses them.
+//! objects; the reference `MemoryBackend` uses them.
 
 use std::cmp::Ordering;
 
 use jmap_types::UTCDate;
 use jmap_vtc_types::query::{
-    Filter, Operator, VtcCallComparator, VtcCallFilter, VtcCallFilterCondition, VtcCallSortProperty,
+    Filter, Operator, VtcCallComparator, VtcCallFilter, VtcCallFilterCondition,
+    VtcCallSortProperty, VtcLivestreamFilter, VtcMediaComparator, VtcMediaSortProperty,
+    VtcRecordingFilter,
 };
-use jmap_vtc_types::VtcCall;
+use jmap_vtc_types::{VtcCall, VtcLivestream, VtcRecording};
 
 use crate::helpers::utc_key;
+
+/// RFC 8620 §5.5 filter algebra over `condition`. A filter operator this
+/// version does not know matches nothing.
+fn filter_matches<C>(filter: &Filter<C>, condition: &impl Fn(&C) -> bool) -> bool {
+    match filter {
+        Filter::Condition(cond) => condition(cond),
+        Filter::Operator(op) => {
+            let mut each = op.conditions.iter().map(|f| filter_matches(f, condition));
+            match op.operator {
+                Operator::And => each.all(|m| m),
+                Operator::Or => each.any(|m| m),
+                Operator::Not => !each.any(|m| m),
+                _ => false,
+            }
+        }
+        _ => false,
+    }
+}
 
 /// `true` if `call` matches `filter` (RFC 8620 §5.5 filter algebra).
 ///
@@ -25,22 +46,7 @@ pub fn call_matches(
     call: &VtcCall,
     was_participant: &impl Fn(&str) -> bool,
 ) -> bool {
-    match filter {
-        Filter::Condition(cond) => condition_matches(cond, call, was_participant),
-        Filter::Operator(op) => {
-            let mut each = op
-                .conditions
-                .iter()
-                .map(|f| call_matches(f, call, was_participant));
-            match op.operator {
-                Operator::And => each.all(|m| m),
-                Operator::Or => each.any(|m| m),
-                Operator::Not => !each.any(|m| m),
-                _ => false,
-            }
-        }
-        _ => false,
-    }
+    filter_matches(filter, &|c| condition_matches(c, call, was_participant))
 }
 
 /// "All filter properties are combined with logical AND."
@@ -123,4 +129,89 @@ fn directed(ord: Ordering, c: &VtcCallComparator) -> Ordering {
     } else {
         ord.reverse()
     }
+}
+
+/// `true` if `recording` matches `filter` (§VTCRecording/query): "All
+/// filter properties are combined with logical AND."
+pub fn recording_matches(filter: &VtcRecordingFilter, recording: &VtcRecording) -> bool {
+    let started = utc_key(&recording.started_at);
+    filter_matches(filter, &|c| {
+        c.call_id.as_ref().is_none_or(|id| *id == recording.call_id)
+            && c.state.as_ref().is_none_or(|s| *s == recording.state)
+            && c.initiated_by
+                .as_ref()
+                .is_none_or(|u| *u == recording.initiated_by)
+            && c.started_after
+                .as_ref()
+                .is_none_or(|b| started >= utc_key(b))
+            && c.started_before
+                .as_ref()
+                .is_none_or(|b| started < utc_key(b))
+    })
+}
+
+/// `true` if `livestream` matches `filter` (§VTCLivestream/query): "All
+/// filter properties are combined with logical AND."
+pub fn livestream_matches(filter: &VtcLivestreamFilter, livestream: &VtcLivestream) -> bool {
+    filter_matches(filter, &|c| {
+        c.call_id
+            .as_ref()
+            .is_none_or(|id| *id == livestream.call_id)
+            && c.state.as_ref().is_none_or(|s| *s == livestream.state)
+            && c.platform
+                .as_ref()
+                .is_none_or(|p| livestream.platform.as_ref() == Some(p))
+    })
+}
+
+/// Order two recordings by `sort` ("Sort properties: `startedAt`"), then by
+/// `id` so the order is total.
+pub fn compare_recordings(
+    a: &VtcRecording,
+    b: &VtcRecording,
+    sort: &[VtcMediaComparator],
+) -> Ordering {
+    compare_started(Some(&a.started_at), Some(&b.started_at), sort)
+        .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))
+}
+
+/// Order two livestreams by `sort` ("Sort properties: `startedAt`"), then
+/// by `id` so the order is total.
+///
+/// ponytail: the draft does not say where a `null` `startedAt` (a stream
+/// not yet live) sorts; this puts such streams last in either direction,
+/// as [`compare_calls`] does for `endedAt`.
+pub fn compare_livestreams(
+    a: &VtcLivestream,
+    b: &VtcLivestream,
+    sort: &[VtcMediaComparator],
+) -> Ordering {
+    compare_started(a.started_at.as_ref(), b.started_at.as_ref(), sort)
+        .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))
+}
+
+/// The first non-equal `startedAt` ordering in `sort`, `None` on a tie.
+fn compare_started(
+    a: Option<&UTCDate>,
+    b: Option<&UTCDate>,
+    sort: &[VtcMediaComparator],
+) -> Option<Ordering> {
+    sort.iter()
+        .map(|c| match c.property {
+            VtcMediaSortProperty::StartedAt => match (a, b) {
+                (Some(x), Some(y)) => {
+                    let ord = utc_key(x).cmp(utc_key(y));
+                    if c.is_ascending {
+                        ord
+                    } else {
+                        ord.reverse()
+                    }
+                }
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => Ordering::Equal,
+            },
+            _ => Ordering::Equal,
+        })
+        .find(|o| o.is_ne())
 }
