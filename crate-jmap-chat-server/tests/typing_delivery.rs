@@ -82,10 +82,12 @@ fn backend_with(chat: Option<Value>, sender_blocked: bool) -> MemoryBackend {
     backend
 }
 
-/// The wss:240-245 example frame, with `chatId` and `senderId` set.
+/// The wss:241-249 example frame (spec 6bcd9d8), addressed to the
+/// recipient's account, with `chatId` and `senderId` set.
 fn event(chat_id: &str, sender_id: &str) -> ChatTypingEvent {
     serde_json::from_value(json!({
         "@type": "ChatTypingEvent",
+        "accountId": RECIPIENT,
         "chatId": chat_id,
         "senderId": sender_id,
         "typing": true,
@@ -129,6 +131,18 @@ async fn sender_is_not_a_recipient() {
 async fn non_member_recipient_is_dropped() {
     let backend = backend_with(Some(group(&[SENDER], json!({}))), false);
     assert!(!decide(&backend, &event(CHAT, SENDER)).await);
+}
+
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:229-230, spec
+/// 6bcd9d8): "`accountId` (String): The id of the account that contains
+/// the Chat." An event for a Chat in another account is not about the
+/// recipient's Chat of the same id, so it is dropped.
+#[tokio::test]
+async fn event_for_another_account_is_dropped() {
+    let backend = backend_with(Some(group(&[RECIPIENT, SENDER], json!({}))), false);
+    let mut e = event(CHAT, SENDER);
+    e.account_id = Id::from(OTHER_ACCOUNT);
+    assert!(!decide(&backend, &e).await);
 }
 
 /// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:252): "If the

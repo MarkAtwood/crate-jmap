@@ -136,6 +136,9 @@ impl EphemeralSubscription {
 ///
 /// Delivery is allowed only when all of these hold:
 ///
+/// - `event.account_id` is `account_id` (draft-atwood-jmap-chat-wss-00
+///   §ChatTypingEvent: `accountId` is "The id of the account that
+///   contains the Chat").
 /// - The sender is not the recipient (draft-atwood-jmap-chat-00
 ///   §Chat/typing: delivery goes to "each local participant in the Chat
 ///   other than the requesting account").
@@ -158,7 +161,7 @@ pub async fn should_deliver_typing<B: ChatBackend>(
     account_id: &Id,
     event: &ChatTypingEvent,
 ) -> Result<bool, B::Error> {
-    if event.sender_id == *account_id {
+    if event.account_id != *account_id || event.sender_id == *account_id {
         return Ok(false);
     }
     let (chats, _) = backend
@@ -194,6 +197,9 @@ pub async fn should_deliver_typing<B: ChatBackend>(
 /// ([`EphemeralSubscription::presence`]) is a separate filter, checked by
 /// the transport on its own.
 ///
+/// - If `event.account_id` is not `account_id`, the result is `None`
+///   (same section: `accountId` is "The id of the account that contains
+///   the ChatContact").
 /// - If the contact is blocked on the recipient's contact list, per
 ///   [`ChatBackend::is_contact_blocked`], the result is `None`
 ///   (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent: "Servers MUST NOT
@@ -214,6 +220,9 @@ pub async fn project_presence<B: ChatBackend>(
     account_id: &Id,
     event: &ChatPresenceEvent,
 ) -> Result<Option<ChatPresenceEvent>, B::Error> {
+    if event.account_id != *account_id {
+        return Ok(None);
+    }
     if backend
         .is_contact_blocked(caller, account_id, &event.contact_id)
         .await?
