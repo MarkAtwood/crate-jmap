@@ -1178,7 +1178,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// The role-position hierarchy check (members may only add or modify
     /// roles whose `position` is strictly less than their own
-    /// highest-position role — draft §Space/set lines 1096, 1102) MUST
+    /// highest-position role — draft §Space/set L1260, L1266) MUST
     /// be enforced by the backend because it is atomic with the
     /// mutation and depends on the current Space state.
     ///
@@ -1197,7 +1197,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// * `RemoveChannel` — MUST destroy the channel-kind `Chat` record
     ///   and every `Message` whose `chatId` matches the removed
-    ///   channel (draft §Space/set line 1117: "Cascades to all
+    ///   channel (draft §Space/set L1283: "Cascades to all
     ///   Messages in those channels."), and the channel's
     ///   `ReadPosition` (draft §ReadPosition: the server "destroys it
     ///   when the Chat is destroyed"). The `Chat`, `Message` and
@@ -1224,7 +1224,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// * `RemoveRole` — MUST strip the removed role id from
     ///   `roleIds` on every `SpaceMember` of this Space (draft
-    ///   §Space/set line 1099). Members embed directly in `Space`,
+    ///   §Space/set L1263). Members embed directly in `Space`,
     ///   so the cascade is captured by the existing `Space` state
     ///   bump; no separate `Member/changes` rotation is required.
     ///

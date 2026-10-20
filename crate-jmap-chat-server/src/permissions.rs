@@ -19,26 +19,26 @@ use jmap_chat_types::ChannelPermission;
 
 /// Permission string: top-level Space metadata mutations.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set lines 1093, 1096 (top-level
+/// Per draft-atwood-jmap-chat-00 §Space/set L1256-1257 (top-level
 /// metadata: `name`, `description`, `iconBlobId`, `isPublic`,
 /// `isPubliclyPreviewable`).
 pub const MANAGE_SPACE: &str = "manage_space";
 
 /// Permission string: role-set mutations.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set lines 1102, 1105, 1108
+/// Per draft-atwood-jmap-chat-00 §Space/set L1260, L1263, L1266
 /// (`addRoles`, `removeRoles`, `updateRoles`).
 pub const MANAGE_ROLES: &str = "manage_roles";
 
 /// Permission string: member-set mutations.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set lines 1111, 1114, 1117
+/// Per draft-atwood-jmap-chat-00 §Space/set L1269, L1272, L1277
 /// (`addMembers`, `removeMembers`, `updateMembers`).
 pub const MANAGE_MEMBERS: &str = "manage_members";
 
 /// Permission string: channel- and category-set mutations.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set lines 1120, 1123, 1126, 1129
+/// Per draft-atwood-jmap-chat-00 §Space/set L1280-1295
 /// (`addChannels`, `removeChannels`, `updateChannels`, `addCategories`,
 /// `removeCategories`, `updateCategories`).
 pub const MANAGE_CHANNELS: &str = "manage_channels";
@@ -158,8 +158,7 @@ pub enum RequiredPermissions {
 
 /// Returns the set of permission strings required to apply this
 /// [`SpacePatchOp`] variant, per draft-atwood-jmap-chat-00 §Space/set
-/// lines 1093, 1096, 1102, 1105, 1108, 1111, 1114, 1117, 1120, 1123,
-/// 1126, 1129.
+/// L1256-1295 (jmap-chat-spec 91672c9).
 ///
 /// Permissions enumerated by the draft:
 ///
@@ -197,12 +196,12 @@ pub enum RequiredPermissions {
 /// [`ChatBackend::apply_space_patch`]: crate::backend::ChatBackend::apply_space_patch
 pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
     match op {
-        // Role family — draft §Space/set lines 1102, 1105, 1108.
+        // Role family — draft §Space/set L1260, L1263, L1266.
         SpacePatchOp::AddRole(_)
         | SpacePatchOp::RemoveRole(_)
         | SpacePatchOp::UpdateRole { .. } => RequiredPermissions::Known(&[MANAGE_ROLES]),
 
-        // Member add/remove — draft §Space/set lines 1111, 1114.
+        // Member add/remove — draft §Space/set L1269, L1272.
         SpacePatchOp::AddMember(_) | SpacePatchOp::RemoveMember(_) => {
             RequiredPermissions::Known(&[MANAGE_MEMBERS])
         }
@@ -220,12 +219,12 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
             (None, _) => RequiredPermissions::Known(&[MANAGE_MEMBERS]),
         },
 
-        // Channel family — draft §Space/set lines 1120, 1123, 1126.
+        // Channel family — draft §Space/set L1280, L1283, L1286.
         SpacePatchOp::AddChannel(_)
         | SpacePatchOp::RemoveChannel(_)
         | SpacePatchOp::UpdateChannel { .. } => RequiredPermissions::Known(&[MANAGE_CHANNELS]),
 
-        // Category family — draft §Space/set line 1129. Categories are a
+        // Category family — draft §Space/set L1289, L1292, L1295. Categories are a
         // sub-property of the channel-set per the draft; the same permission
         // gates both.
         SpacePatchOp::AddCategory(_)
@@ -250,8 +249,7 @@ mod tests {
     use jmap_types::Id;
 
     // Oracle for the spec-line → permission mapping: draft-atwood-jmap-chat-00
-    // §Space/set lines 1093, 1096, 1102, 1105, 1108, 1111, 1114, 1117, 1120,
-    // 1123, 1126, 1129. Each test constructs the SpacePatchOp variant from a
+    // §Space/set L1256-1295 (jmap-chat-spec 91672c9). Each test constructs the SpacePatchOp variant from a
     // hand-built payload (deserialized from spec-shaped JSON for types without
     // `Default`, or built via `Default::default()` for the patch types) and
     // asserts the slice returned by the helper matches the table in the

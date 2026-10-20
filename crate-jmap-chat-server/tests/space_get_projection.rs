@@ -1,8 +1,8 @@
 //! Integration tests for the `Space/get` non-member field-projection
 //! trim (bd:JMAP-v9py.4).
 //!
-//! Spec source: draft-atwood-jmap-chat-00 §Space/get (lines 1104-1111
-//! after bd:JMAP-v9py.19's spec edit landed). Three rules:
+//! Spec source: draft-atwood-jmap-chat-00 §Space/get (L1219-1228
+//! at jmap-chat-spec 91672c9). Three rules:
 //!
 //! 1. Member caller → full Space object, subject to the standard
 //!    JMAP `/get` `properties` filter if present.
