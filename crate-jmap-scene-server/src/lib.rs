@@ -71,7 +71,10 @@
 //! §SceneStreamEnable): the [`ephemeral`] module holds the per-connection
 //! subscription a `SceneStreamEnable` frame replaces in its entirety, with
 //! a dynamic ([`RegionScope::All`]) or static ([`RegionScope::Only`])
-//! region scope and the `invalidArguments` check on `eventTypes`.
+//! region scope and the `invalidArguments` check on `eventTypes`;
+//! [`should_deliver`], the per-event delivery check (active avatar,
+//! visibility, blocked-sender suppression); and [`validate_interaction`],
+//! the check on a client-sent `SceneInteractionEvent` before relay.
 //!
 //! The crate depends on RFC 8620 only; Chat and VTC bindings live in
 //! separate binding crates, which implement
@@ -118,7 +121,10 @@ pub use backend::{
     ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
     QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
 };
-pub use ephemeral::{RegionScope, SceneEphemeralSubscription, SceneStreamFilter};
+pub use ephemeral::{
+    should_deliver, validate_interaction, RegionScope, SceneEphemeralSubscription,
+    SceneStreamFilter,
+};
 pub use object::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,
     handle_scene_object_query_changes, handle_scene_object_set,
