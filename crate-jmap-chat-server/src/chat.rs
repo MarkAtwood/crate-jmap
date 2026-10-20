@@ -75,6 +75,20 @@ const CHAT_UPDATE_ALLOWED: &[&str] = &[
     "updateMemberRoles",
 ];
 
+/// Chat properties draft-atwood-jmap-chat-00 §Chat Object Fields scopes
+/// to one kind ("**Direct chats only.**", "**Group chats only.**",
+/// "**Channel Chats only.**"), with that kind. `name` is "**Group and
+/// channel Chats.**", and `Chat/set` never creates a channel, so a group
+/// is the only created kind that carries it. A `Chat/set` create of
+/// another kind that carries one is `invalidProperties` (RFC 8620 §5.3).
+const KIND_SCOPED_CREATE_PROPS: &[(&str, ChatKind)] = &[
+    ("contactId", ChatKind::Direct),
+    ("name", ChatKind::Group),
+    ("description", ChatKind::Group),
+    ("avatarBlobId", ChatKind::Group),
+    ("spaceId", ChatKind::Channel),
+];
+
 /// Whether `account_id` holds the `"admin"` role in `chat.members`.
 fn is_chat_admin(chat: &Chat, account_id: &Id) -> bool {
     chat.members
@@ -658,6 +672,25 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
 
+            // A channel create is `forbidden` below whatever it carries.
+            // `null` is read as absent, as in `mistyped_create_props`.
+            if kind != ChatKind::Channel {
+                let foreign: Vec<&str> = KIND_SCOPED_CREATE_PROPS
+                    .iter()
+                    .filter(|(prop, scope)| {
+                        *scope != kind && obj_val.get(*prop).is_some_and(|v| !v.is_null())
+                    })
+                    .map(|(prop, _)| *prop)
+                    .collect();
+                if !foreign.is_empty() {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": foreign }),
+                    );
+                    continue;
+                }
+            }
+
             // Validate kind-specific required fields and extract per-kind state.
             // `direct_contact_id_str` is Some(id) for Direct chats and None for
             // all other kinds — it simultaneously encodes the "is direct" flag and
@@ -818,10 +851,6 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .get("description")
                 .and_then(|v| v.as_str())
                 .map(str::to_owned);
-            let space_id: Option<Id> = obj_val
-                .get("spaceId")
-                .and_then(|v| v.as_str())
-                .map(Id::from);
             let muted: bool = obj_val
                 .get("muted")
                 .and_then(|v| v.as_bool())
@@ -852,7 +881,6 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .map(Id::from);
             chat.message_expiry_seconds =
                 obj_val.get("messageExpirySeconds").and_then(Value::as_u64);
-            chat.space_id = space_id;
             chat.members = members;
 
             match backend
@@ -1010,9 +1038,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
 
-            // Per-Chat restrictions of extension-bound Chats; see
-            // `ChatBackend::may_update_chat`. A Chat that does not
-            // resolve is left for update_object to surface `notFound`.
+            // The stored Chat, read once for every check below. A Chat
+            // that does not resolve is left for update_object to surface
+            // `notFound`.
             let stored = match backend
                 .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
                 .await
@@ -1023,10 +1051,12 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             };
-            if let Some(chat) = stored {
+            // Per-Chat restrictions of extension-bound Chats; see
+            // `ChatBackend::may_update_chat`.
+            if let Some(chat) = &stored {
                 let patch_keys: Vec<&str> = patch.as_map().keys().map(String::as_str).collect();
                 match backend
-                    .may_update_chat(caller, &account_id, &chat, &patch_keys)
+                    .may_update_chat(caller, &account_id, chat, &patch_keys)
                     .await
                 {
                     Ok(Ok(())) => {}
@@ -1054,19 +1084,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
             });
             if touches_closed_keys {
-                let stored = match backend
-                    .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
-                    .await
-                {
-                    Ok((chats, _)) => chats.into_iter().next(),
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                };
-                // A Chat that does not resolve is left for update_object
-                // to surface `notFound`.
-                if let Some(chat) = stored {
+                if let Some(chat) = &stored {
                     if chat.closed_at.is_some() {
                         not_updated.insert(
                             id_str,
@@ -1081,7 +1099,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         .keys()
                         .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
                     if touches_admin_keys
-                        && !(chat.kind == ChatKind::Group && is_chat_admin(&chat, &account_id))
+                        && !(chat.kind == ChatKind::Group && is_chat_admin(chat, &account_id))
                     {
                         not_updated.insert(
                             id_str,
@@ -1093,7 +1111,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         continue;
                     }
                     if chat.kind == ChatKind::Group {
-                        group_before = Some(chat.members.unwrap_or_default());
+                        group_before = Some(chat.members.clone().unwrap_or_default());
                     }
                 }
             }
@@ -1102,8 +1120,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // member patch keys are operations on `members`, not
             // properties. They are applied to the stored list here and
             // replaced by the resulting `members`, so the backend never
-            // stores them. A Chat that does not resolve is left for
-            // update_object to surface `notFound`.
+            // stores them.
             // ponytail: check-then-update is not atomic; two concurrent
             // member patches can lose one. A backend needing strictness
             // re-checks inside its update transaction.
@@ -1111,19 +1128,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .iter()
                 .any(|k| patch.as_map().contains_key(*k))
             {
-                let stored = match backend
-                    .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
-                    .await
-                {
-                    Ok((chats, _)) => chats.into_iter().next(),
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                };
-                if let Some(stored) = stored {
+                if let Some(stored) = &stored {
                     let max_members = backend.limits(caller, &account_id).max_group_chat_members;
-                    match apply_member_patch_keys(&stored, &account_id, patch.as_map(), max_members)
+                    match apply_member_patch_keys(stored, &account_id, patch.as_map(), max_members)
                     {
                         Ok((members, closes)) => {
                             member_change = Some((members.clone(), closes));
@@ -1185,17 +1192,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // hard-deleted between the two leaves a stale pin. A backend
             // needing strictness re-checks inside its update transaction.
             if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds") {
-                let stored = match backend
-                    .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
-                    .await
-                {
-                    Ok((chats, _)) => chats.into_iter().next(),
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                };
-                if let Some(stored) = stored {
+                if let Some(stored) = &stored {
                     let added: Vec<Id> = new_pins
                         .iter()
                         .filter_map(Value::as_str)
@@ -1287,23 +1284,36 @@ pub async fn handle_chat_set<B: ChatBackend>(
         // not supported; the server MUST return a SetError of type
         // `forbidden`." An id that does not resolve is left for
         // destroy_object to surface `notFound`.
-        let ids: Vec<Id> = destroy_arr
+        let mut ids: Vec<Id> = destroy_arr
             .iter()
             .filter_map(Value::as_str)
             .map(Id::from)
             .collect();
+        // A failed read is per-id `serverFail`, not a method error: the
+        // creates and updates above are already committed, and a method
+        // `serverFail` means "The method call made no changes to the
+        // server's state" (RFC 8620 §3.6.2). Without the kinds no id can
+        // be checked, so none is destroyed.
         let channel_ids: HashSet<Id> = if ids.is_empty() {
             HashSet::new()
         } else {
-            let (chats, _) = backend
+            match backend
                 .get_objects::<Chat>(caller, &account_id, Some(&ids), None)
                 .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-            chats
-                .into_iter()
-                .filter(|c| c.kind == ChatKind::Channel)
-                .map(|c| c.id)
-                .collect()
+            {
+                Ok((chats, _)) => chats
+                    .into_iter()
+                    .filter(|c| c.kind == ChatKind::Channel)
+                    .map(|c| c.id)
+                    .collect(),
+                Err(e) => {
+                    let err = server_fail_value_from_backend(&e);
+                    for id in ids.drain(..) {
+                        not_destroyed.insert(id.as_ref().to_owned(), err.clone());
+                    }
+                    HashSet::new()
+                }
+            }
         };
         for id in ids {
             let id_str = id.as_ref();

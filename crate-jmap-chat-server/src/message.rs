@@ -839,7 +839,8 @@ pub enum StoreOutcome {
 /// The caller sets every field, including the server-set `senderMsgId`,
 /// `senderId`, `sentAt` and `receivedAt` and a body type that
 /// [`ChatLimits::server_reserved_body_types`] keeps out of `Message/set`.
-/// The backend assigns `id`, so `msg.id` is ignored. None of the
+/// The backend assigns `id`: `msg.id` is replaced by the `"placeholder"`
+/// sentinel that [`ChatBackend::create_object`] documents. None of the
 /// `Message/set` client-input checks run.
 ///
 /// Before storing, the Chat is searched with
@@ -869,7 +870,7 @@ pub async fn store_server_message<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
-    msg: Message,
+    mut msg: Message,
 ) -> Result<StoreOutcome, BackendSetError<B::Error>> {
     if let Some(existing) = find_message_by_sender_msg_id(
         backend,
@@ -884,6 +885,7 @@ pub async fn store_server_message<B: ChatBackend>(
         return Ok(StoreOutcome::Duplicate(existing.id));
     }
     let create_id = msg.sender_msg_id.as_ref().to_owned();
+    msg.id = Id::from(PLACEHOLDER_ID);
     let (id, stored) = backend
         .create_object::<Message>(caller, account_id, &create_id, msg)
         .await?;
@@ -1528,9 +1530,9 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
-            // Per-Chat restrictions of extension-bound Chats; see
-            // `ChatBackend::may_update_message`. A Message or Chat that
-            // does not resolve is left for update_object to surface.
+            // The stored Message and its Chat, read once for every check
+            // below. A Message or Chat that does not resolve is left for
+            // update_object to surface `notFound`.
             let stored = match backend
                 .get_objects::<Message>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
                 .await
@@ -1541,8 +1543,8 @@ pub async fn handle_message_set<B: ChatBackend>(
                     continue;
                 }
             };
-            if let Some(msg) = stored {
-                let chat = match backend
+            let stored_chat = match &stored {
+                Some(msg) => match backend
                     .get_objects::<Chat>(
                         caller,
                         &account_id,
@@ -1556,25 +1558,29 @@ pub async fn handle_message_set<B: ChatBackend>(
                         not_updated.insert(id_str, server_fail_value_from_backend(&e));
                         continue;
                     }
-                };
-                if let Some(chat) = chat {
-                    let patch_keys: Vec<&str> = patch_val
-                        .as_object()
-                        .map(|obj| obj.keys().map(String::as_str).collect())
-                        .unwrap_or_default();
-                    match backend
-                        .may_update_message(caller, &account_id, &chat, &msg, &patch_keys)
-                        .await
-                    {
-                        Ok(Ok(())) => {}
-                        Ok(Err(set_err)) => {
-                            not_updated.insert(id_str, set_error_value(&set_err));
-                            continue;
-                        }
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
-                        }
+                },
+                None => None,
+            };
+
+            // Per-Chat restrictions of extension-bound Chats; see
+            // `ChatBackend::may_update_message`.
+            if let (Some(msg), Some(chat)) = (&stored, &stored_chat) {
+                let patch_keys: Vec<&str> = patch_val
+                    .as_object()
+                    .map(|obj| obj.keys().map(String::as_str).collect())
+                    .unwrap_or_default();
+                match backend
+                    .may_update_message(caller, &account_id, chat, msg, &patch_keys)
+                    .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_updated.insert(id_str, set_error_value(&set_err));
+                        continue;
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
                     }
                 }
             }
@@ -1595,64 +1601,46 @@ pub async fn handle_message_set<B: ChatBackend>(
             // the stored Message once the checks below pass.
             let mut outbound: Option<OutboundEvent> = None;
             if deletes_for_all || edits {
-                match backend
-                    .get_objects::<Message>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&id)),
-                        None,
-                    )
-                    .await
-                {
-                    Ok((found, _not_found)) => {
-                        let description = found.first().and_then(|m| {
-                            if deletes_for_all && m.sender_id != account_id {
-                                Some("deletedForAll is only permitted on messages whose senderId is the accountId")
-                            } else if edits
-                                && (m.sender_id != account_id || m.deleted_at.is_some())
-                            {
-                                Some("edits are only permitted on messages whose senderId is the accountId and deletedAt is absent")
-                            } else {
-                                None
-                            }
-                        });
-                        if let Some(description) = description {
-                            not_updated.insert(
-                                id_str,
-                                json!({ "type": "forbidden", "description": description }),
-                            );
-                            continue;
-                        }
-                        if let Some(err) = found
-                            .first()
-                            .and_then(|m| edit_limit_error(m, &patch_val, &limits))
-                        {
-                            not_updated.insert(id_str, err);
-                            continue;
-                        }
-                        outbound = found.first().map(|m| {
-                            let (chat_id, message_id, sender_msg_id) =
-                                (m.chat_id.clone(), m.id.clone(), m.sender_msg_id.clone());
-                            if deletes_for_all {
-                                OutboundEvent::Retract {
-                                    chat_id,
-                                    message_id,
-                                    sender_msg_id,
-                                }
-                            } else {
-                                OutboundEvent::Edit {
-                                    chat_id,
-                                    message_id,
-                                    sender_msg_id,
-                                }
-                            }
-                        });
+                let description = stored.as_ref().and_then(|m| {
+                    if deletes_for_all && m.sender_id != account_id {
+                        Some("deletedForAll is only permitted on messages whose senderId is the accountId")
+                    } else if edits && (m.sender_id != account_id || m.deleted_at.is_some()) {
+                        Some("edits are only permitted on messages whose senderId is the accountId and deletedAt is absent")
+                    } else {
+                        None
                     }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
+                });
+                if let Some(description) = description {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "forbidden", "description": description }),
+                    );
+                    continue;
                 }
+                if let Some(err) = stored
+                    .as_ref()
+                    .and_then(|m| edit_limit_error(m, &patch_val, &limits))
+                {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
+                outbound = stored.as_ref().map(|m| {
+                    let (chat_id, message_id, sender_msg_id) =
+                        (m.chat_id.clone(), m.id.clone(), m.sender_msg_id.clone());
+                    if deletes_for_all {
+                        OutboundEvent::Retract {
+                            chat_id,
+                            message_id,
+                            sender_msg_id,
+                        }
+                    } else {
+                        OutboundEvent::Edit {
+                            chat_id,
+                            message_id,
+                            sender_msg_id,
+                        }
+                    }
+                });
             }
 
             // Build augmented patch with server-side timestamps.
@@ -1778,54 +1766,34 @@ pub async fn handle_message_set<B: ChatBackend>(
                     }
                 };
 
-                // Pre-fetch the Message to inspect existing
-                // reactions. An update target that doesn't exist on
-                // the backend will surface a normal `notFound` from
-                // the subsequent `update_object` call — we don't
-                // short-circuit here. A backend storage error becomes
-                // `serverFail`.
-                let forbidden = match backend
-                    .get_objects::<Message>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&id)),
-                        None,
-                    )
-                    .await
-                {
-                    Ok((found, _not_found)) => {
-                        let mut bad: Vec<String> = Vec::new();
-                        if let Some(msg) = found.first() {
-                            for (raw_key, suffix) in &decoded {
-                                let existing = msg.reactions.get(suffix);
-                                if existing.is_some_and(|r| r.sender_id != account_id) {
-                                    bad.push(suffix.clone());
-                                }
-                                // A null on a key with no stored reaction
-                                // removes nothing, so nothing propagates.
-                                let action = match augmented.get(raw_key) {
-                                    Some(Value::Object(_)) => Some(ReactionAction::Add),
-                                    _ => existing
-                                        .map(|r| ReactionAction::Remove { removed: r.clone() }),
-                                };
-                                if let Some(action) = action {
-                                    reaction_events.push(OutboundEvent::ReactionUpdate {
-                                        chat_id: msg.chat_id.clone(),
-                                        message_id: msg.id.clone(),
-                                        sender_msg_id: msg.sender_msg_id.clone(),
-                                        sender_reaction_id: suffix.clone(),
-                                        action,
-                                    });
-                                }
-                            }
+                // Inspect the stored Message's existing reactions. An
+                // update target that doesn't exist on the backend will
+                // surface a normal `notFound` from the subsequent
+                // `update_object` call — we don't short-circuit here.
+                let mut forbidden: Vec<String> = Vec::new();
+                if let Some(msg) = &stored {
+                    for (raw_key, suffix) in &decoded {
+                        let existing = msg.reactions.get(suffix);
+                        if existing.is_some_and(|r| r.sender_id != account_id) {
+                            forbidden.push(suffix.clone());
                         }
-                        bad
+                        // A null on a key with no stored reaction
+                        // removes nothing, so nothing propagates.
+                        let action = match augmented.get(raw_key) {
+                            Some(Value::Object(_)) => Some(ReactionAction::Add),
+                            _ => existing.map(|r| ReactionAction::Remove { removed: r.clone() }),
+                        };
+                        if let Some(action) = action {
+                            reaction_events.push(OutboundEvent::ReactionUpdate {
+                                chat_id: msg.chat_id.clone(),
+                                message_id: msg.id.clone(),
+                                sender_msg_id: msg.sender_msg_id.clone(),
+                                sender_reaction_id: suffix.clone(),
+                                action,
+                            });
+                        }
                     }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                };
+                }
                 if !forbidden.is_empty() {
                     not_updated.insert(
                         id_str,
@@ -1865,26 +1833,12 @@ pub async fn handle_message_set<B: ChatBackend>(
             // readAt on a message whose `burnOnRead` is `true`.
             let patch_sets_read_at = augmented.get("readAt").is_some_and(|v| !v.is_null());
 
-            // If the patch sets readAt, pre-fetch the message so we can
-            // decide whether it is burn-on-read. We deliberately consult
-            // the pre-patch state: a recipient setting readAt for the
-            // first time should fire the burn.
+            // If the patch sets readAt, the stored Message decides whether
+            // it is burn-on-read. We deliberately consult the pre-patch
+            // state: a recipient setting readAt for the first time should
+            // fire the burn.
             let pre_patch_read: Option<Message> = if patch_sets_read_at {
-                match backend
-                    .get_objects::<Message>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&id)),
-                        None,
-                    )
-                    .await
-                {
-                    Ok((found, _not_found)) => found.into_iter().next(),
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
+                stored.clone()
             } else {
                 None
             };
@@ -1897,32 +1851,11 @@ pub async fn handle_message_set<B: ChatBackend>(
             // so an edit that retains a broadcast mention is gated like one
             // that adds it.
             if edits {
-                let (current_has_bm, msg_chat_id) = match backend
-                    .get_objects::<Message>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&id)),
-                        None,
-                    )
-                    .await
-                {
-                    Ok((found, _)) => {
-                        if let Some(msg) = found.first() {
-                            (
-                                !msg.broadcast_mentions.is_empty(),
-                                Some(msg.chat_id.clone()),
-                            )
-                        } else {
-                            // Message not found — let update_object surface
-                            // the normal notFound error downstream.
-                            (false, None)
-                        }
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                };
+                // A missing Message is left for update_object to surface
+                // the normal notFound error downstream.
+                let current_has_bm = stored
+                    .as_ref()
+                    .is_some_and(|msg| !msg.broadcast_mentions.is_empty());
                 // Structural validation only when broadcastMentions is part
                 // of the patch.
                 let has_bm = match augmented.get("broadcastMentions") {
@@ -1942,52 +1875,24 @@ pub async fn handle_message_set<B: ChatBackend>(
                 // channel requires mention_broadcast permission; rich-body
                 // spans are display-only and never consulted. Group/direct
                 // chats (no spaceId) are unrestricted per spec.
-                if has_bm {
-                    if let Some(ref cid) = msg_chat_id {
-                        let chat_lookup = backend
-                            .get_objects::<Chat>(
-                                caller,
-                                &account_id,
-                                Some(std::slice::from_ref(cid)),
-                                None,
-                            )
-                            .await;
-                        match chat_lookup {
-                            Ok((found, _)) => {
-                                if let Some(chat) = found.first() {
-                                    if let Some(ref sid) = chat.space_id {
-                                        match backend
-                                            .may_broadcast_mention(caller, &account_id, sid)
-                                            .await
-                                        {
-                                            Ok(Ok(())) => {}
-                                            Ok(Err(set_err)) => {
-                                                not_updated
-                                                    .insert(id_str, set_error_value(&set_err));
-                                                continue;
-                                            }
-                                            Err(e) => {
-                                                not_updated.insert(
-                                                    id_str,
-                                                    server_fail_value_from_backend(&e),
-                                                );
-                                                continue;
-                                            }
-                                        }
-                                    }
-                                    // else: no spaceId — unrestricted per spec
-                                }
-                                // else: Chat not found — let update_object
-                                // surface the normal error downstream
-                            }
-                            Err(e) => {
-                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                                continue;
-                            }
+                // A Message or Chat not found is left for update_object
+                // to surface downstream.
+                let space_id = stored_chat.as_ref().and_then(|c| c.space_id.as_ref());
+                if let (true, Some(sid)) = (has_bm, space_id) {
+                    match backend
+                        .may_broadcast_mention(caller, &account_id, sid)
+                        .await
+                    {
+                        Ok(Ok(())) => {}
+                        Ok(Err(set_err)) => {
+                            not_updated.insert(id_str, set_error_value(&set_err));
+                            continue;
+                        }
+                        Err(e) => {
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                            continue;
                         }
                     }
-                    // else: msg_chat_id is None — message not found,
-                    // let update_object surface notFound downstream
                 }
             }
 
