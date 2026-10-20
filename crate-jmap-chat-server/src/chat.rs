@@ -48,6 +48,40 @@ const MEMBER_PATCH_KEYS: &[&str] = &["addMembers", "removeMembers", "updateMembe
 /// group rejects (draft-atwood-jmap-chat-00 §Chat `closedAt`).
 const SHARED_GROUP_KEYS: &[&str] = &["name", "description", "avatarBlobId", "pinnedMessageIds"];
 
+/// `Chat/set` update keys only a group Chat's admins may change
+/// (draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat": "For group
+/// chats, admins additionally may update: `name`, `description`,
+/// `avatarBlobId`.").
+const GROUP_ADMIN_KEYS: &[&str] = &["name", "description", "avatarBlobId"];
+
+/// Every `Chat/set` update key draft-atwood-jmap-chat-00 §Chat/set
+/// "Updating a Chat" defines: the keys for all chat kinds, then
+/// [`GROUP_ADMIN_KEYS`], then [`MEMBER_PATCH_KEYS`]. Any other key names a
+/// server-set, immutable or `Space/set`-managed property and is
+/// `invalidProperties` (RFC 8620 §5.3).
+const CHAT_UPDATE_ALLOWED: &[&str] = &[
+    "muted",
+    "muteUntil",
+    "receiveTypingIndicators",
+    "pinnedMessageIds",
+    "messageExpirySeconds",
+    "receiptSharing",
+    "name",
+    "description",
+    "avatarBlobId",
+    "addMembers",
+    "removeMembers",
+    "updateMemberRoles",
+];
+
+/// Whether `account_id` holds the `"admin"` role in `chat.members`.
+fn is_chat_admin(chat: &Chat, account_id: &Id) -> bool {
+    chat.members
+        .iter()
+        .flatten()
+        .any(|m| m.id == *account_id && m.role == "admin")
+}
+
 /// One `addMembers` or `updateMemberRoles` entry.
 #[derive(Deserialize)]
 struct MemberRoleEntry {
@@ -119,10 +153,8 @@ fn apply_member_patch_keys(
     if chat.kind != ChatKind::Group {
         return Err(forbidden("member patch keys apply to group chats only"));
     }
+    let is_admin = is_chat_admin(chat, owner_id);
     let mut members = chat.members.clone().unwrap_or_default();
-    let is_admin = members
-        .iter()
-        .any(|m| m.id == *owner_id && m.role == "admin");
     let self_leave = add.is_none()
         && update.is_none()
         && remove.as_deref() == Some(std::slice::from_ref(owner_id));
@@ -271,9 +303,14 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 /// Validation enforced here (not in the backend):
 /// - `kind` is required on create.
 /// - `direct` chats require `contactId`.
-/// - `channel` chats are `forbidden` (created via `Space/set` `addChannels`).
-/// - `id`, `createdAt`, `unreadCount`, `closedAt`, `activeCallId` are
-///   server-set and rejected in updates.
+/// - `channel` chats are `forbidden` on create and destroy (managed via
+///   `Space/set` `addChannels` / `removeChannels`).
+/// - a group create whose membership exceeds
+///   [`ChatLimits::max_group_chat_members`](crate::backend::ChatLimits::max_group_chat_members)
+///   is `overQuota`.
+/// - an update key outside §Chat/set "Updating a Chat" is
+///   `invalidProperties`; `name`, `description` and `avatarBlobId` updates
+///   are `forbidden` unless the Chat is a group and the caller is an admin.
 /// - `pinnedMessageIds` updates are gated by
 ///   [`ChatBackend::may_set_pinned_messages`].
 ///
@@ -359,6 +396,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     ("contactId", PropType::Str),
                     ("name", PropType::Str),
                     ("description", PropType::Str),
+                    ("avatarBlobId", PropType::Str),
+                    ("messageExpirySeconds", PropType::UnsignedInt),
                     ("spaceId", PropType::Str),
                     ("muted", PropType::Bool),
                     ("receiveTypingIndicators", PropType::Bool),
@@ -530,6 +569,24 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 members
             });
 
+            // Group create `memberIds`: "If the resulting membership would
+            // exceed a server-defined limit on the number of members per
+            // group Chat, the server MUST return an `overQuota` SetError".
+            let max_members = backend.limits(caller, &account_id).max_group_chat_members;
+            if members
+                .as_ref()
+                .is_some_and(|m| m.len() > max_members as usize)
+            {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({
+                        "type": "overQuota",
+                        "description": "group chat member limit exceeded",
+                    }),
+                );
+                continue;
+            }
+
             let contact_id: Option<Id> = obj_val
                 .get("contactId")
                 .and_then(|v| v.as_str())
@@ -568,6 +625,14 @@ pub async fn handle_chat_set<B: ChatBackend>(
             chat.contact_id = contact_id;
             chat.name = name;
             chat.description = description;
+            // "Optional at creation: `description` (String), `avatarBlobId`
+            // (String), `messageExpirySeconds` (UnsignedInt)."
+            chat.avatar_blob_id = obj_val
+                .get("avatarBlobId")
+                .and_then(Value::as_str)
+                .map(Id::from);
+            chat.message_expiry_seconds =
+                obj_val.get("messageExpirySeconds").and_then(Value::as_u64);
             chat.space_id = space_id;
             chat.members = members;
 
@@ -677,18 +742,20 @@ pub async fn handle_chat_set<B: ChatBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // Reject patches that include server-set fields.
-            // Server-set fields that clients may not patch via Chat/set.
-            // INVARIANT: this list must include every field on jmap_chat_types::Chat that
-            // is set by the server rather than the client. Add new server-set fields here
-            // at the same time as adding them to the Chat struct.
-            const CHAT_READONLY: &[&str] =
-                &["id", "createdAt", "unreadCount", "closedAt", "activeCallId"];
-            let bad_props: Vec<&str> = CHAT_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
+            // Only the keys §Chat/set "Updating a Chat" defines may be
+            // patched; JSON Pointer paths count by their first segment.
+            let bad_props: Vec<&str> = patch_val
+                .as_object()
+                .map(|obj| {
+                    obj.keys()
+                        .map(String::as_str)
+                        .filter(|k| {
+                            let top = k.split('/').next().unwrap_or(k);
+                            !CHAT_UPDATE_ALLOWED.contains(&top)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
             if !bad_props.is_empty() {
                 not_updated.insert(
                     id_str,
@@ -720,20 +787,42 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
             });
             if touches_closed_keys {
-                match backend
+                let stored = match backend
                     .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
                     .await
                 {
-                    Ok((chats, _)) if chats.first().is_some_and(|c| c.closed_at.is_some()) => {
+                    Ok((chats, _)) => chats.into_iter().next(),
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                };
+                // A Chat that does not resolve is left for update_object
+                // to surface `notFound`.
+                if let Some(chat) = stored {
+                    if chat.closed_at.is_some() {
                         not_updated.insert(
                             id_str,
                             json!({ "type": "forbidden", "description": "the group is closed" }),
                         );
                         continue;
                     }
-                    Ok(_) => {}
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                    // "For group chats, admins additionally may update:
+                    // `name`, `description`, `avatarBlobId`."
+                    let touches_admin_keys = patch
+                        .as_map()
+                        .keys()
+                        .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
+                    if touches_admin_keys
+                        && !(chat.kind == ChatKind::Group && is_chat_admin(&chat, &account_id))
+                    {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "forbidden",
+                                "description": "only group chat admins may update name, description and avatarBlobId",
+                            }),
+                        );
                         continue;
                     }
                 }
@@ -908,11 +997,40 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 "destroy: every element must be a string Id; got {bad}"
             )));
         }
-        for id_val in destroy_arr {
-            let Some(id_str) = id_val.as_str() else {
-                continue; // unreachable: validated above
-            };
-            let id = Id::from(id_str);
+        // §Destroying a Chat: "For channel Chats, destroy via `Chat/set` is
+        // not supported; the server MUST return a SetError of type
+        // `forbidden`." An id that does not resolve is left for
+        // destroy_object to surface `notFound`.
+        let ids: Vec<Id> = destroy_arr
+            .iter()
+            .filter_map(Value::as_str)
+            .map(Id::from)
+            .collect();
+        let channel_ids: HashSet<Id> = if ids.is_empty() {
+            HashSet::new()
+        } else {
+            let (chats, _) = backend
+                .get_objects::<Chat>(caller, &account_id, Some(&ids), None)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+            chats
+                .into_iter()
+                .filter(|c| c.kind == ChatKind::Channel)
+                .map(|c| c.id)
+                .collect()
+        };
+        for id in ids {
+            let id_str = id.as_ref();
+            if channel_ids.contains(&id) {
+                not_destroyed.insert(
+                    id_str.to_owned(),
+                    json!({
+                        "type": "forbidden",
+                        "description": "channel Chats are removed via Space/set removeChannels",
+                    }),
+                );
+                continue;
+            }
 
             match backend
                 .destroy_object::<Chat>(caller, &account_id, &id)

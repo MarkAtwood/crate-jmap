@@ -341,15 +341,17 @@ async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
 
     let chat_id = make_chat_group(&backend, "Original").await;
 
-    // Build a 200-level-deep nested patch object. The patch field name
-    // is arbitrary — it does not matter for the depth-cap test whether
-    // the field exists on Chat; the merge-patch happens against the
+    // Build a 200-level-deep nested patch object under `description`.
+    // The top-level key must be one §Chat/set "Updating a Chat" admits,
+    // or the update allowlist rejects it before the merge; the nesting
+    // below it is arbitrary, since the merge-patch happens against the
     // stored JSON Value before any typed validation.
     const DEPTH: usize = 200;
     let mut patch = json!({ "leaf": "ignored" });
     for _ in 0..DEPTH {
         patch = json!({ "a": patch });
     }
+    let patch = json!({ "description": patch });
 
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,

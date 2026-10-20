@@ -36,6 +36,16 @@ wire behaviour that a conforming peer can observe.
   requested id goes to `notFound`) and `Message/query`. The `@everyone`
   floor stays empty, so a member who holds no roles can neither send nor
   view in channels unless a member-targeted override allows it.
+- **BREAKING** **jmap-chat-server**: `Chat/set` enforces the per-kind
+  rules of draft-atwood-jmap-chat-00 §Chat/set. An update key that
+  "Updating a Chat" does not define (for example `contactId`, `spaceId`,
+  `members`, `kind` or a channel's `topic`) is `invalidProperties`; it
+  was previously stored. `name`, `description` and `avatarBlobId` updates
+  are `forbidden` unless the Chat is a group and the caller is one of its
+  admins. Destroying a channel Chat is `forbidden`; channels are removed
+  via `Space/set` `removeChannels`. Group create stores `avatarBlobId` and
+  `messageExpirySeconds`, and is `overQuota` when the membership exceeds
+  `ChatLimits::max_group_chat_members`.
 
 ### Fixed
 
