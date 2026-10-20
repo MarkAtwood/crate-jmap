@@ -434,8 +434,35 @@ pub async fn should_push<B: ChatBackend>(
     {
         return Ok(false);
     }
+    if !owner_is_member(backend, caller, account_id, &chat).await? {
+        return Ok(false);
+    }
+    let bypass = is_plaintext(&msg.body_type) && !mention_scopes(msg, owner).is_empty();
+    let muted = match &chat.mute_until {
+        Some(until) => mute_active(until),
+        None => chat.muted,
+    };
+    if muted && !bypass {
+        return Ok(false);
+    }
+    Ok(!backend
+        .is_contact_blocked(caller, account_id, &msg.sender_id)
+        .await?)
+}
+
+/// Whether the owner of `account_id` is a current member of `chat`, its
+/// own Chat record: a group lists the owner in `members`, a channel's
+/// Space lists the owner, and a direct Chat always has its owner
+/// (draft-atwood-jmap-chat-00 §Terminology: the owner's member entry is
+/// the accountId).
+pub(crate) async fn owner_is_member<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    chat: &Chat,
+) -> Result<bool, B::Error> {
     let is_owner = |id: &Id| id == account_id;
-    let member = match chat.kind {
+    Ok(match chat.kind {
         ChatKind::Group => chat.members.iter().flatten().any(|m| is_owner(&m.id)),
         ChatKind::Channel => match &chat.space_id {
             Some(space_id) => backend
@@ -452,21 +479,7 @@ pub async fn should_push<B: ChatBackend>(
             None => false,
         },
         _ => true,
-    };
-    if !member {
-        return Ok(false);
-    }
-    let bypass = is_plaintext(&msg.body_type) && !mention_scopes(msg, owner).is_empty();
-    let muted = match &chat.mute_until {
-        Some(until) => mute_active(until),
-        None => chat.muted,
-    };
-    if muted && !bypass {
-        return Ok(false);
-    }
-    Ok(!backend
-        .is_contact_blocked(caller, account_id, &msg.sender_id)
-        .await?)
+    })
 }
 
 /// Whether a mute ending at `until` is still in effect: `until` is later

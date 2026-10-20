@@ -99,7 +99,7 @@ pub use emoji::{
     handle_emoji_changes, handle_emoji_get, handle_emoji_query, handle_emoji_query_changes,
     handle_emoji_set,
 };
-pub use ephemeral::{EphemeralSubscription, IdScope};
+pub use ephemeral::{should_deliver_typing, EphemeralSubscription, IdScope};
 pub use expiry::sweep_expired;
 pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
 pub use message::{
