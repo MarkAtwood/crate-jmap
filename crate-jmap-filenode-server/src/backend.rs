@@ -395,7 +395,9 @@ pub trait FileNodeBackend: JmapBackend {
     /// `handle_filenode_set` calls it for a `File` create with a `blobId`
     /// (after [`Self::blob_exists`]) and for an update whose patch sets
     /// `blobId`, then stores the result as the node's `sha256`. The
-    /// property is server-set: a client-supplied `sha256` is replaced.
+    /// property is server-set: a client-supplied `sha256` is dropped on
+    /// create, and an update patch may carry it only at its current value
+    /// (RFC 8620 §5.3), otherwise the update fails with `invalidProperties`.
     ///
     /// # Return mapping
     ///

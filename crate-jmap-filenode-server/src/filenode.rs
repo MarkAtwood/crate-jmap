@@ -366,6 +366,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 continue;
             }
 
+            // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is
+            // server-set ("MUST be `null` for directory FileNodes"; for a
+            // file, the digest of the stored blob), so a client value is
+            // dropped and only the File branch below fills it.
+            node.sha256 = None;
+
             // For file nodes, verify the blob exists. A transient backend
             // error propagates as a top-level serverFail so the client
             // retries instead of silently mis-classifying as blob-not-found.
@@ -826,8 +832,18 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 .filter(|p| patch.as_map().get(*p).is_some_and(Value::is_null))
                 .collect();
             let type_patch = patch.as_map().get("@type");
+            // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is
+            // server-set. RFC 8620 §5.3: "Any server-set properties MAY be
+            // included in the patch if their value is identical to the
+            // current server value ... Otherwise, the update MUST be
+            // rejected with an `invalidProperties` SetError."
+            let sha256_patched = patch
+                .as_map()
+                .keys()
+                .any(|k| k == "sha256" || k.starts_with("sha256/"));
             if !typed.is_empty()
                 || type_patch.is_some()
+                || sha256_patched
                 || nulled.iter().any(|p| property_owner(p).is_some())
             {
                 let stored = match backend
@@ -864,6 +880,23 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 "type": "invalidProperties",
                                 "properties": ["@type"],
                                 "description": "@type is immutable",
+                            }),
+                        );
+                        continue;
+                    }
+                    let current_sha256 = json!(node.sha256);
+                    let sha256_unchanged = patch
+                        .as_map()
+                        .iter()
+                        .filter(|(k, _)| *k == "sha256" || k.starts_with("sha256/"))
+                        .all(|(k, v)| k == "sha256" && *v == current_sha256);
+                    if !sha256_unchanged {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["sha256"],
+                                "description": "sha256 is server-set",
                             }),
                         );
                         continue;

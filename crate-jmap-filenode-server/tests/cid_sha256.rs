@@ -159,3 +159,85 @@ async fn update_blob_without_cid_drops_old_sha256() {
     assert_eq!(node["blobId"], "blob-other");
     assert!(node.get("sha256").is_none(), "{node}");
 }
+
+/// L215-217: "the server MUST set this to the SHA-256 digest of the stored
+/// blob content", and RFC 8620 §5.3: a server-set property in a patch whose
+/// value differs from the current one means "the update MUST be rejected
+/// with an `invalidProperties` SetError". Here the capability is off, so
+/// the stored node has no `sha256` (L206-208) and a client digest differs.
+#[tokio::test]
+async fn update_client_sha256_without_cid_is_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_node("acc1", seeded_file("blob-abc", None));
+
+    let resp = set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "f1": { "sha256": SHA256_ABC } } }),
+    )
+    .await;
+    let err = &resp["notUpdated"]["f1"];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["sha256"]), "{resp}");
+    assert!(get_one(&backend, "f1").await.get("sha256").is_none());
+}
+
+/// As above, with the capability on: a client digest that differs from the
+/// stored blob's is rejected and the stored digest is kept.
+#[tokio::test]
+async fn update_client_sha256_differing_is_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_file("blob-abc", Some(SHA256_ABC)));
+
+    let resp = set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "f1": { "sha256": SHA256_TWO_BLOCK } } }),
+    )
+    .await;
+    let err = &resp["notUpdated"]["f1"];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["sha256"]), "{resp}");
+    assert_eq!(get_one(&backend, "f1").await["sha256"], SHA256_ABC);
+}
+
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value".
+#[tokio::test]
+async fn update_client_sha256_identical_is_accepted() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_file("blob-abc", Some(SHA256_ABC)));
+
+    let resp = set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "f1": { "sha256": SHA256_ABC, "name": "renamed.txt" } } }),
+    )
+    .await;
+    assert!(resp["updated"].get("f1").is_some(), "{resp}");
+    let node = get_one(&backend, "f1").await;
+    assert_eq!(node["name"], "renamed.txt");
+    assert_eq!(node["sha256"], SHA256_ABC);
+}
+
+/// L212-213: `sha256` "MUST be `null` for directory FileNodes (FileNodes
+/// with no associated blob)", whatever the client sent.
+#[tokio::test]
+async fn create_directory_drops_client_sha256() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    let resp = set(
+        &backend,
+        json!({ "accountId": "acc1", "create": { "d1": {
+            "@type": "Directory",
+            "name": "docs",
+            "parentId": null,
+            "sha256": SHA256_ABC,
+        } } }),
+    )
+    .await;
+    let id = resp["created"]["d1"]["id"].as_str().expect("created id");
+    assert!(
+        get_one(&backend, id).await.get("sha256").is_none(),
+        "{resp}"
+    );
+}

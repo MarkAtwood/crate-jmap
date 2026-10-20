@@ -19,8 +19,9 @@ wire behaviour that a conforming peer can observe.
   `urn:ietf:params:jmap:cid` (default `Ok(None)`: not advertised).
   `FileNode/set` create and a `blobId` update now set the server-set
   `sha256` from it, per draft-atwood-jmap-cid-00 §FileNode Extension; a
-  client-supplied `sha256` is replaced, and a `blobId` update without a
-  digest clears the old one. An update echoes the new `sha256` in
+  client-supplied `sha256` is dropped on create, an update that sets it to
+  anything but its current value is `invalidProperties` (RFC 8620 §5.3),
+  and a `blobId` update without a digest clears the old one. An update echoes the new `sha256` in
   `updated`. `MemoryBackend::seed_blob_sha256` seeds digests for tests.
   The crate now depends on `jmap-cid-types`.
 - **jmap-filenode-types**: **BREAKING** `FileNode.sha256: Option<Sha256>`
