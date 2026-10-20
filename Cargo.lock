@@ -1565,6 +1565,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-chat-vtc-server"
+version = "0.3.0"
+dependencies = [
+ "jmap-chat-server",
+ "jmap-chat-types",
+ "jmap-server",
+ "jmap-types",
+ "jmap-vtc-server",
+ "jmap-vtc-types",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "jmap-cid-types"
 version = "0.3.0"
 dependencies = [

@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-vtc-server**: new crate, the Chat binding for
+  `jmap-vtc-server` (draft-atwood-jmap-vtc-00 with draft-atwood-jmap-chat-00).
+  `check_call_create` applies the `chatId` access and membership rules and
+  the `start_call` permission to a `VTCCall/set` create;
+  `sync_active_call_id` sets `Chat.activeCallId` when a bound call becomes
+  `"active"` and clears it when the call ends; `clear_space_references` and
+  `clear_channel_references` clear `spaceId` / `channelId` on VTCCalls when
+  the Space or channel is destroyed; `contact_identity` maps a ChatContact
+  id, or the accountId, to the identity string VTC uses as `userId`;
+  `is_blocked_by_contact` answers
+  `VtcBackend::is_user_blocked` from `ChatContact.blocked`.
 - **jmap-scene-client**: `ws` module for draft-atwood-jmap-scene-wss-00.
   `SceneWsExt` on `jmap_base_client::WsSession` adds `next_scene_frame`,
   `send_scene_stream_enable`, `send_scene_stream_disable` and
