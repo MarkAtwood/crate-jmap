@@ -100,6 +100,34 @@ where
     }
 }
 
+/// Remove and decode the optional `filter` argument of a hand-written
+/// `/query` or `/queryChanges` handler (RFC 8620 §5.5).
+///
+/// Absent or `null` yields `None`. A value that is not a JSON object is
+/// not a filter at all and yields `invalidArguments`. An object that does
+/// not decode as `T` yields `unsupportedFilter` ("The "filter" is
+/// syntactically valid, but the server cannot process it") with the serde
+/// message as its description. With `deny_unknown_fields` on the filter
+/// types, that covers an unknown or misspelt condition property at any
+/// depth and an operator tree sent to an object whose filter is a bare
+/// condition.
+pub fn filter_arg<T>(args: &mut Map<String, Value>) -> Result<Option<T>, JmapError>
+where
+    T: serde::de::DeserializeOwned,
+{
+    match args.remove("filter").unwrap_or(Value::Null) {
+        Value::Null => Ok(None),
+        v @ Value::Object(_) => serde_json::from_value(v).map(Some).map_err(|e| {
+            let mut err = JmapError::unsupported_filter();
+            err.description = Some(format!("filter: {e}"));
+            err
+        }),
+        v => Err(JmapError::invalid_arguments(format!(
+            "filter: expected an object, got {v}"
+        ))),
+    }
+}
+
 /// Read an optional boolean argument from a method-arguments envelope without
 /// removing it (bd:JMAP-ic0j.39).
 ///
@@ -995,11 +1023,43 @@ pub fn enforce_max_objects_in_get(args: &Map<String, Value>, max: u64) -> Result
 mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
-        extract_account_id, json_merge_patch, now_utc_string, resolve_query_offset,
+        extract_account_id, filter_arg, json_merge_patch, now_utc_string, resolve_query_offset,
         resolve_query_start, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
         MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
+
+    #[derive(Debug, serde::Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct NameCond {
+        name: Option<String>,
+    }
+
+    fn filter_of(v: serde_json::Value) -> Result<Option<NameCond>, jmap_types::JmapError> {
+        let mut args = json!({ "filter": v }).as_object().cloned().expect("object");
+        filter_arg::<NameCond>(&mut args)
+    }
+
+    /// Oracle: RFC 8620 §5.5 — "unsupportedFilter: The "filter" is
+    /// syntactically valid, but the server cannot process it"; RFC 8620
+    /// §3.6.2 — invalidArguments for an argument of the wrong type.
+    /// Hand-written JSON inputs.
+    #[test]
+    fn filter_arg_maps_object_and_non_object_failures() {
+        assert!(filter_of(json!(null)).expect("null").is_none());
+        let cond = filter_of(json!({ "name": "x" })).expect("known key");
+        assert_eq!(cond.and_then(|c| c.name).as_deref(), Some("x"));
+        let err = filter_of(json!({ "label": "x" })).expect_err("unknown key");
+        assert_eq!(err.error_type, "unsupportedFilter");
+        assert!(
+            err.description
+                .as_deref()
+                .is_some_and(|d| d.contains("label")),
+            "{err:?}"
+        );
+        let err = filter_of(json!(42)).expect_err("scalar");
+        assert_eq!(err.error_type, "invalidArguments");
+    }
 
     /// Oracle (bd:JMAP-wlip.5): a malformed accountId — empty string,
     /// containing forbidden ASCII characters, or exceeding 255 bytes —

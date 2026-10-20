@@ -56,9 +56,10 @@ A field absent from the server response must not fail deserialization.
 `Filter<T>` uses `#[serde(untagged)]` with the `Operator` variant listed before
 `Condition`.  Serde untagged tries variants in declaration order; `FilterOperator`
 requires an `"operator"` key and fails fast when absent, letting the deserializer
-fall through to `Condition(T)`.  `FilterCondition` must NOT use
-`#[serde(deny_unknown_fields)]` because untagged deserialization does not work
-correctly with that attribute.
+fall through to `Condition(T)`.  `FilterOperator` and every `FilterCondition`
+use `#[serde(deny_unknown_fields)]`, which composes with untagged
+deserialization: an unknown key fails both variants, so the decode fails
+instead of yielding a match-all empty condition.
 
 ### EmailFilterCondition — header validation
 The `header` field of `EmailFilterCondition` must have 1 or 2 elements per RFC

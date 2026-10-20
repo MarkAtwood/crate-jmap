@@ -35,8 +35,10 @@ pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilter
 /// properties are specified, ALL must apply (equivalent to splitting into
 /// one-property conditions under AND).
 ///
-/// Do not add `#[serde(deny_unknown_fields)]` — it breaks `#[serde(untagged)]`
-/// deserialization when `EmailFilterCondition` is used inside `Filter<T>`.
+/// Unknown properties are rejected (`#[serde(deny_unknown_fields)]`, which
+/// composes with the `#[serde(untagged)]` [`Filter`]), so a misspelt clause
+/// fails the decode instead of matching every Email; servers map the
+/// failure to RFC 8620 §5.5 `unsupportedFilter`.
 ///
 /// # Excluded from extras preservation
 ///
@@ -87,7 +89,7 @@ pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilter
 /// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EmailFilterCondition {
     /// A Mailbox id; the Email must be in this Mailbox.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -630,25 +632,31 @@ mod tests {
     // Filter ambiguity tests (JMAP-amk.2)
     // ---------------------------------------------------------------------------
 
-    /// Oracle: RFC 8621 §4.4 — a JSON object with no recognized fields deserializes
-    /// as Filter::Condition with all fields None.  RFC 8621 §4.4.1 states "if zero
-    /// properties are specified, the condition MUST always evaluate to true."
-    /// The untagged enum tries FilterOperator first (fails: no "operator" key),
-    /// then falls through to Condition(T) with all-None fields.
+    /// Oracle: RFC 8620 §5.5 — "unsupportedFilter: The "filter" is
+    /// syntactically valid, but the server cannot process it"; RFC 8621
+    /// §4.4.1 lists the Email FilterCondition properties, and
+    /// `unknownField` / `in_mailbox` are not among them. An unknown or
+    /// snake_case-misspelt property, at the top level or nested under an
+    /// operator, must fail the decode rather than become an all-None
+    /// condition that matches every Email.
     #[test]
-    fn filter_unknown_fields_become_empty_condition() {
-        let json = r#"{"unknownField":"value"}"#;
-        let f: EmailFilter = serde_json::from_str(json).expect("must parse as empty Condition");
-        match &f {
-            Filter::Condition(c) => {
-                assert_eq!(
-                    *c,
-                    EmailFilterCondition::default(),
-                    "unknown fields yield all-None"
-                );
-            }
-            other => panic!("expected empty Condition, got {other:?}"),
+    fn filter_unknown_fields_are_rejected() {
+        for raw in [
+            r#"{"unknownField":"value"}"#,
+            r#"{"in_mailbox":"inbox"}"#,
+            r#"{"inMailbox":"inbox","unknownField":1}"#,
+            r#"{"operator":"AND","conditions":[{"operator":"NOT","conditions":[{"in_mailbox":"x"}]}]}"#,
+            r#"{"operator":"AND","conditions":[],"inMailbox":"x"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<EmailFilter>(raw).is_err(),
+                "{raw} must be rejected"
+            );
         }
+        // Negative control: every RFC 8621 §4.4.1 property decodes.
+        let all_known = r#"{"inMailbox":"m1","inMailboxOtherThan":["m2"],"before":"2024-01-01T00:00:00Z","after":"2023-01-01T00:00:00Z","minSize":1,"maxSize":2,"allInThreadHaveKeyword":"$seen","someInThreadHaveKeyword":"$seen","noneInThreadHaveKeyword":"$seen","hasKeyword":"$seen","notKeyword":"$draft","hasAttachment":true,"text":"t","from":"f","to":"t","cc":"c","bcc":"b","subject":"s","body":"b","header":["X-A","v"]}"#;
+        let f: EmailFilter = serde_json::from_str(all_known).expect("all §4.4.1 properties decode");
+        assert!(matches!(f, Filter::Condition(_)));
     }
 
     /// Oracle: an empty JSON object `{}` produces an empty condition (all None),

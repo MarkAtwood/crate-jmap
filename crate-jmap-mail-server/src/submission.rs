@@ -48,7 +48,7 @@ use crate::helpers::{
     find_immutable_patch_key, not_found_json, now_utc_string, serialize_value, set_error_value,
 };
 use jmap_server::{
-    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
 };
 
 // ---------------------------------------------------------------------------
@@ -150,7 +150,7 @@ pub async fn handle_submission_query<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let (account_id, args) = extract_account_id(args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
         .await
@@ -198,13 +198,7 @@ pub async fn handle_submission_query<B: MailBackend>(
         })?,
     };
 
-    let filter: Option<EmailSubmissionFilter> = match args.get("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            EmailSubmissionFilter::deserialize(v)
-                .map_err(|e| JmapError::invalid_arguments(e.to_string()))?,
-        ),
-    };
+    let filter: Option<EmailSubmissionFilter> = filter_arg(&mut args)?;
 
     // When anchor is present, fetch the full result set to resolve it.
     // Otherwise, delegate limit/position directly to the backend.

@@ -77,45 +77,23 @@ pub enum Operator {
 /// `FilterOperator<T>` requires an `"operator"` field and fails fast without
 /// it, allowing the deserializer to fall through to `Condition(T)`.
 ///
-/// # Malformed-operator hazard (silent fallthrough)
+/// # Unknown keys are rejected, not dropped
 ///
-/// The untagged-enum dispatch combined with the per-crate `FilterCondition`
-/// types being structs of all-`Option` fields without
-/// `#[serde(deny_unknown_fields)]` creates a query-correctness hazard:
-/// a client clause whose `operator` key is misspelled (e.g.
-/// `{"opperator":"AND","conditions":[]}` or `{"Operator":"AND","conditions":[]}`)
-/// fails to deserialize as [`FilterOperator`] (the spelling does not match
-/// the typed field) and falls through to `Filter::Condition(T)`. The
-/// fallthrough variant then deserializes as `T::default()` (all fields
-/// `None`), which semantically means "no constraint" and therefore
-/// **matches every record**. The malformed clause produces no
-/// deserialization error and no query error — the query just silently
-/// returns the full result set.
+/// [`FilterOperator`] and every in-tree per-crate `FilterCondition` type
+/// carry `#[serde(deny_unknown_fields)]`, which composes correctly with
+/// `#[serde(untagged)]`: a node that fails both variants fails the whole
+/// decode. A misspelt `operator` key (`{"opperator":"AND","conditions":[]}`),
+/// an extra key on an operator node, or an unknown condition property at
+/// any depth is therefore a deserialization error, which servers map to
+/// RFC 8620 §5.5 `unsupportedFilter`. Without the attribute, such a node
+/// would decode as `T::default()` (all fields `None`), which matches every
+/// record.
 ///
-/// `#[serde(deny_unknown_fields)]` cannot be added to the `T`
-/// implementations because it interacts badly with `#[serde(untagged)]`
-/// (see `jmap-mail-types/src/query.rs` for the in-tree warning).
-///
-/// **Server-side defenses** (the canonical mitigations live in server
-/// crates, not here):
-///
-/// 1. Validate the parsed filter tree. After deserialization, walk the
-///    tree and reject any `Filter::Condition(t)` whose `t` has every
-///    field unset — that is a "match all" pre-image and almost certainly
-///    a malformed client clause. Map to RFC 8620 §5.5
-///    `unsupportedFilter`.
-/// 2. Validate the raw JSON before / instead of relying on the typed
-///    deserialization. Look for `conditions` adjacent to a non-`operator`
-///    key, or `operator` adjacent to a non-`conditions` key, or any
-///    object containing neither `operator` nor a recognised
-///    `T::FieldName`. Reject with `unsupportedFilter`.
-///
-/// Clients writing query filters should never rely on "no-error" as a
-/// signal of acceptance; always check that the response shape matches
-/// what they asked for.
-///
-/// Regression test in this crate: see
-/// `filter_with_typoed_operator_silently_decodes_as_match_all_condition`.
+/// A condition type `T` defined outside this workspace must carry
+/// `#[serde(deny_unknown_fields)]` too, or it reintroduces that silent
+/// match-all (pinned by
+/// `filter_with_typoed_operator_silently_decodes_as_match_all_condition`).
+/// Object types whose `Filter` is `serde_json::Value` get no such check.
 ///
 /// # Excluded from extras preservation
 ///
@@ -169,6 +147,7 @@ pub enum Filter<T> {
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FilterOperator<T> {
     /// Logical operator: AND, OR, or NOT.
     pub operator: Operator,
@@ -248,15 +227,11 @@ mod tests {
     /// clause as `Cond { has_keyword: None }` — semantically "match
     /// any record".
     ///
-    /// This test is a regression marker for `bd:JMAP-6xs8.7`: if a
-    /// future serde or `#[serde(untagged)]` change alters the
-    /// fallthrough behavior (e.g. starts rejecting unknown fields),
-    /// this test will fail and force a deliberate review of the
-    /// server-side defenses documented on [`Filter`]'s rustdoc.
-    ///
-    /// Server-side mitigation is out of scope for this crate; see the
-    /// "Malformed-operator hazard" section on [`Filter`] for the two
-    /// canonical defenses backends must implement.
+    /// This test is a regression marker for `bd:JMAP-6xs8.7`: it pins
+    /// why every condition type must carry `deny_unknown_fields` (see
+    /// "Unknown keys are rejected, not dropped" on [`Filter`]);
+    /// `filter_with_strict_condition_rejects_unknown_keys` is the
+    /// counterpart with a strict condition type.
     #[test]
     fn filter_with_typoed_operator_silently_decodes_as_match_all_condition() {
         // Variant 1: lower-case `o` typoed as `opperator`.
@@ -284,6 +259,54 @@ mod tests {
         match f2 {
             Filter::Condition(c) => assert!(c.has_keyword.is_none()),
             Filter::Operator(_) => panic!("expected silent fallthrough to Condition, got Operator"),
+        }
+    }
+
+    // Condition stub with the same strictness as the in-tree condition types.
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct StrictCond {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        has_keyword: Option<String>,
+    }
+
+    /// Oracle: RFC 8620 §5.5 defines a FilterOperator as exactly
+    /// `operator` ("AND" | "OR" | "NOT") plus `conditions`, and
+    /// `unsupportedFilter` as "The "filter" is syntactically valid, but the
+    /// server cannot process it." Hand-written JSON: well-formed trees
+    /// must decode; trees with an unknown key at any node must fail.
+    #[test]
+    fn filter_with_strict_condition_rejects_unknown_keys() {
+        let accepted = [
+            r#"{"hasKeyword":"$seen"}"#,
+            "{}",
+            r#"{"operator":"AND","conditions":[{"hasKeyword":"a"}]}"#,
+            r#"{"operator":"OR","conditions":[]}"#,
+            r#"{"operator":"AND","conditions":[{"operator":"NOT","conditions":[{"hasKeyword":"b"}]}]}"#,
+        ];
+        for raw in accepted {
+            serde_json::from_str::<Filter<StrictCond>>(raw)
+                .unwrap_or_else(|e| panic!("{raw} must decode: {e}"));
+        }
+        let rejected = [
+            // snake_case typo of a known property
+            r#"{"has_keyword":"$seen"}"#,
+            // unknown leaf key next to a known one
+            r#"{"hasKeyword":"$seen","bogus":1}"#,
+            // misspelt operator key
+            r#"{"opperator":"AND","conditions":[]}"#,
+            // unknown key on an operator node
+            r#"{"operator":"AND","conditions":[],"extra":true}"#,
+            // operator value outside AND/OR/NOT
+            r#"{"operator":"XOR","conditions":[]}"#,
+            // unknown leaf key nested two levels down
+            r#"{"operator":"AND","conditions":[{"operator":"OR","conditions":[{"bogus":1}]}]}"#,
+        ];
+        for raw in rejected {
+            assert!(
+                serde_json::from_str::<Filter<StrictCond>>(raw).is_err(),
+                "{raw} must be rejected"
+            );
         }
     }
 

@@ -25,7 +25,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use jmap_chat_types::query::{ChatComparator, CHAT_FILTER_CONDITION_KEYS};
+use jmap_chat_types::query::ChatComparator;
 use jmap_chat_types::vocabulary::SPEC_CHAT_MEMBER_ROLES;
 use jmap_chat_types::{Chat, ChatKind, ChatMember};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
@@ -35,7 +35,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, now_utc_string,
-    reject_unsupported_query, set_error_value, SetAccumulators,
+    reject_unsupported_sort, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
@@ -229,11 +229,7 @@ pub async fn handle_chat_query<B: ChatBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    reject_unsupported_query::<ChatComparator>(
-        args.get("filter"),
-        args.get("sort"),
-        CHAT_FILTER_CONDITION_KEYS,
-    )?;
+    reject_unsupported_sort::<ChatComparator>(args.get("sort"))?;
     jmap_server::handlers::handle_query::<Chat, B>(backend, caller, args).await
 }
 

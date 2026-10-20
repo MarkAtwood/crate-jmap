@@ -42,7 +42,7 @@ use crate::helpers::{
     finalize_set_response, set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
-    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
 };
 
 // ---------------------------------------------------------------------------
@@ -1049,28 +1049,14 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         })?,
     };
 
-    // Filter deserialization: a wire FilterOperator cannot decode into the
-    // typed CalendarEventFilterCondition struct, so any non-FilterCondition
-    // input fails to deserialize and simultaneously satisfies the §5.11
-    // "MUST be FilterCondition" rule.
-    //
-    // bd:JMAP-ic0j.45 — preserve the serde error description so a client
-    // sending a malformed filter learns *which* field was wrong rather
-    // than receiving a bare error code. The error_type is
-    // `invalidArguments` (not `unsupportedFilter`) because a syntactic
-    // parse failure is a malformed argument per RFC 8620 §3.6.1;
-    // `unsupportedFilter` per §5.5 is reserved for syntactically-valid
-    // FilterCondition shapes with a clause the backend cannot honor
-    // (the typed struct here accepts every spec-defined clause, so any
-    // failure is structural).
-    let filter: Option<jmap_calendars_types::CalendarEventFilterCondition> =
-        match args.remove("filter") {
-            None | Some(Value::Null) => None,
-            Some(v) => Some(
-                serde_json::from_value(v)
-                    .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
-            ),
-        };
+    // This server accepts only a bare FilterCondition, which also meets
+    // draft-ietf-jmap-calendars-26 §5.11 ("the filter MUST be just a
+    // FilterCondition (not a FilterOperator)" when expandRecurrences is
+    // true). The typed struct carries `deny_unknown_fields`, so an operator
+    // tree or an unknown property yields unsupportedFilter (RFC 8620 §5.5)
+    // instead of decoding as a match-all; a non-object value stays
+    // invalidArguments with a `filter: ` description (bd:JMAP-ic0j.45).
+    let filter: Option<jmap_calendars_types::CalendarEventFilterCondition> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<jmap_calendars_types::CalendarEventComparator>> = match args.remove("sort")
     {

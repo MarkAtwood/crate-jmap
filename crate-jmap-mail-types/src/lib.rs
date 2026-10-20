@@ -80,9 +80,7 @@ pub use email::{
 };
 pub use identity::Identity;
 pub use keyword::{Keyword, KeywordError};
-pub use mailbox::{
-    Mailbox, MailboxFilterCondition, MailboxRights, MailboxRole, MAILBOX_FILTER_CONDITION_KEYS,
-};
+pub use mailbox::{Mailbox, MailboxFilterCondition, MailboxRights, MailboxRole};
 pub use query::{
     ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter,
     Filter, FilterOperator, MailboxFilter, Operator,

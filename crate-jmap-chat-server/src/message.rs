@@ -23,9 +23,7 @@
 //! `invalidPatch` paths) surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::query::{
-    Filter, MessageComparator, MessageFilter, MESSAGE_FILTER_CONDITION_KEYS,
-};
+use jmap_chat_types::query::{Filter, MessageComparator, MessageFilter};
 use jmap_chat_types::{
     Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
     ReadPosition, Space, BROADCAST_MENTION_SCOPES,
@@ -40,7 +38,7 @@ use std::collections::HashSet;
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
     finalize_set_response, iso8601_before, not_found_json, now_utc_string, optional_arg,
-    reject_unsupported_query, serialize_value, set_error_value, SetAccumulators,
+    reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{
@@ -204,11 +202,7 @@ pub async fn handle_message_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    reject_unsupported_query::<MessageComparator>(
-        args.get("filter"),
-        args.get("sort"),
-        MESSAGE_FILTER_CONDITION_KEYS,
-    )?;
+    reject_unsupported_sort::<MessageComparator>(args.get("sort"))?;
     let filter: Option<MessageFilter> =
         optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 

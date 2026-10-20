@@ -33,7 +33,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{
-    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
 };
 
 // ---------------------------------------------------------------------------
@@ -254,33 +254,12 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         return Err(JmapError::unsupported_filter());
     }
 
-    // Reject unknown filter condition keys (RFC 8620 §5.5 requires unsupportedFilter).
-    //
-    // The wire-key list is sourced from `jmap_mail_types` so the struct
-    // definition is the single source of truth. A drift-check unit test
-    // in `jmap-mail-types` asserts the const matches every serialised
-    // field of `MailboxFilterCondition`, so adding a new filter clause
-    // without updating the const fails `cargo test -p jmap-mail-types`
-    // rather than silently producing `unsupportedFilter` responses for
-    // legitimate filters (`bd:JMAP-j7pa.3`).
-    if let Some(filter_obj) = args.get("filter").and_then(|v| v.as_object()) {
-        for key in filter_obj.keys() {
-            if !jmap_mail_types::MAILBOX_FILTER_CONDITION_KEYS.contains(&key.as_str()) {
-                return Err(JmapError::unsupported_filter());
-            }
-        }
-    }
-
-    // Parse filter into MailboxFilterCondition. `parent_id: Option<Value>`
-    // preserves three-way semantics (absent / null / string) automatically,
-    // so no raw-JSON peek is needed before deserialising.
-    let filter: Option<MailboxFilterCondition> = match args.remove("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
-        ),
-    };
+    // Mailbox's filter is a bare FilterCondition (RFC 8621 §2.3), so an
+    // operator tree, like an unknown or misspelt property, fails the
+    // `deny_unknown_fields` decode and yields unsupportedFilter (RFC 8620
+    // §5.5). `parent_id: Option<Value>` keeps the three-way absent / null /
+    // string distinction.
+    let filter: Option<MailboxFilterCondition> = filter_arg(&mut args)?;
 
     // Build the sort comparator vector in the wire shape Mailbox uses
     // (`Mailbox::Comparator = serde_json::Value`). The backend decodes each

@@ -130,7 +130,7 @@ pub struct TaskNotification {
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TaskNotificationFilterCondition {
     /// Notification `created` time must be on or after this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]

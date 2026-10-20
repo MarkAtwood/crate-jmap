@@ -2006,6 +2006,64 @@ mod tests {
         );
     }
 
+    /// Oracle: RFC 8620 §5.5 — "unsupportedFilter: The "filter" is
+    /// syntactically valid, but the server cannot process it."
+    /// draft-ietf-jmap-calendars-26 §5.11 and §7.4 define the
+    /// CalendarEvent and CalendarEventNotification FilterCondition
+    /// properties (`inCalendar`, ...; `type`, `calendarEventIds`, ...).
+    /// These objects take a bare FilterCondition here, so an unknown key or
+    /// an operator tree is refused on the bespoke CalendarEvent/query path
+    /// and on the generic CalendarEvent/queryChanges and
+    /// CalendarEventNotification/query paths, instead of matching every
+    /// record.
+    #[tokio::test]
+    async fn calendar_queries_refuse_unknown_keys_and_operator_trees() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let operator_tree = json!({ "operator": "AND", "conditions": [{ "inCalendar": "c1" }] });
+        for (method, filter) in [
+            ("CalendarEvent/query", json!({ "in_calendar": "c1" })),
+            ("CalendarEvent/query", operator_tree.clone()),
+            (
+                "CalendarEvent/queryChanges",
+                json!({ "inCalendar": "c1", "bogus": 1 }),
+            ),
+            ("CalendarEventNotification/query", operator_tree),
+            (
+                "CalendarEventNotification/query",
+                json!({ "calendar_event_ids": ["e1"] }),
+            ),
+        ] {
+            let req = single_call(
+                method,
+                json!({ "accountId": "acc1", "sinceQueryState": "s0", "filter": filter }),
+                "c0",
+            );
+            let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+            let Invocation {
+                arguments: args, ..
+            } = &resp.method_responses[0];
+            assert_eq!(
+                args["type"], "unsupportedFilter",
+                "{method} {filter}: {args}"
+            );
+        }
+
+        // Negative control: a §5.11 key is accepted.
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({ "accountId": "acc1", "filter": { "inCalendar": "c1" } }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        assert_eq!(
+            resp.method_responses[0].name, "CalendarEvent/query",
+            "{resp:?}"
+        );
+    }
+
     /// Oracle: §10.7.3 — when the backend signals `ExpandDurationTooLarge`,
     /// the handler MUST return a method-level `expandDurationTooLarge` error
     /// (not `serverFail`).

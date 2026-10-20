@@ -207,6 +207,9 @@ impl SetObject for crate::TaskList {
     type Patch = PatchObject;
 }
 
+// The filter is untyped JSON, so the generic handlers cannot reject an
+// unknown key; the backend must answer it with RFC 8620 §5.5
+// `unsupportedFilter` itself.
 impl QueryObject for crate::TaskList {
     type Filter = serde_json::Value;
     type Comparator = serde_json::Value;
