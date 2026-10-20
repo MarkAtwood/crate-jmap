@@ -168,6 +168,32 @@ pub enum TaskProperty {
     Comments,
 }
 
+/// Names of top-level [`Task`](crate::Task) properties that
+/// draft-ietf-jmap-tasks-06 §4.5.1 classifies as **per-user**.
+///
+/// In shared task lists these MUST be stored per-user, and a patch that
+/// writes only these properties MUST store the `updated` timestamp just for
+/// that user rather than changing the shared one.
+pub const PER_USER_TASK_PROPERTIES: &[&str] = &[
+    "keywords",
+    "color",
+    "freeBusyStatus",
+    "useDefaultAlerts",
+    "alerts",
+];
+
+/// Returns `true` if `name` is a per-user top-level [`Task`](crate::Task)
+/// property name per draft-ietf-jmap-tasks-06 §4.5.1.
+///
+/// See [`PER_USER_TASK_PROPERTIES`] for the full set. This is a
+/// wire-protocol classification fixed by the spec; backends MUST NOT
+/// redefine it. Property paths such as `"alerts/abc"` are not top-level
+/// names and return `false`; callers classify the leading path segment.
+#[must_use]
+pub fn is_per_user_task_property(name: &str) -> bool {
+    PER_USER_TASK_PROPERTIES.contains(&name)
+}
+
 /// Property selector for [`crate::TaskNotification`] `/get`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
@@ -245,4 +271,74 @@ impl SetObject for crate::TaskNotification {
 impl QueryObject for crate::TaskNotification {
     type Filter = crate::TaskNotificationFilterCondition;
     type Comparator = crate::TaskNotificationComparator;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_per_user_task_property, PER_USER_TASK_PROPERTIES};
+
+    /// Oracle: draft-ietf-jmap-tasks-06 §4.5.1 "Per-user properties",
+    /// quoted verbatim:
+    ///
+    /// > In shared task lists, any top-level property registered in the
+    /// > IANA registry as "Is Per-User: yes" (see Section XXX) MUST be
+    /// > stored per-user.  This includes:
+    /// >
+    /// > *  keywords
+    /// > *  color
+    /// > *  freeBusyStatus
+    /// > *  useDefaultAlerts
+    /// > *  alerts
+    #[test]
+    fn per_user_task_properties_match_spec() {
+        const SPEC_PER_USER_PROPERTIES_VERBATIM: &str = "\
+   *  keywords
+   *  color
+   *  freeBusyStatus
+   *  useDefaultAlerts
+   *  alerts
+";
+        let spec_list: Vec<&str> = SPEC_PER_USER_PROPERTIES_VERBATIM
+            .lines()
+            .filter_map(|line| line.trim_start().strip_prefix("*  ").map(str::trim))
+            .collect();
+        assert_eq!(
+            spec_list.len(),
+            5,
+            "spec-quote parser sanity: {spec_list:?}"
+        );
+        assert_eq!(PER_USER_TASK_PROPERTIES, spec_list.as_slice());
+        for name in spec_list {
+            assert!(is_per_user_task_property(name), "{name} must be per-user");
+        }
+    }
+
+    /// Shared Task properties from draft-ietf-jmap-tasks-06 (and the
+    /// JSCalendar base, RFC 8984) are not per-user.
+    #[test]
+    fn shared_properties_are_not_per_user() {
+        for shared in [
+            "id",
+            "title",
+            "start",
+            "due",
+            "progress",
+            "taskListId",
+            "uid",
+        ] {
+            assert!(
+                !is_per_user_task_property(shared),
+                "{shared} must be shared"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_names_and_paths_are_not_per_user() {
+        assert!(!is_per_user_task_property(""));
+        assert!(!is_per_user_task_property("notARealProperty"));
+        assert!(!is_per_user_task_property("Keywords"));
+        assert!(!is_per_user_task_property("keywords/done"));
+        assert!(!is_per_user_task_property("alerts/abc"));
+    }
 }

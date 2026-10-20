@@ -46,7 +46,10 @@ pub use jmap_jscalendar_types as jscalendar;
 
 // --- Top-level re-exports ---
 
-pub use backend::{TaskListProperty, TaskNotificationProperty, TaskProperty};
+pub use backend::{
+    is_per_user_task_property, TaskListProperty, TaskNotificationProperty, TaskProperty,
+    PER_USER_TASK_PROPERTIES,
+};
 pub use capability::{
     PrincipalTasksCapability, TasksAccountCapability, TasksAlertsAccountCapability,
     TasksAlertsCapability, TasksAssigneesAccountCapability, TasksAssigneesCapability,
