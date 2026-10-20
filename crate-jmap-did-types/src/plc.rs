@@ -28,7 +28,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use jmap_types::UTCDate;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use crate::{Did, DidKey, KeyType};
@@ -66,6 +66,76 @@ pub struct PlcState {
     pub also_known_as: Vec<String>,
     /// Service id (without `#`) to service.
     pub services: BTreeMap<String, PlcService>,
+}
+
+impl PlcState {
+    /// The DID document this state presents as, per did:plc Method
+    /// Specification v0.3.0 §Presentation as DID Document, matching the
+    /// directory's `/:did` output and its reference `formatDidDoc`:
+    ///
+    /// - `@context` is `https://www.w3.org/ns/did/v1` and
+    ///   `https://w3id.org/security/multikey/v1`, then
+    ///   `https://w3id.org/security/suites/ecdsa-2019/v1` for a P-256 key
+    ///   and `https://w3id.org/security/suites/secp256k1-2019/v1` for a
+    ///   secp256k1 key, each once, in verification-method order;
+    /// - each verification method is a `Multikey` with `id` the DID,
+    ///   `#` and the method's id (the spec example shows only `#atproto`;
+    ///   the directory emits the full DID URL), `controller` the DID and
+    ///   `publicKeyMultibase` the key without its `did:key:` prefix;
+    /// - each service has `id` `#` and the service's id, and its endpoint
+    ///   as `serviceEndpoint`.
+    ///
+    /// Verification methods and services come out in id order: the
+    /// directory keeps operation order, which [`PlcState`] does not
+    /// record. DID Core resolves both by `id`, so the order carries no
+    /// meaning.
+    pub fn document(&self) -> Value {
+        let did = self.did.as_str();
+        let mut context = vec![
+            "https://www.w3.org/ns/did/v1",
+            "https://w3id.org/security/multikey/v1",
+        ];
+        let mut methods = Vec::with_capacity(self.verification_methods.len());
+        for (id, key) in &self.verification_methods {
+            let suite = Did::parse(key)
+                .ok()
+                .and_then(|d| DidKey::from_did(&d).ok())
+                .and_then(|k| match k.key_type() {
+                    KeyType::P256 => Some("https://w3id.org/security/suites/ecdsa-2019/v1"),
+                    KeyType::Secp256k1 => {
+                        Some("https://w3id.org/security/suites/secp256k1-2019/v1")
+                    }
+                    _ => None,
+                });
+            if let Some(suite) = suite.filter(|s| !context.contains(s)) {
+                context.push(suite);
+            }
+            methods.push(json!({
+                "id": format!("{did}#{id}"),
+                "type": "Multikey",
+                "controller": did,
+                "publicKeyMultibase": key.strip_prefix("did:key:").unwrap_or(key),
+            }));
+        }
+        let services: Vec<Value> = self
+            .services
+            .iter()
+            .map(|(id, service)| {
+                json!({
+                    "id": format!("#{id}"),
+                    "type": service.service_type,
+                    "serviceEndpoint": service.endpoint,
+                })
+            })
+            .collect();
+        json!({
+            "@context": context,
+            "id": did,
+            "alsoKnownAs": self.also_known_as,
+            "verificationMethod": methods,
+            "service": services,
+        })
+    }
 }
 
 /// One entry of [`PlcState::services`].
@@ -596,5 +666,133 @@ fn head(major: u8, n: u64, out: &mut Vec<u8>) {
             out.push(major | 27);
             out.extend_from_slice(&n.to_be_bytes());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn state(verification_methods: &[(&str, &str)], services: &[(&str, &str, &str)]) -> PlcState {
+        PlcState {
+            did: Did::parse("did:plc:7iza6de2dwap2sbkpav7c6c6").unwrap(),
+            verification_methods: verification_methods
+                .iter()
+                .map(|(id, key)| ((*id).to_owned(), (*key).to_owned()))
+                .collect(),
+            rotation_keys: vec![
+                "did:key:zDnaedvvAsDE6H3BDdBejpx9ve2Tz95cymyCAKF66JbyMh1Lt".to_owned(),
+                "did:key:zDnaeh9v2RmcMo13Du2d6pjUf5bZwtauYxj3n9dYjw4EZUAR7".to_owned(),
+            ],
+            also_known_as: vec!["at://alice.test".to_owned()],
+            services: services
+                .iter()
+                .map(|(id, service_type, endpoint)| {
+                    (
+                        (*id).to_owned(),
+                        PlcService {
+                            service_type: (*service_type).to_owned(),
+                            endpoint: (*endpoint).to_owned(),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    /// did:plc v0.3.0 §Presentation as DID Document: "The following
+    /// data: ... Will be presented as the following DID document". Two
+    /// fields differ from the printed example, each where the example
+    /// contradicts another source: the verification method `id` is the
+    /// full `did:plc:...#atproto` that the reference `formatDidDoc`
+    /// builds (`${data.did}#${keyid}`) and plc.directory serves, not the
+    /// example's bare `#atproto`; `serviceEndpoint` is the input's
+    /// `https://example.test`, not the example's `https://example2.com`.
+    #[test]
+    fn spec_example_presentation() {
+        let state = state(
+            &[(
+                "atproto",
+                "did:key:zDnaeh9v2RmcMo13Du2d6pjUf5bZwtauYxj3n9dYjw4EZUAR7",
+            )],
+            &[(
+                "atproto_pds",
+                "AtprotoPersonalDataServer",
+                "https://example.test",
+            )],
+        );
+        assert_eq!(
+            state.document(),
+            json!({
+                "@context": [
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/multikey/v1",
+                    "https://w3id.org/security/suites/ecdsa-2019/v1"
+                ],
+                "id": "did:plc:7iza6de2dwap2sbkpav7c6c6",
+                "alsoKnownAs": ["at://alice.test"],
+                "verificationMethod": [{
+                    "id": "did:plc:7iza6de2dwap2sbkpav7c6c6#atproto",
+                    "type": "Multikey",
+                    "controller": "did:plc:7iza6de2dwap2sbkpav7c6c6",
+                    "publicKeyMultibase": "zDnaeh9v2RmcMo13Du2d6pjUf5bZwtauYxj3n9dYjw4EZUAR7"
+                }],
+                "service": [{
+                    "id": "#atproto_pds",
+                    "type": "AtprotoPersonalDataServer",
+                    "serviceEndpoint": "https://example.test"
+                }]
+            })
+        );
+    }
+
+    /// Reference `formatDidDoc`: a suite context is pushed only
+    /// `if (info.context && !context.includes(info.context))`, and a key
+    /// type it does not recognize gets none ("we can't specify a context
+    /// for a key type we don't recognize"). The Ed25519 key is the did:key
+    /// spec's Create example.
+    #[test]
+    fn suite_contexts_once_each_and_none_for_other_keys() {
+        let state = state(
+            &[
+                (
+                    "a",
+                    "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w",
+                ),
+                (
+                    "b",
+                    "did:key:zDnaeh9v2RmcMo13Du2d6pjUf5bZwtauYxj3n9dYjw4EZUAR7",
+                ),
+                (
+                    "c",
+                    "did:key:zQ3shbTzUCq5zuk7oSj5zaJndqWhjwGDaGuvBXpjg8C19qssW",
+                ),
+                (
+                    "d",
+                    "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+                ),
+            ],
+            &[],
+        );
+        let document = state.document();
+        assert_eq!(
+            document["@context"],
+            json!([
+                "https://www.w3.org/ns/did/v1",
+                "https://w3id.org/security/multikey/v1",
+                "https://w3id.org/security/suites/secp256k1-2019/v1",
+                "https://w3id.org/security/suites/ecdsa-2019/v1"
+            ])
+        );
+        assert_eq!(
+            document["verificationMethod"][3],
+            json!({
+                "id": "did:plc:7iza6de2dwap2sbkpav7c6c6#d",
+                "type": "Multikey",
+                "controller": "did:plc:7iza6de2dwap2sbkpav7c6c6",
+                "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+            })
+        );
+        assert_eq!(document["service"], json!([]));
     }
 }

@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-did-types**: `PlcState::document()` presents a verified `did:plc`
+  state as its DID document (did:plc v0.3.0 §Presentation as DID Document),
+  matching the document plc.directory serves at `/<did>`.
 - **jmap-chat-federation-types**: new crate for
   draft-atwood-jmap-chat-federation-00. `contact_server_url` and
   `contact_direct_address` read the federation `ChatContact.serverUrl` and

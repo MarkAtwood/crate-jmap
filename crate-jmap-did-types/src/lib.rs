@@ -45,7 +45,8 @@
 //! - `did:web`: [`Did::web_document_url`] maps the DID to the HTTPS URL
 //!   of its DID document.
 //! - `did:plc`: [`verify_plc_audit_log`] verifies a PLC directory audit
-//!   log and returns the current [`PlcState`].
+//!   log and returns the current [`PlcState`], and
+//!   [`PlcState::document`] presents that state as a DID document.
 
 #![forbid(unsafe_code)]
 
