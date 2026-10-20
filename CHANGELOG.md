@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-types**: **BREAKING** `FileNode.sha256: Option<Sha256>`
+  (draft-atwood-jmap-cid-00 §FileNode Extension), typed with
+  `jmap_cid_types::Sha256`. It is emitted only when `Some` and only for
+  `File` (or unrecognised `@type`) nodes, since the draft says it "MUST be
+  `null` for directory FileNodes". A `sha256` that is not 64 lowercase hex
+  characters now fails `FileNode` deserialization instead of landing in
+  `extra`. The crate now depends on `jmap-cid-types`.
 - **jmap-chat-mimi-types**: new crate for draft-atwood-jmap-chat-mimi-00.
   It holds `JMAP_CHAT_MIMI_URI`, the account-level `MimiCapability`
   (`userUri`, `roomIdPrefix`, `hubSender`, `cipherSuites`, `maxKeyPackages`),

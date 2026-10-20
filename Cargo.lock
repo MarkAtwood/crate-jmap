@@ -1105,6 +1105,7 @@ dependencies = [
 name = "jmap-filenode-types"
 version = "0.3.0"
 dependencies = [
+ "jmap-cid-types",
  "jmap-types",
  "serde",
  "serde_json",

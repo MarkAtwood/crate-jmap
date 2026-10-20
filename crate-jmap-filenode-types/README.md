@@ -28,6 +28,11 @@ draft-ietf-jmap-filenode data types, consumed by `jmap-filenode-server`
 (typed method bindings). Sibling to `jmap-mail-types` and
 `jmap-sharing-types` in the workspace's extension-types family.
 
+`FileNode.sha256` carries the blob digest from the CID extension
+(draft-atwood-jmap-cid-00) as a `jmap_cid_types::Sha256`. It is `None` when
+the server does not advertise `urn:ietf:params:jmap:cid`, for directories,
+and for legacy files whose digest was never computed.
+
 ## Filter extensibility
 
 Filter types in this crate — `FileNodeFilterCondition` and the generic
