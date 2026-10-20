@@ -1,7 +1,7 @@
 //! Hardcoded JMAP Session resource (RFC 8620 §2) for the testjig.
 //!
 //! Returned verbatim by `GET /.well-known/jmap`. Single hardcoded
-//! account under a single hardcoded principal; all 9 workspace
+//! account under a single hardcoded principal; all 10 workspace
 //! capability URIs advertised so any client built against any of the
 //! workspace's extension crates can opt in.
 //!
@@ -50,9 +50,16 @@ pub const DEFAULT_ADDR: SocketAddr =
 /// upload / event-source URLs in [`session_json`].
 pub const BASE_URL: &str = "http://127.0.0.1:8080";
 
-/// The 9 capability URIs the testjig advertises: RFC 8620 base `core`
-/// plus the 8 workspace extension capabilities (mail, chat, calendars,
-/// tasks, contacts, filenode, sharing, metadata).
+/// The 10 capability URIs the testjig advertises: RFC 8620 base `core`
+/// plus the 9 workspace extension capabilities (mail, chat, calendars,
+/// tasks, contacts, filenode, sharing, metadata, cid).
+///
+/// ponytail: `urn:ietf:params:jmap:cid` (draft-atwood-jmap-cid-00
+/// §Capability) is advertised so CID-aware clients can opt in, but the
+/// jig has no upload route or blob store: no upload response carries
+/// `sha256`, and a FileNode gets one only for a blob whose digest was
+/// seeded via `MemoryBackend::seed_blob_sha256`. Real servers must meet
+/// the draft's upload and FileNode obligations before advertising it.
 ///
 /// Each URI also appears as a key in `primaryAccounts` mapping to
 /// [`ACCOUNT_ID`], so a client opting into any of them sees the same
@@ -74,6 +81,7 @@ pub const ADVERTISED_CAPABILITIES: &[&str] = &[
     "urn:ietf:params:jmap:filenode",
     "urn:ietf:params:jmap:sharing",
     "urn:ietf:params:jmap:metadata",
+    "urn:ietf:params:jmap:cid",
 ];
 
 /// The RFC 8887 WebSocket subprotocol capability URI. Not in
@@ -119,7 +127,7 @@ pub fn session_json() -> Value {
 ///   requires; every other account capability is `{}`.
 /// - `accounts`: single entry keyed by [`ACCOUNT_ID`]; `name` =
 ///   [`USERNAME`]; not personal, not read-only;
-///   `accountCapabilities` re-advertises all 8 extension URIs (Core
+///   `accountCapabilities` re-advertises all 9 extension URIs (Core
 ///   is conventionally session-only, not per-account).
 /// - `primaryAccounts`: every extension URI maps to [`ACCOUNT_ID`].
 ///   `urn:ietf:params:jmap:core` is NOT in `primaryAccounts` per
@@ -169,7 +177,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
         }),
     );
 
-    // Account-capabilities: the 8 extension URIs (Core is session-only).
+    // Account-capabilities: the 9 extension URIs (Core is session-only).
     let mut account_capabilities =
         serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len() - 1);
     for uri in ADVERTISED_CAPABILITIES
@@ -270,9 +278,10 @@ mod tests {
 
     /// Oracle: the testjig's claimed advertisement (bead acceptance
     /// criterion: "all 8 capability URIs advertised", expanded to the
-    /// 9 URIs the bead's example list actually enumerates).
+    /// 9 URIs the bead's example list actually enumerates, plus
+    /// `urn:ietf:params:jmap:cid` from draft-atwood-jmap-cid-00).
     #[test]
-    fn session_advertises_all_nine_workspace_capabilities() {
+    fn session_advertises_all_workspace_capabilities() {
         let s = session_json();
         let caps = s["capabilities"]
             .as_object()
@@ -407,5 +416,16 @@ mod tests {
             .as_array()
             .expect("supportedBodyTypes must be a String[]");
         assert!(body_types.contains(&json!("text/plain")), "{cap}");
+    }
+
+    /// Oracle: draft-atwood-jmap-cid-00 L112-115 (§Capability) — "A
+    /// server supporting this extension MUST advertise the
+    /// `urn:ietf:params:jmap:cid` capability in the JMAP Session resource
+    /// ({{RFC8620}} Section 2). The value of this capability is an object
+    /// with no defined properties in this version of the specification."
+    #[test]
+    fn session_advertises_cid_capability_as_empty_object() {
+        let s = session_json();
+        assert_eq!(s["capabilities"]["urn:ietf:params:jmap:cid"], json!({}));
     }
 }
