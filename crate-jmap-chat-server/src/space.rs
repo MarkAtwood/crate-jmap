@@ -1033,7 +1033,17 @@ pub async fn handle_space_set<B: ChatBackend>(
             if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
                 space.description = Some(desc.to_owned());
             }
+            // `ChatBackend::space_extension_properties`: "A listed key that
+            // is already a core Space property or a structural patch key
+            // keeps its core meaning", so it never lands in `extra`.
             for &key in extension_props {
+                if SPACE_READONLY.contains(&key)
+                    || SPACE_METADATA_FIELDS.contains(&key)
+                    || key == "closedAt"
+                    || StructuralKey::from_wire(key).is_some()
+                {
+                    continue;
+                }
                 match obj_val.get(key) {
                     None | Some(Value::Null) => {}
                     Some(v) => {

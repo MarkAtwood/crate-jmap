@@ -313,6 +313,24 @@ wire behaviour that a conforming peer can observe.
   fails, the list is reported in `notDestroyed` and stays in place. The
   reference `MemoryBackend` now honors a `Task/query` filter of just
   `taskListId`, which the cascade uses; other filters still fail loud.
+- **BREAKING** **jmap-chat-server**: a `Chat/set` create carrying a
+  property draft-atwood-jmap-chat-00 §Chat Object Fields scopes to another
+  kind is an `invalidProperties` SetError naming it, instead of being stored:
+  `name`, `description` or `avatarBlobId` on a direct Chat, and `contactId`
+  or `spaceId` on a group Chat.
+- **jmap-chat-server**: a backend error while `Chat/set` reads the Chats to
+  destroy is now a `serverFail` in `notDestroyed` for each id, not a method
+  `serverFail` sent after the creates and updates had been committed (RFC
+  8620 §3.6.2: "The method call made no changes to the server's state").
+- **jmap-chat-server**: `store_server_message` hands `create_object` the
+  `"placeholder"` id that `ChatBackend::create_object` documents, not the
+  caller's `msg.id`.
+- **jmap-chat-server**: `Space/set` create no longer copies a key listed by
+  `ChatBackend::space_extension_properties` into `Space::extra` when it is a
+  core Space property or a structural patch key, as that method documents.
+- **jmap-chat-server**: `Chat/set` and `Message/set` updates read the stored
+  Chat, or the stored Message and its Chat, once per target and reuse it for
+  every check, instead of re-reading it per check.
 
 ## [0.3.0] - 2026-10-20
 

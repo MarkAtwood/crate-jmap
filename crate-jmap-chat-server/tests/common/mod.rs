@@ -19,8 +19,9 @@
 #![allow(async_fn_in_trait)]
 
 use jmap_server::HandlerOutput;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 // Re-exports — keep `use common::MemoryBackend;` working for tests.
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
@@ -256,6 +257,15 @@ pub struct TrackingBackend {
     /// draft-atwood-jmap-chat-mimi-00 rules to every Chat whose extension
     /// properties hold `roomId`. When `false`, they forward to `inner`.
     room_restricted: bool,
+    /// [`JmapBackend::get_objects`] calls per object type name, so a test
+    /// can count the reads a handler makes.
+    get_objects_calls: Arc<Mutex<HashMap<&'static str, u64>>>,
+    /// When `Some`, [`JmapBackend::get_objects`] for this type name
+    /// returns an error. Other types forward to `inner`.
+    get_objects_fail: Option<&'static str>,
+    /// The `id` of every object passed to [`ChatBackend::create_object`],
+    /// in call order.
+    create_input_ids: Arc<Mutex<Vec<serde_json::Value>>>,
 }
 
 /// The Chat/set patch keys draft-atwood-jmap-chat-mimi-00 L251 forbids on
@@ -290,13 +300,8 @@ impl TrackingBackend {
     /// `MemoryBackend` is otherwise functional.
     pub fn with_slow_mode_blocking(retry_after: UTCDate) -> Self {
         Self {
-            inner: MemoryBackend::new(),
             slow_mode_block: Some(retry_after),
-            emoji_set_deny: false,
-            broadcast_mention_deny: false,
-            chat_view_deny: false,
-            is_contact_blocked_calls: Arc::default(),
-            room_restricted: false,
+            ..Self::default()
         }
     }
 
@@ -305,13 +310,8 @@ impl TrackingBackend {
     /// `MemoryBackend` is otherwise functional.
     pub fn with_emoji_set_denied() -> Self {
         Self {
-            inner: MemoryBackend::new(),
-            slow_mode_block: None,
             emoji_set_deny: true,
-            broadcast_mention_deny: false,
-            chat_view_deny: false,
-            is_contact_blocked_calls: Arc::default(),
-            room_restricted: false,
+            ..Self::default()
         }
     }
 
@@ -344,10 +344,33 @@ impl TrackingBackend {
         }
     }
 
+    /// Configure the wrapper so [`JmapBackend::get_objects`] fails for
+    /// objects of `type_name`. The wrapped `MemoryBackend` is otherwise
+    /// functional.
+    pub fn with_get_objects_failing(type_name: &'static str) -> Self {
+        Self {
+            get_objects_fail: Some(type_name),
+            ..Self::default()
+        }
+    }
+
     /// Borrow the underlying `MemoryBackend` for test seeding (e.g.
     /// `register_account`).
     pub fn inner(&self) -> &MemoryBackend {
         &self.inner
+    }
+
+    /// Return the number of [`JmapBackend::get_objects`] calls for
+    /// objects of `type_name`.
+    pub fn get_objects_call_count(&self, type_name: &str) -> u64 {
+        let calls = self.get_objects_calls.lock().expect("lock poisoned");
+        calls.get(type_name).copied().unwrap_or(0)
+    }
+
+    /// Return the `id` of every object passed to
+    /// [`ChatBackend::create_object`], in call order.
+    pub fn create_input_ids(&self) -> Vec<serde_json::Value> {
+        self.create_input_ids.lock().expect("lock poisoned").clone()
     }
 
     /// Return the number of times the wrapped
@@ -373,6 +396,15 @@ impl JmapBackend for TrackingBackend {
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        *self
+            .get_objects_calls
+            .lock()
+            .expect("lock poisoned")
+            .entry(O::TYPE_NAME)
+            .or_default() += 1;
+        if self.get_objects_fail == Some(O::TYPE_NAME) {
+            return Err(MemoryError::new("injected get_objects failure"));
+        }
         self.inner
             .get_objects::<O>(caller, account_id, ids, properties)
             .await
@@ -457,6 +489,11 @@ impl ChatBackend for TrackingBackend {
         create_id: &str,
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        let input = serde_json::to_value(&obj).expect("JmapObject serializes");
+        self.create_input_ids
+            .lock()
+            .expect("lock poisoned")
+            .push(input["id"].clone());
         self.inner
             .create_object::<O>(caller, account_id, create_id, obj)
             .await

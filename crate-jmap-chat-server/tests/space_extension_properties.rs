@@ -1,5 +1,6 @@
 //! Space properties owned by a Space extension, registered through
-//! `ChatBackend::space_extension_properties` (bd:JMAP-5mz6.1).
+//! `ChatBackend::space_extension_properties` (bd:JMAP-5mz6.1,
+//! bd:JMAP-y3f2.16).
 //!
 //! Oracles (jmap-chat-spec commit 91672c9):
 //!
@@ -153,4 +154,28 @@ async fn only_registered_keys_are_accepted() {
     // RFC 8620 §5.3: a rejected update leaves the record unchanged.
     let space = get_space(&backend, &id).await;
     assert!(space.get("calendarId").is_none(), "{space}");
+}
+
+/// `ChatBackend::space_extension_properties`: "A listed key that is
+/// already a core Space property or a structural patch key keeps its
+/// core meaning." draft-atwood-jmap-chat-00 L820: Space `closedAt` is
+/// "server-set" and "Absent while the Space is open", so a listed
+/// `closedAt` on create is not stored, while a listed extension key is.
+#[tokio::test]
+async fn listed_core_property_is_not_stored_on_create() {
+    let backend = backend_with(&["closedAt", "addRoles", "calendarId"]);
+    let id = create_space(
+        &backend,
+        json!({
+            "closedAt": "2026-01-01T00:00:00Z",
+            "addRoles": [],
+            "calendarId": "cal-1",
+        }),
+    )
+    .await;
+
+    let space = get_space(&backend, &id).await;
+    assert!(space.get("closedAt").is_none(), "{space}");
+    assert!(space.get("addRoles").is_none(), "{space}");
+    assert_eq!(space["calendarId"], "cal-1", "{space}");
 }
