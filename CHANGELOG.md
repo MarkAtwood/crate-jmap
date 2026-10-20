@@ -19,6 +19,14 @@ wire behaviour that a conforming peer can observe.
   in-memory backend against the node's `spaceId` property, so
   `FileNode/query` can locate one Space's file tree root among several
   (draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension Property).
+- **jmap-filenode-types**, **jmap-filenode-server**: typed
+  `FileNode.space_id` (`spaceId` on the wire, omitted when `None`).
+  `FileNode/set` and `FileNode/copy` reject a create that carries `spaceId`
+  on a node whose `role` is not `urn:jmap:chat:filenode:space`, and an update
+  that changes `spaceId` or moves a node that has one off that role, with
+  `invalidProperties` (draft-atwood-jmap-chat-filenode-00 §The `spaceId`
+  Extension Property: "immutable ... Absent on all FileNode objects that are
+  not Space file tree roots").
 - **jmap-chat-scene-server**: new crate, the Chat binding for
   `jmap-scene-server`. `should_deliver_scene` decides delivery of a Scene
   ephemeral event over the union of the `ChatStreamEnable` `"scene"` path
@@ -606,6 +614,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-filenode-types**: new `NodeRole::ChatSpace` variant
+  for the role `urn:jmap:chat:filenode:space` (draft-atwood-jmap-chat-filenode-00
+  §JMAP FileNode Roles Registry). That string used to parse as
+  `NodeRole::Other("urn:jmap:chat:filenode:space")`, and `spaceId`, which used
+  to land in `FileNode.extra`, now goes in `FileNode.space_id`.
 - **BREAKING** **jmap-chat-client**: `chat_query`, `message_query`,
   `space_query`, `chat_contact_query`, `custom_emoji_query`,
   `Batch::chat_query_get` and `Batch::message_query_get` take positional

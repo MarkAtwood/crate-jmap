@@ -1096,11 +1096,8 @@ fn node_matches_filter(
         }
     }
 
-    // ponytail: reads `spaceId` from the extras map until FileNode gains a
-    // typed field (bd JMAP-v9py.16.2).
     if let Some(ref sid) = fc.space_id {
-        let node_sid = node.extra.get("spaceId").and_then(|v| v.as_str());
-        if node_sid != Some(sid.as_ref()) {
+        if node.space_id.as_ref() != Some(sid) {
             return Ok(false);
         }
     }

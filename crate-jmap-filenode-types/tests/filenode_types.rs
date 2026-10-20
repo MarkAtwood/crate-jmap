@@ -1104,3 +1104,47 @@ fn share_with_serializes_in_sorted_key_order() {
         "shareWith keys must be sorted: {j}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// draft-atwood-jmap-chat-filenode-00 extension (jmap-chat-spec HEAD)
+//   L250-253: register Role `urn:jmap:chat:filenode:space` in the "JMAP
+//             FileNode Roles" registry.
+//   L121-122: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
+//             this FileNode is associated with. ... Absent on all FileNode
+//             objects that are not Space file tree roots."
+// ---------------------------------------------------------------------------
+
+#[test]
+fn node_role_chat_space_parses_and_roundtrips() {
+    let role: NodeRole = serde_json::from_str("\"urn:jmap:chat:filenode:space\"").unwrap();
+    assert_eq!(role, NodeRole::ChatSpace);
+    assert_eq!(
+        serde_json::to_string(&role).unwrap(),
+        "\"urn:jmap:chat:filenode:space\""
+    );
+}
+
+#[test]
+fn filenode_space_id_roundtrips_on_space_root() {
+    let wire = serde_json::json!({
+        "id": "n1", "parentId": null, "@type": "Directory", "name": "space",
+        "shareWith": null, "role": "urn:jmap:chat:filenode:space", "spaceId": "S1"
+    });
+    let node: FileNode = serde_json::from_value(wire).unwrap();
+    assert_eq!(node.space_id, Some(id("S1")));
+    assert!(node.extra.is_empty(), "spaceId is typed: {:?}", node.extra);
+    let back = serde_json::to_value(&node).unwrap();
+    assert_eq!(back["spaceId"], "S1");
+}
+
+#[test]
+fn filenode_without_space_id_omits_it() {
+    let wire = serde_json::json!({
+        "id": "n1", "parentId": null, "@type": "Directory", "name": "docs",
+        "shareWith": null, "role": null
+    });
+    let node: FileNode = serde_json::from_value(wire).unwrap();
+    assert_eq!(node.space_id, None);
+    let back = serde_json::to_value(&node).unwrap();
+    assert!(back.get("spaceId").is_none(), "L122 absent: {back}");
+}
