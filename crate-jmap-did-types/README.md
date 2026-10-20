@@ -43,12 +43,18 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
 - `KeyCustody` is `Server`, `User` or `Other(String)`; JSON `null`
   ("does not disclose custody") is `None`. Never treat `None` or
   `Other` as `User`.
+- `Did` parses a string against the DID Core §3.1 ABNF (generic
+  syntax only, lowercase `did:` prefix, no normalization).
+  `Did::web_domain` returns the host of a `did:web` DID without its
+  `%3A<port>` suffix, the part clients "SHOULD highlight" against
+  look-alike domains.
 - `#[non_exhaustive]` on every public type, an `extra` map for unknown
   fields, no async, `#[forbid(unsafe_code)]`.
 
 ## Gotchas
 
-- `did` and `previousDid` are not validated against DID Core §3.1 yet.
+- `DidAccountCapability.did` and `previousDid` are still plain
+  strings; parse them with `Did::parse` to validate.
 
 ## References
 
