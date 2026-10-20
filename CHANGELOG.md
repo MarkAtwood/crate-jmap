@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-types**: new crate for draft-atwood-jmap-vtc-00.
+  `JMAP_VTC_URI` and `VtcCapability` with `VtcGateway` and
+  `VtcDialInEntry` (§Capability, §VTCGateway); the embedded
+  `VtcMediaState` and `VtcCallPolicy`; the `VtcCall`, `VtcParticipant`,
+  `VtcRecording` and `VtcLivestream` data types with their state, role and
+  reason enums; `VtcCallPush` in its full and content-free forms; and
+  `VtcEvent`, which dispatches on `@type` over `VtcRingEvent`,
+  `VtcCallEndEvent`, `VtcGatewaySignal`, `VtcParticipantEvent`,
+  `VtcMediaStateEvent`, `VtcActiveSpeakerEvent`, `VtcUnmuteRequestEvent`
+  and `VtcRecordingStateEvent`. Checked against the draft's JSON examples.
 - **jmap-peer-auth-io**: new support crate for the I/O half of
   draft-atwood-jmap-chat-federation-00 §Peer Authentication Model.
   `PeerKeys` fetches `https://<peer-domain>/.well-known/jmap` unsigned and

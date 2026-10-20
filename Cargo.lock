@@ -1929,6 +1929,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-vtc-types"
+version = "0.3.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-web-push"
 version = "0.3.0"
 dependencies = [
