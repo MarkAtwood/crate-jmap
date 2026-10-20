@@ -13,6 +13,7 @@ use jmap_contacts_server::{
     handle_contact_card_changes, handle_contact_card_get, handle_contact_card_query,
     handle_contact_card_set,
 };
+use jmap_types::Invocation;
 use serde_json::{json, Value};
 
 // ---------------------------------------------------------------------------
@@ -1604,7 +1605,11 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
 
     // A single synthetic ContactCard/set invocation was emitted.
     assert_eq!(extra.len(), 1, "exactly one synthetic invocation expected");
-    let (method, set_resp, _) = &extra[0];
+    let Invocation {
+        name: method,
+        arguments: set_resp,
+        ..
+    } = &extra[0];
     assert_eq!(method, "ContactCard/set");
 
     // The source card appears in the synthetic /set's destroyed array.

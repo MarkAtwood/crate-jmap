@@ -91,8 +91,8 @@ fn sample_three_call_body() -> Value {
 /// this to resolve `#ids` references with path `/ids/*` (RFC 8620 §3.7
 /// wildcard) against it.
 fn sample_prior_responses() -> Vec<Invocation> {
-    vec![(
-        "Email/query".to_owned(),
+    vec![Invocation::new(
+        "Email/query",
         json!({
             "accountId": "a1",
             "queryState": "q-state-1",
@@ -234,7 +234,7 @@ fn make_dispatcher() -> Dispatcher<()> {
 fn sample_single_call_request() -> JmapRequest {
     JmapRequest::new(
         vec!["urn:ietf:params:jmap:core".into()],
-        vec![("M/one".into(), json!({}), "c0".into())],
+        vec![Invocation::new("M/one", json!({}), "c0")],
         None,
     )
 }
@@ -242,10 +242,10 @@ fn sample_single_call_request() -> JmapRequest {
 /// 16-call request — the RFC 8620 §3 default `max_calls` cap. Captures
 /// the worst-case spawn overhead inside one parsed request.
 fn sample_sixteen_call_request() -> JmapRequest {
-    let mut calls: Vec<(String, Value, String)> = Vec::with_capacity(16);
+    let mut calls: Vec<Invocation> = Vec::with_capacity(16);
     for i in 0..16 {
         let method = if i % 2 == 0 { "M/a" } else { "M/b" };
-        calls.push((method.into(), json!({}), format!("c{i}")));
+        calls.push(Invocation::new(method, json!({}), format!("c{i}")));
     }
     JmapRequest::new(vec!["urn:ietf:params:jmap:core".into()], calls, None)
 }

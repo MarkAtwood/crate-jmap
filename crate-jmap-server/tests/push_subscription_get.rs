@@ -209,7 +209,7 @@ async fn get(backend: MockBackend, caller: &str, args: Value) -> (String, Value,
         .dispatch(request, Id::from(caller), State::from("s0"))
         .await;
     assert_eq!(response.method_responses.len(), 1, "one call, one response");
-    response.method_responses.remove(0)
+    response.method_responses.remove(0).into()
 }
 
 /// RFC 8620 §7.2.1 (rfc8620.txt:3731-3735): "Standard /get method as

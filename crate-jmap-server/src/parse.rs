@@ -182,15 +182,15 @@ pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<
             JmapError::invalid_arguments(format!("invalid ResultReference for #{plain_key}: {e}"))
         })?;
 
-        // Find the prior response by call-id (index 2 of the Invocation tuple).
-        let (prior_method, prior_value) = prior_responses
+        // Find the prior response by call-id.
+        let prior = prior_responses
             .iter()
-            .find(|(_, _, call_id)| call_id == &rr.result_of)
-            .map(|(method, value, _)| (method.as_str(), value))
+            .find(|inv| inv.call_id == rr.result_of)
             .ok_or_else(JmapError::invalid_result_reference)?;
+        let prior_value = &prior.arguments;
 
         // Verify the name field matches the method name (RFC 8620 §3.7).
-        if rr.name != prior_method {
+        if rr.name != prior.name {
             return Err(JmapError::invalid_result_reference());
         }
 
@@ -374,10 +374,10 @@ mod tests {
     // Oracle: RFC 8620 §3.7 — #ids resolves to prior response's value at path.
     #[test]
     fn resolve_args_basic() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Foo/get",
             json!({"list": [{"id": "x1"}], "state": "s0"}),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({
             "#ids": {"resultOf": "c0", "name": "Foo/get", "path": "/list/0/id"}
@@ -403,7 +403,7 @@ mod tests {
     // Oracle: RFC 8620 §3.7 — name mismatch → invalidResultReference.
     #[test]
     fn resolve_args_name_mismatch() {
-        let prior = vec![("Foo/get".to_owned(), json!({"ids": ["a"]}), "c0".to_owned())];
+        let prior = vec![Invocation::new("Foo/get", json!({"ids": ["a"]}), "c0")];
         let mut args = json!({
             "#ids": {"resultOf": "c0", "name": "Bar/get", "path": "/ids"}
         });
@@ -416,7 +416,7 @@ mod tests {
     // Oracle: RFC 8620 §3.7 — path not found → invalidResultReference.
     #[test]
     fn resolve_args_path_not_found() {
-        let prior = vec![("Foo/get".to_owned(), json!({"ids": ["a"]}), "c0".to_owned())];
+        let prior = vec![Invocation::new("Foo/get", json!({"ids": ["a"]}), "c0")];
         let mut args = json!({
             "#ids": {"resultOf": "c0", "name": "Foo/get", "path": "/nonexistent"}
         });
@@ -429,11 +429,7 @@ mod tests {
     // Oracle: atomicity — if one of two refs fails, args must be completely unchanged.
     #[test]
     fn resolve_args_atomic_on_partial_failure() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
-            json!({"ids": ["a", "b"]}),
-            "c0".to_owned(),
-        )];
+        let prior = vec![Invocation::new("Foo/get", json!({"ids": ["a", "b"]}), "c0")];
         // #ids is valid; #properties references a non-existent call.
         let mut args = json!({
             "#ids": {"resultOf": "c0", "name": "Foo/get", "path": "/ids"},
@@ -509,10 +505,10 @@ mod tests {
     // independently against the same prior response.
     #[test]
     fn resolve_args_multiple_refs_all_resolve() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Foo/get",
             json!({"list": [{"id": "x1"}], "state": "s0"}),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({
             "#ids":   {"resultOf": "c0", "name": "Foo/get", "path": "/list"},
@@ -531,7 +527,7 @@ mod tests {
     // object is an error (key conflict).
     #[test]
     fn resolve_args_key_conflict_is_error() {
-        let prior = vec![("Foo/get".to_owned(), json!({"ids": ["a"]}), "c0".to_owned())];
+        let prior = vec![Invocation::new("Foo/get", json!({"ids": ["a"]}), "c0")];
         let mut args = json!({
             "ids":  "existing",
             "#ids": {"resultOf": "c0", "name": "Foo/get", "path": "/ids"}
@@ -559,10 +555,10 @@ mod tests {
     // array resolves to that array value.
     #[test]
     fn resolve_args_array_path_resolves_to_array() {
-        let prior = vec![(
-            "List/query".to_owned(),
+        let prior = vec![Invocation::new(
+            "List/query",
             json!({"ids": ["a", "b", "c"]}),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({
             "#ids": {"resultOf": "c0", "name": "List/query", "path": "/ids"}
@@ -575,10 +571,10 @@ mod tests {
     // drills into nested structures.
     #[test]
     fn resolve_args_nested_path_resolves() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Foo/get",
             json!({"list": [{"id": "deep1"}]}),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({
             "#id": {"resultOf": "c0", "name": "Foo/get", "path": "/list/0/id"}
@@ -591,7 +587,7 @@ mod tests {
     // pointer to fail, which maps to invalidResultReference.
     #[test]
     fn resolve_args_path_array_oob_is_error() {
-        let prior = vec![("Foo/get".to_owned(), json!({"ids": ["a"]}), "c0".to_owned())];
+        let prior = vec![Invocation::new("Foo/get", json!({"ids": ["a"]}), "c0")];
         let mut args = json!({
             "#ids": {"resultOf": "c0", "name": "Foo/get", "path": "/ids/5"}
         });
@@ -605,11 +601,7 @@ mod tests {
     // the single character "0") MUST be rejected as invalid.
     #[test]
     fn resolve_args_path_leading_zero_index_is_error() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
-            json!({"ids": ["a", "b"]}),
-            "c0".to_owned(),
-        )];
+        let prior = vec![Invocation::new("Foo/get", json!({"ids": ["a", "b"]}), "c0")];
         let mut args = json!({
             "#ids": {"resultOf": "c0", "name": "Foo/get", "path": "/ids/01"}
         });
@@ -623,10 +615,10 @@ mod tests {
     // in JSON Pointer tokens.
     #[test]
     fn resolve_args_path_tilde_escaping() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Foo/get",
             json!({"a/b": "slash-value"}),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({
             "#val": {"resultOf": "c0", "name": "Foo/get", "path": "/a~1b"}
@@ -640,10 +632,10 @@ mod tests {
     // incorrectly become `/` instead of `~1`.
     #[test]
     fn resolve_args_path_tilde0_escaping() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Foo/get",
             json!({"a~b": "tilde-value"}),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({
             "#val": {"resultOf": "c0", "name": "Foo/get", "path": "/a~0b"}
@@ -661,10 +653,10 @@ mod tests {
     // i.e. `~01` decodes to `~1` (literal tilde followed by 1), NOT to `/`.
     #[test]
     fn resolve_args_path_tilde01_decodes_to_tilde1() {
-        let prior = vec![(
-            "Foo/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Foo/get",
             json!({"~1": "tilde-one-value"}),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({
             "#val": {"resultOf": "c0", "name": "Foo/get", "path": "/~01"}
@@ -676,12 +668,12 @@ mod tests {
     // Oracle: RFC 8620 §3.7 — /list/*/threadId maps threadId from each list element.
     #[test]
     fn resolve_args_wildcard_maps_over_array() {
-        let prior = vec![(
-            "Thread/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Thread/get",
             json!({
                 "list": [{"threadId": "t1"}, {"threadId": "t2"}]
             }),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args =
             json!({"#ids": {"resultOf": "c0", "name": "Thread/get", "path": "/list/*/threadId"}});
@@ -696,10 +688,10 @@ mod tests {
     fn resolve_args_wildcard_over_flat_string_array() {
         // Simulates: Email/query → ids:["a","b","c"], then Email/get with
         // #ids:{resultOf:"c0", name:"Email/query", path:"/ids/*"}.
-        let prior = vec![(
-            "Email/query".to_owned(),
+        let prior = vec![Invocation::new(
+            "Email/query",
             json!({ "ids": ["a", "b", "c"] }),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args = json!({"#ids": {"resultOf": "c0", "name": "Email/query", "path": "/ids/*"}});
         resolve_args(&mut args, &prior).expect("flat-array wildcard must resolve");
@@ -710,12 +702,12 @@ mod tests {
     // Oracle: RFC 8620 §3.7 — when wildcard result is an array, it is flattened.
     #[test]
     fn resolve_args_wildcard_flattens_array_results() {
-        let prior = vec![(
-            "Email/get".to_owned(),
+        let prior = vec![Invocation::new(
+            "Email/get",
             json!({
                 "list": [{"emailIds": ["e1", "e2"]}, {"emailIds": ["e3"]}]
             }),
-            "c0".to_owned(),
+            "c0",
         )];
         let mut args =
             json!({"#ids": {"resultOf": "c0", "name": "Email/get", "path": "/list/*/emailIds"}});

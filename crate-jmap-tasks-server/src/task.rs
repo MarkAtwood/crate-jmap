@@ -765,7 +765,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
         } else {
             "Task/set".to_owned()
         };
-        extra.push((method_name, set_resp, call_id.to_owned()));
+        extra.push(Invocation::new(method_name, set_resp, call_id.to_owned()));
     }
 
     Ok((resp, extra))
@@ -1014,7 +1014,11 @@ mod tests {
 
         // Exactly one synthesized invocation: ("Task/set", response, "c0").
         assert_eq!(extra.len(), 1, "must emit one implicit Task/set: {extra:?}");
-        let (method, val, ci) = &extra[0];
+        let Invocation {
+            name: method,
+            arguments: val,
+            call_id: ci,
+        } = &extra[0];
         assert_eq!(method, "Task/set");
         assert_eq!(ci, "c0");
         assert_eq!(val["accountId"], "acc2", "implicit set targets fromAccount");
@@ -1054,7 +1058,7 @@ mod tests {
             .expect("top-level call must succeed");
 
         assert_eq!(extra.len(), 1);
-        let (_, val, _) = &extra[0];
+        let Invocation { arguments: val, .. } = &extra[0];
         assert_eq!(val["type"], "stateMismatch");
     }
 

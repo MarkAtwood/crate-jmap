@@ -652,7 +652,11 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             "notUpdated": Value::Null,
             "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
         });
-        extra.push(("ContactCard/set".to_owned(), set_resp, call_id.to_owned()));
+        extra.push(Invocation::new(
+            "ContactCard/set",
+            set_resp,
+            call_id.to_owned(),
+        ));
     }
 
     Ok((resp, extra))
@@ -795,19 +799,21 @@ mod tests {
 
         let req = JmapRequest::new(
             vec![JMAP_CONTACTS_URI.into()],
-            vec![(
-                "ContactCard/copy".into(),
+            vec![Invocation::new(
+                "ContactCard/copy",
                 json!({
                     "accountId": "acc2",
                     "fromAccountId": "acc1",
                     "create": { "c1": { "id": "nonexistent" } }
                 }),
-                "c0".into(),
+                "c0",
             )],
             None,
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
 
         assert!(
             args.get("type").is_none(),
@@ -848,8 +854,8 @@ mod tests {
 
         let req = JmapRequest::new(
             vec![JMAP_CONTACTS_URI.into()],
-            vec![(
-                "ContactCard/copy".into(),
+            vec![Invocation::new(
+                "ContactCard/copy",
                 json!({
                     "accountId": "acc2",
                     "fromAccountId": "acc1",
@@ -860,12 +866,14 @@ mod tests {
                         }
                     }
                 }),
-                "c0".into(),
+                "c0",
             )],
             None,
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
 
         assert!(
             args.get("type").is_none(),
@@ -1111,7 +1119,11 @@ mod tests {
             1,
             "onSuccessDestroyOriginal must emit exactly one synthetic invocation"
         );
-        let (method, set_resp, returned_call_id) = &extra[0];
+        let Invocation {
+            name: method,
+            arguments: set_resp,
+            call_id: returned_call_id,
+        } = &extra[0];
         assert_eq!(method, "ContactCard/set");
         assert_eq!(returned_call_id, "c0", "call_id must be echoed");
         assert_eq!(
@@ -1201,7 +1213,10 @@ mod tests {
         );
 
         // The synthetic /set's notDestroyed carries stateMismatch.
-        let (_, set_resp, _) = &extra[0];
+        let Invocation {
+            arguments: set_resp,
+            ..
+        } = &extra[0];
         assert_eq!(
             set_resp["notDestroyed"]["card1"]["type"], "stateMismatch",
             "destroyFromIfInState mismatch must produce stateMismatch: {set_resp}"
@@ -1376,7 +1391,10 @@ mod tests {
         // Destroy was attempted (MockBackend always returns NotFound for
         // destroys, so the result is notDestroyed[card1] = notFound, NOT
         // stateMismatch — the state check passed).
-        let (_, set_resp, _) = &extra[0];
+        let Invocation {
+            arguments: set_resp,
+            ..
+        } = &extra[0];
         assert_eq!(
             set_resp["notDestroyed"]["card1"]["type"], "notFound",
             "destroyFromIfInState match must allow destroy attempt: {set_resp}"

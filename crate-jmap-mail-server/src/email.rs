@@ -2574,7 +2574,10 @@ pub async fn handle_email_copy<B: MailBackend>(
         if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
             if if_in_state != email_old_state.as_ref() {
                 let err = json!({ "type": "stateMismatch" });
-                return Ok((resp, vec![("error".to_owned(), err, call_id.to_owned())]));
+                return Ok((
+                    resp,
+                    vec![Invocation::new("error", err, call_id.to_owned())],
+                ));
             }
         }
 
@@ -2704,7 +2707,7 @@ pub async fn handle_email_copy<B: MailBackend>(
             "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
             "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
         });
-        extra.push(("Email/set".to_owned(), set_resp, call_id.to_owned()));
+        extra.push(Invocation::new("Email/set", set_resp, call_id.to_owned()));
     }
 
     Ok((resp, extra))

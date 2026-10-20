@@ -37,10 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2. Synthesize a request: one method call carrying a small JSON payload.
     let request = JmapRequest::new(
         vec!["urn:ietf:params:jmap:core".to_owned()],
-        vec![(
-            "Core/echo".to_owned(),
+        vec![Invocation::new(
+            "Core/echo",
             json!({ "hello": "world", "n": 42 }),
-            "c1".to_owned(),
+            "c1",
         )],
         None,
     );
@@ -61,7 +61,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "method_responses ({} entries):",
         response.method_responses.len()
     );
-    for (method, _args, call_id) in &response.method_responses {
+    for Invocation {
+        name: method,
+        call_id,
+        ..
+    } in &response.method_responses
+    {
         println!("  - {method}  (call_id={call_id})");
     }
     println!("session_state: {}", response.session_state);

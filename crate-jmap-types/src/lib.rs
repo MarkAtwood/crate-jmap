@@ -24,7 +24,7 @@
 //!
 //! let req: JmapRequest = serde_json::from_str(json).unwrap();
 //! assert_eq!(req.using[0], "urn:ietf:params:jmap:core");
-//! assert_eq!(req.method_calls[0].0, "Mailbox/get");
+//! assert_eq!(req.method_calls[0].name, "Mailbox/get");
 //! ```
 
 #![forbid(unsafe_code)]

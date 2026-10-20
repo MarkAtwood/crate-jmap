@@ -917,7 +917,10 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
             if if_in_state != destroy_old_state.as_ref() {
                 let err = json!({ "type": "stateMismatch" });
-                return Ok((resp, vec![("error".to_owned(), err, call_id.to_owned())]));
+                return Ok((
+                    resp,
+                    vec![Invocation::new("error", err, call_id.to_owned())],
+                ));
             }
         }
 
@@ -969,7 +972,11 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             "notUpdated": Value::Null,
             "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
         });
-        extra.push(("CalendarEvent/set".to_owned(), set_resp, call_id.to_owned()));
+        extra.push(Invocation::new(
+            "CalendarEvent/set",
+            set_resp,
+            call_id.to_owned(),
+        ));
     }
 
     Ok((resp, extra))
@@ -2545,7 +2552,11 @@ mod tests {
             1,
             "must produce exactly one extra CalendarEvent/set invocation"
         );
-        let (method, set_resp, call_id) = &extra[0];
+        let Invocation {
+            name: method,
+            arguments: set_resp,
+            call_id,
+        } = &extra[0];
         assert_eq!(method, "CalendarEvent/set");
         assert_eq!(call_id, "c0");
         assert_eq!(
@@ -2616,7 +2627,11 @@ mod tests {
     async fn copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
         let (extra, list) = copy_with_destroy_from_if_in_state(Some("stale-state")).await;
         assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
-        let (method, body, call_id) = &extra[0];
+        let Invocation {
+            name: method,
+            arguments: body,
+            call_id,
+        } = &extra[0];
         assert_eq!(method, "error");
         assert_eq!(body["type"], "stateMismatch");
         assert_eq!(call_id, "c0");
@@ -2634,7 +2649,11 @@ mod tests {
     async fn copy_destroy_from_if_in_state_match_destroys_original() {
         let (extra, list) = copy_with_destroy_from_if_in_state(None).await;
         assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
-        let (method, body, _) = &extra[0];
+        let Invocation {
+            name: method,
+            arguments: body,
+            ..
+        } = &extra[0];
         assert_eq!(method, "CalendarEvent/set");
         assert_eq!(body["destroyed"], json!(["ev1"]));
         assert_eq!(list, json!([]), "source must be destroyed");

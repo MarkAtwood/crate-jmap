@@ -256,7 +256,7 @@ async fn set(backend: &Arc<MockBackend>, caller: &str, args: Value) -> (String, 
         .dispatch(request, Id::from(caller), State::from("s0"))
         .await;
     assert_eq!(response.method_responses.len(), 1, "one call, one response");
-    response.method_responses.remove(0)
+    response.method_responses.remove(0).into()
 }
 
 fn epoch_of(value: &Value) -> i64 {

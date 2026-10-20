@@ -15,7 +15,7 @@ spec requires.
 | `UTCDate` | §1.4 | RFC 3339 UTC timestamp string |
 | `State` | §1.2 | Opaque server state token |
 | `JmapError` | §3.6.2 | Method-level error with typed constructors |
-| `Invocation` | §3.2 | `(method_name, arguments, call_id)` 3-tuple |
+| `Invocation` | §3.2 | Method call or response: `name`, `arguments`, `call_id` |
 | `JmapRequest` | §3.3 | HTTP request envelope |
 | `JmapResponse` | §3.4 | HTTP response envelope |
 | `ResultReference` | §9 | Reference to a prior method's result |
@@ -172,8 +172,9 @@ All types use `serde` with the JSON field names and structure RFC 8620 mandates:
 - `JmapResponse.session_state` serializes as `"sessionState"`
 - `JmapError.error_type` serializes as `"type"` (the RFC field name)
 - `JmapError.existing_id` serializes as `"existingId"` (present only for `alreadyExists`)
-- `Invocation` is a type alias for `(String, serde_json::Value, String)`, which
-  serde serializes as a 3-element JSON array — exactly the RFC 8620 §3.2 format
+- `Invocation` is a struct with named fields whose hand-written serde impls use
+  the 3-element JSON array `[name, arguments, callId]` — exactly the RFC 8620
+  §3.2 format
 
 ### `Argument<T>` and the sealed trait
 

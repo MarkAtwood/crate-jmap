@@ -562,8 +562,8 @@ have `http` or `https` scheme before the `Session` is returned.
 `ClientError::AuthFailed` on HTTP 401 or 403 before reading the body.
 
 **`extract_response<T>`** — scans `resp.method_responses` (a `Vec` of
-`(method_name, args, call_id)` triples) for the entry whose `call_id` matches,
-then deserializes `args` into `T`. If `method_name` is `"error"`, returns
+`Invocation { name, arguments, call_id }`) for the entry whose `call_id`
+matches, then deserializes `arguments` into `T`. If `name` is `"error"`, returns
 `ClientError::MethodError` with the server-supplied `type` and optional
 `description`. `method_error_details` returns the full error object,
 including any extra properties.

@@ -324,7 +324,8 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
 
   **Public dependency — serde_json ^1 (decided 2026-10-19).** The `pub
   extra: serde_json::Map<String, serde_json::Value>` field, together with
-  `jmap-types::Invocation` (`(String, serde_json::Value, String)`) and the
+  `jmap-types::Invocation` (whose `arguments` field is a
+  `serde_json::Value`) and the
   Sloppy-Value fields above, makes `serde_json` 1.x part of the public
   API of every `jmap-*` crate. A `serde_json` major-version bump would
   therefore force a coordinated major bump across the whole family. The

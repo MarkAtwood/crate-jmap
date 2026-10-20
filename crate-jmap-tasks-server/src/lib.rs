@@ -548,6 +548,7 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
+    use jmap_types::Invocation;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
@@ -561,7 +562,7 @@ mod tests {
     fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequest {
         JmapRequest::new(
             vec!["urn:ietf:params:jmap:tasks".into()],
-            vec![(method.into(), args, call_id.into())],
+            vec![Invocation::new(method, args, call_id)],
             None,
         )
     }
@@ -631,7 +632,10 @@ mod tests {
                 1,
                 "{method}: expected 1 response"
             );
-            let (_, resp_args, _) = &resp.method_responses[0];
+            let Invocation {
+                arguments: resp_args,
+                ..
+            } = &resp.method_responses[0];
             assert_ne!(
                 resp_args["type"], "unknownMethod",
                 "{method}: must not be unknownMethod — is it registered?"
@@ -664,7 +668,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             args.get("type").is_none(),
             "must not be a top-level error: {args}"
@@ -699,7 +705,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             args.get("type").is_none(),
             "must not be a top-level error: {args}"
@@ -732,7 +740,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             args.get("type").is_none(),
             "must not be a top-level error: {args}"
@@ -767,7 +777,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         // The patch must NOT be pre-rejected with invalidProperties.
         if let Some(not_updated) = args["notUpdated"].as_object() {
             if let Some(err) = not_updated.get("t1") {
@@ -794,7 +806,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(args.get("type").is_none(), "must not be error: {args}");
         for item in args["list"].as_array().into_iter().flatten() {
             assert!(
@@ -823,7 +837,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             args.get("type").is_none(),
             "Task/get with utcStart must not error: {args}"
@@ -1026,7 +1042,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             args.get("type").is_none(),
             "Task/get with utcStart must not error: {args}"
@@ -1060,7 +1078,9 @@ mod tests {
             "c0",
         );
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             args.get("type").is_none(),
             "must not be top-level error: {args}"

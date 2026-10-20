@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Breaking: Rust API
 
+- **jmap-types**: `Invocation` is a struct with public `name`, `arguments`
+  and `call_id` fields instead of the alias `(String, serde_json::Value,
+  String)`. The wire form is unchanged (RFC 8620 §3.2 3-element array).
+  Replace `inv.0` / `inv.1` / `inv.2` with `inv.name` / `inv.arguments` /
+  `inv.call_id`, and tuple literals with `Invocation::new(name, arguments,
+  call_id)`; `From` conversions to and from the tuple are provided.
 - **jmap-server**: `JmapBackend::query_objects` gains `anchor: Option<&Id>`
   and `anchor_offset: i64`, and returns
   `Result<QueryResult, BackendQueryError<Self::Error>>`. Implementors must

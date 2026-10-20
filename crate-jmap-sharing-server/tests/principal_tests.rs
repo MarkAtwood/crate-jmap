@@ -5,6 +5,7 @@
 
 mod common;
 
+use jmap_types::Invocation;
 use std::sync::Arc;
 
 use jmap_server::{Dispatcher, JmapRequest, State};
@@ -23,7 +24,7 @@ use common::MemoryBackend;
 fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequest {
     JmapRequest::new(
         vec!["urn:ietf:params:jmap:principals".into()],
-        vec![(method.into(), args, call_id.into())],
+        vec![Invocation::new(method, args, call_id)],
         None,
     )
 }
@@ -100,7 +101,9 @@ async fn principal_get_all_returns_list() {
         "c0",
     );
     let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-    let (_, args, _) = &resp.method_responses[0];
+    let Invocation {
+        arguments: args, ..
+    } = &resp.method_responses[0];
 
     assert!(args.get("type").is_none(), "must not be an error: {args}");
     let list = args["list"].as_array().expect("list must be an array");
@@ -130,7 +133,9 @@ async fn principal_set_create_succeeds() {
         "c1",
     );
     let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-    let (_, args, _) = &resp.method_responses[0];
+    let Invocation {
+        arguments: args, ..
+    } = &resp.method_responses[0];
 
     assert!(args.get("type").is_none(), "must not be an error: {args}");
     let created = &args["created"];
@@ -175,7 +180,9 @@ async fn principal_set_destroy_succeeds() {
         "c0",
     );
     let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-    let (_, args, _) = &resp.method_responses[0];
+    let Invocation {
+        arguments: args, ..
+    } = &resp.method_responses[0];
 
     assert!(args.get("type").is_none(), "set must not error: {args}");
     let destroyed = args["destroyed"]
@@ -193,7 +200,9 @@ async fn principal_set_destroy_succeeds() {
         "c1",
     );
     let resp2 = dispatcher.dispatch(req2, (), State::from("s0")).await;
-    let (_, args2, _) = &resp2.method_responses[0];
+    let Invocation {
+        arguments: args2, ..
+    } = &resp2.method_responses[0];
 
     let not_found = args2["notFound"]
         .as_array()
@@ -221,7 +230,10 @@ async fn principal_changes_after_create() {
         "c0",
     );
     let state_resp = dispatcher.dispatch(state_req, (), State::from("s0")).await;
-    let (_, state_args, _) = &state_resp.method_responses[0];
+    let Invocation {
+        arguments: state_args,
+        ..
+    } = &state_resp.method_responses[0];
     let since_state = state_args["state"]
         .as_str()
         .expect("state must be a string")
@@ -249,7 +261,10 @@ async fn principal_changes_after_create() {
     let changes_resp = dispatcher
         .dispatch(changes_req, (), State::from("s0"))
         .await;
-    let (_, changes_args, _) = &changes_resp.method_responses[0];
+    let Invocation {
+        arguments: changes_args,
+        ..
+    } = &changes_resp.method_responses[0];
 
     assert!(
         changes_args.get("type").is_none(),

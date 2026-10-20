@@ -1174,8 +1174,9 @@ pub struct SubscribeEventsSessionParams<'a> {
 ///
 /// Callers that need method-name verification or want to disambiguate
 /// among multiple non-error matches should iterate
-/// `resp.method_responses` directly. The field is public and the
-/// [`jmap_types::Invocation`] type is `(method, args, call_id)`.
+/// `resp.method_responses` directly. The field is public and each
+/// [`jmap_types::Invocation`] has public `name`, `arguments` and `call_id`
+/// fields.
 ///
 /// # Panics
 ///
@@ -1195,7 +1196,6 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     resp: &jmap_types::JmapResponse,
     call_id: &str,
 ) -> Result<T, ClientError> {
-    // Invocation is a type alias (String, Value, String) = (method, args, call_id).
     // Two-pass scan: errors take precedence per §3.6.1, so look for an error
     // invocation first; otherwise return the first non-error invocation.
     if let Some(args) = find_error_args(resp, call_id) {
@@ -1219,9 +1219,9 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     let inv = resp
         .method_responses
         .iter()
-        .find(|inv| inv.2 == call_id)
+        .find(|inv| inv.call_id == call_id)
         .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
-    <T as serde::Deserialize>::deserialize(&inv.1).map_err(ClientError::from_parse)
+    <T as serde::Deserialize>::deserialize(&inv.arguments).map_err(ClientError::from_parse)
 }
 
 /// Return the full JMAP `"error"` object for `call_id`, including any
@@ -1249,8 +1249,8 @@ fn find_error_args<'a>(
 ) -> Option<&'a serde_json::Value> {
     resp.method_responses
         .iter()
-        .find(|inv| inv.2 == call_id && inv.0 == "error")
-        .map(|inv| &inv.1)
+        .find(|inv| inv.call_id == call_id && inv.name == "error")
+        .map(|inv| &inv.arguments)
 }
 
 /// Decode as much valid UTF-8 as possible from `raw` into `buf`, draining
