@@ -259,7 +259,7 @@ fn member_without_identity_is_an_error() {
 
 fn task_action(assignee_ids: Value) -> MessageAction {
     serde_json::from_value(json!({
-        "type": "urn:jmap:chat:cap:task",
+        "type": "urn:ietf:params:jmap:chat:cap:task",
         "uri": "urn:jmap:task:A1:T1",
         "label": "Ship it",
         "metadata": {"assigneeIds": assignee_ids, "due": "2026-11-01T00:00:00Z"},

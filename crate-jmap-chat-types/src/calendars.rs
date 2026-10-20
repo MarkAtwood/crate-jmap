@@ -41,7 +41,7 @@ impl Space {
     }
 }
 
-/// `metadata` of a `urn:jmap:chat:cap:calendar-event` MessageAction
+/// `metadata` of a `urn:ietf:params:jmap:chat:cap:calendar-event` MessageAction
 /// (draft-atwood-jmap-chat-calendars-00 §MessageAction format).
 ///
 /// Every key is optional. Other keys land in [`extra`](Self::extra):
@@ -71,7 +71,7 @@ pub struct CalendarEventMetadata {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// `metadata` of a `urn:jmap:chat:cap:availability` MessageAction
+/// `metadata` of a `urn:ietf:params:jmap:chat:cap:availability` MessageAction
 /// (draft-atwood-jmap-chat-calendars-00 §Availability Lookup).
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

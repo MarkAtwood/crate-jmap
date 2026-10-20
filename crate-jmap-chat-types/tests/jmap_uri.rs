@@ -1,7 +1,8 @@
-//! `jmap:` URI parser/builder and `urn:jmap:chat:cap:*` constants.
+//! `jmap:` URI parser/builder and `urn:ietf:params:jmap:chat:cap:*` constants.
 //!
-//! Oracle: the literal URI forms and type strings quoted from the drafts
-//! at jmap-chat-spec 91672c9.
+//! Oracle: the literal URI forms quoted from the drafts at jmap-chat-spec
+//! 91672c9, and the type strings quoted from draft-atwood-jmap-chat-00 at
+//! jmap-chat-spec 6bcd9d8.
 
 use jmap_chat_types::vocabulary::{
     CHAT_CAP_AVAILABILITY, CHAT_CAP_CALENDAR_EVENT, CHAT_CAP_TASK, CHAT_CAP_VTC,
@@ -120,13 +121,21 @@ fn builder_rejects_unvalidated_ids() {
     );
 }
 
-/// draft-atwood-jmap-chat-00 L299, L302-304 list the Endpoint `type`
-/// values `"urn:jmap:chat:cap:vtc"`, `"urn:jmap:chat:cap:calendar-event"`,
-/// `"urn:jmap:chat:cap:availability"` and `"urn:jmap:chat:cap:task"`.
+/// draft-atwood-jmap-chat-00 (6bcd9d8) L380 and L383-385 list the
+/// Endpoint `type` values `"urn:ietf:params:jmap:chat:cap:vtc"`,
+/// `"urn:ietf:params:jmap:chat:cap:calendar-event"`,
+/// `"urn:ietf:params:jmap:chat:cap:availability"` and
+/// `"urn:ietf:params:jmap:chat:cap:task"`.
 #[test]
 fn cap_type_constants_match_draft() {
-    assert_eq!(CHAT_CAP_VTC, "urn:jmap:chat:cap:vtc");
-    assert_eq!(CHAT_CAP_CALENDAR_EVENT, "urn:jmap:chat:cap:calendar-event");
-    assert_eq!(CHAT_CAP_AVAILABILITY, "urn:jmap:chat:cap:availability");
-    assert_eq!(CHAT_CAP_TASK, "urn:jmap:chat:cap:task");
+    assert_eq!(CHAT_CAP_VTC, "urn:ietf:params:jmap:chat:cap:vtc");
+    assert_eq!(
+        CHAT_CAP_CALENDAR_EVENT,
+        "urn:ietf:params:jmap:chat:cap:calendar-event"
+    );
+    assert_eq!(
+        CHAT_CAP_AVAILABILITY,
+        "urn:ietf:params:jmap:chat:cap:availability"
+    );
+    assert_eq!(CHAT_CAP_TASK, "urn:ietf:params:jmap:chat:cap:task");
 }

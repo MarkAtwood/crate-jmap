@@ -1,4 +1,4 @@
-//! RSVP helpers for `urn:jmap:chat:cap:calendar-event` MessageActions
+//! RSVP helpers for `urn:ietf:params:jmap:chat:cap:calendar-event` MessageActions
 //! (draft-atwood-jmap-chat-calendars-00 §RSVP Handling).
 //!
 //! The draft defines no RSVP method: the client patches

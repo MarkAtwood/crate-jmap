@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 /// An out-of-band capability endpoint advertised on a contact or
 /// session object (draft-atwood-jmap-chat-00 §4.4).
 ///
-/// Examples per the draft: `urn:jmap:chat:cap:vtc` (video/voice
-/// teleconference), `urn:jmap:chat:cap:payment`,
-/// `urn:jmap:chat:cap:blob`, etc. The
+/// Examples per the draft: `urn:ietf:params:jmap:chat:cap:vtc`
+/// (video/voice teleconference), `urn:ietf:params:jmap:chat:cap:payment`,
+/// `urn:ietf:params:jmap:chat:cap:blob`, etc. The
 /// [`endpoint_type`](Self::endpoint_type) field is the discriminant
 /// for the [`metadata`](Self::metadata) value shape.
 #[non_exhaustive]
@@ -20,12 +20,18 @@ pub struct Endpoint {
     /// The `type` property (draft-atwood-jmap-chat-00 §4.4).
     ///
     /// URI namespace per the draft. Well-known values include
-    /// `urn:jmap:chat:cap:vtc`, `urn:jmap:chat:cap:payment`,
-    /// `urn:jmap:chat:cap:blob`, `urn:jmap:chat:cap:calendar-event`,
-    /// `urn:jmap:chat:cap:availability`, `urn:jmap:chat:cap:task`,
-    /// `urn:jmap:chat:cap:filenode`. Deployments and future drafts
-    /// MAY define additional values. Clients MUST silently ignore
-    /// Endpoint records whose `type` they do not recognize.
+    /// `urn:ietf:params:jmap:chat:cap:vtc`,
+    /// `urn:ietf:params:jmap:chat:cap:payment`,
+    /// `urn:ietf:params:jmap:chat:cap:blob`,
+    /// `urn:ietf:params:jmap:chat:cap:calendar-event`,
+    /// `urn:ietf:params:jmap:chat:cap:availability`,
+    /// `urn:ietf:params:jmap:chat:cap:task` and
+    /// `urn:ietf:params:jmap:chat:cap:filenode`. Deployments and future
+    /// drafts MAY define additional values; names under the
+    /// `urn:ietf:params:jmap:chat:cap:` prefix are assigned only by
+    /// Standards Track RFCs, so others use type URIs outside it. Clients
+    /// MUST silently ignore Endpoint records whose `type` they do not
+    /// recognize.
     ///
     /// Wire name is "type" — camelCase expansion would give "endpointType".
     #[serde(rename = "type")]

@@ -78,7 +78,7 @@ async fn create_stores_optional_properties() {
     let attachments = json!([attachment("a.txt", "text/plain; charset=utf-8", SHA256)]);
     let mentions = json!([{ "id": "contact-bob", "offset": 3, "length": 4 }]);
     let actions = json!([{
-        "type": "urn:jmap:chat:cap:vtc",
+        "type": "urn:ietf:params:jmap:chat:cap:vtc",
         "uri": "https://example.com/room",
         "label": "Join call",
         "vendorKey": { "x": 1 },
@@ -216,7 +216,7 @@ async fn create_rejects_routing_fields_with_encrypted_body_type() {
             json!(["attachments"]),
         ),
         (
-            json!({ "actions": [{ "type": "urn:jmap:chat:cap:vtc", "uri": "https://example.com/r" }] }),
+            json!({ "actions": [{ "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://example.com/r" }] }),
             json!(["actions"]),
         ),
         (json!({ "replyTo": "m0" }), json!(["replyTo"])),

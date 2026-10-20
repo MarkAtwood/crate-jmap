@@ -809,6 +809,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: `CHAT_CAP_VTC`,
+  `CHAT_CAP_CALENDAR_EVENT`, `CHAT_CAP_AVAILABILITY` and `CHAT_CAP_TASK`
+  are now `urn:ietf:params:jmap:chat:cap:{vtc,calendar-event,availability,task}`
+  (draft-atwood-jmap-chat-00 §Endpoint), replacing the
+  `urn:jmap:chat:cap:*` values. Clean break with no alias: actions and
+  endpoints that carry the old type names are no longer recognized, and
+  the federation server maps `assigneeIds` only for
+  `urn:ietf:params:jmap:chat:cap:task` actions.
 - **BREAKING** **jmap-filenode-types**: new `NodeRole::ChatSpace` variant
   for the role `urn:jmap:chat:filenode:space` (draft-atwood-jmap-chat-filenode-00
   §JMAP FileNode Roles Registry). That string used to parse as
