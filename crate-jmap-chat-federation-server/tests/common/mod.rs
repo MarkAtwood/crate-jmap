@@ -8,8 +8,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use jmap_chat_federation_server::{
-    handle_peer_deliver, handle_peer_group_update, handle_peer_receipt, handle_peer_retract,
-    handle_peer_typing, AuthenticatedPeer, FederationBackend, FetchedBlob,
+    handle_peer_deliver, handle_peer_group_update, handle_peer_presence, handle_peer_receipt,
+    handle_peer_retract, handle_peer_subscribe_presence, handle_peer_typing,
+    handle_peer_unsubscribe_presence, AuthenticatedPeer, FederationBackend,
+    FederationPresenceBackend, FetchedBlob,
 };
 use jmap_chat_federation_types::PeerAttachment;
 use jmap_chat_server::memory::{MemoryBackend, MemoryError};
@@ -18,7 +20,9 @@ use jmap_chat_server::{
     ChatLimits, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
     QueryChangesResult, QueryObject, QueryResult, SetObject, SpacePatchOp,
 };
-use jmap_chat_types::{Chat, ChatContact, ChatTypingEvent, Message, Space, SpaceMetadataPatch};
+use jmap_chat_types::{
+    Chat, ChatContact, ChatPresenceEvent, ChatTypingEvent, Message, Space, SpaceMetadataPatch,
+};
 use jmap_peer_auth::PeerDomain;
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
@@ -61,6 +65,10 @@ pub struct Fed {
     pub next_id: AtomicU64,
     /// Events passed to `forward_typing`, in order.
     pub typed: Mutex<Vec<ChatTypingEvent>>,
+    /// Presence subscriptions: subscriber identity to granted TTL.
+    pub subscriptions: Mutex<HashMap<String, u64>>,
+    /// Events passed to `forward_presence`, in order.
+    pub presences: Mutex<Vec<ChatPresenceEvent>>,
 }
 
 impl Fed {
@@ -85,6 +93,8 @@ impl Fed {
             fetched: Mutex::new(Vec::new()),
             next_id: AtomicU64::new(0),
             typed: Mutex::new(Vec::new()),
+            subscriptions: Mutex::new(HashMap::new()),
+            presences: Mutex::new(Vec::new()),
         };
         fed.seed("ChatContact", contact(BOB_ID, BOB, false));
         fed
@@ -142,6 +152,32 @@ impl Fed {
         handle_peer_group_update(self, &(), args)
             .await
             .map(|o| o.primary)
+    }
+
+    pub async fn subscribe_presence(&self, args: Value) -> Result<Value, JmapError> {
+        handle_peer_subscribe_presence(self, &(), args)
+            .await
+            .map(|o| o.primary)
+    }
+
+    pub async fn unsubscribe_presence(&self, args: Value) -> Result<Value, JmapError> {
+        handle_peer_unsubscribe_presence(self, &(), args)
+            .await
+            .map(|o| o.primary)
+    }
+
+    pub async fn presence(&self, args: Value) -> Result<Value, JmapError> {
+        handle_peer_presence(self, &(), args)
+            .await
+            .map(|o| o.primary)
+    }
+
+    pub fn subscriptions(&self) -> HashMap<String, u64> {
+        self.subscriptions.lock().expect("lock").clone()
+    }
+
+    pub fn presences(&self) -> Vec<ChatPresenceEvent> {
+        self.presences.lock().expect("lock").clone()
     }
 
     pub fn typed(&self) -> Vec<ChatTypingEvent> {
@@ -542,5 +578,43 @@ impl FederationBackend for Fed {
 
     async fn forward_typing(&self, _caller: &(), _account_id: &Id, event: &ChatTypingEvent) {
         self.typed.lock().expect("lock").push(event.clone());
+    }
+}
+
+/// The deployment's subscription policy: default 600 s, at most 3600 s.
+pub const DEFAULT_TTL: u64 = 600;
+pub const MAX_TTL: u64 = 3600;
+
+impl FederationPresenceBackend for Fed {
+    async fn subscribe_presence(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        subscriber_id: &str,
+        ttl: Option<u64>,
+    ) -> Result<u64, MemoryError> {
+        let granted = ttl.map_or(DEFAULT_TTL, |t| t.min(MAX_TTL));
+        self.subscriptions
+            .lock()
+            .expect("lock")
+            .insert(subscriber_id.to_owned(), granted);
+        Ok(granted)
+    }
+
+    async fn unsubscribe_presence(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        subscriber_id: &str,
+    ) -> Result<(), MemoryError> {
+        self.subscriptions
+            .lock()
+            .expect("lock")
+            .remove(subscriber_id);
+        Ok(())
+    }
+
+    async fn forward_presence(&self, _caller: &(), _account_id: &Id, event: &ChatPresenceEvent) {
+        self.presences.lock().expect("lock").push(event.clone());
     }
 }

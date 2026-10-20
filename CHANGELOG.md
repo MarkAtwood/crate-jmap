@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-server**: the optional presence methods of
+  draft-atwood-jmap-chat-federation-00. `handle_peer_subscribe_presence`
+  answers with the owner's presence (`"invisible"` as `"offline"`) and the
+  TTL the backend grants; `handle_peer_unsubscribe_presence` succeeds with
+  or without a subscription; `handle_peer_presence` updates the sender's
+  ChatContact `presence`, `lastActiveAt`, `statusText` and `statusEmoji`
+  (`null` clears, absent keeps), drops updates from a blocked contact
+  silently, and fires the local presence event. They run over the new
+  `FederationPresenceBackend` trait, which only deployments offering the
+  methods implement.
+- **jmap-peer-auth**: `fetch_address_allowed`, the §Blob Fetch and SSRF
+  address rule: refuses loopback, unspecified, link-local and private-network
+  (RFC 1918, RFC 4193) addresses, including IPv4-mapped forms.
+- **jmap-chat-federation-types**: `owner_endpoints` reads a probed Session's
+  `ownerEndpoints` as the `endpoints` of the matching ChatContact
+  (draft-atwood-jmap-chat-00 §ChatContact).
 - **jmap-chat-federation-server**: the sending side of
   draft-atwood-jmap-chat-federation-00, for a backend's
   `on_outbound_event`. `outbound_reference` translates a stored `replyTo` or

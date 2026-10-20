@@ -36,6 +36,8 @@
 //!   Binding).
 //! - [`PeerDomain`] — a peer domain in its compared form: lowercase
 //!   A-label, no trailing dot, no port.
+//! - [`fetch_address_allowed`] — the address rule of §Blob Fetch and SSRF
+//!   for fetches from peer-supplied URLs.
 //!
 //! ## Example
 //!
@@ -73,6 +75,7 @@ mod domain;
 mod identity;
 mod keys;
 mod signature;
+mod ssrf;
 
 pub use domain::{InvalidPeerDomain, PeerDomain};
 pub use ed25519_dalek;
@@ -82,3 +85,4 @@ pub use signature::{
     sign, Accepted, Rejection, Request, SignError, SignatureHeaders, SignedRequest,
     CLOCK_SKEW_SECS, MAX_LIFETIME_SECS, REPLAY_MARGIN_SECS, SIGNATURE_TAG,
 };
+pub use ssrf::fetch_address_allowed;

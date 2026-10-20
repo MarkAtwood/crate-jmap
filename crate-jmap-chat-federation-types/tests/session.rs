@@ -10,8 +10,9 @@
 //! written independently of this crate.
 
 use jmap_chat_federation_types::{
-    anonymous_well_known_session, AnonymousSessionError, FederationSession,
+    anonymous_well_known_session, owner_endpoints, AnonymousSessionError, FederationSession,
 };
+use jmap_chat_types::ChatContact;
 use serde_json::{json, Map, Value};
 
 /// L284-293, verbatim.
@@ -196,5 +197,69 @@ fn anonymous_session_refuses_private_key_member() {
     assert_eq!(
         anonymous_well_known_session(owner_session(), &fields),
         Err(AnonymousSessionError::PrivateKeyMember(1))
+    );
+}
+
+/// draft-atwood-jmap-chat-00 L340-341: "`ownerEndpoints` (Endpoint[],
+/// optional): ... Peers that probe `/.well-known/jmap` SHOULD merge these
+/// into the `endpoints` field of the corresponding ChatContact record."
+/// L531-532: "Servers populate this field from the ChatContact's
+/// `ownerEndpoints` at `/.well-known/jmap`." The Endpoint values are the
+/// draft's L375-377 type URIs with hand-written URIs; the result is
+/// checked by writing it into a hand-written ChatContact.
+#[test]
+fn owner_endpoints_become_contact_endpoints() {
+    let advertised = json!([
+        { "type": "urn:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob", "label": "Personal Jitsi" },
+        { "type": "urn:jmap:chat:cap:payment", "uri": "lightning:lnurl1bob", "metadata": { "network": "lightning" } },
+    ]);
+    let session = json!({ "ownerUserId": "bob@b.example", "ownerEndpoints": advertised.clone() });
+    let endpoints = owner_endpoints(session.as_object().unwrap()).expect("advertised");
+
+    let mut contact = json!({
+        "id": "c1",
+        "identity": "bob@b.example",
+        "login": "bob",
+        "firstSeenAt": "2026-01-01T00:00:00Z",
+        "lastSeenAt": "2026-01-02T00:00:00Z",
+    });
+    contact["endpoints"] = serde_json::to_value(&endpoints).unwrap();
+    let contact: ChatContact = serde_json::from_value(contact).expect("valid ChatContact");
+    assert_eq!(
+        serde_json::to_value(&contact.endpoints).unwrap(),
+        advertised
+    );
+}
+
+/// L340: `ownerEndpoints` is "optional"; a Session without it, or whose
+/// value is not an Endpoint[] array, advertises no endpoints.
+#[test]
+fn absent_owner_endpoints_is_none() {
+    assert_eq!(owner_endpoints(&Map::new()), None);
+    let not_array = json!({ "ownerEndpoints": { "type": "urn:jmap:chat:cap:vtc" } });
+    assert_eq!(owner_endpoints(not_array.as_object().unwrap()), None);
+    let empty = json!({ "ownerEndpoints": [] });
+    assert_eq!(
+        owner_endpoints(empty.as_object().unwrap()),
+        Some(Vec::new())
+    );
+}
+
+/// L372 and L385: an Endpoint has "`type` (String)" and "`uri`
+/// (String)". An entry missing either is not an Endpoint and is skipped;
+/// L370: "clients MUST silently ignore Endpoint records whose `type` they
+/// do not recognize", so an unknown type is kept for them to ignore.
+#[test]
+fn malformed_entries_skipped_unknown_types_kept() {
+    let session = json!({ "ownerEndpoints": [
+        { "type": "urn:jmap:chat:cap:vtc" },
+        { "uri": "https://x.example/" },
+        "https://y.example/",
+        { "type": "urn:example:future", "uri": "https://z.example/" },
+    ] });
+    let endpoints = owner_endpoints(session.as_object().unwrap()).expect("array");
+    assert_eq!(
+        serde_json::to_value(&endpoints).unwrap(),
+        json!([{ "type": "urn:example:future", "uri": "https://z.example/" }])
     );
 }
