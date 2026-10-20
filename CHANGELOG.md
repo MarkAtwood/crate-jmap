@@ -24,6 +24,12 @@ wire behaviour that a conforming peer can observe.
   `chatId`-scoped `Message/query` consult `may_view_chat`. A backend that
   answers `Message/query` without `chatId` must omit unviewable channel
   messages in `query_objects` itself.
+- **jmap-chat-server**: `ChatLimits::supports_threads` (default `false`,
+  builder `with_supports_threads`) carries the account's `supportsThreads`
+  value. When `true`, `Message/get` returns the server-computed
+  `replyCount` and, on thread roots, `unreadReplyCount`
+  (draft-atwood-jmap-chat-00 §Message), and `Message/query` accepts the
+  `threadRootId` filter, which the reference `MemoryBackend` implements.
 
 ### Changed
 
@@ -46,6 +52,11 @@ wire behaviour that a conforming peer can observe.
   via `Space/set` `removeChannels`. Group create stores `avatarBlobId` and
   `messageExpirySeconds`, and is `overQuota` when the membership exceeds
   `ChatLimits::max_group_chat_members`.
+- **BREAKING** **jmap-chat-server**: `Message/set` create rejects a
+  `replyTo` that is not a Message in the same Chat, and a `threadRootId`
+  that breaks the draft-atwood-jmap-chat-00 §Thread Model assignment
+  rules, with `invalidProperties`; both were previously stored unchecked.
+  An omitted `threadRootId` on a reply is now set by the server.
 
 ### Fixed
 

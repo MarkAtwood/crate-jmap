@@ -182,8 +182,8 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
     // (message.rs rejects bodies over 100_000 bytes) and the body types
     // (message.rs SUPPORTED_BODY_TYPES), and does not parse
     // attachments, so the attachment limits mirror the upload cap and
-    // an arbitrary count rather than an enforced rule. It implements
-    // neither the `threadRootId` query filter nor `replyCount`, hence
+    // an arbitrary count rather than an enforced rule. It keeps the
+    // default `ChatLimits::supports_threads` of `false`, hence
     // `supportsThreads: false`.
     account_capabilities.insert(
         "urn:ietf:params:jmap:chat".to_owned(),
