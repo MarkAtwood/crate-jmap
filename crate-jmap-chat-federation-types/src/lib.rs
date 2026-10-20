@@ -25,11 +25,16 @@
 //! - [`peer`] — request and response arguments of the eight `Peer/*`
 //!   methods (draft §Server-to-Server Methods). User references are
 //!   identity strings (draft §User References in Peer Methods).
+//! - [`FederationSession`], [`anonymous_well_known_session`] — the
+//!   `ownerUserId`, `peerSigningKeys` and `ownerDirectAddress` Session
+//!   fields, and the anonymous `/.well-known/jmap` Session object (draft
+//!   §Session Object Extensions for Federation, §Key Publication).
 
 #![forbid(unsafe_code)]
 
 pub mod contact;
 pub mod peer;
+pub mod session;
 
 pub use contact::{contact_direct_address, contact_server_url};
 pub use peer::{
@@ -39,3 +44,4 @@ pub use peer::{
     PeerSubscribePresenceArgs, PeerSubscribePresenceResponse, PeerTypingArgs,
     PeerUnsubscribePresenceArgs, ReactionAction,
 };
+pub use session::{anonymous_well_known_session, AnonymousSessionError, FederationSession};

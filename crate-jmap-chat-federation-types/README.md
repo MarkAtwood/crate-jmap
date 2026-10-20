@@ -11,6 +11,8 @@ delivery between JMAP Chat mailboxes. Types only: no I/O, no transport.
 | `contact_direct_address` | §ChatContact Type Extensions for Federation (`directAddress`), §Direct Address Hints |
 | `peer::Peer*Args`, `peer::Peer*Response`, `peer::PeerAck` | §Server-to-Server Methods: `Peer/deliver`, `Peer/receipt`, `Peer/typing`, `Peer/retract`, `Peer/groupUpdate`, and the optional `Peer/subscribePresence`, `Peer/unsubscribePresence`, `Peer/presence` |
 | `PeerMention`, `PeerChatMember`, `PeerRoleUpdate`, `PeerAttachment` | §User References in Peer Methods (identity strings, not ChatContact ids), §Peer/deliver (`fetchUrl`) |
+| `FederationSession` | §Session Object Extensions for Federation (`ownerUserId`, `peerSigningKeys`, `ownerDirectAddress`) |
+| `anonymous_well_known_session` | §Key Publication (the Session answered to an unsigned GET of `/.well-known/jmap`) |
 
 ## What it's for
 
@@ -40,6 +42,12 @@ With a `jmap_chat_types::ChatContact`, pass `&contact.extra`.
 - The `Peer/*` types are plain serde structs: camelCase on the wire, an
   `extra` map for unknown fields, a `new` taking the required fields.
   `ReactionAction` and `GroupUpdateAction` reject unknown strings.
+- `FederationSession::from_session_extra` reads the Session fields from a
+  parsed Session's extension map. `peerSigningKeys` entries stay raw JSON:
+  filter them with `jmap_peer_auth::usable_keys`.
+- `anonymous_well_known_session` takes the server's Session object, empties
+  `accounts` and `primaryAccounts`, sets `username` to `""`, and adds the
+  federation fields. It refuses an empty key list or a key with `d`.
 - No async. `#[forbid(unsafe_code)]` at the crate root.
 
 ## Gotchas
@@ -54,6 +62,9 @@ With a `jmap_chat_types::ChatContact`, pass `&contact.extra`.
   caller-identity field matches the authenticated peer.
 - `PeerAttachment::fetch_url` is peer-supplied: apply the §Blob Fetch and
   SSRF restrictions before fetching it.
+- `FederationSession` does not check that `peerSigningKeys` entries are
+  usable keys; the receiver must ignore the ones that are not (§Key
+  Publication).
 
 ## References
 

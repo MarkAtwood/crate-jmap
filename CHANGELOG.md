@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-types**: `session` module for
+  draft-atwood-jmap-chat-federation-00 §Session Object Extensions for
+  Federation. `FederationSession` holds `ownerUserId`, `peerSigningKeys`
+  (raw JWK entries) and the optional `ownerDirectAddress`, read from a
+  Session's extension map by `from_session_extra`.
+  `anonymous_well_known_session` builds the Session answered to an unsigned
+  GET of `/.well-known/jmap` (§Key Publication): empty `accounts` and
+  `primaryAccounts`, empty `username`, the federation fields. It returns
+  `AnonymousSessionError` for an empty key list or a key carrying the
+  private member `d`.
 - **jmap-chat-federation-types**: `peer` module with the request and
   response arguments of the draft-atwood-jmap-chat-federation-00 `Peer/*`
   methods: `PeerDeliverArgs` (`PeerMessage`, `PeerEdit`,
