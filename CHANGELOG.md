@@ -14,6 +14,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: new crate with the draft-atwood-jmap-vtc-00
+  `VTCCall/get`, `/changes`, `/set`, `/query` and `/queryChanges`
+  handlers, the `VtcBackend` trait and a `memory` reference backend.
+  `VTCCall/set` create applies the ring, room and scheduled rules and the
+  `mayCreateCall` / `supports*Calls` / `supportedMediaTypes` gates; update
+  enforces the §State Machine, sets `endedAt` and `endReason` when a call
+  ends, and gates ending, `lobbyEnabled`, `policy`, `e2eeEnabled` and
+  breakout rooms on `VtcBackend::is_moderator` (fail-open default).
+  `call_already_active_on_chat` is the L573 one-active-call-per-Chat
+  SetError; `query::call_matches` and `query::compare_calls` evaluate the
+  `/query` filter and sort. Depends on RFC 8620 only.
+- **jmap-vtc-types**: `query` module with `VtcCallFilter`,
+  `VtcCallFilterCondition`, `VtcCallComparator` and `VtcCallSortProperty`
+  (§VTCCall/query), and `JmapObject` impls for `VtcCall` (`"VTCCall"`) and
+  `VtcParticipant` (`"VTCParticipant"`).
 - **jmap-vtc-types**: new crate for draft-atwood-jmap-vtc-00.
   `JMAP_VTC_URI` and `VtcCapability` with `VtcGateway` and
   `VtcDialInEntry` (§Capability, §VTCGateway); the embedded

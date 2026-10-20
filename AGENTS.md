@@ -94,7 +94,8 @@ crates, never in a support crate.
 | `crate-jmap-peer-auth-io/` | `jmap-peer-auth-io` | Support crate: the I/O half of draft-atwood-jmap-chat-federation-00 §Peer Authentication Model over `jmap-peer-auth` — `PeerKeys` (unsigned GET of `/.well-known/jmap`, cache for the RFC 9111 freshness lifetime capped at 1 h and the DNS TTL, unknown-`kid` refetch at most once per 60 s per peer domain), `HttpsFetcher` (reqwest, https-only redirects, caller address policy for §SSRF), `HickoryLookup`/`NoDnssec` (`_jmap-peer` TXT → `DnssecAnswer`), `ReplayStore`/`MemoryReplayStore` (check 5), `authenticate`. No `*-types` or `*-server` crate depends on it |
 | `crate-jmap-chat-mimi-types/` | `jmap-chat-mimi-types` | draft-atwood-jmap-chat-mimi-00 data types — `MimiCapability` (`urn:ietf:params:jmap:chat:mimi`), `KeyPackage` object and `/get`/`/set` shapes, `KeyMaterial/fetch` arguments, `Room/create`/`/update`/`/send`/`/unbind` arguments and `chat_room_id`, `GroupInfo/fetch` arguments, MIMI/MLS body-type constants, `Base64Url` byte-string wire shape. No async, no I/O, no MLS dependency |
 | `crate-jmap-chat-federation-types/` | `jmap-chat-federation-types` | draft-atwood-jmap-chat-federation-00 data types — `contact_server_url` and `contact_direct_address` read the `ChatContact.serverUrl` and `.directAddress` extension fields from `ChatContact.extra`. No async, no I/O |
-| `crate-jmap-vtc-types/` | `jmap-vtc-types` | draft-atwood-jmap-vtc-00 data types — `VtcCapability` (`urn:ietf:params:jmap:vtc`) with `VtcGateway`/`VtcDialInEntry`, `VtcMediaState`, `VtcCallPolicy`, the `VtcCall`, `VtcParticipant`, `VtcRecording` and `VtcLivestream` objects, `VtcCallPush` (full and content-free), and `VtcEvent` over the eight ephemeral events. No async, no I/O, depends on `jmap-types` only |
+| `crate-jmap-vtc-types/` | `jmap-vtc-types` | draft-atwood-jmap-vtc-00 data types — `VtcCapability` (`urn:ietf:params:jmap:vtc`) with `VtcGateway`/`VtcDialInEntry`, `VtcMediaState`, `VtcCallPolicy`, the `VtcCall`, `VtcParticipant`, `VtcRecording` and `VtcLivestream` objects, `VtcCallPush` (full and content-free), and `VtcEvent` over the eight ephemeral events, the `query` filter/comparator types and `JmapObject` impls for `VtcCall`/`VtcParticipant`. No async, no I/O, depends on `jmap-types` only |
+| `crate-jmap-vtc-server/` | `jmap-vtc-server` | draft-atwood-jmap-vtc-00 `VTCCall/*` method handlers — `VtcBackend` (capability object, companion-capability probe, caller userId, atomic `create_call` with ring participants, fail-open `is_moderator`), create gates, §State Machine, ending a call, call-level moderator actions, `/query` default sort and `query::call_matches`/`compare_calls`, `memory` reference backend. Depends on RFC 8620 only; the Chat binding lives in a binding crate |
 
 ## Dependency Tree
 
@@ -184,6 +185,8 @@ jmap-vtc-types         — draft-atwood-jmap-vtc-00 data types: VtcCapability
                          (urn:ietf:params:jmap:vtc), VtcCall, VtcParticipant,
                          VtcRecording, VtcLivestream, VtcCallPush, VtcEvent.
                          No async, no I/O. Depends on jmap-types only.
+    └── jmap-vtc-server    — VTCCall method handlers, VtcBackend trait.
+                             Depends on jmap-server; no chat dependency.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
@@ -210,7 +213,7 @@ follow-up sweep bead before merging).
 | Foundation types | `jmap-types` | (none — sole foundation) |
 | Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types` |
 | Foundation server | `jmap-server` | (none — sole foundation) |
-| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server` |
+| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server`, `jmap-vtc-server` |
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
 | Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-metadata-client`, `jmap-sharing-client` |
 

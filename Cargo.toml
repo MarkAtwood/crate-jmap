@@ -30,6 +30,7 @@ members = [
     "crate-jmap-filenode-server",
     "crate-jmap-metadata-server",
     "crate-jmap-sharing-server",
+    "crate-jmap-vtc-server",
     "crate-jmap-base-client",
     "crate-jmap-chat-client",
     "crate-jmap-mail-client",
@@ -96,6 +97,7 @@ jmap-tasks-server      = { path = "crate-jmap-tasks-server",     version = "0.3"
 jmap-filenode-server   = { path = "crate-jmap-filenode-server",  version = "0.3" }
 jmap-metadata-server   = { path = "crate-jmap-metadata-server",  version = "0.3" }
 jmap-sharing-server    = { path = "crate-jmap-sharing-server",   version = "0.3" }
+jmap-vtc-server        = { path = "crate-jmap-vtc-server",       version = "0.3" }
 jmap-base-client       = { path = "crate-jmap-base-client",      version = "0.3" }
 jmap-mail-client       = { path = "crate-jmap-mail-client",      version = "0.3" }
 jmap-chat-client       = { path = "crate-jmap-chat-client",      version = "0.3" }

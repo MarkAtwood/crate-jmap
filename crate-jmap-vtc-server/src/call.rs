@@ -1,0 +1,547 @@
+//! VTCCall/* method handlers (draft-atwood-jmap-vtc-00 §VTCCall Methods).
+//!
+//! `/get` and `/changes` are the standard RFC 8620 §5.1 and §5.2 methods.
+//! `/set` validates call creation, the state machine (§State Machine), ending
+//! a call and the call-level moderator actions before handing the mutation
+//! to the backend. `/query` and `/queryChanges` supply the draft's default
+//! sort and the `chatId` / `spaceId` capability rule before the standard
+//! RFC 8620 §5.5 and §5.6 handling.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures; per-
+//! record failures inside `/set` land in `notCreated` / `notUpdated` /
+//! `notDestroyed`. The extra-invocation list is always empty.
+
+use jmap_types::{Id, JmapError, PatchObject, UTCDate};
+use jmap_vtc_types::query::{VtcCallComparator, VtcCallFilter};
+use jmap_vtc_types::{CallEndReason, CallState, CallType, MediaKind, VtcCall};
+use serde::Deserialize;
+use serde_json::{json, Value};
+
+use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
+use crate::helpers::{
+    default_sort, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    reject_unsupported_sort, set_error_value, utc_key, SetAccumulators, PLACEHOLDER_ID,
+};
+use jmap_server::{
+    now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
+
+/// Capability URI of draft-atwood-jmap-chat-00, which gates the Chat binding
+/// properties.
+const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
+
+/// Properties a `VTCCall/set` create may not carry: "The server sets `id`,
+/// `initiatorId`, `createdAt`, `state`, and `joinUri`", plus the other
+/// properties §VTCCall marks server-set.
+const SERVER_SET_ON_CREATE: &[&str] = &[
+    "id",
+    "accountId",
+    "state",
+    "createdAt",
+    "endedAt",
+    "endReason",
+    "initiatorId",
+    "joinUri",
+    "activeParticipantCount",
+    "breakoutRoomIds",
+];
+
+/// Properties a `VTCCall/set` update may not patch: those §VTCCall marks
+/// immutable or server-set, except `state`, whose transitions "clients
+/// request ... via `VTCCall/set`", and the server-generated `joinUri`.
+const NOT_PATCHABLE: &[&str] = &[
+    "id",
+    "accountId",
+    "callType",
+    "createdAt",
+    "endedAt",
+    "endReason",
+    "initiatorId",
+    "joinUri",
+    "activeParticipantCount",
+    "parentCallId",
+    "breakoutRoomIds",
+];
+
+/// Properties only a moderator may patch: ending the call (§Ending a Call),
+/// "Toggle lobby" (§Moderator Actions on VTCCall), `policy` ("Mutable by
+/// moderators only") and `e2eeEnabled` ("the server MUST return
+/// `forbidden` if a non-moderator attempts to update `e2eeEnabled`").
+const MODERATOR_ONLY: &[&str] = &["state", "lobbyEnabled", "policy", "e2eeEnabled"];
+
+/// Handle `VTCCall/get` (draft-atwood-jmap-vtc-00 §VTCCall/get): standard
+/// RFC 8620 §5.1 `/get`.
+pub async fn handle_vtc_call_get<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    jmap_server::handlers::handle_get::<VtcCall, B>(backend, caller, args).await
+}
+
+/// Handle `VTCCall/changes` (draft-atwood-jmap-vtc-00 §VTCCall/changes):
+/// standard RFC 8620 §5.2 `/changes`.
+pub async fn handle_vtc_call_changes<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    jmap_server::handlers::handle_changes::<VtcCall, B>(backend, caller, args).await
+}
+
+/// Handle `VTCCall/query` (draft-atwood-jmap-vtc-00 §VTCCall/query).
+///
+/// Supplies the "Default sort: `createdAt` descending", refuses a sort
+/// property other than `createdAt` / `endedAt` with `unsupportedSort`, and
+/// refuses a `chatId` or `spaceId` filter with `unsupportedFilter` unless
+/// the account advertises `urn:ietf:params:jmap:chat`. The backend
+/// evaluates the filter; [`crate::query::call_matches`] and
+/// [`crate::query::compare_calls`] implement it.
+pub async fn handle_vtc_call_query<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    let args = prepare_query(backend, caller, args).await?;
+    jmap_server::handlers::handle_query::<VtcCall, B>(backend, caller, args).await
+}
+
+/// Handle `VTCCall/queryChanges` (draft-atwood-jmap-vtc-00
+/// §VTCCall/queryChanges). RFC 8620 §5.6: the `filter` and `sort` are
+/// those of the original query, so the `/query` rules apply here too.
+pub async fn handle_vtc_call_query_changes<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    let args = prepare_query(backend, caller, args).await?;
+    jmap_server::handlers::handle_query_changes::<VtcCall, B>(backend, caller, args).await
+}
+
+async fn prepare_query<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    mut args: Value,
+) -> Result<Value, JmapError> {
+    if let Value::Object(map) = &mut args {
+        default_sort(
+            map,
+            json!([{ "property": "createdAt", "isAscending": false }]),
+        );
+    }
+    reject_unsupported_sort::<VtcCallComparator>(args.get("sort"))?;
+    if let Some(filter) = args.get("filter").filter(|f| !f.is_null()) {
+        let filter =
+            VtcCallFilter::deserialize(filter).map_err(|_| JmapError::unsupported_filter())?;
+        let account_id = args
+            .get("accountId")
+            .and_then(Value::as_str)
+            .map(Id::from)
+            .ok_or_else(|| JmapError::invalid_arguments("accountId is required"))?;
+        if uses_chat_binding(&filter) {
+            // RFC 8620 §3.6.2: an unknown account is `accountNotFound`,
+            // whatever the filter.
+            if !backend
+                .account_exists(caller, &account_id)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?
+            {
+                return Err(JmapError::account_not_found());
+            }
+            if !backend.has_capability(caller, &account_id, JMAP_CHAT_URI) {
+                return Err(JmapError::unsupported_filter());
+            }
+        }
+    }
+    Ok(args)
+}
+
+/// `true` if any condition in `filter` sets `chatId` or `spaceId`.
+fn uses_chat_binding(filter: &VtcCallFilter) -> bool {
+    match filter {
+        VtcCallFilter::Condition(c) => c.chat_id.is_some() || c.space_id.is_some(),
+        VtcCallFilter::Operator(op) => op.conditions.iter().any(uses_chat_binding),
+        _ => false,
+    }
+}
+
+/// Handle `VTCCall/set` (draft-atwood-jmap-vtc-00 §VTCCall/set).
+///
+/// Create: the `callType`-specific rules of §Creating a Ring Call, §Creating
+/// a Room Call and §Creating a Scheduled Call, then
+/// [`VtcBackend::create_call`]. Update: ending a call and the call-level
+/// moderator actions, validated against §State Machine. Destroy is
+/// forwarded to the backend.
+pub async fn handle_vtc_call_set<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    let (account_id, mut args) = extract_account_id(args)?;
+
+    // RFC 8620 §3.6.2: an unknown accountId is `accountNotFound`.
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
+
+    let old_state = backend
+        .get_state::<VtcCall>(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
+
+    let mut acc = SetAccumulators::default();
+    let mut mutated = false;
+
+    if let Some(Value::Object(create_map)) = args.remove("create") {
+        for (create_id, obj) in create_map {
+            match create_call(backend, caller, &account_id, obj).await {
+                Ok(call) => {
+                    mutated = true;
+                    acc.created.insert(
+                        create_id,
+                        serde_json::to_value(&call)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
+                }
+                Err(e) => {
+                    acc.not_created.insert(create_id, e);
+                }
+            }
+        }
+    }
+
+    if let Some(Value::Object(update_map)) = args.remove("update") {
+        for (id_str, patch) in update_map {
+            let id = Id::from(id_str.as_str());
+            match update_call(backend, caller, &account_id, &id, patch).await {
+                Ok(echo) => {
+                    mutated = true;
+                    acc.updated.insert(id_str, echo);
+                }
+                Err(e) => {
+                    acc.not_updated.insert(id_str, e);
+                }
+            }
+        }
+    }
+
+    if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
+        // RFC 8620 §5.3: every element of `destroy` is an Id.
+        let ids: Vec<&str> = destroy_arr
+            .iter()
+            .map(|v| v.as_str().ok_or(v))
+            .collect::<Result<_, _>>()
+            .map_err(|bad| {
+                JmapError::invalid_arguments(format!(
+                    "destroy: every element must be a string Id; got {bad}"
+                ))
+            })?;
+        for id_str in ids {
+            match backend
+                .destroy_object::<VtcCall>(caller, &account_id, &Id::from(id_str))
+                .await
+            {
+                Ok(()) => {
+                    mutated = true;
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
+                }
+                Err(e) => {
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
+                }
+            }
+        }
+    }
+
+    finalize_set_response::<B, VtcCall>(backend, caller, &account_id, old_state, mutated, acc).await
+}
+
+fn invalid(properties: &[&str], description: &str) -> Value {
+    let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
+    set_error_value(&if properties.is_empty() {
+        err
+    } else {
+        err.with_properties(properties.iter().copied())
+    })
+}
+
+fn forbidden(description: &str) -> Value {
+    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(description))
+}
+
+fn backend_set_error_value<E: std::fmt::Display>(e: BackendSetError<E>) -> Value {
+    match e {
+        BackendSetError::SetError(se) => set_error_value(&se),
+        BackendSetError::Other(e) => server_fail_value_from_backend(&e),
+        _ => json!({
+            "type": "serverFail",
+            "description": "unhandled backend error variant",
+        }),
+    }
+}
+
+/// Fetch one call, or `None` if the backend does not have it.
+async fn fetch_call<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Result<Option<VtcCall>, Value> {
+    backend
+        .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
+        .await
+        .map(|(found, _)| found.into_iter().next())
+        .map_err(|e| server_fail_value_from_backend(&e))
+}
+
+/// Validate one `create` entry, fill the server-set properties and hand it
+/// to [`VtcBackend::create_call`]. The `Err` value is the SetError JSON.
+async fn create_call<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    obj: Value,
+) -> Result<VtcCall, Value> {
+    let Value::Object(mut m) = obj else {
+        return Err(invalid(&[], "a VTCCall create must be a JSON object"));
+    };
+
+    let server_set: Vec<&str> = SERVER_SET_ON_CREATE
+        .iter()
+        .copied()
+        .filter(|k| m.contains_key(*k))
+        .collect();
+    if !server_set.is_empty() {
+        return Err(invalid(
+            &server_set,
+            "these properties are set by the server",
+        ));
+    }
+
+    let call_type = match m.get("callType").map(CallType::deserialize) {
+        Some(Ok(t)) if !matches!(t, CallType::Other(_)) => t,
+        _ => {
+            return Err(invalid(
+                &["callType"],
+                "callType must be \"ring\", \"room\" or \"scheduled\"",
+            ))
+        }
+    };
+
+    let cap = backend
+        .vtc_capability(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    if !cap.may_create_call {
+        return Err(forbidden("mayCreateCall is false for this account"));
+    }
+    let (supported, initial_state) = match call_type {
+        CallType::Ring => (cap.supports_ring_calls, CallState::Creating),
+        CallType::Room => (cap.supports_room_calls, CallState::Active),
+        _ => (cap.supports_scheduled_calls, CallState::Pending),
+    };
+    if !supported {
+        return Err(forbidden("this call type is not supported"));
+    }
+
+    let media_types: Vec<MediaKind> = m
+        .get("mediaTypes")
+        .and_then(|v| Vec::<MediaKind>::deserialize(v).ok())
+        .ok_or_else(|| invalid(&["mediaTypes"], "mediaTypes is required"))?;
+    if media_types
+        .iter()
+        .any(|k| !cap.supported_media_types.contains(k))
+    {
+        return Err(invalid(
+            &["mediaTypes"],
+            "mediaTypes contains values not in supportedMediaTypes",
+        ));
+    }
+
+    let targets = m.remove("targetParticipantIds");
+    let ring_targets: Vec<String> = if call_type == CallType::Ring {
+        targets
+            .and_then(|v| Vec::<String>::deserialize(v).ok())
+            .filter(|t| !t.is_empty())
+            .ok_or_else(|| {
+                invalid(
+                    &["targetParticipantIds"],
+                    "targetParticipantIds must be a non-empty array of userIds",
+                )
+            })?
+    } else {
+        Vec::new()
+    };
+
+    let now = now_utc_string();
+    if call_type == CallType::Scheduled {
+        let start = m
+            .get("scheduledStartAt")
+            .and_then(Value::as_str)
+            .and_then(|s| UTCDate::new_validated(s).ok());
+        if !start.is_some_and(|s| utc_key(&s) > utc_key(&now)) {
+            return Err(invalid(
+                &["scheduledStartAt"],
+                "scheduledStartAt must be a UTCDate in the future",
+            ));
+        }
+    }
+
+    if m.get("chatId").is_some_and(|v| !v.is_null())
+        && !backend.has_capability(caller, account_id, JMAP_CHAT_URI)
+    {
+        return Err(invalid(
+            &["chatId"],
+            "chatId requires the urn:ietf:params:jmap:chat capability",
+        ));
+    }
+
+    if let Some(parent_id) = m.get("parentCallId").and_then(Value::as_str) {
+        let parent = fetch_call(backend, caller, account_id, &Id::from(parent_id))
+            .await?
+            .ok_or_else(|| invalid(&["parentCallId"], "parentCallId does not name a call"))?;
+        let moderator = backend
+            .is_moderator(caller, account_id, &parent)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        if !moderator {
+            return Err(forbidden(
+                "only a moderator of the parent call may create a breakout room",
+            ));
+        }
+    }
+
+    let initiator = backend
+        .caller_user_id(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+
+    for (key, value) in [
+        ("id", json!(PLACEHOLDER_ID)),
+        ("accountId", json!(account_id)),
+        ("state", json!(initial_state)),
+        ("createdAt", json!(now)),
+        ("endedAt", Value::Null),
+        ("endReason", Value::Null),
+        ("initiatorId", json!(initiator)),
+        ("joinUri", json!("")),
+        ("activeParticipantCount", json!(0)),
+    ] {
+        m.insert(key.to_owned(), value);
+    }
+
+    let call: VtcCall = serde_json::from_value(Value::Object(m))
+        .map_err(|e| invalid(&[], &format!("invalid VTCCall: {e}")))?;
+
+    backend
+        .create_call(caller, account_id, call, &ring_targets)
+        .await
+        .map_err(backend_set_error_value)
+}
+
+/// Validate one `update` entry and hand it to the backend. `Ok` is the
+/// `updated` echo: the properties the server changed beyond the patch.
+async fn update_call<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    patch: Value,
+) -> Result<Value, Value> {
+    let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
+        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+    })?;
+
+    let mut keys: Vec<&str> = patch
+        .as_map()
+        .keys()
+        .map(|k| k.split('/').next().unwrap_or(k))
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+
+    let fixed: Vec<&str> = keys
+        .iter()
+        .copied()
+        .filter(|k| NOT_PATCHABLE.contains(k))
+        .collect();
+    if !fixed.is_empty() {
+        return Err(invalid(&fixed, "these properties cannot be updated"));
+    }
+
+    let call = fetch_call(backend, caller, account_id, id)
+        .await?
+        .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
+
+    if keys.iter().any(|k| MODERATOR_ONLY.contains(k)) {
+        let moderator = backend
+            .is_moderator(caller, account_id, &call)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        // §Ending a Call: "A moderator (or the initiator of a ring call)".
+        let ring_initiator_ending = !moderator
+            && call.call_type == CallType::Ring
+            && keys == ["state"]
+            && backend
+                .caller_user_id(caller, account_id)
+                .await
+                .map_err(|e| server_fail_value_from_backend(&e))?
+                == call.initiator_id;
+        if !moderator && !ring_initiator_ending {
+            return Err(forbidden("the caller is not a moderator on this call"));
+        }
+    }
+
+    let mut echo = Value::Null;
+    if let Some(requested) = patch.as_map().get("state") {
+        if call.state == CallState::Ended {
+            return Err(invalid(
+                &["state"],
+                "the call is already in state \"ended\"",
+            ));
+        }
+        let end_reason = match (CallState::deserialize(requested), &call.state) {
+            (Ok(CallState::Ended), CallState::Active) => CallEndReason::Completed,
+            (Ok(CallState::Ended), CallState::Ringing | CallState::Pending) => {
+                CallEndReason::Cancelled
+            }
+            _ => {
+                return Err(invalid(
+                    &["state"],
+                    "this state transition is not permitted by the state machine",
+                ))
+            }
+        };
+        // §Ending a Call: "The server sets `endedAt` ... The server sets
+        // `endReason` based on context".
+        let ended_at = json!(now_utc_string());
+        let end_reason = json!(end_reason);
+        let map = patch.as_map_mut();
+        map.insert("endedAt".to_owned(), ended_at.clone());
+        map.insert("endReason".to_owned(), end_reason.clone());
+        echo = json!({ "endedAt": ended_at, "endReason": end_reason });
+    }
+
+    match backend
+        .update_object::<VtcCall>(caller, account_id, id, patch)
+        .await
+    {
+        Ok(Some(obj)) if echo.is_null() => {
+            Ok(serde_json::to_value(&obj).expect("derive(Serialize) on plain data is infallible"))
+        }
+        Ok(_) => Ok(echo),
+        Err(e) => Err(backend_set_error_value(e)),
+    }
+}
