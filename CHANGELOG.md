@@ -992,6 +992,15 @@ wire behaviour that a conforming peer can observe.
   (draft-atwood-jmap-chat-00 §ReadPosition: the server "destroys it when
   the Chat is destroyed"). The reference `MemoryBackend` does so.
 
+### Removed
+
+- **BREAKING** **jmap-chat-client**: `ContactPresenceFilter` and its
+  `TryFrom<Presence>` impl. Its only consumer, `ChatContactQueryInput`,
+  was removed when `chat_contact_query` moved to `Filter`, whose
+  `presence` condition is `jmap_chat_types::Presence`. Its `Invisible`
+  variant also contradicted draft-atwood-jmap-chat-00 §ChatContact: "A
+  contact whose own presence is `"invisible"` appears as `"offline"`."
+
 ### Fixed
 
 - **BREAKING** **jmap-chat-server**: a `Message/set` create throttled by

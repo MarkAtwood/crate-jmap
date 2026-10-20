@@ -48,7 +48,7 @@ pub use methods::{
 };
 pub use session::{ChatCapability, ChatFilenodeCapability, ChatPushCapability, ChatSessionExt};
 pub use sse::{parse_chat_sse_block, ChatSseEvent, ChatSseFrame};
-pub use types::{ChatMemberRole, ContactPresenceFilter, QuotaResourceType, QuotaScope};
+pub use types::{ChatMemberRole, QuotaResourceType, QuotaScope};
 pub use utils::{
     broadcast_mentions_from_spans, format_receipt_timestamp, format_receipt_timestamp_at,
     mentions_from_spans, TypingIndicators, TYPING_DECAY,

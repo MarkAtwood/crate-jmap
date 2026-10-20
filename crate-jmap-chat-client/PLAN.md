@@ -122,7 +122,7 @@ in `jmap-calendars-client` (bd:JMAP-6by7.1) and the canonical
 
 2. **Use `jmap-chat-types` domain types directly** — `Chat`, `Message`, `Space`, etc.
    come from `jmap-chat-types`. A thin `src/types.rs` remains only for client-side
-   auxiliary types that are not wire-format (e.g. `ContactPresenceFilter`).
+   auxiliary types that are not wire-format (e.g. `QuotaScope`).
 
 3. **Auth, transport, session, SSE, WebSocket, blob live in `jmap-base-client`** —
    `jmap-base-client` is a workspace path dependency and supplies `AuthProvider`,
@@ -142,7 +142,7 @@ src/
   session.rs    ChatSessionExt — ChatCapability, ChatPushCapability accessors
   sse.rs        ChatSseEvent, ChatSseFrame — chat-specific SSE wrappers over base SseEvent
   ws.rs         ChatWsExt, ChatWsFrame — chat-specific WS wrappers over base WsFrame
-  types.rs      Client-side auxiliary types (e.g. ContactPresenceFilter)
+  types.rs      Client-side auxiliary types (e.g. QuotaScope)
   utils.rs      format_receipt_timestamp, etc.
   methods/
     mod.rs          method input/output types, re-exports, SessionClient
