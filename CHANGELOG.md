@@ -268,6 +268,12 @@ wire behaviour that a conforming peer can observe.
   channel between categories removes it from the old category.
 - **jmap-chat-server**: `Space/set` destroy cascades to the Space's channel
   Chats and their Messages, and `/changes` reports those destroys.
+- **jmap-chat-server**: `Space/set` `updateMembers` `roleIds` changes need
+  only `manage_roles` (was `manage_roles` plus `manage_members`), and every
+  role granted or removed must rank below the caller's highest role (was
+  checked only for the roles in the new set).
+  `required_permissions_for_op` returns `[manage_roles]` for a `roleIds`-only
+  entry.
 
 ### Added
 
