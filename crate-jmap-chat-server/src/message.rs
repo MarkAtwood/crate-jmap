@@ -34,7 +34,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
 use crate::chat::record_unread_count_changes;
-use crate::outbound::OutboundEvent;
+use crate::outbound::{OutboundEvent, ReactionAction};
 use std::collections::{HashMap, HashSet};
 use subtle::ConstantTimeEq;
 
@@ -1401,6 +1401,15 @@ pub async fn handle_message_set<B: ChatBackend>(
                 Ok((_server_id, created_obj)) => {
                     mutated = true;
                     delivered_chat_ids.push(created_obj.chat_id.clone());
+                    // draft-atwood-jmap-chat-00 §Message/set: the server
+                    // sets the server-assigned fields "then enqueues the
+                    // message for outbound delivery".
+                    let event = OutboundEvent::NewMessage {
+                        chat_id: created_obj.chat_id.clone(),
+                        message_id: created_obj.id.clone(),
+                        sender_msg_id: created_obj.sender_msg_id.clone(),
+                    };
+                    backend.on_outbound_event(caller, &account_id, &event).await;
                     created.insert(
                         create_id.clone(),
                         serde_json::to_value(&created_obj)
@@ -1721,6 +1730,9 @@ pub async fn handle_message_set<B: ChatBackend>(
                 })
                 .unwrap_or_default();
 
+            // One `OutboundEvent::ReactionUpdate` per patched key, built
+            // from the pre-fetched Message and reported after the write.
+            let mut reaction_events: Vec<OutboundEvent> = Vec::new();
             if !reaction_pointer_keys.is_empty() {
                 // Validate each pointer key + value shape. The
                 // `.collect::<Result<Vec<_>, _>>()` form short-circuits
@@ -1784,11 +1796,26 @@ pub async fn handle_message_set<B: ChatBackend>(
                     Ok((found, _not_found)) => {
                         let mut bad: Vec<String> = Vec::new();
                         if let Some(msg) = found.first() {
-                            for (_, suffix) in &decoded {
-                                if let Some(existing) = msg.reactions.get(suffix) {
-                                    if existing.sender_id != account_id {
-                                        bad.push(suffix.clone());
-                                    }
+                            for (raw_key, suffix) in &decoded {
+                                let existing = msg.reactions.get(suffix);
+                                if existing.is_some_and(|r| r.sender_id != account_id) {
+                                    bad.push(suffix.clone());
+                                }
+                                // A null on a key with no stored reaction
+                                // removes nothing, so nothing propagates.
+                                let action = match augmented.get(raw_key) {
+                                    Some(Value::Object(_)) => Some(ReactionAction::Add),
+                                    _ => existing
+                                        .map(|r| ReactionAction::Remove { removed: r.clone() }),
+                                };
+                                if let Some(action) = action {
+                                    reaction_events.push(OutboundEvent::ReactionUpdate {
+                                        chat_id: msg.chat_id.clone(),
+                                        message_id: msg.id.clone(),
+                                        sender_msg_id: msg.sender_msg_id.clone(),
+                                        sender_reaction_id: suffix.clone(),
+                                        action,
+                                    });
                                 }
                             }
                         }
@@ -2029,6 +2056,15 @@ pub async fn handle_message_set<B: ChatBackend>(
             // leaves nothing to deliver.
             if let Some(event @ OutboundEvent::Edit { .. }) = &outbound {
                 if !deletes && !burns {
+                    backend.on_outbound_event(caller, &account_id, event).await;
+                }
+            }
+            // draft-atwood-jmap-chat-00 §Adding and Removing Reactions:
+            // propagate each add and removal "via `Peer/deliver`
+            // `reactionUpdate` payload". As for edits, a patch that also
+            // deletes or burns the Message leaves nothing to deliver.
+            if !deletes && !burns {
+                for event in &reaction_events {
                     backend.on_outbound_event(caller, &account_id, event).await;
                 }
             }

@@ -843,14 +843,20 @@ pub trait ChatBackend: JmapBackend {
     }
 
     /// Called when the owner's action must be sent to other participants'
-    /// servers: a retraction (`deletedForAll`), an edit, or a group Chat
-    /// change. A backend that implements draft-atwood-jmap-chat-federation-00
-    /// turns the [`OutboundEvent`](crate::OutboundEvent) into
-    /// `Peer/retract`, `Peer/deliver` `edit` or `Peer/groupUpdate` calls,
-    /// typically by enqueueing them (§Persistent Queue).
+    /// servers: a new Message, a retraction (`deletedForAll`), an edit, a
+    /// reaction added or removed, or a group Chat change. A backend that
+    /// implements draft-atwood-jmap-chat-federation-00 turns the
+    /// [`OutboundEvent`](crate::OutboundEvent) into `Peer/deliver`
+    /// (`message`, `edit` or `reactionUpdate`), `Peer/retract` or
+    /// `Peer/groupUpdate` calls, typically by enqueueing them
+    /// (§Persistent Queue).
     ///
     /// # When the handler calls this
     ///
+    /// - `Message/set` create:
+    ///   [`OutboundEvent::NewMessage`](crate::OutboundEvent::NewMessage), after the Message is written
+    ///   (draft-atwood-jmap-chat-00 §Message/set: "enqueues the message for
+    ///   outbound delivery").
     /// - `Message/set` update setting `deletedForAll: true`:
     ///   [`OutboundEvent::Retract`](crate::OutboundEvent::Retract), after validation and *before* the
     ///   update is written (§Peer/retract "Sender Behavior": "before
@@ -864,7 +870,11 @@ pub trait ChatBackend: JmapBackend {
     ///   one [`OutboundEvent::GroupUpdate`](crate::OutboundEvent::GroupUpdate) per action, after the write
     ///   (draft-atwood-jmap-chat-00 §Chat/set).
     ///
-    /// Reactions and new Messages are not reported here.
+    /// - `Message/set` update patching `reactions/<senderReactionId>` and
+    ///   not deleting the Message:
+    ///   one [`OutboundEvent::ReactionUpdate`](crate::OutboundEvent::ReactionUpdate) per key that adds a
+    ///   reaction or removes a stored one, after the update is written
+    ///   (draft-atwood-jmap-chat-00 §Adding and Removing Reactions).
     ///
     /// The hook cannot fail the request. A backend handles its own errors
     /// here.
