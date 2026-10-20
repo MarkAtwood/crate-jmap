@@ -29,6 +29,9 @@
 //!   `ownerUserId`, `peerSigningKeys` and `ownerDirectAddress` Session
 //!   fields, and the anonymous `/.well-known/jmap` Session object (draft
 //!   §Session Object Extensions for Federation, §Key Publication).
+//! - [`owner_endpoints`] — the `endpoints` of a ChatContact, from the
+//!   `ownerEndpoints` its server's Session publishes
+//!   (draft-atwood-jmap-chat-00 §ChatContact).
 
 #![forbid(unsafe_code)]
 
@@ -44,4 +47,6 @@ pub use peer::{
     PeerSubscribePresenceArgs, PeerSubscribePresenceResponse, PeerTypingArgs,
     PeerUnsubscribePresenceArgs, ReactionAction,
 };
-pub use session::{anonymous_well_known_session, AnonymousSessionError, FederationSession};
+pub use session::{
+    anonymous_well_known_session, owner_endpoints, AnonymousSessionError, FederationSession,
+};

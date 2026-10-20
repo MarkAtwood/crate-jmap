@@ -22,6 +22,18 @@
 //! creates a group Chat or applies a membership, role or metadata change,
 //! with the draft's admin checks.
 //!
+//! ## Peer/subscribePresence, Peer/unsubscribePresence, Peer/presence
+//!
+//! The optional presence methods run over a [`FederationPresenceBackend`],
+//! which keeps the subscriptions and pushes to the owner's clients.
+//! [`handle_peer_subscribe_presence`] records a subscription and answers
+//! with the owner's presence, never `"invisible"`;
+//! [`handle_peer_unsubscribe_presence`] cancels one. [`handle_peer_presence`]
+//! updates the sender's ChatContact `presence`, `lastActiveAt`,
+//! `statusText` and `statusEmoji`, drops the update silently for a blocked
+//! contact, and fires the local presence event. A deployment that does not
+//! offer them leaves them unregistered, so callers get `unknownMethod`.
+//!
 //! Every handler checks the caller-identity field against the
 //! authenticated peer first, and rejects before its first write.
 //!
@@ -83,6 +95,7 @@
 mod deliver;
 mod group_update;
 mod outbound;
+mod presence;
 mod receipt;
 mod retract;
 mod typing;
@@ -92,6 +105,10 @@ pub use group_update::handle_peer_group_update;
 pub use outbound::{
     aggregate_delivery_state, is_transient, other_participants, outbound_reference,
     peer_group_update_args, DeliveryFailure, OutboundError, SenderIdentities,
+};
+pub use presence::{
+    handle_peer_presence, handle_peer_subscribe_presence, handle_peer_unsubscribe_presence,
+    FederationPresenceBackend,
 };
 pub use receipt::handle_peer_receipt;
 pub use retract::handle_peer_retract;

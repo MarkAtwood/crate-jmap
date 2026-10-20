@@ -1,6 +1,7 @@
 //! draft-atwood-jmap-chat-federation-00 §Session Object Extensions for
 //! Federation — the `ownerUserId`, `peerSigningKeys` and
-//! `ownerDirectAddress` Session fields, and the anonymous Session object a
+//! `ownerDirectAddress` Session fields, the chat `ownerEndpoints` field
+//! as ChatContact `endpoints`, and the anonymous Session object a
 //! server answers an unsigned GET of `/.well-known/jmap` with (§Key
 //! Publication).
 //!
@@ -8,6 +9,7 @@
 //! them in its catch-all map (for example `jmap_base_client::Session::extra`);
 //! [`FederationSession::from_session_extra`] reads them from there.
 
+use jmap_chat_types::Endpoint;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -67,6 +69,51 @@ impl FederationSession {
             .collect();
         serde_json::from_value(Value::Object(fields))
     }
+}
+
+/// The `endpoints` value for the ChatContact whose server published a
+/// Session with these extension fields.
+///
+/// Spec: draft-atwood-jmap-chat-00 §Session Object Extensions:
+/// "`ownerEndpoints` (Endpoint\[\], optional): The owner's advertised
+/// out-of-band capability endpoints ... Peers that probe
+/// `/.well-known/jmap` SHOULD merge these into the `endpoints` field of the
+/// corresponding ChatContact record." §ChatContact: "Servers populate this
+/// field from the ChatContact's `ownerEndpoints` at `/.well-known/jmap`."
+///
+/// Pass the probed Session's catch-all map, or the whole Session object.
+/// Write the result to the ChatContact's `endpoints`, replacing the stored
+/// value, so an endpoint the peer stopped advertising goes away:
+///
+/// - `None` when `ownerEndpoints` is absent or not an array: the
+///   ChatContact has no `endpoints`.
+/// - Otherwise the entries that parse as an Endpoint, in order. An entry
+///   without a string `type` and `uri` is skipped, so one malformed entry
+///   does not hide the others. Entries with an unknown `type` are kept:
+///   clients ignore them (§Endpoint).
+///
+/// The values are peer-supplied and untrusted (draft-atwood-jmap-chat-00
+/// §Out-of-Band Endpoints and Actions). A server that fetches from one
+/// applies draft-atwood-jmap-chat-federation-00 §Blob Fetch and SSRF
+/// (`jmap_peer_auth::fetch_address_allowed`).
+///
+/// # Example
+///
+/// ```
+/// let session = serde_json::json!({
+///     "ownerEndpoints": [{ "type": "urn:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob" }]
+/// });
+/// let endpoints = jmap_chat_federation_types::owner_endpoints(session.as_object().unwrap());
+/// assert_eq!(endpoints.unwrap()[0].uri, "https://meet.b.example/bob");
+/// ```
+pub fn owner_endpoints(extra: &Map<String, Value>) -> Option<Vec<Endpoint>> {
+    let entries = extra.get("ownerEndpoints")?.as_array()?;
+    Some(
+        entries
+            .iter()
+            .filter_map(|e| serde_json::from_value(e.clone()).ok())
+            .collect(),
+    )
 }
 
 /// Why [`anonymous_well_known_session`] refused to build a Session.

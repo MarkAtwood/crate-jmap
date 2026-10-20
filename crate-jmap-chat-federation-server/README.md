@@ -2,8 +2,8 @@
 
 Server rules for draft-atwood-jmap-chat-federation-00, server-to-server
 delivery between JMAP Chat mailboxes: peer-role access control and the
-`Peer/deliver`, `Peer/receipt`, `Peer/typing`, `Peer/retract` and
-`Peer/groupUpdate` handlers. No transport and no network I/O; the deployment
+`Peer/deliver`, `Peer/receipt`, `Peer/typing`, `Peer/retract`,
+`Peer/groupUpdate` and optional presence handlers. No transport and no network I/O; the deployment
 authenticates requests and fetches blobs.
 
 ## What it is
@@ -18,6 +18,9 @@ authenticates requests and fetches blobs.
 | `handle_peer_typing` | §Peer/typing: membership, `blocked` and `receiveTypingIndicators` checks, then `forward_typing` |
 | `handle_peer_retract` | §Peer/retract: the original-sender check and the tombstone |
 | `handle_peer_group_update` | §Peer/groupUpdate: `create`, `addMembers`, `removeMembers`, `updateRoles`, `updateMetadata`, `leave`, `close`, with the admin and `closedAt` checks |
+| `handle_peer_subscribe_presence`, `handle_peer_unsubscribe_presence` | §Peer/subscribePresence, §Peer/unsubscribePresence: `subscriberId` check, owner presence with `"invisible"` as `"offline"`, granted TTL |
+| `handle_peer_presence` | §Peer/presence "Receiver Behavior": ChatContact `presence`, `lastActiveAt`, `statusText`, `statusEmoji` update, blocked contacts dropped silently, then `forward_presence` |
+| `FederationPresenceBackend` | A `FederationBackend` that also keeps presence subscriptions and forwards presence events to the owner's clients; only deployments offering the optional methods implement it |
 | `FederationBackend` | A `ChatBackend` that also supplies the `AuthenticatedPeer`, the `@everyone` permission floor, attachment fetching (`FetchedBlob`), fresh Message ids, Chats under a peer-chosen id, and typing events forwarded to the owner's clients |
 
 ## What it's for
@@ -80,6 +83,12 @@ Every `handle_peer_*(&backend, &caller, args)` has the signature of the
   the peer-supplied `fetchUrl`; the handler does not see the URL's target.
 - `FederationBackend::forward_typing` owns the `Peer/typing` rate limit
   (one call per peer per chat per 3 s, SHOULD); the handler counts nothing.
+- The presence methods are optional. Without a `FederationPresenceBackend`,
+  leave them unregistered so callers get `unknownMethod`.
+- `handle_peer_presence` creates no ChatContact: an update for an identity
+  with none is acknowledged and ignored.
+- Sending `Peer/presence` to subscribers, its rate limit, and subscription
+  expiry are the deployment's.
 - `Peer/groupUpdate` stores the sender's `avatarBlobId` as sent; fetching
   the blob is left to the deployment.
 

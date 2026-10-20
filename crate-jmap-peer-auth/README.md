@@ -70,6 +70,10 @@ again before rejecting.
   bogus answer rejects, and every other answer uses the HTTPS keys alone.
 - Peer domains compare in lowercase A-label form without a trailing dot
   (`PeerDomain`).
+- `fetch_address_allowed` applies §Blob Fetch and SSRF to one address:
+  `false` for loopback, unspecified, link-local, RFC 1918 and RFC 4193
+  addresses, and IPv4-mapped forms of them. It fits
+  `jmap_peer_auth_io::HttpsFetcher::with_policy`.
 
 Structured fields are parsed and serialized with [`sfv`]; signatures use
 [`ed25519-dalek`]. The [`httpsig`] crate was not used: it pulls a second
@@ -88,6 +92,10 @@ generation of the RustCrypto elliptic-curve crates and uses
   rejected.
 - A receiver without a trusted DNSSEC-validating resolver passes
   `DnssecAnswer::Insecure`.
+- `fetch_address_allowed` judges an address, not a URL: call it on every
+  address you connect to, after resolution and on each redirect. It does
+  not check the draft's "peer's known IP range or hostname" rule, and
+  lets other special-purpose ranges (100.64.0.0/10, NAT64) through.
 
 ## References
 
