@@ -25,6 +25,11 @@ wire behaviour that a conforming peer can observe.
   id, or the accountId, to the identity string VTC uses as `userId`;
   `is_blocked_by_contact` answers
   `VtcBackend::is_user_blocked` from `ChatContact.blocked`.
+- **jmap-chat-vtc-server**: `should_deliver_vtc` decides delivery of a VTC
+  ephemeral event over the union of the `ChatStreamEnable` `"vtc"` path and
+  the `VTCStreamEnable` subscription, once per event and connection
+  (draft-atwood-jmap-vtc-wss-00 §Interoperability with JMAP Chat
+  WebSocket).
 - **jmap-scene-client**: `ws` module for draft-atwood-jmap-scene-wss-00.
   `SceneWsExt` on `jmap_base_client::WsSession` adds `next_scene_frame`,
   `send_scene_stream_enable`, `send_scene_stream_disable` and

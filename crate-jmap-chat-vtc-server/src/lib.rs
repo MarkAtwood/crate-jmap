@@ -15,6 +15,7 @@
 //! | `VtcBackend::is_user_blocked` | [`is_blocked_by_contact`] |
 //! | `ChatBackend::on_chat_destroyed` | [`clear_channel_references`] |
 //! | `ChatBackend::on_space_destroyed` | [`clear_space_references`] |
+//! | WebSocket transport, before sending a VTC event | [`should_deliver_vtc`] |
 //!
 //! Each function takes only the backend it reads or writes, so the two
 //! backends may have different caller contexts and error types.
@@ -28,8 +29,8 @@ use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{Chat, ChatContact, ChatKind, Space};
 use jmap_server::{BackendSetError, GetObject, JmapBackend, SetError, SetErrorType};
 use jmap_types::{Id, PatchObject};
-use jmap_vtc_server::VtcBackend;
-use jmap_vtc_types::{CallState, VtcCall};
+use jmap_vtc_server::{VtcBackend, VtcEphemeralSubscription};
+use jmap_vtc_types::{CallState, VtcCall, VtcEvent, VtcStreamEnable};
 use serde_json::{json, Value};
 
 /// The Space permission that gates call creation
@@ -288,6 +289,51 @@ pub async fn is_blocked_by_contact<C: ChatBackend>(
         .get_objects::<ChatContact>(caller, account_id, None, None)
         .await?;
     Ok(contacts.iter().any(|c| c.blocked && c.identity == user_id))
+}
+
+/// Whether VTC ephemeral `event` may be delivered on a connection, over
+/// both subscription paths of draft-atwood-jmap-vtc-wss-00
+/// §Interoperability with JMAP Chat WebSocket.
+///
+/// `chat_vtc` is `true` while the connection's current `ChatStreamEnable`
+/// subscription has `"vtc"` in `dataTypes`. Set it from a frame that
+/// [`jmap_chat_server::EphemeralSubscription::replace_with`] accepted, keep
+/// it when that call fails, and clear it on `ChatStreamDisable`. Pass
+/// `false` when the server does not advertise
+/// `urn:ietf:params:jmap:vtc:websocket`: the server "MUST silently ignore
+/// `"vtc"` in `dataTypes`" then (draft-atwood-jmap-chat-wss-00 §Enabling
+/// Ephemeral Push). `subscription` is the connection's `VTCStreamEnable`
+/// subscription, which only `VTCStreamDisable` resets (§Subscription
+/// Independence).
+///
+/// The `"vtc"` path covers "all VTC event types for all calls in which the
+/// user participates", which is a `VTCStreamEnable` with `callIds` and
+/// `eventTypes` both `null`. Every `VTCStreamEnable` covers a subset of
+/// that, so the union the server "MUST deliver" is the `"vtc"` path when it
+/// is on and `subscription` otherwise. [`jmap_vtc_server::should_deliver`]
+/// decides either way, with the same delivery-time authorization. The
+/// answer is one `bool` per event and connection, so an event that matches
+/// both paths is still sent once ("MUST NOT deliver duplicate events").
+///
+/// # Errors
+///
+/// Returns the backend's error from [`jmap_vtc_server::should_deliver`].
+pub async fn should_deliver_vtc<V: VtcBackend>(
+    vtc: &V,
+    caller: &V::CallerCtx,
+    account_id: &Id,
+    chat_vtc: bool,
+    subscription: &VtcEphemeralSubscription,
+    event: &VtcEvent,
+) -> Result<bool, V::Error> {
+    if !chat_vtc {
+        return jmap_vtc_server::should_deliver(vtc, caller, account_id, subscription, event).await;
+    }
+    let mut every = VtcEphemeralSubscription::default();
+    every
+        .replace_with(&VtcStreamEnable::default())
+        .expect("a VTCStreamEnable with null eventTypes is always valid");
+    jmap_vtc_server::should_deliver(vtc, caller, account_id, &every, event).await
 }
 
 /// The Id in a `T|null` binding property, if it is set.

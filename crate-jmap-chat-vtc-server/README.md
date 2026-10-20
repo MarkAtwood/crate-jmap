@@ -16,6 +16,7 @@ not depend on each other; this crate depends on both.
 | `contact_identity` | chat §Terminology: the identity a ChatContact id (or the accountId) names, as VTC `userId` uses it |
 | `is_blocked_by_contact` | vtc §Blocked-Sender Suppression, through `ChatContact.blocked` |
 | `START_CALL` | chat §SpaceRole `"start_call"` |
+| `should_deliver_vtc` | vtc-wss §Interoperability with JMAP Chat WebSocket: the union of the `ChatStreamEnable` `"vtc"` path and `VTCStreamEnable`, one decision per event |
 
 ## What it's for
 
@@ -29,6 +30,7 @@ these functions from its trait methods:
 | `VtcBackend::is_user_blocked` | `is_blocked_by_contact` |
 | `ChatBackend::on_chat_destroyed` | `clear_channel_references` |
 | `ChatBackend::on_space_destroyed` | `clear_space_references` |
+| WebSocket transport, before sending a VTC event | `should_deliver_vtc` |
 
 ## How to use
 
@@ -70,6 +72,10 @@ require.
 - Space ban enforcement (vtc §Access Control) is not here yet: it writes
   `VTCParticipant.leftAt`, and `VtcParticipant` has no `SetObject` impl
   yet (bd:JMAP-8mem.10). `contact_identity` is its first step.
+- `should_deliver_vtc` takes a `chat_vtc` flag the transport keeps: set
+  it from an accepted `ChatStreamEnable` that lists `"vtc"`, clear it on
+  `ChatStreamDisable`, and pass `false` when the server does not
+  advertise `urn:ietf:params:jmap:vtc:websocket`.
 - `clear_*_references` and `is_blocked_by_contact`
   read every record of the type; each carries a `ponytail:` note with the
   upgrade path.
@@ -78,8 +84,10 @@ require.
 
 - [draft-atwood-jmap-vtc-00] — JMAP VTC
 - [draft-atwood-jmap-chat-00] — JMAP Chat
+- [draft-atwood-jmap-vtc-wss-00] — JMAP VTC WebSocket
 - [RFC 8620] — JMAP Core
 
 [draft-atwood-jmap-vtc-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-chat-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-vtc-wss-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
