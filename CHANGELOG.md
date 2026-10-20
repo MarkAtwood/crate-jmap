@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `store_server_message` stores a Message that the
+  server creates, such as a MIMI fanout Message
+  (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout) or a federation
+  delivery. It returns `StoreOutcome::Duplicate` with the stored id, and
+  writes nothing, when the Chat already holds that `senderMsgId`. After a
+  store it creates the owner's ReadPosition and recomputes `unreadCount`
+  as `Message/set` does. `find_message_by_sender_msg_id` looks up a
+  Message by `(chatId, senderMsgId)` (draft-atwood-jmap-chat-federation-00).
 - **jmap-chat-server**: `ChatBackend::space_extension_properties` lets a
   Space extension own extra top-level Space properties, such as
   `calendarId` (draft-atwood-jmap-chat-calendars-00) and `taskListId`
