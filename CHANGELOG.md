@@ -33,6 +33,13 @@ wire behaviour that a conforming peer can observe.
   reading the `calendarId` extension (`SPACE_CALENDAR_ID_PROPERTY`) from
   `Space::extra`, and the MessageAction metadata shapes
   `CalendarEventMetadata`, `AvailabilityMetadata` and `LookupWindow`.
+- **jmap-chat-tasks-server**: new crate, the Chat binding for
+  `jmap-tasks-server` (draft-atwood-jmap-chat-tasks-00).
+  `space_extension_properties` registers `taskListId` only with
+  `mayBindTaskList: true`; `check_task_list_id` accepts `null` (unbind) or
+  a TaskList on the Space's own account, else `invalidProperties` naming
+  `taskListId`; `create_space_task_list` auto-binds a new Space. The bound
+  TaskList is never destroyed with its Space.
 - **jmap-chat-calendars-server**: new crate, the Chat binding for
   `jmap-calendars-server` (draft-atwood-jmap-chat-calendars-00).
   `may_advertise` allows the capability only alongside
