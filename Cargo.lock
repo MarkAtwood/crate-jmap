@@ -1078,6 +1078,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-did-types"
+version = "0.3.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-filenode-client"
 version = "0.3.0"
 dependencies = [
