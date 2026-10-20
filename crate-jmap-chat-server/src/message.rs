@@ -697,7 +697,7 @@ async fn check_attachments<B: ChatBackend>(
     limits: &ChatLimits,
     attachments: &[Attachment],
 ) -> Option<Value> {
-    if u32::try_from(attachments.len()).map_or(true, |n| n > limits.max_attachments_per_message) {
+    if u64::try_from(attachments.len()).map_or(true, |n| n > limits.max_attachments_per_message) {
         return Some(json!({
             "type": "tooLarge",
             "description": format!(

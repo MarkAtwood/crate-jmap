@@ -146,6 +146,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `ChatLimits::max_attachments_per_message`
+  and `ChatLimits::with_max_attachments_per_message` take `u64` instead of
+  `u32`, matching `ChatCapability::max_attachments_per_message` and the
+  `UnsignedInt` type of `maxAttachmentsPerMessage`
+  (draft-atwood-jmap-chat-00 §Account-Level Capability Object).
+
 - **BREAKING** **jmap-base-client**: `WsSession::next_frame` /
   `WsReceiver::next_frame` return `Some(Err(ClientError::WsClosed { code,
   reason }))` instead of `None` when the server closes with status code 1008
