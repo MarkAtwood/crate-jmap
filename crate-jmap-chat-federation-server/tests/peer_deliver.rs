@@ -139,6 +139,48 @@ async fn rejected_request_creates_no_placeholder() {
 }
 
 // ---------------------------------------------------------------------------
+/// fed L875: "Servers MAY limit how many placeholder ChatContacts a peer
+/// can cause to be created. A server that applies such a limit rejects,
+/// with `rateLimited`, any request that would exceed it, and that request
+/// creates no placeholders." Bob is the one ChatContact; a cap of two
+/// leaves room for one placeholder, and the message names two unknown
+/// identities.
+#[tokio::test]
+async fn placeholder_limit_rejects_with_rate_limited_and_creates_none() {
+    let mut fed = Fed::new();
+    fed.contact_cap = Some(2);
+    let mut m = message("M1");
+    m["mentions"] = json!([{"id": CAROL}, {"id": "dave@peer.example"}]);
+    assert_error(
+        fed.deliver(deliver_args(LOW, "direct", m)).await,
+        "rateLimited",
+    );
+    let identities: Vec<String> = fed
+        .contacts()
+        .await
+        .into_iter()
+        .map(|c| c.identity)
+        .collect();
+    assert_eq!(identities, [BOB]);
+    assert!(fed.messages().await.is_empty());
+    assert!(fed.chats().await.is_empty());
+}
+
+/// fed L875: only a request "that would exceed" the limit is rejected; a
+/// cap with room for both placeholders accepts the same message.
+#[tokio::test]
+async fn placeholder_limit_accepts_a_request_within_it() {
+    let mut fed = Fed::new();
+    fed.contact_cap = Some(3);
+    let mut m = message("M1");
+    m["mentions"] = json!([{"id": CAROL}, {"id": "dave@peer.example"}]);
+    fed.deliver(deliver_args(LOW, "direct", m))
+        .await
+        .expect("accepted");
+    assert_eq!(fed.contacts().await.len(), 3);
+    assert_eq!(fed.messages().await.len(), 1);
+}
+
 // Step 3
 // ---------------------------------------------------------------------------
 

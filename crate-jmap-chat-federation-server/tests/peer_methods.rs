@@ -606,6 +606,27 @@ async fn group_create_by_an_unlisted_sender_is_forbidden() {
     assert_eq!(fed.contacts().await.len(), 1);
 }
 
+/// fed L875: a placeholder limit "rejects, with `rateLimited`, any
+/// request that would exceed it, and that request creates no
+/// placeholders." Bob is the one ChatContact; a cap of two leaves room
+/// for Erin's placeholder but not Dave's.
+#[tokio::test]
+async fn group_create_over_the_placeholder_limit_is_rate_limited() {
+    let mut fed = Fed::new();
+    fed.contact_cap = Some(2);
+    let args = group_args(
+        "create",
+        json!({"members": [
+            peer_member(BOB, "admin"),
+            peer_member(ERIN, "member"),
+            peer_member(DAVE, "member"),
+        ]}),
+    );
+    assert_error(fed.group_update(args).await, "rateLimited");
+    assert_eq!(chat(&fed, GROUP).await, None);
+    assert_eq!(fed.contacts().await.len(), 1);
+}
+
 /// fed L628: `members` (ChatMember[], "required for `"create"`").
 #[tokio::test]
 async fn group_create_without_members_is_invalid_arguments() {
