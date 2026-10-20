@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `Chat.active_call_account_id`, the server-set
+  `activeCallAccountId` property (draft-atwood-jmap-chat-00 §Chat): the
+  account hosting the VTCCall named by `activeCallId`, serialized as
+  `null` when no call is active.
+- **jmap-chat-vtc-server**: `sync_active_call_id` sets and clears
+  `Chat.activeCallAccountId` together with `activeCallId` in one Chat
+  update (draft-atwood-jmap-vtc-00 §Active call banner).
 - **jmap-chat-server**: `verify_did_signature`, DID-keyed peer
   authentication (draft-atwood-jmap-chat-did-00 §Federation
   Authentication). It verifies the request's `jmap-chat-peer` RFC 9421

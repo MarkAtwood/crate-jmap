@@ -9,6 +9,11 @@
 //! with it from the client's perspective — a client polling `/changes`
 //! after receiving the VTCCall `StateChange` MUST see the corresponding
 //! Chat `activeCallId` update."
+//!
+//! Chat L661-662 (`activeCallAccountId`): "The id of the account hosting
+//! the VTCCall named by `activeCallId` ... The server sets and clears this
+//! field together with `activeCallId`, in the same state change: it is
+//! non-null exactly when `activeCallId` is non-null."
 
 mod common;
 
@@ -39,7 +44,9 @@ async fn room_call_start_sets_active_call_id_with_state_change() {
     let call_id = call["id"].as_str().expect("call id");
 
     assert_eq!(get_call(&backend, call_id).await["state"], "active");
-    assert_eq!(get_chat(&backend, CHAT).await["activeCallId"], call_id);
+    let chat = get_chat(&backend, CHAT).await;
+    assert_eq!(chat["activeCallId"], call_id);
+    assert_eq!(chat["activeCallAccountId"], ACCOUNT);
     assert_eq!(chat_updated_since(&backend, &before).await, json!([CHAT]));
 }
 
@@ -63,7 +70,9 @@ async fn ending_the_call_clears_active_call_id_with_state_change() {
     assert!(resp["notUpdated"].is_null(), "end failed: {resp}");
 
     assert_eq!(get_call(&backend, call_id).await["state"], "ended");
-    assert_eq!(get_chat(&backend, CHAT).await["activeCallId"], Value::Null);
+    let chat = get_chat(&backend, CHAT).await;
+    assert_eq!(chat["activeCallId"], Value::Null);
+    assert_eq!(chat["activeCallAccountId"], Value::Null);
     assert_eq!(chat_updated_since(&backend, &before).await, json!([CHAT]));
 }
 
@@ -89,6 +98,8 @@ async fn ringing_call_leaves_active_call_id_null() {
     let call_id = call["id"].as_str().expect("call id");
 
     assert_eq!(get_call(&backend, call_id).await["state"], "ringing");
-    assert_eq!(get_chat(&backend, CHAT).await["activeCallId"], Value::Null);
+    let chat = get_chat(&backend, CHAT).await;
+    assert_eq!(chat["activeCallId"], Value::Null);
+    assert_eq!(chat["activeCallAccountId"], Value::Null);
     assert_eq!(chat_updated_since(&backend, &before).await, json!([]));
 }
