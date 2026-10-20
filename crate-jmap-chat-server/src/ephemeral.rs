@@ -10,9 +10,12 @@
 //!
 //! Before sending a `ChatTypingEvent` to an owner's connections, the
 //! transport asks [`should_deliver_typing`] whether that owner may receive
-//! it.
+//! it. Before sending a `ChatPresenceEvent`, it asks [`project_presence`]
+//! for the frame that owner may see, if any.
 
-use jmap_chat_types::{Chat, ChatKind, ChatStreamEnable, ChatTypingEvent};
+use jmap_chat_types::{
+    Chat, ChatKind, ChatPresenceEvent, ChatStreamEnable, ChatTypingEvent, Presence,
+};
 use jmap_types::{Id, JmapError};
 
 use crate::push::owner_is_member;
@@ -161,4 +164,48 @@ pub async fn should_deliver_typing<B: ChatBackend>(
     Ok(!backend
         .is_contact_blocked(caller, account_id, &event.sender_id)
         .await?)
+}
+
+/// The `ChatPresenceEvent` the owner of `account_id` may receive for
+/// `event`, or `None` if it must be dropped.
+///
+/// `account_id` is the recipient and `event.contact_id` is the contact
+/// whose presence changed, as a ChatContact id on the recipient's contact
+/// list. The transport calls this once per recipient, at delivery time,
+/// and sends the returned frame, or nothing, to that owner's connections.
+/// The contact is never told. The connection's `contactIds` scope
+/// ([`EphemeralSubscription::presence`]) is a separate filter, checked by
+/// the transport on its own.
+///
+/// - If the contact is blocked on the recipient's contact list, per
+///   [`ChatBackend::is_contact_blocked`], the result is `None`
+///   (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent: "Servers MUST NOT
+///   deliver `ChatPresenceEvent` for a contact whose `blocked` field is
+///   `true` on the owner's ChatContact record for that contact").
+/// - Otherwise the result is `event` with an `"invisible"` presence
+///   replaced by `"offline"` (same section: "The `"invisible"` value MUST
+///   NOT appear in events delivered to other users"). Every other field
+///   is unchanged.
+///
+/// # Errors
+///
+/// Returns the backend's error if reading the contact's blocked status
+/// fails.
+pub async fn project_presence<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    event: &ChatPresenceEvent,
+) -> Result<Option<ChatPresenceEvent>, B::Error> {
+    if backend
+        .is_contact_blocked(caller, account_id, &event.contact_id)
+        .await?
+    {
+        return Ok(None);
+    }
+    let mut projected = event.clone();
+    if projected.presence == Presence::Invisible {
+        projected.presence = Presence::Offline;
+    }
+    Ok(Some(projected))
 }

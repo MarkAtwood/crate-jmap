@@ -28,6 +28,11 @@ wire behaviour that a conforming peer can observe.
   recipient is the sender, is no longer a member of the Chat, has
   `receiveTypingIndicators: false` on a direct or group Chat (channels ignore
   it), or has blocked the sender on its own contact list.
+- **jmap-chat-server**: `project_presence` returns, per recipient and at
+  delivery time, the `ChatPresenceEvent` that owner may receive
+  (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent, draft-atwood-jmap-chat-00
+  §Presence Events). It drops the event when the contact is blocked on the
+  recipient's own contact list, and delivers `"invisible"` as `"offline"`.
 - **jmap-chat-types**: `JmapUri` parses and builds the private-use
   `jmap:<type>:<accountId>:<objectId>` URI
   (draft-atwood-jmap-chat-calendars-00 §MessageAction format), including the
