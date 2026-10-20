@@ -43,6 +43,14 @@ wire behaviour that a conforming peer can observe.
   `register_vtc_handlers` wires the ten new methods; `query` gains
   `recording_matches`, `livestream_matches`, `compare_recordings` and
   `compare_livestreams`.
+- **jmap-vtc-server**: call-end cascades. Ending a call through
+  `VTCCall/set` first ends every breakout room beneath it, deepest first
+  (jmap-vtc-implementer-guide §Breakout room cleanup), then stops each
+  ended call's `"recording"` and `"paused"` VTCRecordings, setting
+  `stoppedAt` and delivering a `VTCRecordingStateEvent`
+  (jmap-vtc-recording-guide §Auto-stop on call end). The new `end_call`
+  runs the same cascade for a server-initiated end, such as an inactivity
+  timeout, with the `endReason` the deployment passes.
 - **jmap-vtc-types**: `VtcRecordingFilter`, `VtcLivestreamFilter`,
   `VtcMediaComparator` and `VtcMediaSortProperty` (§VTCRecording/query,
   §VTCLivestream/query), and `JmapObject` impls for `VtcRecording`

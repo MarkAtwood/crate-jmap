@@ -20,6 +20,8 @@
 //!
 //! The `VTCCall/*` methods: create with the capability gates, the state
 //! machine, ending a call, the call-level moderator actions and `/query`.
+//! Ending a call, by `VTCCall/set` or by the server through [`end_call`],
+//! also ends its breakout rooms and stops its active recordings.
 //! The `VTCRecording/*` and `VTCLivestream/*` methods: moderator-only
 //! `/set` with each type's state machine, the `VTCRecordingStateEvent`
 //! consent signal, and `streamKey` redaction in `VTCLivestream/get`.
@@ -56,7 +58,7 @@ pub use backend::{
     QueryObject, QueryResult, SetError, SetErrorType, SetObject, VtcBackend,
 };
 pub use call::{
-    handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
+    end_call, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
     handle_vtc_call_query_changes, handle_vtc_call_set,
 };
 pub use media::{

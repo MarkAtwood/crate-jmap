@@ -32,7 +32,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 
-use crate::backend::VtcBackend;
+use crate::backend::{BackendSetError, VtcBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
@@ -586,6 +586,73 @@ async fn create_recording<B: VtcBackend>(
     )
     .await;
     Ok(to_value(&recording))
+}
+
+/// Stop every recording of `call_id` in state `"recording"` or
+/// `"paused"`, the jmap-vtc-recording-guide §Auto-stop on call end
+/// cascade: "When a VTCCall transitions to `"ended"`, the server MUST stop
+/// all active recordings for that call. Any VTCRecording in `"recording"`
+/// or `"paused"` state is transitioned to `"stopped"`, with `stoppedAt` set
+/// and `VTCRecordingStateEvent` delivered."
+///
+/// Runs after the call has ended, so no recording can start behind it:
+/// [`VtcBackend::create_object`] refuses a recording on a call that is not
+/// `"active"`. Each event names the caller as `initiatedBy`.
+///
+/// ponytail: loads every VTCRecording of the account to find the call's,
+/// so each call end is O(recordings). Upgrade path: find them with
+/// [`jmap_server::JmapBackend::query_objects`] filtered by `callId`.
+///
+/// # Errors
+///
+/// Returns the first backend error; recordings stopped before it stay
+/// stopped and their events are delivered.
+// Same error type as `VtcBackend::update_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+pub(crate) async fn stop_recordings<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    call_id: &Id,
+) -> Result<(), BackendSetError<B::Error>> {
+    let (recordings, _) = backend
+        .get_objects::<VtcRecording>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    let live: Vec<VtcRecording> = recordings
+        .into_iter()
+        .filter(|r| {
+            r.call_id == *call_id
+                && matches!(r.state, RecordingState::Recording | RecordingState::Paused)
+        })
+        .collect();
+    if live.is_empty() {
+        return Ok(());
+    }
+    let initiator = backend
+        .caller_user_id(caller, account_id)
+        .await
+        .map_err(BackendSetError::Other)?;
+    for recording in live {
+        let mut patch = PatchObject::new();
+        let map = patch.as_map_mut();
+        map.insert("state".to_owned(), json!(RecordingState::Stopped));
+        map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+        backend
+            .update_object::<VtcRecording>(caller, account_id, &recording.id, patch)
+            .await?;
+        deliver(
+            backend,
+            caller,
+            account_id,
+            recording.call_id,
+            recording.id,
+            RecordingState::Stopped,
+            initiator.clone(),
+        )
+        .await;
+    }
+    Ok(())
 }
 
 /// Build and deliver one `VTCRecordingStateEvent` for a recording. Runs
