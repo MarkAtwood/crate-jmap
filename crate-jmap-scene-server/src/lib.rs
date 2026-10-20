@@ -30,6 +30,14 @@
 //! [`SceneBackend::region_binding`] and the destroy cascade; and `/query`
 //! with the draft's default sort and `accessPolicy` filter check.
 //!
+//! The `SceneObject/*` methods (draft §SceneObject Methods): `/set` with
+//! the create, update and destroy SetError conditions, `mayCreateObject`,
+//! `maxObjectsPerRegion`, a region-scoped acyclic scene graph at most 16
+//! levels deep, [`SceneBackend::may_modify_object`] and the recursive
+//! destroy; and `/query` with the draft's default sort, the §Filter
+//! Validation checks and the `withinRadius` and `withinBounds` spatial
+//! filters over region-local positions.
+//!
 //! The crate depends on RFC 8620 only; Chat and VTC bindings live in
 //! separate binding crates, which implement
 //! [`SceneBackend::has_capability`] and [`SceneBackend::region_binding`].
@@ -55,6 +63,7 @@ mod helpers;
 /// Gated behind `feature = "memory"`. Not production.
 #[cfg(feature = "memory")]
 pub mod memory;
+pub mod object;
 pub mod query;
 pub mod region;
 
@@ -66,6 +75,10 @@ pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, BindingTarget,
     ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
     QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
+};
+pub use object::{
+    handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,
+    handle_scene_object_query_changes, handle_scene_object_set,
 };
 pub use region::{
     handle_scene_region_changes, handle_scene_region_get, handle_scene_region_query,
@@ -79,11 +92,12 @@ pub use jmap_scene_types::JMAP_SCENE_URI;
 /// re-exported for the registration macro.
 pub use jmap_server::ClosureHandler;
 
-/// Register the `SceneAsset/*` and `SceneRegion/*` method handlers with
-/// `dispatcher`.
+/// Register the `SceneAsset/*`, `SceneRegion/*` and `SceneObject/*`
+/// method handlers with `dispatcher`.
 ///
 /// After this call the dispatcher handles `/get`, `/changes`, `/set`,
-/// `/query` and `/queryChanges` of `SceneAsset` and `SceneRegion`. [`Dispatcher::register`] silently
+/// `/query` and `/queryChanges` of `SceneAsset`, `SceneRegion` and
+/// `SceneObject`. [`Dispatcher::register`] silently
 /// replaces an existing handler of the same name, so register overrides
 /// afterwards.
 ///
@@ -118,5 +132,13 @@ where
     reg!(
         "SceneRegion/queryChanges",
         handle_scene_region_query_changes
+    );
+    reg!("SceneObject/get", handle_scene_object_get);
+    reg!("SceneObject/changes", handle_scene_object_changes);
+    reg!("SceneObject/set", handle_scene_object_set);
+    reg!("SceneObject/query", handle_scene_object_query);
+    reg!(
+        "SceneObject/queryChanges",
+        handle_scene_object_query_changes
     );
 }

@@ -13,6 +13,26 @@ pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 /// `crate-jmap-mail-server/src/helpers.rs` `PLACEHOLDER_ID`.
 pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
 
+/// ponytail: "magnitude within epsilon of 1.0" with a fixed epsilon of
+/// 1e-6, which accepts quaternions normalized in `f32`. A deployment that
+/// wants a different tolerance registers its own `/set` handlers.
+const UNIT_EPSILON: f64 = 1e-6;
+
+/// The values of `v` if it is an array of exactly `n` Numbers.
+pub(crate) fn numbers(v: &Value, n: usize) -> Option<Vec<f64>> {
+    let a = v.as_array().filter(|a| a.len() == n)?;
+    a.iter().map(Value::as_f64).collect()
+}
+
+/// "Quaternion must be `[x, y, z, w]` with magnitude within epsilon of
+/// 1.0." A NaN or infinite component fails the comparison.
+pub(crate) fn unit_quaternion(v: &Value) -> bool {
+    numbers(v, 4).is_some_and(|q| {
+        let norm = q.iter().map(|c| c * c).sum::<f64>().sqrt();
+        (norm - 1.0).abs() <= UNIT_EPSILON
+    })
+}
+
 /// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
 /// `notDestroyed` map.
 ///

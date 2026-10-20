@@ -10,8 +10,8 @@ AGENTS.md "Canonical Templates").
 
 ## What this crate is
 
-draft-atwood-jmap-scene-00 `SceneAsset/*` and `SceneRegion/*` method
-handlers, the
+draft-atwood-jmap-scene-00 `SceneAsset/*`, `SceneRegion/*` and
+`SceneObject/*` method handlers, the
 `SceneBackend` trait and a `memory` reference backend. Depends on RFC 8620
 crates and `jmap-scene-types` only: Chat and VTC bindings live in binding
 crates.
@@ -45,5 +45,12 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-scene-serv
 | Region update / destroy permission | fail-open `may_update_region` (owner or admin), `may_destroy_region` (owner) |
 | `spawnOrientation` unit tolerance | 1e-6 |
 | `activeCallId` on create | refused: §Creating a Region does not list it |
+| SceneObject `ownerId`, `maxObjectsPerRegion`, recursive destroy | `SceneBackend::create_object` / `destroy_object`, atomically |
+| SceneObject update / destroy permission | fail-open `may_modify_object` (object owner, region owner or admin) |
+| Scene-graph depth limit | 16 levels, root = 1 (implementer guide L339-342); re-parenting counts the moved subtree |
+| SceneObject `orientation` unit tolerance | 1e-3 (the draft's own examples are three-decimal), stored normalized (L144); update echoes the normalized value |
+| Absent `orientation` on create | the identity `[0, 0, 0, 1]` |
+| `SceneObject/query` `regionId` | required in every filter condition |
+| Spatial filters | region-local position through the parent chain; boundaries inclusive |
 | Access-based `notFound`, query visibility | bd:JMAP-38uq.6 |
 | Tests | Each assertion quotes its draft line; never the code under test |

@@ -18,8 +18,8 @@ use serde_json::{json, Map, Value};
 use crate::backend::{BindingTarget, SceneBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
-    set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    fetch_one, finalize_set_response, forbidden, invalid, not_found, numbers,
+    reject_unsupported_sort, set_error_value, unit_quaternion, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -52,11 +52,6 @@ const BINDINGS: &[(&str, &str)] = &[
 /// The `accessPolicy` values: "`accessPolicy` is not one of `\"public\"`,
 /// `\"invite\"`, `\"space\"`" is `invalidProperties`.
 const ACCESS_POLICIES: &[&str] = &["public", "invite", "space"];
-
-/// ponytail: "magnitude within epsilon of 1.0" with a fixed epsilon of
-/// 1e-6, which accepts quaternions normalized in `f32`. A deployment that
-/// wants a different tolerance registers its own `SceneRegion/set`.
-const UNIT_EPSILON: f64 = 1e-6;
 
 /// Handle `SceneRegion/get` (draft-atwood-jmap-scene-00 §SceneRegion/get):
 /// standard RFC 8620 §5.1 `/get`.
@@ -242,12 +237,6 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
         .await
 }
 
-/// The values of `v` if it is an array of exactly `n` Numbers.
-fn numbers(v: &Value, n: usize) -> Option<Vec<f64>> {
-    let a = v.as_array().filter(|a| a.len() == n)?;
-    a.iter().map(Value::as_f64).collect()
-}
-
 /// SceneBounds: `min` and `max` are "a 3-element numeric array" and
 /// "Each component of `min` MUST be less than or equal to the
 /// corresponding component of `max`."
@@ -259,15 +248,6 @@ fn bounds_ok(v: &Value) -> bool {
         (Some(min), Some(max)) => min.iter().zip(&max).all(|(lo, hi)| lo <= hi),
         _ => false,
     }
-}
-
-/// "Quaternion must be `[x, y, z, w]` with magnitude within epsilon of
-/// 1.0."
-fn unit_quaternion(v: &Value) -> bool {
-    numbers(v, 4).is_some_and(|q| {
-        let norm = q.iter().map(|c| c * c).sum::<f64>().sqrt();
-        (norm - 1.0).abs() <= UNIT_EPSILON
-    })
 }
 
 /// The properties of region `m` that break a §Create Errors

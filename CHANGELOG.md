@@ -25,6 +25,20 @@ wire behaviour that a conforming peer can observe.
 - **jmap-scene-types**: `JmapObject`, `GetObject`, `SetObject` and
   `QueryObject` impls for `SceneAsset`, `SceneRegion`, `SceneObject` and
   `SceneAvatar`.
+- **jmap-scene-server**: `SceneObject/get`, `/changes`, `/set`, `/query`
+  and `/queryChanges` handlers, registered by `register_scene_handlers`:
+  `forbidden` without `mayCreateObject`, required `regionId` and finite
+  `position`, `orientation` within 1e-3 of unit length and stored
+  normalized, `physicsMode` and `visualRef`/`visualType` checks,
+  `notFound` for a missing region, blob or parent, a region-scoped,
+  acyclic scene graph at most 16 levels deep, immutable `regionId`,
+  recursive destroy, the `createdAt`-ascending default sort and the
+  §Filter Validation `invalidArguments` checks. `SceneBackend` gains the
+  fail-open `may_modify_object`; `create_object` sets a SceneObject's
+  `ownerId` and applies `maxObjectsPerRegion`, `destroy_object` removes
+  its descendants. `query` gains `object_matches`, `compare_objects` and
+  `region_local_position`, which maps a child's parent-relative position
+  into region-local coordinates for `withinRadius` and `withinBounds`.
 - **jmap-scene-server**: `SceneRegion/get`, `/changes`, `/set`, `/query`
   and `/queryChanges` handlers, registered by `register_scene_handlers`:
   required `name` and `bounds` with `min <= max`, the `accessPolicy`,
@@ -67,6 +81,14 @@ wire behaviour that a conforming peer can observe.
   on E2EE calls. `VtcBackend::is_user_blocked`, a fail-open hook
   defaulting to `Ok(false)`.
 - **jmap-vtc-types**: `VtcEvent::type_name`, the event's `@type`.
+- **jmap-vtc-client**: new crate binding every draft-atwood-jmap-vtc-00
+  method — `/get`, `/changes`, `/set`, `/query` and `/queryChanges` for
+  `VTCCall`, `VTCParticipant`, `VTCRecording` and `VTCLivestream` — on
+  `SessionClient` via `JmapVtcExt::with_vtc_session`. `/get` decodes the
+  `jmap-vtc-types` objects; `/query` and `/queryChanges` take the
+  `jmap-vtc-types` filters and comparators; `/set` returns the untyped
+  `SetResponse` because RFC 8620 §5.3 `created` entries carry only
+  server-set properties.
 - **jmap-vtc-server**: new crate with the draft-atwood-jmap-vtc-00
   `VTCCall/get`, `/changes`, `/set`, `/query` and `/queryChanges`
   handlers, the `VtcBackend` trait and a `memory` reference backend.
