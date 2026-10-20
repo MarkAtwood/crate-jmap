@@ -146,6 +146,21 @@ pub struct FileNodeCopyParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compare_case_insensitively: Option<bool>,
 
+    /// State guard for the source account: the server aborts with
+    /// `stateMismatch` unless the source state matches (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_from_in_state: Option<jmap_types::State>,
+    /// State guard for the destination account: the server aborts with
+    /// `stateMismatch` unless the destination state matches (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_in_state: Option<jmap_types::State>,
+    /// If `true`, destroy originals after successful copy (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success_destroy_original: Option<bool>,
+    /// If-in-state guard for the source account destroy step (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destroy_from_if_in_state: Option<jmap_types::State>,
+
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -395,6 +410,11 @@ impl super::SessionClient {
     ///   destroyed source node are also removed (§3.2.4, §3.2.3).
     /// - `on_exists`: collision policy at the destination.
     /// - `compare_case_insensitively`: case-folding for name collisions.
+    /// - `if_from_in_state` / `if_in_state`: source / destination state
+    ///   guards (RFC 8620 §5.4).
+    /// - `on_success_destroy_original` / `destroy_from_if_in_state`:
+    ///   destroy the originals after a successful copy, optionally
+    ///   state-guarded (RFC 8620 §5.4).
     ///
     /// `create` is the RFC 8620 §5.4 `create` map (a JSON object mapping
     /// creation keys to copy-creation objects).
@@ -440,6 +460,18 @@ impl super::SessionClient {
         }
         if let Some(cci) = params.compare_case_insensitively {
             args["compareCaseInsensitively"] = cci.into();
+        }
+        if let Some(v) = params.if_from_in_state {
+            args["ifFromInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.if_in_state {
+            args["ifInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.on_success_destroy_original {
+            args["onSuccessDestroyOriginal"] = v.into();
+        }
+        if let Some(v) = params.destroy_from_if_in_state {
+            args["destroyFromIfInState"] = v.into_inner().into();
         }
         // Route caller-supplied vendor extras onto the wire (workspace
         // extras-preservation policy). Use `entry().or_insert()` so a
@@ -809,6 +841,10 @@ mod tests {
             on_destroy_remove_children: None,
             on_exists: None,
             compare_case_insensitively: None,
+            if_from_in_state: None,
+            if_in_state: None,
+            on_success_destroy_original: None,
+            destroy_from_if_in_state: None,
             extra,
         };
         let v = serde_json::to_value(&params).expect("serialize FileNodeCopyParams");
@@ -827,6 +863,10 @@ mod tests {
             on_destroy_remove_children: Some(true),
             on_exists: Some(FileNodeOnExists::Rename),
             compare_case_insensitively: Some(false),
+            if_from_in_state: None,
+            if_in_state: None,
+            on_success_destroy_original: None,
+            destroy_from_if_in_state: None,
             extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&params).expect("serialize FileNodeCopyParams");

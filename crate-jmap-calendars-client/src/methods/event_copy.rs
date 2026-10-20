@@ -4,15 +4,15 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::Id;
-
-use super::SetResponse;
+use super::{CalendarEventCopyParams, SetResponse};
 
 impl super::SessionClient {
     /// Copy `CalendarEvent` objects from one account to another
     /// (draft-ietf-jmap-calendars-26 §5.10).
     ///
-    /// - `from_account_id`: the source account containing the events to copy.
+    /// - `params`: `fromAccountId`, the optional `ifFromInState` /
+    ///   `ifInState` state guards, the optional destroy-after-copy flags,
+    ///   and vendor extras (RFC 8620 §5.4).
     /// - `create`: map of creation id → typed
     ///   [`CalendarEvent`](jmap_calendars_types::CalendarEvent) describing
     ///   what to copy and any modifications to apply. Each event MUST carry
@@ -42,7 +42,7 @@ impl super::SessionClient {
     ///   `anchorNotFound`.
     pub async fn calendar_event_copy(
         &self,
-        from_account_id: &Id,
+        params: CalendarEventCopyParams,
         create: BTreeMap<String, jmap_calendars_types::CalendarEvent>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
@@ -57,11 +57,35 @@ impl super::SessionClient {
                 "calendar_event_copy: serializing create map failed: {e}"
             ))
         })?;
-        let args = serde_json::json!({
-            "fromAccountId": from_account_id,
+        let mut args = serde_json::json!({
+            "fromAccountId": params.from_account_id,
             "accountId": account_id,
             "create": create_val,
         });
+        if let Some(v) = params.if_from_in_state {
+            args["ifFromInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.if_in_state {
+            args["ifInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.on_success_destroy_original {
+            args["onSuccessDestroyOriginal"] = v.into();
+        }
+        if let Some(v) = params.destroy_from_if_in_state {
+            args["destroyFromIfInState"] = v.into_inner().into();
+        }
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if !params.extra.is_empty() {
+            let args_obj = args
+                .as_object_mut()
+                .expect("calendar_event_copy: args is constructed as Object");
+            for (k, v) in params.extra {
+                args_obj.entry(k).or_insert(v);
+            }
+        }
         let req = super::build_request("CalendarEvent/copy", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

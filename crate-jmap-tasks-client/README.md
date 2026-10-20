@@ -68,7 +68,7 @@ All `pub async fn` on `SessionClient`:
 | `task_get(ids, properties)` | `Task/get` | `GetResponse<Task>` |
 | `task_changes(since_state, max_changes)` | `Task/changes` | `ChangesResponse` |
 | `task_set(create, update, destroy)` | `Task/set` | `SetResponse<Task>` |
-| `task_copy(from_account_id, create)` | `Task/copy` | `SetResponse<Task>` |
+| `task_copy(params, create)` | `Task/copy` | `SetResponse<Task>` |
 | `task_query(filter, sort, position, limit)` | `Task/query` | `QueryResponse` |
 | `task_query_changes(since_query_state, max_changes)` | `Task/queryChanges` | `QueryChangesResponse` |
 | `task_notification_get(ids, properties)` | `TaskNotification/get` | `GetResponse<TaskNotification>` |

@@ -155,8 +155,10 @@ impl super::SessionClient {
 
     /// Copy Tasks from another account (draft-tasks-06 §4.8).
     ///
-    /// `from_account_id` is the source account. The tasks are copied into the
-    /// current primary Tasks account.
+    /// `params` carries `fromAccountId`, the optional `ifFromInState` /
+    /// `ifInState` state guards, the optional destroy-after-copy flags,
+    /// and vendor extras (RFC 8620 §5.4).
+    /// The tasks are copied into the current primary Tasks account.
     ///
     /// # Errors
     ///
@@ -172,15 +174,39 @@ impl super::SessionClient {
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn task_copy(
         &self,
-        from_account_id: &Id,
+        params: super::TaskCopyParams,
         create: serde_json::Value,
     ) -> Result<SetResponse<jmap_tasks_types::Task>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
-            "fromAccountId": from_account_id,
+        let mut args = serde_json::json!({
+            "fromAccountId": params.from_account_id,
             "accountId": account_id,
             "create": create,
         });
+        if let Some(v) = params.if_from_in_state {
+            args["ifFromInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.if_in_state {
+            args["ifInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.on_success_destroy_original {
+            args["onSuccessDestroyOriginal"] = v.into();
+        }
+        if let Some(v) = params.destroy_from_if_in_state {
+            args["destroyFromIfInState"] = v.into_inner().into();
+        }
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if !params.extra.is_empty() {
+            let args_obj = args
+                .as_object_mut()
+                .expect("task_copy: args is constructed as Object");
+            for (k, v) in params.extra {
+                args_obj.entry(k).or_insert(v);
+            }
+        }
         let req = super::build_request("Task/copy", args, super::USING_TASKS);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

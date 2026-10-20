@@ -308,7 +308,14 @@ async fn task_copy_includes_from_account_id() {
 
     let sc = helpers::make_client(&server);
     sc.task_copy(
-        &Id::from("srcacc"),
+        jmap_tasks_client::TaskCopyParams {
+            from_account_id: Id::from("srcacc"),
+            if_from_in_state: None,
+            if_in_state: None,
+            on_success_destroy_original: None,
+            destroy_from_if_in_state: None,
+            extra: serde_json::Map::new(),
+        },
         json!({"c1": {"id": "task-src1", "taskListId": "list1"}}),
     )
     .await
@@ -595,5 +602,99 @@ async fn task_query_changes_all_none_omits_optional_wire_keys() {
     assert!(
         args.get("maxChanges").is_none(),
         "maxChanges must be omitted"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Task/copy — RFC 8620 §5.4 standard /copy arguments
+// ---------------------------------------------------------------------------
+//
+// Oracle: RFC 8620 §5.4 names the optional /copy arguments
+// `ifFromInState: "String|null"`, `ifInState: "String|null"`,
+// `onSuccessDestroyOriginal: "Boolean" (default: false)` and
+// `destroyFromIfInState: "String|null"`. Expected request arguments are
+// hand-written from that text; `create` is checked by other tests.
+
+async fn task_copy_sent_args(params: jmap_tasks_client::TaskCopyParams) -> serde_json::Value {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Task/copy",
+            {
+                "accountId": "A13824",
+                "fromAccountId": "src",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": null,
+                "notCreated": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = helpers::make_client(&server);
+    sc.task_copy(params, json!({ "k1": { "id": "task-src" } }))
+        .await
+        .expect("task_copy must succeed");
+    let reqs = server.received_requests().await.expect("recorded requests");
+    let body: serde_json::Value = serde_json::from_slice(&reqs[0].body).expect("JSON body");
+    let mut args = body["methodCalls"][0][1].clone();
+    args.as_object_mut()
+        .expect("args object")
+        .remove("create")
+        .expect("create must be sent");
+    args
+}
+
+/// All four RFC 8620 §5.4 optional arguments reach the wire under their
+/// spec names; vendor extras pass through, but a colliding typed key
+/// keeps its typed value (workspace extras-preservation policy).
+#[tokio::test]
+async fn task_copy_sends_rfc8620_copy_args() {
+    let params = jmap_tasks_client::TaskCopyParams {
+        from_account_id: jmap_types::Id::from("src"),
+        if_from_in_state: Some("from-s5".into()),
+        if_in_state: Some("to-s7".into()),
+        on_success_destroy_original: Some(true),
+        destroy_from_if_in_state: Some("from-s5".into()),
+        extra: serde_json::Map::from_iter([
+            ("acmeCorpAudit".to_owned(), json!(true)),
+            ("fromAccountId".to_owned(), json!("collides")),
+        ]),
+    };
+    assert_eq!(
+        task_copy_sent_args(params).await,
+        json!({
+            "accountId": "A13824",
+            "fromAccountId": "src",
+            "ifFromInState": "from-s5",
+            "ifInState": "to-s7",
+            "onSuccessDestroyOriginal": true,
+            "destroyFromIfInState": "from-s5",
+            "acmeCorpAudit": true
+        })
+    );
+}
+
+/// Unset optional arguments are omitted, leaving the server defaults of
+/// RFC 8620 §5.4 in force.
+#[tokio::test]
+async fn task_copy_omits_unset_copy_args() {
+    let params = jmap_tasks_client::TaskCopyParams {
+        from_account_id: jmap_types::Id::from("src"),
+        if_from_in_state: None,
+        if_in_state: None,
+        on_success_destroy_original: None,
+        destroy_from_if_in_state: None,
+        extra: serde_json::Map::new(),
+    };
+    assert_eq!(
+        task_copy_sent_args(params).await,
+        json!({ "accountId": "A13824", "fromAccountId": "src" })
     );
 }

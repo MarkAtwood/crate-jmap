@@ -250,8 +250,15 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
     let mut create = std::collections::BTreeMap::new();
     create.insert(String::new(), event); // empty creation id
 
-    let from_account = Id::from("src_acc");
-    let result = sc.calendar_event_copy(&from_account, create).await;
+    let params = jmap_calendars_client::CalendarEventCopyParams {
+        from_account_id: Id::from("src_acc"),
+        if_from_in_state: None,
+        if_in_state: None,
+        on_success_destroy_original: None,
+        destroy_from_if_in_state: None,
+        extra: serde_json::Map::new(),
+    };
+    let result = sc.calendar_event_copy(params, create).await;
     let err = result.expect_err("calendar_event_copy with empty creation id must error");
     match err {
         jmap_base_client::ClientError::InvalidArgument(msg) => {
