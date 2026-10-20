@@ -82,3 +82,30 @@ pub fn seed(backend: &MemoryBackend, owner: &str, asset: Value) {
     let id = asset["id"].as_str().expect("id").to_owned();
     backend.insert_object_for_test("SceneAsset", &Id::from(ACCOUNT), &id, owner, asset);
 }
+
+/// Seed `value` as an object of `type_name` into the backend, owned by
+/// `owner`.
+pub fn seed_as(backend: &MemoryBackend, type_name: &'static str, owner: &str, value: Value) {
+    let id = value["id"].as_str().expect("id").to_owned();
+    backend.insert_object_for_test(type_name, &Id::from(ACCOUNT), &id, owner, value);
+}
+
+/// A stored region, hand-written from the field list at L263-402.
+pub fn stored_region(id: &str, name: &str, created_at: &str) -> Value {
+    json!({
+        "id": id,
+        "accountId": ACCOUNT,
+        "name": name,
+        "description": null,
+        "bounds": { "min": [-20, 0, -20], "max": [20, 8, 20] },
+        "environment": null,
+        "simulationUri": null,
+        "spawnPosition": [0, 0, 5],
+        "spawnOrientation": [0, 0, 0, 1],
+        "activeAvatarCount": 0,
+        "viewHint": "3d",
+        "accessPolicy": "public",
+        "createdAt": created_at,
+        "updatedAt": created_at
+    })
+}

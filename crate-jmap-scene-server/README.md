@@ -1,7 +1,7 @@
 # jmap-scene-server
 
-Method handlers for the `SceneAsset` data type of the JMAP Scene
-extension (draft-atwood-jmap-scene-00), backend-agnostic, for a
+Method handlers for the `SceneAsset` and `SceneRegion` data types of the
+JMAP Scene extension (draft-atwood-jmap-scene-00), backend-agnostic, for a
 `jmap-server` `Dispatcher`. You supply storage through the `SceneBackend`
 trait.
 
@@ -13,17 +13,24 @@ trait.
 | `handle_scene_asset_set` | §SceneAsset/set and its §SetError Conditions |
 | `handle_scene_asset_query`, `handle_scene_asset_query_changes` | §SceneAsset/query, §SceneAsset/queryChanges |
 | `GLTF_BINARY` | §Preferred Asset Format: `model/gltf-binary` is mandatory to implement |
+| `handle_scene_region_get`, `handle_scene_region_changes` | §SceneRegion/get, §SceneRegion/changes (RFC 8620 §5.1, §5.2) |
+| `handle_scene_region_set` | §SceneRegion/set: create, update, destroy and §SetError Conditions |
+| `handle_scene_region_query`, `handle_scene_region_query_changes` | §SceneRegion/query, §SceneRegion/queryChanges |
 | `query::asset_matches`, `query::compare_assets` | §SceneAsset/query filter and sort |
-| `SceneBackend` | storage, capability object, blob sizes, owner-or-admin hook |
+| `query::region_matches`, `query::compare_regions` | §SceneRegion/query filter and sort |
+| `SceneBackend` | storage, capability objects, blob sizes, permission and binding hooks |
+| `BindingTarget` | what a `chatId`/`spaceId`/`channelId`/`activeCallId` references |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_scene_handlers` | wires the five `SceneAsset/*` methods |
+| `register_scene_handlers` | wires the `SceneAsset/*` and `SceneRegion/*` methods |
 
 ## What it's for
 
 A JMAP server that offers spatial scenes wires these handlers next to its
 other extensions. The crate depends on `jmap-types`, `jmap-server` and
-`jmap-scene-types` only. SceneRegion, SceneObject and SceneAvatar methods
-are not here yet.
+`jmap-scene-types` only. SceneObject and SceneAvatar methods are not here
+yet. Chat and VTC lookups for the region bindings belong to binding
+crates, which implement `SceneBackend::has_capability` and
+`SceneBackend::region_binding`.
 
 ## How to use
 
@@ -60,11 +67,36 @@ patch the server-set or immutable properties. Update and destroy return
 `createdAt` descending. The backend trait is not object-safe (generic
 methods); every public type is `#[non_exhaustive]`.
 
+A SceneRegion create needs `mayCreateRegion`, a non-empty `name` and
+`bounds` with `min <= max` on every axis; `accessPolicy` must be
+`public`, `invite` or `space`, and `spawnOrientation` a unit quaternion
+(within 1e-6). `space` needs `urn:ietf:params:jmap:chat` and a `spaceId`.
+A non-null `chatId`, `spaceId` or `channelId` needs the Chat capability
+and a `BindingTarget::Usable` answer from `region_binding`; otherwise it
+is `invalidProperties` naming the property. `activeCallId` is not a
+create property. The backend applies `maxRegionsPerAccount` atomically
+with the insert. An update is validated as the region the patch leaves.
+A non-null `activeCallId` needs `urn:ietf:params:jmap:vtc`: a missing or
+ended call is `invalidProperties`, an inaccessible one `forbidden`. The
+`updated` entry echoes the new `updatedAt`. Update needs
+`may_update_region` (owner or admin), destroy `may_destroy_region`
+(owner only). On destroy the backend removes the region's SceneObjects
+and SceneAvatars. `/query` defaults to `createdAt` descending, and an
+`accessPolicy` filter value outside the three is `invalidArguments`.
+
 ## Gotchas
 
 - `SceneBackend::may_modify_asset` defaults to `Ok(true)` (fail-open,
   bd:JMAP-bghk). Override it, or every caller can rename and delete
   every asset.
+- `may_update_region`, `may_destroy_region` and `region_binding` also
+  fail open: any caller may change any region, and every binding id is
+  accepted, until you override them.
+- `has_capability` has no default. Return `true` only for the companion
+  capabilities you advertise on that account.
+- Destroying a region does not end its `activeCallId` VTCCall, and this
+  crate sends no VTCCall StateChange. That belongs to the Scene/VTC
+  binding crate.
 - `blob_size` has no default. Return `Err` for a storage failure, not
   `Ok(None)`, or the client sees `notFound` and does not retry.
 - `model/gltf-binary` is accepted even if your capability object omits

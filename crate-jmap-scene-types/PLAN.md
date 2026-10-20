@@ -9,6 +9,7 @@ bindings in `jmap-scene-client`.
 | Bead | Content | State |
 |---|---|---|
 | JMAP-38uq.1 | Capability, coordinate formats, SceneBounds, GeoAnchor, the four data types, the `/query` filters incl. `withinRadius`/`withinBounds`, comparators | landed |
+| JMAP-38uq.3 | `JmapObject` impls for SceneRegion, SceneObject and SceneAvatar | landed |
 
 ## Decisions
 
@@ -33,4 +34,4 @@ bindings in `jmap-scene-client`.
 - userId-valued properties (`userId`, `ownerId`) are `String`, as in
   `jmap-vtc-types`. Blob references (`blobId`, `visualRef`) are `Id`.
 - `sha256` is a plain `String`; no dependency on `jmap-cid-types`.
-- `JmapObject` impls are left to the server beads (JMAP-38uq.2-.5).
+- `JmapObject` impls are added by the server beads (JMAP-38uq.2-.5).

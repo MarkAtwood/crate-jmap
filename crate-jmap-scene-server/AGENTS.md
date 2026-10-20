@@ -10,7 +10,8 @@ AGENTS.md "Canonical Templates").
 
 ## What this crate is
 
-draft-atwood-jmap-scene-00 `SceneAsset/*` method handlers, the
+draft-atwood-jmap-scene-00 `SceneAsset/*` and `SceneRegion/*` method
+handlers, the
 `SceneBackend` trait and a `memory` reference backend. Depends on RFC 8620
 crates and `jmap-scene-types` only: Chat and VTC bindings live in binding
 crates.
@@ -39,4 +40,10 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-scene-serv
 | glTF | `model/gltf-binary` always accepted (mandatory to implement) |
 | "Recognized audio/image type" | Any `audio/*` or `image/*` media type, no registry |
 | Account storage quota, admin-only create | `SceneBackend::create_object`, atomically |
+| `maxRegionsPerAccount`, region destroy cascade | `SceneBackend::create_object` / `destroy_object`, atomically |
+| Chat/VTC binding checks | `has_capability` (required) + fail-open `region_binding` returning `BindingTarget`; the handler maps it to the draft's SetError |
+| Region update / destroy permission | fail-open `may_update_region` (owner or admin), `may_destroy_region` (owner) |
+| `spawnOrientation` unit tolerance | 1e-6 |
+| `activeCallId` on create | refused: §Creating a Region does not list it |
+| Access-based `notFound`, query visibility | bd:JMAP-38uq.6 |
 | Tests | Each assertion quotes its draft line; never the code under test |
