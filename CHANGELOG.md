@@ -65,6 +65,13 @@ wire behaviour that a conforming peer can observe.
   Chat create or a member, role or metadata change, with the recipients
   draft-atwood-jmap-chat-00 §Chat/set names. A federation backend turns
   them into `Peer/retract`, `Peer/deliver` `edit` and `Peer/groupUpdate`.
+- **jmap-chat-server**: `on_outbound_event` also reports `NewMessage` after
+  each `Message/set` create (draft-atwood-jmap-chat-00 §Message/set
+  "enqueues the message for outbound delivery"), and one `ReactionUpdate`
+  per `reactions/<senderReactionId>` patch key, with `ReactionAction::Add`
+  or `ReactionAction::Remove` carrying the removed reaction, after the
+  update is written (§Adding and Removing Reactions). A federation backend
+  turns them into `Peer/deliver` `message` and `reactionUpdate`.
 - **jmap-chat-server**: `ChatBackend::on_chat_destroyed`,
   `on_space_destroyed` and `on_space_ban_created` (default: no-op) are
   called after a Chat is destroyed (by `Chat/set`, `removeChannels`, or a

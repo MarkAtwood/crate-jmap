@@ -2,9 +2,10 @@
 //! [`ChatBackend::on_outbound_event`](crate::ChatBackend::on_outbound_event).
 //!
 //! draft-atwood-jmap-chat-00 requires the server to notify other
-//! participants' servers when the owner retracts a Message, edits one, or
-//! changes a group Chat. The wire methods (`Peer/retract`,
-//! `Peer/deliver` `edit`, `Peer/groupUpdate`) are defined by
+//! participants' servers when the owner sends a Message, retracts or edits
+//! one, adds or removes a reaction, or changes a group Chat. The wire
+//! methods (`Peer/deliver` `message`, `edit` and `reactionUpdate`,
+//! `Peer/retract`, `Peer/groupUpdate`) are defined by
 //! draft-atwood-jmap-chat-federation-00 and implemented outside this
 //! crate. These events carry local ids (ChatContact ids, Message ids);
 //! the federation layer maps them to identity strings and sends them.
@@ -14,13 +15,26 @@
 //! must be told. Everything else (`body`, `name`, the full member list)
 //! is read from the stored Message or Chat.
 
-use jmap_chat_types::ChatMember;
+use jmap_chat_types::{ChatMember, Reaction};
 use jmap_types::Id;
 
 /// One outbound event the `Message/set` or `Chat/set` handler reports.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutboundEvent {
+    /// The owner created a Message. draft-atwood-jmap-chat-00
+    /// §Message/set: the server sets the server-assigned fields "then
+    /// enqueues the message for outbound delivery" (`Peer/deliver`
+    /// `message`). Reported after the Message is written; the payload
+    /// fields are read from the stored Message.
+    NewMessage {
+        /// The Chat that holds the Message (`Peer/deliver` `chatId`).
+        chat_id: Id,
+        /// The Message's local id.
+        message_id: Id,
+        /// The Message's `senderMsgId` (`message.senderMsgId`).
+        sender_msg_id: Id,
+    },
     /// The owner set `deletedForAll: true` on a Message they sent.
     /// draft-atwood-jmap-chat-federation-00 §Peer/retract "Sender
     /// Behavior": "the server MUST send `Peer/retract` to the server of
@@ -48,6 +62,25 @@ pub enum OutboundEvent {
         /// The Message's `senderMsgId` (`edit.senderMsgId`).
         sender_msg_id: Id,
     },
+    /// The owner added or removed one of their reactions on a Message.
+    /// draft-atwood-jmap-chat-00 §Adding and Removing Reactions: the
+    /// server "MUST propagate the reaction to all recipients via
+    /// `Peer/deliver` `reactionUpdate` payload, carrying the
+    /// `senderReactionId` as the map key", and a removal "using the same
+    /// `senderReactionId`". Reported after the update is written, one
+    /// event per `reactions/<senderReactionId>` patch key.
+    ReactionUpdate {
+        /// The Chat that holds the Message (`Peer/deliver` `chatId`).
+        chat_id: Id,
+        /// The Message's local id.
+        message_id: Id,
+        /// The Message's `senderMsgId` (`reactionUpdate.senderMsgId`).
+        sender_msg_id: Id,
+        /// The `reactions` map key (`reactionUpdate.senderReactionId`).
+        sender_reaction_id: String,
+        /// `reactionUpdate.action`.
+        action: ReactionAction,
+    },
     /// A group Chat was created or changed (`Peer/groupUpdate`), reported
     /// after the change is written.
     GroupUpdate {
@@ -59,6 +92,25 @@ pub enum OutboundEvent {
         /// draft-atwood-jmap-chat-00 §Chat/set (see each
         /// [`GroupUpdateAction`] variant). Never contains the accountId.
         recipients: Vec<Id>,
+    },
+}
+
+/// The `action` of a [`OutboundEvent::ReactionUpdate`]
+/// (draft-atwood-jmap-chat-federation-00 §Peer/deliver `reactionUpdate`).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReactionAction {
+    /// `"add"`. The reaction (`emoji`, `customEmojiId`, `sentAt`) is read
+    /// from the stored Message's `reactions` map under the
+    /// `senderReactionId`. Also reported when the owner replaces one of
+    /// their reactions under the same key.
+    Add,
+    /// `"remove"`, with the reaction as it was stored before the removal,
+    /// since the stored Message no longer holds it. Reported only when the
+    /// key named a stored reaction.
+    Remove {
+        /// The removed reaction.
+        removed: Reaction,
     },
 }
 

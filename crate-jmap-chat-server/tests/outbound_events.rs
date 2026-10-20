@@ -1,5 +1,5 @@
-//! `ChatBackend::on_outbound_event` for retractions, edits and group Chat
-//! changes (bd:JMAP-5mz6.5).
+//! `ChatBackend::on_outbound_event` for new Messages, retractions, edits,
+//! reactions and group Chat changes (bd:JMAP-5mz6.5, bd:JMAP-5mz6.7).
 //!
 //! Oracles, quoted from the jmap-chat-spec drafts:
 //!
@@ -29,6 +29,21 @@
 //!   `Peer/groupUpdate` to all members."
 //! - draft-atwood-jmap-chat-federation-00.md L625: `"updateMetadata"` —
 //!   "The group's `name`, `description`, or `avatarBlobId` was changed."
+//! - draft-atwood-jmap-chat-00.md L1130 (Message/set `create`): "The
+//!   server sets `id`, `senderMsgId`, `senderId`, `receivedAt`,
+//!   `deliveryState`, and delivery timestamp fields, then enqueues the
+//!   message for outbound delivery."
+//! - L1158 (add): the server "MUST propagate the reaction to all recipients
+//!   via `Peer/deliver` `reactionUpdate` payload, carrying the
+//!   `senderReactionId` as the map key."
+//! - L1166 (remove): "The server MUST remove the entry and MUST propagate
+//!   the removal via `Peer/deliver` `reactionUpdate` payload using the same
+//!   `senderReactionId`."
+//! - L1168: "Servers MUST reject attempts to add or remove reactions for
+//!   other senders with `forbidden`."
+//! - draft-atwood-jmap-chat-federation-00.md L374: `senderReactionId` "For
+//!   `"remove"`, identifies which reaction to delete." L377: "`action`
+//!   (String) — `"add"` or `"remove"`."
 //!
 //! The owner is referenced by the accountId (draft-atwood-jmap-chat-00
 //! §Terminology), so it is never a recipient.
@@ -36,7 +51,9 @@
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_chat_set, handle_message_set, GroupUpdateAction, OutboundEvent};
+use jmap_chat_server::{
+    handle_chat_set, handle_message_set, GroupUpdateAction, OutboundEvent, ReactionAction,
+};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
@@ -67,6 +84,40 @@ fn seed_message(backend: &MemoryBackend, id: &str, sender: &str) {
             "deliveryState": "delivered",
         }),
     );
+}
+
+/// Message `m1` in Chat `dm`, sent by `bob`, holding `reactions`.
+fn seed_reacted_message(backend: &MemoryBackend, reactions: Value) {
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smid-m1",
+            "senderId": "bob",
+            "chatId": "dm",
+            "body": "hello",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:00Z",
+            "deliveryState": "delivered",
+            "reactions": reactions,
+        }),
+    );
+}
+
+/// The `ReactionUpdate` the hand-written expectations name: `m1` in `dm`,
+/// `senderMsgId` `smid-m1`.
+fn reaction_update(sender_reaction_id: &str, action: ReactionAction) -> OutboundEvent {
+    OutboundEvent::ReactionUpdate {
+        chat_id: Id::from("dm"),
+        message_id: Id::from("m1"),
+        sender_msg_id: Id::from("smid-m1"),
+        sender_reaction_id: sender_reaction_id.to_owned(),
+        action,
+    }
 }
 
 /// Group `g1`: the owner and `members` (id, role).
@@ -408,5 +459,162 @@ async fn rejected_member_change_reports_nothing() {
     )
     .await;
     assert_eq!(resp["notUpdated"]["g1"]["type"], "forbidden", "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// chat-00 L1130: a created Message is enqueued for outbound delivery,
+/// once, naming the Chat and the server-assigned id and senderMsgId.
+#[tokio::test]
+async fn create_reports_one_new_message() {
+    let backend = backend();
+    seed_group(&backend, "admin", &[("bob", "member")]);
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "c": {
+                "chatId": "g1",
+                "body": "hi",
+                "bodyType": "text/plain",
+                "sentAt": "2026-01-02T00:00:00Z",
+            } },
+        }),
+    )
+    .await
+    .expect("Message/set");
+    let created = &resp["created"]["c"];
+    let id = created["id"].as_str().expect("created id");
+    let sender_msg_id = created["senderMsgId"].as_str().expect("senderMsgId");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![OutboundEvent::NewMessage {
+            chat_id: Id::from("g1"),
+            message_id: Id::from(id),
+            sender_msg_id: Id::from(sender_msg_id),
+        }]
+    );
+}
+
+/// chat-00 L1130: only a Message the server stores is enqueued. L521: in a
+/// closed group "the server MUST reject with a `forbidden` SetError every
+/// `Message/set` create in this Chat", so nothing is reported.
+#[tokio::test]
+async fn rejected_create_reports_nothing() {
+    let backend = backend();
+    backend.insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        "g1",
+        json!({
+            "id": "g1",
+            "kind": "group",
+            "name": "Team",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "closedAt": "2026-01-01T06:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "members": [
+                { "id": ACCOUNT_ID, "role": "member", "joinedAt": "2026-01-01T00:00:00Z" },
+            ],
+        }),
+    );
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "c": {
+                "chatId": "g1",
+                "body": "hi",
+                "bodyType": "text/plain",
+                "sentAt": "2026-01-02T00:00:00Z",
+            } },
+        }),
+    )
+    .await
+    .expect("Message/set");
+    assert_eq!(resp["notCreated"]["c"]["type"], "forbidden", "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// chat-00 L1158, fed L377: adding a reaction reports one `"add"` keyed by
+/// the `senderReactionId`.
+#[tokio::test]
+async fn reaction_add_reports_one_add() {
+    let backend = backend();
+    seed_reacted_message(&backend, json!({}));
+    let resp = message_update(
+        &backend,
+        "m1",
+        json!({ "reactions/r1": { "emoji": "+1", "sentAt": "2026-01-02T00:00:00Z" } }),
+    )
+    .await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![reaction_update("r1", ReactionAction::Add)]
+    );
+}
+
+/// chat-00 L1166, fed L374/L377: removing a reaction reports one
+/// `"remove"` with the same `senderReactionId`, carrying the removed
+/// reaction since the stored Message no longer holds it.
+#[tokio::test]
+async fn reaction_remove_reports_one_remove() {
+    let backend = backend();
+    let stored = json!({
+        "emoji": "+1",
+        "senderId": ACCOUNT_ID,
+        "sentAt": "2026-01-01T12:00:00Z",
+    });
+    seed_reacted_message(&backend, json!({ "r1": stored }));
+    let resp = message_update(&backend, "m1", json!({ "reactions/r1": null })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    let events = backend.take_outbound_events_for_test();
+    assert_eq!(events.len(), 1, "{events:?}");
+    let OutboundEvent::ReactionUpdate {
+        chat_id,
+        message_id,
+        sender_msg_id,
+        sender_reaction_id,
+        action: ReactionAction::Remove { removed },
+    } = &events[0]
+    else {
+        panic!("expected a ReactionUpdate remove, got {events:?}");
+    };
+    assert_eq!(
+        (
+            chat_id.as_ref(),
+            message_id.as_ref(),
+            sender_msg_id.as_ref()
+        ),
+        ("dm", "m1", "smid-m1")
+    );
+    assert_eq!(sender_reaction_id, "r1");
+    assert_eq!(serde_json::to_value(removed).expect("Reaction"), stored);
+}
+
+/// chat-00 L1166: a removal propagates "the removal"; a null on a key with
+/// no stored reaction removes nothing, so nothing is reported.
+#[tokio::test]
+async fn removing_absent_reaction_reports_nothing() {
+    let backend = backend();
+    seed_reacted_message(&backend, json!({}));
+    message_update(&backend, "m1", json!({ "reactions/r1": null })).await;
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// chat-00 L1168: a removal of another sender's reaction is rejected with
+/// `forbidden`, so nothing is reported.
+#[tokio::test]
+async fn rejected_reaction_reports_nothing() {
+    let backend = backend();
+    seed_reacted_message(
+        &backend,
+        json!({ "r1": { "emoji": "+1", "senderId": "bob", "sentAt": "2026-01-01T12:00:00Z" } }),
+    );
+    let resp = message_update(&backend, "m1", json!({ "reactions/r1": null })).await;
+    assert_eq!(resp["notUpdated"]["m1"]["type"], "forbidden", "{resp}");
     assert_eq!(backend.take_outbound_events_for_test(), vec![]);
 }

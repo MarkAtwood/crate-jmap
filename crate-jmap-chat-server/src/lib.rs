@@ -107,7 +107,7 @@ pub use message::{
     handle_message_query, handle_message_query_changes, handle_message_set, store_server_message,
     StoreOutcome,
 };
-pub use outbound::{GroupUpdateAction, OutboundEvent};
+pub use outbound::{GroupUpdateAction, OutboundEvent, ReactionAction};
 pub use permissions::{
     required_permissions_for_op, resolve_channel_permissions, RequiredPermissions, BAN,
     MANAGE_CHANNELS, MANAGE_MEMBERS, MANAGE_ROLES, MANAGE_SPACE, PIN, SEND, VIEW,
