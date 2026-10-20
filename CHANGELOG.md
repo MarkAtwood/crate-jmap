@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-types**: new crate for
+  draft-atwood-jmap-chat-federation-00. `contact_server_url` and
+  `contact_direct_address` read the federation `ChatContact.serverUrl` and
+  `ChatContact.directAddress` fields (§ChatContact Type Extensions for
+  Federation) from `ChatContact.extra`; `jmap-chat-types` is unchanged.
 - **jmap-base-client**: `connect_ws_allow_plaintext(url, auth_header,
   max_message_bytes)`, the explicit opt-in that also accepts plaintext
   `ws://` for local test rigs and examples.
