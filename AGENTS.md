@@ -127,7 +127,8 @@ jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
                          shape (lowercase hex, 64 chars). No async. Depends on
                          jmap-types only. Independent of any single consumer
                          extension — `Sha256` types `FileNode.sha256` in
-                         jmap-filenode-types and will feed Blob upload
+                         jmap-filenode-types (filled by jmap-filenode-server's
+                         `blob_sha256` hook) and will feed Blob upload
                          responses in a future jmap-base-client revision.
 
 jmap-chat-mimi-types   — draft-atwood-jmap-chat-mimi-00 data types: MimiCapability

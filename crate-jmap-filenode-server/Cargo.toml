@@ -21,6 +21,7 @@ memory = []
 [dependencies]
 jmap-types = { workspace = true }
 jmap-filenode-types = { workspace = true }
+jmap-cid-types = { workspace = true }
 jmap-server = { workspace = true }
 serde_json = { workspace = true }
 

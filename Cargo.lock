@@ -1093,6 +1093,7 @@ dependencies = [
 name = "jmap-filenode-server"
 version = "0.3.0"
 dependencies = [
+ "jmap-cid-types",
  "jmap-filenode-server",
  "jmap-filenode-types",
  "jmap-server",

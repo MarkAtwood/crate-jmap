@@ -381,6 +381,48 @@ pub trait FileNodeBackend: JmapBackend {
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
+    /// SHA-256 digest of a stored blob, for the `sha256` FileNode
+    /// property of draft-atwood-jmap-cid-00 §FileNode Extension.
+    ///
+    /// The draft defines the property only "When a server advertises both
+    /// `urn:ietf:params:jmap:cid` and the {{JMAP-FILENODE}} capability",
+    /// and says: "When a `FileNode/set` ({{JMAP-FILENODE}}) create or
+    /// update changes the associated blob, the server MUST update `sha256`
+    /// to reflect the new blob content before returning the response."
+    ///
+    /// # When the handler calls this
+    ///
+    /// `handle_filenode_set` calls it for a `File` create with a `blobId`
+    /// (after [`Self::blob_exists`]) and for an update whose patch sets
+    /// `blobId`, then stores the result as the node's `sha256`. The
+    /// property is server-set: a client-supplied `sha256` is replaced.
+    ///
+    /// # Return mapping
+    ///
+    /// - `Ok(Some(digest))`: the server advertises `urn:ietf:params:jmap:cid`
+    ///   for this account; the node's `sha256` becomes `digest`.
+    /// - `Ok(None)`: the server does not advertise it; the node has no
+    ///   `sha256`.
+    /// - `Err(e)`: that create or update fails with `serverFail`. A backend
+    ///   that advertises the capability returns `Err` rather than `None`
+    ///   when it cannot compute a digest, since the draft says a server
+    ///   "MUST NOT return `null` for any file FileNode created or updated
+    ///   while this capability is active".
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(None)`: no `urn:ietf:params:jmap:cid` support. Backends
+    /// that advertise the capability MUST override this method.
+    fn blob_sha256(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<jmap_cid_types::Sha256>, Self::Error>> + Send
+    {
+        async { Ok(None) }
+    }
+
     /// Returns the id of any sibling node that already has the given name, or
     /// `None` if the name is unique within that parent.
     ///

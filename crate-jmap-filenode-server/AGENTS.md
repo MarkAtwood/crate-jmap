@@ -42,6 +42,7 @@ behind the `memory` feature for tests and demos.
 ```
 jmap-types
     ├── jmap-server            dispatcher
+    ├── jmap-cid-types         Sha256 digest type
     └── jmap-filenode-types    data types
             └── jmap-filenode-server  ← this crate (sibling of canonical jmap-mail-server)
 ```

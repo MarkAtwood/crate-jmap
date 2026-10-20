@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: `FileNodeBackend::blob_sha256`, a defaulted
+  hook returning the stored blob's digest when the server advertises
+  `urn:ietf:params:jmap:cid` (default `Ok(None)`: not advertised).
+  `FileNode/set` create and a `blobId` update now set the server-set
+  `sha256` from it, per draft-atwood-jmap-cid-00 §FileNode Extension; a
+  client-supplied `sha256` is replaced, and a `blobId` update without a
+  digest clears the old one. An update echoes the new `sha256` in
+  `updated`. `MemoryBackend::seed_blob_sha256` seeds digests for tests.
+  The crate now depends on `jmap-cid-types`.
 - **jmap-filenode-types**: **BREAKING** `FileNode.sha256: Option<Sha256>`
   (draft-atwood-jmap-cid-00 §FileNode Extension), typed with
   `jmap_cid_types::Sha256`. It is emitted only when `Some` and only for
