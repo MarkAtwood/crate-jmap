@@ -16,6 +16,8 @@ backend-agnostic library crates. Covers:
   workspace-recommended IETF-track path for vendor data that must be queryable.
 - The JMAP Content Identifier extension ([draft-atwood-jmap-cid]) for blob
   integrity hashes.
+- The JMAP Decentralized Identifiers extension ([draft-atwood-jmap-did]) for
+  account-to-DID binding.
 - The JMAP Chat extension ([draft-atwood-jmap-chat]).
 
 This is a **protocol library kit**, not a server application. You bring storage,
@@ -82,6 +84,7 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 | `jmap-jscalendar-types` | [RFC 8984] | JSCalendar typed sub-objects: `LocalDateTime`, `Duration`, `RecurrenceRule`, `Location`, `Participant`, `Alert`, etc. Consumed by Calendars and (planned) Tasks. No JMAP dep. |
 | `jmap-jscontact-types` | [RFC 9553] | JSContact typed sub-objects: `Name`, `EmailAddress`, `Phone`, `Address`, `Organization`, `Anniversary`, `PersonalInfo`, etc. Consumed by Contacts. No JMAP dep. |
 | `jmap-cid-types` | [draft-atwood-jmap-cid] | `CidCapability` (`urn:ietf:params:jmap:cid`) and the `Sha256` typed wire shape (lowercase hex, 64 chars). Feeds Blob upload responses and FileNode integrity fields. No async. |
+| `jmap-did-types` | [draft-atwood-jmap-did] | `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`): the account-to-DID binding and `KeyCustody`. No async. |
 
 ### Mail
 
@@ -351,9 +354,10 @@ jmap-types
     │       └── jmap-filenode-server
     ├── jmap-metadata-types
     │       └── jmap-metadata-server
-    └── jmap-cid-types  (CidCapability + Sha256 typed wire shape; feeds
-                         jmap-base-client BlobUploadResponse and future
-                         FileNode integrity fields)
+    ├── jmap-cid-types  (CidCapability + Sha256 typed wire shape; feeds
+    │                    jmap-base-client BlobUploadResponse and future
+    │                    FileNode integrity fields)
+    └── jmap-did-types  (DidCapability + DidAccountCapability)
 
 jmap-jscalendar-types  (RFC 8984 JSCalendar typed sub-objects, no JMAP dep)
     ├── jmap-calendars-types  (re-exports as `jscalendar` module alias)
@@ -408,6 +412,7 @@ jmap-testjig  (publish = false; depends on every server crate plus axum
 | Draft | Title | Source |
 |---|---|---|
 | [draft-atwood-jmap-cid] | JMAP Content Identifier (`urn:ietf:params:jmap:cid`) | [spec repo](https://github.com/MarkAtwood/jmap-chat-spec) |
+| [draft-atwood-jmap-did] | JMAP Decentralized Identifiers (`urn:ietf:params:jmap:did`) | [spec repo](https://github.com/MarkAtwood/jmap-chat-spec) |
 | [draft-atwood-jmap-chat] | JMAP Chat | [spec repo](https://github.com/MarkAtwood/jmap-chat-spec) |
 | draft-atwood-jmap-chat-push | JMAP Chat: Push payloads | (in jmap-chat-spec repo) |
 | draft-atwood-jmap-chat-wss | JMAP Chat: WebSocket ephemeral events | (in jmap-chat-spec repo) |
@@ -468,3 +473,4 @@ jmap-testjig  (publish = false; depends on every server crate plus axum
 [draft-ietf-jmap-portability-extensions]: https://datatracker.ietf.org/doc/draft-ietf-jmap-portability-extensions/
 [draft-atwood-jmap-chat]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-cid]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-did]: https://github.com/MarkAtwood/jmap-chat-spec

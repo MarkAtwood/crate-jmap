@@ -1,0 +1,61 @@
+# jmap-did-types
+
+draft-atwood-jmap-did-00 wire-format types for the `jmap-*` crate family.
+
+The `urn:ietf:params:jmap:did` JMAP capability: the session-level and
+account-level capability objects that bind each account to a DID
+(W3C Decentralized Identifier).
+
+## What it is
+
+When a server advertises `urn:ietf:params:jmap:did`, the session-level
+capability lists the DID methods it can resolve and verify, and each
+account's capability carries the DID bound to that account, an optional
+DID document URI, the DID before the last migration, and who holds the
+DID's authentication keys.
+
+## How to use
+
+```toml
+[dependencies]
+jmap-did-types = "0.3"
+```
+
+```rust
+use jmap_did_types::{DidAccountCapability, KeyCustody};
+
+let cap: DidAccountCapability = serde_json::from_str(r#"{
+    "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+    "didDocumentUri": null,
+    "previousDid": null,
+    "keyCustody": "user"
+}"#)?;
+assert_eq!(cap.key_custody, Some(KeyCustody::User));
+# Ok::<(), serde_json::Error>(())
+```
+
+## How it works
+
+- `DidCapability` rejects an empty `supportedMethods` ("Servers MUST
+  support at least one method").
+- The `String|null` fields are `Option`s that always serialize, as
+  `null` when `None`, matching the draft examples.
+- `KeyCustody` is `Server`, `User` or `Other(String)`; JSON `null`
+  ("does not disclose custody") is `None`. Never treat `None` or
+  `Other` as `User`.
+- `#[non_exhaustive]` on every public type, an `extra` map for unknown
+  fields, no async, `#[forbid(unsafe_code)]`.
+
+## Gotchas
+
+- `did` and `previousDid` are not validated against DID Core §3.1 yet.
+
+## References
+
+- [draft-atwood-jmap-did-00] — JMAP Decentralized Identifiers
+- [DID Core] — W3C Decentralized Identifiers v1.0
+- [RFC 8620] — JMAP Core (Session resource capabilities)
+
+[draft-atwood-jmap-did-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[DID Core]: https://www.w3.org/TR/did-core/
+[RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

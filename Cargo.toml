@@ -13,6 +13,7 @@ members = [
     "crate-jmap-jscontact-types",
     "crate-jmap-metadata-types",
     "crate-jmap-cid-types",
+    "crate-jmap-did-types",
     "crate-jmap-chat-mimi-types",
     "crate-jmap-server",
     "crate-jmap-mail-server",
@@ -71,6 +72,7 @@ jmap-jscalendar-types  = { path = "crate-jmap-jscalendar-types", version = "0.3"
 jmap-jscontact-types   = { path = "crate-jmap-jscontact-types",  version = "0.3" }
 jmap-metadata-types    = { path = "crate-jmap-metadata-types",   version = "0.3" }
 jmap-cid-types         = { path = "crate-jmap-cid-types",        version = "0.3" }
+jmap-did-types         = { path = "crate-jmap-did-types",        version = "0.3" }
 jmap-chat-mimi-types   = { path = "crate-jmap-chat-mimi-types",  version = "0.3" }
 jmap-mime              = { path = "crate-jmap-mime",             version = "0.3" }
 jmap-server            = { path = "crate-jmap-server",           version = "0.3" }

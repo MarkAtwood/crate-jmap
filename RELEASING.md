@@ -43,6 +43,7 @@ jmap-types                                       (foundation; no jmap deps)
     │       └── jmap-{contacts,calendars,tasks}-client
     │
     ├── jmap-cid-types                           (CidCapability + Sha256 typed shape)
+    ├── jmap-did-types                           (DidCapability + DidAccountCapability)
     ├── jmap-metadata-types                      (DataTypeMetadataInfo, MetadataTextMatch)
     │       └── jmap-metadata-server
     │       └── jmap-metadata-client
@@ -69,7 +70,7 @@ Layer table:
 | Layer | Crates | Depends on |
 |---|---|---|
 | 1 | `jmap-types` | (nothing) |
-| 2a | `jmap-mail-types`, `jmap-chat-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-jscalendar-types`, `jmap-jscontact-types`, `jmap-cid-types`, `jmap-metadata-types` | layer 1 (or just serde, for the two `js*-types`) |
+| 2a | `jmap-mail-types`, `jmap-chat-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-jscalendar-types`, `jmap-jscontact-types`, `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types` | layer 1 (or just serde, for the two `js*-types`) |
 | 2b | `jmap-contacts-types`, `jmap-calendars-types`, `jmap-tasks-types` | layer 2a (consume `jmap-jscontact-types` or `jmap-jscalendar-types`) |
 | 3 | `jmap-mime` | layer 2a (`jmap-mail-types`) |
 | 4 | `jmap-server` | layer 1 |

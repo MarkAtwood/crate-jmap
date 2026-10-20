@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-did-types** (new crate): the `urn:ietf:params:jmap:did`
+  capability of draft-atwood-jmap-did-00 §Capability: `JMAP_DID_URI`,
+  the session-level `DidCapability` (`supportedMethods`,
+  `verificationEndpoint`) and the account-level `DidAccountCapability`
+  (`did`, `didDocumentUri`, `previousDid`, `keyCustody`), with
+  `KeyCustody` (`server` / `user` / `Other`). An empty
+  `supportedMethods` is rejected ("Servers MUST support at least one
+  method").
 - **jmap-cid-types**: base64 conversion for `Sha256`, so a client can
   compare it with an RFC 9404 `Blob/get` `digest:sha-256` value, per
   draft-atwood-jmap-cid-00 §Relationship to JMAP Blob Management
