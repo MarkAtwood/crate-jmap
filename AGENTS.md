@@ -81,7 +81,7 @@ crates, never in a support crate.
 | `crate-jmap-mime/` | `jmap-mime` | MIME adapter: mime-tree → jmap-mail-types (greenfield) |
 | `crate-jmap-mail-server/` | `jmap-mail-server` | RFC 8621 method handlers (greenfield) |
 | `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
-| `crate-jmap-chat-server/` | `jmap-chat-server` | JMAP Chat method handlers (greenfield) |
+| `crate-jmap-chat-server/` | `jmap-chat-server` | JMAP Chat method handlers (greenfield); `verify_did_signature` (draft-atwood-jmap-chat-did-00 §Federation Authentication: RFC 9421 via the DID Document's `authentication` keys, caller-resolved document, no I/O). Depends on `jmap-peer-auth` |
 | `crate-jmap-chat-client/` | `jmap-chat-client` | JMAP Chat client methods (greenfield) |
 | `crate-jmap-metadata-types/` | `jmap-metadata-types` | draft-ietf-jmap-metadata-02 data types — `DataTypeMetadataInfo`, `MetadataTextMatch`, namespace validation. No async |
 | `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata-02 server helpers — depth/namespace validation, `metadata*` filter predicates, `/changes` classification. No handlers, no backend trait |
