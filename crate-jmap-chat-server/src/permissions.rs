@@ -94,7 +94,10 @@ pub const SEND: &str = "send";
 /// cannot change the result and is not consulted.
 ///
 /// Records whose `targetType` is neither `"role"` nor `"member"` match
-/// nothing.
+/// nothing. The draft gives the implicit `@everyone` role no id
+/// (§SpaceRole: it "is not included in the `roles` array"), so no
+/// role-targeted record can address it; restrict or grant the floor with
+/// member-targeted records instead.
 pub fn resolve_channel_permissions(
     space_permissions: HashSet<String>,
     member_id: &str,

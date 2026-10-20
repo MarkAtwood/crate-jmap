@@ -27,12 +27,22 @@ fn seed_channel(
     owner_is_member: bool,
     overrides: Value,
 ) {
-    backend.register_account(&Id::from(ACCOUNT_ID));
     let members = if owner_is_member {
         json!([{ "id": ACCOUNT_ID, "roleIds": ["r1"], "joinedAt": "2026-01-01T00:00:00Z" }])
     } else {
         json!([{ "id": "someone-else", "roleIds": ["r1"], "joinedAt": "2026-01-01T00:00:00Z" }])
     };
+    seed_channel_with_members(backend, role_perms, members, overrides);
+}
+
+/// Seed as [`seed_channel`], with `members` as the Space's `members`.
+fn seed_channel_with_members(
+    backend: &MemoryBackend,
+    role_perms: Value,
+    members: Value,
+    overrides: Value,
+) {
+    backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",
         ACCOUNT_ID,
@@ -207,6 +217,33 @@ async fn channel_member_allow_overrides_role_deny() {
             { "targetId": "r1", "targetType": "role", "allow": [], "deny": ["send"] },
             { "targetId": ACCOUNT_ID, "targetType": "member", "allow": ["send"], "deny": [] }
         ]),
+    );
+    assert_created(&create_message(&backend, CHANNEL_ID).await);
+}
+
+/// §SpaceMember L738: "An empty list means the member holds only the
+/// `@everyone` role." Role `r1` would grant `send` but is not held, and
+/// the `@everyone` floor grants nothing, so the owner starts without
+/// `send`. §Space Permission Resolution step 5: "Apply `allow` entries
+/// from the same member-targeted record" restores it.
+#[tokio::test]
+async fn channel_member_allow_overrides_everyone_floor() {
+    let backend = MemoryBackend::new();
+    let members = json!([{ "id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }]);
+    seed_channel_with_members(
+        &backend,
+        json!(["view", "send"]),
+        members.clone(),
+        json!([]),
+    );
+    assert_forbidden(&create_message(&backend, CHANNEL_ID).await);
+
+    let backend = MemoryBackend::new();
+    seed_channel_with_members(
+        &backend,
+        json!(["view", "send"]),
+        members,
+        json!([{ "targetId": ACCOUNT_ID, "targetType": "member", "allow": ["send"], "deny": [] }]),
     );
     assert_created(&create_message(&backend, CHANNEL_ID).await);
 }
