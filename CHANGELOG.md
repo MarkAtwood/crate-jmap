@@ -125,6 +125,12 @@ wire behaviour that a conforming peer can observe.
   longer take `serde_json::Value`: `calendar_event_query_changes` sort is
   `&[CalendarEventComparator]`, and `calendar_event_notification_query_changes`
   sort is `&[serde_json::Value]`, matching their `/query` methods.
+- **jmap-calendars-server**: `CalendarsBackend::get_availability` and
+  `CalendarsBackend::parse_calendar_event_blobs` no longer have default
+  implementations. The old defaults reported every principal as free
+  (draft-ietf-jmap-calendars-26 §2.2) and every blob as `notParsable`
+  (§5.13). Implement both; a backend without the feature says so in its
+  own override, as `MemoryBackend` does.
 
 ### Breaking: wire behaviour
 

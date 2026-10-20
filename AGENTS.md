@@ -696,6 +696,23 @@ on shared mailboxes), jmap-calendars-server (calendar ACLs),
 jmap-sharing-server (RFC 9670 myRights), jmap-metadata-server
 (per-user privateMetadata filtering).
 
+## Default bodies on spec-semantic backend methods
+
+A backend trait method that carries a spec-mandated semantic gets
+NO default implementation when a no-op default would put wrong data
+on the wire (bd:JMAP-ic0j.26). Examples: `CalendarsBackend::get_availability`
+(an empty default says "always free") and `parse_calendar_event_blobs`
+(a default says every blob is malformed). A backend that does not
+support the method writes an explicit override saying so.
+
+A default is acceptable when its result is merely absent data
+(`compute_utc_times` returning `(None, None)`), when it ignores
+optional extras while the base operation still works
+(`get_calendar_events`), or when the spec lets the server ignore the
+request (`onSuccessSetIsDefault`). Its rustdoc MUST say that backends
+override it for real semantics. Permission and policy hooks are a
+separate category and stay fail-open (bd:JMAP-bghk).
+
 ## Backend caps and limits
 
 Extension backend traits that expose implementation-defined caps

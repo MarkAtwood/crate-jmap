@@ -2035,6 +2035,37 @@ mod tests {
             fn limits(&self, _caller: &(), _account_id: &Id) -> CalendarsLimits {
                 (*self.limits_override.lock().unwrap()).unwrap_or_default()
             }
+
+            // Not exercised by these tests; mirrors MockBackend.
+            async fn parse_calendar_event_blobs(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                blob_ids: &[jmap_types::Id],
+                _properties: Option<&[String]>,
+            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+                Ok(crate::backend::CalendarEventParseResult {
+                    parsed: std::collections::BTreeMap::new(),
+                    not_found: vec![],
+                    not_parsable: blob_ids.to_vec(),
+                })
+            }
+
+            async fn get_availability(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _principal_id: &jmap_types::Id,
+                _utc_start: &jmap_types::UTCDate,
+                _utc_end: &jmap_types::UTCDate,
+                _show_details: bool,
+                _event_properties: Option<&[String]>,
+            ) -> Result<
+                Vec<jmap_calendars_types::BusyPeriod>,
+                crate::backend::AvailabilityError<Self::Error>,
+            > {
+                Ok(vec![])
+            }
         }
     }
 
@@ -2433,10 +2464,10 @@ mod tests {
         );
     }
 
-    /// Oracle: §5.13 — `parse` with a blob the default backend cannot parse
-    /// must list the blob in `notParsable`.
+    /// Oracle: §5.13 — `parse` with a blob the backend cannot parse must
+    /// list the blob in `notParsable`.
     #[tokio::test]
-    async fn parse_returns_not_parsable_by_default() {
+    async fn parse_lists_unparsable_blob_in_not_parsable() {
         let backend = MockBackend::new_with_account("acc");
         let args = json!({
             "accountId": "acc",
@@ -2855,6 +2886,34 @@ mod tests {
             ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
                 Err(QueryCalendarEventsError::Other(FaultyError(CANARY)))
             }
+
+            async fn parse_calendar_event_blobs(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _blob_ids: &[jmap_types::Id],
+                _properties: Option<&[String]>,
+            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+                Err(FaultyError(CANARY))
+            }
+
+            async fn get_availability(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _principal_id: &jmap_types::Id,
+                _utc_start: &jmap_types::UTCDate,
+                _utc_end: &jmap_types::UTCDate,
+                _show_details: bool,
+                _event_properties: Option<&[String]>,
+            ) -> Result<
+                Vec<jmap_calendars_types::BusyPeriod>,
+                crate::backend::AvailabilityError<Self::Error>,
+            > {
+                Err(crate::backend::AvailabilityError::Other(FaultyError(
+                    CANARY,
+                )))
+            }
         }
 
         let backend = FaultyBackend;
@@ -3043,6 +3102,24 @@ mod tests {
                 _properties: Option<&[String]>,
             ) -> Result<CalendarEventParseResult, Self::Error> {
                 Err(FaultyError(CANARY))
+            }
+
+            async fn get_availability(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _principal_id: &jmap_types::Id,
+                _utc_start: &jmap_types::UTCDate,
+                _utc_end: &jmap_types::UTCDate,
+                _show_details: bool,
+                _event_properties: Option<&[String]>,
+            ) -> Result<
+                Vec<jmap_calendars_types::BusyPeriod>,
+                crate::backend::AvailabilityError<Self::Error>,
+            > {
+                Err(crate::backend::AvailabilityError::Other(FaultyError(
+                    CANARY,
+                )))
             }
         }
 
