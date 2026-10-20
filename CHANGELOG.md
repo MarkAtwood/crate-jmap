@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-peer-auth-io**: new support crate for the I/O half of
+  draft-atwood-jmap-chat-federation-00 §Peer Authentication Model.
+  `PeerKeys` fetches `https://<peer-domain>/.well-known/jmap` unsigned and
+  queries `_jmap-peer.<peer-domain>` TXT, applies `usable_keys`, caches for
+  the RFC 9111 freshness lifetime (at most one hour and the DNS TTL), and
+  refetches on an unknown `kid` at most once per 60 seconds per peer domain.
+  `HttpsFetcher` is HTTPS-only with `https`-only redirects and a caller
+  address policy for §Blob Fetch and SSRF; `HickoryLookup` validates DNSSEC
+  in-process; `MemoryReplayStore` implements check 5; `authenticate` runs
+  the whole receive path.
 - **jmap-peer-auth**: new I/O-free crate for draft-atwood-jmap-chat-federation-00
   §Peer Authentication Model. `sign` produces the RFC 9421
   `Signature-Input` / `Signature` (Ed25519, `tag="jmap-chat-peer"`) and RFC
