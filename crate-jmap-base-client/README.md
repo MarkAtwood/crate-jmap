@@ -475,9 +475,9 @@ Returned by `fetch_session`. Key fields:
 
 ```rust
 pub struct Session {
-    pub capabilities: HashMap<String, serde_json::Value>,
-    pub accounts: HashMap<String, AccountInfo>,
-    pub primary_accounts: HashMap<String, String>,
+    pub capabilities: BTreeMap<String, serde_json::Value>,
+    pub accounts: BTreeMap<String, AccountInfo>,
+    pub primary_accounts: BTreeMap<String, String>,
     pub username: String,
     pub api_url: String,
     pub download_url: String,   // RFC 6570 Level-1 template

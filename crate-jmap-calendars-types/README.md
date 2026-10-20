@@ -254,7 +254,7 @@ concrete typed structs:
 | `locations`, `virtualLocations`, `links`, `participants`, `alerts`, `recurrenceRules`, `excludedRecurrenceRules`, `keywords`, `categories`, `replyTo`, `relatedTo` | JSCalendar defines these as open-ended maps/arrays where values are rich nested objects. Concrete types for each exist in the `jscalendar` module; callers that need typed access deserialize the `Value` themselves using those types. |
 
 The fields `recurrenceOverrides` and `localizations` use a typed envelope —
-`Option<HashMap<String, jmap_types::PatchObject>>` — because they ARE
+`Option<BTreeMap<String, jmap_types::PatchObject>>` — because they ARE
 RFC 8620 §5.3 PatchObjects at the JMAP layer.  The outer envelope is
 typed; the inner `PatchObject` leaves remain `serde_json::Value` to
 preserve per-leaf JSCalendar shape flexibility.  Wire format is
@@ -285,7 +285,7 @@ pub ical_component: Option<String>,
   objects. Callers needing typed access must deserialize the `Value`
   themselves using the concrete types in the `jscalendar` module.
 - **`recurrenceOverrides`, `localizations`** use
-  `Option<HashMap<String, jmap_types::PatchObject>>`: the outer envelope
+  `Option<BTreeMap<String, jmap_types::PatchObject>>`: the outer envelope
   is typed (RFC 8620 §5.3 PatchObject) while inner leaves remain `Value`
   for JSCalendar shape flexibility. Construct via
   `PatchObject::from_map(...)` or `Map::into()`.

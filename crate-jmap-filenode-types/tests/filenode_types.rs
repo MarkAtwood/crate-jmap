@@ -1087,3 +1087,20 @@ fn filenode_file_unset_defaulted_properties_serialize_defaults() {
     );
     assert_eq!(out["executable"], serde_json::json!(false), "{out}");
 }
+
+/// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format maps
+/// serialize in sorted key order. Input keys are deliberately out of order;
+/// expected bytes are hand-written.
+#[test]
+fn share_with_serializes_in_sorted_key_order() {
+    let rights = r#"{"mayRead":true,"mayAddChildren":false,"mayRename":false,"mayDelete":false,"mayModifyContent":false,"mayShare":false}"#;
+    let input = format!(
+        r#"{{"id":"n1","parentId":null,"name":"doc","shareWith":{{"u2":{rights},"u1":{rights}}}}}"#
+    );
+    let node: FileNode = serde_json::from_str(&input).expect("deserialize");
+    let j = serde_json::to_string(&node).expect("serialize");
+    assert!(
+        j.contains(&format!(r#""shareWith":{{"u1":{rights},"u2":{rights}}}"#)),
+        "shareWith keys must be sorted: {j}"
+    );
+}

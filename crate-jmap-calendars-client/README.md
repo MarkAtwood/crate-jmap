@@ -83,7 +83,7 @@ from the bound session.
 | `calendar_event_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<CalendarEventGetParams>)` | `GetResponse<CalendarEvent>` |
 | `calendar_event_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
 | `calendar_event_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<CalendarEvent>` |
-| `calendar_event_copy` | `(from_account_id: &Id, create: HashMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
+| `calendar_event_copy` | `(from_account_id: &Id, create: BTreeMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
 | `calendar_event_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>, expand_recurrences: Option<bool>)` | `QueryResponse` |
 | `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>)` | `QueryChangesResponse` |
 | `calendar_event_parse` | `(blob_ids: &[Id], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |
@@ -118,9 +118,9 @@ validation at construction time via `UTCDate::new_validated`.
 
 `filter` and `sort` parameters use typed conditions/comparators where defined,
 falling back to `Option<serde_json::Value>` for spec extensions not yet bound.
-`create` parameters are typed as `Option<HashMap<String, T>>` for the relevant
+`create` parameters are typed as `Option<BTreeMap<String, T>>` for the relevant
 JMAP object `T`. `update` parameters are typed as
-`Option<HashMap<Id, jmap_types::PatchObject>>` (RFC 8620 §5.3) — wire format is
+`Option<BTreeMap<Id, jmap_types::PatchObject>>` (RFC 8620 §5.3) — wire format is
 unchanged from a plain JSON object because `PatchObject` is
 `#[serde(transparent)]`. Pass `None` to omit any of these from the request.
 
@@ -160,7 +160,7 @@ session, it returns `ClientError::InvalidSession`.
 | `SetResponse<T>` | `account_id`, `old_state`, `new_state`, `created`, `updated`, `destroyed`, `not_created`, `not_updated`, `not_destroyed` | RFC 8620 §5.3 |
 | `QueryResponse` | `account_id`, `query_state`, `can_calculate_changes`, `position`, `ids`, `total`, `limit` | RFC 8620 §5.5 |
 | `QueryChangesResponse` | `account_id`, `old_query_state`, `new_query_state`, `total`, `removed`, `added` | RFC 8620 §5.6 |
-| `CalendarEventParseResponse` | `account_id`, `parsed: Option<HashMap<Id, Vec<CalendarEvent>>>`, `not_found`, `not_parsable` | draft §5.13 |
+| `CalendarEventParseResponse` | `account_id`, `parsed: Option<BTreeMap<Id, Vec<CalendarEvent>>>`, `not_found`, `not_parsable` | draft §5.13 |
 | `PrincipalGetAvailabilityResponse` | `account_id`, `list: Vec<BusyPeriod>` | draft §2.2 |
 
 `SetResponse<T>` defaults to `T = serde_json::Value` when the concrete type

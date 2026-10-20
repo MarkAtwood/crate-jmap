@@ -129,7 +129,7 @@ The capability `using` array for all sharing requests is:
 
 ## Gotchas
 
-`Principal.accounts` is `Option<HashMap<Id, serde_json::Value>>` because
+`Principal.accounts` is `Option<BTreeMap<Id, serde_json::Value>>` because
 Account capability objects vary per JMAP extension — each extension defines its
 own `accountCapabilities` schema. Callers needing typed access to capability
 values within an Account should deserialize the `Value` against their own

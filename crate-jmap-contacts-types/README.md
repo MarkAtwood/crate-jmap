@@ -168,7 +168,7 @@ root):
 
 ```rust
 use jmap_contacts_types::{ContactCard, EmailAddress, Name};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 let json = r#"{
     "id": "3",
@@ -192,8 +192,8 @@ let card: ContactCard = serde_json::from_str(json).unwrap();
 let name: Name = serde_json::from_value(card.name.unwrap()).unwrap();
 assert_eq!(name.components.as_ref().unwrap()[0].value, "Joe");
 
-// Map sub-fields deserialize into HashMap<Id, T>:
-let emails: HashMap<String, EmailAddress> =
+// Map sub-fields deserialize into BTreeMap<String, T>:
+let emails: BTreeMap<String, EmailAddress> =
     serde_json::from_value(card.emails.unwrap()).unwrap();
 assert_eq!(emails["0"].address, "joe.bloggs@example.com");
 ```
@@ -225,8 +225,8 @@ etc.).
 ### addressBookIds wire format
 
 `addressBookIds` is an `Id[Boolean]` map — a JSON object where each key is an
-`AddressBook` Id and each value is `true`. Rust type: `Option<HashMap<Id,
-bool>>`. The standard serde `HashMap` serializer handles this correctly.
+`AddressBook` Id and each value is `true`. Rust type: `Option<BTreeMap<Id,
+bool>>`. The standard serde `BTreeMap` serializer handles this correctly.
 
 ### JSContact sub-object design
 

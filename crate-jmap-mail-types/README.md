@@ -186,11 +186,11 @@ Use `Email::new` for the six required metadata fields, then set optional header 
 body fields directly:
 
 ```rust
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use jmap_types::{Id, UTCDate};
 use jmap_mail_types::{Email, EmailAddress, keyword, Keyword};
 
-let mut mailbox_ids = HashMap::new();
+let mut mailbox_ids = BTreeMap::new();
 mailbox_ids.insert(Id::from("inbox-id"), true);
 
 let mut email = Email::new(
@@ -218,13 +218,13 @@ let json = serde_json::to_string(&email).unwrap();
 
 `Keyword` is a newtype over `String` that serializes transparently. Well-known system
 keywords are available as `&str` constants in the `keyword` module. Because `Keyword`
-implements `Borrow<str>`, a `HashMap<Keyword, bool>` can be queried with a bare `&str`:
+implements `Borrow<str>`, a `BTreeMap<Keyword, bool>` can be queried with a bare `&str`:
 
 ```rust
 use jmap_mail_types::{keyword, Keyword};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
-let mut kw: HashMap<Keyword, bool> = HashMap::new();
+let mut kw: BTreeMap<Keyword, bool> = BTreeMap::new();
 kw.insert(Keyword::from(keyword::SEEN), true);
 kw.insert(Keyword::from(keyword::FLAGGED), true);
 
@@ -342,11 +342,11 @@ All structs carry `#[serde(rename_all = "camelCase")]`, mapping Rust field names
 ### `Keyword`
 
 `Keyword` is a newtype over `String` with `#[serde(transparent)]`. It serializes
-directly as a JSON string, so `HashMap<Keyword, bool>` round-trips as a JSON object
+directly as a JSON string, so `BTreeMap<Keyword, bool>` round-trips as a JSON object
 with string keys — exactly the `keywords` wire format in RFC 8621 §4.1.1. System
 keywords are `&str` constants (e.g. `keyword::SEEN = "$seen"`). Because `Keyword`
 implements `Borrow<str>` and `Deref<Target = str>`, the constants work directly as
-`HashMap` lookup keys without constructing a `Keyword`.
+`BTreeMap` lookup keys without constructing a `Keyword`.
 
 ### `MailboxRole` and the `impl_string_enum!` macro
 
