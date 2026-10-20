@@ -96,6 +96,8 @@ async fn email_copy_routes_vendor_extras_to_wire() {
     extra.insert("acmeCorpAudit".into(), json!(true));
     let params = EmailCopyParams {
         from_account_id: Id::from("src"),
+        if_from_in_state: None,
+        if_in_state: None,
         on_success_destroy_original: None,
         destroy_from_if_in_state: None,
         extra,

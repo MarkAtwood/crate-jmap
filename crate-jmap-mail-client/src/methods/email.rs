@@ -371,7 +371,9 @@ impl super::SessionClient {
 
     /// Copy Emails from another account (RFC 8621 §4.7 — Email/copy).
     ///
-    /// `params` carries `fromAccountId` and optional destroy-after-copy flags.
+    /// `params` carries `fromAccountId`, the optional `ifFromInState` /
+    /// `ifInState` state guards, and the optional destroy-after-copy flags
+    /// (RFC 8620 §5.4).
     /// `create` is a map of creation keys to partial Email objects (with new
     /// mailboxIds etc.) as described in RFC 8621 §4.7.
     ///
@@ -387,8 +389,10 @@ impl super::SessionClient {
     ///   the user can access.
     /// - `fromAccountNotSupportedByMethod` — the source account does
     ///   not support the JMAP Mail capability.
-    /// - `stateMismatch` — `destroy_from_if_in_state` did not match
-    ///   the current state of Email on the source account.
+    /// - `stateMismatch` — `if_from_in_state` or `if_in_state` did not
+    ///   match the current Email state of the source or destination
+    ///   account. A `destroy_from_if_in_state` mismatch is reported by
+    ///   the implicit `Email/set` response instead (RFC 8620 §5.4).
     /// - `tooManyCopies` — server-defined cap on copies-per-request
     ///   exceeded.
     /// - `tooManyEmails` — server-defined cap on emails-per-copy
@@ -426,6 +430,12 @@ impl super::SessionClient {
             "fromAccountId": params.from_account_id,
             "create": create,
         });
+        if let Some(v) = params.if_from_in_state {
+            args["ifFromInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.if_in_state {
+            args["ifInState"] = v.into_inner().into();
+        }
         if let Some(v) = params.on_success_destroy_original {
             args["onSuccessDestroyOriginal"] = v.into();
         }
