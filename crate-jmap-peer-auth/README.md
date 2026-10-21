@@ -10,7 +10,7 @@ rule and the identity-host binding rule.
 
 The parts of peer authentication that need no I/O. You pass in the
 clock, the peer domain's fetched `peerSigningKeys`, your DNSSEC
-validation result and a replay-store lookup. Fetching keys over HTTPS,
+validation result. Fetching keys over HTTPS,
 the `_jmap-peer` TXT lookup, the key cache, the 60-second refetch limit
 and the replay store are yours (or a support crate's). Server crates may
 depend on this crate.
@@ -35,8 +35,11 @@ Receiving one:
 ```rust,ignore
 let signed = SignedRequest::parse(Request { method, target_uri, headers, content })?;
 let keys = usable_keys(&peer_signing_keys_of(signed.peer_domain()), &dnssec_answer)?;
-let accepted = signed.verify(&keys, SystemTime::now(), |domain, nonce| replay_store.contains(domain, nonce))?;
-replay_store.insert(accepted.peer_domain.clone(), accepted.nonce.clone(), accepted.forget_after);
+let accepted = signed.verify(&keys, SystemTime::now())?;
+// Check 5: one atomic test-and-insert, true when the pair was new.
+if !replay_store.insert(&accepted.peer_domain, &accepted.nonce, accepted.forget_after) {
+    return Err(Rejection::Replayed);
+}
 match bind_identity(&owner_user_id, &accepted.peer_domain) {
     IdentityBinding::Bound => { /* grant peer-role access */ }
     IdentityBinding::NeedsDidVerification => { /* draft-atwood-jmap-chat-did-00 check */ }
@@ -59,9 +62,9 @@ again before rejecting.
   know which peer domain's keys to fetch.
 - `SignedRequest::verify` runs the clock window (60 s skew, 300 s
   lifetime), the `Content-Digest` match, the key lookup, Ed25519
-  verification (strict) and, last, your replay lookup. It returns the
-  authenticated peer domain and the (domain, nonce, forget-after) record
-  to store.
+  verification (strict). It returns the authenticated peer domain and
+  the (domain, nonce, forget-after) record for your atomic replay
+  test-and-insert.
 - `PeerSigningKey::from_jwk` ignores any entry that is not an OKP
   Ed25519 key whose `kid` is its RFC 7638 thumbprint, or that carries
   the private member `d`.
