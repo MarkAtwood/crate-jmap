@@ -571,9 +571,11 @@ wire behaviour that a conforming peer can observe.
   `urn:ietf:params:jmap:did` (draft-atwood-jmap-did-00 §Capability).
   `jmap-base-client` now depends on `jmap-did-types`.
 - **jmap-server**: `reject_did_bearing_properties`, which rejects a
-  `/set` create object or update PatchObject that includes a DID-bearing
-  property with an `invalidProperties` SetError listing the property
-  (draft-atwood-jmap-did-00 §The `did` Property: server-set, immutable).
+  `/set` create object that includes a DID-bearing property, or an update
+  PatchObject that changes one, with an `invalidProperties` SetError
+  listing the property. An update that repeats the stored value passes
+  (draft-atwood-jmap-did-00 §The `did` Property: server-set; RFC 8620
+  §5.3).
 - **jmap-did-types** (new crate): the `urn:ietf:params:jmap:did`
   capability of draft-atwood-jmap-did-00 §Capability: `JMAP_DID_URI`,
   the session-level `DidCapability` (`supportedMethods`,
