@@ -2066,6 +2066,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-graph-server"
+version = "0.3.0"
+dependencies = [
+ "jmap-graph-server",
+ "jmap-graph-types",
+ "jmap-server",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "ulid",
+]
+
+[[package]]
 name = "jmap-graph-types"
 version = "0.3.0"
 dependencies = [
