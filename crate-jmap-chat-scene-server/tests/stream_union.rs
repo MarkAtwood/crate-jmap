@@ -27,6 +27,7 @@ fn region(id: &str) -> Value {
     json!({
         "id": id,
         "accountId": ACCOUNT,
+        "ownerId": ALICE,
         "name": id,
         "description": null,
         "bounds": { "min": [-20, 0, -20], "max": [20, 8, 20] },

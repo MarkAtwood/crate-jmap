@@ -25,12 +25,9 @@ const PEDESTAL_BLOB: &str = "blob-gltf-pedestal-001";
 fn backend_with_regions(capability: Value) -> MemoryBackend {
     let backend = backend_with(capability);
     for id in [REGION, OTHER_REGION] {
-        seed_as(
-            &backend,
-            "SceneRegion",
-            BOB,
-            stored_region(id, "Gallery", "2026-06-01T10:00:00Z"),
-        );
+        let mut region = stored_region(id, "Gallery", "2026-06-01T10:00:00Z");
+        region["ownerId"] = json!(BOB);
+        seed_as(&backend, "SceneRegion", BOB, region);
     }
     for blob in [SCULPTURE_BLOB, PEDESTAL_BLOB] {
         backend.add_blob(&Id::from(ACCOUNT), blob, 1024);

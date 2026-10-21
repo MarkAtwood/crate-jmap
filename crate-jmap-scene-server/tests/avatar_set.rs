@@ -23,10 +23,11 @@ const OTHER_REGION: &str = "01J5ABC0000000000000000002";
 /// A user who neither owns the regions nor is an admin.
 const CAROL: &str = "user:carol@example.com";
 
-/// A region whose `spawnPosition` is the `[0, 0, 10]` the L1950 response
-/// reports for an avatar entering it.
+/// A region owned by [`BOB`] whose `spawnPosition` is the `[0, 0, 10]`
+/// the L1950 response reports for an avatar entering it.
 fn region(id: &str, access_policy: &str) -> Value {
     let mut r = stored_region(id, "Gallery", "2026-06-01T10:00:00Z");
+    r["ownerId"] = json!(BOB);
     r["spawnPosition"] = json!([0, 0, 10]);
     r["accessPolicy"] = json!(access_policy);
     r

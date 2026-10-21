@@ -430,10 +430,13 @@ pub trait SceneBackend: JmapBackend {
     }
 
     /// `true` if the caller has access to region `region_id`
-    /// (draft-atwood-jmap-scene-00 §Region Access): under `"public"` "Any
-    /// authenticated user may enter and view objects", under `"invite"`
-    /// "Only users explicitly granted access", under `"space"` only members
-    /// of the bound Space.
+    /// (draft-atwood-jmap-scene-00 §Region Access): "A user has access to a
+    /// region when its `accessPolicy` admits the user, when the user is the
+    /// region owner, when the user has deployment-defined administrative
+    /// privileges, or when the user has an active SceneAvatar in it."
+    /// `"invite"` admits "The users whose userIds are listed in
+    /// `invitedUserIds`", and "Servers MAY admit users to an `\"invite\"`
+    /// region by other mechanisms as well".
     ///
     /// `SceneRegion/get`, `SceneObject/get` and `SceneAvatar/get` report a
     /// region, object or avatar in a region without access as `notFound`:

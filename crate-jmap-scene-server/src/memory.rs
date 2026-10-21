@@ -10,7 +10,8 @@
 //! # Caller context
 //!
 //! `CallerCtx` is the caller's userId (`String`). The creator of an asset
-//! or region is its owner; [`SceneBackend::may_modify_asset`] and
+//! is its owner, and a region's owner is its `ownerId`;
+//! [`SceneBackend::may_modify_asset`] and
 //! [`SceneBackend::may_update_region`] allow the owner and the users
 //! registered with `add_admin`, [`SceneBackend::may_destroy_region`] the
 //! owner only. [`SceneBackend::may_modify_object`] allows the object's
@@ -21,8 +22,10 @@
 //!
 //! [`SceneBackend::caller_user_id`] is the caller.
 //! [`SceneBackend::may_enter_region`] refuses an `"invite"` region to
-//! everyone but its owner, the admins and the users given access with
-//! `grant_region_access`; other policies admit everyone (there are no
+//! everyone but its owner, the admins, the users in its `invitedUserIds`,
+//! the users given access with `grant_region_access` (one of the "other
+//! mechanisms" an `"invite"` region MAY admit by) and the users with an
+//! active avatar in it; other policies admit everyone (there are no
 //! Spaces here). [`SceneBackend::may_eject_avatar`] allows the avatar's
 //! region owner and the admins. Each region's `activeAvatarCount` is
 //! recomputed from its avatars with `leftAt` `null` whenever an avatar
@@ -287,25 +290,43 @@ impl Inner {
         Ok(value)
     }
 
-    /// `true` if `caller` is an admin, the owner of `region_id` or granted
-    /// access to it: "Only users explicitly granted access may enter."
-    fn invited(&self, caller: &str, region_id: &Id) -> bool {
-        self.admins.contains(caller)
-            || self.owners.get(region_id).is_some_and(|o| o == caller)
-            || self
-                .grants
-                .contains(&(region_id.as_ref().to_owned(), caller.to_owned()))
-    }
-
-    /// [`SceneBackend::may_access_region`]: the `"invite"` rule; a region
-    /// that is not stored admits everyone.
-    fn may_access(&self, caller: &str, account_id: &Id, region_id: &Id) -> bool {
+    /// The stored region `region_id`, if it decodes.
+    fn region(&self, account_id: &Id, region_id: &Id) -> Option<SceneRegion> {
         self.objects(SceneRegion::TYPE_NAME, account_id)
             .and_then(|m| m.get(region_id))
             .and_then(|v| decode::<SceneRegion>(v).ok())
-            .is_none_or(|r| {
-                r.access_policy != AccessPolicy::Invite || self.invited(caller, region_id)
-            })
+    }
+
+    /// `true` if `caller` is the owner of the region `region_id`.
+    fn owns_region(&self, caller: &str, account_id: &Id, region_id: &Id) -> bool {
+        self.region(account_id, region_id)
+            .is_some_and(|r| r.owner_id == caller)
+    }
+
+    /// `true` if `caller` has access to `region`: "A user has access to a
+    /// region when its `accessPolicy` admits the user, when the user is
+    /// the region owner, when the user has deployment-defined
+    /// administrative privileges, or when the user has an active
+    /// SceneAvatar in it"; `"invite"` admits "The users whose userIds are
+    /// listed in `invitedUserIds`" and those given a grant.
+    fn admits(&self, caller: &str, account_id: &Id, region: &SceneRegion) -> bool {
+        region.access_policy != AccessPolicy::Invite
+            || region.owner_id == caller
+            || self.admins.contains(caller)
+            || region.invited_user_ids.iter().any(|u| u == caller)
+            || self
+                .grants
+                .contains(&(region.id.as_ref().to_owned(), caller.to_owned()))
+            || self
+                .all::<SceneAvatar>(account_id)
+                .any(|a| a.region_id == region.id && a.user_id == caller && a.left_at.is_none())
+    }
+
+    /// [`SceneBackend::may_access_region`]: [`Self::admits`]; a region that
+    /// is not stored admits everyone.
+    fn may_access(&self, caller: &str, account_id: &Id, region_id: &Id) -> bool {
+        self.region(account_id, region_id)
+            .is_none_or(|r| self.admits(caller, account_id, &r))
     }
 
     /// Every stored object of type `O` that decodes.
@@ -1004,8 +1025,7 @@ impl SceneBackend for MemoryBackend {
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
         // "Only the owner or an admin may modify region properties."
-        let inner = self.lock();
-        Ok(inner.admins.contains(caller) || inner.owners.get(&region.id) == Some(caller))
+        Ok(region.owner_id == *caller || self.lock().admins.contains(caller))
     }
 
     async fn may_destroy_region(
@@ -1015,13 +1035,13 @@ impl SceneBackend for MemoryBackend {
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
         // "Only the region owner may destroy a region."
-        Ok(self.lock().owners.get(&region.id) == Some(caller))
+        Ok(region.owner_id == *caller)
     }
 
     async fn may_modify_object(
         &self,
         caller: &String,
-        _account_id: &Id,
+        account_id: &Id,
         object: &SceneObject,
     ) -> Result<bool, MemoryError> {
         // "Only the object's `ownerId`, the region owner, or a
@@ -1029,7 +1049,7 @@ impl SceneBackend for MemoryBackend {
         let inner = self.lock();
         Ok(inner.admins.contains(caller)
             || object.owner_id.as_ref() == Some(caller)
-            || inner.owners.get(&object.region_id) == Some(caller))
+            || inner.owns_region(caller, account_id, &object.region_id))
     }
 
     async fn caller_user_id(
@@ -1043,11 +1063,11 @@ impl SceneBackend for MemoryBackend {
     async fn may_enter_region(
         &self,
         caller: &String,
-        _account_id: &Id,
+        account_id: &Id,
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
-        // "Only users explicitly granted access may enter."
-        Ok(region.access_policy != AccessPolicy::Invite || self.lock().invited(caller, &region.id))
+        // "Access covers both seeing the region ... and entering it."
+        Ok(self.lock().admits(caller, account_id, region))
     }
 
     async fn may_access_region(
@@ -1094,12 +1114,13 @@ impl SceneBackend for MemoryBackend {
     async fn may_eject_avatar(
         &self,
         caller: &String,
-        _account_id: &Id,
+        account_id: &Id,
         avatar: &SceneAvatar,
     ) -> Result<bool, MemoryError> {
         // "Region owners and administrators MAY eject avatars".
         let inner = self.lock();
-        Ok(inner.admins.contains(caller) || inner.owners.get(&avatar.region_id) == Some(caller))
+        Ok(inner.admins.contains(caller)
+            || inner.owns_region(caller, account_id, &avatar.region_id))
     }
 
     async fn accept_interaction(

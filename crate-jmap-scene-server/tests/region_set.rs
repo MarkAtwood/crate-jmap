@@ -107,9 +107,9 @@ fn assert_invalid(err: &Value, expected: &[&str]) {
 
 #[tokio::test]
 async fn create_returns_the_server_set_properties() {
-    // L977 "The server sets `id`, `accountId`, `activeAvatarCount` (to
-    // `0`), `createdAt`, and `updatedAt`"; the L1045-1050 `created` entry
-    // carries exactly those five.
+    // 6bcd9d8 L1059 "The server sets `id`, `accountId`, `ownerId` (to the
+    // caller's userId), `activeAvatarCount` (to `0`), `createdAt`, and
+    // `updatedAt`"; the `created` entry carries exactly those six.
     let backend = backend();
     let resp = set(&backend, ALICE, json!({ "create": { "r0": main_plaza() } })).await;
     let created = resp["created"]["r0"].as_object().expect("created entry");
@@ -122,10 +122,12 @@ async fn create_returns_the_server_set_properties() {
             "activeAvatarCount",
             "createdAt",
             "id",
+            "ownerId",
             "updatedAt"
         ]
     );
     assert_eq!(created["accountId"], ACCOUNT);
+    assert_eq!(created["ownerId"], ALICE);
     assert_eq!(created["activeAvatarCount"], 0);
     assert_eq!(created["createdAt"], created["updatedAt"]);
     // L1042-1043: the state advances.
@@ -478,6 +480,67 @@ async fn update_applies_the_create_validations() {
     }
     // Nothing was applied.
     assert_eq!(get(&backend, &id).await["accessPolicy"], "invite");
+}
+
+#[tokio::test]
+async fn owner_id_is_server_set_and_immutable() {
+    // 6bcd9d8 L327 "`ownerId` (String, immutable, server-set)"; L1316
+    // "Attempting to change `id`, `accountId`, `ownerId`, ... is also
+    // invalid."
+    let backend = backend();
+    let mut r = design_review_room();
+    r["ownerId"] = json!(BOB);
+    assert_invalid(&create_error(&backend, r).await, &["ownerId"]);
+    let id = create(&backend, design_review_room()).await;
+    assert_eq!(get(&backend, &id).await["ownerId"], ALICE);
+    let resp = update(&backend, ALICE, &id, json!({ "ownerId": BOB })).await;
+    assert_invalid(&resp["notUpdated"][&id], &["ownerId"]);
+}
+
+#[tokio::test]
+async fn invited_user_ids_must_be_a_string_array() {
+    // 6bcd9d8 L1275 "`invitedUserIds` is not an array of Strings |
+    // `invitedUserIds` is a String[]."
+    let backend = backend();
+    for bad in [json!("user:bob@example.com"), json!([1]), json!(null)] {
+        let mut r = design_review_room();
+        r["invitedUserIds"] = bad;
+        assert_invalid(&create_error(&backend, r).await, &["invitedUserIds"]);
+    }
+    let id = create(&backend, design_review_room()).await;
+    let resp = update(&backend, ALICE, &id, json!({ "invitedUserIds": [true] })).await;
+    assert_invalid(&resp["notUpdated"][&id], &["invitedUserIds"]);
+}
+
+#[tokio::test]
+async fn invited_user_ids_admit_and_are_shown_only_to_updaters() {
+    // The 6bcd9d8 L1062-1079 create. L2601 `"invite"` admits "The users
+    // whose userIds are listed in `invitedUserIds`"; L457 "The server
+    // returns the list only to callers who may update the region; for
+    // every other caller, the server returns `[]`."
+    let backend = backend();
+    let mut r = design_review_room();
+    r["invitedUserIds"] = json!(["user:alice@example.com", "user:bob@example.com"]);
+    let id = create(&backend, r).await;
+    let get_as = |caller: &'static str| {
+        let backend = &backend;
+        let id = id.clone();
+        async move {
+            call!(
+                handle_scene_region_get,
+                backend,
+                caller,
+                json!({ "ids": [id] })
+            )
+        }
+    };
+    let invited = json!(["user:alice@example.com", "user:bob@example.com"]);
+    assert_eq!(get_as(ALICE).await["list"][0]["invitedUserIds"], invited);
+    assert_eq!(get_as(ADMIN).await["list"][0]["invitedUserIds"], invited);
+    let bob = get_as(BOB).await;
+    assert_eq!(bob["list"][0]["invitedUserIds"], json!([]), "{bob}");
+    let carol = get_as("user:carol@example.com").await;
+    assert_eq!(carol["notFound"], json!([id]), "{carol}");
 }
 
 #[tokio::test]

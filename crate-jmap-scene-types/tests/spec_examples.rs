@@ -345,10 +345,11 @@ const GEO_ARRAKIS: &str = r##"{
   }
 }"##;
 
-/// SceneRegion example (draft-atwood-jmap-scene-00 L425-L452).
+/// SceneRegion example (draft-atwood-jmap-scene-00 at 6bcd9d8, L489-L518).
 const SCENE_REGION: &str = r##"{
   "id": "01J5ABC0000000000000000001",
   "accountId": "account-xyz",
+  "ownerId": "user:curator@example.com",
   "name": "Gallery East Wing",
   "description": "Contemporary sculpture exhibition",
   "bounds": {
@@ -366,6 +367,7 @@ const SCENE_REGION: &str = r##"{
   "spawnOrientation": [0, 0, 0, 1],
   "activeAvatarCount": 3,
   "accessPolicy": "public",
+  "invitedUserIds": [],
   "createdAt": "2026-06-01T10:00:00Z",
   "updatedAt": "2026-06-05T14:30:00Z",
   "worldState": null,
@@ -432,7 +434,7 @@ const ASSET_QUERY: &str = r##"[["SceneAsset/query", {
   "limit": 25
 }, "0"]]"##;
 
-/// SceneRegion/get response (draft-atwood-jmap-scene-00 L894-L954).
+/// SceneRegion/get response (draft-atwood-jmap-scene-00 at 6bcd9d8, L969-L1036).
 const REGION_GET_RESPONSE: &str = r##"{
   "methodResponses": [
     ["SceneRegion/get", {
@@ -442,6 +444,7 @@ const REGION_GET_RESPONSE: &str = r##"{
         {
           "id": "01J5ABC0000000000000000001",
           "accountId": "acct-001",
+          "ownerId": "user:curator@example.com",
           "name": "Gallery East Wing",
           "description": "Contemporary sculpture exhibition",
           "bounds": {
@@ -459,6 +462,7 @@ const REGION_GET_RESPONSE: &str = r##"{
           "spawnOrientation": [0, 0, 0, 1],
           "activeAvatarCount": 3,
           "accessPolicy": "public",
+          "invitedUserIds": [],
           "createdAt": "2026-06-01T10:00:00Z",
           "updatedAt": "2026-06-05T14:30:00Z",
           "chatId": "01J5CHAT000000000000000099",
@@ -469,6 +473,7 @@ const REGION_GET_RESPONSE: &str = r##"{
         {
           "id": "01J5ABC0000000000000000002",
           "accountId": "acct-001",
+          "ownerId": "user:curator@example.com",
           "name": "Design Review Room",
           "description": null,
           "bounds": {
@@ -482,6 +487,10 @@ const REGION_GET_RESPONSE: &str = r##"{
           "spawnOrientation": [0, 0, 0, 1],
           "activeAvatarCount": 0,
           "accessPolicy": "invite",
+          "invitedUserIds": [
+            "user:alice@example.com",
+            "user:bob@example.com"
+          ],
           "createdAt": "2026-06-02T08:00:00Z",
           "updatedAt": "2026-06-02T08:00:00Z",
           "chatId": null,
@@ -717,6 +726,7 @@ const LIFECYCLE_REGION_GET: &str = r##"[["SceneRegion/query", {
     {
       "id": "01JXKR5M0G3QVTA8N2BWFP7Y01",
       "accountId": "alice-account",
+      "ownerId": "user:curator@example.com",
       "name": "Gallery East Wing",
       "description": "Contemporary sculpture exhibition",
       "bounds": {
@@ -734,6 +744,7 @@ const LIFECYCLE_REGION_GET: &str = r##"[["SceneRegion/query", {
       "spawnOrientation": [0, 0, 0, 1],
       "activeAvatarCount": 3,
       "accessPolicy": "public",
+      "invitedUserIds": [],
       "createdAt": "2026-05-01T10:00:00Z",
       "updatedAt": "2026-06-05T14:30:00Z",
       "chatId": null,
@@ -744,6 +755,7 @@ const LIFECYCLE_REGION_GET: &str = r##"[["SceneRegion/query", {
     {
       "id": "01JXKR5M0G3QVTA8N2BWFP7Y02",
       "accountId": "alice-account",
+      "ownerId": "user:curator@example.com",
       "name": "Rooftop Lounge",
       "description": "Social hangout with city skyline",
       "bounds": {
@@ -761,6 +773,7 @@ const LIFECYCLE_REGION_GET: &str = r##"[["SceneRegion/query", {
       "spawnOrientation": [0, 0, 0, 1],
       "activeAvatarCount": 1,
       "accessPolicy": "public",
+      "invitedUserIds": [],
       "createdAt": "2026-05-15T08:00:00Z",
       "updatedAt": "2026-06-04T22:10:00Z",
       "chatId": null,
@@ -802,7 +815,7 @@ const LIFECYCLE_AVATAR_CREATED: &str = r##"[["SceneAvatar/set", {
   "notDestroyed": null
 }, "0"]]"##;
 
-/// SceneRegion/set response, region administration Step 1 (draft-atwood-jmap-scene-00 L3063-L3103).
+/// SceneRegion/set response, region administration Step 1 (draft-atwood-jmap-scene-00 at 6bcd9d8, L3368-L3410).
 const ADMIN_REGION_CREATED: &str = r##"[["SceneRegion/set", {
   "accountId": "admin-account",
   "oldState": "s300",
@@ -811,6 +824,7 @@ const ADMIN_REGION_CREATED: &str = r##"[["SceneRegion/set", {
     "r0": {
       "id": "01JXKRBN7KWMPS46GFHDJT9R10",
       "accountId": "admin-account",
+      "ownerId": "user:admin@example.com",
       "name": "Product Launch Hall",
       "description": "Annual product launch event venue",
       "bounds": {
@@ -819,6 +833,7 @@ const ADMIN_REGION_CREATED: &str = r##"[["SceneRegion/set", {
       },
       "viewHint": "3d",
       "accessPolicy": "public",
+      "invitedUserIds": [],
       "spawnPosition": [0, 0, 50],
       "spawnOrientation": [0, 0, 0, 1],
       "simulationUri": "wss://sim.example.com/regions/launch-hall",

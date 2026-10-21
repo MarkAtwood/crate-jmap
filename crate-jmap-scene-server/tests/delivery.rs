@@ -57,7 +57,7 @@ fn object(id: &str, region: &str, interactable: bool) -> Value {
 /// [`R1`] (public) and [`VAULT`] (invite), the objects above, and active
 /// avatars in [`R1`] for [`ALICE`], [`BOB`], [`CAROL`] and [`MALLORY`].
 /// [`ADMIN`] has an avatar in [`R1`] that has left. [`BOB`] also has an
-/// avatar in [`VAULT`] but no invitation, as after revoked access.
+/// active avatar in [`VAULT`] but no invitation, as after revoked access.
 fn scene() -> MemoryBackend {
     let backend = backend();
     seed_as(
@@ -258,8 +258,12 @@ async fn per_region_scope_and_active_avatar() {
 /// (draft-atwood-jmap-scene-00 L2340): "The server MUST NOT include a
 /// SceneObject in a `SceneObject/get` response ... if the authenticated
 /// user does not have access to the object's containing SceneRegion."
-/// BOB's avatar in the invite-only VAULT survives, but his access does
-/// not.
+/// CAROL has neither an invitation to nor an avatar in the invite-only
+/// VAULT. BOB's active avatar there keeps his access: "A user has access
+/// to a region when ... the user has an active SceneAvatar in it", and "A
+/// change to `accessPolicy` or `invitedUserIds` does not set `leftAt` on
+/// avatars already present" (draft-atwood-jmap-scene-00 at 6bcd9d8,
+/// L2595, L2608).
 #[tokio::test]
 async fn no_events_for_a_region_without_access() {
     let backend = scene();
@@ -272,8 +276,7 @@ async fn no_events_for_a_region_without_access() {
         "updatedBy": ALICE,
         "position": [1, 0, 0]
     }));
-    assert!(!delivers(&backend, BOB, &all(), &e).await);
-    backend.grant_region_access(VAULT, BOB);
+    assert!(!delivers(&backend, CAROL, &all(), &e).await);
     assert!(delivers(&backend, BOB, &all(), &e).await);
 }
 

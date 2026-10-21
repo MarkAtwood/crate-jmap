@@ -95,6 +95,7 @@ pub fn stored_region(id: &str, name: &str, created_at: &str) -> Value {
     json!({
         "id": id,
         "accountId": ACCOUNT,
+        "ownerId": ALICE,
         "name": name,
         "description": null,
         "bounds": { "min": [-20, 0, -20], "max": [20, 8, 20] },
