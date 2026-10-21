@@ -1892,6 +1892,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-contacts-server**: a `ContactCard/copy` whose `destroyFromIfInState`
+  does not match the source state now answers the implicit `ContactCard/set`
+  with a method-level `error` of type `stateMismatch` (RFC 8620 §5.4, §5.3
+  `ifInState`) instead of a `ContactCard/set` listing each source id under
+  `notDestroyed`. Nothing is destroyed, as before.
 - **BREAKING** **jmap-chat-server**: an owner-composed `Message/set` create
   now has `senderMsgId` equal to its `id` (draft-atwood-jmap-chat-00
   §Message: "Equals `id` for messages composed by the owner."). It
