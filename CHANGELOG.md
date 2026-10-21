@@ -1840,6 +1840,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-mimi-server**: `MemoryBackend::store_fanout` no longer
+  rebinds an unbound Chat for a Welcome FanoutMessage it already stores.
+  A hub retrying the same `/notify` after `Room/unbind` used to bind the
+  Chat again, so later FanoutMessages of a group the account left were
+  stored; draft-atwood-jmap-chat-mimi-00 §Chat.roomId binds it again only
+  for "A later Welcome for the account".
 - **jmap-chat-federation-server**: `handle_peer_group_update` parses an
   `avatar` object only after the authorization and `closedAt` checks, as
   draft-atwood-jmap-chat-federation-00 §Peer/groupUpdate Receiver

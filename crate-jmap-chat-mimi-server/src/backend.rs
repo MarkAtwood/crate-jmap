@@ -318,7 +318,9 @@ pub trait MimiBackend: JmapBackend {
     ///   KeyPackageRef for, binding that account's unbound Chat for the
     ///   room again or, "if it has none", creating a Chat bound to the
     ///   room, as [`MimiBackend::create_room`] does, with `name` the empty
-    ///   string;
+    ///   string; an unbound Chat that already stores this Welcome (as
+    ///   below) stays unbound, since a repeated `/notify` is not "a later
+    ///   Welcome";
     /// - skip an account in which the ChatContact of the hub is
     ///   `blocked`: "blocking the hub drops every FanoutMessage of the
     ///   rooms it hosts", so nothing is stored, bound or created there;
