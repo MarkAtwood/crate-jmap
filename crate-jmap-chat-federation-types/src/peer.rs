@@ -853,3 +853,25 @@ impl PeerAck {
         }
     }
 }
+
+/// Whether `uri` is a JMAP object URI, which a receiving server removes
+/// from peer data.
+///
+/// Spec: draft-atwood-jmap-chat-federation-00 §User References in Peer
+/// Methods: "A receiving server removes every MessageAction and every
+/// Endpoint whose `uri` is a JMAP object URI (a URI with the scheme
+/// `jmap`) from data it receives from a peer". Only the scheme is tested,
+/// so a malformed `jmap:` URI is removed too; the scheme name is
+/// case-insensitive (draft-atwood-jmap-object-uri-00 §Equivalence).
+///
+/// # Example
+///
+/// ```
+/// use jmap_chat_federation_types::is_jmap_object_uri;
+/// assert!(is_jmap_object_uri("jmap:task:A1:T9"));
+/// assert!(!is_jmap_object_uri("https://tracker.example/T-1"));
+/// ```
+pub fn is_jmap_object_uri(uri: &str) -> bool {
+    uri.get(..5)
+        .is_some_and(|s| s.eq_ignore_ascii_case("jmap:"))
+}

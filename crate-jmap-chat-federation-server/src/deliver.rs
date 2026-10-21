@@ -15,8 +15,8 @@
 use std::collections::{HashMap, HashSet};
 
 use jmap_chat_federation_types::{
-    PeerAttachment, PeerDeliverArgs, PeerDeliverResponse, PeerEdit, PeerMention, PeerMessage,
-    PeerReactionUpdate, ReactionAction,
+    is_jmap_object_uri, PeerAttachment, PeerDeliverArgs, PeerDeliverResponse, PeerEdit,
+    PeerMention, PeerMessage, PeerReactionUpdate, ReactionAction,
 };
 use jmap_chat_server::{
     find_message_by_sender_msg_id, resolve_channel_permissions, store_server_message,
@@ -846,12 +846,21 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
     /// Map each `assigneeIds` entry of a `urn:ietf:params:jmap:chat:cap:task` action
     /// from an identity string to a local id (draft-atwood-jmap-chat-tasks-00
     /// §Federation: "the receiving server maps each identity to its local
-    /// id"). Every other action, key and value is stored as received.
+    /// id"). An action whose `uri` is a JMAP object URI is removed first,
+    /// keeping the order of the rest (§User References in Peer Methods:
+    /// "A receiving server removes every MessageAction ... whose `uri` is
+    /// a JMAP object URI"); an empty result is an absent `actions`. Every
+    /// other action, key and value is stored as received.
     async fn actions(
         &mut self,
         actions: Option<&[MessageAction]>,
     ) -> Result<Vec<MessageAction>, JmapError> {
-        let mut out = actions.unwrap_or_default().to_vec();
+        let mut out: Vec<MessageAction> = actions
+            .unwrap_or_default()
+            .iter()
+            .filter(|a| !is_jmap_object_uri(&a.uri))
+            .cloned()
+            .collect();
         for action in &mut out {
             for entry in task_assignee_ids(action).into_iter().flatten() {
                 if let Some(identity) = entry.as_str() {
@@ -973,9 +982,11 @@ fn check_mention_ids(mentions: Option<&[PeerMention]>) -> Result<(), JmapError> 
 /// Each `assigneeIds` entry of a `urn:ietf:params:jmap:chat:cap:task` action is a
 /// user reference (draft-atwood-jmap-chat-tasks-00 §Federation) and, like
 /// a Mention `id`, must be an identity string a placeholder can carry.
+/// An action with a JMAP object URI is not checked: it is removed, not
+/// stored (§User References in Peer Methods).
 fn check_task_assignees(actions: Option<&[MessageAction]>) -> Result<(), JmapError> {
     for action in actions.unwrap_or_default() {
-        if action.action_type != CHAT_CAP_TASK {
+        if action.action_type != CHAT_CAP_TASK || is_jmap_object_uri(&action.uri) {
             continue;
         }
         let ids = match action.metadata.as_ref().and_then(|m| m.get("assigneeIds")) {
