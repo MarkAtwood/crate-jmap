@@ -439,9 +439,9 @@ async fn max_avatars_per_region_is_over_quota() {
 }
 
 #[tokio::test]
-async fn missing_region_is_not_found() {
-    // L1959 "The server MUST return `notFound` when `regionId` does not
-    // reference an existing SceneRegion".
+async fn missing_region_is_invalid_region_id() {
+    // L2172 "The server MUST return `invalidProperties` naming `regionId`
+    // when `regionId` does not reference an existing SceneRegion."
     let backend = setup();
     let err = create_error(
         &backend,
@@ -449,7 +449,7 @@ async fn missing_region_is_not_found() {
         json!({ "regionId": "01J5ABC0000000000000000099" }),
     )
     .await;
-    assert_eq!(err["type"], "notFound", "{err}");
+    assert_invalid(&err, &["regionId"]);
 }
 
 #[tokio::test]
@@ -500,10 +500,12 @@ async fn supplied_position_is_kept() {
 }
 
 #[tokio::test]
-async fn invite_region_is_forbidden_without_access() {
-    // L2157 "Region `accessPolicy` is `\"invite\"` and user has not been
-    // granted access"; L2362 "The server MUST return `forbidden` for
-    // `SceneAvatar/set` create from unauthorized users."
+async fn invite_region_without_access_is_invalid_region_id() {
+    // L2172 "The server SHOULD return the same error when the caller has
+    // no access to the region under its `accessPolicy` (for example, an
+    // `\"invite\"` region whose `invitedUserIds` does not list the
+    // caller ...)"; L2386 lists "Region `accessPolicy` is `\"invite\"` and
+    // `invitedUserIds` does not list the user" under `invalidProperties`.
     let backend = setup();
     seed_as(
         &backend,
@@ -512,12 +514,33 @@ async fn invite_region_is_forbidden_without_access() {
     );
     let invite = json!({ "regionId": "01J5ABC0000000000000000003" });
     let err = create_error(&backend, ALICE, invite.clone()).await;
-    assert_eq!(err["type"], "forbidden", "{err}");
+    assert_invalid(&err, &["regionId"]);
 
     // "Only users explicitly granted access may enter."
     backend.grant_region_access("01J5ABC0000000000000000003", ALICE);
     let resp = set(&backend, ALICE, json!({ "create": { "av0": invite } })).await;
     assert!(resp["notCreated"].is_null(), "{resp}");
+}
+
+#[tokio::test]
+async fn banned_create_is_forbidden() {
+    // L2393 `forbidden`: "User is banned or ejected with a cooldown period
+    // still active ... The user already knows the region exists."
+    let backend = setup();
+    backend.ban_from_region(REGION, ALICE);
+    let err = create_error(&backend, ALICE, json!({ "regionId": REGION })).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
+}
+
+#[tokio::test]
+async fn banned_reentry_is_forbidden() {
+    // L2363 "The access checks and errors for entering a region ...
+    // apply"; L2393 a ban or active cooldown is `forbidden`.
+    let backend = setup();
+    let id = departed(&backend, REGION).await;
+    backend.ban_from_region(REGION, ALICE);
+    let err = update_error(&backend, ALICE, &id, reenter()).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
 }
 
 #[tokio::test]

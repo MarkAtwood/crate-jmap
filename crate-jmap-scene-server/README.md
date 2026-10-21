@@ -120,8 +120,9 @@ a child's parent-relative `position` is mapped through its ancestors'
 transforms, and the boundary is inclusive.
 
 A SceneAvatar create enters a region. It needs a `regionId` naming an
-existing region (else `notFound`) and `may_enter_region` (else
-`forbidden`), and must not carry `id`, `joinedAt`, `leftAt` or another
+existing region the caller has access to under `may_access_region`
+(else `invalidProperties` naming `regionId`, the same error either way)
+and `may_enter_region`, which bars banned users (else `forbidden`), and must not carry `id`, `joinedAt`, `leftAt` or another
 user's `userId` (`forbidden`). The handler sets `userId` from
 `caller_user_id`, `displayName` from `avatar_display_name` when absent,
 and `position` and `orientation` from the region's spawn values when
@@ -160,9 +161,10 @@ every condition, for a `withinRadius.radius` <= 0 or a `withinBounds`
   accepted, until you override them.
 - `may_modify_object` fails open too: any caller may move or delete any
   SceneObject until you override it.
-- `may_enter_region` and `may_eject_avatar` fail open too: anyone may
-  enter an `invite` or `space` region and eject anyone, until you
-  override them.
+- `may_enter_region` and `may_eject_avatar` fail open too: no one is
+  banned from a region and anyone may eject anyone, until you override
+  them. Entry to an `invite` or `space` region is decided by
+  `may_access_region`.
 - `caller_user_id` has no default. Avatar ownership is a spec rule, not
   a policy hook.
 - Avatar ids are backend-assigned, not the userId the draft suggests

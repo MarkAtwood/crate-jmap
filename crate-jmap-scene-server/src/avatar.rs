@@ -124,8 +124,10 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 
 /// Handle `SceneAvatar/set` (draft-atwood-jmap-scene-00 §SceneAvatar/set).
 ///
-/// Create enters a region: it validates the request, requires the region
-/// and [`SceneBackend::may_enter_region`], fills the server-set properties
+/// Create enters a region: it validates the request, requires an
+/// existing region the caller has access to
+/// ([`SceneBackend::may_access_region`], else `invalidProperties` naming
+/// `regionId`) and [`SceneBackend::may_enter_region`], fills the server-set properties
 /// and hands the avatar to [`SceneBackend::create_object`]. The `created`
 /// entry is the stored avatar, as in the draft's example response. Update
 /// of an avatar in a region the caller has no access to
@@ -358,11 +360,24 @@ async fn enter_region<B: SceneBackend>(
     }
     refuse_malformed(malformed(&m))?;
 
-    // "`regionId` does not exist or caller lacks access": `notFound`.
+    // "The server MUST return `invalidProperties` naming `regionId` when
+    // `regionId` does not reference an existing SceneRegion. The server
+    // SHOULD return the same error when the caller has no access to the
+    // region under its `accessPolicy`".
     let region_id = Id::from(m["regionId"].as_str().unwrap_or_default());
+    let inaccessible = || invalid(&["regionId"], "regionId is not an accessible SceneRegion");
     let region: SceneRegion = fetch_one(backend, caller, account_id, &region_id)
         .await?
-        .ok_or_else(not_found)?;
+        .ok_or_else(inaccessible)?;
+    if !backend
+        .may_access_region(caller, account_id, &region_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(inaccessible());
+    }
+    // "User is banned or ejected with a cooldown period still active":
+    // `forbidden`.
     if !backend
         .may_enter_region(caller, account_id, &region)
         .await

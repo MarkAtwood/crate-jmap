@@ -1062,6 +1062,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: a `SceneAvatar/set` create whose
+  `regionId` names no SceneRegion, or a region the caller has no access
+  to under `SceneBackend::may_access_region`, is now `invalidProperties`
+  naming `regionId` (was `notFound` and `forbidden`), per
+  draft-atwood-jmap-scene-00 §SceneAvatar/set ("The server MUST return
+  `invalidProperties` naming `regionId` ... SHOULD return the same error
+  when the caller has no access to the region under its
+  `accessPolicy`"). `SceneBackend::may_enter_region` now covers only a
+  ban or eject cooldown (`forbidden`); the `memory` backend moves its
+  `"invite"` rule to `may_access_region` alone and gains
+  `ban_from_region`.
+
 - **BREAKING** **jmap-scene-server**: `SceneAvatar/set` stores the
   server's current time as `leftAt` when an update sets it to a non-null
   value, and echoes it in `updated`, instead of the client-supplied value
