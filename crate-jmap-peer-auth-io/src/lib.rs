@@ -49,7 +49,7 @@ mod replay;
 
 use std::time::SystemTime;
 
-use jmap_peer_auth::{PeerDomain, Rejection, Request, SignedRequest};
+use jmap_peer_auth::{PeerDomain, PeerSigningKey, Rejection, Request, SignedRequest};
 
 pub use dns::{DnsAnswer, DnssecLookup, HickoryLookup, NoDnssec};
 pub use fetch::{
@@ -88,11 +88,19 @@ pub enum Error {
 }
 
 /// An authenticated peer request.
+///
+/// `#[non_exhaustive]`, so new fields stay semver-additive.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Authenticated {
     /// "The peer domain named in a verified `keyid` is the request's
     /// authenticated peer domain."
     pub peer_domain: PeerDomain,
+    /// The peer domain's `peerSigningKeys` entry that verified the
+    /// signature: draft-atwood-jmap-chat-did-00 §Federation Authentication
+    /// step 2, "the key in the peer domain's `peerSigningKeys` whose `kid`
+    /// the signature's `keyid` names".
+    pub key: PeerSigningKey,
     /// The `ownerUserId` published at the peer domain, from the fetch
     /// that supplied the keys: the peer identity of §Identity Binding.
     /// Check it with [`bind_identity`](jmap_peer_auth::bind_identity)
@@ -144,6 +152,7 @@ pub async fn authenticate<F: Fetch, D: DnssecLookup, S: ReplayStore>(
     }
     Ok(Authenticated {
         peer_domain: accepted.peer_domain,
+        key: accepted.key,
         owner_user_id: set.owner_user_id,
     })
 }

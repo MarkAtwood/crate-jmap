@@ -278,12 +278,21 @@ pub struct SignedRequest<'a> {
     signature: Vec<u8>,
 }
 
-/// A verified request: its authenticated peer domain and the replay-store
-/// entry to record.
+/// A verified request: its authenticated peer domain, the key that
+/// verified it, and the replay-store entry to record.
+///
+/// `#[non_exhaustive]`, so new fields stay semver-additive.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Accepted {
     /// The request's authenticated peer domain.
     pub peer_domain: PeerDomain,
+    /// The entry of the `keys` passed to [`SignedRequest::verify`] whose
+    /// `kid` the signature's `keyid` names and that verified the signature
+    /// (checks 2 and 3). draft-atwood-jmap-chat-did-00 §Federation
+    /// Authentication step 2 compares this key with the DID Document's
+    /// keys.
+    pub key: PeerSigningKey,
     /// The signature's nonce. Record (`peer_domain`, `nonce`) as accepted.
     pub nonce: String,
     /// Keep the (`peer_domain`, `nonce`) record at least until this time:
@@ -429,6 +438,7 @@ impl<'a> SignedRequest<'a> {
         }
         Ok(Accepted {
             peer_domain: self.peer_domain.clone(),
+            key: key.clone(),
             nonce: self.nonce.clone(),
             forget_after: UNIX_EPOCH
                 + Duration::from_secs(u64::try_from(forget_after).unwrap_or(0)),

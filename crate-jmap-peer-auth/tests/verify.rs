@@ -164,6 +164,45 @@ fn valid_requests_are_accepted() {
     }
 }
 
+/// draft-atwood-jmap-chat-did-00 §Federation Authentication step 2 takes
+/// "the key in the peer domain's `peerSigningKeys` whose `kid` the
+/// signature's `keyid` names". With two usable keys, `Accepted::key` is
+/// the RFC 8037 Appendix A.2 key the `keyid` names, not the other one.
+#[test]
+fn accepted_carries_the_key_the_keyid_names() {
+    // RFC 8032 §7.1 TEST 2 public key, listed first.
+    let other = PeerSigningKey::from_jwk(&json!({
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "PUAXw-hDiVqStwqnTRt-vJyYLM8uxJaMwM1V8Sr0Zgw",
+        "kid": "FtIu-VbGrfe_KB6CH7GNwODB72MNxj_ml11dEvO-7kk"
+    }))
+    .unwrap();
+    let keys = [other, alice_keys().remove(0)];
+    let case = Case::post();
+    let headers = case.headers();
+    let request = Request {
+        method: &case.method,
+        target_uri: TARGET,
+        headers: &headers,
+        content: BODY,
+    };
+    let accepted = SignedRequest::parse(request)
+        .unwrap()
+        .verify(&keys, at(CREATED), |_, _| false)
+        .unwrap();
+    assert_eq!(
+        accepted.key.kid(),
+        "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
+    );
+    assert_eq!(
+        accepted.key.verifying_key().as_bytes()[..],
+        URL_SAFE_NO_PAD
+            .decode("11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo")
+            .unwrap()[..]
+    );
+}
+
 #[test]
 fn parse_exposes_keyid_parts() {
     let case = Case::post();

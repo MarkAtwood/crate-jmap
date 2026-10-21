@@ -7,7 +7,7 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use http::{HeaderMap, HeaderValue, Method};
 use jmap_peer_auth::ed25519_dalek::SigningKey;
-use jmap_peer_auth::{sign, DnssecAnswer, PeerDomain, Rejection, Request};
+use jmap_peer_auth::{sign, DnssecAnswer, PeerDomain, PeerSigningKey, Rejection, Request};
 use jmap_peer_auth_io::{
     authenticate, DnsAnswer, DnssecLookup, Error, Fetch, FetchError, MemoryReplayStore, PeerKeys,
     Response,
@@ -458,6 +458,12 @@ async fn authenticate_accepts_once_then_rejects_the_replay() {
         .unwrap();
     assert_eq!(peer.peer_domain, alice());
     assert_eq!(peer.owner_user_id.as_deref(), Some("alice@alice.example"));
+    // draft-atwood-jmap-chat-did-00 §Federation Authentication step 2:
+    // the published key whose `kid` the `keyid` names.
+    assert_eq!(
+        peer.key,
+        PeerSigningKey::from_jwk(&jwk(X_A, KID_A)).unwrap()
+    );
 
     let again = authenticate(request(), now + Duration::from_secs(1), &f.keys, &replay).await;
     assert!(matches!(again, Err(Error::Rejected(Rejection::Replayed))));
