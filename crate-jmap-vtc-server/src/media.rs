@@ -582,7 +582,8 @@ async fn create_recording<B: VtcBackend>(
     )
     .await?;
 
-    // "On success, the server MUST deliver a `VTCRecordingStateEvent` ...
+    // vtc L1143 "On success, the server SHOULD deliver a
+    // `VTCRecordingStateEvent` ...
     // with `state: "recording"` to all participants in the call."
     deliver(
         backend,

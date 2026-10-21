@@ -82,7 +82,8 @@ async fn moderator_starts_a_recording_and_every_participant_is_told() {
     assert_eq!(created["stoppedAt"], Value::Null);
     assert_eq!(stored(&backend, id).await["state"], "recording");
 
-    // L1076 "On success, the server MUST deliver a `VTCRecordingStateEvent`
+    // vtc L1143 "On success, the server SHOULD deliver a
+    // `VTCRecordingStateEvent`
     // ... with `state: "recording"` to all participants in the call."
     // Shape: the L1851-1857 example event, plus the hosting account's
     // `accountId` (draft-atwood-jmap-vtc-wss-00 L296-303).
@@ -198,9 +199,9 @@ async fn pause_resume_stop_each_signal_consent() {
         "VTCRecording",
         stored_recording("R1", "recording", "2026-06-05T14:40:00Z"),
     );
-    // L1082 "`"recording"` → `"paused"` ... MUST deliver a
-    // `VTCRecordingStateEvent` with `state: "paused"`"; L1083 "`"paused"` →
-    // `"recording"` ... with `state: "recording"`"; L1084 "→ `"stopped"`:
+    // vtc L1149 "`"recording"` → `"paused"` ... The server delivers a
+    // `VTCRecordingStateEvent` with `state: "paused"`"; L1150 "`"paused"` →
+    // `"recording"` ... with `state: "recording"`"; L1151 "→ `"stopped"`:
     // ... The server sets `stoppedAt` and delivers a
     // `VTCRecordingStateEvent` with `state: "stopped"`."
     update(&backend, BOB, "R1", json!({ "state": "paused" }))
