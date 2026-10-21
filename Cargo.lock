@@ -2082,6 +2082,7 @@ dependencies = [
 name = "jmap-graph-server"
 version = "0.3.0"
 dependencies = [
+ "base64",
  "jmap-graph-server",
  "jmap-graph-types",
  "jmap-server",

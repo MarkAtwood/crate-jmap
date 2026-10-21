@@ -7,7 +7,10 @@ Method handlers for draft-atwood-jmap-graph-00, the
 `urn:ietf:params:jmap:graph` capability: the standard RFC 8620 `/get`,
 `/changes`, `/set`, `/query` and `/queryChanges` of Graph, GraphNode and
 GraphEdge, a `GraphBackend` trait, and an in-memory reference backend
-behind the `memory` feature. No HTTP, no persistence.
+behind the `memory` feature. It also serves draft-atwood-jmap-graph-edit-00
+(`urn:ietf:params:jmap:graph:edit`): GraphNodeOp edit logs,
+`GraphNode/cursor` and the WebSocket op and cursor stream. No HTTP, no
+persistence, no WebSocket transport.
 
 ## What it is
 
@@ -17,7 +20,10 @@ behind the `memory` feature. No HTTP, no persistence.
 | `handle_graph_*` | §Graph Methods |
 | `handle_graph_node_*` | §GraphNode Methods |
 | `handle_graph_edge_*` | §GraphEdge Methods |
-| `GraphBackend` | storage, `graph_capability`, atomic rights re-checks and destroy cascades |
+| `GraphBackend` | storage, `graph_capability`, atomic rights re-checks and destroy cascades; edit hooks `graph_edit_capability`, `edit_log`, `projected_graph_id`, `publish_cursor`, `is_sender_blocked` |
+| `register_graph_edit_handlers` | graph-edit §Methods: GraphNodeOp `/get`, `/changes`, `/set`, `/query`, `/queryChanges`, `GraphNode/cursor` |
+| `op::*` | graph-edit §GraphNodeOp/set, §GraphNodeOp/query, §GraphNode/cursor |
+| `stream::GraphEditSubscription`, `should_deliver` | graph-edit §WebSocket Stream |
 | `query::*` | §Graph/query, §GraphNode/query, §GraphEdge/query match and order functions |
 | `memory::MemoryBackend` (feature `memory`) | reference backend, not production |
 
@@ -43,7 +49,9 @@ fn wire<B: GraphBackend<CallerCtx = ()> + 'static>(backend: B) -> Dispatcher<()>
 ```
 
 Advertise `JMAP_GRAPH_URI` in the Session with the same account-level
-object `GraphBackend::graph_capability` returns.
+object `GraphBackend::graph_capability` returns. For live editing, also
+call `register_graph_edit_handlers` and advertise `JMAP_GRAPH_EDIT_URI`
+with the object `GraphBackend::graph_edit_capability` returns.
 
 ## How it works
 
@@ -65,6 +73,19 @@ object `GraphBackend::graph_capability` returns.
   (`unsupportedFilter` otherwise); unknown sort properties are
   `unsupportedSort`.
 - `createdBy` and `updatedBy` are `JmapBackend::principal_id`.
+- Live editing: `GraphNode/set` enforces the `editFormat` and
+  `snapshotSeq` rules (set once; a snapshot changes `blobId` and
+  `snapshotSeq` together; `snapshotSeq` never decreases and never passes
+  the head; no `editFormat` on a projected Graph's nodes).
+  `GraphNodeOp/set` is create-only; the backend assigns `seq`
+  atomically. `GraphNodeOp/query` takes one `nodeId` condition with
+  `afterSeq`, sorts by `seq` ascending, and answers `opsCompacted` when
+  an op after `afterSeq` has been compacted. Compaction is backend policy:
+  front-only, never past `snapshotSeq` or inside `opRetention`.
+- The WebSocket transport keeps one `GraphEditSubscription` per
+  connection and asks `should_deliver` before sending each
+  `GraphNodeOpEvent` and `GraphCursorEvent`; rights are checked at
+  delivery, cursors skip the sender and recipients who blocked it.
 
 ## Gotchas
 
@@ -77,16 +98,20 @@ object `GraphBackend::graph_capability` returns.
 - `maxAnnotationSize` counts the compact JSON serialization.
 - `MemoryBackend` lets only the account owner create Graphs, keeps no
   Principals, and creates no ShareNotifications. `/queryChanges` there is
-  `cannotCalculateChanges`.
+  `cannotCalculateChanges`. It compacts only when `compact_ops` is called
+  and records cursor events but not op events.
+- Rate limits on ops and cursors (SHOULD rules) are the deployment's.
 
 ## References
 
 - [draft-atwood-jmap-graph-00] — JMAP for Graphs
+- [draft-atwood-jmap-graph-edit-00] — JMAP Graph Live Editing
 - [RFC 8620] — JMAP Core
 - [RFC 9670] — JMAP Sharing
 - [RFC 3986] — URI Generic Syntax
 
 [draft-atwood-jmap-graph-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-graph-edit-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 9670]: https://www.rfc-editor.org/rfc/rfc9670
 [RFC 3986]: https://www.rfc-editor.org/rfc/rfc3986

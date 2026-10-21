@@ -20,6 +20,9 @@ categories = ["network-programming", "web-programming::http-server"]
 memory = ["dep:ulid"]
 
 [dependencies]
+# Validates and sizes base64url op and cursor `data`
+# (draft-atwood-jmap-graph-edit-00 §GraphNodeOp/set, §GraphNode/cursor).
+base64 = "0.22"
 jmap-types = { workspace = true }
 jmap-graph-types = { workspace = true }
 jmap-server = { workspace = true }
