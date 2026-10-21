@@ -30,7 +30,6 @@ fn backend_with_objects() -> MemoryBackend {
     seed_as(
         &backend,
         "SceneObject",
-        ALICE,
         json!({
             "id": "01J5OBJ0000000000000000001",
             "regionId": "01J5ABC0000000000000000001",
@@ -58,7 +57,6 @@ fn backend_with_objects() -> MemoryBackend {
     seed_as(
         &backend,
         "SceneObject",
-        ALICE,
         json!({
             "id": "01J5OBJ0000000000000000002",
             "regionId": "01J5ABC0000000000000000001",
@@ -83,7 +81,7 @@ fn backend_with_objects() -> MemoryBackend {
     far["interactable"] = json!(true);
     far["name"] = json!("Bench");
     far["physicsMode"] = json!("dynamic");
-    seed_as(&backend, "SceneObject", ALICE, far);
+    seed_as(&backend, "SceneObject", far);
     let mut elsewhere = stored_object(
         ELSEWHERE,
         OTHER_REGION,
@@ -91,7 +89,7 @@ fn backend_with_objects() -> MemoryBackend {
         "2026-06-01T09:00:00Z",
     );
     elsewhere["interactable"] = json!(true);
-    seed_as(&backend, "SceneObject", ALICE, elsewhere);
+    seed_as(&backend, "SceneObject", elsewhere);
     backend
 }
 
@@ -220,7 +218,7 @@ fn backend_with_graph() -> MemoryBackend {
     let mut g = stored_object("G", REGION, json!([0, 0, 1]), "2026-06-01T10:02:00Z");
     g["parentId"] = json!("C");
     for o in [p, c, g] {
-        seed_as(&backend, "SceneObject", ALICE, o);
+        seed_as(&backend, "SceneObject", o);
     }
     backend
 }

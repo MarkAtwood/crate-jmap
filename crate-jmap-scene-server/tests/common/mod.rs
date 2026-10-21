@@ -62,11 +62,13 @@ macro_rules! call {
     }};
 }
 
-/// A stored asset, hand-written from the field list at L214-239.
+/// A stored asset owned by [`ALICE`], hand-written from the field list at
+/// L269-297 of jmap-chat-spec 6bcd9d8.
 pub fn stored_asset(id: &str, media_type: &str, name: Value, size: u64, created_at: &str) -> Value {
     json!({
         "id": id,
         "accountId": ACCOUNT,
+        "ownerId": ALICE,
         "blobId": format!("blob-{id}"),
         "assetUri": null,
         "mediaType": media_type,
@@ -77,17 +79,16 @@ pub fn stored_asset(id: &str, media_type: &str, name: Value, size: u64, created_
     })
 }
 
-/// Seed `asset` (from [`stored_asset`]) into the backend, owned by `owner`.
-pub fn seed(backend: &MemoryBackend, owner: &str, asset: Value) {
+/// Seed `asset` (from [`stored_asset`]) into the backend.
+pub fn seed(backend: &MemoryBackend, asset: Value) {
     let id = asset["id"].as_str().expect("id").to_owned();
-    backend.insert_object_for_test("SceneAsset", &Id::from(ACCOUNT), &id, owner, asset);
+    backend.insert_object_for_test("SceneAsset", &Id::from(ACCOUNT), &id, asset);
 }
 
-/// Seed `value` as an object of `type_name` into the backend, owned by
-/// `owner`.
-pub fn seed_as(backend: &MemoryBackend, type_name: &'static str, owner: &str, value: Value) {
+/// Seed `value` as an object of `type_name` into the backend.
+pub fn seed_as(backend: &MemoryBackend, type_name: &'static str, value: Value) {
     let id = value["id"].as_str().expect("id").to_owned();
-    backend.insert_object_for_test(type_name, &Id::from(ACCOUNT), &id, owner, value);
+    backend.insert_object_for_test(type_name, &Id::from(ACCOUNT), &id, value);
 }
 
 /// A stored region, hand-written from the field list at L263-402.

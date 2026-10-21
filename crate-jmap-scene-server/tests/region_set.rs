@@ -652,9 +652,9 @@ async fn destroy_removes_contained_objects_and_avatars() {
     let backend = backend();
     let id = create(&backend, design_review_room()).await;
     let other = create(&backend, main_plaza()).await;
-    seed_as(&backend, "SceneObject", BOB, object_in("obj-in", &id));
-    seed_as(&backend, "SceneObject", BOB, object_in("obj-out", &other));
-    seed_as(&backend, "SceneAvatar", BOB, avatar_in("av-in", &id));
+    seed_as(&backend, "SceneObject", object_in("obj-in", &id));
+    seed_as(&backend, "SceneObject", object_in("obj-out", &other));
+    seed_as(&backend, "SceneAvatar", avatar_in("av-in", &id));
 
     let resp = set(&backend, ALICE, json!({ "destroy": [id] })).await;
     assert_eq!(resp["destroyed"], json!([id]));

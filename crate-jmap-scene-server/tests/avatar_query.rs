@@ -94,7 +94,7 @@ fn backend_with_avatars() -> MemoryBackend {
             json!(null),
         ),
     ] {
-        seed_as(&backend, "SceneAvatar", ALICE, a);
+        seed_as(&backend, "SceneAvatar", a);
     }
     backend
 }

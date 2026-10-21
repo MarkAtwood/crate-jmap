@@ -1054,6 +1054,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-types**: `SceneAsset` gains `owner_id`
+  (`ownerId`, required, "The userId of the user who created this asset")
+  (draft-atwood-jmap-scene-00 §SceneAsset). An asset without `ownerId` no
+  longer deserializes.
+
+- **BREAKING** **jmap-scene-server**: `SceneAsset/set` create sets
+  `ownerId` to `SceneBackend::caller_user_id` and echoes it in `created`;
+  `ownerId` is refused on create. An update that patches `ownerId` or
+  `mediaType`, now immutable, is `invalidProperties`.
+  `MemoryBackend::may_modify_asset` takes the asset owner from `ownerId`,
+  and the hidden test hook `MemoryBackend::insert_object_for_test` drops
+  its `owner` argument.
+
 - **BREAKING** **jmap-scene-types**: `SceneRegion` gains `owner_id`
   (`ownerId`, required) and `invited_user_ids` (`invitedUserIds`, default
   `[]`) (draft-atwood-jmap-scene-00 §SceneRegion). A region without

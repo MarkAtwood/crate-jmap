@@ -68,7 +68,7 @@ fn backend_with_regions() -> MemoryBackend {
         if sim {
             r["simulationUri"] = json!(format!("wss://sim.example.com/regions/{id}"));
         }
-        seed_as(&backend, "SceneRegion", ALICE, r);
+        seed_as(&backend, "SceneRegion", r);
     }
     backend
 }

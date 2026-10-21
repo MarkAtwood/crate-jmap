@@ -9,8 +9,8 @@
 //!
 //! # Caller context
 //!
-//! `CallerCtx` is the caller's userId (`String`). The creator of an asset
-//! is its owner, and a region's owner is its `ownerId`;
+//! `CallerCtx` is the caller's userId (`String`). The owner of an asset or
+//! a region is its `ownerId`;
 //! [`SceneBackend::may_modify_asset`] and
 //! [`SceneBackend::may_update_region`] allow the owner and the users
 //! registered with `add_admin`, [`SceneBackend::may_destroy_region`] the
@@ -136,8 +136,6 @@ struct Inner {
     blobs: HashMap<(String, String), u64>,
     /// Account → total SceneAsset storage limit in bytes.
     storage_quota: HashMap<String, u64>,
-    /// Object id → the userId that created it.
-    owners: HashMap<Id, String>,
     /// UserIds with admin privileges.
     admins: HashSet<String>,
     /// Account → advertised capability URIs.
@@ -453,23 +451,19 @@ impl MemoryBackend {
         self.lock().reserved_names.push(name.to_owned());
     }
 
-    /// Store `value` as object `id` of `type_name`, owned by `owner`,
-    /// without validation or a state change, to seed states the methods
-    /// cannot reach.
+    /// Store `value` as object `id` of `type_name` without validation or a
+    /// state change, to seed states the methods cannot reach.
     #[doc(hidden)]
     pub fn insert_object_for_test(
         &self,
         type_name: &'static str,
         account_id: &Id,
         id: &str,
-        owner: &str,
         value: Value,
     ) {
-        let mut inner = self.lock();
-        inner
+        self.lock()
             .objects_mut(type_name, account_id)
             .insert(Id::from(id), value);
-        inner.owners.insert(Id::from(id), owner.to_owned());
     }
 }
 
@@ -840,7 +834,6 @@ impl SceneBackend for MemoryBackend {
         inner
             .objects_mut(O::TYPE_NAME, account_id)
             .insert(id.clone(), value);
-        inner.owners.insert(id.clone(), caller.clone());
         inner.commit(
             O::TYPE_NAME,
             account_id,
@@ -948,9 +941,6 @@ impl SceneBackend for MemoryBackend {
         for k in &gone {
             map.remove(k);
         }
-        for k in &gone {
-            inner.owners.remove(k);
-        }
         inner.commit(
             O::TYPE_NAME,
             account_id,
@@ -972,9 +962,6 @@ impl SceneBackend for MemoryBackend {
                 for k in &gone {
                     map.remove(k);
                 }
-                for k in &gone {
-                    inner.owners.remove(k);
-                }
                 inner.commit(
                     contained,
                     account_id,
@@ -992,8 +979,7 @@ impl SceneBackend for MemoryBackend {
         asset: &SceneAsset,
     ) -> Result<bool, MemoryError> {
         // "Only the asset owner or an admin may modify asset metadata."
-        let inner = self.lock();
-        Ok(inner.admins.contains(caller) || inner.owners.get(&asset.id) == Some(caller))
+        Ok(asset.owner_id == *caller || self.lock().admins.contains(caller))
     }
 
     fn has_capability(&self, _caller: &String, account_id: &Id, uri: &str) -> bool {
