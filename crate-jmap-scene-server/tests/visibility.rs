@@ -439,6 +439,40 @@ async fn blocking_does_not_hide_the_blocker_from_the_blocked_user() {
     assert_eq!(seen, [ALICE_AV, BOB_AV], "{query}");
 }
 
+/// draft-atwood-jmap-scene-00 at jmap-chat-spec 33702a5, L2676: the server
+/// "removes any SceneAvatar records whose `userId` corresponds to a
+/// ChatContact with `blocked: true` on the requesting user's contact
+/// list." [`ACCOUNT`] hosts the regions and is owned by [`ALICE`]; [`BOB`]
+/// reaches it as a shared account. Bob's block of Alice hides her avatar
+/// from him, while Alice, the host, still sees her own.
+#[tokio::test]
+async fn shared_region_block_uses_the_requesters_contact_list() {
+    let backend = scene();
+    backend.block(BOB, ALICE);
+    let got = call!(
+        handle_scene_avatar_get,
+        &backend,
+        BOB,
+        json!({ "ids": [ALICE_AV, BOB_AV] })
+    );
+    assert_eq!(ids(&got["list"]), [BOB_AV], "{got}");
+    assert_eq!(not_found(&got), [ALICE_AV], "{got}");
+    let query = call!(
+        handle_scene_avatar_query,
+        &backend,
+        BOB,
+        json!({ "filter": { "regionId": PUBLIC } })
+    );
+    assert_eq!(query["ids"], json!([BOB_AV]), "{query}");
+    let host = call!(
+        handle_scene_avatar_get,
+        &backend,
+        ALICE,
+        json!({ "ids": [ALICE_AV, BOB_AV] })
+    );
+    assert_eq!(not_found(&host), Vec::<&str>::new(), "{host}");
+}
+
 /// draft-atwood-jmap-scene-00 at jmap-chat-spec 6bcd9d8, L2654: for a
 /// region bound to an E2EE VTCCall, toward users who are not participants
 /// "it SHOULD return `notFound` for `SceneAvatar/get`, exclude the records

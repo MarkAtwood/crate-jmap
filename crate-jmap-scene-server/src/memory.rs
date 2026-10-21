@@ -1149,12 +1149,7 @@ impl SceneBackend for MemoryBackend {
             .contains(&(caller.clone(), object.id.clone())))
     }
 
-    async fn is_user_blocked(
-        &self,
-        caller: &String,
-        _account_id: &Id,
-        user_id: &str,
-    ) -> Result<bool, MemoryError> {
+    async fn is_user_blocked(&self, caller: &String, user_id: &str) -> Result<bool, MemoryError> {
         Ok(self
             .lock()
             .blocked

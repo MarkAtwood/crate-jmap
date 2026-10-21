@@ -532,26 +532,33 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(true) }
     }
 
-    /// `true` if the caller has blocked `user_id` (draft-atwood-jmap-scene-00
-    /// §Blocked-Contact Spatial Presence): "SceneAvatar records belonging
-    /// to a blocked ChatContact SHOULD be excluded from `SceneAvatar/get`
-    /// responses, `SceneAvatar/query` results, and `SceneAvatar/queryChanges`
-    /// notifications delivered to the blocking user."
+    /// `true` if `user_id` is blocked on the caller's own contact list
+    /// (draft-atwood-jmap-scene-00 at 33702a5 §Blocked-Contact Spatial
+    /// Presence, L2672): "SceneAvatar records belonging to a blocked
+    /// ChatContact SHOULD be excluded from `SceneAvatar/get` responses and
+    /// `SceneAvatar/query` results delivered to the blocking user".
+    ///
+    /// The list is the caller's, whatever account the request names: the
+    /// server "removes any SceneAvatar records whose `userId` corresponds
+    /// to a ChatContact with `blocked: true` on the requesting user's
+    /// contact list" (L2676). A request on a shared region names the
+    /// region's hosting account, which holds the host's contacts, not the
+    /// requester's, so the hook takes no account id; an implementation
+    /// resolves the caller's own account from `caller`.
     ///
     /// Consulted only for avatars in a region the caller may access:
     /// "Blocked-contact filtering is applied AFTER the visibility
     /// filtering". `SceneAvatar/get` reports such an avatar exactly as a
-    /// missing one, in `notFound` ("The server MUST NOT return an error, a
-    /// filtered-result indicator, or any other signal"); `query_objects`
-    /// and `query_changes` MUST omit it as well. The handlers leave
-    /// `activeAvatarCount` the true count, which deployments "SHOULD
-    /// prefer".
+    /// missing one, in `notFound` ("The server SHOULD NOT return an error,
+    /// a filtered-result indicator, or any other signal", L2674);
+    /// `query_objects` and `query_changes` MUST omit it as well. The
+    /// handlers leave `activeAvatarCount` the true count, which deployments
+    /// "SHOULD prefer" (L2678).
     ///
     /// [`crate::should_deliver`] asks this at delivery time with the
-    /// recipient as the caller and the recipient's own account as
-    /// `account_id`, not the region's hosting account, since suppression
-    /// consults "the recipient's ChatContact records"
-    /// (draft-atwood-jmap-scene-wss-00 at 33702a5, L793-795).
+    /// recipient as the caller, since suppression consults "the
+    /// recipient's ChatContact records" (draft-atwood-jmap-scene-wss-00 at
+    /// 33702a5, L793-795).
     ///
     /// The Chat lookup (`ChatContact.blocked`) lives in the binding crate:
     /// "Without `urn:ietf:params:jmap:chat`, there is no blocked-contact
@@ -564,10 +571,9 @@ pub trait SceneBackend: JmapBackend {
     fn is_user_blocked(
         &self,
         caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
         user_id: &str,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        let _ = (caller, account_id, user_id);
+        let _ = (caller, user_id);
         async { Ok(false) }
     }
 

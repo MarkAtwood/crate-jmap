@@ -46,8 +46,9 @@ use jmap_types::Id;
 /// `hosting_account_id` must be the event's `accountId`, its region's
 /// hosting account; an event naming another account is not delivered.
 /// `recipient_account_id` is the recipient's own account, whose Chat
-/// capability and ChatContact records the blocked-sender check consults,
-/// as [`jmap_scene_server::should_deliver`] takes them.
+/// capability the blocked-sender check consults; `caller` is the
+/// recipient, whose ChatContact records it consults, as
+/// [`jmap_scene_server::should_deliver`] takes them.
 ///
 /// # Errors
 ///

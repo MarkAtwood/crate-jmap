@@ -1266,6 +1266,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `SceneBackend::is_user_blocked`
+  drops its `account_id` parameter. It now answers whether `user_id` is
+  blocked on the caller's own contact list, which the implementation
+  resolves from the caller. On a shared region the request's `accountId`
+  is the hosting account, holding the host's contacts rather than the
+  requester's, and the draft filters on "the requesting user's contact
+  list" (draft-atwood-jmap-scene-00 §Blocked-Contact Spatial Presence).
+  `should_deliver` already passes the recipient as the caller, so
+  `recipient_account_id` now feeds only the Chat capability check. This
+  replaces the `is_user_blocked` account argument described in the
+  `should_deliver` entry below.
 - **BREAKING** **jmap-vtc-server**: `expire_ring` drops its `timeout`
   parameter and reads the period from the new `VtcBackend::ring_timeout`
   (default `RING_TIMEOUT`, 30 seconds). `VTCParticipant/set` now rejects a
