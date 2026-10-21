@@ -897,6 +897,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** (MSRV): the workspace minimum supported Rust version is
+  now 1.91 (was 1.88) for every crate. `openmls` 0.9.1, which
+  `jmap-chat-mimi-server` needs to parse and verify MLS KeyPackages
+  (draft-atwood-jmap-chat-mimi-00 §KeyPackage/set), declares
+  `rust-version = "1.91.0"`, as do `openmls_traits` 0.6.0 and
+  `openmls_serialization_helpers` 0.1.0. The CI `msrv` job now runs on
+  1.91.0.
 - Docs: metadata citations across the workspace, including the
   `jmap-metadata-server` and `jmap-metadata-client` package
   descriptions, now name draft-ietf-jmap-metadata-04 and its renumbered

@@ -117,18 +117,18 @@ jobs:
 
   # -------------------------------------------------------------------------
   # msrv — verify the workspace actually compiles on the declared minimum
-  # supported Rust version. The declared MSRV is 1.88 (see Cargo.toml
+  # supported Rust version. The declared MSRV is 1.91 (see Cargo.toml
   # [workspace.package] rust-version, and bd:JMAP-ulfy for the policy
   # decision history). `--locked` prevents surprise dep upgrades during
-  # the check; if a dep update silently bumps the actual MSRV above 1.88,
+  # the check; if a dep update silently bumps the actual MSRV above 1.91,
   # this job fails and the bump becomes visible.
   # -------------------------------------------------------------------------
   msrv:
-    name: msrv (1.88)
+    name: msrv (1.91)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: dtolnay/rust-toolchain@1.91.0
       - uses: Swatinem/rust-cache@v2
       - name: cargo check --workspace --all-features --locked
         run: cargo check --workspace --all-features --locked
