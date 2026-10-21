@@ -32,10 +32,10 @@ use jmap_server::{
     now_utc_string, BackendSetError, GetObject, JmapBackend, SetError, SetErrorType,
 };
 use jmap_types::{Id, PatchObject};
-use jmap_vtc_server::{VtcBackend, VtcEphemeralSubscription};
+use jmap_vtc_server::{after_leave, VtcBackend, VtcEphemeralSubscription};
 use jmap_vtc_types::{
-    CallState, ParticipantEventKind, VtcCall, VtcEvent, VtcParticipant, VtcParticipantEvent,
-    VtcStreamEnable,
+    CallRole, CallState, ParticipantEventKind, VtcCall, VtcEvent, VtcParticipant,
+    VtcParticipantEvent, VtcStreamEnable,
 };
 use serde_json::{json, Value};
 
@@ -297,17 +297,22 @@ pub async fn contact_identity<C: ChatBackend>(
 /// [`VtcBackend::update_object`], which advances the VTCParticipant
 /// state.
 ///
+/// After the `leftAt` writes in a call, [`jmap_vtc_server::after_leave`]
+/// applies the side effects of §Leaving a Call, as a `VTCParticipant/set`
+/// leave does: a ring or scheduled call left with no active participant
+/// ends, and a call whose last moderator was ejected hands the role to
+/// the earliest-joined authenticated participant.
+///
 /// Returns one `"left"` event per participant written, for the caller to
-/// pass to [`VtcBackend::deliver_event`]. This sets `leftAt` and nothing
-/// else: it does not end a call that empties or hand on the moderator
-/// role, as a `VTCParticipant/set` leave does.
+/// pass to [`VtcBackend::deliver_event`].
 ///
 /// # Errors
 ///
 /// Returns the VTC backend's error from reading the calls or the
-/// participants, or from updating a participant. Participants updated
-/// before the error stay updated, and their events are lost; the
-/// VTCParticipant `StateChange` still reports them.
+/// participants, from updating a participant, or from
+/// [`jmap_vtc_server::after_leave`]. Writes made before the error stay
+/// made, and their events are lost; the VTCCall and VTCParticipant
+/// `StateChange`s still report them.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 #[allow(clippy::result_large_err)]
 pub async fn eject_banned_user<V: VtcBackend>(
@@ -317,17 +322,17 @@ pub async fn eject_banned_user<V: VtcBackend>(
     space_id: &Id,
     user_id: &str,
 ) -> Result<Vec<VtcParticipantEvent>, BackendSetError<V::Error>> {
-    // ponytail: reads every VTCCall and VTCParticipant; O(calls +
-    // participants) per ban. Upgrade: VTCCall/query on `spaceId` and
-    // VTCParticipant/query on `callId`.
+    // ponytail: reads every VTCCall and VTCParticipant, and `after_leave`
+    // reads every VTCParticipant again per ejected call; O(calls +
+    // ejected calls * participants) per ban. Upgrade: VTCCall/query on
+    // `spaceId` and VTCParticipant/query on `callId`.
     let (calls, _) = vtc
         .get_objects::<VtcCall>(caller, account_id, None, None)
         .await
         .map_err(BackendSetError::Other)?;
-    let calls: HashSet<&Id> = calls
+    let calls: Vec<&VtcCall> = calls
         .iter()
         .filter(|c| c.state != CallState::Ended && bound(&c.space_id) == Some(space_id))
-        .map(|c| &c.id)
         .collect();
     if calls.is_empty() {
         return Ok(Vec::new());
@@ -337,30 +342,39 @@ pub async fn eject_banned_user<V: VtcBackend>(
         .await
         .map_err(BackendSetError::Other)?;
     let mut events = Vec::new();
-    for p in participants.iter().filter(|p| {
-        calls.contains(&p.call_id)
-            && p.user_id.as_deref() == Some(user_id)
-            && p.joined_at.is_some()
-            && p.left_at.is_none()
-    }) {
-        vtc.update_object::<VtcParticipant>(
-            caller,
-            account_id,
-            &p.id,
-            patch("leftAt", json!(now_utc_string())),
-        )
-        .await?;
-        events.push(
-            serde_json::from_value(json!({
-                "accountId": account_id,
-                "callId": p.call_id,
-                "participantId": p.id,
-                "event": ParticipantEventKind::Left,
-                "displayName": p.display_name,
-                "role": p.role,
-            }))
-            .expect("a VTCParticipantEvent built from a stored participant is valid"),
-        );
+    for call in calls {
+        let mut left_role = None;
+        for p in participants.iter().filter(|p| {
+            p.call_id == call.id
+                && p.user_id.as_deref() == Some(user_id)
+                && p.joined_at.is_some()
+                && p.left_at.is_none()
+        }) {
+            vtc.update_object::<VtcParticipant>(
+                caller,
+                account_id,
+                &p.id,
+                patch("leftAt", json!(now_utc_string())),
+            )
+            .await?;
+            if left_role != Some(CallRole::Moderator) {
+                left_role = Some(p.role.clone());
+            }
+            events.push(
+                serde_json::from_value(json!({
+                    "accountId": account_id,
+                    "callId": p.call_id,
+                    "participantId": p.id,
+                    "event": ParticipantEventKind::Left,
+                    "displayName": p.display_name,
+                    "role": p.role,
+                }))
+                .expect("a VTCParticipantEvent built from a stored participant is valid"),
+            );
+        }
+        if let Some(role) = left_role {
+            after_leave(vtc, caller, account_id, call, &role).await?;
+        }
     }
     Ok(events)
 }

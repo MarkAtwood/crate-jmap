@@ -33,7 +33,7 @@ use jmap_vtc_types::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{SetError, SetErrorType, VtcBackend};
+use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use crate::call::{end_call, set_call_state};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
@@ -1040,29 +1040,49 @@ async fn call_transitions<B: VtcBackend>(
         }
     }
     if effects.left {
-        after_leave(backend, caller, account_id, call, old).await?;
+        after_leave(backend, caller, account_id, call, &old.role)
+            .await
+            .map_err(backend_set_error_value)?;
     }
     Ok(())
 }
 
-/// §Leaving a Call: "When the last active participant leaves a ring or
-/// scheduled call, the server transitions the VTCCall to `"ended"` with
-/// `endReason: "completed"`, or `"cancelled"` if the call was still
-/// `"ringing"`. A room call stays `"active"` when it empties". Otherwise,
-/// when the last moderator leaves, "the server SHOULD grant `"moderator"`
-/// to the remaining authenticated participant (non-null `userId`) who
-/// joined earliest".
-async fn after_leave<B: VtcBackend>(
+/// Apply the call side effects of participants leaving `call`, after
+/// their `leftAt` writes have committed (draft-atwood-jmap-vtc-00
+/// §Leaving a Call). `VTCParticipant/set` runs this for a leave; call it
+/// once per call after setting `leftAt` some other way, such as a Space
+/// ban. `left_role` is `"moderator"` if any participant that left held
+/// it.
+///
+/// - "When the last active participant leaves a ring or scheduled call,
+///   the server transitions the VTCCall to `"ended"` with `endReason:
+///   "completed"`, or `"cancelled"` if the call was still `"ringing"`. A
+///   room call stays `"active"` when it empties". The end goes through
+///   [`end_call`].
+/// - Otherwise, when the last moderator leaves, "the server SHOULD grant
+///   `"moderator"` to the remaining authenticated participant (non-null
+///   `userId`) who joined earliest".
+///
+/// # Errors
+///
+/// The backend's error from reading the participants, from
+/// [`end_call`], or from updating the heir's `role`.
+// Same error type as `VtcBackend::update_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+pub async fn after_leave<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     call: &VtcCall,
-    old: &VtcParticipant,
-) -> Result<(), Value> {
-    let participants = call_participants(backend, caller, account_id, &call.id).await?;
+    left_role: &CallRole,
+) -> Result<(), BackendSetError<B::Error>> {
+    let (participants, _) = backend
+        .get_objects::<VtcParticipant>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
     let active: Vec<&VtcParticipant> = participants
         .iter()
-        .filter(|p| p.joined_at.is_some() && p.left_at.is_none())
+        .filter(|p| p.call_id == call.id && p.joined_at.is_some() && p.left_at.is_none())
         .collect();
     if active.is_empty() {
         if matches!(call.call_type, CallType::Ring | CallType::Scheduled) {
@@ -1071,11 +1091,11 @@ async fn after_leave<B: VtcBackend>(
             } else {
                 CallEndReason::Completed
             };
-            end(backend, caller, account_id, &call.id, reason).await?;
+            end_call(backend, caller, account_id, &call.id, reason).await?;
         }
         return Ok(());
     }
-    if old.role != CallRole::Moderator || active.iter().any(|p| p.role == CallRole::Moderator) {
+    if *left_role != CallRole::Moderator || active.iter().any(|p| p.role == CallRole::Moderator) {
         return Ok(());
     }
     let heir = active
@@ -1090,8 +1110,7 @@ async fn after_leave<B: VtcBackend>(
             .insert("role".to_owned(), json!(CallRole::Moderator));
         backend
             .update_object::<VtcParticipant>(caller, account_id, heir, patch)
-            .await
-            .map_err(backend_set_error_value)?;
+            .await?;
     }
     Ok(())
 }

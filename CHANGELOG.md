@@ -18,8 +18,18 @@ wire behaviour that a conforming peer can observe.
   of draft-atwood-jmap-vtc-00 §Chat-Bound Calls. On a SpaceBan it sets
   `leftAt` on the banned user's active VTCParticipant records in calls
   bound to the Space and returns one `"left"` `VTCParticipantEvent` per
-  record, for the caller to deliver. Call it from
+  record, for the caller to deliver. Like a `VTCParticipant/set` leave,
+  it ends a ring or scheduled call left with no active participant and
+  hands on the moderator role (§Leaving a Call). Call it from
   `ChatBackend::on_space_ban_created` after `contact_identity`.
+
+- **jmap-vtc-server**: `after_leave`, the call side effects of
+  draft-atwood-jmap-vtc-00 §Leaving a Call that `VTCParticipant/set`
+  applies after a leave, for code that sets `leftAt` another way. A ring
+  or scheduled call left with no active participant ends with `endReason`
+  `"completed"` (`"cancelled"` while `"ringing"`), and when the last
+  moderator leaves, the earliest-joined authenticated participant gets
+  `"moderator"`.
 
 - **jmap-vtc-client**: `VtcWsExt`, `VtcWsFrame` and `parse_vtc_ws_frame`
   for draft-atwood-jmap-vtc-wss-00 on a `jmap_base_client::WsSession`.
