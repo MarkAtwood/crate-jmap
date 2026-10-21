@@ -16,6 +16,15 @@
 //! [`VtcBackend::caller_user_id`] returns and what
 //! [`VtcBackend::is_moderator`] checks.
 //!
+//! # Access
+//!
+//! Every caller may access every call, except a `(userId, call)` pair
+//! made inaccessible with `deny_call_access`: the open default of
+//! bd:JMAP-bghk. `get_objects` and `query_objects` hide an inaccessible
+//! call and its participants, recordings and livestreams, and the
+//! participants of a call with `e2eeEnabled: true` from a user with no
+//! record in it, as [`VtcBackend`] §Per-call access requires.
+//!
 //! # Query
 //!
 //! `VTCCall/query`, `VTCParticipant/query`, `VTCRecording/query` and
@@ -87,6 +96,8 @@ struct Inner {
     events: Vec<VtcEvent>,
     /// `(blocking userId, blocked userId)` pairs.
     blocked: HashSet<(String, String)>,
+    /// `(userId, call id)` pairs whose call the user may not access.
+    denied: HashSet<(String, String)>,
 }
 
 impl Inner {
@@ -196,6 +207,42 @@ impl Inner {
         );
     }
 
+    /// `true` if `caller` may see `v`, a stored object of `type_name`
+    /// ([`VtcBackend`] §Per-call access): its call is not denied to
+    /// `caller`, and a participant of a call with `e2eeEnabled: true` is
+    /// shown only to a user with a record in that call.
+    ///
+    /// ponytail: scans every participant for each E2EE participant record,
+    /// O(participants²) on a full fetch. Upgrade: index records by call.
+    fn visible(&self, caller: &str, account_id: &Id, type_name: &str, v: &Value) -> bool {
+        let field = if type_name == VtcCall::TYPE_NAME {
+            "id"
+        } else {
+            "callId"
+        };
+        let Some(call_id) = v.get(field).and_then(Value::as_str) else {
+            return true;
+        };
+        if self
+            .denied
+            .contains(&(caller.to_owned(), call_id.to_owned()))
+        {
+            return false;
+        }
+        if type_name != VtcParticipant::TYPE_NAME {
+            return true;
+        }
+        let call_id = Id::from(call_id);
+        let e2ee = self
+            .objects(VtcCall::TYPE_NAME, account_id)
+            .and_then(|m| m.get(&call_id))
+            .is_some_and(|c| c["e2eeEnabled"] == true);
+        !e2ee
+            || self
+                .participants(account_id)
+                .any(|p| p.call_id == call_id && p.user_id.as_deref() == Some(caller))
+    }
+
     /// Every stored object of type `O` that decodes.
     fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ {
         self.objects(O::TYPE_NAME, account_id)
@@ -248,6 +295,15 @@ impl MemoryBackend {
         self.lock()
             .blocked
             .insert((blocker.to_owned(), user.to_owned()));
+    }
+
+    /// Make call `call_id` inaccessible to `user`, as a deployment's
+    /// §Chat-Bound Calls or §Standalone Calls rule would.
+    #[doc(hidden)]
+    pub fn deny_call_access(&self, user: &str, call_id: &str) {
+        self.lock()
+            .denied
+            .insert((user.to_owned(), call_id.to_owned()));
     }
 
     /// The `VTCRecordingStateEvent`s delivered so far, in order.
@@ -366,7 +422,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &String,
+        caller: &String,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -378,6 +434,7 @@ impl JmapBackend for MemoryBackend {
                 let list = map
                     .into_iter()
                     .flat_map(HashMap::values)
+                    .filter(|v| inner.visible(caller, account_id, O::TYPE_NAME, v))
                     .map(decode)
                     .collect::<Result<_, _>>()?;
                 Ok((list, Vec::new()))
@@ -387,8 +444,10 @@ impl JmapBackend for MemoryBackend {
                 let mut missing = Vec::new();
                 for id in ids {
                     match map.and_then(|m| m.get(id)) {
-                        Some(v) => found.push(decode(v)?),
-                        None => missing.push(id.clone()),
+                        Some(v) if inner.visible(caller, account_id, O::TYPE_NAME, v) => {
+                            found.push(decode(v)?)
+                        }
+                        _ => missing.push(id.clone()),
                     }
                 }
                 Ok((found, missing))
@@ -462,7 +521,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &String,
+        caller: &String,
         account_id: &Id,
         filter: Option<&O::Filter>,
         sort: Option<&[O::Comparator]>,
@@ -485,7 +544,7 @@ impl JmapBackend for MemoryBackend {
         };
 
         let inner = self.lock();
-        let ids: Vec<Id> = match O::TYPE_NAME {
+        let mut ids: Vec<Id> = match O::TYPE_NAME {
             VtcCall::TYPE_NAME => {
                 let filter: Option<VtcCallFilter> = filter.as_ref().map(recode_as).transpose()?;
                 let sort: Vec<VtcCallComparator> = recode_as(&sort)?;
@@ -545,6 +604,12 @@ impl JmapBackend for MemoryBackend {
                 ))))
             }
         };
+        let store = inner.objects(O::TYPE_NAME, account_id);
+        ids.retain(|id| {
+            store
+                .and_then(|m| m.get(id))
+                .is_some_and(|v| inner.visible(caller, account_id, O::TYPE_NAME, v))
+        });
 
         let total = ids.len() as u64;
         let start = resolve_query_start(&ids, position, anchor, anchor_offset)
