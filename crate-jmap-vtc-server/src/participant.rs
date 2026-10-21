@@ -376,9 +376,14 @@ async fn create_participant<B: VtcBackend>(
         .map_err(backend_set_error_value)?;
 
     // "When a participant joins a `"pending"` scheduled call, the server
-    // transitions the call to `"active"`."
+    // transitions the call to `"active"`." The join is already committed, so
+    // as in `run_effects` the transition is best-effort and its failure is
+    // not the create's SetError (RFC 8620 §5.3: `newState` must reflect the
+    // committed join).
+    // ponytail: the failure is dropped, as the crate has no logging.
+    // Upgrade path: a `VtcBackend` hook that reports it.
     if !dial_out && call.state == CallState::Pending {
-        set_call_state(backend, caller, account_id, &call.id, CallState::Active).await?;
+        let _ = set_call_state(backend, caller, account_id, &call.id, CallState::Active).await;
     }
     Ok(to_value(&stored))
 }

@@ -1838,6 +1838,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: a Direct `Chat/set` create whose duplicate
+  re-check read fails, or that loses the duplicate race, now counts the
+  committed create as a mutation, so `newState` is re-read (RFC 8620 §5.3)
+  even when the rollback destroy also fails and the Chat stays live.
+- **jmap-vtc-server**: the `"pending"` to `"active"` transition after a
+  `VTCParticipant/set` join is best-effort, as for update effects; a
+  backend failure there no longer reports the stored join as `notCreated`
+  with a stale `newState`.
+
 - **jmap-scene-server**: `SceneRegion/set` normalizes an accepted
   `spawnOrientation` to unit length before storage and reports the
   normalized value in `created`/`updated` (draft-atwood-jmap-scene-00
