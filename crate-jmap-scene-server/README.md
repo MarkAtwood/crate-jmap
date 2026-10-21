@@ -70,7 +70,7 @@ hex. `mediaType` must be `model/gltf-binary`, a type listed in
 `supportedVisualTypes`, or any `audio/*` or `image/*` type. Any failure
 of these rules is one `invalidProperties` naming every offending
 property. The handler then asks `SceneBackend::blob_size`: a missing blob
-is `notFound` and a blob larger than `maxAssetSizeBytes` is `overQuota`.
+is `invalidProperties` naming `blobId` and a blob larger than `maxAssetSizeBytes` is `overQuota`.
 `SceneBackend::create_object` assigns the ULID and applies the
 deployment's account storage quota and admin-only rule atomically. The
 `created` entry holds the five server-set properties, with `ownerId` from

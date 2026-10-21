@@ -1076,6 +1076,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `SceneAsset/set` create whose
+  `blobId` names no uploaded blob now fails with `invalidProperties`
+  naming `blobId` (was `notFound`), per draft-atwood-jmap-scene-00
+  §SceneAsset/set Create Errors `invalidProperties`: "`blobId` does not
+  reference a valid blob ... This applies whether the blobId is malformed
+  or well-formed but absent."
+
 - **BREAKING** **jmap-scene-server**: `SceneObject/set` create or update
   whose `visualRef` names no uploaded blob now fails with
   `invalidProperties` naming `visualRef` (was `notFound`), per

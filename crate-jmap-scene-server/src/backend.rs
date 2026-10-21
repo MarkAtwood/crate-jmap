@@ -78,8 +78,8 @@ pub trait SceneBackend: JmapBackend {
     /// uploaded to `account_id` (RFC 8620 §6.1).
     ///
     /// `SceneAsset/set` create stores the size as the asset's `size` and
-    /// refuses a missing blob with `notFound` ("`blobId` does not reference
-    /// a valid blob"). There is no default: a default would invent sizes or
+    /// refuses a missing blob with `invalidProperties` naming `blobId`
+    /// ("`blobId` does not reference a valid blob"). There is no default: a default would invent sizes or
     /// refuse every create. Return `Err` for a transient storage failure,
     /// never `Ok(None)`: the handler maps `Err` to `serverFail` so the
     /// client retries.
