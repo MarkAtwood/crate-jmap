@@ -656,8 +656,10 @@ async fn chat_update_patch_muted_serializes() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let mut patch = jmap_chat_client::methods::ChatPatch::default();
-    patch.muted = Some(true);
+    let patch = jmap_chat_client::methods::ChatPatch {
+        muted: Some(true),
+        ..Default::default()
+    };
     let _ = sc
         .chat_update(&chat_id, &patch)
         .await
@@ -668,6 +670,44 @@ async fn chat_update_patch_muted_serializes() {
         args["update"]["chat-1"],
         json!({ "muted": true }),
         "patch must contain only muted=true"
+    );
+}
+
+/// A downstream crate builds `ChatPatch` with struct-update syntax
+/// (`..Default::default()`), the construction idiom shared with the
+/// sibling clients' `*Params` types (bd:JMAP-ops7.22). Oracle:
+/// draft-atwood-jmap-chat-00 §Chat/set line 1110 at spec 6bcd9d8 —
+/// "`update` supports the following patch keys for all chat kinds:
+/// `muted`, `muteUntil`, ..." — so the wire patch is exactly those two
+/// keys, with every defaulted field absent.
+#[tokio::test]
+async fn chat_update_patch_struct_update_syntax_serializes() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let until = jmap_types::UTCDate::from("2024-06-16T09:00:00Z");
+    let patch = jmap_chat_client::methods::ChatPatch {
+        muted: Some(true),
+        mute_until: jmap_chat_client::methods::Patch::Set(&until),
+        ..Default::default()
+    };
+    let _ = sc
+        .chat_update(&chat_id, &patch)
+        .await
+        .expect("chat_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["chat-1"],
+        json!({ "muted": true, "muteUntil": "2024-06-16T09:00:00Z" }),
     );
 }
 
@@ -691,8 +731,10 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let mut patch = jmap_chat_client::methods::ChatPatch::default();
-    patch.message_expiry_seconds = jmap_chat_client::methods::Patch::Clear;
+    let patch = jmap_chat_client::methods::ChatPatch {
+        message_expiry_seconds: jmap_chat_client::methods::Patch::Clear,
+        ..Default::default()
+    };
     let _ = sc
         .chat_update(&chat_id, &patch)
         .await
@@ -724,8 +766,10 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let mut patch = jmap_chat_client::methods::ChatPatch::default();
-    patch.message_expiry_seconds = jmap_chat_client::methods::Patch::Set(86_400);
+    let patch = jmap_chat_client::methods::ChatPatch {
+        message_expiry_seconds: jmap_chat_client::methods::Patch::Set(86_400),
+        ..Default::default()
+    };
     let _ = sc
         .chat_update(&chat_id, &patch)
         .await
@@ -813,10 +857,12 @@ async fn chat_update_patch_name_description_avatar_serialises() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let mut patch = jmap_chat_client::methods::ChatPatch::default();
-    patch.name = Some("Renamed Group");
-    patch.description = jmap_chat_client::methods::Patch::Set("New topic for the group");
-    patch.avatar_blob_id = jmap_chat_client::methods::Patch::Clear;
+    let patch = jmap_chat_client::methods::ChatPatch {
+        name: Some("Renamed Group"),
+        description: jmap_chat_client::methods::Patch::Set("New topic for the group"),
+        avatar_blob_id: jmap_chat_client::methods::Patch::Clear,
+        ..Default::default()
+    };
     let _ = sc
         .chat_update(&chat_id, &patch)
         .await
@@ -862,16 +908,23 @@ async fn chat_update_patch_add_and_remove_members_serialises() {
     let chat_id = Id::from("chat-1");
     let alice_id = Id::from("u-alice");
     let bob_id = Id::from("u-bob");
-    let add_alice = jmap_chat_client::methods::AddMemberInput::new(&alice_id)
-        .with_role(jmap_chat_client::types::ChatMemberRole::Admin);
-    let add_bob = jmap_chat_client::methods::AddMemberInput::new(&bob_id);
+    let add_alice = jmap_chat_client::methods::AddMemberInput {
+        id: &alice_id,
+        role: Some(jmap_chat_client::types::ChatMemberRole::Admin),
+    };
+    let add_bob = jmap_chat_client::methods::AddMemberInput {
+        id: &bob_id,
+        role: None,
+    };
     let add_members = [add_alice, add_bob];
     let removed_id = Id::from("u-malice");
     let remove_members = [removed_id];
 
-    let mut patch = jmap_chat_client::methods::ChatPatch::default();
-    patch.add_members = Some(&add_members);
-    patch.remove_members = Some(&remove_members);
+    let patch = jmap_chat_client::methods::ChatPatch {
+        add_members: Some(&add_members),
+        remove_members: Some(&remove_members),
+        ..Default::default()
+    };
     let _ = sc
         .chat_update(&chat_id, &patch)
         .await
@@ -914,21 +967,23 @@ async fn chat_update_patch_update_member_roles_serialises() {
     let alice_id = Id::from("u-alice");
     let bob_id = Id::from("u-bob");
     let role_changes = [
-        jmap_chat_client::methods::UpdateMemberRoleInput::new(
-            &alice_id,
-            jmap_chat_client::types::ChatMemberRole::Member,
-        ),
+        jmap_chat_client::methods::UpdateMemberRoleInput {
+            id: &alice_id,
+            role: jmap_chat_client::types::ChatMemberRole::Member,
+        },
         // Vendor-defined role survives via Other(String) at the
         // serialize boundary; the wire string is whatever the caller
         // supplied (workspace policy on Other(String) preservation
         // for round-trip).
-        jmap_chat_client::methods::UpdateMemberRoleInput::new(
-            &bob_id,
-            jmap_chat_client::types::ChatMemberRole::Other("moderator".into()),
-        ),
+        jmap_chat_client::methods::UpdateMemberRoleInput {
+            id: &bob_id,
+            role: jmap_chat_client::types::ChatMemberRole::Other("moderator".into()),
+        },
     ];
-    let mut patch = jmap_chat_client::methods::ChatPatch::default();
-    patch.update_member_roles = Some(&role_changes);
+    let patch = jmap_chat_client::methods::ChatPatch {
+        update_member_roles: Some(&role_changes),
+        ..Default::default()
+    };
     let _ = sc
         .chat_update(&chat_id, &patch)
         .await

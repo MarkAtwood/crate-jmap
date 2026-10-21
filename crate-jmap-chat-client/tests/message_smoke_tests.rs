@@ -588,13 +588,24 @@ async fn message_create_serializes_create_object() {
     let chat_id = Id::from("chat-1");
     // 20-character UTCDate (RFC 8620 §1.4): "YYYY-MM-DDTHH:MM:SSZ".
     let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
-    let input = jmap_chat_client::methods::MessageCreateInput::new(
-        &chat_id,
-        "hello world",
-        jmap_chat_client::BodyType::Plain,
-        &sent_at,
-    )
-    .with_client_id("client-msg-1");
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-1"),
+        chat_id: &chat_id,
+        body: "hello world",
+        body_type: jmap_chat_client::BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let resp = sc
         .message_create(&input)
         .await
@@ -653,13 +664,24 @@ async fn message_create_rate_limited_surfaces_as_error() {
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
     let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
-    let input = jmap_chat_client::methods::MessageCreateInput::new(
-        &chat_id,
-        "hello",
-        jmap_chat_client::BodyType::Plain,
-        &sent_at,
-    )
-    .with_client_id("client-msg-1");
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-1"),
+        chat_id: &chat_id,
+        body: "hello",
+        body_type: jmap_chat_client::BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let err = sc
         .message_create(&input)
         .await
@@ -720,13 +742,24 @@ async fn message_create_rate_limit_without_hint_retries_now() {
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
     let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
-    let input = jmap_chat_client::methods::MessageCreateInput::new(
-        &chat_id,
-        "hello",
-        jmap_chat_client::BodyType::Plain,
-        &sent_at,
-    )
-    .with_client_id("client-msg-1");
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-1"),
+        chat_id: &chat_id,
+        body: "hello",
+        body_type: jmap_chat_client::BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let now = || chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let before = now();
     let err = sc
@@ -758,9 +791,11 @@ async fn message_update_body_patch_serializes() {
 
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.body = Some("edited body");
-    patch.body_type = Some(jmap_chat_client::BodyType::Markdown);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        body: Some("edited body"),
+        body_type: Some(jmap_chat_client::BodyType::Markdown),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -794,8 +829,10 @@ async fn message_update_reaction_add_uses_json_pointer_patch_key() {
         emoji: "👍",
         sent_at: &reaction_sent_at,
     }];
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.reaction_changes = Some(&changes);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        reaction_changes: Some(&changes),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -825,8 +862,10 @@ async fn message_update_reaction_remove_emits_null_patch_value() {
     let changes = [jmap_chat_client::methods::ReactionChange::Remove {
         sender_reaction_id: "react-ulid-1",
     }];
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.reaction_changes = Some(&changes);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        reaction_changes: Some(&changes),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -856,8 +895,10 @@ async fn message_update_reaction_id_with_json_pointer_chars_rejected() {
         emoji: "👍",
         sent_at: &sent_at,
     }];
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.reaction_changes = Some(&changes);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        reaction_changes: Some(&changes),
+        ..Default::default()
+    };
     let err = sc
         .message_update(&msg_id, &patch)
         .await
@@ -957,9 +998,11 @@ async fn message_update_with_read_disposition_displayed_serialises_correctly() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let read_at = UTCDate::from("2026-01-05T10:00:00Z");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.read_at = Some(&read_at);
-    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Displayed);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        read_at: Some(&read_at),
+        read_disposition: Some(jmap_chat_types::ReadDisposition::Displayed),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -991,9 +1034,11 @@ async fn message_update_with_read_disposition_deleted_serialises_correctly() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let read_at = UTCDate::from("2026-01-05T10:00:00Z");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.read_at = Some(&read_at);
-    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Deleted);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        read_at: Some(&read_at),
+        read_disposition: Some(jmap_chat_types::ReadDisposition::Deleted),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -1021,9 +1066,11 @@ async fn message_update_with_read_disposition_processed_serialises_correctly() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let read_at = UTCDate::from("2026-01-05T10:00:00Z");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.read_at = Some(&read_at);
-    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Processed);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        read_at: Some(&read_at),
+        read_disposition: Some(jmap_chat_types::ReadDisposition::Processed),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -1053,11 +1100,13 @@ async fn message_update_with_read_disposition_other_serialises_correctly() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let read_at = UTCDate::from("2026-01-05T10:00:00Z");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.read_at = Some(&read_at);
-    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Other(
-        "voice-listened".into(),
-    ));
+    let patch = jmap_chat_client::methods::MessagePatch {
+        read_at: Some(&read_at),
+        read_disposition: Some(jmap_chat_types::ReadDisposition::Other(
+            "voice-listened".into(),
+        )),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -1087,8 +1136,10 @@ async fn message_update_without_read_disposition_omits_field() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let read_at = UTCDate::from("2026-01-05T10:00:00Z");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.read_at = Some(&read_at);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        read_at: Some(&read_at),
+        ..Default::default()
+    };
     // patch.read_disposition deliberately left as None.
     let _ = sc
         .message_update(&msg_id, &patch)
@@ -1117,8 +1168,10 @@ async fn message_update_read_disposition_without_read_at_rejected() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server);
 
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Deleted);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        read_disposition: Some(jmap_chat_types::ReadDisposition::Deleted),
+        ..Default::default()
+    };
     let err = sc
         .message_update(&Id::from("msg-1"), &patch)
         .await
@@ -1224,13 +1277,24 @@ async fn message_create_with_body_type_rich_serialises_correct_wire_string() {
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
     let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
-    let input = jmap_chat_client::methods::MessageCreateInput::new(
-        &chat_id,
-        "[{\"type\":\"text\",\"value\":\"hi\"}]",
-        jmap_chat_client::BodyType::Rich,
-        &sent_at,
-    )
-    .with_client_id("client-msg-rich");
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-rich"),
+        chat_id: &chat_id,
+        body: "[{\"type\":\"text\",\"value\":\"hi\"}]",
+        body_type: jmap_chat_client::BodyType::Rich,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let _ = sc
         .message_create(&input)
         .await
@@ -1259,11 +1323,13 @@ async fn message_update_with_body_type_other_round_trips_wire_string() {
 
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.body = Some("vendor-encoded body");
-    patch.body_type = Some(jmap_chat_client::BodyType::Other(
-        "application/x-acme-rich".into(),
-    ));
+    let patch = jmap_chat_client::methods::MessagePatch {
+        body: Some("vendor-encoded body"),
+        body_type: Some(jmap_chat_client::BodyType::Other(
+            "application/x-acme-rich".into(),
+        )),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -1364,9 +1430,11 @@ async fn message_update_broadcast_mentions_emits_wire_key() {
 
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.broadcast_mentions = Some(vec![serde_json::from_value(json!({"scope": "everyone"}))
-        .expect("BroadcastMention must deserialize")]);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        broadcast_mentions: Some(vec![serde_json::from_value(json!({"scope": "everyone"}))
+            .expect("BroadcastMention must deserialize")]),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -1421,8 +1489,10 @@ async fn message_update_broadcast_mentions_empty_vec_emits_empty_array() {
 
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.broadcast_mentions = Some(vec![]);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        broadcast_mentions: Some(vec![]),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -1548,24 +1618,24 @@ async fn message_create_serializes_all_optional_properties() {
     let expires = UTCDate::from("2024-06-16T09:00:00Z");
     let reply_to = Id::from("msg-parent");
     let thread_root = Id::from("msg-root");
-    let input = jmap_chat_client::methods::MessageCreateInput::new(
-        &chat_id,
-        "@alice @here",
-        jmap_chat_client::BodyType::Plain,
-        &sent_at,
-    )
-    .with_client_id("client-msg-1")
-    .with_reply_to(&reply_to)
-    .with_attachments(&attachments)
-    .with_mentions(&mentions)
-    .with_broadcast_mentions(&broadcast_mentions)
-    .with_actions(&actions)
-    .with_thread_root_id(&thread_root)
-    .with_topic_id("topic-1")
-    .with_subject("Q3 planning")
-    .with_sender_expires_at(&expires)
-    .with_burn_on_read(true)
-    .with_expires_after_read_seconds(30);
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-1"),
+        chat_id: &chat_id,
+        body: "@alice @here",
+        body_type: jmap_chat_client::BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: Some(&reply_to),
+        attachments: Some(&attachments),
+        mentions: Some(&mentions),
+        broadcast_mentions: Some(&broadcast_mentions),
+        actions: Some(&actions),
+        thread_root_id: Some(&thread_root),
+        topic_id: Some("topic-1"),
+        subject: Some("Q3 planning"),
+        sender_expires_at: Some(&expires),
+        burn_on_read: Some(true),
+        expires_after_read_seconds: Some(30),
+    };
     let _ = sc
         .message_create(&input)
         .await
@@ -1603,13 +1673,24 @@ async fn message_create_omits_unset_optional_properties() {
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
     let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
-    let input = jmap_chat_client::methods::MessageCreateInput::new(
-        &chat_id,
-        "hello",
-        jmap_chat_client::BodyType::Plain,
-        &sent_at,
-    )
-    .with_client_id("client-msg-1");
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-1"),
+        chat_id: &chat_id,
+        body: "hello",
+        body_type: jmap_chat_client::BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let _ = sc
         .message_create(&input)
         .await
@@ -1638,10 +1719,12 @@ async fn message_update_mentions_emits_wire_key() {
 
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
-    let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.mentions = Some(vec![
-        serde_json::from_value(json!({"id": "c2"})).expect("Mention must deserialize")
-    ]);
+    let patch = jmap_chat_client::methods::MessagePatch {
+        mentions: Some(vec![
+            serde_json::from_value(json!({"id": "c2"})).expect("Mention must deserialize")
+        ]),
+        ..Default::default()
+    };
     let _ = sc
         .message_update(&msg_id, &patch)
         .await

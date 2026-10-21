@@ -949,6 +949,21 @@ wire behaviour that a conforming peer can observe.
   well-known `role` value `"chatspace"`"). Clean break with no alias: a
   node stored with the old string parses as `NodeRole::Other` and is no
   longer a Space root.
+- **BREAKING** **jmap-chat-client**: the method-input structs are built
+  like the other extension clients' `*Params` types, with struct literals
+  and, for the all-optional patch structs, `..Default::default()`. The
+  `new` constructors and `with_*` builders are removed from
+  `MessageCreateInput`, `CustomEmojiCreateInput`, `SpaceInviteCreateInput`,
+  `SpaceBanCreateInput`, `SpaceCreateInput`, `AddMemberInput`,
+  `UpdateMemberRoleInput`, `SpaceAddMemberInput`, `SpaceUpdateMemberInput`,
+  `SpaceAddChannelInput`, `SpaceAddRoleInput`, `SpaceUpdateRoleInput`,
+  `SpaceUpdateChannelInput`, `SpaceAddCategoryInput`,
+  `SpaceUpdateCategoryInput` and `PushSubscriptionCreateInput`. These
+  structs and `MessagePatch`, `PresenceStatusPatch`, `CustomEmojiPatch`,
+  `SpaceBanPatch`, `ChatContactPatch`, `ChatPatch`, `SpacePatch` and
+  `PushSubscriptionPatch` are no longer `#[non_exhaustive]`, so a new
+  field is a breaking change, as it already is for the sibling clients'
+  `*Params` types.
 - **BREAKING** **jmap-chat-client**: `chat_query`, `message_query`,
   `space_query`, `chat_contact_query`, `custom_emoji_query`,
   `Batch::chat_query_get` and `Batch::message_query_get` take positional
