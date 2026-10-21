@@ -20,7 +20,8 @@
 //!   `metadata{Exists,TextContains,TextEquals}` /
 //!   `privateMetadata{Exists,TextContains,TextEquals}` filter
 //!   conditions ([`metadata_path_exists`], [`metadata_text_contains`],
-//!   [`metadata_text_equals`]).
+//!   [`metadata_text_equals`]) and the path check that backs the
+//!   `invalidArguments` rejection ([`is_well_formed_metadata_path`]).
 //!
 //! All functions are stateless and operate on `serde_json` values and
 //! [`jmap_metadata_types`] structs. No backend trait, no dispatcher
@@ -44,7 +45,10 @@ pub mod validate;
 pub use changes::{
     is_metadata_only_change, is_metadata_property, METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY,
 };
-pub use filter::{metadata_path_exists, metadata_text_contains, metadata_text_equals};
+pub use filter::{
+    is_well_formed_metadata_path, metadata_path_exists, metadata_text_contains,
+    metadata_text_equals,
+};
 pub use validate::{exceeds_max_depth, is_namespace_supported, value_depth};
 
 /// Capability URI for `urn:ietf:params:jmap:metadata`.

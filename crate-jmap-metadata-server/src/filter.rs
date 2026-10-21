@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-02 §3.5 — metadata filter predicate helpers.
+//! draft-ietf-jmap-metadata-04 §3.6 — metadata filter predicate helpers.
 //!
 //! Provides three composable predicates that extension-server
 //! `MemoryBackend`s call from their `query_objects` matchers to evaluate
@@ -17,6 +17,17 @@
 //! object's JSON representation as a `serde_json::Map` and passes it to
 //! the appropriate helper. The "private vs shared" distinction is the
 //! caller's responsibility — these helpers are agnostic to it.
+//!
+//! The helpers evaluate the stored data whether or not the namespace is
+//! supported on the data type (-04 §3.6: "Conditions are evaluated
+//! against the stored data whether or not the namespace is supported on
+//! the data type"). A path naming an absent namespace, or one that is not
+//! a valid namespace identifier, matches nothing.
+//!
+//! A path that is not well formed MUST be rejected with an
+//! `invalidArguments` error (-04 §3.6). The predicates return `false` for
+//! such a path; the `/query` handler checks every condition path with
+//! [`is_well_formed_metadata_path`] first and rejects the request.
 
 use std::borrow::Cow;
 
@@ -25,43 +36,86 @@ use serde_json::{Map, Value};
 
 /// Unescape a single RFC 6901 JSON Pointer reference token.
 ///
-/// Per RFC 6901 §4: first replace `~1` with `/`, then `~0` with `~`.
-/// Order matters — `~01` must become `~1`, not `/`.
-fn unescape_rfc6901(segment: &str) -> Cow<'_, str> {
-    if segment.contains('~') {
-        Cow::Owned(segment.replace("~1", "/").replace("~0", "~"))
-    } else {
-        Cow::Borrowed(segment)
+/// RFC 6901 §3 allows `~` only as `~0` (for `~`) or `~1` (for `/`).
+/// Decoding in one pass gives the §4 result that `~01` becomes `~1`,
+/// not `/`. Returns [`None`] for any other `~`.
+fn unescape_rfc6901(token: &str) -> Option<Cow<'_, str>> {
+    if !token.contains('~') {
+        return Some(Cow::Borrowed(token));
     }
+    let mut out = String::with_capacity(token.len());
+    let mut chars = token.chars();
+    while let Some(c) = chars.next() {
+        if c == '~' {
+            match chars.next() {
+                Some('0') => out.push('~'),
+                Some('1') => out.push('/'),
+                _ => return None,
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    Some(Cow::Owned(out))
+}
+
+/// Check whether `path` is a well-formed metadata path
+/// (draft-ietf-jmap-metadata-04 §3.6).
+///
+/// -04 §3.6: "A path that is not well formed (for example, one with an
+/// invalid ~ escape) MUST be rejected with an "invalidArguments" error."
+/// A path is well formed when every `/`-separated token uses `~` only in
+/// the RFC 6901 escapes `~0` and `~1`. Whether the first token is a valid
+/// namespace identifier is not checked: -04 §3.6 says such a condition
+/// "matches no objects; it does not produce an error."
+///
+/// A `/query` handler calls this for the path of every metadata
+/// condition and, on `false`, rejects the request with `invalidArguments`.
+///
+/// # Examples
+///
+/// ```
+/// use jmap_metadata_server::is_well_formed_metadata_path;
+///
+/// assert!(is_well_formed_metadata_path("acme.example.com/a~1b/c~0d"));
+/// assert!(!is_well_formed_metadata_path("acme.example.com/a~2b"));
+/// assert!(!is_well_formed_metadata_path("acme.example.com/a~"));
+/// ```
+pub fn is_well_formed_metadata_path(path: &str) -> bool {
+    path.split('/')
+        .all(|token| unescape_rfc6901(token).is_some())
 }
 
 /// Resolve a metadata path to a value within a metadata map.
 ///
-/// Path format (§3.5): `<namespace>` or `<namespace>/<key>`, with `/`
-/// and `~` escaped per [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901).
+/// Path format (-04 §3.6): a namespace identifier, optionally followed by
+/// a JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901))
+/// into the namespace value, such as `<namespace>/<key>/<subkey>`.
 ///
-/// Returns [`None`] if the namespace key is absent, or if the path has
-/// a `<key>` segment and the namespace value is not an object or does
-/// not contain that key.
+/// Returns [`None`] if the namespace key is absent, if a later token is
+/// not a member of the object reached so far, or if the path would
+/// traverse an array or a scalar (-04 §3.6: "a path that would traverse
+/// an array or a scalar addresses no value"). Also returns [`None`] for a
+/// path that is not well formed.
 fn resolve_path<'a>(map: &'a Map<String, Value>, path: &str) -> Option<&'a Value> {
-    if let Some((ns_raw, key_raw)) = path.split_once('/') {
-        let ns = unescape_rfc6901(ns_raw);
-        let key = unescape_rfc6901(key_raw);
-        let ns_value = map.get(ns.as_ref())?;
-        ns_value.as_object()?.get(key.as_ref())
-    } else {
-        let ns = unescape_rfc6901(path);
-        map.get(ns.as_ref())
+    let mut tokens = path.split('/');
+    let ns = unescape_rfc6901(tokens.next()?)?;
+    let mut value = map.get(ns.as_ref())?;
+    for token in tokens {
+        value = value.as_object()?.get(unescape_rfc6901(token)?.as_ref())?;
     }
+    Some(value)
 }
 
 /// Check whether a value exists at `path` in a metadata map
-/// (draft-ietf-jmap-metadata-02 §3.5, `metadataExists` /
+/// (draft-ietf-jmap-metadata-04 §3.6, `metadataExists` /
 /// `privateMetadataExists`).
 ///
 /// A namespace-only path matches if the namespace key is present **and**
-/// its value is not the empty object `{}`. A `<namespace>/<key>` path
-/// matches if the namespace value is an object containing `<key>`.
+/// its value is not the empty object `{}`. A longer path matches if every
+/// token after the namespace names a member of the object reached so far.
+/// Returns `false` for a path that is not well formed; see
+/// [`is_well_formed_metadata_path`].
 ///
 /// # Examples
 ///
@@ -74,20 +128,15 @@ fn resolve_path<'a>(map: &'a Map<String, Value>, path: &str) -> Option<&'a Value
 ///
 /// assert!(metadata_path_exists(&map, "photography"));
 /// assert!(metadata_path_exists(&map, "photography/album"));
+/// assert!(!metadata_path_exists(&map, "photography/album/deeper"));
 /// assert!(!metadata_path_exists(&map, "photography/missing"));
 /// assert!(!metadata_path_exists(&map, "absent"));
 /// ```
 pub fn metadata_path_exists(map: &Map<String, Value>, path: &str) -> bool {
-    // Namespace-only: present and not empty object.
-    if !path.contains('/') {
-        let ns = unescape_rfc6901(path);
-        match map.get(ns.as_ref()) {
-            Some(Value::Object(obj)) => !obj.is_empty(),
-            Some(_) => true,
-            None => false,
-        }
-    } else {
-        resolve_path(map, path).is_some()
+    match resolve_path(map, path) {
+        // Namespace-only: present and not the empty object.
+        Some(Value::Object(obj)) if !path.contains('/') => !obj.is_empty(),
+        value => value.is_some(),
     }
 }
 
@@ -158,23 +207,63 @@ mod tests {
 
     #[test]
     fn unescape_no_tilde() {
-        assert_eq!(unescape_rfc6901("photography"), "photography");
+        assert_eq!(
+            unescape_rfc6901("photography").as_deref(),
+            Some("photography")
+        );
     }
 
     #[test]
     fn unescape_tilde_zero() {
-        assert_eq!(unescape_rfc6901("a~0b"), "a~b");
+        assert_eq!(unescape_rfc6901("a~0b").as_deref(), Some("a~b"));
     }
 
     #[test]
     fn unescape_tilde_one() {
-        assert_eq!(unescape_rfc6901("a~1b"), "a/b");
+        assert_eq!(unescape_rfc6901("a~1b").as_deref(), Some("a/b"));
     }
 
     #[test]
     fn unescape_order_matters_tilde_zero_one() {
         // ~01 must become ~1, NOT /
-        assert_eq!(unescape_rfc6901("~01"), "~1");
+        assert_eq!(unescape_rfc6901("~01").as_deref(), Some("~1"));
+    }
+
+    #[test]
+    fn unescape_rejects_invalid_escape() {
+        // RFC 6901 §3: escaped = "~" ( "0" / "1" ).
+        assert_eq!(unescape_rfc6901("a~2b"), None);
+        assert_eq!(unescape_rfc6901("a~"), None);
+        assert_eq!(unescape_rfc6901("~~0"), None);
+    }
+
+    // -- is_well_formed_metadata_path -------------------------------------
+
+    #[test]
+    fn well_formed_paths() {
+        // -04 §3.6 example forms: <namespace>, <namespace>/<key>,
+        // <namespace>/<key>/<subkey>.
+        assert!(is_well_formed_metadata_path("ns"));
+        assert!(is_well_formed_metadata_path("ns/key"));
+        assert!(is_well_formed_metadata_path("ns/key/subkey"));
+        assert!(is_well_formed_metadata_path("ns/a~0b/c~1d"));
+        // RFC 6901 §3: an empty reference token is valid.
+        assert!(is_well_formed_metadata_path("ns/"));
+    }
+
+    #[test]
+    fn invalid_tilde_escape_is_not_well_formed() {
+        // -04 §3.6: "one with an invalid ~ escape" MUST be rejected.
+        assert!(!is_well_formed_metadata_path("ns/a~2b"));
+        assert!(!is_well_formed_metadata_path("ns/key/sub~"));
+        assert!(!is_well_formed_metadata_path("n~s"));
+    }
+
+    #[test]
+    fn invalid_namespace_identifier_is_well_formed() {
+        // -04 §3.6: "a string that is not a valid namespace identifier,
+        // matches no objects; it does not produce an error."
+        assert!(is_well_formed_metadata_path("Not A Namespace/key"));
     }
 
     // -- resolve_path -----------------------------------------------------
@@ -208,6 +297,59 @@ mod tests {
         // Namespace value is a string, not an object — key lookup fails.
         let map = json!({"ns": "scalar"}).as_object().unwrap().clone();
         assert_eq!(resolve_path(&map, "ns/key"), None);
+    }
+
+    #[test]
+    fn resolve_deep_path() {
+        // -04 §3.6: <namespace>/<key>/<subkey> walks ns -> key -> subkey.
+        let map = json!({"ns": {"a": {"b": {"c": "deep"}}}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert_eq!(resolve_path(&map, "ns/a/b/c"), Some(&json!("deep")));
+        assert_eq!(resolve_path(&map, "ns/a/b"), Some(&json!({"c": "deep"})));
+        assert_eq!(resolve_path(&map, "ns/a/missing"), None);
+    }
+
+    #[test]
+    fn resolve_deep_path_is_not_a_single_key() {
+        // "ns/a/b" walks two members; it does not name the key "a/b",
+        // which RFC 6901 §3 would spell "a~1b".
+        let map = json!({"ns": {"a/b": "flat"}}).as_object().unwrap().clone();
+        assert_eq!(resolve_path(&map, "ns/a/b"), None);
+    }
+
+    #[test]
+    fn resolve_through_array_addresses_no_value() {
+        // -04 §3.6: "a path that would traverse an array or a scalar
+        // addresses no value" — even with an RFC 6901 array index.
+        let map = json!({"ns": {"list": ["x", {"k": "v"}]}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert_eq!(
+            resolve_path(&map, "ns/list"),
+            Some(&json!(["x", {"k": "v"}]))
+        );
+        assert_eq!(resolve_path(&map, "ns/list/0"), None);
+        assert_eq!(resolve_path(&map, "ns/list/1/k"), None);
+    }
+
+    #[test]
+    fn resolve_through_scalar_addresses_no_value() {
+        let map = json!({"ns": {"memo": "text", "n": 1, "z": null}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert_eq!(resolve_path(&map, "ns/memo/x"), None);
+        assert_eq!(resolve_path(&map, "ns/n/x"), None);
+        assert_eq!(resolve_path(&map, "ns/z/x"), None);
+    }
+
+    #[test]
+    fn resolve_malformed_path_is_none() {
+        let map = json!({"ns": {"a~2b": "v"}}).as_object().unwrap().clone();
+        assert_eq!(resolve_path(&map, "ns/a~2b"), None);
     }
 
     #[test]
@@ -248,6 +390,27 @@ mod tests {
             .unwrap()
             .clone();
         assert!(metadata_path_exists(&map, "ns/album"));
+    }
+
+    #[test]
+    fn exists_deep_path() {
+        let map = json!({"ns": {"a": {"b": {}}, "list": [1]}})
+            .as_object()
+            .unwrap()
+            .clone();
+        // -04 §3.6: only a namespace-only path excludes `{}`; a deeper
+        // path matches whenever a value is present.
+        assert!(metadata_path_exists(&map, "ns/a/b"));
+        assert!(!metadata_path_exists(&map, "ns/a/b/c"));
+        assert!(!metadata_path_exists(&map, "ns/list/0"));
+    }
+
+    #[test]
+    fn exists_namespace_present_scalar() {
+        // -04 §3.6: matches if "the namespace key is present and its value
+        // is not the empty object {}".
+        let map = json!({"ns": "scalar"}).as_object().unwrap().clone();
+        assert!(metadata_path_exists(&map, "ns"));
     }
 
     #[test]
@@ -304,6 +467,18 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn text_contains_deep_path() {
+        let map = json!({"ns": {"note": {"body": "Call Back"}}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(metadata_text_contains(
+            &map,
+            &text_match("ns/note/body", "call")
+        ));
+    }
+
     // -- metadata_text_equals ---------------------------------------------
 
     #[test]
@@ -334,6 +509,19 @@ mod tests {
     fn text_equals_non_string() {
         let map = json!({"ns": {"flag": true}}).as_object().unwrap().clone();
         assert!(!metadata_text_equals(&map, &text_match("ns/flag", "true")));
+    }
+
+    #[test]
+    fn text_equals_deep_path() {
+        let map = json!({"ns": {"tags": {"primary": "red"}, "list": ["red"]}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(metadata_text_equals(
+            &map,
+            &text_match("ns/tags/primary", "red")
+        ));
+        assert!(!metadata_text_equals(&map, &text_match("ns/list/0", "red")));
     }
 
     #[test]

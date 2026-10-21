@@ -163,8 +163,9 @@ pub fn is_metadata_only_change(updated_properties: &[String]) -> bool {
 /// Returns a JSON object `{ "metadataExists": "<path>" }` suitable for
 /// merging into a per-type `FilterCondition` object in a `/query` request.
 ///
-/// `path` is a namespace identifier or `<namespace>/<key>` path with
-/// RFC 6901 escaping where applicable.
+/// `path` is a namespace identifier, optionally followed by an RFC 6901
+/// JSON Pointer into the namespace value, such as `<namespace>/<key>` or
+/// `<namespace>/<key>/<subkey>` (draft-ietf-jmap-metadata-04 §3.6).
 ///
 /// # Examples
 ///
