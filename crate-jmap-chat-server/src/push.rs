@@ -27,8 +27,9 @@ use crate::{ChatBackend, SetError, SetErrorType};
 const CHAT_PUSH: &str = "chatPush";
 
 /// The `ChatMessageEntry` fields a server MUST support in `properties`
-/// (draft-atwood-jmap-chat-push-00 §ChatPushConfig). `unreadCount` is not
-/// in that list and is not built, so it is rejected like any unknown name.
+/// (draft-atwood-jmap-chat-push-00 §ChatPushConfig). `unreadCount` is a
+/// `ChatMessagePush` property, not an entry field, so it is rejected like
+/// any unknown name.
 const ENTRY_PROPERTIES: [&str; 13] = [
     "messageId",
     "chatId",
@@ -403,7 +404,7 @@ pub fn build_chat_message_push(
 /// delivers a `StateChange` for the `Message` data type in place of a
 /// `ChatMessagePush` for that message." A `push` that fits is returned
 /// unchanged. Otherwise each entry goes in a payload of its own, with the
-/// same `accountId`, `state` and extension fields, so no message is lost
+/// same `accountId`, `state`, `unreadCount` and extension fields, so no message is lost
 /// (§Delivery: "the server MUST deliver additional `ChatMessagePush`
 /// payloads to cover the remainder"). An entry that does not fit alone
 /// loses `bodySnippet`; no other field is ever removed.
