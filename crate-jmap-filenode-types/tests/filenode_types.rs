@@ -1121,6 +1121,19 @@ fn node_role_chat_space_parses_and_roundtrips() {
     assert_eq!(serde_json::to_string(&role).unwrap(), "\"chatspace\"");
 }
 
+/// 33702a5 L126: the Space root is "identified by the well-known `role`
+/// value `"chatspace"`". The old `urn:jmap:chat:filenode:space` string was
+/// dropped with no alias (CHANGELOG clean break), so it is an unregistered
+/// role and must not be read as a Space root.
+#[test]
+fn node_role_legacy_space_urn_is_not_chat_space() {
+    let role: NodeRole = serde_json::from_str("\"urn:jmap:chat:filenode:space\"").unwrap();
+    assert_eq!(
+        role,
+        NodeRole::Other("urn:jmap:chat:filenode:space".to_owned())
+    );
+}
+
 #[test]
 fn filenode_space_id_roundtrips_on_space_root() {
     let wire = serde_json::json!({

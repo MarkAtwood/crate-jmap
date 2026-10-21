@@ -418,7 +418,8 @@ wire behaviour that a conforming peer can observe.
 - **jmap-chat-types**: `ChatStreamEnable.id`, the optional client-chosen
   message `id` that a resulting `RequestError` echoes as its `requestId`
   (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable). A wire `id` used to
-  land in `extra`.
+  land in `extra`; a non-string `id` (e.g. `"id": 7`) is now a parse
+  error, since the draft types it as a String.
 - **jmap-chat-types**: `Chat.active_call_account_id`, the server-set
   `activeCallAccountId` property (draft-atwood-jmap-chat-00 §Chat): the
   account hosting the VTCCall named by `activeCallId`, serialized as
@@ -1838,6 +1839,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-client**: `server_retry_after` (and so `message_create`)
+  validates `serverRetryAfter` as an RFC 8620 §1.4 `UTCDate`. Any string
+  used to be accepted, so `"in five seconds"` became the `RateLimited`
+  deadline; it is now `ServerRetryAfterError::Malformed`, which
+  `message_create` reports as `ClientError::UnexpectedResponse` as its
+  docs already said.
 - **jmap-graph-types**: `Expression::to_value` leaves out a field test
   with no operators (`FieldTest::default()`, always true) instead of
   writing `{}`, which draft-atwood-jmap-graph-search-00 §Field Tests reads
