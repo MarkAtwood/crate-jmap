@@ -1,6 +1,6 @@
 # Releasing
 
-The 31 publishable `jmap-*` crates in this workspace must be published to
+The 57 publishable `jmap-*` crates in this workspace must be published to
 crates.io in **topological order**. Each layer depends on the previous one
 being indexed on the registry, so a single `cargo publish` of a leaf crate
 fails until all its transitive dependencies have published.
@@ -30,73 +30,93 @@ dry-run starts to pass.
 
 ## Dependency graph
 
+The layers below are computed from `cargo metadata`: a crate's layer is one
+more than the highest layer among the publishable `jmap-*` crates it depends
+on. Normal, build and dev-dependencies all count, because `cargo publish`
+resolves versioned dev-dependencies against the registry too (see blocker 1
+below). A crate's own self-dev-dependency is not an ordering edge.
+
+| Layer | Crates |
+|---|---|
+| 1 | `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-types`, `jmap-types` |
+| 2 | `jmap-contacts-types`, `jmap-did-types`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-jscalendar-types`, `jmap-mail-types`, `jmap-metadata-client`, `jmap-metadata-server`, `jmap-scene-types`, `jmap-server`, `jmap-sharing-types`, `jmap-vtc-types`, `jmap-web-push` |
+| 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-server`, `jmap-did-resolver`, `jmap-filenode-server`, `jmap-graph-server`, `jmap-mime`, `jmap-peer-auth`, `jmap-scene-server`, `jmap-sharing-server`, `jmap-tasks-types`, `jmap-vtc-server` |
+| 4 | `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-scene-server`, `jmap-chat-server`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-graph-client`, `jmap-mail-client`, `jmap-mail-server`, `jmap-peer-auth-io`, `jmap-scene-client`, `jmap-scene-vtc-server`, `jmap-sharing-client`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client` |
+| 5 | `jmap-chat-calendars-server`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-graph-projection-server` |
+
+Crates within the same layer have no dependencies on each other and can be
+published in parallel. Direct `jmap-*` edges per crate (dev-dependencies
+that are not also normal dependencies are listed separately):
+
+| Crate | Layer | `jmap-*` dependencies | `jmap-*` dev-dependencies |
+|---|---|---|---|
+| `jmap-cid-types` | 1 | (none) | (none) |
+| `jmap-jscontact-types` | 1 | (none) | (none) |
+| `jmap-metadata-types` | 1 | (none) | (none) |
+| `jmap-types` | 1 | (none) | (none) |
+| `jmap-contacts-types` | 2 | `jmap-jscontact-types`, `jmap-types` | (none) |
+| `jmap-did-types` | 2 | `jmap-types` | (none) |
+| `jmap-filenode-types` | 2 | `jmap-cid-types`, `jmap-types` | (none) |
+| `jmap-graph-types` | 2 | `jmap-types` | (none) |
+| `jmap-jscalendar-types` | 2 | `jmap-types` | (none) |
+| `jmap-mail-types` | 2 | `jmap-types` | (none) |
+| `jmap-metadata-client` | 2 | `jmap-metadata-types` | (none) |
+| `jmap-metadata-server` | 2 | `jmap-metadata-types` | (none) |
+| `jmap-scene-types` | 2 | `jmap-types` | (none) |
+| `jmap-server` | 2 | `jmap-types` | (none) |
+| `jmap-sharing-types` | 2 | `jmap-types` | (none) |
+| `jmap-vtc-types` | 2 | `jmap-types` | (none) |
+| `jmap-web-push` | 2 | `jmap-types` | (none) |
+| `jmap-base-client` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-types` | (none) |
+| `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-types` | (none) |
+| `jmap-chat-types` | 3 | `jmap-did-types`, `jmap-types` | (none) |
+| `jmap-contacts-server` | 3 | `jmap-contacts-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-did-resolver` | 3 | `jmap-did-types` | (none) |
+| `jmap-filenode-server` | 3 | `jmap-cid-types`, `jmap-filenode-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-graph-server` | 3 | `jmap-graph-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-mime` | 3 | `jmap-mail-types`, `jmap-types` | (none) |
+| `jmap-peer-auth` | 3 | `jmap-did-types` | (none) |
+| `jmap-scene-server` | 3 | `jmap-scene-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-sharing-server` | 3 | `jmap-server`, `jmap-sharing-types`, `jmap-types` | (none) |
+| `jmap-tasks-types` | 3 | `jmap-jscalendar-types`, `jmap-types` | (none) |
+| `jmap-vtc-server` | 3 | `jmap-server`, `jmap-types`, `jmap-vtc-types` | (none) |
+| `jmap-calendars-client` | 4 | `jmap-base-client`, `jmap-calendars-types`, `jmap-types` | `jmap-metadata-types` |
+| `jmap-calendars-server` | 4 | `jmap-calendars-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-client` | 4 | `jmap-base-client`, `jmap-chat-types`, `jmap-types` | `jmap-metadata-types` |
+| `jmap-chat-federation-types` | 4 | `jmap-chat-types`, `jmap-types` | `jmap-base-client` |
+| `jmap-chat-mimi-types` | 4 | `jmap-types` | `jmap-chat-types` |
+| `jmap-chat-scene-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types` | (none) |
+| `jmap-chat-server` | 4 | `jmap-chat-types`, `jmap-did-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-contacts-client` | 4 | `jmap-base-client`, `jmap-contacts-types`, `jmap-types` | (none) |
+| `jmap-filenode-client` | 4 | `jmap-base-client`, `jmap-filenode-types`, `jmap-types` | (none) |
+| `jmap-graph-client` | 4 | `jmap-base-client`, `jmap-graph-types`, `jmap-types` | (none) |
+| `jmap-mail-client` | 4 | `jmap-base-client`, `jmap-mail-types`, `jmap-types` | `jmap-metadata-types` |
+| `jmap-mail-server` | 4 | `jmap-mail-types`, `jmap-mime`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-peer-auth-io` | 4 | `jmap-peer-auth` | (none) |
+| `jmap-scene-client` | 4 | `jmap-base-client`, `jmap-cid-types`, `jmap-scene-types`, `jmap-types` | (none) |
+| `jmap-scene-vtc-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types`, `jmap-vtc-types` | `jmap-server`, `jmap-vtc-server` |
+| `jmap-sharing-client` | 4 | `jmap-base-client`, `jmap-sharing-types`, `jmap-types` | (none) |
+| `jmap-tasks-client` | 4 | `jmap-base-client`, `jmap-tasks-types`, `jmap-types` | (none) |
+| `jmap-tasks-server` | 4 | `jmap-server`, `jmap-tasks-types`, `jmap-types` | (none) |
+| `jmap-vtc-client` | 4 | `jmap-base-client`, `jmap-types`, `jmap-vtc-types` | (none) |
+| `jmap-chat-calendars-server` | 5 | `jmap-calendars-server`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-types` | `jmap-chat-server` |
+| `jmap-chat-federation-server` | 5 | `jmap-chat-federation-types`, `jmap-chat-server`, `jmap-chat-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-filenode-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-filenode-server`, `jmap-filenode-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-mimi-client` | 5 | `jmap-base-client`, `jmap-chat-mimi-types`, `jmap-types` | (none) |
+| `jmap-chat-mimi-server` | 5 | `jmap-chat-mimi-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-tasks-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-tasks-server`, `jmap-tasks-types`, `jmap-types` | (none) |
+| `jmap-chat-vtc-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-server`, `jmap-types`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
+| `jmap-graph-projection-server` | 5 | `jmap-contacts-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-server`, `jmap-types` | `jmap-mail-server` |
+
+To recheck after a manifest change, list each publishable crate's
+`jmap-*` edges:
+
+```bash
+cargo metadata --format-version 1 --no-deps | jq -r '.packages[]
+  | select(.publish != []) | .name as $n
+  | "\($n): \([.dependencies[] | select(.name | startswith("jmap-"))
+  | select(.name != $n) | .name] | unique | join(" "))"'
 ```
-jmap-types                                       (foundation; no jmap deps)
-    │
-    ├── jmap-{mail,chat,filenode,sharing}-types  (extension types — layer 2)
-    │       └── jmap-mime                        (uses jmap-mail-types)
-    │       └── jmap-{ext}-server                (also depends on jmap-server)
-    │       └── jmap-{ext}-client                (also depends on jmap-base-client)
-    │
-    ├── jmap-{contacts,calendars,tasks}-types    (also consume a sub-types crate)
-    │       └── jmap-{contacts,calendars,tasks}-server
-    │       └── jmap-{contacts,calendars,tasks}-client
-    │
-    ├── jmap-cid-types                           (CidCapability + Sha256 typed shape)
-    ├── jmap-did-types                           (DidCapability + DidAccountCapability)
-    ├── jmap-metadata-types                      (DataTypeMetadataInfo, MetadataTextMatch)
-    │       └── jmap-metadata-server
-    │       └── jmap-metadata-client
-    │
-    ├── jmap-server                              (dispatcher, parse, helpers)
-    │       └── jmap-mail-server                 (also depends on jmap-mime)
-    │       └── jmap-{ext}-server (×7)           (chat, contacts, calendars, tasks,
-    │                                             filenode, sharing, metadata)
-    │
-    └── jmap-base-client                         (auth, transport, session, blob, SSE, WS)
-            └── jmap-{ext}-client (×8)           (mail, chat, contacts, calendars, tasks,
-                                                  filenode, sharing, metadata)
-
-jmap-jscalendar-types       (RFC 8984 typed sub-objects, no JMAP dep, only serde + jmap-types)
-    ├── jmap-calendars-types (re-exports as `jscalendar` module alias)
-    └── jmap-tasks-types     (re-exports as `jscalendar` module alias)
-
-jmap-jscontact-types        (RFC 9553 typed sub-objects, no JMAP dep, only serde)
-    └── jmap-contacts-types  (re-exports as `jscontact` module alias)
-
-jmap-{vtc,scene,graph}-types                     (depend on jmap-types only)
-    └── jmap-{vtc,scene,graph}-server            (also depend on jmap-server)
-    └── jmap-{vtc,scene,graph}-client            (also depend on jmap-base-client;
-                                                  jmap-scene-client also on jmap-cid-types)
-    └── jmap-graph-projection-server             (also jmap-mail-types, jmap-contacts-types,
-                                                  jmap-server)
-    └── jmap-chat-vtc-server                     (jmap-chat-server + jmap-vtc-server)
-    └── jmap-chat-scene-server                   (jmap-scene-server)
-    └── jmap-scene-vtc-server                    (jmap-scene-server + jmap-vtc-types)
-```
-
-Layer table:
-
-| Layer | Crates | Depends on |
-|---|---|---|
-| 1 | `jmap-types` | (nothing) |
-| 2a | `jmap-mail-types`, `jmap-chat-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-jscalendar-types`, `jmap-jscontact-types`, `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-vtc-types`, `jmap-scene-types`, `jmap-graph-types` | layer 1 (or just serde, for the two `js*-types`) |
-| 2b | `jmap-contacts-types`, `jmap-calendars-types`, `jmap-tasks-types` | layer 2a (consume `jmap-jscontact-types` or `jmap-jscalendar-types`) |
-| 3 | `jmap-mime` | layer 2a (`jmap-mail-types`) |
-| 4 | `jmap-server` | layer 1 |
-| 5 | `jmap-base-client` | layer 1 |
-| 6 | `jmap-mail-server` | layers 1, 2a, 3, 4 (incl. `jmap-mime`) |
-| 6 | `jmap-chat-server`, `jmap-contacts-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-filenode-server`, `jmap-sharing-server`, `jmap-metadata-server`, `jmap-vtc-server`, `jmap-scene-server`, `jmap-graph-server` | layers 1, 2a or 2b (the matching `*-types`), 4 |
-| 6 | `jmap-graph-projection-server` | layers 1, 2a (`jmap-graph-types`, `jmap-mail-types`), 2b (`jmap-contacts-types`), 4 |
-| 7 | `jmap-mail-client`, `jmap-chat-client`, `jmap-contacts-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-filenode-client`, `jmap-sharing-client`, `jmap-metadata-client`, `jmap-vtc-client`, `jmap-scene-client`, `jmap-graph-client` | layers 1, 2a or 2b, 5 |
-| 8 | `jmap-chat-vtc-server`, `jmap-chat-scene-server`, `jmap-scene-vtc-server` | layers 1, 2a, 4, 6 (`jmap-chat-server`, `jmap-vtc-server`, `jmap-scene-server`) |
-
-Crates within the same layer (and sub-layer) have no dependencies on each
-other and can be published in parallel. The 2a/2b split exists because
-`jmap-contacts-types` consumes `jmap-jscontact-types`, and both
-`jmap-calendars-types` and `jmap-tasks-types` consume `jmap-jscalendar-types`.
-Layer 8 holds the binding crates that depend on layer-6 server crates, so
-they publish after layer 6.
 
 ## Publish procedure
 
@@ -187,7 +207,7 @@ six new crates (`jmap-jscalendar-types`, `jmap-jscontact-types`,
 `jmap-metadata-client`) and hit the limit twice. Plan the publish
 order so first-time publishes are spread across multiple ten-minute
 windows when introducing more than five new crates. The first publish of
-the Scene, VTC and Graph crates (layers 2a, 6, 7 and 8 above) introduces
+the Scene, VTC and Graph crates (layers 2 to 5 above) introduces
 13 new crates, so it spans at least three windows.
 
 ### 4. Uncommitted changes block `cargo publish`
