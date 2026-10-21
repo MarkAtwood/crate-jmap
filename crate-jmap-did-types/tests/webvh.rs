@@ -681,13 +681,24 @@ fn move_without_portability_is_invalid() {
     // "a `did:webvh` DID can be renamed by changing the `id` DID string
     // [...] if the following conditions are met. [...] The parameter
     // `portable` MUST be set to `true` in the first log entry."
-    // basic-update sets `"portable":false`.
+    // basic-update sets `"portable":false`. The renamed entry also lists
+    // the prior DID in `alsoKnownAs`, so only the portability rule fails.
     let (did, log) = tampered(
         "basic-update",
         1,
         r#"QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com","controller""#,
         r#"QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.org","controller""#,
     );
+    let aka = r#""alsoKnownAs":["did:web:example.com"]"#;
+    let log = String::from_utf8(log).unwrap();
+    assert_eq!(log.matches(aka).count(), 1);
+    let log = log
+        .replacen(
+            aka,
+            r#""alsoKnownAs":["did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com"]"#,
+            1,
+        )
+        .into_bytes();
     assert_log_invalid_from(
         verify_webvh_log(&did, &log, None, now()),
         1,
