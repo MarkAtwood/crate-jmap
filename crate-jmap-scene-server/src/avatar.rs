@@ -43,9 +43,9 @@ const SERVER_SET_ON_CREATE: &[&str] = &["id", "joinedAt", "leftAt"];
 const FIXED_ON_UPDATE: &[&str] = &["id", "regionId", "userId", "joinedAt"];
 
 /// What a region owner or administrator may patch on another user's
-/// avatar: `leftAt`, and the `worldState` the §Step 4 eject example uses
-/// for its `ejectReason`.
-const EJECT_PROPERTIES: &[&str] = &["leftAt", "worldState"];
+/// avatar: "An eject update patches only `leftAt`"
+/// (draft-atwood-jmap-scene-00 §Avatar Permissions).
+const EJECT_PROPERTIES: &[&str] = &["leftAt"];
 
 /// Handle `SceneAvatar/get` (draft-atwood-jmap-scene-00 §SceneAvatar/get):
 /// standard RFC 8620 §5.1 `/get`, with an avatar in a region the caller
@@ -466,7 +466,7 @@ async fn update_avatar<B: SceneBackend>(
             "these properties are immutable or set by the server",
         ));
     }
-    let mut echo = Value::Null;
+    let mut echo = Map::new();
     if left_to.as_ref().is_some_and(Value::is_null) {
         // §Re-entering a Region: "A user who has left (has a non-null
         // `leftAt`) re-enters the same region by updating their existing
@@ -511,7 +511,7 @@ async fn update_avatar<B: SceneBackend>(
             set.insert("orientation".to_owned(), q);
         }
         patch.as_map_mut().extend(set.clone());
-        echo = Value::Object(set);
+        echo = set;
     } else if touched("leftAt") {
         // "The server MUST return `invalidProperties` naming `leftAt` if
         // the avatar has already left (`leftAt` is non-null)."
@@ -525,6 +525,13 @@ async fn update_avatar<B: SceneBackend>(
         {
             return Err(invalid(&["leftAt"], "leftAt must be a UTCDate or null"));
         }
+        // §Leaving a Region: "The server records its own current time as
+        // `leftAt`; the value the client supplies only signals the intent
+        // to leave." RFC 8620 §5.3 echoes a value "changed in a way not
+        // explicitly requested by the client".
+        let now = json!(now_utc_string());
+        patch.as_map_mut().insert("leftAt".to_owned(), now.clone());
+        echo.insert("leftAt".to_owned(), now);
     }
 
     let Value::Object(mut result) =
@@ -545,7 +552,7 @@ async fn update_avatar<B: SceneBackend>(
             let map = patch.as_map_mut();
             map.retain(|k, _| top(k) != "orientation");
             map.insert("orientation".to_owned(), q.clone());
-            echo = json!({ "orientation": q });
+            echo.insert("orientation".to_owned(), q);
         }
     }
     match backend
@@ -556,7 +563,8 @@ async fn update_avatar<B: SceneBackend>(
         Some(avatar) => Ok(
             serde_json::to_value(avatar).expect("derive(Serialize) on plain data is infallible")
         ),
-        None => Ok(echo),
+        None if echo.is_empty() => Ok(Value::Null),
+        None => Ok(Value::Object(echo)),
     }
 }
 

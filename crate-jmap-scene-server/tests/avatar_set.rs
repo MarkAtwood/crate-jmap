@@ -297,10 +297,11 @@ async fn create_for_a_departed_avatar_is_already_exists() {
     // ... with `existingId` set to the id of that record".
     let backend = setup();
     let id = departed(&backend, REGION).await;
+    let left = get(&backend, &id).await["leftAt"].clone();
     let err = create_error(&backend, ALICE, alice_enters()).await;
     assert_eq!(err["type"], "alreadyExists", "{err}");
     assert_eq!(err["existingId"], id);
-    assert_eq!(get(&backend, &id).await["leftAt"], "2026-06-06T11:45:00Z");
+    assert_eq!(get(&backend, &id).await["leftAt"], left);
     assert_eq!(active_avatar_count(&backend, REGION).await, 0);
 }
 
@@ -333,10 +334,11 @@ async fn reentry_position_is_server_set() {
     // `spawnOrientation`"; only the identity properties may ride along.
     let backend = setup();
     let id = departed(&backend, REGION).await;
+    let left = get(&backend, &id).await["leftAt"].clone();
     let patch = json!({ "leftAt": null, "position": [1, 2, 3] });
     let err = update_error(&backend, ALICE, &id, patch).await;
     assert_invalid(&err, &["position"]);
-    assert_eq!(get(&backend, &id).await["leftAt"], "2026-06-06T11:45:00Z");
+    assert_eq!(get(&backend, &id).await["leftAt"], left);
 }
 
 #[tokio::test]
@@ -382,10 +384,11 @@ async fn reentry_beyond_max_avatars_is_over_quota() {
     cap["maxAvatarsPerRegion"] = json!(1);
     let backend = backend_with_regions(cap);
     let id = departed(&backend, REGION).await;
+    let left = get(&backend, &id).await["leftAt"].clone();
     enter(&backend, BOB, REGION).await;
     let err = update_error(&backend, ALICE, &id, reenter()).await;
     assert_eq!(err["type"], "overQuota", "{err}");
-    assert_eq!(get(&backend, &id).await["leftAt"], "2026-06-06T11:45:00Z");
+    assert_eq!(get(&backend, &id).await["leftAt"], left);
     assert_eq!(active_avatar_count(&backend, REGION).await, 1);
 }
 
@@ -693,17 +696,47 @@ async fn region_id_and_server_set_properties_are_fixed() {
 
 #[tokio::test]
 async fn spec_leave_example() {
-    // L2083 "A user leaves by calling `SceneAvatar/set` with an update
-    // setting `leftAt`"; the L2105-2109 patch and the L2125-2127 response.
+    // 6bcd9d8 L2302 "A user leaves by calling `SceneAvatar/set` with an
+    // update setting `leftAt`. The server records its own current time as
+    // `leftAt`; the value the client supplies only signals the intent to
+    // leave." The supplied value is in the past, so the stored one differs
+    // and RFC 8620 §5.3 echoes it as "changed in a way not explicitly
+    // requested by the client".
     let backend = setup();
     let id = enter(&backend, ALICE, REGION).await["id"]
         .as_str()
         .unwrap()
         .to_owned();
     let resp = update(&backend, ALICE, &id, leave()).await;
-    assert_eq!(resp["updated"], json!({ (id.as_str()): null }), "{resp}");
-    assert_eq!(get(&backend, &id).await["leftAt"], "2026-06-06T11:45:00Z");
+    let stored = get(&backend, &id).await["leftAt"].clone();
+    assert!(stored.is_string(), "{stored}");
+    assert_ne!(stored, leave()["leftAt"]);
+    assert_eq!(
+        resp["updated"],
+        json!({ (id.as_str()): { "leftAt": stored } }),
+        "{resp}"
+    );
     // L293: no avatar is present any more.
+    assert_eq!(active_avatar_count(&backend, REGION).await, 0);
+}
+
+#[tokio::test]
+async fn supplied_future_left_at_is_not_stored() {
+    // 6bcd9d8 L644 "a client update that sets `leftAt` to a non-null
+    // value signals the intent to leave, and the server stores its own
+    // current time instead of the supplied value": no server clock reads
+    // 2999, and UTCDate strings of one format order as their instants.
+    let backend = setup();
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let future = "2999-12-31T23:59:59Z";
+    let resp = update(&backend, ALICE, &id, json!({ "leftAt": future })).await;
+    let stored = get(&backend, &id).await["leftAt"].clone();
+    let stored_str = stored.as_str().expect("leftAt is set");
+    assert!(stored_str < future, "{stored_str}");
+    assert_eq!(resp["updated"][id.as_str()]["leftAt"], stored, "{resp}");
     assert_eq!(active_avatar_count(&backend, REGION).await, 0);
 }
 
@@ -724,9 +757,11 @@ async fn double_leave_is_invalid_properties() {
 
 #[tokio::test]
 async fn spec_eject_example() {
-    // L2383 "Region owners and administrators MAY eject avatars by setting
-    // `leftAt` on another user's SceneAvatar"; the L3252-3258 patch; L3281
-    // "The server decrements the region's `activeAvatarCount`".
+    // 6bcd9d8 L2624 "Region owners and administrators MAY eject avatars by
+    // setting `leftAt` on another user's SceneAvatar; the server records
+    // its own current time as `leftAt` ... An eject update patches only
+    // `leftAt`"; the L3561-3569 patch; L3589 "The server decrements the
+    // region's `activeAvatarCount`".
     let backend = setup();
     let alice = enter(&backend, ALICE, REGION).await["id"]
         .as_str()
@@ -734,24 +769,32 @@ async fn spec_eject_example() {
         .to_owned();
     enter(&backend, CAROL, REGION).await;
     assert_eq!(active_avatar_count(&backend, REGION).await, 2);
-    let eject = json!({
-        "leftAt": "2026-06-06T10:22:15Z",
-        "worldState": {
-            "ejectReason": "Disruptive behavior",
-            "ejectedBy": "user:admin@example.com"
-        }
-    });
+    let eject = json!({ "leftAt": "2026-06-06T10:22:15Z" });
 
     // CAROL owns neither the region nor admin rights.
     let err = update_error(&backend, CAROL, &alice, eject.clone()).await;
     assert_eq!(err["type"], "forbidden", "{err}");
 
+    // An eject that also patches `worldState` is not an eject; L2450
+    // "Users may not update other users' avatars".
+    let with_reason = json!({
+        "leftAt": "2026-06-06T10:22:15Z",
+        "worldState": { "ejectReason": "Disruptive behavior" }
+    });
+    let err = update_error(&backend, BOB, &alice, with_reason).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
+    assert_eq!(get(&backend, &alice).await["leftAt"], Value::Null);
+
     // BOB owns REGION.
-    let resp = update(&backend, BOB, &alice, eject).await;
-    assert_eq!(resp["updated"], json!({ (alice.as_str()): null }), "{resp}");
-    let stored = get(&backend, &alice).await;
-    assert_eq!(stored["leftAt"], "2026-06-06T10:22:15Z");
-    assert_eq!(stored["worldState"]["ejectReason"], "Disruptive behavior");
+    let resp = update(&backend, BOB, &alice, eject.clone()).await;
+    let stored = get(&backend, &alice).await["leftAt"].clone();
+    assert!(stored.is_string(), "{stored}");
+    assert_ne!(stored, eject["leftAt"]);
+    assert_eq!(
+        resp["updated"],
+        json!({ (alice.as_str()): { "leftAt": stored } }),
+        "{resp}"
+    );
     assert_eq!(active_avatar_count(&backend, REGION).await, 1);
 }
 
