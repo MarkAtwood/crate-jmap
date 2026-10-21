@@ -29,7 +29,19 @@ instead of `jmap_scene_server::should_deliver`.
 ```rust,ignore
 // Per connection: `chat_scene` from the accepted ChatStreamEnable,
 // `scene` from SceneStreamEnable / SceneStreamDisable.
-if should_deliver_scene(&backend, &caller, &account_id, conn.chat_scene, &conn.scene, &event).await? {
+// `hosting_account_id` is the event's accountId; `recipient_account_id`
+// is the connected user's own account, used for blocked-sender checks.
+if should_deliver_scene(
+    &backend,
+    &caller,
+    &hosting_account_id,
+    &recipient_account_id,
+    conn.chat_scene,
+    &conn.scene,
+    &event,
+)
+.await?
+{
     conn.send(&event).await?;
 }
 ```
