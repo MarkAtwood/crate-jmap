@@ -1,0 +1,63 @@
+{
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://w3id.org/security/multikey/v1"
+    ],
+    "assertionMethod": [],
+    "authentication": [
+      "did:webvh:QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc:example.com#P5RDjVJG"
+    ],
+    "capabilityDelegation": [],
+    "capabilityInvocation": [],
+    "controller": "did:webvh:QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc:example.com",
+    "id": "did:webvh:QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc:example.com",
+    "keyAgreement": [],
+    "service": [
+      {
+        "id": "did:webvh:QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc:example.com#files",
+        "serviceEndpoint": "https://example.com",
+        "type": "relativeRef"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc:example.com#whois",
+        "serviceEndpoint": "https://example.com/whois.vp",
+        "type": "LinkedVerifiablePresentation"
+      }
+    ],
+    "verificationMethod": [
+      {
+        "controller": "did:webvh:QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc:example.com",
+        "id": "did:webvh:QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc:example.com#P5RDjVJG",
+        "publicKeyMultibase": "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
+        "type": "Multikey"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "created": "2000-01-01T00:00:00Z",
+    "deactivated": false,
+    "portable": false,
+    "scid": "QmUeSU5Vni9YSjxtVzpstHSjxJCXjMoNo7hJUAujG3Vksc",
+    "updated": "2000-01-02T00:00:00Z",
+    "versionId": "2-QmT9zq4vRpeRfFxB5T3E93rCa4K3hGxvXGsQPFNx8Dzmka",
+    "versionNumber": 2,
+    "versionTime": "2000-01-02T00:00:00Z",
+    "watchers": null,
+    "witness": {
+      "threshold": 2,
+      "witnesses": [
+        {
+          "id": "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L"
+        },
+        {
+          "id": "did:key:z6MkjnHi6KJKx625x56sxudLoKdDVDABJ5VHHdXRFPUea7NP"
+        }
+      ]
+    }
+  },
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  }
+}

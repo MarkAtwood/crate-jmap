@@ -10,6 +10,7 @@ Types and pure helpers only: no network I/O.
 | JMAP-6itf.1 | Crate scaffold, `JMAP_DID_URI`, `DidCapability`, `DidAccountCapability`, `KeyCustody` | landed |
 | JMAP-6itf.2 | DID URI newtype (DID Core §3.1), did:web domain extractor | landed |
 | JMAP-6itf.5 | Pure did:key, did:web and PLC op-log resolvers | landed |
+| JMAP-6itf.9 | Pure did:webvh log and witness verifier | landed |
 
 ## Decisions
 
@@ -25,3 +26,10 @@ Types and pure helpers only: no network I/O.
   `/log`, so nullification and ordering are checked. Submission limits
   (size, key counts, duplicate keys) are not re-checked: real logs
   predate some of them.
+- did:webvh follows DIF did:webvh v1.0 and supports only
+  `did:webvh:1.0` logs. The first invalid entry and every later one are
+  invalid; earlier versions stay resolvable by `versionId`. The
+  `versionTime` future tolerance is 5 minutes. Resolving the DID to its
+  HTTPS URLs and fetching belong to `crate-jmap-did-resolver`
+  (JMAP-6itf.10). The implicit `#files`/`#whois` services are DID URL
+  dereferencing, not added to the logged documents.

@@ -11,6 +11,9 @@
 extend-exclude = [
     "crate-jmap-did-types/tests/fixtures/plc/*.json",
     "crate-jmap-did-resolver/tests/fixtures/plc/*.json",
+    # DIF did:webvh test-suite vectors: base58btc hashes, keys and
+    # signatures.
+    "crate-jmap-did-types/tests/fixtures/webvh/",
 ]
 
 [default]

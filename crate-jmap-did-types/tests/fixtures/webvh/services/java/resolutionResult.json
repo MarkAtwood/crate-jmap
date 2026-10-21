@@ -1,0 +1,56 @@
+{
+  "didDocument": {
+    "@context": "https://www.w3.org/ns/did/v1",
+    "id": "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com",
+    "controller": "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com",
+    "verificationMethod": [
+      {
+        "id": "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com#P5RDjVJG",
+        "type": "Multikey",
+        "controller": "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com",
+        "publicKeyMultibase": "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
+      }
+    ],
+    "authentication": [
+      "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com#P5RDjVJG"
+    ],
+    "assertionMethod": [
+      "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com#z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
+    ],
+    "service": [
+      {
+        "id": "#linked-domain",
+        "type": "LinkedDomains",
+        "serviceEndpoint": "https://example.com"
+      },
+      {
+        "id": "#messaging",
+        "type": "DIDCommMessaging",
+        "serviceEndpoint": "https://example.com/didcomm"
+      },
+      {
+        "id": "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com#files",
+        "type": "relativeRef",
+        "serviceEndpoint": "https://example.com/"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH:example.com#whois",
+        "type": "LinkedVerifiablePresentation",
+        "serviceEndpoint": "https://example.com/whois.vp"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "created": "2026-07-29T18:17:37Z",
+    "updated": "2026-07-29T18:17:38Z",
+    "versionId": "2-QmVw4L2i6hzAAYwqtiQQpdPvhUjr4qCqgPa2TMAHAyq7FT",
+    "versionNumber": 2,
+    "versionTime": "2026-07-29T18:17:38Z",
+    "portable": false,
+    "scid": "Qmby9sKPBvj1nvga3KcrK5kPHZsdvWbPRz31C6pVkHpTGH"
+  },
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  },
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://w3id.org/security/multikey/v1"
+    ],
+    "id": "did:webvh:QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS:example.com",
+    "controller": "did:webvh:QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS:example.com",
+    "verificationMethod": [
+      {
+        "type": "Multikey",
+        "publicKeyMultibase": "z6MkvqoYXQfDDJRv8L4wKzxYeuKyVZBfi9Qo6Ro8MiLH3kDQ",
+        "purpose": "authentication",
+        "id": "did:webvh:QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS:example.com#MiLH3kDQ",
+        "controller": "did:webvh:QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS:example.com"
+      }
+    ],
+    "authentication": [
+      "did:webvh:QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS:example.com#MiLH3kDQ"
+    ],
+    "service": [
+      {
+        "id": "did:webvh:QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS:example.com#files",
+        "type": "relativeRef",
+        "serviceEndpoint": "https://example.com/"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS:example.com#whois",
+        "type": "LinkedVerifiablePresentation",
+        "serviceEndpoint": "https://example.com/whois.vp"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "versionId": "3-QmRcxKKNcQhYiktCShZWJkYbFikVfTkcSmtZSQwhaUhtYK",
+    "created": "2000-01-01T00:00:00Z",
+    "updated": "2000-01-03T00:00:00Z",
+    "deactivated": false,
+    "portable": false,
+    "scid": "QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS",
+    "updateKeys": [
+      "z6MkvqoYXQfDDJRv8L4wKzxYeuKyVZBfi9Qo6Ro8MiLH3kDQ"
+    ],
+    "nextKeyHashes": [
+      "QmPz1YVUT3mXMEixAWj8J6NkiQbskFmNu3DLYQLdynmrtR"
+    ],
+    "prerotation": true,
+    "witness": {},
+    "watchers": [],
+    "previousLogEntryHash": "QmVo7guGd8Fq4vGmCTcAuZWBFw8ipW8HNoJ8g7XFKmP4bS"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://w3id.org/security/multikey/v1"
+    ],
+    "alsoKnownAs": [
+      "did:web:example.com"
+    ],
+    "assertionMethod": [],
+    "authentication": [
+      "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com#P5RDjVJG",
+      "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com#ufuXSdxf"
+    ],
+    "capabilityDelegation": [],
+    "capabilityInvocation": [],
+    "controller": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com",
+    "id": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com",
+    "keyAgreement": [],
+    "service": [
+      {
+        "id": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com#files",
+        "serviceEndpoint": "https://example.com",
+        "type": "relativeRef"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com#whois",
+        "serviceEndpoint": "https://example.com/whois.vp",
+        "type": "LinkedVerifiablePresentation"
+      }
+    ],
+    "verificationMethod": [
+      {
+        "controller": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com",
+        "id": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com#P5RDjVJG",
+        "publicKeyMultibase": "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
+        "type": "Multikey"
+      },
+      {
+        "controller": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com",
+        "id": "did:webvh:QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu:example.com#ufuXSdxf",
+        "publicKeyMultibase": "z6MknGc3ocHs3zdPiJbnaaqDi58NGb4pk1Sp9WxWufuXSdxf",
+        "type": "Multikey"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "created": "2000-01-01T00:00:00Z",
+    "deactivated": false,
+    "portable": false,
+    "scid": "QmXZdkKddfnXYAsHpqjKFoTv5oyiCYM5cmbscDtMTi5Qhu",
+    "updated": "2000-01-02T00:00:00Z",
+    "versionId": "2-QmSWsnyR6p7FQ6v8PKKFQvVxeG682gDEwc9pJiSy4hGDBc",
+    "versionNumber": 2,
+    "versionTime": "2000-01-02T00:00:00Z",
+    "watchers": null,
+    "witness": null
+  },
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  }
+}

@@ -15,7 +15,8 @@ use serde_json::{json, Value};
 use crate::Did;
 
 /// The base58-btc alphabet (multibase prefix `z`).
-const BASE58_ALPHABET: &[u8; 58] = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+pub(crate) const BASE58_ALPHABET: &[u8; 58] =
+    b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 /// Longest multibase value decoded: room for every key in the multicodec
 /// table, so an unsupported one (a 96-byte BLS12-381 G2 key is about
@@ -248,7 +249,7 @@ fn multibase_value(did: &Did) -> Option<&str> {
 }
 
 /// Decodes a `z`-prefixed base58-btc multibase value.
-fn decode_base58btc(multibase: &str) -> Option<Vec<u8>> {
+pub(crate) fn decode_base58btc(multibase: &str) -> Option<Vec<u8>> {
     let digits = multibase.strip_prefix('z')?;
     if digits.is_empty() || digits.len() > MAX_MULTIBASE_LEN {
         return None;
@@ -270,6 +271,32 @@ fn decode_base58btc(multibase: &str) -> Option<Vec<u8>> {
     little_endian.extend(std::iter::repeat_n(0, zeros));
     little_endian.reverse();
     Some(little_endian)
+}
+
+/// Encodes `bytes` as base58-btc, without a multibase prefix.
+pub(crate) fn encode_base58btc(bytes: &[u8]) -> String {
+    let mut little_endian: Vec<u8> = Vec::new();
+    for &byte in bytes {
+        let mut carry = u32::from(byte);
+        for digit in &mut little_endian {
+            carry += u32::from(*digit) << 8;
+            *digit = (carry % 58) as u8;
+            carry /= 58;
+        }
+        while carry > 0 {
+            little_endian.push((carry % 58) as u8);
+            carry /= 58;
+        }
+    }
+    let zeros = bytes.iter().take_while(|&&b| b == 0).count();
+    std::iter::repeat_n('1', zeros)
+        .chain(
+            little_endian
+                .iter()
+                .rev()
+                .map(|&d| char::from(BASE58_ALPHABET[usize::from(d)])),
+        )
+        .collect()
 }
 
 /// Splits a minimally encoded unsigned varint (multiformats

@@ -87,7 +87,7 @@ crates, never in a support crate.
 | `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata-02 server helpers — depth/namespace validation, `metadata*` filter predicates, `/changes` classification. No handlers, no backend trait |
 | `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata-02 client helpers — property constants, `metadata*` filter-condition builders, `/changes` helpers. No method bindings |
 | `crate-jmap-cid-types/` | `jmap-cid-types` | draft-atwood-jmap-cid-00 data types — `CidCapability` (`urn:ietf:params:jmap:cid`) and `Sha256` typed wire shape. Blob/FileNode integrity, no async |
-| `crate-jmap-did-types/` | `jmap-did-types` | draft-atwood-jmap-did-00 data types — `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`), `KeyCustody`, `Did` (DID Core §3.1 newtype, `did:web` domain and document URL), `DidKey` (did:key decode and document), `verify_plc_audit_log` (did:plc audit-log verification). No async, no I/O |
+| `crate-jmap-did-types/` | `jmap-did-types` | draft-atwood-jmap-did-00 data types — `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`), `KeyCustody`, `Did` (DID Core §3.1 newtype, `did:web` domain and document URL), `DidKey` (did:key decode and document), `verify_plc_audit_log` (did:plc audit-log verification), `verify_webvh_log` (did:webvh log and witness verification, DIF v1.0). No async, no I/O |
 | `crate-jmap-did-resolver/` | `jmap-did-resolver` | Support crate: did:key, did:web and did:plc resolution I/O over the `jmap-did-types` helpers — `Resolver` (TTL cache, `refresh` when the signing key is absent from the cached document, at most once per DID per 60 s, per draft-atwood-jmap-chat-did-00 §Caching), `Fetch` trait, reqwest `HttpFetcher`. No `*-types` or `*-server` crate depends on it |
 | `crate-jmap-web-push/` | `jmap-web-push` | Support crate: Web Push delivery for RFC 8620 §7.2 pushes — RFC 8291 `encrypt` (`aes128gcm` over `ece-native`), RFC 8292 `Vapid` header, `Sender` (RFC 8030 `TTL`/`Urgency`/`Topic`, retry with backoff, `Outcome::Gone` on 404/410). No `*-types` or `*-server` crate depends on it |
 | `crate-jmap-peer-auth/` | `jmap-peer-auth` | draft-atwood-jmap-chat-federation-00 §Peer Authentication Model, no I/O — RFC 9421 `sign` and `SignedRequest::parse`/`verify` (checks 1-6, caller-supplied clock, keys and replay lookup), `PeerSigningKey` (Ed25519 OKP JWK, RFC 7638 `kid`), `usable_keys` with `DnssecAnswer` (§DNSSEC Key Binding), `bind_identity` (§Identity Binding), `PeerDomain`, `fetch_address_allowed` (§Blob Fetch and SSRF address rule). Not a support crate: `*-server` crates may depend on it; the key-fetch/DNSSEC/replay-store I/O does not live here |
@@ -154,9 +154,11 @@ jmap-did-types         — draft-atwood-jmap-did-00 data types: DidCapability an
                          KeyCustody, Did (DID Core §3.1 newtype with did:web
                          domain and document URL), DidKey (did:key decode and
                          DID document), verify_plc_audit_log (did:plc audit
-                         log verification over supplied bytes). No async, no
-                         I/O. Depends on jmap-types (impl_string_enum!),
-                         serde, serde_json, base64, sha2, k256 and p256.
+                         log verification over supplied bytes),
+                         verify_webvh_log (did:webvh log verification). No
+                         async, no I/O. Depends on jmap-types
+                         (impl_string_enum!), serde, serde_json, base64,
+                         sha2, k256, p256, ed25519-dalek and idna.
     ├── jmap-chat-types    — types ChatContact.did (draft-atwood-jmap-chat-did-00).
     └── jmap-did-resolver  — support crate: did:web / did:plc fetch and
                              cache over the pure helpers. Async, does I/O

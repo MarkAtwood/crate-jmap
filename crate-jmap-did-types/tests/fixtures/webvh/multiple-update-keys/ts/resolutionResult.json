@@ -1,0 +1,66 @@
+{
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  },
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://w3id.org/security/multikey/v1"
+    ],
+    "id": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com",
+    "controller": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com",
+    "verificationMethod": [
+      {
+        "type": "Multikey",
+        "publicKeyMultibase": "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
+        "purpose": "authentication",
+        "id": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com#P5RDjVJG",
+        "controller": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com"
+      },
+      {
+        "type": "Multikey",
+        "publicKeyMultibase": "z6MknGc3ocHs3zdPiJbnaaqDi58NGb4pk1Sp9WxWufuXSdxf",
+        "purpose": "authentication",
+        "id": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com#ufuXSdxf",
+        "controller": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com"
+      }
+    ],
+    "authentication": [
+      "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com#P5RDjVJG",
+      "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com#ufuXSdxf"
+    ],
+    "alsoKnownAs": [
+      "did:web:example.com"
+    ],
+    "service": [
+      {
+        "id": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com#files",
+        "type": "relativeRef",
+        "serviceEndpoint": "https://example.com/"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L:example.com#whois",
+        "type": "LinkedVerifiablePresentation",
+        "serviceEndpoint": "https://example.com/whois.vp"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "versionId": "2-QmXyqqct1UiP8gN6vK4twC46F7xmRFGKRtZz7CRJ3pcHUz",
+    "created": "2000-01-01T00:00:00Z",
+    "updated": "2000-01-02T00:00:00Z",
+    "deactivated": false,
+    "portable": false,
+    "scid": "QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L",
+    "updateKeys": [
+      "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
+      "z6MknGc3ocHs3zdPiJbnaaqDi58NGb4pk1Sp9WxWufuXSdxf"
+    ],
+    "nextKeyHashes": [],
+    "prerotation": false,
+    "witness": {},
+    "watchers": [],
+    "previousLogEntryHash": "QmP3WFXAfND3yLL3eXZHvCNZaNRGaZzxU8i5rjVPS73i6L"
+  }
+}

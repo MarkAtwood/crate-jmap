@@ -37,8 +37,9 @@
 //! ## Resolution helpers
 //!
 //! Pure functions over supplied bytes for the three methods that
-//! draft-atwood-jmap-chat-did-00 §Mandatory DID Methods requires. Network
-//! fetch and caching belong in a resolver crate, not here.
+//! draft-atwood-jmap-chat-did-00 §Mandatory DID Methods requires, and for
+//! the `did:webvh` method it recommends. Network fetch and caching belong
+//! in a resolver crate, not here.
 //!
 //! - `did:key`: [`DidKey::from_did`] decodes the key and
 //!   [`DidKey::document`] derives the DID document locally.
@@ -47,15 +48,23 @@
 //! - `did:plc`: [`verify_plc_audit_log`] verifies a PLC directory audit
 //!   log and returns the current [`PlcState`], and
 //!   [`PlcState::document`] presents that state as a DID document.
+//! - `did:webvh`: [`verify_webvh_log`] verifies a DID log and its witness
+//!   proofs by the DIF did:webvh v1.0 rules and returns a [`WebvhLog`]
+//!   whose valid versions resolve by `versionId`.
 
 #![forbid(unsafe_code)]
 
 pub mod capability;
 pub mod did;
+mod jcs;
 pub mod key;
 pub mod plc;
+pub mod webvh;
 
 pub use capability::{DidAccountCapability, DidCapability, KeyCustody, JMAP_DID_URI};
 pub use did::{Did, DidError};
 pub use key::{DidKey, DidKeyError, KeyType};
 pub use plc::{verify_plc_audit_log, PlcError, PlcService, PlcState, PlcStatus};
+pub use webvh::{
+    verify_webvh_log, WebvhError, WebvhLog, WebvhParameters, WebvhVersion, WebvhWitness,
+};
