@@ -19,6 +19,7 @@
 //! assert_eq!(rich.spans[0].text, "hi");
 //! ```
 
+use crate::message::BroadcastScope;
 use jmap_types::impl_string_enum;
 use serde::{Deserialize, Serialize};
 
@@ -110,7 +111,7 @@ pub struct Span {
     pub user_id: Option<String>,
     /// `"broadcast"`: one of `"everyone"`, `"here"`, or `"admins"`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scope: Option<String>,
+    pub scope: Option<BroadcastScope>,
     /// `"link"`: the hyperlink target. It SHOULD be treated as untrusted, and
     /// MUST NOT be a JMAP object URI (`jmap:`, draft-atwood-jmap-object-uri-00),
     /// because `body` is relayed between servers unchanged

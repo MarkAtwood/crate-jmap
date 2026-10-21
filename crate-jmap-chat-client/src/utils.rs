@@ -58,10 +58,10 @@ pub fn broadcast_mentions_from_spans(body: &RichBody) -> Vec<BroadcastMention> {
         .spans
         .iter()
         .filter(|s| s.kind == SpanType::Broadcast)
-        .filter_map(|s| s.scope.as_deref())
+        .filter_map(|s| s.scope.as_ref())
     {
-        if !out.iter().any(|b| b.scope == scope) {
-            out.push(BroadcastMention::new(scope));
+        if !out.iter().any(|b| b.scope == *scope) {
+            out.push(BroadcastMention::new(scope.clone()));
         }
     }
     out

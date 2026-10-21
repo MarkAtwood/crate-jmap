@@ -153,8 +153,8 @@ pub use ephemeral::{
     EphemeralMessage,
 };
 pub use message::{
-    Attachment, AttachmentCreate, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState,
-    Mention, Message, MessageAction, MessageRevision, Reaction, ReadDisposition,
+    Attachment, AttachmentCreate, BodyType, BroadcastMention, BroadcastScope, DeliveryReceipt,
+    DeliveryState, Mention, Message, MessageAction, MessageRevision, Reaction, ReadDisposition,
     BROADCAST_MENTION_SCOPES,
 };
 pub use position::ReadPosition;
