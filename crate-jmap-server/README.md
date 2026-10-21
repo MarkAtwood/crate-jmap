@@ -124,7 +124,8 @@ pub use backend::{
 
 Generic backend traits (`JmapBackend`, `GetObject`, `QueryObject`, `SetObject`),
 result and error envelopes (`ChangesResult`, `QueryResult`, `QueryChangesResult`,
-`SetError` / `SetErrorType`, `BackendSetError`, `BackendChangesError`), and the
+`SetError` / `SetErrorType` re-exported from `jmap-types`, `BackendSetError`,
+`BackendChangesError`), and the
 `AddedItem` row used in `Foo/queryChanges` responses. Extension server crates
 (`jmap-mail-server`, `jmap-chat-server`, etc.) extend `JmapBackend` to add
 their own write/extension methods.

@@ -1303,6 +1303,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-types**, **jmap-server**: one `SetError` type for
+  servers and clients. `SetErrorType` and the builder-style `SetError`
+  (`with_description`, `with_properties`, `with_extra`,
+  `validate_extras`, ...), `ReservedExtrasKey` and
+  `RESERVED_SET_ERROR_WIRE_NAMES` moved from `jmap_server::backend` to
+  `jmap_types` (`jmap_types::set_error`); `jmap_server` re-exports them.
+  `jmap_types::SetError::error_type` is now `SetErrorType` instead of
+  `String`, so clients match `SetErrorType::RateLimit` instead of
+  comparing `"rateLimit"`. `SetError::new` takes `impl Into<SetErrorType>`.
+  `SetErrorType::Custom(String)` is renamed `Other(String)`, and
+  `SetErrorType::custom(s)` is replaced by `SetErrorType::from(s)`, which
+  still builds the typed variant for a known wire string. The 13 RFC 8621
+  mail variants stay typed in the shared enum (bd:JMAP-wlip.35).
+- **jmap-types**: `impl_string_enum!` also emits `From<&str>` and
+  `From<String>`, using the same mapping as `Deserialize`, so a known wire
+  string always builds its typed variant.
 - **BREAKING** **jmap-tasks-server**, **jmap-calendars-server**:
   `TasksBackend::update_task_per_user` and
   `CalendarsBackend::update_per_user_properties` no longer have default

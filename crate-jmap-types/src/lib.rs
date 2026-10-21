@@ -39,6 +39,7 @@ pub mod patch;
 pub mod push;
 pub mod query;
 pub mod resultref;
+pub mod set_error;
 pub mod wire;
 
 // `string_enum` is a private module that hosts the [`impl_string_enum!`]
@@ -52,11 +53,11 @@ pub use error::JmapError;
 pub use id::{Date, Id, State, UTCDate, ValidationError};
 pub use jmap_uri::{JmapUri, JmapUriError};
 pub use methods::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
-    SetResponse,
+    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse,
 };
 pub use patch::PatchObject;
 pub use push::{PushKeys, PushSubscription, PushVerification, StateChange};
 pub use query::{Filter, FilterOperator, Operator};
 pub use resultref::{Argument, ResultReference};
+pub use set_error::{ReservedExtrasKey, SetError, SetErrorType, RESERVED_SET_ERROR_WIRE_NAMES};
 pub use wire::{Invocation, JmapRequest, JmapResponse};

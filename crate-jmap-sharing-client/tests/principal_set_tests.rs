@@ -117,7 +117,8 @@ async fn principal_set_create_returns_forbidden() {
         .get("c1")
         .expect("principal_set_create_returns_forbidden: c1 must be in notCreated");
     assert_eq!(
-        err.error_type, "forbidden",
+        err.error_type.to_string(),
+        "forbidden",
         "error type must be forbidden per RFC 9670 §2.3"
     );
 }

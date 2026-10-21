@@ -460,7 +460,7 @@ src/
 - `error.rs` was never created. Error names like `calendarHasEvent`,
   `noSupportedScheduleMethods`, `expandDurationTooLarge`,
   `cannotCalculateOccurrences` are produced inline via
-  `SetError::new(SetErrorType::custom("..."))` at the call sites. There is
+  `SetError::new(SetErrorType::from("..."))` at the call sites. There is
   no consolidated `CalendarSetError` type.
 - `principal.rs` is shipped but was not in the original plan.
 

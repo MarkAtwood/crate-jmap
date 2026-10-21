@@ -832,7 +832,7 @@ async fn message_create_legacy_rate_limited_is_not_created_not_error() {
         .as_ref()
         .and_then(|m| m.get("client-msg-1"))
         .expect("creation key must be in notCreated");
-    assert_eq!(err.error_type, "rateLimited");
+    assert_eq!(err.error_type.to_string(), "rateLimited");
 }
 
 /// A `rateLimit` SetError whose `serverRetryAfter` is not a UTCDate (RFC

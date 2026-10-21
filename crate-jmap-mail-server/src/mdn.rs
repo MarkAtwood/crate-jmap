@@ -468,7 +468,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 if email.keywords.get("$mdnsent") == Some(&true) {
                     not_sent.insert(
                         creation_id.clone(),
-                        set_error_value(&SetError::new(SetErrorType::custom("mdnAlreadySent"))),
+                        set_error_value(&SetError::new(SetErrorType::from("mdnAlreadySent"))),
                     );
                     continue;
                 }

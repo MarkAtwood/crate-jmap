@@ -300,9 +300,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     Ok(true) => {
                         not_destroyed.insert(
                             id_str,
-                            set_error_value(&SetError::new(SetErrorType::custom(
-                                "calendarHasEvent",
-                            ))),
+                            set_error_value(&SetError::new(SetErrorType::from("calendarHasEvent"))),
                         );
                         continue;
                     }

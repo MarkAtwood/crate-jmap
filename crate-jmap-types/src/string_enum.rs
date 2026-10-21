@@ -9,8 +9,9 @@
 //! Previously every `jmap-*-types` crate carried a byte-identical copy of this
 //! macro; this module consolidates them. See bd issue JMAP-wk77.
 
-/// Implement [`serde::Serialize`], [`serde::Deserialize`], and [`std::fmt::Display`]
-/// for a string-backed enum with a catch-all `Other(String)` variant.
+/// Implement [`serde::Serialize`], [`serde::Deserialize`], [`std::fmt::Display`],
+/// `From<&str>` and `From<String>` for a string-backed enum with a catch-all
+/// `Other(String)` variant.
 ///
 /// # Requirements
 ///
@@ -33,6 +34,9 @@
 /// - `impl Deserialize` — deserialises a JSON string using a `Visitor`; unknown values
 ///   become `Other(v.to_owned())`.
 /// - `impl Display` — formats using the same mapping as `Serialize`.
+/// - `impl From<&str>` and `impl From<String>` — the same mapping as
+///   `Deserialize`, so a listed wire string always builds its typed variant
+///   and never `Other`: `MyEnum::from("wire-string-1") == MyEnum::Variant1`.
 #[macro_export]
 macro_rules! impl_string_enum {
     ($ty:ident, $expecting:literal, $( $s:literal => $variant:ident ),+ $(,)?) => {
@@ -56,13 +60,26 @@ macro_rules! impl_string_enum {
                         write!(f, $expecting)
                     }
                     fn visit_str<E: ::serde::de::Error>(self, v: &str) -> Result<$ty, E> {
-                        Ok(match v {
-                            $( $s => $ty::$variant, )+
-                            _ => $ty::Other(v.to_owned()),
-                        })
+                        Ok($ty::from(v))
                     }
                 }
                 d.deserialize_str(Visitor)
+            }
+        }
+        impl ::std::convert::From<&str> for $ty {
+            fn from(v: &str) -> Self {
+                match v {
+                    $( $s => $ty::$variant, )+
+                    _ => $ty::Other(v.to_owned()),
+                }
+            }
+        }
+        impl ::std::convert::From<::std::string::String> for $ty {
+            fn from(v: ::std::string::String) -> Self {
+                match v.as_str() {
+                    $( $s => $ty::$variant, )+
+                    _ => $ty::Other(v),
+                }
             }
         }
         impl ::std::fmt::Display for $ty {
@@ -134,6 +151,23 @@ mod tests {
         assert_eq!(
             format!("{}", TestKind::Other("custom".to_owned())),
             "custom",
+        );
+    }
+
+    #[test]
+    fn from_str_matches_deserialize() {
+        // A listed wire string builds its typed variant, never `Other`,
+        // so a value built in code compares equal to the same value
+        // decoded from the wire.
+        assert_eq!(TestKind::from("foo"), TestKind::Foo);
+        assert_eq!(TestKind::from(String::from("bar")), TestKind::Bar);
+        assert_eq!(
+            TestKind::from("vendor-extension-value"),
+            TestKind::Other("vendor-extension-value".to_owned())
+        );
+        assert_eq!(
+            TestKind::from(String::from("vendor-extension-value")),
+            serde_json::from_str::<TestKind>(r#""vendor-extension-value""#).unwrap()
         );
     }
 

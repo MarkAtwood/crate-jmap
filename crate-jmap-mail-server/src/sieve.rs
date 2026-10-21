@@ -442,7 +442,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 not_destroyed.insert(
                     id_str.to_owned(),
                     set_error_value(
-                        &SetError::new(SetErrorType::custom(SIEVE_ERR_IS_ACTIVE))
+                        &SetError::new(SetErrorType::from(SIEVE_ERR_IS_ACTIVE))
                             .with_description("cannot destroy the active Sieve script"),
                     ),
                 );
@@ -610,7 +610,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 not_created.insert(
                     creation_id,
                     set_error_value(
-                        &SetError::new(SetErrorType::custom(SIEVE_ERR_INVALID))
+                        &SetError::new(SetErrorType::from(SIEVE_ERR_INVALID))
                             .with_description(err_desc),
                     ),
                 );
@@ -783,7 +783,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     not_updated.insert(
                         id_str,
                         set_error_value(
-                            &SetError::new(SetErrorType::custom(SIEVE_ERR_INVALID))
+                            &SetError::new(SetErrorType::from(SIEVE_ERR_INVALID))
                                 .with_description(err_desc),
                         ),
                     );
