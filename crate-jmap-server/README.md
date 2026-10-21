@@ -26,20 +26,14 @@ their own HTTP transport, auth integration, and persistence story.
 
 ```rust
 use std::sync::Arc;
-use jmap_server::{Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
-use serde_json::Value;
+use jmap_server::{CallContext, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
 
 // 1. Implement JmapHandler for each method.
 struct FooGetHandler;
 
 impl JmapHandler<String> for FooGetHandler {        // String is the CallerCtx type
-    fn call(
-        &self,
-        _method: String,
-        _call_id: String,
-        _args: Value,
-        _caller: String,                             // auth identity passed through
-    ) -> HandlerFuture {
+    // cx carries method, call_id, args and caller (the auth identity).
+    fn call(&self, _cx: CallContext<String>) -> HandlerFuture {
         Box::pin(async move { Ok(HandlerOutput::new(serde_json::json!({"list": [], "state": "s0"}))) })
     }
 }

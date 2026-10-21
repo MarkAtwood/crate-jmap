@@ -1303,6 +1303,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server**: `JmapHandler::call` takes one
+  `#[non_exhaustive]` `CallContext<CallerCtx>` (`method`, `call_id`,
+  `args`, `caller`) instead of four positional arguments, and
+  `ClosureHandler` closures (`BackendCallFn`) take
+  `(Arc<B>, CallContext<C>)` instead of `(Arc<B>, call_id, args, caller)`.
+  Closures now see the method name, which `ClosureHandler` used to drop.
+  More per-call context can be added later without another break. Code
+  that calls a handler directly builds the context with
+  `CallContext::new`. The `register_*_handlers` functions in every
+  extension server are unchanged for callers.
 - **BREAKING** **jmap-types**, **jmap-server**: one `SetError` type for
   servers and clients. `SetErrorType` and the builder-style `SetError`
   (`with_description`, `with_properties`, `with_extra`,

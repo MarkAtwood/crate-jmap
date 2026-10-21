@@ -77,7 +77,7 @@
 
 use std::sync::Arc;
 
-use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod backend;
 mod fanout;
@@ -131,7 +131,13 @@ where
         ($method:expr, $handler:ident) => {{
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 Arc::clone(&backend),
-                move |b: Arc<B>, _ci: String, a: serde_json::Value, ctx: B::CallerCtx| {
+                move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+                    let CallContext {
+                        call_id: _ci,
+                        args: a,
+                        caller: ctx,
+                        ..
+                    } = cx;
                     Box::pin(async move { $handler(&*b, &ctx, a).await }) as HandlerFuture
                 },
             ));

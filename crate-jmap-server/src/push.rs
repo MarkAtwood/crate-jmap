@@ -29,7 +29,7 @@ use crate::helpers::{
     apply_patch_object, enforce_max_objects_in_get, enforce_max_objects_in_set, not_found_json,
     optional_arg, serialize_value, signed_seconds_since_epoch, utc_date_from_epoch_seconds,
 };
-use crate::{ClosureHandler, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
+use crate::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
 
 /// The properties that `PushSubscription/get` never returns and rejects
 /// with `forbidden` when requested (RFC 8620 §7.2.1).
@@ -205,8 +205,8 @@ pub fn register_push_subscription_handlers<B>(
 {
     let handler: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
         Arc::clone(&backend),
-        |b: Arc<B>, _call_id: String, args: Value, ctx: B::CallerCtx| {
-            Box::pin(async move { handle_push_subscription_get(&*b, &ctx, args).await })
+        |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+            Box::pin(async move { handle_push_subscription_get(&*b, &cx.caller, cx.args).await })
                 as HandlerFuture
         },
     ));
@@ -214,8 +214,8 @@ pub fn register_push_subscription_handlers<B>(
 
     let handler: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
         backend,
-        |b: Arc<B>, _call_id: String, args: Value, ctx: B::CallerCtx| {
-            Box::pin(async move { handle_push_subscription_set(&*b, &ctx, args).await })
+        |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+            Box::pin(async move { handle_push_subscription_set(&*b, &cx.caller, cx.args).await })
                 as HandlerFuture
         },
     ));

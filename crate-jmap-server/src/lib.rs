@@ -117,6 +117,53 @@ impl HandlerOutput {
 /// trait object so the trait itself remains object-safe.
 pub type HandlerFuture = Pin<Box<dyn Future<Output = Result<HandlerOutput, JmapError>> + Send>>;
 
+/// Everything [`Dispatcher::dispatch`] hands a [`JmapHandler`] for one
+/// method call (RFC 8620 §3.2 Invocation, plus the caller).
+///
+/// `#[non_exhaustive]` so the dispatcher can pass more per-call context
+/// (a deadline, a tracing span, the request's creation ids) without
+/// breaking every handler (bd:JMAP-wf92.7). Handlers read the public
+/// fields; code that calls a handler directly builds one with
+/// [`CallContext::new`].
+///
+/// Fields are owned because the returned [`HandlerFuture`] is
+/// `'static`.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct CallContext<CallerCtx> {
+    /// The registered method name for this call. One handler may be
+    /// registered under several names (e.g. `"Foo/get"` and
+    /// `"Bar/get"`); this tells them apart.
+    pub method: String,
+    /// The client-supplied method call id (RFC 8620 §3.2). The
+    /// dispatcher echoes it in the response; handlers may use it for
+    /// logging or correlation.
+    pub call_id: String,
+    /// The call's arguments, with result references already resolved
+    /// (RFC 8620 §3.7).
+    pub args: Value,
+    /// Whatever the auth layer produced, passed to
+    /// [`Dispatcher::dispatch`] and cloned for each call.
+    pub caller: CallerCtx,
+}
+
+impl<CallerCtx> CallContext<CallerCtx> {
+    /// A context for one method call.
+    pub fn new(
+        method: impl Into<String>,
+        call_id: impl Into<String>,
+        args: Value,
+        caller: CallerCtx,
+    ) -> Self {
+        Self {
+            method: method.into(),
+            call_id: call_id.into(),
+            args,
+            caller,
+        }
+    }
+}
+
 /// Implement this for each JMAP method handler.
 ///
 /// `CallerCtx` is whatever your auth layer produces — an `Identity`, a session
@@ -130,25 +177,8 @@ pub type HandlerFuture = Pin<Box<dyn Future<Output = Result<HandlerOutput, JmapE
 /// Entries without an `"id"` field are silently skipped — the dispatcher cannot
 /// retroactively error a method call that already returned success.
 pub trait JmapHandler<CallerCtx>: Send + Sync {
-    /// `method` is the registered method name for this call.  A single handler
-    /// instance may be registered under multiple names (e.g. both `"Foo/get"` and
-    /// `"Bar/get"`); this parameter lets the handler distinguish between them.
-    ///
-    /// `call_id` is the client-supplied identifier for this invocation (RFC 8620 §3.3).
-    /// Handlers may use it for logging or correlation but need not echo it —
-    /// the dispatcher echoes it in the response automatically.
-    ///
-    /// Both parameters are `String` (not `&str`) because the returned future is
-    /// `'static` — it must own all data it captures.  Handlers that do not need
-    /// `method`/`call_id` can ignore them; handlers that do (e.g. echo) simply
-    /// capture the owned value.
-    fn call(
-        &self,
-        method: String,
-        call_id: String,
-        args: Value,
-        caller: CallerCtx,
-    ) -> HandlerFuture;
+    /// Handle one method call. See [`CallContext`] for what `cx` carries.
+    fn call(&self, cx: CallContext<CallerCtx>) -> HandlerFuture;
 }
 
 /// Walk a `/set` handler's primary response and accumulate every
@@ -426,7 +456,12 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             let result: Result<Result<HandlerOutput, JmapError>, tokio::task::JoinError> =
                 task::spawn(async move {
                     handler
-                        .call(method_clone, call_id_clone, args, caller_clone)
+                        .call(CallContext::new(
+                            method_clone,
+                            call_id_clone,
+                            args,
+                            caller_clone,
+                        ))
                         .await
                 })
                 .await;
@@ -536,24 +571,20 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
 
 /// Type alias for the closure stored inside [`ClosureHandler`].
 ///
-/// The `String` argument is the `call_id` (the client-supplied correlation
-/// identifier from RFC 8620 §3.3), not the method name.  If you need the
-/// method name inside the closure, register the handler with
-/// [`Dispatcher::register`] and use [`JmapHandler`] directly instead.
-///
-/// `C` is the caller context (e.g. an auth identity) forwarded from
-/// [`Dispatcher::dispatch`]. Closures that don't need it can ignore the
-/// argument with `_ctx`.
+/// The closure gets the shared backend and the call's [`CallContext`]
+/// (method name, call id, arguments and caller). Taking the context as
+/// one `#[non_exhaustive]` struct lets the dispatcher pass more per-call
+/// context later without changing this signature (bd:JMAP-wf92.7).
 pub type BackendCallFn<B, C> =
-    dyn Fn(Arc<B>, String, serde_json::Value, C) -> HandlerFuture + Send + Sync + 'static;
+    dyn Fn(Arc<B>, CallContext<C>) -> HandlerFuture + Send + Sync + 'static;
 
 /// A [`JmapHandler`] that wraps an async closure over a shared backend and
 /// forwards `CallerCtx` to it.
 ///
 /// Use this when your handler closures need per-request context — for
 /// example, an auth identity that controls which data the handler can
-/// access. Closures that don't need the context can simply ignore the
-/// `ctx` parameter.
+/// access. The closure receives the whole [`CallContext`] and reads the
+/// fields it needs.
 ///
 /// # Usage
 ///
@@ -567,10 +598,10 @@ pub type BackendCallFn<B, C> =
 /// let handler: Arc<ClosureHandler<MyBackend, AuthCtx>> =
 ///     Arc::new(ClosureHandler::new(
 ///         Arc::new(my_backend),
-///         |b, call_id, args, ctx| {
+///         |b, cx| {
 ///             Box::pin(async move {
-///                 // ctx.user_id is available here
-///                 handle_something(&*b, args, &ctx.user_id).await
+///                 // cx.caller.user_id is available here
+///                 handle_something(&*b, cx.args, &cx.caller.user_id).await
 ///             })
 ///         },
 ///     ));
@@ -608,19 +639,14 @@ impl<B: Send + Sync + 'static, C: Clone + Send + 'static> ClosureHandler<B, C> {
     /// rather than struct-literal syntax.
     ///
     /// The `call_fn` parameter is generic over
-    /// `F: Fn(...) + Send + Sync + 'static` (bd:JMAP-jfia.40), so
-    /// callers can pass a closure directly without wrapping it in
-    /// `Box::new`. Existing callers that already wrap in
-    /// `Box::new(...)` continue to compile unchanged:
-    /// `Box<dyn Fn(...) + Send + Sync + 'static>` itself implements
-    /// `Fn(...)` via the blanket
-    /// `impl<F: Fn(...)> Fn(...) for Box<F>`, so the boxed form
-    /// satisfies the generic bound. Internally, the closure is boxed
-    /// once at construction and stored as
-    /// `Box<BackendCallFn<B, C>>`.
+    /// `F: Fn(Arc<B>, CallContext<C>) + Send + Sync + 'static`
+    /// (bd:JMAP-jfia.40), so callers can pass a closure directly
+    /// without wrapping it in `Box::new`; an already-boxed closure also
+    /// satisfies the bound. Internally, the closure is boxed once at
+    /// construction and stored as `Box<BackendCallFn<B, C>>`.
     pub fn new<F>(backend: Arc<B>, call_fn: F) -> Self
     where
-        F: Fn(Arc<B>, String, serde_json::Value, C) -> HandlerFuture + Send + Sync + 'static,
+        F: Fn(Arc<B>, CallContext<C>) -> HandlerFuture + Send + Sync + 'static,
     {
         Self {
             backend,
@@ -630,14 +656,8 @@ impl<B: Send + Sync + 'static, C: Clone + Send + 'static> ClosureHandler<B, C> {
 }
 
 impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandler<B, C> {
-    fn call(
-        &self,
-        _method: String,
-        call_id: String,
-        args: serde_json::Value,
-        caller: C,
-    ) -> HandlerFuture {
-        (self.call_fn)(Arc::clone(&self.backend), call_id, args, caller)
+    fn call(&self, cx: CallContext<C>) -> HandlerFuture {
+        (self.call_fn)(Arc::clone(&self.backend), cx)
     }
 }
 
@@ -665,13 +685,7 @@ mod tests {
     struct EchoHandler(Value);
 
     impl<C: Clone + Send + 'static> JmapHandler<C> for EchoHandler {
-        fn call(
-            &self,
-            _method: String,
-            _call_id: String,
-            _args: Value,
-            _caller: C,
-        ) -> HandlerFuture {
+        fn call(&self, _cx: CallContext<C>) -> HandlerFuture {
             let v = self.0.clone();
             Box::pin(async move { Ok(HandlerOutput::new(v)) })
         }
@@ -681,13 +695,7 @@ mod tests {
     struct ErrorHandler(JmapError);
 
     impl JmapHandler<String> for ErrorHandler {
-        fn call(
-            &self,
-            _method: String,
-            _call_id: String,
-            _args: Value,
-            _caller: String,
-        ) -> HandlerFuture {
+        fn call(&self, _cx: CallContext<String>) -> HandlerFuture {
             let e = self.0.clone();
             Box::pin(async move { Err(e) })
         }
@@ -697,13 +705,8 @@ mod tests {
     struct CaptureArgsHandler(Arc<Mutex<Option<Value>>>);
 
     impl JmapHandler<String> for CaptureArgsHandler {
-        fn call(
-            &self,
-            _method: String,
-            _call_id: String,
-            args: Value,
-            _caller: String,
-        ) -> HandlerFuture {
+        fn call(&self, cx: CallContext<String>) -> HandlerFuture {
+            let args = cx.args;
             let slot = self.0.clone();
             Box::pin(async move {
                 *slot.lock().expect("test: mutex poisoned") = Some(args);
@@ -716,13 +719,8 @@ mod tests {
     struct CaptureCallerHandler(Arc<Mutex<Option<String>>>);
 
     impl JmapHandler<String> for CaptureCallerHandler {
-        fn call(
-            &self,
-            _method: String,
-            _call_id: String,
-            _args: Value,
-            caller: String,
-        ) -> HandlerFuture {
+        fn call(&self, cx: CallContext<String>) -> HandlerFuture {
+            let caller = cx.caller;
             let slot = self.0.clone();
             Box::pin(async move {
                 *slot.lock().expect("test: mutex poisoned") = Some(caller);
@@ -735,13 +733,7 @@ mod tests {
     struct PanicHandler;
 
     impl JmapHandler<String> for PanicHandler {
-        fn call(
-            &self,
-            _method: String,
-            _call_id: String,
-            _args: Value,
-            _caller: String,
-        ) -> HandlerFuture {
+        fn call(&self, _cx: CallContext<String>) -> HandlerFuture {
             Box::pin(async move { panic!("deliberate test panic") })
         }
     }
@@ -823,13 +815,8 @@ mod tests {
         struct CappedSetHandler;
 
         impl JmapHandler<String> for CappedSetHandler {
-            fn call(
-                &self,
-                _method: String,
-                _call_id: String,
-                args: Value,
-                _caller: String,
-            ) -> HandlerFuture {
+            fn call(&self, cx: CallContext<String>) -> HandlerFuture {
+                let args = cx.args;
                 Box::pin(async move {
                     let map = args.as_object().cloned().unwrap_or_default();
                     enforce_max_objects_in_set(&map, 1)?;
@@ -1492,13 +1479,7 @@ mod tests {
     struct ExtraInvocationHandler;
 
     impl JmapHandler<String> for ExtraInvocationHandler {
-        fn call(
-            &self,
-            _method: String,
-            _call_id: String,
-            _args: Value,
-            _caller: String,
-        ) -> HandlerFuture {
+        fn call(&self, _cx: CallContext<String>) -> HandlerFuture {
             Box::pin(async move {
                 let primary = json!({"type": "primary"});
                 let extra: Vec<Invocation> = vec![Invocation::new(
@@ -1550,10 +1531,10 @@ mod tests {
 
         let handler: Arc<ClosureHandler<DummyBackend, Ctx>> = Arc::new(ClosureHandler::new(
             Arc::new(DummyBackend),
-            move |_b: Arc<DummyBackend>, _call_id: String, _args: Value, ctx: Ctx| {
+            move |_b: Arc<DummyBackend>, cx: CallContext<Ctx>| {
                 let cap = Arc::clone(&received_clone);
                 Box::pin(async move {
-                    *cap.lock().unwrap() = Some(ctx.0.clone());
+                    *cap.lock().unwrap() = Some(cx.caller.0.clone());
                     Ok(HandlerOutput::new(serde_json::json!({})))
                 })
             },
@@ -1561,7 +1542,12 @@ mod tests {
 
         let ctx = Ctx("alice".to_owned());
         handler
-            .call("Test/get".into(), "c1".into(), serde_json::json!({}), ctx)
+            .call(CallContext::new(
+                "Test/get",
+                "c1",
+                serde_json::json!({}),
+                ctx,
+            ))
             .await
             .expect("handler must succeed");
 
@@ -1569,6 +1555,41 @@ mod tests {
             received.lock().unwrap().as_deref(),
             Some("alice"),
             "CallerCtx must be forwarded to the closure"
+        );
+    }
+
+    /// Oracle: RFC 8620 §3.2 — an Invocation is a method name, its
+    /// arguments and a method call id. Dispatching `["Foo/get",
+    /// {"accountId": "a1"}, "c7"]` through a ClosureHandler MUST hand the
+    /// closure exactly that name, id and arguments (the method name was
+    /// dropped before bd:JMAP-wf92.7).
+    #[tokio::test]
+    async fn closure_handler_receives_method_call_id_and_args() {
+        struct DummyBackend;
+        let seen: Arc<Mutex<Option<(String, String, Value)>>> = Arc::new(Mutex::new(None));
+        let seen_clone = Arc::clone(&seen);
+        let handler = ClosureHandler::new(
+            Arc::new(DummyBackend),
+            move |_b: Arc<DummyBackend>, cx: CallContext<()>| {
+                *seen_clone.lock().unwrap() = Some((cx.method, cx.call_id, cx.args));
+                Box::pin(async { Ok(HandlerOutput::new(json!({}))) }) as HandlerFuture
+            },
+        );
+        let mut d: Dispatcher<()> = Dispatcher::new();
+        d.register("Foo/get", Arc::new(handler));
+        d.dispatch(
+            single_call("Foo/get", json!({"accountId": "a1"}), "c7"),
+            (),
+            "s0".into(),
+        )
+        .await;
+        assert_eq!(
+            seen.lock().unwrap().take(),
+            Some((
+                "Foo/get".to_owned(),
+                "c7".to_owned(),
+                json!({"accountId": "a1"})
+            ))
         );
     }
 
@@ -1583,7 +1604,7 @@ mod tests {
         #[derive(Clone)]
         struct Ctx;
 
-        let h = ClosureHandler::new(Arc::new(DummyBackend), |_b, _ci, _a, _ctx| {
+        let h = ClosureHandler::new(Arc::new(DummyBackend), |_b, _cx| {
             Box::pin(async { Ok(HandlerOutput::new(serde_json::json!({}))) })
         });
         assert_handler::<Ctx, _>(&h);
