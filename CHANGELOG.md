@@ -890,6 +890,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-metadata-server**: `metadata_text_contains` matches
+  under the `i;unicode-casemap` collation (RFC 5051), per
+  draft-ietf-jmap-metadata-04 §3.6, instead of comparing
+  `str::to_lowercase` forms. Both strings are titlecased and then
+  compatibility-decomposed, so `"\u{e9}t\u{e9}"` now contains
+  `"E\u{301}T"` and fullwidth `"\u{ff21}"` contains `"a"`.
+  `jmap-metadata-server` now depends on `icu_casemap` and
+  `icu_normalizer`.
 - **BREAKING** **jmap-metadata-types**: `is_registered_namespace`,
   `is_vendor_namespace` and `is_valid_namespace` reject uppercase ASCII
   letters, per draft-ietf-jmap-metadata-04 §2.1 (registered names are

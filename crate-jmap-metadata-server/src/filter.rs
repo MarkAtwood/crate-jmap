@@ -31,6 +31,8 @@
 
 use std::borrow::Cow;
 
+use icu_casemap::CaseMapper;
+use icu_normalizer::DecomposingNormalizerBorrowed;
 use jmap_metadata_types::MetadataTextMatch;
 use serde_json::{Map, Value};
 
@@ -141,8 +143,17 @@ pub fn metadata_path_exists(map: &Map<String, Value>, path: &str) -> bool {
 }
 
 /// Check whether the string at `path` contains `text_match.value` as a
-/// case-insensitive substring (draft-ietf-jmap-metadata-02 §3.5,
-/// `metadataTextContains` / `privateMetadataTextContains`).
+/// substring under the `i;unicode-casemap` collation
+/// ([RFC 5051](https://www.rfc-editor.org/rfc/rfc5051))
+/// (draft-ietf-jmap-metadata-04 §3.6, `metadataTextContains` /
+/// `privateMetadataTextContains`).
+///
+/// Both strings are prepared as RFC 5051 §2 describes, then compared as
+/// octets: each code point is replaced by its UnicodeData titlecase
+/// mapping, then by its full compatibility decomposition. Characters are
+/// not re-cased after decomposition, so U+FB01 LATIN SMALL LIGATURE FI
+/// prepares to lowercase `fi` and does not contain `fi`, which prepares
+/// to `FI`.
 ///
 /// Returns `false` if the path does not exist or the value at the path
 /// is not a string.
@@ -164,14 +175,28 @@ pub fn metadata_path_exists(map: &Map<String, Value>, path: &str) -> bool {
 /// ```
 pub fn metadata_text_contains(map: &Map<String, Value>, text_match: &MetadataTextMatch) -> bool {
     match resolve_path(map, &text_match.path) {
-        Some(Value::String(s)) => s.to_lowercase().contains(&text_match.value.to_lowercase()),
+        Some(Value::String(s)) => casemap_prepare(s).contains(&casemap_prepare(&text_match.value)),
         _ => false,
     }
 }
 
-/// Check whether the string at `path` is exactly equal (case-sensitive,
-/// byte-for-byte) to `text_match.value` (draft-ietf-jmap-metadata-02
-/// §3.5, `metadataTextEquals` / `privateMetadataTextEquals`).
+/// RFC 5051 §2 preparation: the "titlecased canonicalized UTF-8" form.
+///
+/// Step (2)(a) is the simple titlecase mapping; step (2)(b) decomposes
+/// each code point on its own. NFKD of the whole string would also
+/// reorder combining marks across code points, which RFC 5051 does not.
+fn casemap_prepare(s: &str) -> String {
+    let case = CaseMapper::new();
+    let nfkd = DecomposingNormalizerBorrowed::new_nfkd();
+    s.chars()
+        .flat_map(|c| nfkd.normalize_iter(std::iter::once(case.simple_titlecase(c))))
+        .collect()
+}
+
+/// Check whether the string at `path` is exactly equal to
+/// `text_match.value`, comparing Unicode code points without case folding
+/// or normalization (draft-ietf-jmap-metadata-04 §3.6,
+/// `metadataTextEquals` / `privateMetadataTextEquals`).
 ///
 /// Returns `false` if the path does not exist or the value at the path
 /// is not a string.
@@ -479,6 +504,71 @@ mod tests {
         ));
     }
 
+    // RFC 5051 §2 vectors. Each expected result is derived by hand from
+    // the RFC 5051 §2 steps and the UnicodeData.txt fields named in the
+    // test, not from the code under test.
+
+    #[test]
+    fn text_contains_rfc5051_example_digraph() {
+        // RFC 5051 §2 example: U+01C4 prepares to U+0044 U+007A U+030C.
+        // U+01C6 has titlecase U+01C5, which decomposes the same way.
+        let map = json!({"ns": {"memo": "\u{01C4}"}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(metadata_text_contains(
+            &map,
+            &text_match("ns/memo", "\u{01C6}")
+        ));
+        // U+0044 U+017D: U+017D has no titlecase property and decomposes
+        // to U+005A U+030C, so the needle is "DZ" + caron, which is not
+        // "Dz" + caron.
+        assert!(!metadata_text_contains(
+            &map,
+            &text_match("ns/memo", "D\u{017D}")
+        ));
+    }
+
+    #[test]
+    fn text_contains_rfc5051_compatibility_decomposition() {
+        // U+FF21..U+FF23 FULLWIDTH LATIN CAPITAL A..C: no titlecase
+        // property, decomposition <wide> U+0041..U+0043. The needle "abc"
+        // titlecases to "ABC".
+        let map = json!({"ns": {"memo": "x\u{FF21}\u{FF22}\u{FF23}y"}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(metadata_text_contains(&map, &text_match("ns/memo", "abc")));
+    }
+
+    #[test]
+    fn text_contains_rfc5051_canonical_decomposition() {
+        // U+00E9 has titlecase U+00C9, which decomposes to U+0045 U+0301,
+        // and "t" titlecases to "T". Both strings prepare to
+        // U+0045 U+0301 U+0054 U+0045 U+0301.
+        let map = json!({"ns": {"memo": "\u{00E9}t\u{00E9}"}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(metadata_text_contains(
+            &map,
+            &text_match("ns/memo", "E\u{0301}TE\u{0301}")
+        ));
+    }
+
+    #[test]
+    fn text_contains_rfc5051_no_recase_after_decomposition() {
+        // U+FB01 LATIN SMALL LIGATURE FI: no titlecase property,
+        // decomposition <compat> U+0066 U+0069 (lowercase). The needle
+        // "fi" titlecases to "FI", so it does not match.
+        let map = json!({"ns": {"memo": "\u{FB01}le"}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(!metadata_text_contains(&map, &text_match("ns/memo", "fi")));
+        assert!(!metadata_text_contains(&map, &text_match("ns/memo", "FI")));
+    }
+
     // -- metadata_text_equals ---------------------------------------------
 
     #[test]
@@ -502,6 +592,21 @@ mod tests {
         assert!(!metadata_text_equals(
             &map,
             &text_match("ns/tag", "important")
+        ));
+    }
+
+    #[test]
+    fn text_equals_no_normalization() {
+        // -04 §3.6: "comparing Unicode code points without case folding
+        // or normalization". U+00E9 and U+0065 U+0301 are canonically
+        // equivalent but are different code point sequences.
+        let map = json!({"ns": {"tag": "\u{00E9}t\u{00E9}"}})
+            .as_object()
+            .unwrap()
+            .clone();
+        assert!(!metadata_text_equals(
+            &map,
+            &text_match("ns/tag", "e\u{0301}te\u{0301}")
         ));
     }
 

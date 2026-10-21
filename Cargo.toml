@@ -125,6 +125,11 @@ mime-tree              = "0.4"
 futures                = "0.3"
 serde                  = { version = "1", features = ["derive"] }
 serde_json             = "1"
+# ICU4X simple titlecase and NFKD for the RFC 5051 "i;unicode-casemap"
+# collation (jmap-metadata-server metadataTextContains). Same 2.2 release
+# as the transitive icu_* crates, so both steps use one Unicode version.
+icu_casemap            = { version = "2.2", default-features = false, features = ["compiled_data"] }
+icu_normalizer         = { version = "2.2", default-features = false, features = ["compiled_data"] }
 # Constant-time cryptographic primitives. Used for credential comparisons
 # (e.g. invite-code lookup in jmap-chat-server) to defeat byte-by-byte
 # timing oracles. Pure-Rust, RustCrypto-stack — matches the workspace's

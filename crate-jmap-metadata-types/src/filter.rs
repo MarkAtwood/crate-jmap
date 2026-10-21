@@ -139,7 +139,9 @@ pub struct WithMetadata<C> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_exists: Option<String>,
 
-    /// Case-insensitive substring match on the `metadata` string at a path.
+    /// Substring match under the `i;unicode-casemap` collation
+    /// ([RFC 5051](https://www.rfc-editor.org/rfc/rfc5051)) on the
+    /// `metadata` string at a path (draft-ietf-jmap-metadata-04 §3.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_contains: Option<MetadataTextMatch>,
 
@@ -147,8 +149,9 @@ pub struct WithMetadata<C> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_text_contains: Option<MetadataTextMatch>,
 
-    /// Exact (case-sensitive, byte-for-byte) match on the `metadata`
-    /// string at a path.
+    /// Exact match on the `metadata` string at a path, comparing Unicode
+    /// code points without case folding or normalization
+    /// (draft-ietf-jmap-metadata-04 §3.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_equals: Option<MetadataTextMatch>,
 
