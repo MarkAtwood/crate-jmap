@@ -128,8 +128,9 @@ pub type VtcParticipantFilter = Filter<VtcParticipantFilterCondition>;
 /// Filter condition for `VTCParticipant/query`
 /// (draft-atwood-jmap-vtc-00 §VTCParticipant/query).
 ///
-/// "All filter properties are combined with logical AND." Servers "SHOULD
-/// require" `callId "on every query unless combined with `userId`".
+/// "All filter properties are combined with logical AND." Of `callId`:
+/// "Servers SHOULD require this property on every query unless combined
+/// with `userId`".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
