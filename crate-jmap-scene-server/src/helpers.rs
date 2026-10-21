@@ -276,9 +276,7 @@ impl Visible for SceneAvatar {
         caller: &B::CallerCtx,
         account_id: &Id,
     ) -> Result<bool, B::Error> {
-        Ok(!backend
-            .is_user_blocked(caller, account_id, &self.user_id)
-            .await?
+        Ok(!backend.is_user_blocked(caller, &self.user_id).await?
             && backend
                 .may_see_region_avatars(caller, account_id, &self.region_id)
                 .await?)

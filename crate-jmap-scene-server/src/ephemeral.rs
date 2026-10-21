@@ -192,9 +192,9 @@ impl SceneEphemeralSubscription {
 /// and SceneObject ids are unique only within an account".
 /// `recipient_account_id` is the recipient's own account: the Chat
 /// capability is checked there ("available for the receiving account",
-/// L791-792) and every [`SceneBackend::is_user_blocked`] check uses it,
-/// since suppression consults "the recipient's ChatContact records"
-/// (L793-795).
+/// L791-792). `caller` is the recipient, so
+/// [`SceneBackend::is_user_blocked`] consults "the recipient's ChatContact
+/// records" (L793-795).
 ///
 /// This function does not rate-limit; the §Rate Limiting SHOULD rules are
 /// the transport's or deployment's to apply.
@@ -267,9 +267,7 @@ pub async fn should_deliver<B: SceneBackend>(
     }
     Ok(match origin {
         Some(user) if backend.has_capability(caller, recipient_account_id, JMAP_CHAT_URI) => {
-            !backend
-                .is_user_blocked(caller, recipient_account_id, user)
-                .await?
+            !backend.is_user_blocked(caller, user).await?
         }
         _ => true,
     })
