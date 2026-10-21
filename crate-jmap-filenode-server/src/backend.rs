@@ -432,15 +432,18 @@ pub trait FileNodeBackend: JmapBackend {
     /// are advertised, "FileNode objects MUST include" `sha256`, which "MUST
     /// be `null` for directory FileNodes". A stored node without a digest
     /// (a directory, or a file created before the capability was enabled)
-    /// has no `sha256` field, so `handle_filenode_get` asks this method
-    /// whether to emit `"sha256": null` for it.
+    /// has no `sha256` field, so `handle_filenode_get` and
+    /// `handle_filenode_set` ask this method whether to emit
+    /// `"sha256": null` for it.
     ///
     /// # Return mapping
     ///
     /// - `Ok(true)`: `FileNode/get` emits `"sha256": null` for every node
-    ///   without a digest (unless `properties` excludes `sha256`).
+    ///   without a digest (unless `properties` excludes `sha256`), and
+    ///   `FileNode/set` does the same for each `created` entry.
     /// - `Ok(false)`: nodes without a digest have no `sha256` property.
-    /// - `Err(e)`: the `FileNode/get` call fails with `serverFail`.
+    /// - `Err(e)`: the `FileNode/get` call, or a `FileNode/set` call with
+    ///   `create`, fails with `serverFail` (before any create is applied).
     ///
     /// # Default implementation
     ///

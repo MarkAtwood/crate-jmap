@@ -309,3 +309,95 @@ async fn get_with_cid_respects_properties() {
     assert_eq!(node["name"], "docs", "{primary}");
     assert!(node.get("sha256").is_none(), "{primary}");
 }
+
+/// Spec 33702a5 L200-206: with the capability, FileNode objects "MUST
+/// include" `sha256`, which "MUST be `null` for directory FileNodes", and
+/// RFC 8620 §5.3: `created` holds "any properties that were omitted by the
+/// client and thus set to a default by the server".
+#[tokio::test]
+async fn create_directory_with_cid_created_has_null_sha256() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+
+    let resp = set(
+        &backend,
+        json!({ "accountId": "acc1", "create": { "d1": {
+            "@type": "Directory",
+            "name": "docs",
+            "parentId": null,
+        } } }),
+    )
+    .await;
+    let created = &resp["created"]["d1"];
+    assert_eq!(created.get("sha256"), Some(&Value::Null), "{resp}");
+}
+
+/// Spec 33702a5 L200-206 (as above) applies to every FileNode object in a
+/// FileNode/get response, including the ancestor directories that
+/// draft-ietf-jmap-filenode `fetchParents` appends to `list`.
+#[tokio::test]
+async fn get_fetch_parents_with_cid_ancestor_has_null_sha256() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_directory());
+    let mut file = seeded_file("blob-abc", Some(SHA256_ABC));
+    file.parent_id = Some("d1".into());
+    backend.seed_node("acc1", file);
+
+    let HandlerOutput { primary, .. } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["f1"], "fetchParents": true }),
+    )
+    .await
+    .expect("get must not return a top-level error");
+    let list = primary["list"].as_array().expect("list");
+    let dir = list
+        .iter()
+        .find(|n| n["id"] == "d1")
+        .unwrap_or_else(|| panic!("ancestor d1 appended: {primary}"));
+    assert_eq!(dir.get("sha256"), Some(&Value::Null), "{primary}");
+    let leaf = list.iter().find(|n| n["id"] == "f1").expect("f1 listed");
+    assert_eq!(leaf["sha256"], SHA256_ABC, "{primary}");
+}
+
+/// RFC 8620 §5.1 `properties`: "If supplied, only the properties listed in
+/// the array are returned for each object"; `sha256` is listed, so the
+/// directory's null (spec 33702a5 L205-206) is returned.
+#[tokio::test]
+async fn get_with_cid_properties_including_sha256() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_directory());
+
+    let HandlerOutput { primary, .. } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["d1"], "properties": ["sha256", "name"] }),
+    )
+    .await
+    .expect("get must not return a top-level error");
+    let node = &primary["list"][0];
+    assert_eq!(node["name"], "docs", "{primary}");
+    assert_eq!(node.get("sha256"), Some(&Value::Null), "{primary}");
+}
+
+/// RFC 8620 §5.1 `properties`: "If null, all properties of the object are
+/// returned", so the directory's null `sha256` (spec 33702a5 L205-206) is
+/// returned.
+#[tokio::test]
+async fn get_with_cid_properties_null() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_directory());
+
+    let HandlerOutput { primary, .. } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["d1"], "properties": null }),
+    )
+    .await
+    .expect("get must not return a top-level error");
+    let node = &primary["list"][0];
+    assert_eq!(node.get("sha256"), Some(&Value::Null), "{primary}");
+}
