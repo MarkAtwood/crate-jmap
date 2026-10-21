@@ -139,6 +139,42 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
 // Mailbox/query (RFC 8621 §2.3)
 // ---------------------------------------------------------------------------
 
+/// Decode the `sort` argument of `Mailbox/query` and `Mailbox/queryChanges`.
+///
+/// RFC 8621 §2.3 defines `name` and `sortOrder` as the Mailbox comparator
+/// properties; any other property is unsupportedSort (RFC 8620 §5.5). The
+/// comparators are returned in the wire shape Mailbox uses
+/// (`Mailbox::Comparator = serde_json::Value`), and the backend decodes each
+/// `{property, isAscending}` object internally. An absent or null `sort`
+/// yields an empty vector.
+fn mailbox_sort_arg(args: &serde_json::Map<String, Value>) -> Result<Vec<Value>, JmapError> {
+    match args.get("sort") {
+        None | Some(Value::Null) => Ok(vec![]),
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .map(|comp| {
+                let prop = comp
+                    .get("property")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        JmapError::invalid_arguments("sort comparator missing 'property'")
+                    })?;
+                if !matches!(prop, "name" | "sortOrder") {
+                    return Err(JmapError::unsupported_sort());
+                }
+                let asc = comp
+                    .get("isAscending")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                Ok(json!({"property": prop, "isAscending": asc}))
+            })
+            .collect(),
+        _ => Err(JmapError::invalid_arguments(
+            "sort must be an array or null",
+        )),
+    }
+}
+
 /// Handle a `Mailbox/query` method call (RFC 8621 §2.3).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
@@ -204,38 +240,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         })?,
     };
 
-    // Parse sort comparators. RFC 8621 §2.3 defines "name" and "sortOrder" as valid
-    // Mailbox comparator properties. Reject unknown properties with unsupportedSort
-    // (RFC 8620 §5.5). Each entry is (property, is_ascending).
-    let sort_comparators: Vec<(String, bool)> = match args.get("sort") {
-        None | Some(Value::Null) => vec![],
-        Some(Value::Array(arr)) => {
-            let mut comps = Vec::with_capacity(arr.len());
-            for comp in arr {
-                let prop = comp
-                    .get("property")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        JmapError::invalid_arguments("sort comparator missing 'property'")
-                    })?;
-                match prop {
-                    "name" | "sortOrder" => {}
-                    _ => return Err(JmapError::unsupported_sort()),
-                }
-                let asc = comp
-                    .get("isAscending")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-                comps.push((prop.to_owned(), asc));
-            }
-            comps
-        }
-        _ => {
-            return Err(JmapError::invalid_arguments(
-                "sort must be an array or null",
-            ))
-        }
-    };
+    let sort_values = mailbox_sort_arg(&args)?;
 
     // sortAsTree=true changes result ordering semantics (RFC 8621 §2.3):
     // children must immediately follow their parent in the result list.
@@ -261,13 +266,6 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // string distinction.
     let filter: Option<MailboxFilterCondition> = filter_arg(&mut args)?;
 
-    // Build the sort comparator vector in the wire shape Mailbox uses
-    // (`Mailbox::Comparator = serde_json::Value`). The backend decodes each
-    // `{property, isAscending}` object internally.
-    let sort_values: Vec<Value> = sort_comparators
-        .iter()
-        .map(|(prop, asc)| json!({"property": prop, "isAscending": asc}))
-        .collect();
     let sort_slice = if sort_values.is_empty() {
         None
     } else {
@@ -375,7 +373,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let (account_id, args) = extract_account_id(args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
         .await
@@ -408,13 +406,19 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
 
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
+    // RFC 8620 §5.6: `filter` and `sort` are "the filter/sort arguments as
+    // given in the original /query call", so they decode and validate exactly
+    // as in handle_mailbox_query.
+    let sort_values = mailbox_sort_arg(&args)?;
+    let filter: Option<MailboxFilterCondition> = filter_arg(&mut args)?;
+
     let result = backend
         .query_changes::<Mailbox>(
             caller,
             &account_id,
             &since_query_state,
-            None,
-            None,
+            filter.as_ref(),
+            (!sort_values.is_empty()).then_some(sort_values.as_slice()),
             max_changes,
             up_to_id.as_ref(),
             false, // collapseThreads does not apply to Mailbox

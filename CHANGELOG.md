@@ -1892,6 +1892,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: `Mailbox/queryChanges` decodes and forwards
+  `filter` and `sort` to `query_changes`, as `Mailbox/query` does (RFC 8620
+  §5.6: they are the arguments "that was used with Foo/query"). It
+  previously ignored both, returning the unfiltered delta and never
+  answering `unsupportedFilter` or `unsupportedSort`.
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-tasks-server**:
   `MemoryBackend::query_changes` lists every updated id in `removed`, and
   `added` reinserts those still in the results (RFC 8620 §5.6: "the server
