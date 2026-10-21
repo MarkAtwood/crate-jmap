@@ -82,6 +82,12 @@ pub struct GetResponse<T> {
 /// - RFC 9425 §5 (`Quota/changes`): set when only the `used` property
 ///   changed.
 ///
+/// - draft-ietf-jmap-metadata-04 §3.3: every data type the metadata
+///   capability lists, when the request's `using` includes
+///   `urn:ietf:params:jmap:metadata`. The field is then always present,
+///   `null` unless every updated id changed only in `metadata` and/or
+///   `privateMetadata` (plus the Mailbox counts).
+///
 /// For all other `/changes` methods (RFC 8621 §3.2 `Thread/changes`,
 /// §4.3 `Email/changes`, plus every extension `/changes` method not
 /// listed above) the server omits the field, and clients deserialize
@@ -93,7 +99,7 @@ pub struct GetResponse<T> {
 /// deliberate workspace trade-off:
 ///
 /// - **Chosen shape**: one foundation `ChangesResponse` with an
-///   `Option<Vec<String>>` field that two extensions populate.
+///   `Option<Option<Vec<String>>>` field that extensions populate.
 /// - **Alternative (a)**: `ChangesResponse<Ext = ()>` generic with a
 ///   per-type extension struct. Rejected: would force every
 ///   `/changes` handler in every extension server to thread the `Ext`
@@ -143,21 +149,42 @@ pub struct ChangesResponse {
     pub updated: Vec<Id>,
     /// Ids of objects destroyed since `old_state`.
     pub destroyed: Vec<Id>,
-    /// Optional list of property names that changed (RFC 8621 §2.2,
-    /// RFC 9425 §5). Servers MAY set this for `Mailbox/changes` and
-    /// `Quota/changes` responses when the only changes are to a small
-    /// known subset of properties; clients can then back-reference
-    /// `/updatedProperties` into a follow-up `Mailbox/get` or
-    /// `Quota/get` to fetch only those fields. For all other `/changes`
-    /// methods the field is absent on the wire and `None` here.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updated_properties: Option<Vec<String>>,
+    /// Property names that changed (RFC 8621 §2.2, RFC 9425 §5,
+    /// draft-ietf-jmap-metadata-04 §3.3), in three states: `None` when
+    /// absent, `Some(None)` for `null` and `Some(Some(names))` for a
+    /// list. Each state round-trips.
+    ///
+    /// `Mailbox/changes` and `Quota/changes` may list the properties
+    /// that changed, and clients can back-reference
+    /// `/updatedProperties` into a follow-up `/get`. When the request's
+    /// `using` includes `urn:ietf:params:jmap:metadata`, -04 §3.3 says
+    /// for every listed data type that the argument "is always present,
+    /// and is null when updated is empty", so a server sets `Some(None)`
+    /// rather than `None` there. Other responses leave it `None` unless
+    /// their type defines it, and it is then omitted.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub updated_properties: Option<Option<Vec<String>>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Deserialize a property that may be absent, `null` or a value into
+/// `Option<Option<T>>`: absent is `None` (via `#[serde(default)]`), `null`
+/// is `Some(None)` and a value is `Some(Some(v))`.
+fn present<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(d).map(Some)
 }
 
 // ---------------------------------------------------------------------------
@@ -533,7 +560,8 @@ mod tests {
         let resp: ChangesResponse = serde_json::from_value(raw).unwrap();
         let props = resp
             .updated_properties
-            .expect("updatedProperties must be present");
+            .expect("updatedProperties must be present")
+            .expect("updatedProperties must be a list");
         assert_eq!(
             props,
             vec![
@@ -562,14 +590,16 @@ mod tests {
         let resp: ChangesResponse = serde_json::from_value(raw).unwrap();
         let props = resp
             .updated_properties
-            .expect("updatedProperties must be present");
+            .expect("updatedProperties must be present")
+            .expect("updatedProperties must be a list");
         assert_eq!(props, vec!["used".to_string()]);
     }
 
     /// `updatedProperties: null` on the wire (RFC 8621 §2.2: "If the server
     /// is unable to tell if only counts have changed, it MUST just be null")
-    /// must also deserialize as `None` — distinct from omitted but
-    /// semantically equivalent on the typed side.
+    /// deserializes as `Some(None)`, distinct from omitted, so it can be
+    /// re-emitted (draft-ietf-jmap-metadata-04 §3.3: "It is always
+    /// present, and is null when updated is empty").
     #[test]
     fn changes_response_accepts_explicit_null_updated_properties() {
         let raw = json!({
@@ -583,7 +613,7 @@ mod tests {
             "destroyed": []
         });
         let resp: ChangesResponse = serde_json::from_value(raw).unwrap();
-        assert!(resp.updated_properties.is_none());
+        assert_eq!(resp.updated_properties, Some(None));
     }
 
     /// Serializing a `ChangesResponse` without `updated_properties` must
@@ -609,6 +639,63 @@ mod tests {
             serialized.get("updatedProperties").is_none(),
             "updatedProperties must be omitted when None"
         );
+    }
+
+    /// draft-ietf-jmap-metadata-04 §3.3: when the request's `using`
+    /// includes the metadata capability, updatedProperties "is always
+    /// present, and is null when updated is empty". `Some(None)` must
+    /// therefore serialize as an explicit `null`.
+    #[test]
+    fn changes_response_emits_null_updated_properties_when_some_none() {
+        let resp = ChangesResponse {
+            account_id: Id::from("A1"),
+            old_state: "s0".into(),
+            new_state: "s1".into(),
+            has_more_changes: false,
+            created: vec![],
+            updated: vec![],
+            destroyed: vec![],
+            updated_properties: Some(None),
+            extra: serde_json::Map::new(),
+        };
+        let serialized = serde_json::to_value(&resp).expect("must serialize");
+        assert_eq!(
+            serialized,
+            json!({
+                "accountId": "A1",
+                "oldState": "s0",
+                "newState": "s1",
+                "hasMoreChanges": false,
+                "created": [],
+                "updated": [],
+                "destroyed": [],
+                "updatedProperties": null
+            })
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §6.8 example `Email/changes`
+    /// response, which reports a metadata-only change with
+    /// `"updatedProperties": ["metadata"]`. It must decode and re-encode
+    /// unchanged.
+    #[test]
+    fn changes_response_round_trips_metadata_updated_properties() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldState": "e-100",
+            "newState": "e-103",
+            "hasMoreChanges": false,
+            "created": [],
+            "updated": ["EM1", "EM2"],
+            "destroyed": [],
+            "updatedProperties": ["metadata"]
+        });
+        let resp: ChangesResponse = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            resp.updated_properties,
+            Some(Some(vec!["metadata".to_string()]))
+        );
+        assert_eq!(serde_json::to_value(&resp).unwrap(), raw);
     }
 
     #[test]
@@ -923,9 +1010,10 @@ mod tests {
         let resp: ChangesResponse = serde_json::from_value(raw.clone()).expect("must deserialize");
 
         // The typed field consumed the explicit null.
-        assert!(
-            resp.updated_properties.is_none(),
-            "explicit null updatedProperties must deserialize as None"
+        assert_eq!(
+            resp.updated_properties,
+            Some(None),
+            "explicit null updatedProperties must deserialize as Some(None)"
         );
 
         // The typed key MUST NOT have leaked into `extra` — flatten is
@@ -955,16 +1043,16 @@ mod tests {
         assert_eq!(nested.get("trace").and_then(|v| v.as_str()), Some("x"));
 
         // Round-trip: serialize and reparse, all three properties
-        // (None updatedProperties omitted, two vendor extras present)
-        // must survive.
+        // (null updatedProperties, two vendor extras) must survive.
         let back = serde_json::to_value(&resp).expect("must serialize");
 
-        // None typed field is omitted via skip_serializing_if, so the
-        // serialized form should NOT contain updatedProperties at all.
-        assert!(
-            back.get("updatedProperties").is_none(),
-            "None updated_properties must not serialize an explicit null \
-             (skip_serializing_if = Option::is_none): {back}"
+        // draft-ietf-jmap-metadata-04 §3.3: updatedProperties "is always
+        // present, and is null when updated is empty", so an explicit
+        // null is re-emitted rather than dropped.
+        assert_eq!(
+            back.get("updatedProperties"),
+            Some(&serde_json::Value::Null),
+            "explicit null updatedProperties must serialize as null: {back}"
         );
         assert_eq!(back["acmeCorpReplayToken"], "rt-99");
         assert_eq!(back["acmeCorpMetadata"]["requestId"], "r1");
@@ -973,7 +1061,7 @@ mod tests {
         // Reparse the serialized form and confirm equivalence on the
         // typed surface + extras.
         let resp2: ChangesResponse = serde_json::from_value(back).expect("reparse must succeed");
-        assert!(resp2.updated_properties.is_none());
+        assert_eq!(resp2.updated_properties, Some(None));
         assert_eq!(resp2.extra, resp.extra);
     }
 

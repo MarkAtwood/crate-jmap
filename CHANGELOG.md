@@ -897,6 +897,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-types**: `ChangesResponse::updated_properties` is
+  now `Option<Option<Vec<String>>>`: `None` when absent, `Some(None)` for
+  `null`, `Some(Some(names))` for a list. An explicit `null` used to
+  decode as `None` and was dropped on re-encode. draft-ietf-jmap-metadata-04
+  §3.3 says that for a request using the metadata capability the argument
+  "is always present, and is null when updated is empty", so `Some(None)`
+  now serializes as `"updatedProperties": null`. `None` is still omitted.
 - **BREAKING** **jmap-metadata-server**: `metadata_text_contains` matches
   under the `i;unicode-casemap` collation (RFC 5051), per
   draft-ietf-jmap-metadata-04 §3.6, instead of comparing
