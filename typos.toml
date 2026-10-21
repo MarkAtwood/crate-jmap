@@ -83,3 +83,8 @@ assigneee = "assigneee"
 # typos suggests it should be `he`; preserve as-is so cross-references in
 # commit messages, comments, and docstrings to bead IDs stay accurate.
 hge = "hge"
+
+# `nin` — the `$nin` ("not in") operator of draft-atwood-jmap-graph-search-00
+# §Comparison Operators and its Rust field (crate-jmap-graph-types/src/search.rs).
+# Not a typo of `min` / `inn`.
+nin = "nin"

@@ -106,6 +106,12 @@ impl GraphComparator {
 /// `object_uri` is the draft-atwood-jmap-graph-projection-00 §GraphNode/query
 /// Filter addition. A request that sets it uses
 /// [`JMAP_GRAPH_PROJECTION_URI`](crate::JMAP_GRAPH_PROJECTION_URI).
+///
+/// `where_`, `language` and `expression` are the
+/// draft-atwood-jmap-graph-search-00 §FilterCondition Extensions ("A
+/// FilterCondition may include `where`, `language` with `expression`, or
+/// both"). A request that sets them uses
+/// [`JMAP_GRAPH_SEARCH_URI`](crate::JMAP_GRAPH_SEARCH_URI).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -118,6 +124,22 @@ pub struct GraphNodeFilterCondition {
     /// [`jmap_types::JmapUri`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub object_uri: Option<Vec<String>>,
+    /// draft-atwood-jmap-graph-search-00 `where`: "A built-in filter
+    /// expression. The candidate matches if the expression is true for
+    /// it." Raw JSON: parse it with
+    /// [`Expression::parse`](crate::search::Expression::parse) and build it
+    /// with [`Expression::to_value`](crate::search::Expression::to_value).
+    #[serde(rename = "where", skip_serializing_if = "Option::is_none")]
+    pub where_: Option<serde_json::Value>,
+    /// draft-atwood-jmap-graph-search-00 `language`: "An identifier from
+    /// the account's `languages` list. Present if and only if `expression`
+    /// is present."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// draft-atwood-jmap-graph-search-00 `expression`: "A query in the
+    /// language named by `language`."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expression: Option<String>,
 }
 
 impl GraphNodeFilterCondition {
@@ -126,6 +148,9 @@ impl GraphNodeFilterCondition {
         Self {
             graph_id,
             object_uri: None,
+            where_: None,
+            language: None,
+            expression: None,
         }
     }
 }
@@ -174,7 +199,9 @@ impl GraphNodeComparator {
 /// (draft-atwood-jmap-graph-00 §GraphEdge/query and
 /// §GraphEdge/queryChanges; see the [module docs](self)).
 ///
-/// "All properties given must match."
+/// "All properties given must match." `where_`, `language` and `expression`
+/// are the draft-atwood-jmap-graph-search-00 §FilterCondition Extensions, as
+/// on [`GraphNodeFilterCondition`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -190,6 +217,22 @@ pub struct GraphEdgeFilterCondition {
     /// "The edge's `type` equals this value exactly."
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub edge_type: Option<String>,
+    /// draft-atwood-jmap-graph-search-00 `where`: "A built-in filter
+    /// expression. The candidate matches if the expression is true for
+    /// it." Raw JSON: parse it with
+    /// [`Expression::parse`](crate::search::Expression::parse) and build it
+    /// with [`Expression::to_value`](crate::search::Expression::to_value).
+    #[serde(rename = "where", skip_serializing_if = "Option::is_none")]
+    pub where_: Option<serde_json::Value>,
+    /// draft-atwood-jmap-graph-search-00 `language`: "An identifier from
+    /// the account's `languages` list. Present if and only if `expression`
+    /// is present."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// draft-atwood-jmap-graph-search-00 `expression`: "A query in the
+    /// language named by `language`."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expression: Option<String>,
 }
 
 impl GraphEdgeFilterCondition {
@@ -200,6 +243,9 @@ impl GraphEdgeFilterCondition {
             from_id: None,
             to_id: None,
             edge_type: None,
+            where_: None,
+            language: None,
+            expression: None,
         }
     }
 }

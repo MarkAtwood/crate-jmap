@@ -11,6 +11,7 @@ bindings in `jmap-graph-client`.
 | JMAP-ef3q.1 | Capability, Principal capability, Graph, GraphRights, GraphNode, GraphEdge, `/query` filters and comparators, `JmapObject` impls, JMAP Object URI type names | landed |
 | JMAP-ef3q.3 | Projection `objectUri` GraphNode filter, `JMAP_GRAPH_PROJECTION_URI` | landed |
 | JMAP-ef3q.4 | `edit` module (draft-atwood-jmap-graph-edit-00): capability, GraphNodeOp with filter/comparator, GraphNode `editFormat`/`snapshotSeq` accessors, `opsCompacted`, `GraphNode/cursor`, stream frames and events | landed |
+| JMAP-ef3q.7 | `search` module (draft-atwood-jmap-graph-search-00): capability, filter `where`/`language`/`expression`, built-in filter language AST with well-formedness parse and traversal depth, `queryTooComplex` | landed |
 
 ## Decisions
 
@@ -40,3 +41,17 @@ bindings in `jmap-graph-client`.
   (L222) requires a single condition with `nodeId`.
 - Op and cursor `data` stay base64url `String`s; the server never reads
   them (draft §Design Principles), so decoding belongs to clients.
+- graph-search `where` is a raw `serde_json::Value` in the filter
+  conditions, parsed by `search::Expression::parse(value, kind)`: the draft
+  (L162) splits a malformed expression (`invalidArguments`) from an unknown
+  `$` name (`unsupportedFilter`), and L242 makes `$edge`/`$from`
+  well-formedness depend on the candidate kind; a serde decode can express
+  neither. `Expression` mirrors the JSON object (pointer-keyed field map,
+  one slot per operator), so it cannot serialize a duplicate member.
+- Unknown members of an EdgeTest or ReachTest are malformed even when
+  `$`-prefixed (L160 "contain only the members defined for them"); the
+  `unsupportedFilter` rule (L162) covers expression members and operator
+  objects.
+- Checks needing the account (depth vs `maxDepth`, `supportsText`,
+  `collationAlgorithms`, `languages`, the `language`/`expression` pairing)
+  and evaluation are left to the server (JMAP-ef3q.8).

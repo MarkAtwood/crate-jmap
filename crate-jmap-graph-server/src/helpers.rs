@@ -44,10 +44,19 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
 /// `unsupportedFilter` error" (draft-atwood-jmap-graph-00 §GraphNode/query).
 /// A FilterOperator or a condition without `graphId` fails the typed
 /// decode, which the generic handler reports as `unsupportedFilter`.
+///
+/// This crate does not implement draft-atwood-jmap-graph-search-00, so the
+/// `where`, `language` and `expression` filter properties it defines are
+/// `unsupportedFilter` too, not silently ignored.
 pub(crate) fn require_graph_filter<C: serde::de::DeserializeOwned>(
     args: Value,
 ) -> Result<Value, JmapError> {
-    if args.get("filter").is_none_or(Value::is_null) {
+    let filter = args.get("filter").filter(|f| !f.is_null());
+    if filter.is_none_or(|f| {
+        ["where", "language", "expression"]
+            .iter()
+            .any(|k| f.get(k).is_some())
+    }) {
         return Err(JmapError::unsupported_filter());
     }
     reject_unsupported_sort::<C>(args.get("sort"))?;

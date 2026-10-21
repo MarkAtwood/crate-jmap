@@ -36,6 +36,11 @@
 //!   `urn:ietf:params:jmap:graph:edit` capability: [`GraphNodeOp`], the
 //!   GraphNode `editFormat` and `snapshotSeq` accessors, `GraphNode/cursor`
 //!   and the WebSocket op and cursor stream.
+//! - [`search`] — draft-atwood-jmap-graph-search-00, the
+//!   `urn:ietf:params:jmap:graph:search` capability: the
+//!   [`GraphSearchCapability`], the built-in filter language
+//!   [`Expression`](search::Expression) carried in the GraphNode and
+//!   GraphEdge filter conditions' `where`, and `queryTooComplex`.
 
 #![forbid(unsafe_code)]
 
@@ -46,6 +51,7 @@ pub mod edit;
 pub mod graph;
 pub mod node;
 pub mod query;
+pub mod search;
 mod wire;
 
 pub use capability::{
@@ -56,3 +62,4 @@ pub use edge::GraphEdge;
 pub use edit::{GraphEditCapability, GraphNodeOp, JMAP_GRAPH_EDIT_URI};
 pub use graph::{Graph, GraphRights};
 pub use node::GraphNode;
+pub use search::{GraphSearchCapability, JMAP_GRAPH_SEARCH_URI};
