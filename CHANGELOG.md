@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-filenode-server**: `space_files_rights` maps a member's Space
+  permissions to the `FilesRights` of a node in the Space file tree, and
+  `check_space_create`, `check_space_update` and `check_space_destroy`
+  refuse with `forbidden` a FileNode create, update or destroy those
+  rights do not grant, including any `shareWith` change and a root
+  destroy without `manage_space` (draft-atwood-jmap-chat-filenode-00
+  §Permission Mapping).
 - **jmap-chat-federation-types**: `is_jmap_object_uri`, whether a
   MessageAction or Endpoint `uri` has the `jmap` scheme
   (draft-atwood-jmap-chat-federation-00 §User References in Peer Methods).
