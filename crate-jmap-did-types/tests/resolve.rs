@@ -467,7 +467,7 @@ fn plc_signature_with_nonzero_trailing_bits_is_rejected() {
 #[test]
 fn plc_nullified_flag_must_match_replay() {
     // An audit log that hides a nullification is "inconsistent"
-    // (draft-atwood-jmap-chat-did-00 L252).
+    // (draft-atwood-jmap-chat-did-00 L279, jmap-chat-spec 33702a5).
     let synthetic = fixture("synthetic.json");
     let mut log = synthetic["recovery"].clone();
     log[1]["nullified"] = json!(false);

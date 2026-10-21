@@ -1,23 +1,25 @@
 //! `check_root_create`: the Space file tree root create checks.
 //!
 //! Oracle: draft-atwood-jmap-chat-filenode-00.md at jmap-chat-spec
-//! 0cd3af0 ("filenode Lnnn"):
+//! 33702a5 ("filenode Lnnn"):
 //!
-//! - L139 (at 6bcd9d8): "When a client creates a FileNode with `role:
+//! - L139: "When a client creates a FileNode with `role:
 //!   "chatspace"`, it MUST supply `spaceId`, and its `@type` ... MUST be
 //!   `"Directory"`. The server MUST validate:"
-//! - L130: "The Space identified by `spaceId` exists and the requesting
-//!   user is a member. If not, the server MUST return `forbidden`."
-//! - L131: "No file tree root already exists for that Space ... If one
+//! - L141: "The Space identified by `spaceId` exists and the requesting
+//!   user is a member. If not, the server SHOULD return `forbidden` in
+//!   both cases — Space not found and user not a member — to avoid
+//!   revealing Space existence to non-members."
+//! - L142: "No file tree root already exists for that Space ... If one
 //!   exists, the server MUST return an `alreadyExists` SetError ... with
 //!   `existingId` set to the id of the existing root."
-//! - L132: "The requesting user holds sufficient permission to create the
+//! - L143: "The requesting user holds sufficient permission to create the
 //!   root ... If not, the server MUST return `forbidden`."
-//! - L161: "Creating the Space file tree root ... requires
-//!   `"manage_space"` permission. This is a higher bar than the general
-//!   Create access granted by `"send"`".
+//! - L176: "Creating the Space file tree root ... requires
+//!   `"manage_space"` permission ... This is a higher bar than the
+//!   `mayAddChildren` grant to `"send"`".
 //!
-//! and draft-atwood-jmap-chat-00.md L1621 ("chat L1621"): "Compute the
+//! and draft-atwood-jmap-chat-00.md L1705 ("chat L1705"): "Compute the
 //! union of `permissions` across all SpaceRoles held by the member,
 //! including the implicit `@everyone` role."
 //!
@@ -126,7 +128,7 @@ fn root(space_id: Option<&str>) -> Value {
     node
 }
 
-/// L128 scopes the checks to creates "with `role:
+/// L139 scopes the checks to creates "with `role:
 /// "chatspace"`": other nodes pass without a Space.
 #[tokio::test]
 async fn non_root_node_is_not_checked() {
@@ -135,7 +137,7 @@ async fn non_root_node_is_not_checked() {
     assert_eq!(f.check(node).await, None);
 }
 
-/// L128: the client "MUST supply ... `spaceId`".
+/// L139: the client "MUST supply ... `spaceId`".
 #[tokio::test]
 async fn root_without_space_id_is_invalid_properties() {
     let f = Fixture::new();
@@ -144,7 +146,7 @@ async fn root_without_space_id_is_invalid_properties() {
     assert_eq!(err["properties"], json!(["spaceId"]));
 }
 
-/// L130: "Servers SHOULD return `forbidden` in both cases — Space not
+/// L141: "the server SHOULD return `forbidden` in both cases — Space not
 /// found and user not a member".
 #[tokio::test]
 async fn unknown_space_is_forbidden() {
@@ -153,8 +155,8 @@ async fn unknown_space_is_forbidden() {
     assert_eq!(err["type"], "forbidden");
 }
 
-/// L130: "the requesting user is a member. If not, the server MUST
-/// return `forbidden`."
+/// L141: "the requesting user is a member. If not, the server SHOULD
+/// return `forbidden`".
 #[tokio::test]
 async fn non_member_is_forbidden() {
     let f = Fixture::new();
@@ -163,7 +165,7 @@ async fn non_member_is_forbidden() {
     assert_eq!(err["type"], "forbidden");
 }
 
-/// L130 comes before L131: a non-member is not told a root exists.
+/// L141 comes before L142: a non-member is not told a root exists.
 #[tokio::test]
 async fn non_member_is_forbidden_even_when_a_root_exists() {
     let f = Fixture::new();
@@ -174,7 +176,7 @@ async fn non_member_is_forbidden_even_when_a_root_exists() {
     assert!(err.get("existingId").is_none(), "{err}");
 }
 
-/// L131: "If one exists, the server MUST return an `alreadyExists`
+/// L142: "If one exists, the server MUST return an `alreadyExists`
 /// SetError ... with `existingId` set to the id of the existing root."
 #[tokio::test]
 async fn second_root_is_already_exists_with_existing_id() {
@@ -186,7 +188,7 @@ async fn second_root_is_already_exists_with_existing_id() {
     assert_eq!(err["existingId"], json!(existing));
 }
 
-/// L131: "No file tree root already exists for that Space": another
+/// L142: "No file tree root already exists for that Space": another
 /// Space's root does not count.
 #[tokio::test]
 async fn another_spaces_root_does_not_block() {
@@ -196,7 +198,7 @@ async fn another_spaces_root_does_not_block() {
     assert_eq!(f.check(root(Some(SPACE))).await, None);
 }
 
-/// L132 and L161: `"send"` grants Create but not root creation, which
+/// L143 and L176: `"send"` grants `mayAddChildren` but not root creation, which
 /// "requires `"manage_space"` permission".
 #[tokio::test]
 async fn member_without_manage_space_is_forbidden() {
@@ -210,7 +212,7 @@ async fn member_without_manage_space_is_forbidden() {
     assert_eq!(err["type"], "forbidden");
 }
 
-/// L161: a member whose role grants `"manage_space"` may create the root.
+/// L176: a member whose role grants `"manage_space"` may create the root.
 #[tokio::test]
 async fn member_with_manage_space_may_create() {
     let f = Fixture::new();
@@ -218,7 +220,7 @@ async fn member_with_manage_space_may_create() {
     assert_eq!(f.check(root(Some(SPACE))).await, None);
 }
 
-/// L161: a role the member does not hold grants nothing.
+/// L176: a role the member does not hold grants nothing.
 #[tokio::test]
 async fn unheld_role_grants_nothing() {
     let f = Fixture::new();
@@ -227,7 +229,7 @@ async fn unheld_role_grants_nothing() {
     assert_eq!(err["type"], "forbidden");
 }
 
-/// chat L1621: the union includes "the implicit `@everyone` role".
+/// chat L1705: the union includes "the implicit `@everyone` role".
 #[tokio::test]
 async fn everyone_floor_with_manage_space_may_create() {
     let mut f = Fixture::new();

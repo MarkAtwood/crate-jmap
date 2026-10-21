@@ -160,13 +160,13 @@ fn chat_id_non_string_is_an_error() {
 
 #[test]
 fn task_metadata_round_trips_draft_keys() {
-    // L177-199: a `urn:ietf:params:jmap:chat:cap:task` MessageAction with `uri` in the
-    // "`jmap:task:<accountId>:<taskListId>:<taskId>`" form, a `label`, and
-    // (6bcd9d8 L197-203) `metadata` keys `progress` (String), `due`
+    // 33702a5 L183-203: a `urn:ietf:params:jmap:chat:cap:task` MessageAction
+    // with `uri` in the "`jmap:task:<accountId>:<taskId>`" form (L191), a
+    // `label`, and (L200-203) `metadata` keys `progress` (String), `due`
     // (UTCDate), `assigneeIds` (String[]) and `priority` (Integer).
     let action = json!({
         "type": "urn:ietf:params:jmap:chat:cap:task",
-        "uri": "jmap:task:A1:TL1:T9",
+        "uri": "jmap:task:A1:T9",
         "label": "Ship the release notes",
         "metadata": {
             "progress": "in-process",

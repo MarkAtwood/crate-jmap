@@ -469,7 +469,7 @@ async fn http_fetcher_returns_a_2xx_body() {
 
 #[tokio::test]
 async fn http_fetcher_reports_a_non_2xx_status() {
-    // did-00 L150 names "HTTP 4xx/5xx" as an unreachable document.
+    // did-00 L189 (jmap-chat-spec 33702a5) names "HTTP 4xx/5xx" as an unreachable document.
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .respond_with(ResponseTemplate::new(410))

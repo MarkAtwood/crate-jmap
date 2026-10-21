@@ -826,8 +826,9 @@ async fn space_query_changes_all_none_omits_optional_wire_keys() {
 
 /// `Space/set` update `addRoles` / `updateRoles` must pass every color
 /// representation through verbatim. Oracle: draft-atwood-jmap-chat-00
-/// §Color Representation — Design Tokens object (`"$type": "color"`,
-/// `"$value"` in CSS Color 4 syntax), CAM16 `[J, a, b]` / `[J, M, h]`,
+/// §Color Representation (L302 at jmap-chat-spec 33702a5) — Design Tokens
+/// object (`"$type": "color"`, `"$value"` a Design Tokens color object
+/// with `colorSpace` and `components`, "not a CSS color string"), CAM16 `[J, a, b]` / `[J, M, h]`,
 /// or sRGB hex (`"#5865f2"`); "Servers MUST accept all three
 /// representations in color-valued fields and MUST preserve the
 /// representation provided by the client." §Space/set addRoles:

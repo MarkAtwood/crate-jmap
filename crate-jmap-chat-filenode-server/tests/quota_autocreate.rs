@@ -2,20 +2,20 @@
 //! capability fields.
 //!
 //! Oracle: draft-atwood-jmap-chat-filenode-00.md at jmap-chat-spec
-//! 0cd3af0 ("filenode Lnnn"):
+//! 33702a5 ("filenode Lnnn"):
 //!
-//! - L108: "Maximum total blob storage in bytes across all FileNodes in a
+//! - L119: "Maximum total blob storage in bytes across all FileNodes in a
 //!   single Space's file tree. ... When a `FileNode/set` create would
 //!   cause the Space file tree to exceed this limit, the server MUST
 //!   return an `overQuota` SetError (as defined in {{RFC8620}} Section
 //!   5.3)."
-//! - L111: "When `true`, the server automatically creates a Space file
+//! - L122: "When `true`, the server automatically creates a Space file
 //!   tree root for each new Space at Space creation time and includes the
 //!   new FileNode in subsequent `FileNode/changes` responses."
-//! - L126 (at 6bcd9d8): "A Space's file tree is rooted at a single FileNode identified
-//!   by the well-known `role` value `"chatspace"` and
-//!   the `spaceId` extension property".
-//! - L138: "When a file tree exists for the Space, exactly one matching
+//! - L126: "A Space's file tree is rooted at a single FileNode
+//!   identified by the well-known `role` value `"chatspace"` and the
+//!   `spaceId` extension property".
+//! - L149: "When a file tree exists for the Space, exactly one matching
 //!   FileNode is returned."
 //!
 //! Records are hand-written JSON from the drafts' field lists.
@@ -83,7 +83,7 @@ async fn check(files: &MemoryBackend, new: FileNode) -> Option<Value> {
         .map(|e| serde_json::to_value(e).expect("SetError serializes"))
 }
 
-/// L108: only a create that would "exceed" the limit is refused; 60 + 40
+/// L119: only a create that would "exceed" the limit is refused; 60 + 40
 /// reaches 100 without exceeding it.
 #[tokio::test]
 async fn create_reaching_the_limit_passes() {
@@ -91,7 +91,7 @@ async fn create_reaching_the_limit_passes() {
     assert_eq!(check(&files, file("new", "r1", 40)).await, None);
 }
 
-/// L108: "the server MUST return an `overQuota` SetError": 60 + 41 > 100.
+/// L119: "the server MUST return an `overQuota` SetError": 60 + 41 > 100.
 #[tokio::test]
 async fn create_exceeding_the_limit_is_over_quota() {
     let files = fixture();
@@ -99,7 +99,7 @@ async fn create_exceeding_the_limit_is_over_quota() {
     assert_eq!(err["type"], "overQuota");
 }
 
-/// L108: the total is "across all FileNodes in a single Space's file
+/// L119: the total is "across all FileNodes in a single Space's file
 /// tree", so a create deep in the tree counts the whole tree.
 #[tokio::test]
 async fn nested_create_counts_the_whole_tree() {
@@ -108,7 +108,7 @@ async fn nested_create_counts_the_whole_tree() {
     assert_eq!(err["type"], "overQuota");
 }
 
-/// L108: the limit is per "single Space's file tree": S2's 1000 bytes do
+/// L119: the limit is per "single Space's file tree": S2's 1000 bytes do
 /// not count against S1, and S2 alone is already over.
 #[tokio::test]
 async fn other_spaces_tree_is_not_counted() {
@@ -118,7 +118,7 @@ async fn other_spaces_tree_is_not_counted() {
     assert_eq!(err["type"], "overQuota");
 }
 
-/// L108, L116: the limit applies to Space file trees only, those rooted
+/// L119, L126: the limit applies to Space file trees only, those rooted
 /// at a node with role `chatspace`.
 #[tokio::test]
 async fn node_outside_a_space_tree_is_not_checked() {
@@ -127,8 +127,8 @@ async fn node_outside_a_space_tree_is_not_checked() {
     assert_eq!(check(&files, dir("top", None)).await, None);
 }
 
-/// L111: the root is created "at Space creation time" and is the Space's
-/// file tree root (L116), found by the discovery query (L138).
+/// L122: the root is created "at Space creation time" and is the Space's
+/// file tree root (L126), found by the discovery query (L149).
 #[tokio::test]
 async fn auto_created_root_is_the_spaces_root() {
     let files = MemoryBackend::new().with_account(ACCOUNT);
@@ -151,7 +151,7 @@ async fn auto_created_root_is_the_spaces_root() {
     assert_eq!(out.primary["ids"], json!([id]));
 }
 
-/// L111: the server "includes the new FileNode in subsequent
+/// L122: the server "includes the new FileNode in subsequent
 /// `FileNode/changes` responses."
 #[tokio::test]
 async fn auto_created_root_is_in_filenode_changes() {
