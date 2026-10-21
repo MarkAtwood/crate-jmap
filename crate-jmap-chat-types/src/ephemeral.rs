@@ -19,9 +19,10 @@ pub struct ChatStreamEnable {
     /// list exported as
     /// [`crate::vocabulary::SPEC_EPHEMERAL_DATA_TYPES`]. Companion
     /// specifications register `"vtc"` and `"scene"`, listed in
-    /// [`crate::vocabulary::COMPANION_EPHEMERAL_DATA_TYPES`]. A request
-    /// containing ONLY unrecognized values MUST be rejected by the
-    /// server with a `RequestError`. Unrecognized values appearing
+    /// [`crate::vocabulary::COMPANION_EPHEMERAL_DATA_TYPES`]; each is
+    /// recognized only when the server advertises its companion WebSocket
+    /// capability. A request containing ONLY unrecognized values MUST be
+    /// rejected by the server with a `RequestError`. Unrecognized values appearing
     /// alongside recognized values MUST be silently ignored.
     pub data_types: Vec<String>,
     /// Chats to filter on; `None` (or JSON `null`) means all chats.

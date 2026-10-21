@@ -4,9 +4,10 @@
 //! A WebSocket transport keeps one [`EphemeralSubscription`] per
 //! connection, starting from [`EphemeralSubscription::default`] (nothing
 //! subscribed). Each `ChatStreamEnable` frame goes through
-//! [`EphemeralSubscription::replace_with`], which validates the frame,
-//! normalizes it, and replaces the whole subscription. A `ChatStreamDisable`
-//! frame resets it to the default.
+//! [`EphemeralSubscription::replace_with`], which validates the frame
+//! against the server's [`CompanionStreams`], normalizes it, and replaces
+//! the whole subscription. A `ChatStreamDisable` frame resets it to the
+//! default.
 //!
 //! Before sending a `ChatTypingEvent` to an owner's connections, the
 //! transport asks [`should_deliver_typing`] whether that owner may receive
@@ -53,6 +54,23 @@ impl From<Option<&Vec<Id>>> for IdScope {
     }
 }
 
+/// The companion WebSocket capabilities the server advertises, which
+/// decide whether the companion `dataTypes` values `"vtc"` and `"scene"`
+/// are recognized in a `ChatStreamEnable` frame.
+///
+/// The default advertises neither. Per draft-atwood-jmap-chat-wss-00
+/// §Enabling Ephemeral Push (L175), `"vtc"` is "recognized only when the
+/// server advertises `urn:ietf:params:jmap:vtc:websocket`", and `"scene"`
+/// "only when the server advertises `urn:ietf:params:jmap:scene:websocket`".
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CompanionStreams {
+    /// The server advertises `urn:ietf:params:jmap:vtc:websocket`.
+    pub vtc: bool,
+    /// The server advertises `urn:ietf:params:jmap:scene:websocket`.
+    pub scene: bool,
+}
+
 /// The ephemeral subscription of one WebSocket connection, normalized
 /// from a `ChatStreamEnable` frame.
 ///
@@ -62,33 +80,45 @@ impl From<Option<&Vec<Id>>> for IdScope {
 pub struct EphemeralSubscription {
     typing: Option<IdScope>,
     presence: Option<IdScope>,
+    vtc: bool,
+    scene: bool,
 }
 
 impl EphemeralSubscription {
     /// Validates and normalizes a `ChatStreamEnable` frame.
     ///
-    /// Only `"typing"` and `"presence"` in `dataTypes` take effect; other
+    /// `"typing"` and `"presence"` in `dataTypes` always take effect.
+    /// `"vtc"` and `"scene"` take effect only when `companions` says the
+    /// server advertises their capability; otherwise they are unrecognized
+    /// (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push, L196: the
+    /// value "is treated as unrecognized and silently ignored"). Other
     /// values are ignored. `chatIds` applies only when `"typing"` is
     /// present and `contactIds` only when `"presence"` is present.
     ///
     /// # Errors
     ///
-    /// Returns an `invalidArguments` [`JmapError`] when `dataTypes` is
-    /// empty or holds neither `"typing"` nor `"presence"`. The transport
-    /// sends it to the client as an RFC 8887 §4.3.4 `RequestError` frame
-    /// whose `type` is the full URN
-    /// `"urn:ietf:params:jmap:error:invalidArguments"`
-    /// (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push, L195);
-    /// the returned [`JmapError`] carries the short method-level name.
-    pub fn from_enable(enable: &ChatStreamEnable) -> Result<Self, JmapError> {
+    /// Returns an `invalidArguments` [`JmapError`] when `dataTypes` holds
+    /// no recognized value: "none of `"typing"`, `"presence"`, or a
+    /// companion value whose capability the server advertises"
+    /// (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push, L194). The
+    /// transport sends it to the client as an RFC 8887 §4.3.4
+    /// `RequestError` frame whose `type` is the full URN
+    /// `"urn:ietf:params:jmap:error:invalidArguments"`; the returned
+    /// [`JmapError`] carries the short method-level name.
+    pub fn from_enable(
+        enable: &ChatStreamEnable,
+        companions: CompanionStreams,
+    ) -> Result<Self, JmapError> {
         let has = |tag: &str| enable.data_types.iter().any(|t| t == tag);
         let subscription = Self {
             typing: has("typing").then(|| IdScope::from(enable.chat_ids.as_ref())),
             presence: has("presence").then(|| IdScope::from(enable.contact_ids.as_ref())),
+            vtc: companions.vtc && has("vtc"),
+            scene: companions.scene && has("scene"),
         };
         if subscription == Self::default() {
             return Err(JmapError::invalid_arguments(
-                "dataTypes must contain \"typing\" or \"presence\"",
+                "dataTypes must contain \"typing\", \"presence\" or an advertised companion value",
             ));
         }
         Ok(subscription)
@@ -103,8 +133,12 @@ impl EphemeralSubscription {
     ///
     /// Returns the same error as [`Self::from_enable`]. On error `self` is
     /// unchanged, as the draft requires.
-    pub fn replace_with(&mut self, enable: &ChatStreamEnable) -> Result<(), JmapError> {
-        *self = Self::from_enable(enable)?;
+    pub fn replace_with(
+        &mut self,
+        enable: &ChatStreamEnable,
+        companions: CompanionStreams,
+    ) -> Result<(), JmapError> {
+        *self = Self::from_enable(enable, companions)?;
         Ok(())
     }
 
@@ -120,6 +154,20 @@ impl EphemeralSubscription {
     /// ChatContact.
     pub fn presence(&self) -> Option<&IdScope> {
         self.presence.as_ref()
+    }
+
+    /// Whether `"vtc"` is subscribed: it was in `dataTypes` and the server
+    /// advertises `urn:ietf:params:jmap:vtc:websocket`. This is the
+    /// `chat_vtc` flag that `jmap-chat-vtc-server` takes.
+    pub fn vtc(&self) -> bool {
+        self.vtc
+    }
+
+    /// Whether `"scene"` is subscribed: it was in `dataTypes` and the
+    /// server advertises `urn:ietf:params:jmap:scene:websocket`. This is
+    /// the `chat_scene` flag that `jmap-chat-scene-server` takes.
+    pub fn scene(&self) -> bool {
+        self.scene
     }
 }
 

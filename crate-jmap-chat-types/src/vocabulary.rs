@@ -78,10 +78,14 @@ pub const SPEC_EPHEMERAL_DATA_TYPES: &[&str] = &["typing", "presence"];
 /// in-call events (draft-atwood-jmap-vtc-wss-00) and `"scene"` for spatial
 /// events (draft-atwood-jmap-scene-wss-00).
 ///
-/// Kept apart from [`SPEC_EPHEMERAL_DATA_TYPES`]: these do not count as
-/// recognized for the "none of `typing` or `presence`" rejection rule, and
-/// a server that lacks the companion WebSocket capability MUST silently
-/// ignore them.
+/// Kept apart from [`SPEC_EPHEMERAL_DATA_TYPES`]: each is recognized only
+/// when the server advertises its companion WebSocket capability,
+/// `urn:ietf:params:jmap:vtc:websocket` or
+/// `urn:ietf:params:jmap:scene:websocket` (L175). When it does, the value
+/// counts as recognized for the rejection rule ("none of `"typing"`,
+/// `"presence"`, or a companion value whose capability the server
+/// advertises", L194). When it does not, the value "is treated as
+/// unrecognized and silently ignored" (L196).
 pub const COMPANION_EPHEMERAL_DATA_TYPES: &[&str] = &["vtc", "scene"];
 
 /// Endpoint / MessageAction `type` for a video/voice teleconference

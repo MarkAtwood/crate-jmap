@@ -20,14 +20,15 @@ use jmap_types::Id;
 /// both subscription paths of draft-atwood-jmap-scene-wss-00
 /// §Interoperability with JMAP Chat WebSocket.
 ///
-/// `chat_scene` is `true` while the connection's current
-/// `ChatStreamEnable` subscription has `"scene"` in `dataTypes`. Set it
-/// from a frame that `jmap_chat_server::EphemeralSubscription::replace_with`
-/// accepted, keep it when that call fails, and clear it on
-/// `ChatStreamDisable`. Pass `false` when the server does not advertise
-/// `urn:ietf:params:jmap:scene:websocket`: a companion `dataTypes` value
-/// whose capability is absent "is treated as unrecognized and silently
-/// ignored" (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push).
+/// `chat_scene` is `jmap_chat_server::EphemeralSubscription::scene` of the
+/// connection's current `ChatStreamEnable` subscription: `true` only when
+/// `"scene"` was in `dataTypes` and the server advertises
+/// `urn:ietf:params:jmap:scene:websocket`, as passed in
+/// `jmap_chat_server::CompanionStreams`. Without that capability, a
+/// companion `dataTypes` value "is treated as unrecognized and silently
+/// ignored" (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push,
+/// L196). A failed `replace_with` leaves the subscription, and so the
+/// flag, unchanged, and `ChatStreamDisable` clears it.
 /// `subscription` is the connection's `SceneStreamEnable` subscription,
 /// which only `SceneStreamDisable` resets (§Subscription Independence).
 ///
