@@ -1288,6 +1288,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-peer-auth-io**: `PeerKeys` treats a fetched key set as fresh
+  for at least 60 seconds (`REFETCH_INTERVAL`), so a known `kid` keeps
+  verifying until the refetch interval ends even when the peer's
+  `/.well-known/jmap` is `no-store` or has no `Cache-Control`
+  (draft-atwood-jmap-chat-federation-00 L225 at jmap-chat-spec 29e9a41).
+  Previously such a peer was usable on one request per minute. A DNS
+  TTL under 60 seconds still ends the entry early.
 - **BREAKING** **jmap-chat-server**: `resolve_channel_permissions` takes
   the Space id after `space_permissions`. A ChannelPermission with
   `targetType: "role"` whose `targetId` is that Space id addresses the

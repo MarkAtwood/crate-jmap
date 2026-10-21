@@ -39,14 +39,14 @@ Any `Err` means reject the request (HTTP 403).
   queries TXT `_jmap-peer.<peer-domain>.` together, then applies
   `jmap_peer_auth::usable_keys`. It caches the result for the response's
   HTTP freshness lifetime (`max-age`, or `Expires` minus `Date`, less
-  `Age`), at most one hour, and at most the DNS TTL.
+  `Age`), at least 60 seconds and at most one hour, and at most the DNS
+  TTL.
 - An unknown `kid`, a bogus DNSSEC answer, an expired entry or no keys
   after a failed fetch forces a new fetch and a new DNS query, at most
-  once every 60 seconds per peer domain. Within that interval the request
-  is rejected, so a peer whose responses are fresh for less than 60
-  seconds (`no-store`, or no `Cache-Control`) is usable only on the first
-  request of each interval. Keys are never served past their freshness
-  lifetime.
+  once every 60 seconds per peer domain. Within that interval a request
+  naming a `kid` outside the last fetched keys is rejected; a known `kid`
+  keeps verifying from those keys even when the response was fresh for
+  less than 60 seconds (`no-store`, or no `Cache-Control`).
 - One fetch per peer domain runs at a time; concurrent requests wait for
   it. At most 10 000 peer domains are tracked by default.
 - `HttpsFetcher` is HTTPS-only, validates each hop's certificate against
@@ -70,8 +70,9 @@ Any `Err` means reject the request (HTTP 403).
   refuses loopback, link-local and private ranges in production.
 - A proxy configured on the reqwest builder resolves names itself and
   bypasses the address policy.
-- A response without explicit freshness (`max-age` or `Expires`) is not
-  reused, so such a peer is fetched on every request.
+- A response without explicit freshness (`max-age` or `Expires`) is
+  reused for 60 seconds only, so such a peer is fetched once a minute
+  while it sends requests.
 - The keys are fetched before the signature is checked, as they must be
   to check it.
 - Upstream name servers must pass DNSSEC records through. One that

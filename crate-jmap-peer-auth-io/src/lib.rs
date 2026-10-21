@@ -10,8 +10,8 @@
 //!   unsigned GET of `https://<peer-domain>/.well-known/jmap` (§Key
 //!   Publication), queries `_jmap-peer.<peer-domain>` (§DNSSEC Key
 //!   Binding), applies [`usable_keys`](jmap_peer_auth::usable_keys), and
-//!   caches the result for the HTTP freshness lifetime, at most one hour
-//!   and at most the DNS TTL. An unknown `kid` or an expired entry forces
+//!   caches the result for the HTTP freshness lifetime, at least 60
+//!   seconds and at most one hour, and at most the DNS TTL. An unknown `kid` or an expired entry forces
 //!   a refetch and a new DNS query, at most once every 60 seconds per peer
 //!   domain, whatever the freshness lifetime.
 //! - [`Fetch`] and [`HttpsFetcher`]: the HTTPS GET, with certificate
