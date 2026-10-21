@@ -1388,6 +1388,15 @@ wire behaviour that a conforming peer can observe.
   resolve, instead of `forbidden` (draft-atwood-jmap-vtc-00 §VTCCall/set:
   "The server SHOULD return the same error when the caller is not a
   member of that Chat").
+- **BREAKING** **jmap-scene-server**, **jmap-chat-scene-server**:
+  `should_deliver` and `should_deliver_scene` take the region's hosting
+  account (the event's `accountId`) and the recipient's own account as
+  separate arguments. The region, avatars and object are read from the
+  hosting account; the Chat capability check and
+  `SceneBackend::is_user_blocked` use the recipient's account, since
+  suppression applies when Chat "is available for the receiving account"
+  and consults "the recipient's ChatContact records"
+  (draft-atwood-jmap-scene-wss-00 §Blocked-Sender Suppression).
 - **BREAKING** **jmap-vtc-server**, **jmap-chat-vtc-server**:
   `should_deliver` and `should_deliver_vtc` take the call's hosting
   account (the event's `accountId`) and the recipient's own account as

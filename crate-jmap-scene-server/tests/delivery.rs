@@ -159,7 +159,8 @@ async fn delivers(
     sub: &SceneEphemeralSubscription,
     e: &SceneEvent,
 ) -> bool {
-    should_deliver(backend, &recipient.to_owned(), &Id::from(ACCOUNT), sub, e)
+    let account = Id::from(ACCOUNT);
+    should_deliver(backend, &recipient.to_owned(), &account, &account, sub, e)
         .await
         .unwrap()
 }
@@ -383,6 +384,36 @@ async fn no_blocked_sender_filtering_without_chat() {
         SceneEvent::Interaction(interaction(R1, SCULPTURE, MALLORY)),
     ] {
         assert!(delivers(&backend, BOB, &all(), &e).await, "{e:?}");
+    }
+}
+
+/// jmap-chat-spec 33702a5, wss L178-181: an event's `accountId` is "the
+/// id of the region's hosting account ... Other users reach that account
+/// as a shared account." L791-795: "When the JMAP Chat capability
+/// (`urn:ietf:params:jmap:chat`) is available for the receiving account,
+/// the server SHOULD consult the recipient's ChatContact records". So
+/// the Chat capability that gates suppression is the recipient's own
+/// account's, not the hosting account's.
+#[tokio::test]
+async fn blocked_sender_check_uses_the_receiving_account() {
+    let hosting = Id::from(ACCOUNT);
+    let bob_personal = Id::from("acct-bob");
+    let e = avatar_event(MALLORY, "entered");
+    for (chat_account, expect_delivered) in [(&hosting, true), (&bob_personal, false)] {
+        let backend = scene();
+        backend.advertise_capability(chat_account, CHAT);
+        backend.block(BOB, MALLORY);
+        let delivered = should_deliver(
+            &backend,
+            &BOB.to_owned(),
+            &hosting,
+            &bob_personal,
+            &all(),
+            &e,
+        )
+        .await
+        .unwrap();
+        assert_eq!(delivered, expect_delivered, "Chat on {chat_account:?}");
     }
 }
 

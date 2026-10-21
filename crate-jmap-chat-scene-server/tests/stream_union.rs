@@ -123,6 +123,7 @@ async fn delivers(chat_scene: bool, sub: &SceneEphemeralSubscription, ev: &Scene
         &fixture(),
         &ALICE.to_owned(),
         &Id::from(ACCOUNT),
+        &Id::from(ACCOUNT),
         chat_scene,
         sub,
         ev,
