@@ -36,6 +36,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -493,12 +494,13 @@ pub async fn handle_contact_query<B: ChatBackend>(
         .query_objects::<ChatContact>(
             caller,
             &account_id,
-            filter.as_ref(),
-            sort.as_deref(),
-            limit,
-            position,
-            anchor.as_ref(),
-            anchor_offset,
+            QueryParams::new()
+                .filter(filter.as_ref())
+                .sort(sort.as_deref())
+                .limit(limit)
+                .position(position)
+                .anchor(anchor.as_ref())
+                .anchor_offset(anchor_offset),
         )
         .await
         .map_err(JmapError::from)?;

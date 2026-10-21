@@ -57,8 +57,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-    ContactsBackend, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
-    QueryResult, SetError, SetErrorType, SetObject,
+    ContactsBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_contacts_types::ContactCardFilterCondition;
 use jmap_server::{apply_patch_object, resolve_query_start};
@@ -627,13 +627,17 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        let QueryParams {
+            filter,
+            sort,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
         let inner = self.inner.lock().unwrap();
 
         // Filter + sort dispatch.
@@ -764,13 +768,13 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        let QueryChangesParams {
+            since_query_state,
+            max_changes,
+            ..
+        } = params;
         let changes = self
             .get_changes::<O>(&(), account_id, since_query_state, max_changes)
             .await?;

@@ -13,8 +13,8 @@
 pub use jmap_contacts_types::backend::{AddressBookProperty, ContactCardProperty};
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 
 // ---------------------------------------------------------------------------

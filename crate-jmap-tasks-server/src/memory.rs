@@ -62,8 +62,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject, TasksBackend,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject, TasksBackend,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
@@ -527,13 +527,17 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        let QueryParams {
+            filter,
+            sort,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
         // Fail loud on any non-trivial filter. A `None` or all-fields-None
         // filter passes (matches everything); any populated field rejects.
         //
@@ -641,13 +645,15 @@ impl JmapBackend for MemoryBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        let QueryChangesParams {
+            since_query_state,
+            filter,
+            sort,
+            max_changes,
+            ..
+        } = params;
         let changes = self
             .get_changes::<O>(caller, account_id, since_query_state, max_changes)
             .await?;
@@ -655,7 +661,11 @@ impl JmapBackend for MemoryBackend {
         // The current result of the same query, unpaginated: `added`
         // indices are positions in it (RFC 8620 §5.6).
         let current = self
-            .query_objects::<O>(caller, account_id, filter, sort, None, 0, None, 0)
+            .query_objects::<O>(
+                caller,
+                account_id,
+                QueryParams::new().filter(filter).sort(sort),
+            )
             .await
             .map_err(|e| match e {
                 // Changes to a query the server cannot run cannot be

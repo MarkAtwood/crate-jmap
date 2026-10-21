@@ -13,8 +13,8 @@ pub use jmap_calendars_types::backend::{
 };
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 
 // bd:JMAP-ic0j.30 — `jmap_types::PatchObject` is referenced as a fully
@@ -649,12 +649,13 @@ pub trait CalendarsBackend: JmapBackend {
             self.query_objects::<jmap_calendars_types::CalendarEvent>(
                 caller,
                 account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
+                QueryParams::new()
+                    .filter(filter)
+                    .sort(sort)
+                    .limit(limit)
+                    .position(position)
+                    .anchor(anchor)
+                    .anchor_offset(anchor_offset),
             )
             .await
             .map_err(|e| match e {

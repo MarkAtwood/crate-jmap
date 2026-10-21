@@ -33,7 +33,7 @@ use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{Attachment, AttachmentCreate, Chat, ChatKind, ChatPermission, Space};
 use jmap_filenode_server::FileNodeBackend;
 use jmap_filenode_types::{FileNode, FileNodeFilterCondition, FilesRights, NodeRole, NodeType};
-use jmap_server::{BackendQueryError, BackendSetError, SetError, SetErrorType};
+use jmap_server::{BackendQueryError, BackendSetError, QueryParams, SetError, SetErrorType};
 use jmap_types::{Id, PatchObject};
 
 /// A storage failure while checking a FileNode operation or a
@@ -153,12 +153,7 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
         .query_objects::<FileNode>(
             files_caller,
             account_id,
-            Some(&filter),
-            None,
-            Some(1),
-            0,
-            None,
-            0,
+            QueryParams::new().filter(Some(&filter)).limit(Some(1)),
         )
         .await
         .map_err(RootCheckError::Files)?;
@@ -358,7 +353,7 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
     filter.role = Some(NodeRole::ChatSpace.to_wire_str().to_owned());
     filter.space_id = Some(space_id.clone());
     let roots = files
-        .query_objects::<FileNode>(caller, account_id, Some(&filter), None, None, 0, None, 0)
+        .query_objects::<FileNode>(caller, account_id, QueryParams::new().filter(Some(&filter)))
         .await
         .map_err(TreeDestroyError::Query)?
         .ids;

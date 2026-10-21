@@ -75,8 +75,8 @@ use crate::backend::{
     group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
     room_signature_key_not_bound, signature_key_bound_elsewhere, BackendChangesError,
     BackendQueryError, BackendSetError, ChangesResult, GetObject, HubReply, HubUnavailable,
-    JmapBackend, JmapObject, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom, QueryChangesResult,
-    QueryObject, QueryResult, SetError, SetErrorType,
+    JmapBackend, JmapObject, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom, QueryChangesParams,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType,
 };
 use crate::fanout::{Fanout, FanoutRecipients};
 use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
@@ -429,12 +429,7 @@ impl<C: Send + Sync + 'static> JmapBackend for MemoryBackend<C> {
         &self,
         _caller: &(),
         _account_id: &Id,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _limit: Option<u64>,
-        _position: i64,
-        _anchor: Option<&Id>,
-        _anchor_offset: i64,
+        _params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
         Err(BackendQueryError::Method(JmapError::unknown_method()))
     }
@@ -443,12 +438,7 @@ impl<C: Send + Sync + 'static> JmapBackend for MemoryBackend<C> {
         &self,
         _caller: &(),
         _account_id: &Id,
-        _since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
         Err(BackendChangesError::CannotCalculate)
     }

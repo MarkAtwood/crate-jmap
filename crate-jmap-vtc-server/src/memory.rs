@@ -64,8 +64,8 @@ use crate::query::{
 };
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    VtcBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject, VtcBackend,
 };
 
 /// How one id changed in one state step.
@@ -532,13 +532,17 @@ impl JmapBackend for MemoryBackend {
         &self,
         caller: &String,
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
+        let QueryParams {
+            filter,
+            sort,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
         // `O` is one of the queryable VTC types, so its filter and
         // comparators re-decode as that type's.
         let recode = |v: Result<Value, serde_json::Error>| {
@@ -641,12 +645,7 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &String,
         _account_id: &Id,
-        _since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
         Err(BackendChangesError::CannotCalculate)
     }

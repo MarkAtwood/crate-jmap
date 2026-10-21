@@ -76,8 +76,8 @@ use jmap_mime::message_to_jmap_body;
 
 use crate::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, MailBackend, QueryChangesResult, QueryObject, QueryResult, SetError,
-    SetErrorType, SetObject,
+    JmapBackend, JmapObject, MailBackend, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_mail_types::{
     query::{
@@ -726,13 +726,17 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        let QueryParams {
+            filter,
+            sort,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
         // Collect and sort IDs outside the lock for deterministic ordering.
         // For Email and EmailSubmission objects, apply filter conditions in-process
         // using a JSON roundtrip (since O::Filter: Serialize, we can recover the
@@ -1027,13 +1031,16 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        let QueryChangesParams {
+            since_query_state,
+            filter,
+            sort,
+            max_changes,
+            up_to_id,
+            ..
+        } = params;
         // Step 1: Validate since_query_state by parsing it as a u64 counter.
         // An unparsable token means the client supplied a state we never issued;
         // return cannotCalculateChanges (limit=0) per RFC 8620 §5.6.
@@ -1050,7 +1057,11 @@ impl JmapBackend for MemoryBackend {
 
         // Step 3: Get the current filtered+sorted result list (no pagination).
         let query_result = self
-            .query_objects::<O>(_caller, account_id, filter, sort, None, 0, None, 0)
+            .query_objects::<O>(
+                _caller,
+                account_id,
+                QueryParams::new().filter(filter).sort(sort),
+            )
             .await
             .map_err(|e| match e {
                 // Changes to a query the server cannot run cannot be

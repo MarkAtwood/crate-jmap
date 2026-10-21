@@ -89,8 +89,8 @@ pub mod vacation;
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
     EmailProperty, EmailSubmissionProperty, GetObject, IdentityProperty, JmapBackend, JmapObject,
-    MailBackend, MailboxProperty, QueryChangesResult, QueryObject, QueryResult,
-    SearchSnippetProperty, SetError, SetErrorType, SetObject, ThreadProperty,
+    MailBackend, MailboxProperty, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SearchSnippetProperty, SetError, SetErrorType, SetObject, ThreadProperty,
     VacationResponseProperty,
 };
 pub use email::{

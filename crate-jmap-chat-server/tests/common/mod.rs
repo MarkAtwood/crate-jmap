@@ -29,8 +29,8 @@ pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 use jmap_chat_server::{
     AttachmentBlob, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
     ChatBackend, ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend, JmapObject,
-    OpResult, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    SlowModeError, SpacePatchOp,
+    OpResult, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_types::{Id, PatchObject, State, UTCDate};
 
@@ -84,12 +84,7 @@ impl JmapBackend for FaultyBackend {
         &self,
         _caller: &(),
         _account_id: &Id,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _limit: Option<u64>,
-        _position: i64,
-        _anchor: Option<&Id>,
-        _anchor_offset: i64,
+        _params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         Err(BackendQueryError::Other(MemoryError::new(
             "storage unavailable",
@@ -100,12 +95,7 @@ impl JmapBackend for FaultyBackend {
         &self,
         _caller: &(),
         _account_id: &Id,
-        _since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         Err(BackendChangesError::Other(MemoryError::new(
             "storage unavailable",
@@ -479,24 +469,10 @@ impl JmapBackend for TrackingBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
-            .query_objects::<O>(
-                caller,
-                account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
-            )
+            .query_objects::<O>(caller, account_id, params)
             .await
     }
 
@@ -504,24 +480,10 @@ impl JmapBackend for TrackingBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         self.inner
-            .query_changes::<O>(
-                caller,
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
+            .query_changes::<O>(caller, account_id, params)
             .await
     }
 }
@@ -918,50 +880,18 @@ impl JmapBackend for IdentityBackend {
         &self,
         _caller: &Id,
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-        self.inner
-            .query_objects::<O>(
-                &(),
-                account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
-            )
-            .await
+        self.inner.query_objects::<O>(&(), account_id, params).await
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         _caller: &Id,
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        self.inner
-            .query_changes::<O>(
-                &(),
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
-            .await
+        self.inner.query_changes::<O>(&(), account_id, params).await
     }
 }
 
@@ -1384,24 +1314,10 @@ impl JmapBackend for InjectableBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
-            .query_objects::<O>(
-                caller,
-                account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
-            )
+            .query_objects::<O>(caller, account_id, params)
             .await
     }
 
@@ -1409,24 +1325,10 @@ impl JmapBackend for InjectableBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         self.inner
-            .query_changes::<O>(
-                caller,
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
+            .query_changes::<O>(caller, account_id, params)
             .await
     }
 }

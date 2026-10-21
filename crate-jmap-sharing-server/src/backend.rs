@@ -29,7 +29,8 @@
 //! consult the upstream rustdoc for canonical documentation:
 //! - [`AddedItem`], [`BackendChangesError`], [`BackendSetError`],
 //!   [`ChangesResult`], [`GetObject`], [`JmapBackend`], [`JmapObject`],
-//!   [`QueryChangesResult`], [`QueryObject`], [`QueryResult`],
+//!   [`QueryChangesParams`], [`QueryChangesResult`], [`QueryObject`],
+//!   [`QueryParams`], [`QueryResult`],
 //!   [`SetError`], [`SetErrorType`], [`SetObject`] → [`jmap_server`]
 //! - [`PrincipalProperty`], [`ShareNotificationProperty`] →
 //!   [`jmap_sharing_types::backend`]
@@ -39,8 +40,8 @@
 
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProperty};
 

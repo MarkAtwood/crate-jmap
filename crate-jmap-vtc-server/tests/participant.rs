@@ -8,7 +8,8 @@ mod common;
 use common::*;
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapObject,
-    QueryChangesResult, QueryObject, QueryResult, SetErrorType, SetObject,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetErrorType,
+    SetObject,
 };
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
@@ -1396,50 +1397,18 @@ impl jmap_server::JmapBackend for FailCallUpdate {
         &self,
         caller: &String,
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
-        self.0
-            .query_objects::<O>(
-                caller,
-                account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
-            )
-            .await
+        self.0.query_objects::<O>(caller, account_id, params).await
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         caller: &String,
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
-        self.0
-            .query_changes::<O>(
-                caller,
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
-            .await
+        self.0.query_changes::<O>(caller, account_id, params).await
     }
 }
 

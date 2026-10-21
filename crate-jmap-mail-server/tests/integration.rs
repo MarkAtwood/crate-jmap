@@ -19,7 +19,7 @@ use jmap_mail_server::{
     MailBackend, SetErrorType,
 };
 use jmap_mail_types::{Identity, Mailbox};
-use jmap_server::HandlerOutput;
+use jmap_server::{HandlerOutput, QueryChangesParams, QueryParams};
 use jmap_types::Id;
 use jmap_types::Invocation;
 
@@ -548,54 +548,22 @@ async fn search_snippet_get_capability_gated() {
             &self,
             _caller: &(),
             account_id: &Id,
-            filter: Option<&O::Filter>,
-            sort: Option<&[O::Comparator]>,
-            limit: Option<u64>,
-            position: i64,
-            anchor: Option<&Id>,
-            anchor_offset: i64,
+            params: QueryParams<'_, O>,
         ) -> Result<jmap_mail_server::QueryResult, jmap_mail_server::BackendQueryError<Self::Error>>
         {
-            self.0
-                .query_objects::<O>(
-                    &(),
-                    account_id,
-                    filter,
-                    sort,
-                    limit,
-                    position,
-                    anchor,
-                    anchor_offset,
-                )
-                .await
+            self.0.query_objects::<O>(&(), account_id, params).await
         }
 
         async fn query_changes<O: jmap_mail_server::QueryObject + Send + Sync>(
             &self,
             _caller: &(),
             account_id: &Id,
-            since_query_state: &jmap_types::State,
-            filter: Option<&O::Filter>,
-            sort: Option<&[O::Comparator]>,
-            max_changes: Option<u64>,
-            up_to_id: Option<&Id>,
-            collapse_threads: bool,
+            params: QueryChangesParams<'_, O>,
         ) -> Result<
             jmap_mail_server::QueryChangesResult,
             jmap_mail_server::BackendChangesError<Self::Error>,
         > {
-            self.0
-                .query_changes::<O>(
-                    &(),
-                    account_id,
-                    since_query_state,
-                    filter,
-                    sort,
-                    max_changes,
-                    up_to_id,
-                    collapse_threads,
-                )
-                .await
+            self.0.query_changes::<O>(&(), account_id, params).await
         }
     }
 
@@ -9844,7 +9812,7 @@ async fn memory_backend_query_objects_mailbox_honors_filter_directly() {
         serde_json::from_value(serde_json::json!({"parentId": null}))
             .expect("MailboxFilterCondition must deserialize");
     let result = backend
-        .query_objects::<Mailbox>(&(), &account_id, Some(&filter), None, None, 0, None, 0)
+        .query_objects::<Mailbox>(&(), &account_id, QueryParams::new().filter(Some(&filter)))
         .await
         .expect("query_objects::<Mailbox> must not fail");
 
@@ -9876,7 +9844,7 @@ async fn memory_backend_query_objects_mailbox_honors_sort_directly() {
 
     let sort = [serde_json::json!({"property": "name", "isAscending": true})];
     let result = backend
-        .query_objects::<Mailbox>(&(), &account_id, None, Some(&sort), None, 0, None, 0)
+        .query_objects::<Mailbox>(&(), &account_id, QueryParams::new().sort(Some(&sort)))
         .await
         .expect("query_objects::<Mailbox> sort must not fail");
 

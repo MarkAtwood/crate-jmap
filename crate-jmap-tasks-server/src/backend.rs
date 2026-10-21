@@ -44,9 +44,15 @@ pub use jmap_server::ChangesResult;
 /// id list, anchor position, total count (when requested), and state.
 pub use jmap_server::QueryResult;
 
+/// Arguments of [`JmapBackend::query_objects`] (RFC 8620 §5.5).
+pub use jmap_server::QueryParams;
+
 /// Result of [`JmapBackend::query_changes`] (RFC 8620 §5.6). Carries
 /// `added`, `removed`, optional total count, and the new state.
 pub use jmap_server::QueryChangesResult;
+
+/// Arguments of [`JmapBackend::query_changes`] (RFC 8620 §5.6).
+pub use jmap_server::QueryChangesParams;
 
 /// One entry in the `added` array of a [`QueryChangesResult`]: a typed
 /// `(index, id)` pair.

@@ -27,7 +27,9 @@ use crate::HandlerOutput;
 use jmap_types::{Id, JmapError, State};
 use serde_json::{json, Value};
 
-use crate::backend::{GetObject, JmapBackend, JmapObject, QueryObject};
+use crate::backend::{
+    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryObject, QueryParams,
+};
 use crate::helpers::{
     enforce_max_objects_in_get, extract_account_id, not_found_json, optional_arg,
     query_anchor_args, serialize_value,
@@ -313,12 +315,13 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         .query_objects::<O>(
             caller,
             &account_id,
-            filter.as_ref(),
-            sort.as_deref(),
-            limit,
-            position,
-            anchor.as_ref(),
-            anchor_offset,
+            QueryParams::new()
+                .filter(filter.as_ref())
+                .sort(sort.as_deref())
+                .limit(limit)
+                .position(position)
+                .anchor(anchor.as_ref())
+                .anchor_offset(anchor_offset),
         )
         .await
         .map_err(JmapError::from)?;
@@ -398,12 +401,11 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         .query_changes::<O>(
             caller,
             &account_id,
-            &since_query_state,
-            filter.as_ref(),
-            sort.as_deref(),
-            max_changes,
-            up_to_id.as_ref(),
-            false, // collapse_threads: only meaningful for Email/queryChanges
+            QueryChangesParams::new(&since_query_state)
+                .filter(filter.as_ref())
+                .sort(sort.as_deref())
+                .max_changes(max_changes)
+                .up_to_id(up_to_id.as_ref()),
         )
         .await
         .map_err(JmapError::from)?;
@@ -561,7 +563,8 @@ mod tests {
     // -----------------------------------------------------------------
 
     use crate::backend::{
-        BackendChangesError, BackendQueryError, ChangesResult, QueryChangesResult,
+        BackendChangesError, BackendQueryError, ChangesResult, QueryChangesParams,
+        QueryChangesResult, QueryParams,
     };
 
     /// Minimal `QueryObject` used only to instantiate [`handle_query`].
@@ -646,12 +649,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _limit: Option<u64>,
-            _position: i64,
-            _anchor: Option<&Id>,
-            _anchor_offset: i64,
+            _params: QueryParams<'_, O>,
         ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
             Err(match &self.0 {
                 QueryFailure::Method(e) => BackendQueryError::Method(e.clone()),
@@ -663,12 +661,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_query_state: &State,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _max_changes: Option<u64>,
-            _up_to_id: Option<&Id>,
-            _collapse_threads: bool,
+            _params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
             unreachable!("only query_objects is exercised")
         }
@@ -820,12 +813,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _limit: Option<u64>,
-            _position: i64,
-            _anchor: Option<&Id>,
-            _anchor_offset: i64,
+            _params: QueryParams<'_, O>,
         ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
             unreachable!("only /get is exercised")
         }
@@ -834,12 +822,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_query_state: &State,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _max_changes: Option<u64>,
-            _up_to_id: Option<&Id>,
-            _collapse_threads: bool,
+            _params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
             unreachable!("only /get is exercised")
         }
@@ -894,5 +877,196 @@ mod tests {
                 .await
                 .expect("null ids must not be rejected by the maxObjectsInGet cap");
         assert_eq!(resp["list"], json!([]));
+    }
+
+    /// Backend whose account exists and which records the
+    /// [`QueryParams`] / [`QueryChangesParams`] it receives as JSON, so a
+    /// test can compare them with the request's wire arguments.
+    #[derive(Default)]
+    struct RecordingQueryBackend(std::sync::Mutex<Option<Value>>);
+
+    impl RecordingQueryBackend {
+        fn take(&self) -> Value {
+            self.0
+                .lock()
+                .unwrap()
+                .take()
+                .expect("backend query method was not called")
+        }
+    }
+
+    impl JmapBackend for RecordingQueryBackend {
+        type Error = LeakyQueryError;
+        type CallerCtx = ();
+
+        async fn account_exists(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            unreachable!("only queries are exercised")
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            unreachable!("only queries are exercised")
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _since_state: &State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only queries are exercised")
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            params: QueryParams<'_, O>,
+        ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
+            *self.0.lock().unwrap() = Some(json!({
+                "filter": params.filter.map(|f| serde_json::to_value(f).unwrap()),
+                "sort": params.sort.map(|s| serde_json::to_value(s).unwrap()),
+                "limit": params.limit,
+                "position": params.position,
+                "anchor": params.anchor,
+                "anchorOffset": params.anchor_offset,
+            }));
+            Ok(crate::backend::QueryResult::new(
+                vec![],
+                0,
+                None,
+                State::from("q0"),
+                false,
+            ))
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            params: QueryChangesParams<'_, O>,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            *self.0.lock().unwrap() = Some(json!({
+                "sinceQueryState": params.since_query_state,
+                "filter": params.filter.map(|f| serde_json::to_value(f).unwrap()),
+                "sort": params.sort.map(|s| serde_json::to_value(s).unwrap()),
+                "maxChanges": params.max_changes,
+                "upToId": params.up_to_id,
+                "collapseThreads": params.collapse_threads,
+            }));
+            Ok(QueryChangesResult::new(
+                params.since_query_state.clone(),
+                State::from("q2"),
+                None,
+                vec![],
+                vec![],
+            ))
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.5 (rfc8620.txt L2368-2501) defines the
+    /// `/query` arguments `filter`, `sort`, `position`, `anchor`,
+    /// `anchorOffset` and `limit`. Every one the client sends MUST reach
+    /// the backend unchanged in [`QueryParams`].
+    #[tokio::test]
+    async fn handle_query_passes_every_argument_to_backend() {
+        let backend = RecordingQueryBackend::default();
+        let args = json!({
+            "accountId": "a1",
+            "filter": {"text": "hello"},
+            "sort": [{"property": "receivedAt", "isAscending": false}],
+            "position": 3,
+            "anchor": "m7",
+            "anchorOffset": -2,
+            "limit": 25,
+        });
+        handle_query::<QueryProbe, _>(&backend, &(), args)
+            .await
+            .expect("query must succeed");
+        assert_eq!(
+            backend.take(),
+            json!({
+                "filter": {"text": "hello"},
+                "sort": [{"property": "receivedAt", "isAscending": false}],
+                "limit": 25,
+                "position": 3,
+                "anchor": "m7",
+                "anchorOffset": -2,
+            })
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.5 (rfc8620.txt L2471, L2493): `position` and
+    /// `anchorOffset` default to 0; `filter`, `sort`, `anchor` and `limit`
+    /// are optional. A request with none of them reaches the backend as
+    /// those defaults.
+    #[tokio::test]
+    async fn handle_query_omitted_arguments_reach_backend_as_rfc_defaults() {
+        let backend = RecordingQueryBackend::default();
+        handle_query::<QueryProbe, _>(&backend, &(), json!({"accountId": "a1"}))
+            .await
+            .expect("query must succeed");
+        assert_eq!(
+            backend.take(),
+            json!({
+                "filter": null,
+                "sort": null,
+                "limit": null,
+                "position": 0,
+                "anchor": null,
+                "anchorOffset": 0,
+            })
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.6 (rfc8620.txt L2649-2669) defines the
+    /// `/queryChanges` arguments `filter`, `sort`, `sinceQueryState`,
+    /// `maxChanges` and `upToId`; each MUST reach the backend unchanged in
+    /// [`QueryChangesParams`]. `collapseThreads` exists only on
+    /// `Email/queryChanges` (RFC 8621 §4.5), so the generic handler passes
+    /// `false`.
+    #[tokio::test]
+    async fn handle_query_changes_passes_every_argument_to_backend() {
+        let backend = RecordingQueryBackend::default();
+        let args = json!({
+            "accountId": "a1",
+            "filter": {"text": "hello"},
+            "sort": [{"property": "receivedAt"}],
+            "sinceQueryState": "q1",
+            "maxChanges": 10,
+            "upToId": "m9",
+        });
+        handle_query_changes::<QueryProbe, _>(&backend, &(), args)
+            .await
+            .expect("queryChanges must succeed");
+        assert_eq!(
+            backend.take(),
+            json!({
+                "sinceQueryState": "q1",
+                "filter": {"text": "hello"},
+                "sort": [{"property": "receivedAt"}],
+                "maxChanges": 10,
+                "upToId": "m9",
+                "collapseThreads": false,
+            })
+        );
     }
 }

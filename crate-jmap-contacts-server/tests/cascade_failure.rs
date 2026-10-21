@@ -15,7 +15,8 @@ use common::{MemoryBackend, MemoryError};
 use jmap_contacts_server::{
     handle_address_book_get, handle_address_book_set, handle_contact_card_get, BackendChangesError,
     BackendQueryError, BackendSetError, ChangesResult, ContactsBackend, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetObject,
 };
 use jmap_contacts_types::ContactCard;
 use jmap_server::HandlerOutput;
@@ -95,13 +96,17 @@ impl JmapBackend for FailingBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
+        let QueryParams {
+            filter,
+            sort,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
         if self.fails::<O>(Step::Query) {
             return Err(BackendQueryError::Other(MemoryError::new(DETAIL)));
         }
@@ -109,12 +114,13 @@ impl JmapBackend for FailingBackend {
             .query_objects::<O>(
                 caller,
                 account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
+                QueryParams::new()
+                    .filter(filter)
+                    .sort(sort)
+                    .limit(limit)
+                    .position(position)
+                    .anchor(anchor)
+                    .anchor_offset(anchor_offset),
             )
             .await
     }
@@ -123,24 +129,10 @@ impl JmapBackend for FailingBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
         self.inner
-            .query_changes::<O>(
-                caller,
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
+            .query_changes::<O>(caller, account_id, params)
             .await
     }
 }

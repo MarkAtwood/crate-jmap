@@ -13,7 +13,8 @@
 
 pub use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject,
 };
 
 use jmap_chat_mimi_types::{Base64Url, ClientKeyMaterial, MimiCapability};

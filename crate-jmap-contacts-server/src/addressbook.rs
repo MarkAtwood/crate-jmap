@@ -36,7 +36,9 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators, PLACEHOLDER_ID,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+};
 
 /// RFC 9610 §7.4.1 — IANA-registered JMAP error type for AddressBook/set
 /// destroy attempts that target a non-empty AddressBook while
@@ -613,7 +615,7 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
     let mut filter = ContactCardFilterCondition::default();
     filter.in_address_book = Some(book_id.clone());
     let query_result = backend
-        .query_objects::<ContactCard>(caller, account_id, Some(&filter), None, None, 0, None, 0)
+        .query_objects::<ContactCard>(caller, account_id, QueryParams::new().filter(Some(&filter)))
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
 

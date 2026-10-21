@@ -2545,7 +2545,8 @@ mod tests {
 
     use crate::backend::{
         BackendChangesError, BackendQueryError, CaseFolding, ChangesResult, GetObject, JmapBackend,
-        JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+        JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+        SetObject,
     };
     use crate::memory::{MemoryBackend, MemoryError};
     use jmap_types::State;
@@ -2785,13 +2786,17 @@ mod tests {
             &self,
             _caller: &(),
             account_id: &Id,
-            filter: Option<&O::Filter>,
-            sort: Option<&[O::Comparator]>,
-            limit: Option<u64>,
-            position: i64,
-            anchor: Option<&Id>,
-            anchor_offset: i64,
+            params: QueryParams<'_, O>,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+            let QueryParams {
+                filter,
+                sort,
+                limit,
+                position,
+                anchor,
+                anchor_offset,
+                ..
+            } = params;
             // Single-shot fault: consume the entry only when the
             // configured call count is reached.
             {
@@ -2815,12 +2820,13 @@ mod tests {
                 .query_objects::<O>(
                     &(),
                     account_id,
-                    filter,
-                    sort,
-                    limit,
-                    position,
-                    anchor,
-                    anchor_offset,
+                    QueryParams::new()
+                        .filter(filter)
+                        .sort(sort)
+                        .limit(limit)
+                        .position(position)
+                        .anchor(anchor)
+                        .anchor_offset(anchor_offset),
                 )
                 .await
         }
@@ -2829,25 +2835,9 @@ mod tests {
             &self,
             _caller: &(),
             account_id: &Id,
-            since_query_state: &State,
-            filter: Option<&O::Filter>,
-            sort: Option<&[O::Comparator]>,
-            max_changes: Option<u64>,
-            up_to_id: Option<&Id>,
-            collapse_threads: bool,
+            params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-            self.inner
-                .query_changes::<O>(
-                    &(),
-                    account_id,
-                    since_query_state,
-                    filter,
-                    sort,
-                    max_changes,
-                    up_to_id,
-                    collapse_threads,
-                )
-                .await
+            self.inner.query_changes::<O>(&(), account_id, params).await
         }
     }
 
@@ -3050,7 +3040,7 @@ mod tests {
         let backend = FaultyBackend::new_with_account("acc1");
         backend.inject_query_objects_err("simulated boom");
         let err = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0, None, 0)
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), QueryParams::new())
             .await
             .expect_err("first call must surface the injected error");
         let BackendQueryError::Other(err) = err else {
@@ -3067,12 +3057,12 @@ mod tests {
         backend.inject_query_objects_err_after("simulated boom", 1);
         // First call: delegates to inner.
         let _first = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0, None, 0)
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), QueryParams::new())
             .await
             .expect("first call must succeed (after_calls = 1)");
         // Second call: fires the fault.
         let err = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0, None, 0)
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), QueryParams::new())
             .await
             .expect_err("second call must surface the injected error");
         let BackendQueryError::Other(err) = err else {
@@ -3213,50 +3203,18 @@ mod tests {
             &self,
             _caller: &(),
             account_id: &Id,
-            filter: Option<&O::Filter>,
-            sort: Option<&[O::Comparator]>,
-            limit: Option<u64>,
-            position: i64,
-            anchor: Option<&Id>,
-            anchor_offset: i64,
+            params: QueryParams<'_, O>,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-            self.0
-                .query_objects::<O>(
-                    &(),
-                    account_id,
-                    filter,
-                    sort,
-                    limit,
-                    position,
-                    anchor,
-                    anchor_offset,
-                )
-                .await
+            self.0.query_objects::<O>(&(), account_id, params).await
         }
 
         async fn query_changes<O: QueryObject + Send + Sync>(
             &self,
             _caller: &(),
             account_id: &Id,
-            since_query_state: &State,
-            filter: Option<&O::Filter>,
-            sort: Option<&[O::Comparator]>,
-            max_changes: Option<u64>,
-            up_to_id: Option<&Id>,
-            collapse_threads: bool,
+            params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-            self.0
-                .query_changes::<O>(
-                    &(),
-                    account_id,
-                    since_query_state,
-                    filter,
-                    sort,
-                    max_changes,
-                    up_to_id,
-                    collapse_threads,
-                )
-                .await
+            self.0.query_changes::<O>(&(), account_id, params).await
         }
     }
 

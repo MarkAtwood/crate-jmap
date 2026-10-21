@@ -18,7 +18,8 @@ use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 use jmap_chat_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
     ChatLimits, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
-    QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject, SpacePatchOp,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
+    SetErrorType, SetObject, SpacePatchOp,
 };
 use jmap_chat_types::{
     Chat, ChatContact, ChatPresenceEvent, ChatTypingEvent, Message, Space, SpaceMetadataPatch,
@@ -347,24 +348,10 @@ impl JmapBackend for Fed {
         &self,
         caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
         self.chat
-            .query_objects::<O>(
-                caller,
-                account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
-            )
+            .query_objects::<O>(caller, account_id, params)
             .await
     }
 
@@ -372,24 +359,10 @@ impl JmapBackend for Fed {
         &self,
         caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
         self.chat
-            .query_changes::<O>(
-                caller,
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
+            .query_changes::<O>(caller, account_id, params)
             .await
     }
 }

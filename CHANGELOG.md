@@ -1303,6 +1303,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server** and every extension server backend:
+  `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
+  of its six positional `/query` arguments (`filter`, `sort`, `limit`,
+  `position`, `anchor`, `anchor_offset`), and `query_changes` takes
+  `params: QueryChangesParams<'_, O>` in place of `since_query_state`,
+  `filter`, `sort`, `max_changes`, `up_to_id` and `collapse_threads`.
+  Both structs are `#[non_exhaustive]` with public fields, so a new RFC
+  argument becomes a field instead of a break to every backend. Backends
+  destructure them with `..`. Callers build them with
+  `QueryParams::new()` (the RFC 8620 §5.5 defaults) or
+  `QueryChangesParams::new(since_query_state)` plus setters. Both are
+  re-exported from `jmap_server` and from each extension server's
+  `backend` module.
 - **BREAKING** **jmap-server**: `JmapHandler::call` takes one
   `#[non_exhaustive]` `CallContext<CallerCtx>` (`method`, `call_id`,
   `args`, `caller`) instead of four positional arguments, and
