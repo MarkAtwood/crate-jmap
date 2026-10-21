@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Chat MIMI provider server rules (draft-atwood-jmap-chat-mimi-00 KeyPackage/get and /set, Room/create) — backend-agnostic, plugs into jmap-server Dispatcher"
+description = "JMAP Chat MIMI provider server rules (draft-atwood-jmap-chat-mimi-00 KeyPackage, KeyMaterial, Room and GroupInfo methods) — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "chat", "mimi", "mls", "server"]
 categories = ["network-programming", "web-programming::http-server"]
 

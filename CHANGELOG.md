@@ -332,6 +332,25 @@ wire behaviour that a conforming peer can observe.
   `MimiBackend::unbind_room` unbinds a room Chat. A SemiPrivateMessage
   does not parse, because openmls 0.9.1 does not decode it. New
   dependency `sha2 0.10`.
+  `KeyMaterial/fetch`, `Room/update`, `Room/send`, `Room/unbind` and
+  `GroupInfo/fetch` (§KeyMaterial/fetch, §Rooms, §GroupInfo/fetch):
+  `handle_key_material_fetch`, `handle_room_update`, `handle_room_send`,
+  `handle_room_unbind` and `handle_group_info_fetch`, registered by
+  `register_mimi_handlers`. Each decodes its MIMI request
+  (draft-ietf-mimi-protocol-06 §5.2-§5.6) and refuses one that does not
+  parse, or a room no Chat of the account is bound to
+  (`MimiBackend::room_bound`), with `invalidArguments`. The request goes
+  out through `MimiBackend::mimi_request` (`MimiEndpoint`, `HubReply`),
+  whose `HubUnavailable` is `serverUnavailable`, and the hub's response is
+  decoded into the method response (`serverFail` when it does not parse).
+  `KeyMaterial/fetch` also checks `requestingUser` and `roomId`, and in a
+  room this server hosts answers a local target
+  (`MimiBackend::local_key_material_account`) from `claim_key_packages`.
+  On success `Room/update` and `Room/send` build the FanoutMessage
+  (`accepted_timestamp`, the handshake with its `moreProposals` or an
+  empty `externalProposals`, or the application message with its `frank`)
+  and store it with `store_fanout`, attributed to the hub. `Room/unbind`
+  refuses a room no Chat of the account has, else calls `unbind_room`.
 - **jmap-chat-mimi-types**: `convert::ulid`, the ULID of a 48-bit time and
   an 80-bit random component, which `sender_msg_id` now uses.
 - **jmap-mail-types**, **jmap-calendars-types**, **jmap-contacts-types**,

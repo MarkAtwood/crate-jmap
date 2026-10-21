@@ -8,12 +8,16 @@
 //! draft-ietf-mimi-protocol-06 §5.4.1, §7.5, §7.6 and
 //! draft-ietf-mimi-room-policy-04 §5, independently of the crate's
 //! decoders.
+//!
+//! The last tests check KeyMaterial/fetch (jmap-chat-spec 33702a5, L231)
+//! in a room that Room/create made this server the hub of.
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use jmap_chat_mimi_server::handle_key_package_set;
 use jmap_chat_mimi_server::handle_room_create;
 use jmap_chat_mimi_server::memory::MemoryBackend;
+use jmap_chat_mimi_server::{handle_key_material_fetch, MimiEndpoint};
 use jmap_chat_mimi_types::MimiCapability;
 use jmap_types::Id;
 use openmls::extensions::{AppDataDictionary, AppDataDictionaryExtension};
@@ -536,4 +540,135 @@ async fn unknown_account_is_account_not_found() {
     .await
     .expect_err("unknown account");
     assert_eq!(err.error_type, "accountNotFound");
+}
+
+/// A KeyMaterialRequest (draft-ietf-mimi-protocol-06 §5.2): `mls10(1)`,
+/// `requestingUser`, `targetUser` and `roomId`, `acceptableCiphersuites`
+/// [0x0001], an empty `RequiredCapabilities` (three empty vectors), a
+/// 32-octet `SignaturePublicKey`, a Basic `Credential` (RFC 9420 §5.3),
+/// and a zero 64-octet signature, which mimi L231 does not ask the server
+/// to verify.
+fn key_material_request(target: &str) -> Vec<u8> {
+    [
+        &[1u8][..],
+        &opaque(ALICE.as_bytes()),
+        &opaque(target.as_bytes()),
+        &opaque(ROOM.as_bytes()),
+        &[2, 0x00, 0x01],
+        &[0, 0, 0],
+        &opaque(&[7; 32]),
+        &[0x00, 0x01],
+        &opaque(ALICE.as_bytes()),
+        &opaque(&[0; 64]),
+    ]
+    .concat()
+}
+
+async fn key_material(backend: &MemoryBackend<RustCrypto>, target: &str) -> Result<Value, String> {
+    handle_key_material_fetch(
+        backend,
+        &(),
+        json!({ "accountId": "a1", "roomId": ROOM, "request": b64(&key_material_request(target)) }),
+    )
+    .await
+    .map(|out| out.primary)
+    .map_err(|e| e.error_type)
+}
+
+/// Alice's backend after a successful Room/create, so this server hosts
+/// ROOM, with a local account `b1` for Bob that has published one
+/// KeyPackage; returns that KeyPackage's octets.
+async fn hosted_room_with_bob(hub: &Hub) -> (MemoryBackend<RustCrypto>, Vec<u8>) {
+    let alice = new_signer();
+    let backend = backend(hub, &alice, true).await;
+    create(&backend, &Group::valid(hub).build(&alice))
+        .await
+        .expect("Room/create");
+    let mut bob_capability = capability(hub, &[1]);
+    bob_capability.user_uri = BOB.to_owned();
+    backend.register_account(&Id::from("b1"), bob_capability);
+    let bob = new_signer();
+    let kp = KeyPackage::builder()
+        .leaf_node_capabilities(capabilities())
+        .build(
+            SUITE,
+            &OpenMlsRustCrypto::default(),
+            &bob,
+            credential_with_key(BOB, &bob),
+        )
+        .expect("Bob's KeyPackage")
+        .key_package()
+        .tls_serialize_detached()
+        .expect("serialize KeyPackage");
+    let out = handle_key_package_set(
+        &backend,
+        &(),
+        json!({ "accountId": "b1", "create": { "k": { "keyPackage": b64(&kp) } } }),
+    )
+    .await
+    .expect("KeyPackage/set");
+    assert!(out.primary["created"]["k"].is_object(), "{}", out.primary);
+    (backend, kp)
+}
+
+/// L231: "When this server is the room's hub, it answers from its own
+/// KeyPackage store ({{keypackage-claim}}) if the target user is local".
+/// L210: it "returns a KeyPackage compatible with the request that is not
+/// last-resort and destroys that record". draft-ietf-mimi-protocol-06
+/// §5.2: `success` "indicates that key material was provided for every
+/// client of the target user"; for a client with none left,
+/// `keyMaterialExhausted`, and of the user codes only
+/// `noCompatibleMaterial` may "populate the clients list" when no client
+/// succeeds. No request leaves the server.
+#[tokio::test]
+async fn key_material_fetch_answers_a_local_target_from_the_key_package_store() {
+    let hub = Hub::new();
+    let (backend, kp) = hosted_room_with_bob(&hub).await;
+
+    let out = key_material(&backend, BOB)
+        .await
+        .expect("KeyMaterial/fetch");
+    assert_eq!(out["accountId"], "a1");
+    assert_eq!(out["userStatus"], "success");
+    assert_eq!(out["userUri"], BOB);
+    let clients = out["clients"].as_array().expect("clients");
+    assert_eq!(clients.len(), 1);
+    assert_eq!(clients[0]["clientStatus"], "success");
+    assert_eq!(
+        clients[0]["keyPackage"],
+        b64(&kp),
+        "the octets Bob published"
+    );
+
+    let out = key_material(&backend, BOB)
+        .await
+        .expect("KeyMaterial/fetch");
+    assert_eq!(out["userStatus"], "noCompatibleMaterial");
+    assert_eq!(out["clients"][0]["clientStatus"], "keyMaterialExhausted");
+    assert_eq!(out["clients"][0]["clientUri"], clients[0]["clientUri"]);
+    assert!(out["clients"][0].get("keyPackage").is_none());
+    assert!(backend.hub_requests().is_empty());
+}
+
+/// L231: as hub, the server "asks the target provider otherwise", and "If
+/// the provider it asks cannot be reached, the server returns
+/// `serverUnavailable`".
+#[tokio::test]
+async fn key_material_fetch_as_hub_asks_the_provider_of_a_remote_target() {
+    let hub = Hub::new();
+    let (backend, _) = hosted_room_with_bob(&hub).await;
+    let zed = "mimi://b.example/u/zed";
+    assert_eq!(
+        key_material(&backend, zed).await,
+        Err("serverUnavailable".to_owned())
+    );
+    let requests = backend.hub_requests();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(
+        requests[0].endpoint,
+        MimiEndpoint::KeyMaterial {
+            target_user: zed.to_owned()
+        }
+    );
+    assert_eq!(requests[0].body, key_material_request(zed));
 }

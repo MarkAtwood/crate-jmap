@@ -46,6 +46,14 @@
 //! read them back; `block_contact` stands in for a `ChatContact/set` that
 //! sets `blocked`.
 //!
+//! # Hub
+//!
+//! `mimi_request` stands in for the MIMI transport and for hub processing:
+//! it records each request, readable with `hub_requests`, and answers with
+//! the next reply queued by `queue_hub_reply`, or `HubUnavailable` when
+//! none is queued. `local_key_material_account` names a local account
+//! only for a room `create_room` made.
+//!
 //! # Concurrency
 //!
 //! The `await_holding_lock` lint is denied module-wide: no guard is held
@@ -53,7 +61,7 @@
 
 #![deny(clippy::await_holding_lock)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_chat_mimi_types::{
@@ -66,9 +74,9 @@ use serde_json::json;
 use crate::backend::{
     group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
     room_signature_key_not_bound, signature_key_bound_elsewhere, BackendChangesError,
-    BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
-    MimiBackend, NewKeyPackage, NewRoom, QueryChangesResult, QueryObject, QueryResult, SetError,
-    SetErrorType,
+    BackendQueryError, BackendSetError, ChangesResult, GetObject, HubReply, HubUnavailable,
+    JmapBackend, JmapObject, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom, QueryChangesResult,
+    QueryObject, QueryResult, SetError, SetErrorType,
 };
 use crate::fanout::{Fanout, FanoutRecipients};
 use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
@@ -119,8 +127,26 @@ struct Inner {
     room_chats: HashMap<Id, RoomChat>,
     /// `(account_id, hub provider URI)` → the hub's ChatContact.
     hub_contacts: HashMap<(String, String), serde_json::Value>,
+    /// Replies `mimi_request` returns, in order.
+    hub_replies: VecDeque<Result<HubReply, HubUnavailable>>,
+    /// Every `mimi_request`, in order.
+    hub_requests: Vec<HubRequest>,
     /// Source of record ids.
     next_id: u64,
+}
+
+/// One request [`MemoryBackend`] received through `mimi_request`.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HubRequest {
+    /// The account the request was sent for.
+    pub account_id: Id,
+    /// The room.
+    pub room_id: String,
+    /// The endpoint.
+    pub endpoint: MimiEndpoint,
+    /// The request body.
+    pub body: Vec<u8>,
 }
 
 impl Inner {
@@ -264,6 +290,18 @@ impl<C> MemoryBackend<C> {
             .hub_contacts
             .get(&(account_id.as_ref().to_owned(), hub_uri.to_owned()))
             .cloned()
+    }
+
+    /// Queue the answer to the next `mimi_request`.
+    #[doc(hidden)]
+    pub fn queue_hub_reply(&self, reply: Result<HubReply, HubUnavailable>) {
+        self.lock().hub_replies.push_back(reply);
+    }
+
+    /// Every `mimi_request` so far, in order.
+    #[doc(hidden)]
+    pub fn hub_requests(&self) -> Vec<HubRequest> {
+        self.lock().hub_requests.clone()
     }
 
     /// Set `blocked` on `account_id`'s ChatContact for the hub `hub_uri`,
@@ -682,6 +720,54 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
             chat.bound = false;
         }
         Ok(true)
+    }
+
+    async fn room_bound(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        room_id: &str,
+    ) -> Result<bool, MemoryError> {
+        Ok(self
+            .lock()
+            .room_chats
+            .values()
+            .any(|c| c.account == account_id.as_ref() && c.room_id == room_id && c.bound))
+    }
+
+    async fn local_key_material_account(
+        &self,
+        _caller: &(),
+        room_id: &str,
+        target_user: &str,
+    ) -> Result<Option<Id>, MemoryError> {
+        let inner = self.lock();
+        if !inner.rooms.contains_key(room_id) {
+            return Ok(None);
+        }
+        Ok(inner
+            .accounts
+            .iter()
+            .find(|(_, c)| c.user_uri == target_user)
+            .map(|(id, _)| Id::from(id.as_str())))
+    }
+
+    async fn mimi_request(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        room_id: &str,
+        endpoint: &MimiEndpoint,
+        body: &[u8],
+    ) -> Result<Result<HubReply, HubUnavailable>, MemoryError> {
+        let mut inner = self.lock();
+        inner.hub_requests.push(HubRequest {
+            account_id: account_id.clone(),
+            room_id: room_id.to_owned(),
+            endpoint: endpoint.clone(),
+            body: body.to_vec(),
+        });
+        Ok(inner.hub_replies.pop_front().unwrap_or(Err(HubUnavailable)))
     }
 
     async fn destroy_key_package(

@@ -22,7 +22,7 @@ use tls_codec::{DeserializeBytes, Serialize as _, VLBytes};
 
 /// The Frank of draft-ietf-mimi-protocol-06 §5.4: `server_frank[32]`,
 /// `franking_signature_ciphersuite`, `franking_integrity_signature<V>`.
-type Frank = ([u8; 32], u16, VLBytes);
+pub(crate) type Frank = ([u8; 32], u16, VLBytes);
 
 /// The local accounts a FanoutMessage goes to
 /// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
@@ -223,7 +223,7 @@ fn skip_ratchet_tree_option(bytes: &[u8]) -> Result<&[u8], FanoutParseError> {
 /// `ms` milliseconds since the Unix epoch as a millisecond-precision
 /// `UTCDate`, or `None` past year 9999. A zero fraction is omitted, as
 /// RFC 8620 §1.4 requires.
-fn utc_date_from_millis(ms: u64) -> Option<UTCDate> {
+pub(crate) fn utc_date_from_millis(ms: u64) -> Option<UTCDate> {
     let seconds = jmap_server::utc_date_from_epoch_seconds(i64::try_from(ms / 1000).ok()?)?;
     if ms.is_multiple_of(1000) {
         return Some(seconds);
