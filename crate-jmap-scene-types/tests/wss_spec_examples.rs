@@ -407,6 +407,8 @@ fn stream_enable_examples_fields() {
         panic!("wrong variant")
     };
     assert_eq!(bad.event_types.unwrap(), ["SceneFooBarEvent"]);
+    // L589 `"id": "e1"` is the value the L606 `RequestError` echoes.
+    assert_eq!(bad.id.as_deref(), Some("e1"));
 }
 
 #[test]

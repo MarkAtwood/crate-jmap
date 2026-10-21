@@ -31,6 +31,11 @@ pub const SCENE_EVENT_TYPES: &[&str] = &[AVATAR, OBJECT, INTERACTION];
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneStreamEnable {
+    /// Client-specified identifier for this frame. A `RequestError` this
+    /// frame causes carries it as its `requestId` (RFC 8887 §4.3.4).
+    /// Absent unless the client sent one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     /// SceneRegion ids to receive events for; `None` means every region in
     /// which the user has an active avatar.
     #[serde(default)]
@@ -144,6 +149,22 @@ mod tests {
             serde_json::to_value(&msg).unwrap(),
             json!({"@type": "SceneStreamEnable", "regionIds": null, "eventTypes": null})
         );
+    }
+
+    #[test]
+    fn enable_id_is_typed_not_extra() {
+        // Oracle: draft-atwood-jmap-scene-wss-00 L450-452 "`id` (String,
+        // optional): A client-specified identifier for this message. A
+        // `RequestError` caused by this message carries this value as its
+        // `requestId`".
+        let msg = round_trip(json!({
+            "@type": "SceneStreamEnable",
+            "id": "e1",
+            "regionIds": null,
+            "eventTypes": null
+        }));
+        assert!(matches!(msg, SceneStreamMessage::Enable(ref e)
+            if e.id.as_deref() == Some("e1") && !e.extra.contains_key("id")));
     }
 
     #[test]

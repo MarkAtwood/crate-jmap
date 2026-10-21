@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-types**: `SceneStreamEnable::id` (draft-atwood-jmap-scene-wss-00
+  §SceneStreamEnable: "A `RequestError` caused by this message carries
+  this value as its `requestId`"). An `id` on the wire now lands in this
+  field instead of `extra`.
+
 - **jmap-scene-server**: `SceneBackend::channel_in_space` hook.
   `SceneRegion/set` calls it when a create or update sets `channelId` or
   `spaceId` and the resulting region has both non-null, and fails with
