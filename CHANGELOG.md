@@ -1309,6 +1309,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-peer-auth**: `SignedRequest::verify` drops its
+  `seen` replay closure and runs checks 2, 3, 4 and 6 only. A sync lookup
+  followed by a separate record let two concurrent requests with the same
+  nonce both pass check 5 ("The receiver has not accepted a request
+  carrying the same peer domain and `nonce` before",
+  draft-atwood-jmap-chat-federation-00 §Request Signing, jmap-chat-spec
+  29e9a41 L212). Check 5 is now the caller's atomic test-and-insert of the
+  returned `Accepted` pair, as `jmap_peer_auth_io::authenticate` does with
+  `ReplayStore::insert`. Migrate `verify(keys, now, seen)` to
+  `verify(keys, now)` plus that insert.
 - **BREAKING** **jmap-chat-server**: `ChatBackend::attachment_blob` has
   no default. The removed default returned `Ok(Ok(None))`, so a backend
   that did not override it never checked an Attachment `size`, which

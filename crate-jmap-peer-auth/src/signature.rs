@@ -131,6 +131,8 @@ pub enum Rejection {
     #[error("signature expired")]
     Expired,
     /// Check 5: the (peer domain, nonce) pair was accepted before.
+    /// [`SignedRequest::verify`] never returns it; the caller's replay
+    /// store does.
     #[error("nonce replayed")]
     Replayed,
     /// Check 6: `Content-Digest` has no `sha-256` member matching the
@@ -389,28 +391,28 @@ impl<'a> SignedRequest<'a> {
         &self.kid
     }
 
-    /// Verifies the signature (checks 2 to 6).
+    /// Verifies the signature (checks 2, 3, 4 and 6).
     ///
     /// `keys` are the usable keys of [`peer_domain`](Self::peer_domain),
     /// after the DNSSEC precedence rule ([`crate::usable_keys`]). `now` is
-    /// the receiver's current time. `seen(peer_domain, nonce)` returns
-    /// whether the receiver has already accepted a request carrying that
-    /// pair; it is called only once every other check has passed. On
-    /// success, record the returned pair until
-    /// [`Accepted::forget_after`].
+    /// the receiver's current time.
     ///
     /// The checks run in this order: 4 (clock window), 6 (content
-    /// digest), 2 (usable key), 3 (signature), 5 (replay).
+    /// digest), 2 (usable key), 3 (signature).
+    ///
+    /// Check 5 (replay) is the caller's: on success, record
+    /// ([`Accepted::peer_domain`], [`Accepted::nonce`]) until
+    /// [`Accepted::forget_after`] in one atomic test-and-insert, and
+    /// reject with [`Rejection::Replayed`] when the pair is already
+    /// recorded. A lookup followed by a separate record would let two
+    /// concurrent requests with the same nonce both pass.
+    /// `jmap_peer_auth_io::authenticate` does this through its
+    /// `ReplayStore::insert`.
     ///
     /// # Errors
     ///
     /// A [`Rejection`] for the first check that fails.
-    pub fn verify(
-        &self,
-        keys: &[PeerSigningKey],
-        now: SystemTime,
-        seen: impl FnOnce(&PeerDomain, &str) -> bool,
-    ) -> Result<Accepted, Rejection> {
+    pub fn verify(&self, keys: &[PeerSigningKey], now: SystemTime) -> Result<Accepted, Rejection> {
         let now = now
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
@@ -433,9 +435,6 @@ impl<'a> SignedRequest<'a> {
             .ok_or(Rejection::UnknownKey)?;
         let base = signature_base(&self.covered, &self.params, &self.request)?;
         verify_ed25519(key.verifying_key(), &base, &self.signature)?;
-        if seen(&self.peer_domain, &self.nonce) {
-            return Err(Rejection::Replayed);
-        }
         Ok(Accepted {
             peer_domain: self.peer_domain.clone(),
             key: key.clone(),

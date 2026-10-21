@@ -129,10 +129,9 @@ pub async fn authenticate<F: Fetch, D: DnssecLookup, S: ReplayStore>(
 ) -> Result<Authenticated, Error> {
     let signed = SignedRequest::parse(request)?;
     let set = keys.keys_for(signed.peer_domain(), signed.kid()).await?;
-    // Check 5 is the atomic insert below rather than `verify`'s lookup:
-    // a lookup followed by a separate record would let two concurrent
-    // requests with the same nonce both pass.
-    let accepted = signed.verify(&set.keys, now, |_, _| false)?;
+    let accepted = signed.verify(&set.keys, now)?;
+    // Check 5: the atomic insert below, so two concurrent requests with
+    // the same nonce cannot both pass.
     if replay
         .remembers_since()
         .is_some_and(|since| accepted.created < since)

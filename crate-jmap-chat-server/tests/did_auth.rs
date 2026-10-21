@@ -134,7 +134,6 @@ fn key_that_verified_the_request_is_bound_to_its_did_key() {
         .verify(
             &peer_signing_keys,
             UNIX_EPOCH + Duration::from_secs(CREATED + 10),
-            |_, _| false,
         )
         .unwrap();
     let did: Did = B14_DID_KEY.parse().unwrap();

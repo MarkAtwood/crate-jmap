@@ -11,7 +11,7 @@ use jmap_peer_auth::PeerDomain;
 /// Remembers accepted (peer domain, `nonce`) pairs.
 ///
 /// Check 5: "The receiver has not accepted a request carrying the same
-/// peer domain and `nonce` before. The receiver MUST remember each
+/// peer domain and `nonce` before. The receiver SHOULD remember each
 /// accepted (peer domain, `nonce`) pair at least until 60 seconds after
 /// that signature's `expires`."
 ///
