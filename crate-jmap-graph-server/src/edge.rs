@@ -8,6 +8,7 @@
 //! Graph.
 
 use jmap_graph_types::query::GraphEdgeComparator;
+use jmap_graph_types::search::CandidateKind;
 use jmap_graph_types::{GraphCapability, GraphEdge, GraphNode};
 use jmap_types::{Id, JmapError};
 use serde_json::{Map, Value};
@@ -15,8 +16,8 @@ use serde_json::{Map, Value};
 use crate::backend::GraphBackend;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, handle_get_visible,
-    handle_set, invalid, listed_in, mistyped, not_found, patched, patched_properties,
-    require_graph_filter, to_map, SetOps, TypeCheck,
+    handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, listed_in,
+    mistyped, not_found, patched, patched_properties, to_map, SetOps, TypeCheck,
 };
 use crate::node::{
     create_graph_id, created_entry, fill_server_set, item_graph_writable, touch, IMMUTABLE,
@@ -102,25 +103,38 @@ pub async fn handle_graph_edge_changes<B: GraphBackend>(
 /// GraphNode/query"; a sort property other than `created` and `updated` is
 /// `unsupportedSort`. The backend evaluates `fromId`, `toId` and `type`
 /// ([`crate::query::edge_matches`]) and omits the edges of a Graph the
-/// caller may not read.
+/// caller may not read. The draft-atwood-jmap-graph-search-00 properties
+/// are handled as for [`crate::handle_graph_node_query`].
 pub async fn handle_graph_edge_query<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let args = require_graph_filter::<GraphEdgeComparator>(args)?;
-    jmap_server::handlers::handle_query::<GraphEdge, B>(backend, caller, args).await
+    handle_graph_item_query::<GraphEdge, GraphEdgeComparator, B>(
+        backend,
+        caller,
+        args,
+        CandidateKind::Edge,
+    )
+    .await
 }
 
 /// Handle `GraphEdge/queryChanges`: standard RFC 8620 §5.6, with the
-/// `/query` filter and sort rules.
+/// `/query` filter and sort rules; a search filter is
+/// `cannotCalculateChanges` (draft-atwood-jmap-graph-search-00 §Query
+/// Changes).
 pub async fn handle_graph_edge_query_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let args = require_graph_filter::<GraphEdgeComparator>(args)?;
-    jmap_server::handlers::handle_query_changes::<GraphEdge, B>(backend, caller, args).await
+    handle_graph_item_query_changes::<GraphEdge, GraphEdgeComparator, B>(
+        backend,
+        caller,
+        args,
+        CandidateKind::Edge,
+    )
+    .await
 }
 
 /// Handle `GraphEdge/set` (draft-atwood-jmap-graph-00 §GraphEdge/set).

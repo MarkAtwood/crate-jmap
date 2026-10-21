@@ -38,7 +38,8 @@
 //!   `tooLarge` SetError (§Annotations, §Account-Level Capability Object);
 //!   a node's `uri` must be a URI (§GraphNode).
 //! - GraphNode and GraphEdge `/query` take a single FilterCondition with
-//!   `graphId`, anything else `unsupportedFilter`; each type's `/query`
+//!   `graphId`, anything else `unsupportedFilter` (search properties too,
+//!   unless the account has search; see below); each type's `/query`
 //!   refuses a sort property the draft does not list with
 //!   `unsupportedSort`. [`query`] holds the match and order functions.
 //!
@@ -59,6 +60,18 @@
 //!
 //! Sequencing, front-only compaction and the destroy cascades to ops are
 //! backend duties; see [`GraphBackend`].
+//!
+//! # Search (draft-atwood-jmap-graph-search-00)
+//!
+//! For an account whose [`GraphBackend::graph_search_capability`] is
+//! `Some`, GraphNode and GraphEdge `/query` accept `where`, `language` and
+//! `expression`. The handlers check them against the capability
+//! ([`search::check_search_filter`]: well-formedness, `languages`,
+//! `supportsText`, `$collation`, `maxDepth` as `queryTooComplex`), report
+//! `canCalculateChanges: false`, and answer `/queryChanges` with
+//! `cannotCalculateChanges`. The backend evaluates `where` over the
+//! filter's Graph as the caller sees it with [`search::GraphView`]. No
+//! advertised language is implemented here.
 //!
 //! Sharing (`shareWith`, Principals, ShareNotifications) is RFC 9670,
 //! served by `jmap-sharing-server`; see [`GraphBackend`].
@@ -89,6 +102,7 @@ pub mod memory;
 pub mod node;
 pub mod op;
 pub mod query;
+pub mod search;
 pub mod stream;
 
 pub use backend::{
@@ -119,6 +133,9 @@ pub use jmap_graph_types::JMAP_GRAPH_URI;
 
 /// Capability URI for `urn:ietf:params:jmap:graph:edit`.
 pub use jmap_graph_types::JMAP_GRAPH_EDIT_URI;
+
+/// Capability URI for `urn:ietf:params:jmap:graph:search`.
+pub use jmap_graph_types::JMAP_GRAPH_SEARCH_URI;
 
 /// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`],
 /// re-exported for the registration macro.

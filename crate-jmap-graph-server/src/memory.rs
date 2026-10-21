@@ -49,6 +49,13 @@
 //! implemented: results say `canCalculateChanges: false` and
 //! `/queryChanges` returns `cannotCalculateChanges` (RFC 8620 §5.6).
 //!
+//! `register_search` advertises `urn:ietf:params:jmap:graph:search` for an
+//! account. A GraphNode or GraphEdge `where` is evaluated with a
+//! [`crate::search::GraphView`] of the filter's Graph, which holds every
+//! node and edge of a Graph the caller may read: the projected Graph's
+//! contents are not narrowed per user. No language is implemented, so an
+//! `expression` is `unsupportedFilter` even when `languages` lists it.
+//!
 //! # Concurrency
 //!
 //! The `await_holding_lock` lint is denied module-wide: no guard is held
@@ -65,11 +72,12 @@ use jmap_graph_types::query::{
     GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphFilter,
     GraphNodeComparator, GraphNodeFilterCondition,
 };
+use jmap_graph_types::search::{CandidateKind, Expression, GraphSearchCapability};
 use jmap_graph_types::{
     Graph, GraphCapability, GraphEdge, GraphEditCapability, GraphNode, GraphNodeOp, GraphRights,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
-use jmap_types::{Id, State};
+use jmap_types::{Id, JmapError, State};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
@@ -79,6 +87,7 @@ use crate::edit::check_node_edit;
 use crate::query::{
     compare_edges, compare_graphs, compare_nodes, edge_matches, graph_matches, node_matches,
 };
+use crate::search::GraphView;
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, EditLog, GetObject,
     GraphBackend, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
@@ -100,6 +109,7 @@ struct Account {
     owner: Id,
     capability: GraphCapability,
     edit: Option<GraphEditCapability>,
+    search: Option<GraphSearchCapability>,
     projected: Option<Id>,
 }
 
@@ -316,6 +326,24 @@ impl Inner {
             .retain(|(a, n), _| a != account_id.as_ref() || nodes.contains(n));
     }
 
+    /// Every node and edge of Graph `graph_id`, or none if the caller may
+    /// not read it.
+    fn graph_content(
+        &self,
+        caller: &Id,
+        account_id: &Id,
+        graph_id: &Id,
+    ) -> (Vec<GraphNode>, Vec<GraphEdge>) {
+        if !self.may_read(caller, account_id, graph_id) {
+            return (Vec::new(), Vec::new());
+        }
+        let mut nodes = self.all::<GraphNode>(caller, account_id);
+        nodes.retain(|n| n.graph_id == *graph_id);
+        let mut edges = self.all::<GraphEdge>(caller, account_id);
+        edges.retain(|e| e.graph_id == *graph_id);
+        (nodes, edges)
+    }
+
     /// `true` if the caller may read Graph `graph_id`.
     fn may_read(&self, caller: &Id, account_id: &Id, graph_id: &Id) -> bool {
         self.rights(caller, account_id, graph_id)
@@ -352,6 +380,7 @@ impl MemoryBackend {
                 owner: owner.clone(),
                 capability,
                 edit: None,
+                search: None,
                 projected: None,
             },
         );
@@ -363,6 +392,15 @@ impl MemoryBackend {
     pub fn register_edit(&self, account_id: &Id, capability: GraphEditCapability) {
         if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
             a.edit = Some(capability);
+        }
+    }
+
+    /// Advertise `urn:ietf:params:jmap:graph:search` for the registered
+    /// `account_id` with `capability`.
+    #[doc(hidden)]
+    pub fn register_search(&self, account_id: &Id, capability: GraphSearchCapability) {
+        if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
+            a.search = Some(capability);
         }
     }
 
@@ -510,6 +548,35 @@ fn sorted_ids<T>(
     list.into_iter().map(id).collect()
 }
 
+/// The `candidates`, ids of objects of `kind` that match the
+/// draft-atwood-jmap-graph-00 filter, for which `where_` is true in a
+/// [`GraphView`] of the Graph's visible `nodes` and `edges`. An
+/// `expression` is `unsupportedFilter`: no language is implemented.
+fn search_hits<'a>(
+    where_: Option<&Value>,
+    expression: Option<&String>,
+    kind: CandidateKind,
+    nodes: &[GraphNode],
+    edges: &[GraphEdge],
+    candidates: impl Iterator<Item = &'a Id>,
+) -> Result<HashSet<Id>, BackendQueryError<MemoryError>> {
+    if expression.is_some() {
+        return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
+    }
+    let Some(w) = where_ else {
+        return Ok(candidates.cloned().collect());
+    };
+    let expr = Expression::parse(w, kind).map_err(|e| BackendQueryError::Method(e.into()))?;
+    let view = GraphView::new(nodes, edges);
+    Ok(candidates
+        .filter(|id| match kind {
+            CandidateKind::Node => view.node_matches(&expr, id),
+            CandidateKind::Edge => view.edge_matches(&expr, id),
+        })
+        .cloned()
+        .collect())
+}
+
 /// The `graphId` of stored item `v`.
 fn graph_of(v: &Value) -> Id {
     Id::from(v.get("graphId").and_then(Value::as_str).unwrap_or_default())
@@ -655,24 +722,42 @@ impl JmapBackend for MemoryBackend {
         } else if O::TYPE_NAME == GraphNode::TYPE_NAME {
             let filter: Option<GraphNodeFilterCondition> = filter.map(recode).transpose()?;
             let sort: Vec<GraphNodeComparator> = recode(&sort)?;
+            let Some(f) = filter else {
+                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
+            };
+            let (nodes, edges) = inner.graph_content(caller, account_id, &f.graph_id);
+            let hits = search_hits(
+                f.where_.as_ref(),
+                f.expression.as_ref(),
+                CandidateKind::Node,
+                &nodes,
+                &edges,
+                nodes.iter().filter(|n| node_matches(&f, n)).map(|n| &n.id),
+            )?;
             sorted_ids(
-                inner.all::<GraphNode>(caller, account_id),
-                |n| {
-                    filter.as_ref().is_some_and(|f| node_matches(f, n))
-                        && inner.may_read(caller, account_id, &n.graph_id)
-                },
+                nodes,
+                |n| hits.contains(&n.id),
                 |a, b| compare_nodes(a, b, &sort),
                 |n| n.id,
             )
         } else if O::TYPE_NAME == GraphEdge::TYPE_NAME {
             let filter: Option<GraphEdgeFilterCondition> = filter.map(recode).transpose()?;
             let sort: Vec<GraphEdgeComparator> = recode(&sort)?;
+            let Some(f) = filter else {
+                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
+            };
+            let (nodes, edges) = inner.graph_content(caller, account_id, &f.graph_id);
+            let hits = search_hits(
+                f.where_.as_ref(),
+                f.expression.as_ref(),
+                CandidateKind::Edge,
+                &nodes,
+                &edges,
+                edges.iter().filter(|e| edge_matches(&f, e)).map(|e| &e.id),
+            )?;
             sorted_ids(
-                inner.all::<GraphEdge>(caller, account_id),
-                |e| {
-                    filter.as_ref().is_some_and(|f| edge_matches(f, e))
-                        && inner.may_read(caller, account_id, &e.graph_id)
-                },
+                edges,
+                |e| hits.contains(&e.id),
                 |a, b| compare_edges(a, b, &sort),
                 |e| e.id,
             )
@@ -960,6 +1045,18 @@ impl GraphBackend for MemoryBackend {
         account_id: &Id,
     ) -> Result<Option<GraphEditCapability>, MemoryError> {
         Ok(self.lock().edit(account_id).cloned())
+    }
+
+    async fn graph_search_capability(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+    ) -> Result<Option<GraphSearchCapability>, MemoryError> {
+        Ok(self
+            .lock()
+            .accounts
+            .get(account_id.as_ref())
+            .and_then(|a| a.search.clone()))
     }
 
     async fn edit_log(

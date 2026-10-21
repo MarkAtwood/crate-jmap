@@ -23,6 +23,10 @@ memory = ["dep:ulid"]
 # Validates and sizes base64url op and cursor `data`
 # (draft-atwood-jmap-graph-edit-00 §GraphNodeOp/set, §GraphNode/cursor).
 base64 = "0.22"
+# RFC 5051 i;unicode-casemap for the graph-search `$collation`
+# (draft-atwood-jmap-graph-search-00 §Collation), as in jmap-metadata-server.
+icu_casemap = { workspace = true }
+icu_normalizer = { workspace = true }
 jmap-types = { workspace = true }
 jmap-graph-types = { workspace = true }
 jmap-server = { workspace = true }

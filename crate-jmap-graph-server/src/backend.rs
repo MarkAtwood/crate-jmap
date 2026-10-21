@@ -16,6 +16,7 @@ pub use jmap_server::{
 };
 
 use jmap_graph_types::edit::GraphCursorEvent;
+use jmap_graph_types::search::GraphSearchCapability;
 use jmap_graph_types::{GraphCapability, GraphEditCapability};
 
 /// The internal bounds of one node's edit log
@@ -225,6 +226,39 @@ pub trait GraphBackend: JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<GraphEditCapability>, Self::Error>> + Send
+    {
+        let _ = (caller, account_id);
+        async { Ok(None) }
+    }
+
+    /// The account-level `urn:ietf:params:jmap:graph:search` capability
+    /// object (draft-atwood-jmap-graph-search-00 §Account-Level Capability
+    /// Object) the consumer advertises for `account_id`, or `None` when it
+    /// does not advertise the capability.
+    ///
+    /// With `None`, a GraphNode or GraphEdge `/query` or `/queryChanges`
+    /// filter that sets `where`, `language` or `expression` is
+    /// `unsupportedFilter`. With `Some`, the handlers check those properties
+    /// against it ([`crate::search::check_search_filter`]), answer
+    /// `/queryChanges` with `cannotCalculateChanges` ("Servers MAY return
+    /// `cannotCalculateChanges` for any `/queryChanges` call whose filter
+    /// uses a property defined in this document") and report
+    /// `canCalculateChanges: false` from `/query`. `query_objects` then
+    /// evaluates them over "exactly those [nodes and edges] the user could
+    /// fetch with `/get`" of the filter's Graph: `where` with a
+    /// [`crate::search::GraphView`] of them, and `expression` in each
+    /// advertised language the backend implements, answering
+    /// `invalidArguments` when "`expression` is not a valid query in its
+    /// language".
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(None)`: no search.
+    fn graph_search_capability(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<GraphSearchCapability>, Self::Error>> + Send
     {
         let _ = (caller, account_id);
         async { Ok(None) }

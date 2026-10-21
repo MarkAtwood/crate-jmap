@@ -9,8 +9,10 @@ Method handlers for draft-atwood-jmap-graph-00, the
 GraphEdge, a `GraphBackend` trait, and an in-memory reference backend
 behind the `memory` feature. It also serves draft-atwood-jmap-graph-edit-00
 (`urn:ietf:params:jmap:graph:edit`): GraphNodeOp edit logs,
-`GraphNode/cursor` and the WebSocket op and cursor stream. No HTTP, no
-persistence, no WebSocket transport.
+`GraphNode/cursor` and the WebSocket op and cursor stream, and
+draft-atwood-jmap-graph-search-00 (`urn:ietf:params:jmap:graph:search`):
+the built-in `where` filter language on GraphNode and GraphEdge `/query`.
+No HTTP, no persistence, no WebSocket transport.
 
 ## What it is
 
@@ -20,11 +22,12 @@ persistence, no WebSocket transport.
 | `handle_graph_*` | §Graph Methods |
 | `handle_graph_node_*` | §GraphNode Methods |
 | `handle_graph_edge_*` | §GraphEdge Methods |
-| `GraphBackend` | storage, `graph_capability`, atomic rights re-checks and destroy cascades; edit hooks `graph_edit_capability`, `edit_log`, `projected_graph_id`, `publish_cursor`, `is_sender_blocked` |
+| `GraphBackend` | storage, `graph_capability`, atomic rights re-checks and destroy cascades; edit hooks `graph_edit_capability`, `edit_log`, `projected_graph_id`, `publish_cursor`, `is_sender_blocked`; search hook `graph_search_capability` |
 | `register_graph_edit_handlers` | graph-edit §Methods: GraphNodeOp `/get`, `/changes`, `/set`, `/query`, `/queryChanges`, `GraphNode/cursor` |
 | `op::*` | graph-edit §GraphNodeOp/set, §GraphNodeOp/query, §GraphNode/cursor |
 | `stream::GraphEditSubscription`, `should_deliver` | graph-edit §WebSocket Stream |
 | `query::*` | §Graph/query, §GraphNode/query, §GraphEdge/query match and order functions |
+| `search::check_search_filter`, `search::GraphView`, `COLLATIONS` | graph-search §FilterCondition Extensions, §The Built-In Filter Language, §Visibility |
 | `memory::MemoryBackend` (feature `memory`) | reference backend, not production |
 
 ## What it's for
@@ -51,7 +54,10 @@ fn wire<B: GraphBackend<CallerCtx = ()> + 'static>(backend: B) -> Dispatcher<()>
 Advertise `JMAP_GRAPH_URI` in the Session with the same account-level
 object `GraphBackend::graph_capability` returns. For live editing, also
 call `register_graph_edit_handlers` and advertise `JMAP_GRAPH_EDIT_URI`
-with the object `GraphBackend::graph_edit_capability` returns.
+with the object `GraphBackend::graph_edit_capability` returns. For
+search, advertise `JMAP_GRAPH_SEARCH_URI` with the object
+`GraphBackend::graph_search_capability` returns, and `search::COLLATIONS`
+in the core `collationAlgorithms`.
 
 ## How it works
 
@@ -82,6 +88,16 @@ with the object `GraphBackend::graph_edit_capability` returns.
   `afterSeq`, sorts by `seq` ascending, and answers `opsCompacted` when
   an op after `afterSeq` has been compacted. Compaction is backend policy:
   front-only, never past `snapshotSeq` or inside `opRetention`.
+- Search: with `graph_search_capability`, `where`, `language` and
+  `expression` are checked (`invalidArguments` when malformed,
+  `unsupportedFilter` for an unknown operator, an unlisted language,
+  `$text` without `supportsText` or a `$collation` outside `COLLATIONS`,
+  `queryTooComplex` past `maxDepth`); `/query` says
+  `canCalculateChanges: false` and `/queryChanges` is
+  `cannotCalculateChanges`. The backend evaluates `where` with a
+  `GraphView` of the Graph as the caller sees it, so hidden nodes and
+  edges cannot affect results. Without the capability the three are
+  `unsupportedFilter`.
 - The WebSocket transport keeps one `GraphEditSubscription` per
   connection and asks `should_deliver` before sending each
   `GraphNodeOpEvent` and `GraphCursorEvent`; rights are checked at
@@ -101,17 +117,27 @@ with the object `GraphBackend::graph_edit_capability` returns.
   `cannotCalculateChanges`. It compacts only when `compact_ops` is called
   and records cursor events but not op events.
 - Rate limits on ops and cursors (SHOULD rules) are the deployment's.
+- No advertised search language (`gql`, `opencypher`, ...) is
+  implemented; `MemoryBackend` answers an `expression` with
+  `unsupportedFilter`. `GraphView` has no work budget beyond `maxDepth`,
+  and its `$text` is a `i;unicode-casemap` substring match over
+  string-valued annotations.
 
 ## References
 
 - [draft-atwood-jmap-graph-00] — JMAP for Graphs
 - [draft-atwood-jmap-graph-edit-00] — JMAP Graph Live Editing
+- [draft-atwood-jmap-graph-search-00] — JMAP Graph Search
+- [RFC 4790], [RFC 5051] — collations
 - [RFC 8620] — JMAP Core
 - [RFC 9670] — JMAP Sharing
 - [RFC 3986] — URI Generic Syntax
 
 [draft-atwood-jmap-graph-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-graph-edit-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-graph-search-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[RFC 4790]: https://www.rfc-editor.org/rfc/rfc4790
+[RFC 5051]: https://www.rfc-editor.org/rfc/rfc5051
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 9670]: https://www.rfc-editor.org/rfc/rfc9670
 [RFC 3986]: https://www.rfc-editor.org/rfc/rfc3986

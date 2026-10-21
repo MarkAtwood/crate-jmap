@@ -9,6 +9,7 @@
 
 use jmap_graph_types::edit::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
 use jmap_graph_types::query::GraphNodeComparator;
+use jmap_graph_types::search::CandidateKind;
 use jmap_graph_types::{GraphCapability, GraphNode, GraphRights};
 use jmap_types::{Id, JmapError};
 use serde_json::{json, Map, Value};
@@ -17,9 +18,9 @@ use crate::backend::{EditLog, GraphBackend, JmapBackend};
 use crate::edit::check_node_edit;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
-    handle_get_visible, handle_set, invalid, is_uri, listed_in, mistyped, not_found, patched,
-    patched_properties, readable_rights, require_graph_filter, set_error_value, string_or_null,
-    to_map, SetOps, TypeCheck, PLACEHOLDER_ID,
+    handle_get_visible, handle_graph_item_query, handle_graph_item_query_changes, handle_set,
+    invalid, is_uri, listed_in, mistyped, not_found, patched, patched_properties, readable_rights,
+    set_error_value, string_or_null, to_map, SetOps, TypeCheck, PLACEHOLDER_ID,
 };
 use jmap_server::{now_utc_string, HandlerOutput};
 
@@ -224,25 +225,41 @@ pub async fn handle_graph_node_changes<B: GraphBackend>(
 /// no filter, a FilterOperator or a condition without `graphId` is
 /// `unsupportedFilter`; a sort property other than `created` and `updated`
 /// is `unsupportedSort`. The backend omits the nodes of a Graph the caller
-/// may not read.
+/// may not read. For an account with
+/// [`GraphBackend::graph_search_capability`], the draft-atwood-jmap-graph-search-00
+/// `where`, `language` and `expression` properties are checked with
+/// [`crate::search::check_search_filter`] and evaluated by the backend;
+/// without it they are `unsupportedFilter`.
 pub async fn handle_graph_node_query<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let args = require_graph_filter::<GraphNodeComparator>(args)?;
-    jmap_server::handlers::handle_query::<GraphNode, B>(backend, caller, args).await
+    handle_graph_item_query::<GraphNode, GraphNodeComparator, B>(
+        backend,
+        caller,
+        args,
+        CandidateKind::Node,
+    )
+    .await
 }
 
 /// Handle `GraphNode/queryChanges`: standard RFC 8620 §5.6, with the
-/// `/query` filter and sort rules.
+/// `/query` filter and sort rules; a search filter is
+/// `cannotCalculateChanges` (draft-atwood-jmap-graph-search-00 §Query
+/// Changes).
 pub async fn handle_graph_node_query_changes<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let args = require_graph_filter::<GraphNodeComparator>(args)?;
-    jmap_server::handlers::handle_query_changes::<GraphNode, B>(backend, caller, args).await
+    handle_graph_item_query_changes::<GraphNode, GraphNodeComparator, B>(
+        backend,
+        caller,
+        args,
+        CandidateKind::Node,
+    )
+    .await
 }
 
 /// Handle `GraphNode/set` (draft-atwood-jmap-graph-00 §GraphNode/set).

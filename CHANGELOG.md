@@ -23,9 +23,18 @@ wire behaviour that a conforming peer can observe.
   `Direction`) with `Expression::parse` (well-formedness per candidate kind;
   `WhereError` maps to `invalidArguments` or `unsupportedFilter`),
   `Expression::to_value` and `Expression::traversal_depth`, and the
-  `queryTooComplex` method error name. `jmap-graph-server` keeps rejecting
-  the three filter properties with `unsupportedFilter` until it implements
-  search.
+  `queryTooComplex` method error name.
+
+- **jmap-graph-server**: draft-atwood-jmap-graph-search-00 server side —
+  `GraphBackend::graph_search_capability` (default `None`, which keeps the
+  `where`/`language`/`expression` filter properties `unsupportedFilter`),
+  `search::check_search_filter` (well-formedness, `languages`,
+  `supportsText`, `$collation` against `search::COLLATIONS`, `maxDepth` as
+  `queryTooComplex`), the `search::GraphView` `where` evaluator over the
+  caller-visible contents of one Graph, `canCalculateChanges: false` on
+  search `/query` results and `cannotCalculateChanges` on search
+  `/queryChanges`, `JMAP_GRAPH_SEARCH_URI` re-export, and
+  `MemoryBackend::register_search`. No advertised language is implemented.
 
 - **jmap-graph-client**: draft-atwood-jmap-graph-edit-00 client bindings —
   `SessionClient::graph_node_op_get`, `graph_node_op_changes`, create-only
