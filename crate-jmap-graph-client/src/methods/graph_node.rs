@@ -33,7 +33,8 @@ impl super::SessionClient {
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<GraphNode>, jmap_base_client::ClientError> {
-        self.standard_get("GraphNode/get", ids, properties).await
+        self.standard_get("GraphNode/get", super::USING_GRAPH, ids, properties)
+            .await
     }
 
     /// `GraphNode/changes` (draft-atwood-jmap-graph-00 L269-L271; RFC 8620 §5.2).
@@ -57,8 +58,13 @@ impl super::SessionClient {
         since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        self.standard_changes("GraphNode/changes", since_state, max_changes)
-            .await
+        self.standard_changes(
+            "GraphNode/changes",
+            super::USING_GRAPH,
+            since_state,
+            max_changes,
+        )
+        .await
     }
 
     /// `GraphNode/set` (draft-atwood-jmap-graph-00 L273-L279; RFC 8620 §5.3).
@@ -89,7 +95,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        self.standard_set("GraphNode/set", create, update, destroy)
+        self.standard_set("GraphNode/set", super::USING_GRAPH, create, update, destroy)
             .await
     }
 

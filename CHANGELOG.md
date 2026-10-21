@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-client**: draft-atwood-jmap-graph-edit-00 client bindings —
+  `SessionClient::graph_node_op_get`, `graph_node_op_changes`, create-only
+  `graph_node_op_set`, `graph_node_op_query`, `graph_node_op_query_changes`
+  and `graph_node_cursor`, sent with `urn:ietf:params:jmap:graph:edit` in
+  `using`; `ws` module with the sealed `GraphEditWsExt` on `WsSession`
+  (`send_graph_edit_stream_enable`, `send_graph_edit_stream_disable`,
+  `next_graph_edit_frame`), `GraphEditWsFrame` and
+  `parse_graph_edit_ws_frame`.
 - **jmap-graph-server**: draft-atwood-jmap-graph-edit-00 server support —
   `register_graph_edit_handlers` with `GraphNodeOp/get`, `/changes`,
   create-only `/set` (backend-assigned `seq`, `baseSeq`, base64url `data`

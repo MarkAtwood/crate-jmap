@@ -25,6 +25,16 @@ GraphNode filter may also carry the draft-atwood-jmap-graph-projection-00
 `objectUri` property; the request then adds
 `urn:ietf:params:jmap:graph:projection` to `using`.
 
+For draft-atwood-jmap-graph-edit-00 live editing, `SessionClient` also
+binds `GraphNodeOp/get`, `/changes`, the create-only `/set`, `/query` (a
+required `nodeId` condition with optional `afterSeq`) and `/queryChanges`,
+and `GraphNode/cursor`; these requests add `urn:ietf:params:jmap:graph:edit`
+to `using`. A `GraphNodeOp/query` that fails with `opsCompacted` arrives as
+`ClientError::MethodError`. On a WebSocket session, `GraphEditWsExt` sends
+`GraphEditStreamEnable` / `GraphEditStreamDisable` and returns
+`GraphEditWsFrame::Op` and `::Cursor` for the op and cursor events. Send
+the enable before loading or catching up on a node (§GraphEditStreamEnable).
+
 ## How to use
 
 One traversal hop (§Traversal): the edges leaving a frontier, then those
