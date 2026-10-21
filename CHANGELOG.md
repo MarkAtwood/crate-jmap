@@ -453,7 +453,7 @@ wire behaviour that a conforming peer can observe.
   of {{JMAP-CHAT-DID}} succeeds"). Without the marker such an identity is
   `forbidden` as before; the marker does not affect any other identity.
 - **jmap-chat-federation-server**: `assigneeIds` in the metadata of a
-  `urn:jmap:chat:cap:task` MessageAction is mapped as a user reference
+  `urn:ietf:params:jmap:chat:cap:task` MessageAction is mapped as a user reference
   (draft-atwood-jmap-chat-tasks-00 §Federation). `Peer/deliver` resolves
   each identity to a local id (owner, ChatContact or placeholder) and
   rejects a non-identity entry with `invalidArguments`;
@@ -558,7 +558,7 @@ wire behaviour that a conforming peer can observe.
   extension (`SPACE_TASK_LIST_ID_PROPERTY`) from `Space::extra`,
   `task_chat_id` reading the Task `chatId` extension
   (`TASK_CHAT_ID_PROPERTY`) from a Task's extension map, the
-  `urn:jmap:chat:cap:task` MessageAction metadata shape `TaskMetadata`, and
+  `urn:ietf:params:jmap:chat:cap:task` MessageAction metadata shape `TaskMetadata`, and
   `JMAP_URI_TASK_TYPE`, the type name of the `jmap:task:<accountId>:<taskId>`
   object URI (parse it with `jmap_types::JmapUri`).
 - **jmap-chat-types**: draft-atwood-jmap-chat-calendars-00 types:
@@ -1127,7 +1127,7 @@ wire behaviour that a conforming peer can observe.
   re-export it.
 - **jmap-chat-types**: `vocabulary::CHAT_CAP_VTC`,
   `CHAT_CAP_CALENDAR_EVENT`, `CHAT_CAP_AVAILABILITY` and `CHAT_CAP_TASK`
-  name the `urn:jmap:chat:cap:*` Endpoint / MessageAction types.
+  name the `urn:ietf:params:jmap:chat:cap:*` Endpoint / MessageAction types.
 - **jmap-chat-server**: `ChatBackend::may_create_message`,
   `may_update_message` and `may_update_chat` (default: permit) let an
   extension restrict Chats it binds, given the stored Chat (with its
