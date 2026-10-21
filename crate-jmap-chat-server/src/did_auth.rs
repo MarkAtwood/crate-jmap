@@ -19,13 +19,15 @@
 //! resolved DID Document as a [`DidDocument`], or `None` when resolution
 //! failed and no usable cached document is held.
 //!
-//! §Caching: "A server MUST refresh its cached DID Document for a given
-//! DID before next use if a signature verification against that cached
-//! document fails." A [`DidDocument::Cached`] document whose keys do not
-//! verify the signature yields [`DidAuthRejection::RefreshRequired`]:
-//! the caller refreshes the document (for example with
-//! `jmap_did_resolver::Resolver::refresh`) and verifies once more with
-//! [`DidDocument::Refreshed`].
+//! §Caching: "If the key that verified a request signature is not in the
+//! `authentication` verification relationship of the cached DID Document
+//! ..., the server MUST resolve the DID again, bypassing its cache,
+//! before failing the verification." A [`DidDocument::Cached`] document
+//! whose `authentication` keys do not include the signing key yields
+//! [`DidAuthRejection::RefreshRequired`]: the caller refreshes the
+//! document (for example with `jmap_did_resolver::Resolver::refresh`,
+//! which applies the draft's "once every 60 seconds" limit) and verifies
+//! once more with [`DidDocument::Refreshed`].
 
 use std::fmt;
 use std::time::SystemTime;
@@ -71,12 +73,10 @@ pub enum DidAuthRejection {
     /// The signature failed a check against the DID's `authentication`
     /// keys. [`Rejection::UnknownKey`] means the `kid` names none of them.
     Signature(Rejection),
-    /// A [`DidDocument::Cached`] document's keys did not verify the
-    /// signature: the `kid` names none of them
-    /// ([`Rejection::UnknownKey`]) or the signature does not verify under
-    /// the key ([`Rejection::BadSignature`]). Refresh the document and
-    /// verify once more with [`DidDocument::Refreshed`] before rejecting.
-    RefreshRequired(Rejection),
+    /// The `kid` names none of a [`DidDocument::Cached`] document's
+    /// `authentication` keys. Refresh the document and verify once more
+    /// with [`DidDocument::Refreshed`] before rejecting.
+    RefreshRequired,
 }
 
 impl fmt::Display for DidAuthRejection {
@@ -85,8 +85,8 @@ impl fmt::Display for DidAuthRejection {
             Self::Unresolved => f.write_str("DID could not be resolved"),
             Self::DocumentIdMismatch => f.write_str("DID document id does not match the DID"),
             Self::Signature(_) => f.write_str("DID-bound signature did not verify"),
-            Self::RefreshRequired(_) => {
-                f.write_str("DID-bound signature did not verify against a cached DID document")
+            Self::RefreshRequired => {
+                f.write_str("signing key is not in the cached DID document's authentication keys")
             }
         }
     }
@@ -95,8 +95,8 @@ impl fmt::Display for DidAuthRejection {
 impl std::error::Error for DidAuthRejection {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Signature(rejection) | Self::RefreshRequired(rejection) => Some(rejection),
-            Self::Unresolved | Self::DocumentIdMismatch => None,
+            Self::Signature(rejection) => Some(rejection),
+            Self::Unresolved | Self::DocumentIdMismatch | Self::RefreshRequired => None,
         }
     }
 }
@@ -129,9 +129,8 @@ impl std::error::Error for DidAuthRejection {
 /// [`DidAuthRejection::DocumentIdMismatch`] when its `id` is not `did`,
 /// and [`DidAuthRejection::Signature`] for the first signature check that
 /// fails, except that a [`DidDocument::Cached`] document failing
-/// [`Rejection::UnknownKey`] or [`Rejection::BadSignature`] gives
-/// [`DidAuthRejection::RefreshRequired`]. The other checks do not depend
-/// on the document, so a refresh cannot change their outcome.
+/// [`Rejection::UnknownKey`] gives [`DidAuthRejection::RefreshRequired`]:
+/// only an absent key is a refresh trigger (§Caching).
 pub fn verify_did_signature(
     signed: &SignedRequest<'_>,
     did: &Did,
@@ -150,9 +149,7 @@ pub fn verify_did_signature(
     signed
         .verify(&keys, now, seen)
         .map_err(|rejection| match rejection {
-            Rejection::UnknownKey | Rejection::BadSignature if cached => {
-                DidAuthRejection::RefreshRequired(rejection)
-            }
+            Rejection::UnknownKey if cached => DidAuthRejection::RefreshRequired,
             rejection => DidAuthRejection::Signature(rejection),
         })
 }

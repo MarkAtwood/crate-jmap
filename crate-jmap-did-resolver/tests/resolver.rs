@@ -4,8 +4,8 @@
 //!
 //! Oracles, none produced by this crate:
 //!
-//! - draft-atwood-jmap-chat-did-00 (jmap-chat-spec HEAD) §Caching L205
-//!   and §Resolution failure handling L209, quoted at each test.
+//! - draft-atwood-jmap-chat-did-00 (jmap-chat-spec 6bcd9d8) §Caching L233
+//!   and §Resolution failure handling L237, quoted at each test.
 //! - did:web Method Specification (<https://w3c-ccg.github.io/did-method-web/>)
 //!   §Read (Resolve) and its `w3c-ccg.github.io/user/alice` example.
 //! - did:key Method v0.9 (<https://w3c-ccg.github.io/did-key-spec/>) and
@@ -326,12 +326,12 @@ async fn cached_document_is_reused_until_the_ttl_passes() {
 }
 
 #[tokio::test]
-async fn refresh_after_signature_failure_fetches_before_next_use() {
-    // chat-did-00 L205: "A server MUST refresh its cached DID Document
-    // for a given DID before next use if a signature verification against
-    // that cached document fails." L248: "Treat any signature failure as
-    // a refresh trigger even if the same DID has previously authenticated
-    // successfully." The key rotated from key-0 to key-1 inside the TTL.
+async fn refresh_bypasses_the_cache() {
+    // chat-did-00 L233: "If the key that verified a request signature is
+    // not in the `authentication` verification relationship of the
+    // cached DID Document ..., the server MUST resolve the DID again,
+    // bypassing its cache, before failing the verification." The key
+    // rotated from key-0 to key-1 inside the TTL.
     let stub = Stub::default();
     stub.serve(ALICE_URL, &alice_document("key-0"));
     let (_elapsed, now) = clock();
@@ -348,9 +348,10 @@ async fn refresh_after_signature_failure_fetches_before_next_use() {
 
 #[tokio::test]
 async fn failed_refresh_leaves_no_stale_entry() {
-    // chat-did-00 L209: "Servers MUST NOT silently downgrade to an
+    // chat-did-00 L237: "Servers SHOULD NOT silently downgrade to an
     // unauthenticated mode or proceed with stale cached state when the
-    // cache entry has been explicitly invalidated."
+    // cache entry has been explicitly invalidated, including by the
+    // refresh requirement above."
     let stub = Stub::default();
     stub.serve(ALICE_URL, &alice_document("key-0"));
     let (_elapsed, now) = clock();
@@ -364,6 +365,51 @@ async fn failed_refresh_leaves_no_stale_entry() {
         Err(ResolveError::Fetch(FetchError::Status(500)))
     ));
     assert_eq!(stub.calls().len(), 3);
+}
+
+#[tokio::test]
+async fn refresh_fetches_one_did_at_most_once_per_60_seconds() {
+    // chat-did-00 L233: "A server SHOULD NOT resolve one DID again for
+    // this reason more often than once every 60 seconds; a request that
+    // arrives within that interval and whose signing key is absent from
+    // the cached DID Document fails the verification." Inside the
+    // interval refresh serves the cached key-1 document; at 60 s it
+    // fetches key-2.
+    let stub = Stub::default();
+    stub.serve(ALICE_URL, &alice_document("key-0"));
+    let (elapsed, now) = clock();
+    let resolver = Resolver::new(&stub, TTL).with_clock(now);
+    resolver.resolve(&did(ALICE)).await.unwrap();
+    stub.serve(ALICE_URL, &alice_document("key-1"));
+    resolver.refresh(&did(ALICE)).await.unwrap();
+    stub.serve(ALICE_URL, &alice_document("key-2"));
+
+    elapsed.store(59, Ordering::SeqCst);
+    let doc = document(resolver.refresh(&did(ALICE)).await.unwrap());
+    assert_eq!(doc, alice_document("key-1"));
+    assert_eq!(stub.calls().len(), 2);
+
+    elapsed.store(60, Ordering::SeqCst);
+    let doc = document(resolver.refresh(&did(ALICE)).await.unwrap());
+    assert_eq!(doc, alice_document("key-2"));
+    assert_eq!(stub.calls().len(), 3);
+}
+
+#[tokio::test]
+async fn zero_refresh_interval_fetches_on_every_refresh() {
+    // L233's limit is a SHOULD NOT, so the interval is configurable;
+    // with none, each refresh bypasses the cache as the MUST requires.
+    let stub = Stub::default();
+    stub.serve(ALICE_URL, &alice_document("key-0"));
+    let (_elapsed, now) = clock();
+    let resolver = Resolver::new(&stub, TTL)
+        .with_clock(now)
+        .with_refresh_interval(Duration::ZERO);
+    resolver.refresh(&did(ALICE)).await.unwrap();
+    stub.serve(ALICE_URL, &alice_document("key-1"));
+    let doc = document(resolver.refresh(&did(ALICE)).await.unwrap());
+    assert_eq!(doc, alice_document("key-1"));
+    assert_eq!(stub.calls().len(), 2);
 }
 
 #[tokio::test]

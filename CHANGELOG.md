@@ -34,11 +34,13 @@ wire behaviour that a conforming peer can observe.
   document, a document whose `id` is not the DID, or a failed check is a
   `DidAuthRejection`. The crate now depends on `jmap-peer-auth`. The
   caller passes the document as `DidDocument::Cached` or
-  `DidDocument::Refreshed`; when a cached document's keys do not verify
-  the signature it returns `DidAuthRejection::RefreshRequired`, so the
-  caller refreshes and retries once (§Caching: "A server MUST refresh its
-  cached DID Document ... if a signature verification against that cached
-  document fails").
+  `DidDocument::Refreshed`; when the `kid` names no `authentication` key
+  of a cached document it returns `DidAuthRejection::RefreshRequired`, so
+  the caller refreshes and retries once (§Caching: "If the key that
+  verified a request signature is not in the `authentication`
+  verification relationship of the cached DID Document ..., the server
+  MUST resolve the DID again"). A bad signature under a key the cached
+  document holds is a plain `DidAuthRejection::Signature`.
 - **jmap-chat-federation-server**: `assigneeIds` in the metadata of a
   `urn:jmap:chat:cap:task` MessageAction is mapped as a user reference
   (draft-atwood-jmap-chat-tasks-00 §Federation). `Peer/deliver` resolves
@@ -544,9 +546,14 @@ wire behaviour that a conforming peer can observe.
   `/<did>/log/audit`, verified with `verify_plc_audit_log`), caching
   fetched results for a fixed TTL up to a capped entry count.
   `Resolver::refresh` drops the cached entry and refetches, for the
-  draft-atwood-jmap-chat-did-00 §Caching rule that a signature failure
-  forces a refresh before next use; a failed refresh leaves nothing
-  cached (§Resolution failure handling). Network access goes through
+  draft-atwood-jmap-chat-did-00 §Caching rule that a signing key absent
+  from the cached document forces a resolution that bypasses the cache;
+  a failed refresh leaves nothing cached (§Resolution failure handling).
+  It refetches one DID at most once per `DEFAULT_REFRESH_INTERVAL`
+  (60 s, §Caching "SHOULD NOT resolve one DID again for this reason more
+  often than once every 60 seconds"; `Resolver::with_refresh_interval`
+  changes it) and otherwise returns what `Resolver::resolve` does. The
+  last refresh time is kept apart from the cache entry. Network access goes through
   the `Fetch` trait; `HttpFetcher` is the HTTPS-only reqwest
   implementation. No `*-types` or `*-server` crate depends on it.
 - **jmap-base-client**: `Session::did_capability` and

@@ -23,16 +23,25 @@
 //! ## Caching
 //!
 //! draft-atwood-jmap-chat-did-00 §Caching leaves the policy to the
-//! deployment except for one rule: "A server MUST refresh its cached DID
-//! Document for a given DID before next use if a signature verification
-//! against that cached document fails." When a signature fails against a
-//! document from [`Resolver::resolve`], call [`Resolver::refresh`] and
-//! retry once with the result.
+//! deployment except for one rule: "If the key that verified a request
+//! signature is not in the `authentication` verification relationship of
+//! the cached DID Document ..., the server MUST resolve the DID again,
+//! bypassing its cache, before failing the verification. A server SHOULD
+//! NOT resolve one DID again for this reason more often than once every
+//! 60 seconds; a request that arrives within that interval and whose
+//! signing key is absent from the cached DID Document fails the
+//! verification." When the signing key is absent from a document from
+//! [`Resolver::resolve`], call [`Resolver::refresh`] and check once more
+//! with the result. Within [`DEFAULT_REFRESH_INTERVAL`] of the DID's last
+//! forced refresh, [`Resolver::refresh`] does not fetch and returns what
+//! [`Resolver::resolve`] would (see
+//! [`Resolver::with_refresh_interval`]).
 //!
-//! [`Resolver::refresh`] drops the cached entry before it fetches, so a
+//! A forced refresh drops the cached entry before it fetches, so a
 //! failed refresh leaves nothing cached: §Resolution failure handling,
-//! "Servers MUST NOT ... proceed with stale cached state when the cache
-//! entry has been explicitly invalidated."
+//! "Servers SHOULD NOT silently downgrade to an unauthenticated mode or
+//! proceed with stale cached state when the cache entry has been
+//! explicitly invalidated, including by the refresh requirement above."
 //!
 //! Network access goes through the [`Fetch`] trait. [`HttpFetcher`] is
 //! the reqwest implementation; tests and deployments with their own HTTP
@@ -68,8 +77,15 @@ pub const MAX_BODY_BYTES: usize = 1 << 20;
 /// The request timeout of [`HttpFetcher::new`].
 pub const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// The cache size of a new [`Resolver`]; see
-/// [`Resolver::with_max_entries`].
+/// The shortest time between two forced refreshes of one DID by a new
+/// [`Resolver`]; see [`Resolver::with_refresh_interval`].
+///
+/// draft-atwood-jmap-chat-did-00 §Caching: "A server SHOULD NOT resolve
+/// one DID again for this reason more often than once every 60 seconds".
+pub const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
+
+/// The cache size of a new [`Resolver`], and the number of DIDs whose
+/// last forced refresh it remembers; see [`Resolver::with_max_entries`].
 pub const DEFAULT_MAX_ENTRIES: NonZeroUsize = match NonZeroUsize::new(10_000) {
     Some(n) => n,
     None => unreachable!(),
@@ -220,10 +236,14 @@ struct Entry {
 pub struct Resolver<F> {
     fetcher: F,
     ttl: Duration,
+    refresh_interval: Duration,
     max_entries: NonZeroUsize,
     plc_directory: String,
     clock: Clock,
     cache: Mutex<HashMap<Did, Entry>>,
+    /// When each DID was last force-refreshed. Kept apart from `cache` so
+    /// that dropping an entry does not reset the limit.
+    refreshed: Mutex<HashMap<Did, Instant>>,
 }
 
 impl<F: std::fmt::Debug> std::fmt::Debug for Resolver<F> {
@@ -231,6 +251,7 @@ impl<F: std::fmt::Debug> std::fmt::Debug for Resolver<F> {
         f.debug_struct("Resolver")
             .field("fetcher", &self.fetcher)
             .field("ttl", &self.ttl)
+            .field("refresh_interval", &self.refresh_interval)
             .field("max_entries", &self.max_entries)
             .field("plc_directory", &self.plc_directory)
             .finish_non_exhaustive()
@@ -245,10 +266,12 @@ impl<F: Fetch> Resolver<F> {
         Self {
             fetcher,
             ttl,
+            refresh_interval: DEFAULT_REFRESH_INTERVAL,
             max_entries: DEFAULT_MAX_ENTRIES,
             plc_directory: DEFAULT_PLC_DIRECTORY.to_owned(),
             clock: Box::new(Instant::now),
             cache: Mutex::new(HashMap::new()),
+            refreshed: Mutex::new(HashMap::new()),
         }
     }
 
@@ -259,10 +282,20 @@ impl<F: Fetch> Resolver<F> {
         self
     }
 
-    /// Caches at most `max_entries` DIDs. Inserting into a full cache
-    /// drops the expired entries, then the oldest one.
+    /// Caches at most `max_entries` DIDs, and remembers the last forced
+    /// refresh of at most `max_entries` DIDs. Inserting into a full cache
+    /// drops the expired entries, then the oldest one; the refresh record
+    /// does the same.
     pub fn with_max_entries(mut self, max_entries: NonZeroUsize) -> Self {
         self.max_entries = max_entries;
+        self
+    }
+
+    /// Lets [`refresh`](Self::refresh) fetch one DID again at most once
+    /// per `interval` instead of [`DEFAULT_REFRESH_INTERVAL`].
+    /// [`Duration::ZERO`] lets every call fetch.
+    pub fn with_refresh_interval(mut self, interval: Duration) -> Self {
+        self.refresh_interval = interval;
         self
     }
 
@@ -295,27 +328,61 @@ impl<F: Fetch> Resolver<F> {
         }
     }
 
-    /// Drops the cached entry for `did` and resolves it again.
+    /// Drops the cached entry for `did` and resolves it again, unless
+    /// `did` was last refreshed this way less than the refresh interval
+    /// ago ([`with_refresh_interval`](Self::with_refresh_interval)): then
+    /// it returns what [`resolve`](Self::resolve) returns, which is the
+    /// cached entry while it is younger than the TTL.
     ///
-    /// Call this when a signature fails to verify against a document
-    /// from [`resolve`](Self::resolve) (draft-atwood-jmap-chat-did-00
-    /// §Caching), then retry the verification once with the result.
+    /// Call this when the key that verified a request signature is not in
+    /// the `authentication` relationship of a document from
+    /// [`resolve`](Self::resolve) (draft-atwood-jmap-chat-did-00
+    /// §Caching), then check once more with the result. If the key is
+    /// still absent, the verification fails.
     ///
     /// # Errors
     ///
-    /// As [`resolve`](Self::resolve). The entry stays dropped.
+    /// As [`resolve`](Self::resolve). After a failed forced refresh the
+    /// entry stays dropped.
     pub async fn refresh(&self, did: &Did) -> Result<Resolved, ResolveError> {
         if did.method() == "key" {
             return derive_key(did);
+        }
+        if !self.start_refresh(did) {
+            return self.resolve(did).await;
         }
         self.lock().remove(did);
         self.fetch_and_store(did).await
     }
 
+    /// Records a forced refresh of `did` now, unless the last one was
+    /// less than the refresh interval ago. Returns whether it recorded.
+    fn start_refresh(&self, did: &Did) -> bool {
+        let now = (self.clock)();
+        let fresh = |at: &Instant| now.duration_since(*at) < self.refresh_interval;
+        let mut refreshed = relock(&self.refreshed);
+        if refreshed.get(did).is_some_and(fresh) {
+            return false;
+        }
+        if refreshed.len() >= self.max_entries.get() && !refreshed.contains_key(did) {
+            refreshed.retain(|_, at| fresh(at));
+        }
+        if refreshed.len() >= self.max_entries.get() && !refreshed.contains_key(did) {
+            // ponytail: O(n) scan, as for the cache below.
+            let oldest = refreshed
+                .iter()
+                .min_by_key(|(_, at)| **at)
+                .map(|(did, _)| did.clone());
+            if let Some(oldest) = oldest {
+                refreshed.remove(&oldest);
+            }
+        }
+        refreshed.insert(did.clone(), now);
+        true
+    }
+
     fn lock(&self) -> MutexGuard<'_, HashMap<Did, Entry>> {
-        // The map is consistent after every statement that touches it,
-        // so a panic elsewhere while holding the lock cannot corrupt it.
-        self.cache.lock().unwrap_or_else(PoisonError::into_inner)
+        relock(&self.cache)
     }
 
     async fn fetch_and_store(&self, did: &Did) -> Result<Resolved, ResolveError> {
@@ -371,6 +438,12 @@ impl<F: Fetch> Resolver<F> {
             method => Err(ResolveError::UnsupportedMethod(method.to_owned())),
         }
     }
+}
+
+fn relock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    // Each map is consistent after every statement that touches it, so a
+    // panic elsewhere while holding the lock cannot corrupt it.
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 fn derive_key(did: &Did) -> Result<Resolved, ResolveError> {
