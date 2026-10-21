@@ -15,16 +15,20 @@
 //! pending one activates it, the last decline or departure ends it, and the
 //! last moderator's departure promotes an heir.
 //!
-//! Not here: the `answered_elsewhere` fork to the answering user's other
-//! devices (bd:JMAP-8mem.7), and the per-call access and E2EE visibility
-//! rules, which the backend's reads apply ([`VtcBackend`] §Per-call
-//! access).
+//! An answer also delivers a `VTCCallEndEvent` with `endReason`
+//! `"answered_elsewhere"` through [`VtcBackend::deliver_event`], for the
+//! backend to route to the answering user's other ringing devices
+//! (§Multi-Device Forking).
+//!
+//! Not here: the per-call access and E2EE visibility rules, which the
+//! backend's reads apply ([`VtcBackend`] §Per-call access).
 
 use jmap_types::{Id, JmapError, PatchObject};
 use jmap_vtc_types::query::{Filter, Operator, VtcParticipantComparator, VtcParticipantFilter};
 use jmap_vtc_types::{
-    CallEndReason, CallResponse, CallRole, CallState, CallType, JoinMethod, LobbyState, VtcCall,
-    VtcEvent, VtcGatewaySignal, VtcMediaState, VtcParticipant, VtcUnmuteRequestEvent,
+    CallEndReason, CallResponse, CallRole, CallState, CallType, JoinMethod, LobbyState,
+    RingEndReason, VtcCall, VtcCallEndEvent, VtcEvent, VtcGatewaySignal, VtcMediaState,
+    VtcParticipant, VtcUnmuteRequestEvent,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -610,6 +614,8 @@ async fn dial_out_fields<B: VtcBackend>(
 struct Effects {
     /// Move the call to `"active"`.
     activate: bool,
+    /// The participant answered a ring.
+    answered: bool,
     /// The participant declined a ring.
     declined: bool,
     /// The participant left or was kicked.
@@ -700,6 +706,7 @@ async fn update_participant<B: VtcBackend>(
         echo.insert("joinedAt".to_owned(), now.clone());
         echo.insert("callResponse".to_owned(), json!(CallResponse::Accepted));
         effects.activate = call.state == CallState::Ringing;
+        effects.answered = true;
     }
 
     if has("callResponse") {
@@ -968,6 +975,19 @@ async fn run_effects<B: VtcBackend>(
         // ponytail: transition failures are dropped, as the crate has no
         // logging. Upgrade path: a `VtcBackend` hook that reports them.
         let _ = call_transitions(backend, caller, account_id, call, old, &effects).await;
+    }
+    if effects.answered {
+        // §Answering a Ring Call: "In either case the server dispatches a
+        // `VTCCallEndEvent` with `endReason: "answered_elsewhere"` to the
+        // answering user's other ringing devices".
+        let event: VtcCallEndEvent = build(json!({
+            "accountId": account_id,
+            "callId": old.call_id,
+            "endReason": RingEndReason::AnsweredElsewhere,
+        }));
+        backend
+            .deliver_event(caller, account_id, VtcEvent::CallEnd(event))
+            .await;
     }
     if effects.unmute_request {
         let event: VtcUnmuteRequestEvent = build(json!({

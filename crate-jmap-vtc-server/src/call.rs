@@ -13,9 +13,13 @@
 
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use jmap_vtc_types::query::{VtcCallComparator, VtcCallFilter};
-use jmap_vtc_types::{CallEndReason, CallState, CallType, MediaKind, VtcCall};
+use jmap_vtc_types::{
+    CallEndReason, CallResponse, CallState, CallType, MediaKind, RingEndReason, VtcCall,
+    VtcCallEndEvent, VtcEvent, VtcParticipant,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use crate::helpers::{
@@ -672,6 +676,110 @@ pub async fn end_call<B: VtcBackend>(
     end_cascade(backend, caller, account_id, &call, ended_patch(end_reason))
         .await
         .map(|_| ())
+}
+
+/// The ring timeout period draft-atwood-jmap-vtc-00 §Ring Timeout
+/// recommends: "a deployment-defined period (RECOMMENDED: 30 seconds)".
+pub const RING_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Enforce the ring timeout of ring call `id` at the instant `now`
+/// (draft-atwood-jmap-vtc-00 §Ring Timeout).
+///
+/// The kit runs no timer. A deployment calls this once per ring call when
+/// its own timer fires, `timeout` after the call's `createdAt`, passing
+/// [`RING_TIMEOUT`] unless it defines another period. `now` is the
+/// deployment's clock reading. Before `createdAt` plus `timeout`, or when
+/// the call is not a ring call in state `"ringing"` or `"active"`, nothing
+/// happens. Otherwise:
+///
+/// - a `"ringing"` call ends through [`end_call`] with `endReason`
+///   `"missed"`, and a `VTCCallEndEvent` with `endReason` `"timeout"` is
+///   delivered: "If no target participant answers within a
+///   deployment-defined period ..., the server transitions the call to
+///   `"ended"` with `endReason: "missed"` and dispatches `VTCCallEndEvent`
+///   with `endReason: "timeout"` to all ringing devices";
+/// - an `"active"` call continues, and the same event is delivered when a
+///   target's `callResponse` is still `"pending"`: "If the call is already
+///   `"active"` when the period expires, the call continues; the server
+///   dispatches `VTCCallEndEvent` with `endReason: "timeout"` to the
+///   devices of targets whose `callResponse` is still `"pending"`".
+///
+/// The event goes through [`VtcBackend::deliver_event`]. `caller` is the
+/// server's own context, as for [`end_call`]. Returns `Ok(true)` when the
+/// call ended or the event was delivered.
+///
+/// # Errors
+///
+/// `notFound` for an unknown `id`, and `invalidProperties` naming
+/// `createdAt` when the stored `createdAt` is not an RFC 8620 `UTCDate` at
+/// or after 1970. Otherwise the first backend error.
+// Same error type as `VtcBackend::update_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+pub async fn expire_ring<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    now: SystemTime,
+    timeout: Duration,
+) -> Result<bool, BackendSetError<B::Error>> {
+    let (found, _) = backend
+        .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    let call = found
+        .into_iter()
+        .next()
+        .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+    if call.call_type != CallType::Ring
+        || !matches!(call.state, CallState::Ringing | CallState::Active)
+    {
+        return Ok(false);
+    }
+    // Whole seconds suffice for a period of seconds; `utc_key` drops the
+    // fractional part `to_epoch_seconds` does not accept.
+    let deadline = UTCDate::from(format!("{}Z", utc_key(&call.created_at)))
+        .to_epoch_seconds()
+        .ok()
+        .and_then(|secs| u64::try_from(secs).ok())
+        .and_then(|secs| UNIX_EPOCH.checked_add(Duration::from_secs(secs)))
+        .and_then(|created| created.checked_add(timeout))
+        .ok_or_else(|| {
+            BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["createdAt"])
+                    .with_description("the call's createdAt is not a UTCDate"),
+            )
+        })?;
+    if now < deadline {
+        return Ok(false);
+    }
+    if call.state == CallState::Ringing {
+        end_call(backend, caller, account_id, id, CallEndReason::Missed).await?;
+    } else {
+        // ponytail: loads every VTCParticipant of the account, once per
+        // ring. Upgrade path: a `callId` filtered `query_objects`.
+        let (all, _) = backend
+            .get_objects::<VtcParticipant>(caller, account_id, None, None)
+            .await
+            .map_err(BackendSetError::Other)?;
+        let pending = all
+            .iter()
+            .any(|p| p.call_id == *id && p.call_response == Some(CallResponse::Pending));
+        if !pending {
+            return Ok(false);
+        }
+    }
+    let event: VtcCallEndEvent = serde_json::from_value(json!({
+        "accountId": account_id,
+        "callId": id,
+        "endReason": RingEndReason::Timeout,
+    }))
+    .expect("every field is supplied with its type");
+    backend
+        .deliver_event(caller, account_id, VtcEvent::CallEnd(event))
+        .await;
+    Ok(true)
 }
 
 /// Apply `patch`, which ends `call`, after ending every breakout room

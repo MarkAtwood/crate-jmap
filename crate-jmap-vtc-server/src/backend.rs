@@ -288,9 +288,21 @@ pub trait VtcBackend: JmapBackend {
     ///   gateway carrying the participant ("The server extracts the
     ///   signal, delivers it to the gateway, and removes the key",
     ///   §VTCGatewaySignal). The backend relays `signal` and `data` without
-    ///   interpreting them (§Gateway Signal Injection).
+    ///   interpreting them (§Gateway Signal Injection);
+    /// - [`VtcEvent::CallEnd`] with `endReason` `"answered_elsewhere"`,
+    ///   after a target answers a ring, to that user's other devices that
+    ///   received the ring ("The first device to answer wins: the server
+    ///   accepts the first `VTCParticipant/set` update (setting
+    ///   `joinMethod`), then dispatches `VTCCallEndEvent` with `endReason:
+    ///   "answered_elsewhere"` to all other devices of that participant",
+    ///   §Multi-Device Forking). `caller` is the answering request's
+    ///   context, which identifies the device that answered.
     ///
-    /// There is no default: both deliveries are the effect the update
+    /// [`crate::call::expire_ring`] also delivers [`VtcEvent::CallEnd`],
+    /// with `endReason` `"timeout"`, to the devices of the call's targets
+    /// whose `callResponse` is still `"pending"` (§Ring Timeout).
+    ///
+    /// There is no default: each delivery is the effect the update
     /// requests. Delivery failures are the backend's to log or retry.
     fn deliver_event(
         &self,
