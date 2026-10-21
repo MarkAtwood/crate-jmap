@@ -305,7 +305,8 @@ async fn check_visual_type<B: SceneBackend>(
     }
 }
 
-/// "`visualRef` does not reference a valid blob": `notFound`.
+/// "`visualRef` does not reference a valid blob": `invalidProperties`
+/// naming `visualRef`.
 async fn check_visual_ref<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -318,9 +319,9 @@ async fn check_visual_ref<B: SceneBackend>(
         .map_err(|e| server_fail_value_from_backend(&e))?
         .map(|_| ())
         .ok_or_else(|| {
-            set_error_value(
-                &SetError::new(SetErrorType::NotFound)
-                    .with_description("visualRef does not reference an uploaded blob"),
+            invalid(
+                &["visualRef"],
+                "visualRef does not reference an uploaded blob",
             )
         })
 }
