@@ -1,0 +1,61 @@
+{
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  },
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://w3id.org/security/multikey/v1"
+    ],
+    "id": "did:webvh:QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u:example.com",
+    "controller": "did:webvh:QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u:example.com",
+    "verificationMethod": [
+      {
+        "type": "Multikey",
+        "publicKeyMultibase": "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
+        "purpose": "authentication",
+        "id": "did:webvh:QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u:example.com#P5RDjVJG",
+        "controller": "did:webvh:QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u:example.com"
+      }
+    ],
+    "authentication": [
+      "did:webvh:QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u:example.com#P5RDjVJG"
+    ],
+    "service": [
+      {
+        "id": "did:webvh:QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u:example.com#files",
+        "type": "relativeRef",
+        "serviceEndpoint": "https://example.com/"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u:example.com#whois",
+        "type": "LinkedVerifiablePresentation",
+        "serviceEndpoint": "https://example.com/whois.vp"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "versionId": "2-QmVFJYT8yxTo2bATSCTHJnRcCMsZTf9tJURnM7zH6ZaKZW",
+    "created": "2000-01-01T00:00:00Z",
+    "updated": "2000-01-02T00:00:00Z",
+    "deactivated": false,
+    "portable": false,
+    "scid": "QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u",
+    "updateKeys": [
+      "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
+    ],
+    "nextKeyHashes": [],
+    "prerotation": false,
+    "witness": {
+      "witnesses": [
+        {
+          "id": "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L"
+        }
+      ],
+      "threshold": 1
+    },
+    "watchers": [],
+    "previousLogEntryHash": "QmR72NXg5DyrNL1PXwk4kiZEJxS1RJxvFEtSu9wPSZkp1u"
+  }
+}

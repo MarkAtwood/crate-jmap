@@ -60,6 +60,17 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
   the 72-hour window and be signed by a higher-authority key, and every
   `cid`, `nullified` flag and `createdAt` must agree. It returns
   `PlcStatus::Active(PlcState)` or `PlcStatus::Deactivated`.
+- `verify_webvh_log` takes the bytes of a `did:webvh` `did.jsonl` log,
+  optionally its `did-witness.json`, and the current time, and applies
+  the DIF did:webvh v1.0 Read rules: DID syntax, the SCID, the entry
+  hash chain, `eddsa-jcs-2022` proofs by the active update keys,
+  pre-rotation, parameters, `versionTime`, portability and witness
+  thresholds. The first invalid entry and those after it are reported
+  by `WebvhLog::invalid_entry`; earlier versions stay available through
+  `WebvhLog::version`, and `WebvhLog::latest` gives the `versionId` to
+  remember for rollback detection. `WebvhLog::current` is the version
+  plain resolution returns: none when a later entry is invalid or the
+  DID is deactivated.
 - `#[non_exhaustive]` on every public type, an `extra` map for unknown
   fields, no async, `#[forbid(unsafe_code)]`.
 
@@ -67,6 +78,11 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
 
 - `DidAccountCapability.did` and `previousDid` are still plain
   strings; parse them with `Did::parse` to validate.
+- `verify_webvh_log` does not map the DID to its HTTPS URLs or fetch
+  anything, and it does not add the implicit `#files` and `#whois`
+  services to the documents it returns.
+- A valid log can still be an old prefix of the real one. Remember
+  `latest().version_id` and compare.
 
 ## References
 
@@ -75,6 +91,8 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
 - [did:key] — The did:key Method v0.9
 - [did:web] — did:web Method Specification
 - [did:plc] — did:plc Method Specification v0.3.0
+- [did:webvh] — The did:webvh DID Method v1.0 (DIF)
+- [RFC 8785] — JSON Canonicalization Scheme (JCS)
 - [RFC 8620] — JMAP Core (Session resource capabilities)
 
 [draft-atwood-jmap-did-00]: https://github.com/MarkAtwood/jmap-chat-spec
@@ -82,4 +100,6 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
 [did:key]: https://w3c-ccg.github.io/did-key-spec/
 [did:web]: https://w3c-ccg.github.io/did-method-web/
 [did:plc]: https://web.plc.directory/spec/v0.1/did-plc
+[did:webvh]: https://identity.foundation/didwebvh/v1.0/
+[RFC 8785]: https://www.rfc-editor.org/rfc/rfc8785
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

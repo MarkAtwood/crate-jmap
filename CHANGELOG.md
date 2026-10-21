@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-did-types**: `verify_webvh_log`, a pure `did:webvh` verifier
+  over supplied `did.jsonl` and `did-witness.json` bytes, following DIF
+  did:webvh v1.0 as draft-atwood-jmap-did-00 §Resolving `did:webvh`
+  defers to it. It returns a `WebvhLog` whose valid versions
+  (`WebvhVersion`, with the `WebvhParameters` in effect) resolve by
+  `versionId`, with the first invalid entry and its `WebvhError`
+  reported separately. The crate now enables serde_json's
+  `float_roundtrip` feature, which workspace feature unification turns
+  on for every crate.
 - **jmap-chat-tasks-server**: `may_advertise`, which returns `true` only
   when an account advertises both `urn:ietf:params:jmap:chat` and
   `urn:ietf:params:jmap:tasks` (draft-atwood-jmap-chat-tasks-00

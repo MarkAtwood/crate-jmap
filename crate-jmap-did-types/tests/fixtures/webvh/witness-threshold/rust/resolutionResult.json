@@ -1,0 +1,60 @@
+{
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://w3id.org/security/multikey/v1"
+    ],
+    "assertionMethod": [],
+    "authentication": [
+      "did:webvh:QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo:example.com#P5RDjVJG"
+    ],
+    "capabilityDelegation": [],
+    "capabilityInvocation": [],
+    "controller": "did:webvh:QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo:example.com",
+    "id": "did:webvh:QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo:example.com",
+    "keyAgreement": [],
+    "service": [
+      {
+        "id": "did:webvh:QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo:example.com#files",
+        "serviceEndpoint": "https://example.com",
+        "type": "relativeRef"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo:example.com#whois",
+        "serviceEndpoint": "https://example.com/whois.vp",
+        "type": "LinkedVerifiablePresentation"
+      }
+    ],
+    "verificationMethod": [
+      {
+        "controller": "did:webvh:QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo:example.com",
+        "id": "did:webvh:QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo:example.com#P5RDjVJG",
+        "publicKeyMultibase": "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
+        "type": "Multikey"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "created": "2000-01-01T00:00:00Z",
+    "deactivated": false,
+    "portable": false,
+    "scid": "QmXxi5SJLod9kfjyLztg632vmSYK6Wi951PWQRCe7k32Fo",
+    "updated": "2000-01-01T00:00:00Z",
+    "versionId": "1-QmQuf4Ficd9An6KLaZeddjRARvUe7p3iXaYwrxUiy5xqCg",
+    "versionNumber": 1,
+    "versionTime": "2000-01-01T00:00:00Z",
+    "watchers": null,
+    "witness": {
+      "threshold": 1,
+      "witnesses": [
+        {
+          "id": "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L"
+        }
+      ]
+    }
+  },
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  }
+}

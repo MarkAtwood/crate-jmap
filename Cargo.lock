@@ -1713,6 +1713,8 @@ name = "jmap-did-types"
 version = "0.3.0"
 dependencies = [
  "base64",
+ "ed25519-dalek",
+ "idna",
  "jmap-types",
  "k256",
  "p256",

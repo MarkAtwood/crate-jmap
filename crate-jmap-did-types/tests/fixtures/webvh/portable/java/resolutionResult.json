@@ -1,0 +1,46 @@
+{
+  "didDocument": {
+    "@context": "https://www.w3.org/ns/did/v1",
+    "id": "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com",
+    "controller": "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com",
+    "verificationMethod": [
+      {
+        "id": "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com#z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
+        "type": "Multikey",
+        "controller": "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com",
+        "publicKeyMultibase": "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
+      }
+    ],
+    "authentication": [
+      "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com#z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
+    ],
+    "assertionMethod": [
+      "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com#z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
+    ],
+    "service": [
+      {
+        "id": "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com#files",
+        "type": "relativeRef",
+        "serviceEndpoint": "https://example.com/"
+      },
+      {
+        "@context": "https://identity.foundation/linked-vp/contexts/v1",
+        "id": "did:webvh:QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX:example.com#whois",
+        "type": "LinkedVerifiablePresentation",
+        "serviceEndpoint": "https://example.com/whois.vp"
+      }
+    ]
+  },
+  "didDocumentMetadata": {
+    "created": "2026-07-29T18:17:37Z",
+    "updated": "2026-07-29T18:17:37Z",
+    "versionId": "1-QmSv4txQktYUptPLXBJtgNArDy8r3uznKUmfGhhYj4Ko97",
+    "versionNumber": 1,
+    "versionTime": "2026-07-29T18:17:37Z",
+    "portable": true,
+    "scid": "QmVg5XWXa7d953E2ysqdUvWBR8xbUazTFebsNAYaNK8xeX"
+  },
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json"
+  }
+}

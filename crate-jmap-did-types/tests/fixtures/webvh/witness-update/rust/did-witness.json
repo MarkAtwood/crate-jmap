@@ -1,0 +1,23 @@
+[
+  {
+    "versionId": "2-QmT9zq4vRpeRfFxB5T3E93rCa4K3hGxvXGsQPFNx8Dzmka",
+    "proof": [
+      {
+        "type": "DataIntegrityProof",
+        "cryptosuite": "eddsa-jcs-2022",
+        "created": "2026-07-29T18:15:35Z",
+        "verificationMethod": "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L#z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "z3K96oApqwjQPDt13hrs5pNsNsXU61VfWJ1oNKzqhJCFTJhyKLCHi9qLE6mmpMrNrpiWboiekTA5hiTnU6hd5CpVW"
+      },
+      {
+        "type": "DataIntegrityProof",
+        "cryptosuite": "eddsa-jcs-2022",
+        "created": "2026-07-29T18:15:35Z",
+        "verificationMethod": "did:key:z6MkjnHi6KJKx625x56sxudLoKdDVDABJ5VHHdXRFPUea7NP#z6MkjnHi6KJKx625x56sxudLoKdDVDABJ5VHHdXRFPUea7NP",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "z3twsvpXddafkyyNwHnbf6zhXxEJ3LWD8ip7Epd81pMzosvGPVeCLhMDe3ZNzbrBZPusWiJid9LtvzpejBxYxxNNe"
+      }
+    ]
+  }
+]

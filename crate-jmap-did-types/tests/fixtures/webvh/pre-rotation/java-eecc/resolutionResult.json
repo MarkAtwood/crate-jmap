@@ -1,0 +1,39 @@
+{
+  "didDocument" : {
+    "@context" : [ "https://www.w3.org/ns/did/v1", "https://w3id.org/security/multikey/v1" ],
+    "id" : "did:webvh:QmUGFwWdDfE6u8oLpCtuq5MFfwC4WaTK9qg3tqBoEixxKP:example.com",
+    "controller" : "did:webvh:QmUGFwWdDfE6u8oLpCtuq5MFfwC4WaTK9qg3tqBoEixxKP:example.com",
+    "assertionMethod" : [ ],
+    "keyAgreement" : [ ],
+    "capabilityDelegation" : [ ],
+    "capabilityInvocation" : [ ],
+    "verificationMethod" : [ {
+      "id" : "did:webvh:QmUGFwWdDfE6u8oLpCtuq5MFfwC4WaTK9qg3tqBoEixxKP:example.com#P5RDjVJG",
+      "type" : "Multikey",
+      "controller" : "did:webvh:QmUGFwWdDfE6u8oLpCtuq5MFfwC4WaTK9qg3tqBoEixxKP:example.com",
+      "publicKeyMultibase" : "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
+    } ],
+    "authentication" : [ "did:webvh:QmUGFwWdDfE6u8oLpCtuq5MFfwC4WaTK9qg3tqBoEixxKP:example.com#P5RDjVJG" ],
+    "service" : [ {
+      "id" : "#files",
+      "type" : "relativeRef",
+      "serviceEndpoint" : "https://example.com/"
+    }, {
+      "@context" : "https://identity.foundation/linked-vp/contexts/v1",
+      "id" : "#whois",
+      "type" : "LinkedVerifiablePresentation",
+      "serviceEndpoint" : "https://example.com/whois.vp"
+    } ]
+  },
+  "didDocumentMetadata" : {
+    "created" : "2026-07-29T18:21:36Z",
+    "updated" : "2026-07-29T18:21:36Z",
+    "versionId" : "1-QmQ8B9G8jyDyTy7jFFw42ZZebEvvoEZpNuXCYrJr1zbSne",
+    "versionNumber" : 1,
+    "versionTime" : "2026-07-29T18:21:36Z",
+    "scid" : "QmUGFwWdDfE6u8oLpCtuq5MFfwC4WaTK9qg3tqBoEixxKP"
+  },
+  "didResolutionMetadata" : {
+    "contentType" : "application/did+ld+json"
+  }
+}
