@@ -103,6 +103,17 @@ struct RoomChat {
     mls_messages: Vec<Vec<u8>>,
 }
 
+impl RoomChat {
+    /// Whether the Chat already stores `fanout`: a Message with its
+    /// `senderMsgId` or a FanoutMessage with byte-identical `message`.
+    fn holds(&self, fanout: &Fanout) -> bool {
+        self.messages
+            .iter()
+            .any(|m| m["senderMsgId"] == fanout.sender_msg_id.as_str())
+            || self.mls_messages.contains(&fanout.message)
+    }
+}
+
 /// The account a signature key is bound to, and its client's `clientUri`.
 struct Binding {
     account: String,
@@ -665,7 +676,9 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
                     .map(|account| match inner.room_chat_id(account, room_id) {
                         Some(id) => {
                             if let Some(chat) = inner.room_chats.get_mut(&id) {
-                                chat.bound = true;
+                                if !chat.holds(fanout) {
+                                    chat.bound = true;
+                                }
                             }
                             id
                         }
@@ -679,12 +692,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
                 continue;
             };
             let account = chat.account.clone();
-            let duplicate = chat
-                .messages
-                .iter()
-                .any(|m| m["senderMsgId"] == fanout.sender_msg_id.as_str())
-                || chat.mls_messages.contains(&fanout.message);
-            if duplicate || inner.hub_blocked(&account, hub_uri) {
+            if chat.holds(fanout) || inner.hub_blocked(&account, hub_uri) {
                 continue;
             }
             let sender_id = inner.hub_contact_id(&account, hub_uri);

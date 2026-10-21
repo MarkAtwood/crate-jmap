@@ -16,12 +16,14 @@ use jmap_types::Id;
 use openmls::extensions::{AppDataDictionary, AppDataDictionaryExtension};
 use openmls::prelude::{
     BasicCredential, Capabilities, Ciphersuite, CredentialType, CredentialWithKey, Extension,
-    ExtensionType, Extensions, KeyPackage, RequiredCapabilitiesExtension,
+    ExtensionType, Extensions, KeyPackage, KeyPackageIn, KeyPackageVerifyError, ProposalType,
+    ProtocolVersion, RequiredCapabilitiesExtension,
 };
+use openmls::treesync::errors::LifetimeError;
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::{OpenMlsRustCrypto, RustCrypto};
 use serde_json::{json, Value};
-use tls_codec::Serialize as _;
+use tls_codec::{Deserialize as _, Serialize as _};
 
 const ALICE: &str = "mimi://a.example/u/alice";
 const SUITE: Ciphersuite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -64,12 +66,22 @@ fn alice_backend(max: u64) -> MemoryBackend<RustCrypto> {
 /// `last_resort_key_package` component (id 0x0004) in its
 /// `app_data_dictionary` extension.
 fn key_package(signer: &SignatureKeyPair, last_resort: bool) -> Vec<u8> {
+    key_package_listing(signer, last_resort, &[ExtensionType::AppDataDictionary])
+}
+
+/// As [`key_package`], with the leaf node capabilities listing exactly
+/// `extensions`, no proposal types and the Basic credential type.
+fn key_package_listing(
+    signer: &SignatureKeyPair,
+    last_resort: bool,
+    extensions: &[ExtensionType],
+) -> Vec<u8> {
     let provider = OpenMlsRustCrypto::default();
     let mut builder = KeyPackage::builder().leaf_node_capabilities(Capabilities::new(
         None,
         None,
-        Some(&[ExtensionType::AppDataDictionary]),
-        None,
+        Some(extensions),
+        Some(&[]),
         Some(&[CredentialType::Basic]),
     ));
     if last_resort {
@@ -245,14 +257,24 @@ async fn an_incompatible_cipher_suite_is_nothing_compatible_and_kept() {
 /// Note that this is not true for credential types." §7.2 lists
 /// external_senders (0x0005) as a default extension type; last_resort
 /// (0x000a) is not one, and the test KeyPackages do not list it.
+/// §7.2 makes proposal types 0x0001 to 0x0007 and extension types 0x0001
+/// to 0x0005 the defaults. The KeyPackage leaves list no proposal type,
+/// and the second lists no extension type, so the first value past each
+/// default range (0x0008 and 0x0006, assigned by
+/// draft-ietf-mls-extensions) must be listed to be compatible.
 #[test]
 fn required_capabilities_are_checked_against_the_leaf_capabilities() {
     let crypto = RustCrypto::default();
     let kp: Base64Url = b64(&key_package(&signer(), false)).parse().unwrap();
-    let requires = |ext: &[ExtensionType], cred: &[CredentialType]| {
-        KeyMaterialRequirements::new(vec![1], RequiredCapabilitiesExtension::new(ext, &[], cred))
-            .fit(&crypto, &kp)
+    let requires_of = |kp: &Base64Url,
+                       ext: &[ExtensionType],
+                       prop: &[ProposalType],
+                       cred: &[CredentialType]| {
+        KeyMaterialRequirements::new(vec![1], RequiredCapabilitiesExtension::new(ext, prop, cred))
+            .fit(&crypto, kp)
     };
+    let requires =
+        |ext: &[ExtensionType], cred: &[CredentialType]| requires_of(&kp, ext, &[], cred);
     assert_eq!(requires(&[], &[]), KeyPackageFit::Compatible);
     assert_eq!(
         requires(&[ExtensionType::ExternalSenders], &[]),
@@ -274,15 +296,54 @@ fn required_capabilities_are_checked_against_the_leaf_capabilities() {
         requires(&[], &[CredentialType::X509]),
         KeyPackageFit::Incompatible
     );
+
+    assert_eq!(
+        requires_of(
+            &kp,
+            &[],
+            &[ProposalType::Add, ProposalType::GroupContextExtensions],
+            &[]
+        ),
+        KeyPackageFit::Compatible
+    );
+    assert_eq!(
+        requires_of(&kp, &[], &[ProposalType::from(0x0008)], &[]),
+        KeyPackageFit::Incompatible
+    );
+
+    let bare: Base64Url = b64(&key_package_listing(&signer(), false, &[]))
+        .parse()
+        .unwrap();
+    assert_eq!(
+        requires_of(&bare, &[ExtensionType::ExternalSenders], &[], &[]),
+        KeyPackageFit::Compatible
+    );
+    assert_eq!(
+        requires_of(&bare, &[ExtensionType::from(0x0006)], &[], &[]),
+        KeyPackageFit::Incompatible
+    );
 }
 
 /// draft-ietf-mimi-protocol-06 §5.2: "The target provider MUST NOT
 /// provide expired keying material (ex: an MLS KeyPackage containing a
 /// LeafNode with a `notAfter` time past the current date and time)." The
-/// interop KeyPackage's `not_after` is 2024-03-02.
+/// interop KeyPackage's `not_after` is 2024-03-02. openmls rejects it for
+/// its lifetime alone, so `Unavailable` is not a decode failure.
 #[test]
 fn an_expired_key_package_is_unavailable() {
-    let kp: Base64Url = b64(&hex(INTEROP_KEY_PACKAGE)).parse().unwrap();
+    let bytes = hex(INTEROP_KEY_PACKAGE);
+    assert!(matches!(
+        KeyPackageIn::tls_deserialize_exact(&bytes)
+            .expect("the vector parses")
+            .validate(&RustCrypto::default(), ProtocolVersion::Mls10),
+        Err(KeyPackageVerifyError::LifetimeError(
+            LifetimeError::Expired {
+                not_after: 1_709_378_047,
+                ..
+            }
+        ))
+    ));
+    let kp: Base64Url = b64(&bytes).parse().unwrap();
     assert_eq!(
         accepts(&[1]).fit(&RustCrypto::default(), &kp),
         KeyPackageFit::Unavailable

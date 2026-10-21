@@ -528,6 +528,36 @@ async fn an_unbound_chat_stores_nothing_until_a_welcome_binds_it_again() {
     assert_eq!(messages(&backend, "b1").len(), 3);
 }
 
+/// L441: "The server MUST NOT store a FanoutMessage whose `senderMsgId` it
+/// has already stored in the Chat, so a repeated `/notify` yields one
+/// Message." L260: after `Room/unbind`, "The server stores no further
+/// FanoutMessage in it"; only "A later Welcome for the account binds the
+/// Chat again", and a hub retrying the same `/notify` is not a later one.
+#[tokio::test]
+async fn a_repeated_welcome_does_not_rebind_an_unbound_chat() {
+    let backend = backend();
+    let bob = claimed_key_package(&backend, "b1").await;
+    let mut group = Group::new();
+    let welcome = welcome_fanout(T, &group.add(&[bob]));
+    notify(&backend, &welcome).await;
+    assert!(backend
+        .unbind_room(&(), &Id::from("b1"), ROOM)
+        .await
+        .expect("unbind"));
+
+    notify(&backend, &welcome).await;
+    assert!(!backend
+        .room_bound(&(), &Id::from("b1"), ROOM)
+        .await
+        .expect("room_bound"));
+    notify(
+        &backend,
+        &application_fanout(T + 1, &group.send(b"after leaving")),
+    )
+    .await;
+    assert_eq!(messages(&backend, "b1").len(), 1, "only the first Welcome");
+}
+
 /// L444: "The `blocked` field of that ChatContact applies as JMAP-CHAT
 /// defines it, so blocking the hub drops every FanoutMessage of the rooms
 /// it hosts."

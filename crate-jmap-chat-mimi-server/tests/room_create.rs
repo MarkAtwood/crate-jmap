@@ -22,8 +22,8 @@ use jmap_chat_mimi_types::MimiCapability;
 use jmap_types::Id;
 use openmls::extensions::{AppDataDictionary, AppDataDictionaryExtension};
 use openmls::prelude::{
-    BasicCredential, Capabilities, Ciphersuite, CredentialWithKey, Extension, ExtensionType,
-    Extensions, ExternalSender, GroupId, KeyPackage, MlsGroup,
+    BasicCredential, Capabilities, Ciphersuite, Credential, CredentialType, CredentialWithKey,
+    Extension, ExtensionType, Extensions, ExternalSender, GroupId, KeyPackage, MlsGroup,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::{OpenMlsRustCrypto, RustCrypto};
@@ -122,6 +122,9 @@ struct Group {
     franking: Option<Vec<u8>>,
     policy: Option<Vec<u8>>,
     add_bob: bool,
+    /// Give the leaf an X.509 credential holding `identity` instead of a
+    /// Basic one.
+    x509: bool,
 }
 
 struct Hub {
@@ -158,7 +161,17 @@ impl Group {
             franking: Some(hub.franking()),
             policy: Some(base_room_policy(0)),
             add_bob: false,
+            x509: false,
         }
+    }
+
+    fn credential_with_key(&self, signer: &SignatureKeyPair) -> CredentialWithKey {
+        let mut cwk = credential_with_key(self.identity, signer);
+        if self.x509 {
+            cwk.credential =
+                Credential::new(CredentialType::X509, self.identity.as_bytes().to_vec());
+        }
+        cwk
     }
 
     /// The `groupInfo` and `ratchetTree` arguments for this group, built
@@ -191,11 +204,7 @@ impl Group {
             .with_group_context_extensions(
                 Extensions::from_vec(extensions).expect("GroupContext extensions"),
             )
-            .build(
-                &provider,
-                signer,
-                credential_with_key(self.identity, signer),
-            )
+            .build(&provider, signer, self.credential_with_key(signer))
             .expect("build group");
         if self.add_bob {
             let bob_signer = new_signer();
@@ -234,7 +243,7 @@ fn capabilities() -> Capabilities {
         None,
         Some(&[ExtensionType::AppDataDictionary]),
         None,
-        None,
+        Some(&[CredentialType::Basic, CredentialType::X509]),
     )
 }
 
@@ -370,6 +379,84 @@ async fn check_2_tree_hash_one_leaf_identity_binding() {
 
     let unbound = backend(&hub, &alice, false).await;
     assert_rejected(&unbound, &Group::valid(&hub).build(&alice), "unbound key").await;
+
+    // Alice's signature key bound to account b1 (Bob) instead of a1.
+    let elsewhere = backend(&hub, &alice, false).await;
+    let mut bob_capability = capability(&hub, &[1]);
+    bob_capability.user_uri = BOB.to_owned();
+    elsewhere.register_account(&Id::from("b1"), bob_capability);
+    let provider = OpenMlsRustCrypto::default();
+    let kp = KeyPackage::builder()
+        .build(SUITE, &provider, &alice, credential_with_key(BOB, &alice))
+        .expect("KeyPackage")
+        .key_package()
+        .tls_serialize_detached()
+        .expect("serialize KeyPackage");
+    let out = handle_key_package_set(
+        &elsewhere,
+        &(),
+        json!({ "accountId": "b1", "create": { "k": { "keyPackage": b64(&kp) } } }),
+    )
+    .await
+    .expect("KeyPackage/set");
+    assert!(out.primary["created"]["k"].is_object(), "{}", out.primary);
+    assert_rejected(
+        &elsewhere,
+        &Group::valid(&hub).build(&alice),
+        "key bound to another account",
+    )
+    .await;
+}
+
+/// L274: `groupInfo` is "An MLSMessage ({{RFC9420, Section 6}}) of wire
+/// format `mls_group_info`"; L277: `ratchetTree` is "a `ratchet_tree`
+/// vector of `optional<Node>` entries"; check 2 needs the leaf's
+/// "credential identity", which RFC 9420 §5.3 gives only for a Basic
+/// credential.
+#[tokio::test]
+async fn malformed_arguments_and_a_non_basic_credential() {
+    let hub = Hub::new();
+    let alice = new_signer();
+    let backend = backend(&hub, &alice, true).await;
+    let (group_info, tree) = Group::valid(&hub).build(&alice);
+
+    // RFC 9420 §6: MLSMessage is `version` 0x0001 (mls10), `wire_format`,
+    // then the body; wire format 0x0005 is mls_key_package.
+    let provider = OpenMlsRustCrypto::default();
+    let kp = KeyPackage::builder()
+        .build(SUITE, &provider, &alice, credential_with_key(ALICE, &alice))
+        .expect("KeyPackage")
+        .key_package()
+        .tls_serialize_detached()
+        .expect("serialize KeyPackage");
+    let kp_message = [&[0x00, 0x01, 0x00, 0x05][..], &kp].concat();
+    assert_rejected(
+        &backend,
+        &(b64(&kp_message), tree.clone()),
+        "mls_key_package wire format",
+    )
+    .await;
+
+    for (args, why) in [
+        (("!!".to_owned(), tree.clone()), "groupInfo not base64url"),
+        (
+            (group_info.clone(), "!!".to_owned()),
+            "ratchetTree not base64url",
+        ),
+        ((b64(&[0x00]), tree.clone()), "groupInfo does not parse"),
+        (
+            (group_info.clone(), b64(&[0xff])),
+            "ratchetTree does not parse",
+        ),
+    ] {
+        assert_rejected(&backend, &args, why).await;
+    }
+
+    let x509 = Group {
+        x509: true,
+        ..Group::valid(&hub)
+    };
+    assert_rejected(&backend, &x509.build(&alice), "X.509 leaf credential").await;
 }
 
 /// L281, check 3: "The `external_senders` extension contains exactly one
