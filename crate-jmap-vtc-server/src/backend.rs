@@ -125,15 +125,15 @@ pub trait VtcBackend: JmapBackend {
 
     /// Create a call.
     ///
-    /// The handler has validated `call` against draft-atwood-jmap-vtc-00
-    /// §VTCCall/set and filled the server-set properties except two: its
-    /// `id` is a placeholder and its `joinUri` is empty. The backend
-    /// MUST, in one atomic step:
+    /// The handler has validated the call against draft-atwood-jmap-vtc-00
+    /// §VTCCall/set and filled the server-set properties except two: `id`,
+    /// which `build` sets to the id it is given, and `joinUri`, which is
+    /// empty. The backend MUST, in one atomic step:
     ///
-    /// - assign a ULID `id` ("VTCCall IDs are ULIDs ... assigned by the
-    ///   server at the time the call is created") and a `joinUri` ("The
-    ///   server generates `joinUri` pointing to the deployment's media
-    ///   stack");
+    /// - mint a ULID `id` ("VTCCall IDs are ULIDs ... assigned by the
+    ///   server at the time the call is created"), call `build(&id)` once
+    ///   for the call carrying it, and assign a `joinUri` ("The server
+    ///   generates `joinUri` pointing to the deployment's media stack");
     /// - when `call.chat_id` names a Chat already referenced by a call in
     ///   state `"active"` or `"ringing"`, refuse with
     ///   [`call_already_active_on_chat`];
@@ -158,22 +158,25 @@ pub trait VtcBackend: JmapBackend {
     /// Returns the stored call. Error mapping, state-counter and change-log
     /// rules are those of the canonical `jmap-mail-server`
     /// `create_object`: the state advances only when the create commits.
-    fn create_call(
+    fn create_call<F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        call: VtcCall,
+        build: F,
         ring_targets: &[String],
-    ) -> impl std::future::Future<Output = Result<VtcCall, BackendSetError<Self::Error>>> + Send;
+    ) -> impl std::future::Future<Output = Result<VtcCall, BackendSetError<Self::Error>>> + Send
+    where
+        F: FnOnce(&jmap_types::Id) -> VtcCall + Send;
 
     /// Create a `VTCRecording`, `VTCLivestream` or `VTCParticipant`.
     ///
-    /// The handler has validated `obj` against draft-atwood-jmap-vtc-00
+    /// The handler has validated the create against draft-atwood-jmap-vtc-00
     /// §Starting a Recording, §Starting a Livestream, §Joining a Room or
     /// Scheduled Call or §Gateway Dial-Out and filled its server-set
-    /// properties; its `id` is a placeholder. The backend MUST, in one
-    /// atomic step, assign the `id` ("Opaque server-assigned identifier")
-    /// and store the object. In the same step:
+    /// properties other than `id`. The backend MUST, in one atomic step,
+    /// mint the `id` ("Opaque server-assigned identifier"), call
+    /// `build(&id)` once for the object carrying it, and store that
+    /// object. In the same step:
     ///
     /// - for a recording or livestream, refuse with `invalidProperties`
     ///   naming `callId` when the object's `callId` names no call in state
@@ -204,14 +207,17 @@ pub trait VtcBackend: JmapBackend {
     /// client's creation id. Error mapping, state-counter and change-log
     /// rules are those of the canonical `jmap-mail-server` `create_object`:
     /// the state advances only when the create commits.
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Deliver `event` to every participant in `event.call_id`
     /// (draft-atwood-jmap-vtc-00 §VTCRecordingStateEvent: "Delivered to all

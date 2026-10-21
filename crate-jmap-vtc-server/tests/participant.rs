@@ -1433,27 +1433,34 @@ impl VtcBackend for FailCallUpdate {
         self.0.caller_user_id(caller, account_id).await
     }
 
-    async fn create_call(
+    async fn create_call<F>(
         &self,
         caller: &String,
         account_id: &Id,
-        call: VtcCall,
+        build: F,
         ring_targets: &[String],
-    ) -> Result<VtcCall, BackendSetError<MemoryError>> {
+    ) -> Result<VtcCall, BackendSetError<MemoryError>>
+    where
+        F: FnOnce(&Id) -> VtcCall + Send,
+    {
         self.0
-            .create_call(caller, account_id, call, ring_targets)
+            .create_call(caller, account_id, build, ring_targets)
             .await
     }
 
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &String,
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         self.0
-            .create_object::<O>(caller, account_id, create_id, obj)
+            .create_object(caller, account_id, create_id, build)
             .await
     }
 

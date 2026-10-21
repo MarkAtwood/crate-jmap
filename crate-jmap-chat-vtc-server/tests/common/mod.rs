@@ -175,20 +175,32 @@ impl VtcBackend for Bound {
         self.vtc.caller_user_id(caller, account_id).await
     }
 
-    async fn create_call(
+    async fn create_call<F>(
         &self,
         caller: &String,
         account_id: &Id,
-        call: VtcCall,
+        build: F,
         ring_targets: &[String],
-    ) -> Result<VtcCall, BackendSetError<VtcError>> {
+    ) -> Result<VtcCall, BackendSetError<VtcError>>
+    where
+        F: FnOnce(&Id) -> VtcCall + Send,
+    {
+        // The chat gate reads only the call's `chatId`, `spaceId` and
+        // `channelId`, and the wrapped backend mints the id, so this mock
+        // builds the call for the gate first and the wrapped backend stores
+        // it under the id it mints.
+        let mut call = build(&Id::from(""));
         check_call_create(&self.chat, &(), account_id, &call, &self.everyone)
             .await
             .map_err(|e| BackendSetError::Other(chat_error(e)))?
             .map_err(BackendSetError::SetError)?;
+        let build = move |id: &Id| {
+            call.id = id.clone();
+            call
+        };
         let stored = self
             .vtc
-            .create_call(caller, account_id, call, ring_targets)
+            .create_call(caller, account_id, build, ring_targets)
             .await?;
         sync_active_call_id(&self.chat, &(), account_id, &stored)
             .await
@@ -196,15 +208,19 @@ impl VtcBackend for Bound {
         Ok(stored)
     }
 
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &String,
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<VtcError>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<VtcError>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         self.vtc
-            .create_object::<O>(caller, account_id, create_id, obj)
+            .create_object(caller, account_id, create_id, build)
             .await
     }
 
