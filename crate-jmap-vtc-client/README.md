@@ -94,14 +94,46 @@ before any I/O.
   the server-set properties, which are not whole VTC objects.
 - `/get` decodes whole objects; a `properties` subset that drops a required field fails
   to decode.
-- The ring, in-call and gateway events are WebSocket/push payloads, not methods. Decode
-  them with `jmap_vtc_types::VtcEvent` and `VtcCallPush`.
+- The ring, in-call and gateway events are WebSocket/push payloads, not methods. Receive
+  them over the WebSocket with `VtcWsExt` (below); decode push payloads with
+  `jmap_vtc_types::VtcCallPush`.
+- A `VTCStreamEnable` subscription dies with its connection. After reconnecting, send
+  `send_vtc_stream_enable` again (draft-atwood-jmap-vtc-wss-00 §Subscription Lifecycle).
+
+## VTC WebSocket events
+
+`VtcWsExt` adds [draft-atwood-jmap-vtc-wss-00] ephemeral VTC events to a
+`jmap_base_client::WsSession`. `send_vtc_stream_enable` starts or replaces the
+subscription and `send_vtc_stream_disable` cancels it. `next_vtc_frame` yields the eight
+VTC event types as `VtcWsFrame::Event(VtcEvent)`. Every other frame (`StateChange`,
+`Response`, a `RequestError` rejecting a `VTCStreamEnable`, Chat or Scene events,
+unrecognized `@type`s, and VTC events that do not parse) arrives unchanged as
+`VtcWsFrame::Other`.
+
+```rust,no_run
+use jmap_base_client::WsSession;
+use jmap_vtc_client::{VtcWsExt, VtcWsFrame};
+use jmap_vtc_types::{VtcEvent, VtcStreamEnable};
+
+# async fn run(mut ws: WsSession) -> Result<(), jmap_base_client::ClientError> {
+let mut enable = VtcStreamEnable::default();
+enable.call_ids = Some(vec!["01J4XKZQN4MWVT8PPBEHTJ3AB0".into()]);
+ws.send_vtc_stream_enable(&enable).await?;
+while let Some(frame) = ws.next_vtc_frame().await {
+    if let VtcWsFrame::Event(VtcEvent::Participant(e)) = frame? {
+        println!("{} {:?}", e.display_name, e.event);
+    }
+}
+# Ok(()) }
+```
 
 ## References
 
 - **[draft-atwood-jmap-vtc-00]** — JMAP VTC
+- **[draft-atwood-jmap-vtc-wss-00]** — JMAP VTC WebSocket extension
 - **[RFC 8620]** — JMAP Core
 
 [draft-atwood-jmap-vtc-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-vtc-wss-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client

@@ -2387,12 +2387,14 @@ dependencies = [
 name = "jmap-vtc-client"
 version = "0.3.0"
 dependencies = [
+ "futures",
  "jmap-base-client",
  "jmap-types",
  "jmap-vtc-types",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
  "wiremock",
 ]
 

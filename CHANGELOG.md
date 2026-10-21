@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-client**: `VtcWsExt`, `VtcWsFrame` and `parse_vtc_ws_frame`
+  for draft-atwood-jmap-vtc-wss-00 on a `jmap_base_client::WsSession`.
+  `send_vtc_stream_enable` and `send_vtc_stream_disable` send the
+  `VTCStreamEnable` and `VTCStreamDisable` frames; `next_vtc_frame` types
+  the eight VTC event types and passes every other frame through, so an
+  unrecognized `@type` or a malformed event never fails the connection
+  (§Forward Compatibility).
+
 - **jmap-vtc-types**: `VtcStreamEnable::id`, the optional client-specified
   frame identifier of draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable. The
   transport echoes it as the `requestId` of a `RequestError` the frame
