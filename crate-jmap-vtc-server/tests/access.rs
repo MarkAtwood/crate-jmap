@@ -62,6 +62,16 @@ async fn e2ee_downgrade_is_invalid_properties() {
     assert_eq!(err["properties"], json!(["e2eeEnabled"]), "{err}");
     assert_eq!(get(&backend, "C1").await["e2eeEnabled"], true);
 
+    // RFC 8620 §5.3: a PatchObject value of `null` means "reset to the
+    // default value", and L457 says "Default: `false`", so `null` is the
+    // same downgrade.
+    let err = update(&backend, BOB, "C1", json!({ "e2eeEnabled": null }))
+        .await
+        .expect_err("null reset must fail");
+    assert_eq!(err["type"], "invalidProperties", "{err}");
+    assert_eq!(err["properties"], json!(["e2eeEnabled"]), "{err}");
+    assert_eq!(get(&backend, "C1").await["e2eeEnabled"], true);
+
     // Keeping it `true` is no downgrade.
     update(&backend, BOB, "C1", json!({ "e2eeEnabled": true }))
         .await

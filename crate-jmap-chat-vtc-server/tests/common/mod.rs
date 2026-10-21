@@ -297,6 +297,10 @@ impl VtcBackend for Bound {
             .map_err(chat_error)
     }
 
+    async fn active_call_count(&self, caller: &String, account_id: &Id) -> Result<u64, VtcError> {
+        self.vtc.active_call_count(caller, account_id).await
+    }
+
     fn supports_type<O: JmapObject>(&self, caller: &String, account_id: &Id) -> bool {
         self.vtc.supports_type::<O>(caller, account_id)
     }

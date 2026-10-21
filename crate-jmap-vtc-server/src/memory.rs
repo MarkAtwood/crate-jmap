@@ -976,6 +976,18 @@ impl VtcBackend for MemoryBackend {
             }))
     }
 
+    async fn active_call_count(
+        &self,
+        _caller: &String,
+        account_id: &Id,
+    ) -> Result<u64, MemoryError> {
+        Ok(self
+            .lock()
+            .calls(account_id)
+            .filter(|c| c.state == CallState::Active)
+            .count() as u64)
+    }
+
     async fn is_user_blocked(
         &self,
         caller: &String,

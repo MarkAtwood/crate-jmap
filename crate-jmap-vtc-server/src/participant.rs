@@ -506,11 +506,8 @@ fn join_media_state(
 
 /// "If the account already has `maxConcurrentCalls` active calls, the
 /// server MUST return `overQuota`", applied to a join that would make one
-/// more call active.
-///
-/// ponytail: loads every VTCCall of the account to count the active ones,
-/// O(calls) per join of a pending call. Upgrade path: a `state` filtered
-/// [`jmap_server::JmapBackend::query_objects`].
+/// more call active. The count is the account's, so it comes from
+/// [`VtcBackend::active_call_count`], not the caller-scoped `get_objects`.
 async fn check_concurrent_calls<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -523,14 +520,10 @@ async fn check_concurrent_calls<B: VtcBackend>(
     let Some(max) = cap.max_concurrent_calls else {
         return Ok(());
     };
-    let (calls, _) = backend
-        .get_objects::<VtcCall>(caller, account_id, None, None)
+    let active = backend
+        .active_call_count(caller, account_id)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
-    let active = calls
-        .iter()
-        .filter(|c| c.state == CallState::Active)
-        .count() as u64;
     if active >= max {
         return Err(set_error_value(
             &SetError::new(SetErrorType::OverQuota)
