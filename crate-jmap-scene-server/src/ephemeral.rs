@@ -164,6 +164,12 @@ impl SceneEphemeralSubscription {
 /// access to it ([`SceneBackend::may_access_region`]) and an active
 /// avatar (`leftAt` `null`) in it. Then:
 ///
+/// - `SceneAvatarEvent` needs the recipient to see the region's avatars
+///   ([`SceneBackend::may_see_region_avatars`]): a region bound to an
+///   E2EE VTCCall suppresses them toward non-participants
+///   (draft-atwood-jmap-scene-00 at 6bcd9d8, L2654), through
+///   `SceneStreamEnable` and `ChatStreamEnable` alike
+///   (draft-atwood-jmap-scene-wss-00 at 6bcd9d8, L1233-1234).
 /// - `SceneObjectEvent` and `SceneInteractionEvent` need the named object
 ///   to pass the `SceneObject/get` visibility contract for the recipient
 ///   ([`SceneBackend::is_object_visible`]; §Visibility Filtering). A
@@ -190,7 +196,8 @@ impl SceneEphemeralSubscription {
 /// # Errors
 ///
 /// Returns the backend's error if reading the recipient's userId, its
-/// avatars, the object, region access, visibility or block status fails.
+/// avatars, the object, region access, visibility, avatar visibility or
+/// block status fails.
 pub async fn should_deliver<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -230,6 +237,13 @@ pub async fn should_deliver<B: SceneBackend>(
     }
     let me = backend.caller_user_id(caller, account_id).await?;
     if !has_active_avatar(backend, caller, account_id, &me, region_id).await? {
+        return Ok(false);
+    }
+    if matches!(event, SceneEvent::Avatar(_))
+        && !backend
+            .may_see_region_avatars(caller, account_id, region_id)
+            .await?
+    {
         return Ok(false);
     }
     if let Some((object_id, destroyed)) = object {

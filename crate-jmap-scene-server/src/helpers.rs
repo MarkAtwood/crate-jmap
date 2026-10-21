@@ -197,7 +197,7 @@ pub(crate) trait Visible: GetObject + Send + Sync {
     fn region(&self) -> &Id;
 
     /// The type's check after region access: the SceneObject visibility
-    /// set, or the SceneAvatar blocked-contact filter.
+    /// set, or the SceneAvatar blocked-contact and E2EE-call filters.
     fn visible<B: SceneBackend>(
         &self,
         backend: &B,
@@ -290,7 +290,10 @@ impl Visible for SceneAvatar {
     ) -> Result<bool, B::Error> {
         Ok(!backend
             .is_user_blocked(caller, account_id, &self.user_id)
-            .await?)
+            .await?
+            && backend
+                .may_see_region_avatars(caller, account_id, &self.region_id)
+                .await?)
     }
 }
 

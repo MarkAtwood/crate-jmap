@@ -321,6 +321,25 @@ async fn avatar_event_from_a_blocked_user_is_dropped() {
     }
 }
 
+/// draft-atwood-jmap-scene-00 at jmap-chat-spec 6bcd9d8, L2654: for a
+/// region bound to an E2EE VTCCall the server SHOULD "suppress
+/// `SceneAvatarEvent` ... delivery (`entered`, `left`, and `ejected`)" to
+/// users who are not participants in the call. Only `SceneAvatarEvent` is
+/// named, so a `SceneObjectEvent` in the region still goes out.
+/// `hide_region_avatars` stands in for the binding's "not a participant".
+#[tokio::test]
+async fn avatar_event_in_a_region_hiding_its_avatars_is_dropped() {
+    let backend = scene();
+    backend.hide_region_avatars(BOB, R1);
+    for kind in ["entered", "left", "ejected"] {
+        let e = avatar_event(ALICE, kind);
+        assert!(!delivers(&backend, BOB, &all(), &e).await, "{kind}");
+        assert!(delivers(&backend, CAROL, &all(), &e).await, "{kind}");
+    }
+    let moved = object_event(OBJ42, "updated", json!(null));
+    assert!(delivers(&backend, BOB, &all(), &moved).await);
+}
+
 /// L752-756: "The server MUST NOT deliver a `SceneObjectEvent` to a
 /// recipient who has blocked the user identified by the event's
 /// `updatedBy` field. Events where `updatedBy` is `null`

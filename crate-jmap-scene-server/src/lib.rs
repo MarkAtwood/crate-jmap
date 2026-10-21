@@ -61,9 +61,11 @@
 //! Spatial Presence): `/get` of SceneRegion, SceneObject and SceneAvatar
 //! reports a record in a region the caller has no access to
 //! ([`SceneBackend::may_access_region`]), an object outside the caller's
-//! visibility set ([`SceneBackend::is_object_visible`]) and an avatar of a
-//! user the caller blocked ([`SceneBackend::is_user_blocked`]) in
-//! `notFound`, like a missing id; `SceneObject/set` refuses an update or
+//! visibility set ([`SceneBackend::is_object_visible`]), an avatar of a
+//! user the caller blocked ([`SceneBackend::is_user_blocked`]) and an
+//! avatar in a region bound to an E2EE call the caller is not in
+//! ([`SceneBackend::may_see_region_avatars`]) in `notFound`, like a
+//! missing id; `SceneObject/set` refuses an update or
 //! destroy of a hidden object with `notFound`. The backend omits the same
 //! records from `/query` and `/queryChanges`. `activeAvatarCount` is the
 //! true count, blocked users included, as the draft says deployments
@@ -81,7 +83,8 @@
 //! a dynamic ([`RegionScope::All`]) or static ([`RegionScope::Only`])
 //! region scope and the `invalidArguments` check on `eventTypes`;
 //! [`should_deliver`], the per-event delivery check (active avatar,
-//! visibility, blocked-sender suppression); and [`validate_interaction`],
+//! visibility, E2EE-call avatar suppression, blocked-sender suppression);
+//! and [`validate_interaction`],
 //! the check on a client-sent `SceneInteractionEvent` before relay.
 //!
 //! The crate depends on RFC 8620 only; Chat and VTC bindings live in

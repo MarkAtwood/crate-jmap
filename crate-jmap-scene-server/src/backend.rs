@@ -563,6 +563,41 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(false) }
     }
 
+    /// `true` if the caller may see the SceneAvatar records of region
+    /// `region_id` (draft-atwood-jmap-scene-00 at 6bcd9d8, L2654): "When a
+    /// SceneRegion's `activeCallId` references a VTCCall with
+    /// `e2eeEnabled` set to `true`, the server SHOULD NOT expose the
+    /// region's SceneAvatar records to users who are not participants in
+    /// the bound VTCCall: for such users it SHOULD return `notFound` for
+    /// `SceneAvatar/get`, exclude the records from `SceneAvatar/query`, and
+    /// suppress `SceneAvatarEvent` ... delivery (`entered`, `left`, and
+    /// `ejected`)."
+    ///
+    /// Consulted only for avatars in a region the caller may access
+    /// ([`Self::may_access_region`]). `SceneAvatar/get` reports the avatars
+    /// of a region answering `false` in `notFound`, and
+    /// [`crate::should_deliver`] drops their `SceneAvatarEvent`s;
+    /// `query_objects` and `query_changes` MUST omit them as well.
+    ///
+    /// The VTC lookup (`VTCCall.e2eeEnabled` and the call's participants)
+    /// lives in the binding crate, `jmap-scene-vtc-server`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)`: no region hides its avatars. This is the
+    /// workspace's fail-open posture for policy hooks (bd:JMAP-bghk); a
+    /// deployment without it exposes the call's participant presence, the
+    /// limitation the draft's SHOULD leaves to it.
+    fn may_see_region_avatars(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        region_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, region_id);
+        async { Ok(true) }
+    }
+
     /// Accept an interaction that passed the `SceneObject/interact`
     /// checks, or refuse it for its rate (draft-atwood-jmap-scene-00
     /// §SceneObject/interact).

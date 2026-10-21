@@ -439,6 +439,41 @@ async fn blocking_does_not_hide_the_blocker_from_the_blocked_user() {
     assert_eq!(seen, [ALICE_AV, BOB_AV], "{query}");
 }
 
+/// draft-atwood-jmap-scene-00 at jmap-chat-spec 6bcd9d8, L2654: for a
+/// region bound to an E2EE VTCCall, toward users who are not participants
+/// "it SHOULD return `notFound` for `SceneAvatar/get`, exclude the records
+/// from `SceneAvatar/query`". `hide_region_avatars` stands in for the
+/// binding's "not a participant"; [`ALICE`]'s avatar in [`INVITE`] stays
+/// visible, and [`BOB`], who is not hidden, still sees both.
+#[tokio::test]
+async fn avatars_of_a_region_hiding_them_are_absent() {
+    let backend = scene();
+    backend.hide_region_avatars(ALICE, PUBLIC);
+    let got = call!(
+        handle_scene_avatar_get,
+        &backend,
+        ALICE,
+        json!({ "ids": [ALICE_AV, BOB_AV, INVITE_AV] })
+    );
+    assert_eq!(ids(&got["list"]), [INVITE_AV], "{got}");
+    assert_eq!(not_found(&got), [ALICE_AV, BOB_AV], "{got}");
+    let query = call!(
+        handle_scene_avatar_query,
+        &backend,
+        ALICE,
+        json!({ "filter": { "regionId": PUBLIC }, "calculateTotal": true })
+    );
+    assert_eq!(query["ids"], json!([]), "{query}");
+    assert_eq!(query["total"], json!(0), "{query}");
+    let other = call!(
+        handle_scene_avatar_query,
+        &backend,
+        BOB,
+        json!({ "filter": { "regionId": PUBLIC }, "calculateTotal": true })
+    );
+    assert_eq!(other["total"], json!(2), "{other}");
+}
+
 /// L2433: "Deployments SHOULD document which behavior they implement and
 /// SHOULD prefer the true count, since it is consistent for all observers
 /// and does not leak per-user blocking decisions." The seeded count of 2
