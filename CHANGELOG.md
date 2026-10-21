@@ -1876,6 +1876,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: a `Message/set` update that sets `readAt` on the
+  owner's own sent `burnOnRead` message no longer hard-deletes it; only a
+  received copy burns, per draft-atwood-jmap-chat-00 §Message
+  `burnOnRead`: "Applies only to the receiving mailbox; the sender's own
+  copy is not affected."
 - **jmap-chat-filenode-server**: the Space file tree gates compare
   Space permissions by `ChatPermission` variant, as `jmap-chat-server`,
   `jmap-chat-vtc-server` and `jmap-chat-federation-server` do. A

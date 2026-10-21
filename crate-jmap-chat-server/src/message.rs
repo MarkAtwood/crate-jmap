@@ -1899,14 +1899,17 @@ pub async fn handle_message_set<B: ChatBackend>(
             // If the patch sets readAt, the stored Message decides whether
             // it is burn-on-read. We deliberately consult the pre-patch
             // state: a recipient setting readAt for the first time should
-            // fire the burn.
+            // fire the burn. draft-atwood-jmap-chat-00 §Message
+            // `burnOnRead`: "Applies only to the receiving mailbox; the
+            // sender's own copy is not affected."
             let pre_patch_read: Option<Message> = if patch_sets_read_at {
                 stored.clone()
             } else {
                 None
             };
-            let pre_patch_burn_on_read =
-                pre_patch_read.as_ref().and_then(|m| m.burn_on_read) == Some(true);
+            let pre_patch_burn_on_read = pre_patch_read
+                .as_ref()
+                .is_some_and(|m| m.burn_on_read == Some(true) && m.sender_id != account_id);
 
             // BroadcastMention validation and permission check on edit
             // (§4.4.1 / §4.16). The post-patch broadcastMentions fall back

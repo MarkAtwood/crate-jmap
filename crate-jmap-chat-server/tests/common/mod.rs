@@ -1795,3 +1795,21 @@ pub fn seed_group_chat(backend: &MemoryBackend, id: &str) {
         }),
     );
 }
+
+/// Re-store Message `id` with `senderId` set to `"bob"`, so it is a copy
+/// received from another participant. draft-atwood-jmap-chat-00
+/// §Message `burnOnRead`: "Applies only to the receiving mailbox; the
+/// sender's own copy is not affected."
+pub async fn make_received(backend: &MemoryBackend, id: &str) {
+    let HandlerOutput { primary: get, .. } = jmap_chat_server::handle_message_get(
+        backend,
+        &(),
+        serde_json::json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+    )
+    .await
+    .expect("Message/get");
+    let mut msg = get["list"][0].clone();
+    assert!(msg.is_object(), "message {id} not found: {get}");
+    msg["senderId"] = serde_json::json!("bob");
+    backend.insert_object_for_test("Message", ACCOUNT_ID, id, msg);
+}

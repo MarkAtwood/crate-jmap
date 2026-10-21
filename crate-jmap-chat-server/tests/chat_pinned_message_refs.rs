@@ -206,6 +206,7 @@ async fn burn_on_read_unpins_message() {
     let backend = MemoryBackend::new();
     seed_chats(&backend);
     let msg = create_message(&backend, CHAT, json!({ "burnOnRead": true })).await;
+    common::make_received(&backend, &msg).await;
     pin(&backend, &msg).await;
 
     let resp = message_set(
