@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `ChatBackend::maintains_unread_count` (default
+  `false`, today's exact upkeep). A backend that returns `true` keeps
+  `Chat.unreadCount` itself and may defer, coalesce or cap it, as the
+  advisory count of draft-atwood-jmap-chat-00 §Chat allows (jmap-chat-spec
+  45d611c); `Chat/get` then returns the stored value and Message or
+  ReadPosition writes no longer rewrite the Chat. The backend must still
+  advance the `Chat` state whenever the stored value changes (RFC 8620
+  §5.1).
+
 - **jmap-graph-projection-server** (new, not published): Mail and Contacts
   binding for draft-atwood-jmap-graph-projection-00 — `Projectable` for the
   seven RFC 8621/9610 types with registered object URI type names,
