@@ -10,30 +10,18 @@
 use jmap_metadata_types::{is_registered_namespace, is_vendor_namespace, DataTypeMetadataInfo};
 use serde_json::Value;
 
-/// Count the object-nesting depth within a value.
+/// Compute the depth of a metadata namespace value per
+/// draft-ietf-jmap-metadata-04 §2.1: "a scalar (string, number, boolean
+/// or null) has depth 0; an array has the maximum depth of its elements
+/// (0 if empty); an object has depth 1 plus the maximum depth of its
+/// member values (1 if empty)."
 ///
-/// - Scalars: 0 (no nesting)
-/// - Arrays: transparent — max nesting of any element (0 if empty)
-/// - Objects: 1 + max nesting of any value (1 if empty)
-fn object_nesting(value: &Value) -> u32 {
-    match value {
-        Value::Object(map) => 1 + map.values().map(object_nesting).max().unwrap_or(0),
-        Value::Array(arr) => arr.iter().map(object_nesting).max().unwrap_or(0),
-        _ => 0,
-    }
-}
-
-/// Compute the nesting depth of a metadata namespace value per
-/// draft-ietf-jmap-metadata-02 §2.1.
+/// Arrays do not add depth themselves, but objects inside them do:
+/// `{"x": [{"y": 1}]}` has depth 2.
 ///
-/// Depth is the longest path of nested *objects* from the value to any
-/// descendant:
-///
-/// - A scalar, empty array, or empty object has depth 1.
-/// - A flat object (values are all scalars or arrays) has depth 1.
-/// - An object containing nested objects has depth 2+.
-/// - Arrays do not contribute to depth themselves, but objects inside
-///   arrays do. `{"x": [{"y": 1}]}` has depth 2.
+/// §2.1 also requires every namespace value to be a JSON object. This
+/// function does not check that; the caller rejects a non-object value
+/// (see [`serde_json::Value::is_object`]) before measuring depth.
 ///
 /// # Examples
 ///
@@ -41,20 +29,27 @@ fn object_nesting(value: &Value) -> u32 {
 /// use serde_json::json;
 /// use jmap_metadata_server::value_depth;
 ///
-/// assert_eq!(value_depth(&json!("hello")), 1);
+/// assert_eq!(value_depth(&json!("hello")), 0);
 /// assert_eq!(value_depth(&json!({})), 1);
-/// assert_eq!(value_depth(&json!({"key": "val"})), 1);
+/// assert_eq!(value_depth(&json!({"a": 1})), 1);
 /// assert_eq!(value_depth(&json!({"key": {"nested": "val"}})), 2);
 /// assert_eq!(value_depth(&json!({"x": [{"y": 1}]})), 2);
 /// ```
 pub fn value_depth(value: &Value) -> u32 {
-    object_nesting(value).max(1)
+    match value {
+        Value::Object(map) => 1 + map.values().map(value_depth).max().unwrap_or(0),
+        Value::Array(arr) => arr.iter().map(value_depth).max().unwrap_or(0),
+        _ => 0,
+    }
 }
 
-/// Returns `true` if `value` exceeds `max_depth` per §2.1.
+/// Returns `true` if `value` exceeds `max_depth` per
+/// draft-ietf-jmap-metadata-04 §2.1.
 ///
-/// Servers MUST reject patches that would produce a structure exceeding
-/// `maxDepth` with an `invalidProperties` SetError.
+/// Servers MUST reject writes that would exceed `maxDepth` with an
+/// `invalidProperties` SetError. A non-object value has depth 0 and
+/// never exceeds a `maxDepth` (which §1.2.1 requires to be at least 1),
+/// so the caller must reject it separately, as with [`value_depth`].
 ///
 /// # Examples
 ///
@@ -119,35 +114,56 @@ mod tests {
     use serde_json::json;
 
     // -- value_depth ------------------------------------------------------
+    //
+    // Oracle: draft-ietf-jmap-metadata-04 §2.1 — "a scalar (string,
+    // number, boolean or null) has depth 0; an array has the maximum
+    // depth of its elements (0 if empty); an object has depth 1 plus the
+    // maximum depth of its member values (1 if empty)."
 
     #[test]
     fn depth_scalar_string() {
-        assert_eq!(value_depth(&json!("hello")), 1);
+        assert_eq!(value_depth(&json!("hello")), 0);
     }
 
     #[test]
     fn depth_scalar_number() {
-        assert_eq!(value_depth(&json!(42)), 1);
+        assert_eq!(value_depth(&json!(42)), 0);
     }
 
     #[test]
     fn depth_scalar_bool() {
-        assert_eq!(value_depth(&json!(true)), 1);
+        assert_eq!(value_depth(&json!(true)), 0);
     }
 
     #[test]
     fn depth_scalar_null() {
-        assert_eq!(value_depth(&json!(null)), 1);
+        assert_eq!(value_depth(&json!(null)), 0);
     }
 
     #[test]
     fn depth_empty_array() {
-        assert_eq!(value_depth(&json!([])), 1);
+        assert_eq!(value_depth(&json!([])), 0);
     }
 
     #[test]
     fn depth_empty_object() {
         assert_eq!(value_depth(&json!({})), 1);
+    }
+
+    #[test]
+    fn depth_spec_example_flat() {
+        // Oracle: -04 §2.1 — "{"a": 1} has depth 1".
+        assert_eq!(value_depth(&json!({"a": 1})), 1);
+    }
+
+    #[test]
+    fn depth_array_of_scalars() {
+        assert_eq!(value_depth(&json!([1, "a", null])), 0);
+    }
+
+    #[test]
+    fn depth_array_of_objects() {
+        assert_eq!(value_depth(&json!([{}, {"a": {}}])), 2);
     }
 
     #[test]
@@ -195,6 +211,13 @@ mod tests {
     }
 
     // -- exceeds_max_depth ------------------------------------------------
+
+    #[test]
+    fn exceeds_scalar_never_at_max_1() {
+        // A scalar has depth 0 under -04 §2.1, below the §1.2.1 minimum
+        // maxDepth of 1; object-ness is the caller's check.
+        assert!(!exceeds_max_depth(&json!("hello"), 1));
+    }
 
     #[test]
     fn exceeds_flat_at_max_1() {

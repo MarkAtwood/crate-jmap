@@ -892,6 +892,12 @@ wire behaviour that a conforming peer can observe.
   lowercase; domain names "MUST be in lowercase"). `"A1-b2_c3"` and
   `"Acme.example.com"` were accepted before and are now invalid;
   `jmap-metadata-server`'s `is_namespace_supported` inherits the check.
+- **BREAKING** **jmap-metadata-server**: `value_depth` follows the
+  recursive depth definition of draft-ietf-jmap-metadata-04 §2.1: a
+  scalar or an array of scalars (including `[]`) now has depth 0 instead
+  of 1. Object values keep their depth. A non-object value therefore
+  never fails `exceeds_max_depth`; the caller rejects it, since -04 §2.1
+  says a namespace value "MUST be a JSON object".
 - **BREAKING** **jmap-chat-types**: the stringly vocabulary fields are now
   `impl_string_enum!` enums whose `Other(String)` arm round-trips
   unrecognized values, so the wire format is unchanged.
