@@ -51,7 +51,7 @@ use jmap_server::{
 /// Capability gate shared by the `FileNode/*` handlers.
 ///
 /// Returns `accountNotSupportedByMethod` when
-/// [`FileNodeBackend::supports_type::<FileNode>()`](FileNodeBackend::supports_type)
+/// [`FileNodeBackend::supports_type::<FileNode>(caller, account_id)`](FileNodeBackend::supports_type)
 /// is `false` for the request's account. RFC 8620 §3.6.2 reserves that
 /// error for "a valid account", so a missing, malformed or unknown
 /// `accountId` passes through and the handler reports
@@ -3156,11 +3156,11 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // Capability gate — supports_type::<FileNode>() => false
+    // Capability gate — supports_type::<FileNode>(caller, account_id) => false
     // -----------------------------------------------------------------------
 
     /// Thin wrapper around MemoryBackend whose
-    /// `supports_type::<FileNode>()` returns `false`, simulating a
+    /// `supports_type::<FileNode>(caller, account_id)` returns `false`, simulating a
     /// deployment that has opted out of the FileNode capability.
     /// Every other method delegates to the inner backend (and must
     /// never be reached when the gate works).
@@ -3351,7 +3351,7 @@ mod tests {
 
     /// Oracle: every FileNode/* handler MUST short-circuit with
     /// `accountNotSupportedByMethod` when the backend's
-    /// `supports_type::<FileNode>()` returns `false`. Without this
+    /// `supports_type::<FileNode>(caller, account_id)` returns `false`. Without this
     /// gate, register_filenode_handlers would route the request into
     /// the handler and the handler would call backend methods on a
     /// type the backend has opted out of (bd:JMAP-510h.43 +

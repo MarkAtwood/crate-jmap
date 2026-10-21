@@ -268,7 +268,7 @@ pub trait ContactsBackend: JmapBackend {
     /// [`register_contacts_handlers`](crate::register_contacts_handlers)
     /// is registered unconditionally. The intended caller is the server
     /// consumer's session-capability builder, which uses
-    /// `supports_type::<AddressBook>()` / `supports_type::<ContactCard>()`
+    /// `supports_type::<AddressBook>(caller, account_id)` / `supports_type::<ContactCard>(caller, account_id)`
     /// to decide which capability URIs to advertise. This is a deliberate
     /// divergence from canonical `jmap-mail-server`, where the handler
     /// library DOES short-circuit optional methods (notably

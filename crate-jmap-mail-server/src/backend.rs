@@ -491,7 +491,7 @@ pub trait MailBackend: JmapBackend {
     /// methods. For example,
     /// [`handle_search_snippet_get`](crate::handle_search_snippet_get)
     /// returns `accountNotSupportedByMethod` when
-    /// `supports_type::<SearchSnippet>()` is `false` for the request's
+    /// `supports_type::<SearchSnippet>(caller, account_id)` is `false` for the request's
     /// `accountId`, after confirming the account exists and before any
     /// per-method state is touched. The server consumer also calls this
     /// method per account when building the JMAP session

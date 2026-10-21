@@ -119,17 +119,17 @@ pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
 /// the underlying object type as unsupported via
 /// [`CalendarsBackend::supports_type`]. The deliberate divergence
 /// from the canonical `jmap-mail-server` (which short-circuits
-/// `SearchSnippet/get` via `supports_type::<SearchSnippet>()`) is
+/// `SearchSnippet/get` via `supports_type::<SearchSnippet>(caller, account_id)`) is
 /// documented on [`CalendarsBackend::supports_type`] itself.
 ///
 /// Consumers building a JMAP `Session` capability response are
-/// responsible for separately consulting `supports_type::<T>()` to
+/// responsible for separately consulting `supports_type::<T>(caller, account_id)` to
 /// decide which capability URIs to advertise and which methods to
 /// surface to the client. This crate does NOT compute that mapping
 /// for the consumer.
 ///
 /// What goes wrong if the consumer skips that step: a backend whose
-/// `supports_type::<CalendarEventNotification>()` returns `false`
+/// `supports_type::<CalendarEventNotification>(caller, account_id)` returns `false`
 /// still has its five `CalendarEventNotification/*` methods
 /// registered. A client that calls them will reach the backend's
 /// `get_objects::<CalendarEventNotification>()` (or sibling), which
