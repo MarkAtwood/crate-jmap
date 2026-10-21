@@ -591,29 +591,29 @@ impl JmapBackend for MemoryBackend {
 }
 
 impl SharingBackend for MemoryBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         let server_id = Id::from(uuid::Uuid::new_v4().to_string());
-
-        // Serialize, set "id" to the server-assigned id, then deserialize back.
+        let stored_obj = build(&server_id);
         // Uses `map_err` (not `.expect`) because `O` is an associated type
         // controlled by the consumer: a downstream `SetObject` impl with a
         // hand-rolled `Serialize` could in principle fail. Handler-site
         // serializations of plain crate-defined types use `.expect` since
         // their derive(Serialize) impl is provably infallible
         // (see `helpers::set_error_value`, `principal::handle_principal_set`).
-        let mut val = serde_json::to_value(&obj)
+        let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
-        val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
-        let stored_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
-        })?;
+
+        let mut inner = self.inner.lock().unwrap();
 
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -780,20 +780,22 @@ mod tests {
     #[tokio::test]
     async fn memory_backend_principal_create_get_roundtrip() {
         let backend = MemoryBackend::new_with_accounts(&["acc1"]);
-        let principal: Principal = serde_json::from_value(serde_json::json!({
-            "type": "individual",
-            "name": "Test User",
-            "id": "placeholder",
-            "description": null,
-            "email": null,
-            "timeZone": null,
-            "capabilities": {},
-            "accounts": null
-        }))
-        .expect("must deserialize");
+        let principal = |id: &Id| -> Principal {
+            serde_json::from_value(serde_json::json!({
+                "type": "individual",
+                "name": "Test User",
+                "id": id,
+                "description": null,
+                "email": null,
+                "timeZone": null,
+                "capabilities": {},
+                "accounts": null
+            }))
+            .expect("must deserialize")
+        };
 
         let (new_id, _) = backend
-            .create_object::<Principal>(&(), &Id::from("acc1"), "c1", principal)
+            .create_object::<Principal, _>(&(), &Id::from("acc1"), "c1", principal)
             .await
             .expect("create must succeed");
 
@@ -874,25 +876,27 @@ mod tests {
     }
 
     /// Oracle: `SharingBackend::create_object` invariant — the returned `O`
-    /// MUST carry the server-assigned `id` as its own `id` field, not the
-    /// caller's placeholder. Regression guard for bd:JMAP-3t94.17.
+    /// MUST carry the server-assigned `id` as its own `id` field.
+    /// Regression guard for bd:JMAP-3t94.17.
     #[tokio::test]
     async fn create_object_returned_o_carries_server_assigned_id() {
         let backend = MemoryBackend::new_with_accounts(&["acc1"]);
-        let principal: Principal = serde_json::from_value(serde_json::json!({
-            "type": "individual",
-            "name": "Invariant Probe",
-            "id": "placeholder",
-            "description": null,
-            "email": null,
-            "timeZone": null,
-            "capabilities": {},
-            "accounts": null
-        }))
-        .expect("must deserialize");
+        let principal = |id: &Id| -> Principal {
+            serde_json::from_value(serde_json::json!({
+                "type": "individual",
+                "name": "Invariant Probe",
+                "id": id,
+                "description": null,
+                "email": null,
+                "timeZone": null,
+                "capabilities": {},
+                "accounts": null
+            }))
+            .expect("must deserialize")
+        };
 
         let (new_id, stored_obj) = backend
-            .create_object::<Principal>(&(), &Id::from("acc1"), "c1", principal)
+            .create_object::<Principal, _>(&(), &Id::from("acc1"), "c1", principal)
             .await
             .expect("create must succeed");
 

@@ -31,7 +31,7 @@ fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequ
 
 /// Minimal valid ShareNotification JSON for seeding.
 ///
-/// Uses a placeholder `id` — MemoryBackend overwrites it with a server id.
+/// `seed_notification` replaces `id` with the id the backend assigns.
 fn notif_json(id_hint: &str) -> serde_json::Value {
     json!({
         "id": id_hint,
@@ -54,10 +54,13 @@ fn notif_json(id_hint: &str) -> serde_json::Value {
 ///
 /// Returns the server-assigned [`Id`].
 async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_json::Value) -> Id {
-    let notif: ShareNotification =
-        serde_json::from_value(v).expect("test fixture must deserialize");
+    let notif = move |id: &Id| -> ShareNotification {
+        let mut v = v;
+        v["id"] = json!(id);
+        serde_json::from_value(v).expect("test fixture must deserialize")
+    };
     let (server_id, _) = backend
-        .create_object::<ShareNotification>(&(), &Id::from(account_id), "seed", notif)
+        .create_object(&(), &Id::from(account_id), "seed", notif)
         .await
         .expect("seed must succeed");
     server_id

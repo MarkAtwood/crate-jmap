@@ -21,14 +21,16 @@ use common::MemoryBackend;
 /// and return a dispatcher plus its id.
 async fn setup() -> (Dispatcher<()>, Id) {
     let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
-    let principal: Principal = serde_json::from_value(json!({
-        "id": "placeholder", "type": "individual", "name": "Alice Smith",
-        "email": "alice@example.com", "description": null, "timeZone": null,
-        "capabilities": { "urn:example:a": { "v": 1 } }, "accounts": null
-    }))
-    .expect("test fixture must deserialize");
+    let principal = |id: &Id| -> Principal {
+        serde_json::from_value(json!({
+            "id": id, "type": "individual", "name": "Alice Smith",
+            "email": "alice@example.com", "description": null, "timeZone": null,
+            "capabilities": { "urn:example:a": { "v": 1 } }, "accounts": null
+        }))
+        .expect("test fixture must deserialize")
+    };
     let (id, _) = backend
-        .create_object::<Principal>(&(), &Id::from("acc1"), "seed", principal)
+        .create_object(&(), &Id::from("acc1"), "seed", principal)
         .await
         .expect("seed must succeed");
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();

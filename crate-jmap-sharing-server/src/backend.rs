@@ -201,43 +201,26 @@ pub trait SharingBackend: JmapBackend {
     /// have no need to participate in `#cid` resolution.
     /// [`jmap_server::Dispatcher`]: jmap_server::Dispatcher
     ///
-    /// # Invariant — MUST hold; not enforced at the type level
+    /// # Id assignment
     ///
-    /// The returned `O` MUST have its `id` field set to the **same**
-    /// server-assigned [`Id`](jmap_types::Id) returned as the first element
-    /// of the tuple. The handler serializes `O` into the `created` response
-    /// map per RFC 8620 §5.3 and DOES NOT cross-check the `id` against the
-    /// tuple's `Id` — the client sees the value as serialized from `O`.
-    ///
-    /// Failing this invariant ships a silent wire-protocol bug: every
-    /// `Principal/set create` response carries the wrong `id` (typically a
-    /// `helpers::PLACEHOLDER_ID` sentinel, value `"placeholder"`, injected
-    /// by the handler — see `principal.rs` create branch), and no `cargo test` of the backend
-    /// alone will catch it. End-to-end JMAP integration is the only signal.
-    ///
-    /// Reference implementations: see `memory::MemoryBackend::create_object`
-    /// (`src/memory.rs`) for the recommended shape — serialize to JSON, set
-    /// `val["id"]`, deserialize back to `O`. The canonical sibling
-    /// `jmap-mail-server`'s `MemoryBackend::create_object` uses the same
-    /// pattern.
-    ///
-    /// Backends that mint the `id` BEFORE constructing `O` (e.g. on a
-    /// stored-procedure RETURNING clause, or a column-default trigger) can
-    /// build `O` with the canonical id directly and skip the
-    /// serialize-mutate-deserialize round-trip.
-    ///
-    /// Tracking: `bd:JMAP-3t94.17` (this gap was identified during the
-    /// `9c0d34f` review pass and may motivate a future workspace-wide
-    /// handler-side defensive id-patch — file a workspace-architectural
-    /// decision bead before reshaping this trait).
-    fn create_object<O: SetObject + Send + Sync>(
+    /// The backend mints the new object's id, calls `build(&id)` exactly
+    /// once to obtain the complete object, and stores that object under
+    /// `id` in the same atomic write. `build` sets the object's `id` field
+    /// to the id it is given, so the returned `O` carries the same id as
+    /// the tuple's first element; the backend returns the built object as
+    /// stored. The handler serializes `O` into the `created` response map
+    /// (RFC 8620 §5.3).
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing object of type `O`.
     ///
