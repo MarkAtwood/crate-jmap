@@ -1140,32 +1140,25 @@ impl MailBackend for MemoryBackend {
     // create_object
     // -----------------------------------------------------------------------
 
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
-        // Use the object's existing id if it is a meaningful server-assigned
-        // value (e.g. VacationResponse always uses "singleton"). Treat absent
-        // or [`crate::helpers::PLACEHOLDER_ID`] ids as a signal to assign a
-        // fresh UUID.
-        let id = match val.get("id").and_then(|v| v.as_str()) {
-            Some(s) if s != crate::helpers::PLACEHOLDER_ID => Id::from(s),
-            _ => {
-                let uuid_id = Id::from(uuid::Uuid::new_v4().to_string());
-                if let serde_json::Value::Object(ref mut map) = val {
-                    map.insert(
-                        "id".to_owned(),
-                        serde_json::Value::String(uuid_id.to_string()),
-                    );
-                }
-                uuid_id
-            }
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
+        // RFC 8621 §8: the VacationResponse "MUST have the id \"singleton\"".
+        let id = if O::TYPE_NAME == "VacationResponse" {
+            Id::from("singleton")
+        } else {
+            Id::from(uuid::Uuid::new_v4().to_string())
         };
+        let mut val = serde_json::to_value(build(&id))
+            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
         // Replace placeholder blobId with a server-assigned UUID. The Email/set
         // create handler sets blobId to [`crate::helpers::PLACEHOLDER_BLOB_ID`]
         // because it has no raw bytes to hash; the backend is responsible for

@@ -959,24 +959,28 @@ async fn process_create<B: MailBackend>(
     }
 
     // --- Build submission object ---
-    // Use a placeholder id; the backend will assign the real one.
-    let mut submission = EmailSubmission::new(
-        Id::from(crate::helpers::PLACEHOLDER_ID),
-        identity_id.clone(),
-        email_id.clone(),
-        thread_id,
-        send_at,
-        UndoStatus::Final,
-    );
-    submission.envelope = Some(envelope);
-    submission.delivery_status = if delivery_status.is_empty() {
-        None
-    } else {
-        Some(delivery_status)
+    let identity_id = identity_id.clone();
+    let email_id = email_id.clone();
+    let build = move |id: &Id| {
+        let mut submission = EmailSubmission::new(
+            id.clone(),
+            identity_id,
+            email_id,
+            thread_id,
+            send_at,
+            UndoStatus::Final,
+        );
+        submission.envelope = Some(envelope);
+        submission.delivery_status = if delivery_status.is_empty() {
+            None
+        } else {
+            Some(delivery_status)
+        };
+        submission
     };
 
     let (_server_id, created_obj) = backend
-        .create_object::<EmailSubmission>(caller, account_id, create_id, submission)
+        .create_object::<EmailSubmission, _>(caller, account_id, create_id, build)
         .await
         .map_err(|e| match e {
             BackendSetError::SetError(set_err) => CreateError::SetError(set_err),

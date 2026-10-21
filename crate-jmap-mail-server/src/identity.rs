@@ -234,23 +234,19 @@ pub async fn handle_identity_set<B: MailBackend>(
                 }
             };
 
-            // Build identity using the constructor (supplies all defaults), then
-            // overlay optional client-supplied fields.
-            let mut identity = jmap_mail_types::Identity::new(
-                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-                Id::from(crate::helpers::PLACEHOLDER_ID),
-                email,
-                true, // server-set: may_delete defaults to true on create
-            );
-            if let Some(name) = obj_val.get("name").and_then(|v| v.as_str()) {
-                identity.name = name.to_owned();
-            }
-            if let Some(ts) = obj_val.get("textSignature").and_then(|v| v.as_str()) {
-                identity.text_signature = ts.to_owned();
-            }
-            if let Some(hs) = obj_val.get("htmlSignature").and_then(|v| v.as_str()) {
-                identity.html_signature = hs.to_owned();
-            }
+            let name = obj_val
+                .get("name")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            let text_signature = obj_val
+                .get("textSignature")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            let html_signature = obj_val
+                .get("htmlSignature")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            let mut reply_to = None;
             if let Some(rt) = obj_val
                 .get_mut("replyTo")
                 .map(|v| v.take())
@@ -266,14 +262,15 @@ pub async fn handle_identity_set<B: MailBackend>(
                     );
                     continue;
                 };
-                identity.reply_to = v;
+                reply_to = Some(v);
             }
-            if let Some(bcc) = obj_val
+            let mut bcc = None;
+            if let Some(b) = obj_val
                 .get_mut("bcc")
                 .map(|v| v.take())
                 .filter(|v| !v.is_null())
             {
-                let Ok(v) = serde_json::from_value(bcc) else {
+                let Ok(v) = serde_json::from_value(b) else {
                     not_created.insert(
                         create_id,
                         json!({
@@ -283,15 +280,41 @@ pub async fn handle_identity_set<B: MailBackend>(
                     );
                     continue;
                 };
-                identity.bcc = v;
+                bcc = Some(v);
             }
 
+            // Build identity using the constructor (supplies all defaults), then
+            // overlay optional client-supplied fields.
+            let build = move |id: &Id| {
+                let mut identity = jmap_mail_types::Identity::new(
+                    id.clone(),
+                    email,
+                    true, // server-set: may_delete defaults to true on create
+                );
+                if let Some(name) = name {
+                    identity.name = name;
+                }
+                if let Some(ts) = text_signature {
+                    identity.text_signature = ts;
+                }
+                if let Some(hs) = html_signature {
+                    identity.html_signature = hs;
+                }
+                if let Some(rt) = reply_to {
+                    identity.reply_to = rt;
+                }
+                if let Some(b) = bcc {
+                    identity.bcc = b;
+                }
+                identity
+            };
+
             match backend
-                .create_object::<jmap_mail_types::Identity>(
+                .create_object::<jmap_mail_types::Identity, _>(
                     caller,
                     &account_id,
                     &create_id,
-                    identity,
+                    build,
                 )
                 .await
             {

@@ -250,9 +250,13 @@ pub async fn handle_vacation_set<B: MailBackend>(
                     // constraint or a compare-and-swap) to avoid duplicate
                     // creation. The handler layer cannot add locking here
                     // because it holds no shared state.
-                    let base = VacationResponse::new(Id::from(SINGLETON_ID), false);
                     match backend
-                        .create_object::<VacationResponse>(caller, &account_id, SINGLETON_ID, base)
+                        .create_object::<VacationResponse, _>(
+                            caller,
+                            &account_id,
+                            SINGLETON_ID,
+                            |id: &Id| VacationResponse::new(id.clone(), false),
+                        )
                         .await
                     {
                         Ok(_) => {
