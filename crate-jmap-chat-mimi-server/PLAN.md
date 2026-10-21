@@ -9,7 +9,7 @@ of `jmap-chat-mimi-types`.
 |---|---|---|
 | JMAP-6k5d.2 | Crate scaffold, `MimiBackend`, KeyPackage/get and /set, `memory` backend | landed |
 | JMAP-6k5d.3 | KeyPackage hand-out: atomic claim, `clientUri`, ref retention | landed |
-| JMAP-6k5d.4 | Room/create checks and bound Chat restrictions | open |
+| JMAP-6k5d.4 | Room/create checks and bound Chat restrictions | landed |
 | JMAP-6k5d.5 | Room/update, send, unbind, GroupInfo and KeyMaterial fetch | open |
 | JMAP-6k5d.6 | Fanout storage | open |
 | JMAP-6k5d.9 | Upstream openmls GREASE KeyPackage fix, then bump the pin | open |
@@ -30,3 +30,18 @@ of `jmap-chat-mimi-types`.
   `clientUri` scheme is the backend's choice. Releasing a handed-out
   KeyPackageRef when its Welcome is delivered belongs with fanout
   (JMAP-6k5d.6).
+- `Room/create` checks that need no server state are a pure function
+  (`check_room_create`); the signature-key binding and room ID and group
+  ID uniqueness are `MimiBackend::create_room`'s, atomic with storing the
+  room and creating the bound Chat. GroupInfo signature and tree hash go
+  through openmls `PublicGroup::from_external` over a throwaway
+  `openmls_memory_storage`.
+- MIMI components are decoded by local tls_codec structs written from
+  draft-ietf-mimi-protocol-06 and draft-ietf-mimi-room-policy-04; mimid's
+  decoders are not a dependency. `base_room_policy` uses the suggested
+  component ID 0x0027.
+- Room-bound Chat restrictions are pure functions over `Chat.extra`
+  (`may_update_room_chat`, `may_create_room_message`,
+  `may_update_room_message`) that a `ChatBackend` returns from its
+  per-Chat hooks (bd:JMAP-dfo4); this crate does not depend on
+  `jmap-chat-server`.

@@ -35,6 +35,19 @@ wire behaviour that a conforming peer can observe.
   be uploaded again. `KeyMaterialRequirements::fit` judges a stored
   KeyPackage against a request's acceptable cipher suites and
   `RequiredCapabilities` and treats an expired one as unavailable.
+  `Room/create` (§Room/create): `check_room_create` applies the seven
+  checks that need no server state (GroupInfo signature and cipher suite,
+  tree hash, exactly one leaf with identity `userUri`, `external_senders`
+  exactly `hubSender`, participant list exactly `userUri`, `room_uri` of
+  `roomIdPrefix` and a 16-octet base32 room ID, 16-octet group ID,
+  `franking_agent` of `hubSender` and a parsing `base_room_policy`) and
+  `MimiBackend::create_room` applies the signature-key binding and room ID
+  and group ID uniqueness atomically with creating the bound Chat; every
+  refusal is `invalidArguments`. `may_update_room_chat`,
+  `may_create_room_message` and `may_update_room_message` return the
+  §Chat.roomId and §message/mls refusals for a `jmap-chat-server`
+  `ChatBackend`'s per-Chat hooks. New dependency `openmls_memory_storage
+  =0.6.0`.
 - **jmap-mail-types**, **jmap-calendars-types**, **jmap-contacts-types**,
   **jmap-filenode-types**, **jmap-tasks-types**: `may_set_metadata:
   Option<bool>` on `MailboxRights`, `CalendarRights`, `AddressBookRights`,

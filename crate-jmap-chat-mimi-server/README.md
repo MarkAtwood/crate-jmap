@@ -16,16 +16,19 @@ trait.
 | `signature_key_bound_elsewhere`, `key_package_ref_in_use`, `key_package_over_quota` | §KeyPackage/set account-wide rules |
 | `MimiBackend`, `NewKeyPackage` | crypto provider, capability object, atomic KeyPackage create and destroy |
 | `MimiBackend::claim_key_packages`, `KeyMaterialRequirements`, `KeyPackageFit` | §Handing Out KeyPackages: atomic claim, `clientUri`, KeyPackageRef retention |
+| `handle_room_create`, `check_room_create` | §Room/create: the seven checks and the bound Chat |
+| `MimiBackend::create_room`, `NewRoom`, `room_signature_key_not_bound`, `room_id_in_use`, `group_id_in_use` | §Room/create checks over server state, atomic with the insert |
+| `may_update_room_chat`, `may_create_room_message`, `may_update_room_message` | §Chat.roomId and §message/mls restrictions, for `jmap-chat-server` `ChatBackend` hooks |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_mimi_handlers` | wires `KeyPackage/get` and `KeyPackage/set` |
+| `register_mimi_handlers` | wires `KeyPackage/get`, `KeyPackage/set` and `Room/create` |
 
 ## What it's for
 
 A MIMI provider (mimid, or any JMAP Chat server that routes MLS messages
 for its clients) wires these handlers next to `jmap-chat-server`. The crate
 parses and verifies KeyPackages with `openmls`; it never holds MLS secrets
-and never decrypts. `KeyMaterial/fetch`, `Room/*` and `GroupInfo/fetch` are
-not here yet.
+and never decrypts. `KeyMaterial/fetch`, `Room/update`, `Room/send`,
+`Room/unbind` and `GroupInfo/fetch` are not here yet.
 
 ## How to use
 
@@ -71,6 +74,23 @@ later create of the same octets is refused. A client with only
 incompatible KeyPackages is `nothingCompatible`; one with none left, or
 only expired ones, is `keyMaterialExhausted`.
 
+`Room/create` splits the same way. `check_room_create` parses the
+GroupInfo and ratchet tree, has openmls `PublicGroup::from_external` check
+the GroupInfo signature and the tree hash, and checks the one leaf, the
+`external_senders` extension against `hubSender`, and the
+`participant_list`, `room_metadata`, `franking_agent` and
+`base_room_policy` components of the `app_data_dictionary`.
+`MimiBackend::create_room` then checks that the leaf's signature key is
+bound to the account and that the room ID and group ID are unused, stores
+the room and creates the bound Chat. Every refusal is the method-level
+`invalidArguments`.
+
+A Chat with a `roomId` changes only through MLS, so its `ChatBackend`
+returns `may_update_room_chat`, `may_create_room_message` and
+`may_update_room_message` from the `may_update_chat`,
+`may_create_message` and `may_update_message` hooks, passing
+`&chat.extra`.
+
 ## Gotchas
 
 - MSRV 1.91, set by `openmls` 0.9.1.
@@ -93,6 +113,9 @@ only expired ones, is `keyMaterialExhausted`.
 - `KeyMaterialRequirements::fit` verifies the stored KeyPackage again, so
   a claim costs one signature verification per stored KeyPackage of the
   client examined.
+- The `base_room_policy` component ID is 0x0027, the value
+  draft-ietf-mimi-room-policy-04 §10.1.4 suggests; IANA has not assigned
+  one.
 - The `memory` backend keeps handed-out KeyPackageRefs forever; the draft
   lets a backend drop one once a Welcome naming it is delivered or its
   lifetime passes.
@@ -102,9 +125,13 @@ only expired ones, is `keyMaterialExhausted`.
 - [draft-atwood-jmap-chat-mimi-00] — JMAP Chat MIMI provider
 - [RFC 9420] — The Messaging Layer Security (MLS) Protocol
 - [draft-ietf-mls-extensions-10] — The Messaging Layer Security (MLS) Extensions
+- [draft-ietf-mimi-protocol-06] — MIMI protocol (components, §5.4.1, §7.5, §7.6)
+- [draft-ietf-mimi-room-policy-04] — MIMI room policy (`BaseRoomPolicy`, §5)
 - [RFC 8620] — JMAP Core
 
 [draft-atwood-jmap-chat-mimi-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 9420]: https://www.rfc-editor.org/rfc/rfc9420
 [draft-ietf-mls-extensions-10]: https://datatracker.ietf.org/doc/draft-ietf-mls-extensions/
+[draft-ietf-mimi-protocol-06]: https://datatracker.ietf.org/doc/draft-ietf-mimi-protocol/
+[draft-ietf-mimi-room-policy-04]: https://datatracker.ietf.org/doc/draft-ietf-mimi-room-policy/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
