@@ -14,14 +14,18 @@ use serde::{Deserialize, Serialize};
 pub struct SceneAsset {
     /// A ULID assigned at creation.
     pub id: Id,
-    /// The account that owns this asset.
+    /// The account that holds this asset.
     pub account_id: Id,
+    /// The userId of the user who created this asset (immutable,
+    /// server-set).
+    pub owner_id: String,
     /// The JMAP blob reference for the asset file.
     pub blob_id: Id,
     /// Deployment-provided URI for retrieving the asset, typically a CDN
     /// endpoint. "MUST be treated as untrusted."
     pub asset_uri: Option<String>,
-    /// The media type of the asset, e.g. `"model/gltf-binary"`.
+    /// The media type of the asset, e.g. `"model/gltf-binary"`
+    /// (immutable).
     pub media_type: String,
     /// Human-readable label.
     pub name: Option<String>,
@@ -45,12 +49,13 @@ mod tests {
     use serde_json::json;
 
     /// Hand-written from the field list of draft-atwood-jmap-scene-00
-    /// L214-239, with the create values of L656-662 and the server-set
-    /// values of L677-682.
+    /// L269-297 (jmap-chat-spec 6bcd9d8), with the values of the create
+    /// and response examples at L719-764.
     fn sample() -> serde_json::Value {
         json!({
             "id": "01J5AST0000000000000000001",
             "accountId": "acct-001",
+            "ownerId": "user:curator@example.com",
             "blobId": "Gc0f032d390a5d5fa8a35",
             "assetUri": "https://cdn.example.com/assets/sculpture-001.glb",
             "mediaType": "model/gltf-binary",
@@ -85,10 +90,11 @@ mod tests {
 
     #[test]
     fn required_fields_rejected_when_missing() {
-        // Oracle: L214-239 type these without "|null".
+        // Oracle: L269-297 (6bcd9d8) type these without "|null".
         for field in [
             "id",
             "accountId",
+            "ownerId",
             "blobId",
             "mediaType",
             "size",

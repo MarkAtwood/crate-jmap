@@ -47,7 +47,7 @@ fn backend_with_assets() -> MemoryBackend {
             "2026-03-01T00:00:00Z",
         ),
     ] {
-        seed(&backend, ALICE, asset);
+        seed(&backend, asset);
     }
     backend
 }

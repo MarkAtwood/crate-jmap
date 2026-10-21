@@ -36,7 +36,7 @@ fn region(id: &str, access_policy: &str) -> Value {
 fn backend_with_regions(capability: Value) -> MemoryBackend {
     let backend = backend_with(capability);
     for id in [REGION, OTHER_REGION] {
-        seed_as(&backend, "SceneRegion", BOB, region(id, "public"));
+        seed_as(&backend, "SceneRegion", region(id, "public"));
     }
     backend
 }
@@ -345,7 +345,6 @@ async fn invite_region_is_forbidden_without_access() {
     seed_as(
         &backend,
         "SceneRegion",
-        BOB,
         region("01J5ABC0000000000000000003", "invite"),
     );
     let invite = json!({ "regionId": "01J5ABC0000000000000000003" });

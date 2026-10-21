@@ -75,7 +75,7 @@ fn fixture() -> MemoryBackend {
     let account = Id::from(ACCOUNT);
     backend.register_account(&account, cap);
     for id in [R1, R2, R3] {
-        backend.insert_object_for_test("SceneRegion", &account, id, ALICE, region(id));
+        backend.insert_object_for_test("SceneRegion", &account, id, region(id));
     }
     for (id, region, user, left_at) in [
         ("AV-ALICE-1", R1, ALICE, json!(null)),
@@ -89,7 +89,6 @@ fn fixture() -> MemoryBackend {
             "SceneAvatar",
             &account,
             id,
-            user,
             avatar(id, region, user, left_at),
         );
     }

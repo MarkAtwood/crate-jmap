@@ -54,11 +54,11 @@ fn scene() -> MemoryBackend {
     let backend = backend();
     let mut public = stored_region(PUBLIC, "Plaza", "2026-06-01T10:00:00Z");
     public["activeAvatarCount"] = json!(2);
-    seed_as(&backend, "SceneRegion", ALICE, public);
+    seed_as(&backend, "SceneRegion", public);
     let mut invite = stored_region(INVITE, "Vault", "2026-06-01T11:00:00Z");
     invite["accessPolicy"] = json!("invite");
     invite["activeAvatarCount"] = json!(1);
-    seed_as(&backend, "SceneRegion", ALICE, invite);
+    seed_as(&backend, "SceneRegion", invite);
     for (id, region, at) in [
         (O1, PUBLIC, "2026-06-02T10:00:00Z"),
         (O2, PUBLIC, "2026-06-02T11:00:00Z"),
@@ -67,7 +67,6 @@ fn scene() -> MemoryBackend {
         seed_as(
             &backend,
             "SceneObject",
-            ALICE,
             stored_object(id, region, json!([0, 0, 0]), at),
         );
     }
@@ -76,7 +75,7 @@ fn scene() -> MemoryBackend {
         (BOB_AV, PUBLIC, BOB),
         (INVITE_AV, INVITE, ALICE),
     ] {
-        seed_as(&backend, "SceneAvatar", user, avatar(id, region, user));
+        seed_as(&backend, "SceneAvatar", avatar(id, region, user));
     }
     backend
 }

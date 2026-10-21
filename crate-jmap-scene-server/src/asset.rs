@@ -4,12 +4,12 @@
 //! `/get`, `/changes` and `/queryChanges` are the standard RFC 8620 §5.1,
 //! §5.2 and §5.6 methods. `/set` applies §SceneAsset/set and its §SetError
 //! Conditions: required `blobId` and `mediaType`, the server-set
-//! properties, the media-type rule with glTF as the mandatory-to-implement
-//! format, `notFound` for a missing blob, `overQuota` above
-//! `maxAssetSizeBytes`, the immutable properties on update and the
-//! owner-or-admin rule on update and destroy. `/query` supplies the
-//! "Default sort: `createdAt` descending" before the standard RFC 8620
-//! §5.5 handling.
+//! properties (including `ownerId`, the caller's userId), the media-type
+//! rule with glTF as the mandatory-to-implement format, `notFound` for a
+//! missing blob, `overQuota` above `maxAssetSizeBytes`, the immutable
+//! properties on update and the owner-or-admin rule on update and destroy.
+//! `/query` supplies the "Default sort: `createdAt` descending" before the
+//! standard RFC 8620 §5.5 handling.
 
 use jmap_scene_types::query::SceneAssetComparator;
 use jmap_scene_types::{SceneAsset, SceneCapability};
@@ -37,12 +37,21 @@ use jmap_server::{
 pub const GLTF_BINARY: &str = "model/gltf-binary";
 
 /// Properties the client may not set on create: "The server sets `id`,
-/// `accountId`, `size`, and `createdAt`."
-const SERVER_SET: &[&str] = &["id", "accountId", "size", "createdAt"];
+/// `accountId`, `ownerId`, `size`, and `createdAt`."
+const SERVER_SET: &[&str] = &["id", "accountId", "ownerId", "size", "createdAt"];
 
-/// Properties an update may not patch: the server-set ones, plus
-/// "Attempting to change immutable fields (`blobId`, `id`, `createdAt`)".
-const IMMUTABLE: &[&str] = &["id", "accountId", "blobId", "size", "createdAt"];
+/// Properties an update may not patch: "`id`, `accountId`, `ownerId`,
+/// `blobId`, `mediaType`, `size`, and `createdAt` are immutable or
+/// server-set."
+const IMMUTABLE: &[&str] = &[
+    "id",
+    "accountId",
+    "ownerId",
+    "blobId",
+    "mediaType",
+    "size",
+    "createdAt",
+];
 
 /// The optional `String|null` properties: "Optional: `name` (String),
 /// `assetUri` (String), `sha256` (String)."
@@ -270,7 +279,8 @@ async fn capability<B: SceneBackend>(
 }
 
 /// One §SceneAsset/set create. The `Ok` value is the `created` entry: the
-/// server-set `id`, `accountId`, `size` and `createdAt`.
+/// server-set `id`, `accountId`, `ownerId` (the caller's
+/// [`SceneBackend::caller_user_id`]), `size` and `createdAt`.
 async fn create_asset<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -334,12 +344,17 @@ async fn create_asset<B: SceneBackend>(
     if cap.max_asset_size_bytes.is_some_and(|max| size > max) {
         return Err(over_quota("the asset exceeds maxAssetSizeBytes"));
     }
+    let owner_id = backend
+        .caller_user_id(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
 
     for key in OPTIONAL_STRINGS {
         m.entry(*key).or_insert(Value::Null);
     }
     m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
     m.insert("accountId".to_owned(), json!(account_id));
+    m.insert("ownerId".to_owned(), json!(owner_id));
     m.insert("size".to_owned(), json!(size));
     m.insert("createdAt".to_owned(), json!(now_utc_string()));
     let asset: SceneAsset = serde_json::from_value(Value::Object(m))
@@ -351,6 +366,7 @@ async fn create_asset<B: SceneBackend>(
     Ok(json!({
         "id": id,
         "accountId": stored.account_id,
+        "ownerId": stored.owner_id,
         "size": stored.size,
         "createdAt": stored.created_at,
     }))
@@ -393,8 +409,9 @@ async fn update_asset<B: SceneBackend>(
     })?;
     fetch_modifiable(backend, caller, account_id, id).await?;
 
-    // "Attempting to change immutable fields (`blobId`, `id`, `createdAt`)"
-    // is `invalidProperties`, as is any other server-set property.
+    // "Attempting to change a property other than `name`, `assetUri`, or
+    // `sha256`" is `invalidProperties` for each of the [`IMMUTABLE`]
+    // properties; vendor extension properties stay patchable.
     let mut fixed: Vec<&str> = patch
         .as_map()
         .keys()
@@ -411,8 +428,7 @@ async fn update_asset<B: SceneBackend>(
     if !bad.is_empty() {
         return Err(invalid(
             &bad,
-            "mediaType must be supported; name, assetUri and sha256 must be \
-             strings or null, sha256 lowercase hex",
+            "name, assetUri and sha256 must be strings or null, sha256 lowercase hex",
         ));
     }
 

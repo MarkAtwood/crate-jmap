@@ -74,7 +74,6 @@ impl Bound {
             "SceneRegion",
             &Id::from(ACCOUNT),
             id,
-            OWNER,
             region(id, call_id),
         );
     }

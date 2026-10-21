@@ -27,7 +27,7 @@ fn backend_with_regions(capability: Value) -> MemoryBackend {
     for id in [REGION, OTHER_REGION] {
         let mut region = stored_region(id, "Gallery", "2026-06-01T10:00:00Z");
         region["ownerId"] = json!(BOB);
-        seed_as(&backend, "SceneRegion", BOB, region);
+        seed_as(&backend, "SceneRegion", region);
     }
     for blob in [SCULPTURE_BLOB, PEDESTAL_BLOB] {
         backend.add_blob(&Id::from(ACCOUNT), blob, 1024);

@@ -55,9 +55,11 @@ fn properties(err: &Value) -> Vec<&str> {
 
 #[tokio::test]
 async fn create_returns_the_server_set_properties() {
-    // L630 "The server sets `id`, `accountId`, `size`, and `createdAt`";
-    // the L680-685 `created` entry carries exactly those four, with the
-    // blob's size (L683 "size": 2483712) and the request's account (L677).
+    // 6bcd9d8 L696 "The server sets `id`, `accountId`, `ownerId`, `size`,
+    // and `createdAt`"; the L752-758 `created` entry carries exactly those
+    // five, with the blob's size (L756 "size": 2483712) and the request's
+    // account. L275-276 `ownerId`: "The userId of the user who created
+    // this asset."
     let backend = backend();
     let created = create(&backend, spec_create()).await;
     let mut keys: Vec<&str> = created
@@ -67,8 +69,9 @@ async fn create_returns_the_server_set_properties() {
         .map(String::as_str)
         .collect();
     keys.sort_unstable();
-    assert_eq!(keys, ["accountId", "createdAt", "id", "size"]);
+    assert_eq!(keys, ["accountId", "createdAt", "id", "ownerId", "size"]);
     assert_eq!(created["accountId"], json!("acct-001"));
+    assert_eq!(created["ownerId"], json!(ALICE));
     assert_eq!(created["size"], json!(2483712));
 
     // L215 `id`: "A ULID assigned at creation": 26 Crockford base32 chars.
@@ -141,14 +144,16 @@ async fn missing_required_properties_are_invalid() {
 
 #[tokio::test]
 async fn server_set_properties_are_refused_on_create() {
-    // L630 "The server sets `id`, `accountId`, `size`, and `createdAt`."
+    // 6bcd9d8 L696 "The server sets `id`, `accountId`, `ownerId`, `size`,
+    // and `createdAt`."
     let backend = backend();
     let mut req = spec_create();
+    req["ownerId"] = json!(BOB);
     req["size"] = json!(1);
     req["createdAt"] = json!("2026-06-06T10:05:00Z");
     let err = create_error(&backend, req).await;
     assert_eq!(err["type"], json!("invalidProperties"));
-    assert_eq!(properties(&err), ["createdAt", "size"]);
+    assert_eq!(properties(&err), ["createdAt", "ownerId", "size"]);
 }
 
 #[tokio::test]
@@ -269,7 +274,6 @@ fn seeded() -> MemoryBackend {
     let backend = backend();
     seed(
         &backend,
-        ALICE,
         stored_asset(
             "S1",
             "model/gltf-binary",
@@ -303,6 +307,60 @@ async fn immutable_properties_are_refused_on_update() {
     .unwrap_err();
     assert_eq!(err["type"], json!("invalidProperties"));
     assert_eq!(properties(&err), ["blobId", "createdAt", "id"]);
+}
+
+#[tokio::test]
+async fn only_name_asset_uri_and_sha256_are_patchable() {
+    // 6bcd9d8 L844 "Attempting to change a property other than `name`,
+    // `assetUri`, or `sha256` | `id`, `accountId`, `ownerId`, `blobId`,
+    // `mediaType`, `size`, and `createdAt` are immutable or server-set."
+    let backend = seeded();
+    let err = update(
+        &backend,
+        ALICE,
+        json!({
+            "accountId": "acct-002",
+            "ownerId": BOB,
+            "mediaType": "model/gltf+json",
+            "size": 1
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err["type"], json!("invalidProperties"));
+    assert_eq!(
+        properties(&err),
+        ["accountId", "mediaType", "ownerId", "size"]
+    );
+
+    // L698 "`update` supports patching `name`, `assetUri`, and `sha256`."
+    update(
+        &backend,
+        ALICE,
+        json!({
+            "name": "Renamed",
+            "assetUri": "https://cdn.example.com/assets/renamed.glb",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }),
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn created_asset_is_owned_by_its_creator() {
+    // 6bcd9d8 L275-276 `ownerId`: "The userId of the user who created this
+    // asset"; L850 "Caller is not the asset's `ownerId` and lacks admin
+    // privileges" is `forbidden`.
+    let backend = backend();
+    let resp = set(&backend, BOB, json!({ "create": { "a0": spec_create() } })).await;
+    let id = resp["created"]["a0"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(resp["created"]["a0"]["ownerId"], json!(BOB));
+    let patch = json!({ "update": { id.clone(): { "name": "x" } } });
+    let resp = set(&backend, ALICE, patch.clone()).await;
+    assert_eq!(resp["notUpdated"][&id]["type"], json!("forbidden"));
+    let resp = set(&backend, BOB, patch).await;
+    assert!(resp["updated"].get(&id).is_some(), "{resp}");
 }
 
 #[tokio::test]
@@ -348,8 +406,8 @@ async fn update_of_unknown_asset_is_not_found() {
 
 #[tokio::test]
 async fn update_to_unsupported_media_type_is_invalid() {
-    // L626 `mediaType` "MUST be a value present in the account-level
-    // `supportedVisualTypes` or a recognized audio/image type".
+    // 6bcd9d8 L284 `mediaType` "(String, immutable)"; L844 lists it among
+    // the properties an update may not change, supported or not.
     let backend = seeded();
     let err = update(
         &backend,

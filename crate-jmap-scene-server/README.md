@@ -73,8 +73,9 @@ property. The handler then asks `SceneBackend::blob_size`: a missing blob
 is `notFound` and a blob larger than `maxAssetSizeBytes` is `overQuota`.
 `SceneBackend::create_object` assigns the ULID and applies the
 deployment's account storage quota and admin-only rule atomically. The
-`created` entry holds the four server-set properties. An update may not
-patch the server-set or immutable properties. Update and destroy return
+`created` entry holds the five server-set properties, with `ownerId` from
+`SceneBackend::caller_user_id`. An update may patch only `name`,
+`assetUri`, `sha256` and extension properties. Update and destroy return
 `notFound` for an unknown id, and `forbidden` when
 `SceneBackend::may_modify_asset` is `false`. `/query` defaults to
 `createdAt` descending. The backend trait is not object-safe (generic
