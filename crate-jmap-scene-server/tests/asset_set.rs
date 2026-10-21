@@ -226,14 +226,16 @@ async fn malformed_sha256_is_invalid() {
 }
 
 #[tokio::test]
-async fn unknown_blob_is_not_found() {
-    // L747-751 "`notFound` -- referenced blob does not exist": "`blobId`
-    // does not reference a valid blob".
+async fn unknown_blob_is_invalid() {
+    // L816 `invalidProperties` table, L823 "`blobId` does not reference a
+    // valid blob ... This applies whether the blobId is malformed or
+    // well-formed but absent."
     let backend = backend();
     let mut req = spec_create();
     req["blobId"] = json!("G-never-uploaded");
     let err = create_error(&backend, req).await;
-    assert_eq!(err["type"], json!("notFound"));
+    assert_eq!(err["type"], json!("invalidProperties"));
+    assert_eq!(properties(&err), ["blobId"]);
 }
 
 #[tokio::test]

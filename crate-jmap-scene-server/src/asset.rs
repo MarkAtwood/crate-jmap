@@ -5,8 +5,8 @@
 //! §5.2 and §5.6 methods. `/set` applies §SceneAsset/set and its §SetError
 //! Conditions: required `blobId` and `mediaType`, the server-set
 //! properties (including `ownerId`, the caller's userId), the media-type
-//! rule with glTF as the mandatory-to-implement format, `notFound` for a
-//! missing blob, `overQuota` above `maxAssetSizeBytes`, the immutable
+//! rule with glTF as the mandatory-to-implement format,
+//! `invalidProperties` for a missing blob, `overQuota` above `maxAssetSizeBytes`, the immutable
 //! properties on update and the owner-or-admin rule on update and destroy.
 //! `/query` supplies the "Default sort: `createdAt` descending" before the
 //! standard RFC 8620 §5.5 handling.
@@ -374,17 +374,13 @@ async fn create_asset<B: SceneBackend>(
     };
 
     // "The server MUST reject the create if `blobId` does not reference a
-    // valid blob": `notFound` for a well-formed id with no blob.
+    // valid blob"; the `invalidProperties` table covers that case "whether
+    // the blobId is malformed or well-formed but absent".
     let size = backend
         .blob_size(caller, account_id, &blob_id)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
-        .ok_or_else(|| {
-            set_error_value(
-                &SetError::new(SetErrorType::NotFound)
-                    .with_description("blobId does not reference an uploaded blob"),
-            )
-        })?;
+        .ok_or_else(|| invalid(&["blobId"], "blobId does not reference an uploaded blob"))?;
     // "The server MUST return `overQuota` if the asset exceeds
     // `maxAssetSizeBytes`."
     if cap.max_asset_size_bytes.is_some_and(|max| size > max) {
