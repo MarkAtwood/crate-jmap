@@ -60,7 +60,7 @@ use crate::{
     QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError,
     SpacePatchOp,
 };
-use jmap_chat_types::ChatPushCapability;
+use jmap_chat_types::{ChatPermission, ChatPushCapability};
 use jmap_server::{
     apply_patch_object, json_merge_patch, now_utc_string, resolve_query_start, MergePatchError,
     PushSubscriptionBackend, StoredPushSubscription,
@@ -1422,7 +1422,7 @@ impl ChatBackend for MemoryBackend {
     ///
     /// Implements draft-atwood-jmap-chat-00 §BroadcastMention: a
     /// non-empty `broadcastMentions` array in a channel requires the
-    /// [`MENTION_BROADCAST`](crate::permissions::MENTION_BROADCAST)
+    /// [`ChatPermission::MentionBroadcast`]
     /// permission, resolved in channel `chat_id` per §Space Permission
     /// Resolution. The caller's member entry is `account_id` (draft
     /// §Terminology). A Space or Chat that does not exist is permitted,
@@ -1434,8 +1434,6 @@ impl ChatBackend for MemoryBackend {
         space_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        use crate::permissions::MENTION_BROADCAST;
-
         let inner = self.inner.lock().unwrap();
         let space_exists = inner
             .objects_ref("Space", account_id.as_ref())
@@ -1449,7 +1447,7 @@ impl ChatBackend for MemoryBackend {
         };
         Ok(
             if owner_channel_permissions(&inner, account_id, chat)
-                .is_some_and(|perms| perms.contains(MENTION_BROADCAST))
+                .is_some_and(|perms| perms.contains(&ChatPermission::MentionBroadcast))
             {
                 Ok(())
             } else {
@@ -1475,8 +1473,6 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        use crate::permissions::SEND;
-
         let inner = self.inner.lock().unwrap();
         let Some(chat) = inner
             .objects_ref("Chat", account_id.as_ref())
@@ -1498,7 +1494,7 @@ impl ChatBackend for MemoryBackend {
             }
             Some("channel") => match owner_channel_permissions(&inner, account_id, chat) {
                 None => Some("sender is not a member of the containing Space"),
-                Some(perms) if !perms.contains(SEND) => {
+                Some(perms) if !perms.contains(&ChatPermission::Send) => {
                     Some("sender lacks required permission `send` in this channel")
                 }
                 Some(_) => None,
@@ -1532,7 +1528,7 @@ impl ChatBackend for MemoryBackend {
     /// Implements draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`:
     /// group chats require the caller to be a member with role `admin`;
     /// direct chats permit the owner freely; channel chats require the
-    /// [`PIN`](crate::permissions::PIN) permission, resolved in the
+    /// [`ChatPermission::Pin`] permission, resolved in the
     /// channel per §Space Permission Resolution. A Chat that does not exist is permitted so `update_object`
     /// surfaces `notFound`.
     ///
@@ -1546,8 +1542,6 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        use crate::permissions::PIN;
-
         let inner = self.inner.lock().unwrap();
         let Some(chat) = inner
             .objects_ref("Chat", account_id.as_ref())
@@ -1569,7 +1563,7 @@ impl ChatBackend for MemoryBackend {
             }
             Some("channel") => {
                 let has_pin = owner_channel_permissions(&inner, account_id, chat)
-                    .is_some_and(|perms| perms.contains(PIN));
+                    .is_some_and(|perms| perms.contains(&ChatPermission::Pin));
                 (!has_pin).then_some("caller lacks required permission `pin` in this channel")
             }
             _ => Some("internal: Chat has no recognized kind"),
@@ -1592,8 +1586,6 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         space_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        use crate::permissions::BAN;
-
         let inner = self.inner.lock().unwrap();
         let Some(space) = inner
             .objects_ref("Space", account_id.as_ref())
@@ -1603,7 +1595,7 @@ impl ChatBackend for MemoryBackend {
         };
         Ok(
             if caller_effective_permissions(space, account_id)
-                .is_some_and(|perms| perms.contains(BAN))
+                .is_some_and(|perms| perms.contains(&ChatPermission::Ban))
             {
                 Ok(())
             } else {
@@ -1627,8 +1619,6 @@ impl ChatBackend for MemoryBackend {
         space_id: &Id,
         created_by: Option<&Id>,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        use crate::permissions::MANAGE_MEMBERS;
-
         if created_by == Some(account_id) {
             return Ok(Ok(()));
         }
@@ -1641,7 +1631,7 @@ impl ChatBackend for MemoryBackend {
         };
         Ok(
             if caller_effective_permissions(space, account_id)
-                .is_some_and(|perms| perms.contains(MANAGE_MEMBERS))
+                .is_some_and(|perms| perms.contains(&ChatPermission::ManageMembers))
             {
                 Ok(())
             } else {
@@ -1667,8 +1657,6 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         invite: &jmap_chat_types::SpaceInvite,
     ) -> Result<bool, Self::Error> {
-        use crate::permissions::MANAGE_MEMBERS;
-
         let inner = self.inner.lock().unwrap();
         let Some(space) = inner
             .objects_ref("Space", account_id.as_ref())
@@ -1676,8 +1664,11 @@ impl ChatBackend for MemoryBackend {
         else {
             return Ok(true);
         };
-        Ok(caller_effective_permissions(space, account_id)
-            .is_some_and(|p| p.contains(MANAGE_MEMBERS) || invite.created_by == *account_id))
+        Ok(
+            caller_effective_permissions(space, account_id).is_some_and(|p| {
+                p.contains(&ChatPermission::ManageMembers) || invite.created_by == *account_id
+            }),
+        )
     }
 
     /// Reference implementation of [`ChatBackend::may_get_space_ban`].
@@ -1693,8 +1684,6 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         ban: &jmap_chat_types::SpaceBan,
     ) -> Result<bool, Self::Error> {
-        use crate::permissions::BAN;
-
         if ban.user_id == *account_id {
             return Ok(true);
         }
@@ -1705,7 +1694,8 @@ impl ChatBackend for MemoryBackend {
         else {
             return Ok(true);
         };
-        Ok(caller_effective_permissions(space, account_id).is_some_and(|p| p.contains(BAN)))
+        Ok(caller_effective_permissions(space, account_id)
+            .is_some_and(|p| p.contains(&ChatPermission::Ban)))
     }
 
     /// Reference implementation of
@@ -2255,7 +2245,7 @@ fn apply_space_patch_impl(
         .iter()
         .any(|op| matches!(op, SpacePatchOp::RemoveMember(id) if id == account_id))
         && member_effective_permissions(&space_snapshot, account_id.as_ref())
-            .is_some_and(|p| p.contains(crate::permissions::MANAGE_SPACE));
+            .is_some_and(|p| p.contains(&ChatPermission::ManageSpace));
 
     for (op_index, op) in ops.into_iter().enumerate() {
         let outcome = match &op {
@@ -2337,7 +2327,7 @@ fn apply_space_patch_impl(
                 && !member_ids.contains(&account_id.as_ref())
                 && member_ids.iter().all(|m| {
                     !member_effective_permissions(space, m)
-                        .is_some_and(|p| p.contains(crate::permissions::MANAGE_SPACE))
+                        .is_some_and(|p| p.contains(&ChatPermission::ManageSpace))
                 });
             if closes {
                 space["closedAt"] = serde_json::Value::String(now_utc_string().into_inner());
@@ -2465,8 +2455,6 @@ fn apply_space_metadata_patch_impl(
     space_id: &Id,
     patch_map: serde_json::Map<String, serde_json::Value>,
 ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<MemoryError>> {
-    use crate::permissions::MANAGE_SPACE;
-
     // Confirm the target Space exists. Surface NotFound at the
     // SetError level (per-target, NOT per-account) so the handler's
     // `notUpdated` bucket can render it.
@@ -2479,11 +2467,11 @@ fn apply_space_metadata_patch_impl(
     // Permission gate: the caller's effective permissions in the
     // Space must include `manage_space`.
     let caller_perms = caller_effective_permissions(&space_val, account_id).unwrap_or_default();
-    if !caller_perms.contains(MANAGE_SPACE) {
+    if !caller_perms.contains(&ChatPermission::ManageSpace) {
         return Err(BackendSetError::SetError(
-            SetError::new(SetErrorType::Forbidden).with_description(format!(
-                "caller lacks required permission `{MANAGE_SPACE}` to mutate Space top-level metadata"
-            )),
+            SetError::new(SetErrorType::Forbidden).with_description(
+                "caller lacks required permission `manage_space` to mutate Space top-level metadata",
+            ),
         ));
     }
 
@@ -4041,7 +4029,7 @@ fn validate_space_patch_ops(
             required
         };
         for req in required {
-            if !caller_perms.contains(*req) {
+            if !caller_perms.contains(req) {
                 return Err(
                     SetError::new(SetErrorType::Forbidden).with_description(format!(
                         "caller lacks required permission `{}` for {}",
@@ -4165,8 +4153,9 @@ fn last_admin_patch_keys(
     ops: &[SpacePatchOp],
     self_removal: bool,
 ) -> Option<Vec<&'static str>> {
-    use crate::permissions::{MANAGE_MEMBERS, MANAGE_SPACE};
-    let grants_admin = |p: &str| p == MANAGE_MEMBERS || p == MANAGE_SPACE;
+    let grants_admin = |p: &str| {
+        p == ChatPermission::ManageMembers.as_str() || p == ChatPermission::ManageSpace.as_str()
+    };
 
     // Role id -> whether the role grants an admin permission.
     let pre_roles: HashMap<&str, bool> = space_val
@@ -4291,7 +4280,7 @@ fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetE
 fn caller_effective_permissions(
     space_val: &serde_json::Value,
     caller_id: &Id,
-) -> Option<HashSet<String>> {
+) -> Option<HashSet<ChatPermission>> {
     member_effective_permissions(space_val, caller_id.as_ref())
 }
 
@@ -4301,7 +4290,7 @@ fn caller_effective_permissions(
 fn member_effective_permissions(
     space_val: &serde_json::Value,
     member_id: &str,
-) -> Option<HashSet<String>> {
+) -> Option<HashSet<ChatPermission>> {
     let members = space_val.get("members").and_then(|v| v.as_array())?;
     let member = members
         .iter()
@@ -4315,7 +4304,7 @@ fn member_effective_permissions(
                 .collect()
         })
         .unwrap_or_default();
-    let mut perms: HashSet<String> = HashSet::new();
+    let mut perms: HashSet<ChatPermission> = HashSet::new();
     if let Some(roles) = space_val.get("roles").and_then(|v| v.as_array()) {
         for role in roles {
             let Some(rid) = role.get("id").and_then(|v| v.as_str()) else {
@@ -4325,11 +4314,11 @@ fn member_effective_permissions(
                 continue;
             }
             if let Some(role_perms) = role.get("permissions").and_then(|v| v.as_array()) {
-                for p in role_perms {
-                    if let Some(s) = p.as_str() {
-                        perms.insert(s.to_owned());
-                    }
-                }
+                perms.extend(
+                    role_perms
+                        .iter()
+                        .filter_map(|p| serde_json::from_value(p.clone()).ok()),
+                );
             }
         }
     }
@@ -4347,7 +4336,7 @@ fn owner_channel_permissions(
     inner: &Inner,
     account_id: &Id,
     chat: &serde_json::Value,
-) -> Option<HashSet<String>> {
+) -> Option<HashSet<ChatPermission>> {
     use crate::permissions::resolve_channel_permissions;
     use jmap_chat_types::ChannelPermission;
 
@@ -4383,7 +4372,7 @@ fn owner_may_view_chat(inner: &Inner, account_id: &Id, chat_id: &Id) -> bool {
         return true;
     }
     owner_channel_permissions(inner, account_id, chat)
-        .is_some_and(|perms| perms.contains(crate::permissions::VIEW))
+        .is_some_and(|perms| perms.contains(&ChatPermission::View))
 }
 
 /// Resolve the caller's highest role `position` within `space_val`.

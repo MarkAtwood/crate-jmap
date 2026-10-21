@@ -55,7 +55,7 @@ const ROLE: &str = "chatspace";
 struct Fixture {
     chat: ChatMemory,
     files: FilesMemory,
-    everyone: HashSet<String>,
+    everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Fixture {
@@ -284,7 +284,7 @@ async fn union_over_held_roles() {
 #[tokio::test]
 async fn everyone_permissions_count() {
     let mut f = Fixture::new(&[]);
-    f.everyone.insert("send".to_owned());
+    f.everyone.insert(jmap_chat_types::ChatPermission::Send);
     assert_eq!(
         f.rights("docs").await,
         Some(rights(&["mayRead", "mayAddChildren"]))

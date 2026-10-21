@@ -1,8 +1,9 @@
 //! Pure permission-vocabulary helpers for backend authorization gating.
 //!
 //! This module hosts pure (no I/O, no state) mappings from server-side
-//! mutation values onto the permission-string vocabulary defined by
-//! draft-atwood-jmap-chat-00 §Space/set. Backend implementations of
+//! mutation values onto the [`ChatPermission`] vocabulary defined by
+//! draft-atwood-jmap-chat-00 §SpaceRole `permissions` and gated per
+//! §Space/set. Backend implementations of
 //! [`ChatBackend::apply_space_patch`] consume these helpers to gate
 //! per-op authorization after resolving the caller's effective
 //! permission set in a Space.
@@ -15,70 +16,7 @@
 use std::collections::HashSet;
 
 use crate::backend::SpacePatchOp;
-use jmap_chat_types::ChannelPermission;
-
-/// Permission string: top-level Space metadata mutations.
-///
-/// Per draft-atwood-jmap-chat-00 §Space/set L1256-1257 (metadata patch
-/// keys `name`, `description`, `iconBlobId`) and §Space L812, L815
-/// (`isPublic` and `isPubliclyPreviewable`: "Mutable by members with
-/// `"manage_space"` permission"). §Space/set names no patch key for
-/// those two (bd:JMAP-y3f2.13).
-pub const MANAGE_SPACE: &str = "manage_space";
-
-/// Permission string: role-set mutations.
-///
-/// Per draft-atwood-jmap-chat-00 §Space/set L1260, L1263, L1266
-/// (`addRoles`, `removeRoles`, `updateRoles`).
-pub const MANAGE_ROLES: &str = "manage_roles";
-
-/// Permission string: member-set mutations.
-///
-/// Per draft-atwood-jmap-chat-00 §Space/set L1269, L1272, L1277
-/// (`addMembers`, `removeMembers`, `updateMembers`).
-pub const MANAGE_MEMBERS: &str = "manage_members";
-
-/// Permission string: channel- and category-set mutations.
-///
-/// Per draft-atwood-jmap-chat-00 §Space/set L1280-1295
-/// (`addChannels`, `removeChannels`, `updateChannels`, `addCategories`,
-/// `removeCategories`, `updateCategories`).
-pub const MANAGE_CHANNELS: &str = "manage_channels";
-
-/// Permission string: modify a channel Chat's `pinnedMessageIds`.
-///
-/// Per draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "For channel
-/// chats, only members with the `"pin"` Space permission may modify this
-/// list."
-pub const PIN: &str = "pin";
-
-/// Permission string: create, update or destroy a SpaceBan.
-///
-/// Per draft-atwood-jmap-chat-00 §SpaceBan/set: create, update and
-/// destroy each "Requires `"ban"` permission in the Space."
-pub const BAN: &str = "ban";
-
-/// Permission string: send or keep a Message with a non-empty
-/// `broadcastMentions` array in a channel Chat.
-///
-/// Per draft-atwood-jmap-chat-00 §BroadcastMention: "Sending a Message
-/// with a non-empty `broadcastMentions` array requires the
-/// `"mention_broadcast"` Space permission."
-pub const MENTION_BROADCAST: &str = "mention_broadcast";
-
-/// Permission string: see a channel and its messages.
-///
-/// Per draft-atwood-jmap-chat-00 §Message/query: "For channel Chats, the
-/// server MUST verify the caller holds the `"view"` permission before
-/// returning messages in `Message/get` or `Message/query` responses".
-pub const VIEW: &str = "view";
-
-/// Permission string: send a Message in a channel Chat.
-///
-/// Per draft-atwood-jmap-chat-00 §Message/set: "For channel Chats, the
-/// server MUST verify the sender holds the `"send"` permission (resolved
-/// per {{space-permissions}}) before accepting the message".
-pub const SEND: &str = "send";
+use jmap_chat_types::{ChannelPermission, ChatPermission};
 
 /// Resolve a member's effective permissions in one channel Chat, per
 /// draft-atwood-jmap-chat-00 §Space Permission Resolution.
@@ -100,12 +38,18 @@ pub const SEND: &str = "send";
 /// (§SpaceRole: it "is not included in the `roles` array"), so no
 /// role-targeted record can address it; restrict or grant the floor with
 /// member-targeted records instead.
+///
+/// A `deny` entry removes every permission with the same wire string
+/// ([`ChatPermission::as_str`]), so a forged
+/// [`ChatPermission::Other`] spelling of a known name still denies it;
+/// an `allow` entry adds the permission as given, so such a spelling
+/// never grants the known variant.
 pub fn resolve_channel_permissions(
-    space_permissions: HashSet<String>,
+    space_permissions: HashSet<ChatPermission>,
     member_id: &str,
     role_ids: &HashSet<&str>,
     overrides: &[ChannelPermission],
-) -> HashSet<String> {
+) -> HashSet<ChatPermission> {
     let role_records: Vec<&ChannelPermission> = overrides
         .iter()
         .filter(|o| o.target_type.as_str() == "role" && role_ids.contains(o.target_id.as_ref()))
@@ -118,11 +62,11 @@ pub fn resolve_channel_permissions(
     for records in [role_records, member_records] {
         for o in &records {
             for p in &o.deny {
-                perms.remove(p.as_str());
+                perms.retain(|q| q.as_str() != p.as_str());
             }
         }
         for o in &records {
-            perms.extend(o.allow.iter().map(|p| p.as_str().to_owned()));
+            perms.extend(o.allow.iter().cloned());
         }
     }
     perms
@@ -146,10 +90,10 @@ pub fn resolve_channel_permissions(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RequiredPermissions {
     /// The op's permission requirement is known and enumerated by
-    /// the draft. The contained slice is the list of permission
-    /// strings the caller MUST hold to apply this op. A caller's
+    /// the draft. The contained slice is the list of permissions
+    /// the caller MUST hold to apply this op. A caller's
     /// effective-permission set must be a superset of this slice.
-    Known(&'static [&'static str]),
+    Known(&'static [ChatPermission]),
     /// The op variant is not recognized by this version of
     /// `required_permissions_for_op`. This happens when a
     /// downstream-extended [`SpacePatchOp`] adds a new variant
@@ -158,7 +102,7 @@ pub enum RequiredPermissions {
     UnknownOp,
 }
 
-/// Returns the set of permission strings required to apply this
+/// Returns the set of permissions required to apply this
 /// [`SpacePatchOp`] variant, per draft-atwood-jmap-chat-00 §Space/set
 /// L1256-1295 (jmap-chat-spec 91672c9).
 ///
@@ -183,10 +127,9 @@ pub enum RequiredPermissions {
 /// derived permission slice; [`RequiredPermissions::UnknownOp`]
 /// signals that the op variant is not recognized and the backend
 /// MUST reject the patch (fail closed). The typed return value
-/// replaced an earlier `&'static [&'static str]` shape that used a
-/// magic sentinel string `"__unknown_space_patch_op__"` to signal
-/// the unknown case; that contract was load-bearing on a name no
-/// public API exposed.
+/// replaced an earlier slice-only shape that used a magic sentinel
+/// string `"__unknown_space_patch_op__"` to signal the unknown case;
+/// that contract was load-bearing on a name no public API exposed.
 ///
 /// This helper is pure and has no side effects. Backends consume it
 /// inside [`ChatBackend::apply_space_patch`] after resolving the
@@ -201,11 +144,13 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
         // Role family — draft §Space/set L1260, L1263, L1266.
         SpacePatchOp::AddRole(_)
         | SpacePatchOp::RemoveRole(_)
-        | SpacePatchOp::UpdateRole { .. } => RequiredPermissions::Known(&[MANAGE_ROLES]),
+        | SpacePatchOp::UpdateRole { .. } => {
+            RequiredPermissions::Known(&[ChatPermission::ManageRoles])
+        }
 
         // Member add/remove — draft §Space/set L1269, L1272.
         SpacePatchOp::AddMember(_) | SpacePatchOp::RemoveMember(_) => {
-            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+            RequiredPermissions::Known(&[ChatPermission::ManageMembers])
         }
 
         // Member update — draft-atwood-jmap-chat-00 L1277: "Role changes
@@ -216,22 +161,29 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
         // nick-only edit is exempt, but this helper has no caller identity,
         // so the backend gate applies that exemption.
         SpacePatchOp::UpdateMember { patch, .. } => match (&patch.role_ids, &patch.nick) {
-            (Some(_), Some(_)) => RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES]),
-            (Some(_), None) => RequiredPermissions::Known(&[MANAGE_ROLES]),
-            (None, _) => RequiredPermissions::Known(&[MANAGE_MEMBERS]),
+            (Some(_), Some(_)) => RequiredPermissions::Known(&[
+                ChatPermission::ManageMembers,
+                ChatPermission::ManageRoles,
+            ]),
+            (Some(_), None) => RequiredPermissions::Known(&[ChatPermission::ManageRoles]),
+            (None, _) => RequiredPermissions::Known(&[ChatPermission::ManageMembers]),
         },
 
         // Channel family — draft §Space/set L1280, L1283, L1286.
         SpacePatchOp::AddChannel(_)
         | SpacePatchOp::RemoveChannel(_)
-        | SpacePatchOp::UpdateChannel { .. } => RequiredPermissions::Known(&[MANAGE_CHANNELS]),
+        | SpacePatchOp::UpdateChannel { .. } => {
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
+        }
 
         // Category family — draft §Space/set L1289, L1292, L1295. Categories are a
         // sub-property of the channel-set per the draft; the same permission
         // gates both.
         SpacePatchOp::AddCategory(_)
         | SpacePatchOp::RemoveCategory(_)
-        | SpacePatchOp::UpdateCategory { .. } => RequiredPermissions::Known(&[MANAGE_CHANNELS]),
+        | SpacePatchOp::UpdateCategory { .. } => {
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
+        }
 
         // `SpacePatchOp` is `#[non_exhaustive]` upstream. A future-added
         // variant cannot be matched at compile time from this downstream
@@ -296,7 +248,7 @@ mod tests {
         let op = SpacePatchOp::AddRole(role_fixture());
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_ROLES])
+            RequiredPermissions::Known(&[ChatPermission::ManageRoles])
         );
     }
 
@@ -305,7 +257,7 @@ mod tests {
         let op = SpacePatchOp::RemoveRole(Id::from("r1"));
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_ROLES])
+            RequiredPermissions::Known(&[ChatPermission::ManageRoles])
         );
     }
 
@@ -319,7 +271,7 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_ROLES])
+            RequiredPermissions::Known(&[ChatPermission::ManageRoles])
         );
     }
 
@@ -334,7 +286,7 @@ mod tests {
         // `updateMembers` with a roleIds change does.
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+            RequiredPermissions::Known(&[ChatPermission::ManageMembers])
         );
     }
 
@@ -343,7 +295,7 @@ mod tests {
         let op = SpacePatchOp::RemoveMember(Id::from("u1"));
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+            RequiredPermissions::Known(&[ChatPermission::ManageMembers])
         );
     }
 
@@ -364,7 +316,7 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+            RequiredPermissions::Known(&[ChatPermission::ManageMembers])
         );
     }
 
@@ -380,7 +332,7 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_ROLES])
+            RequiredPermissions::Known(&[ChatPermission::ManageRoles])
         );
     }
 
@@ -398,7 +350,10 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES])
+            RequiredPermissions::Known(&[
+                ChatPermission::ManageMembers,
+                ChatPermission::ManageRoles
+            ])
         );
     }
 
@@ -414,7 +369,7 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_ROLES])
+            RequiredPermissions::Known(&[ChatPermission::ManageRoles])
         );
     }
 
@@ -423,7 +378,7 @@ mod tests {
         let op = SpacePatchOp::AddChannel(channel_create_fixture());
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
         );
     }
 
@@ -432,7 +387,7 @@ mod tests {
         let op = SpacePatchOp::RemoveChannel(Id::from("ch1"));
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
         );
     }
 
@@ -446,7 +401,7 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
         );
     }
 
@@ -455,7 +410,7 @@ mod tests {
         let op = SpacePatchOp::AddCategory(category_fixture());
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
         );
     }
 
@@ -464,7 +419,7 @@ mod tests {
         let op = SpacePatchOp::RemoveCategory(Id::from("cat1"));
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
         );
     }
 
@@ -478,22 +433,41 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+            RequiredPermissions::Known(&[ChatPermission::ManageChannels])
         );
     }
 
-    // The constants are also the verbatim permission strings used on the
-    // wire by spec-conforming backends and clients. Pin the literal bytes
-    // so a future rename here is caught immediately.
+    // The required permissions serialize to the verbatim names of
+    // draft-atwood-jmap-chat-00 §SpaceRole `permissions` (jmap-chat-spec
+    // 33702a5, L798-807): `"manage_channels"`, `"manage_members"`,
+    // `"manage_roles"`. Pin the wire bytes so a rename is caught.
     #[test]
-    fn permission_constants_have_spec_literal_values() {
-        assert_eq!(MANAGE_SPACE, "manage_space");
-        assert_eq!(MANAGE_ROLES, "manage_roles");
-        assert_eq!(MANAGE_MEMBERS, "manage_members");
-        assert_eq!(MANAGE_CHANNELS, "manage_channels");
+    fn required_permissions_serialize_to_spec_names() {
+        let mut both = MemberPatch::default();
+        both.role_ids = Some(vec![Id::from("r1")]);
+        both.nick = Some(Clearable::Set("Captain".to_owned()));
+        let cases = [
+            (
+                SpacePatchOp::UpdateMember {
+                    user_id: Id::from("u1"),
+                    patch: both,
+                },
+                serde_json::json!(["manage_members", "manage_roles"]),
+            ),
+            (
+                SpacePatchOp::RemoveChannel(Id::from("ch1")),
+                serde_json::json!(["manage_channels"]),
+            ),
+        ];
+        for (op, wire) in cases {
+            let RequiredPermissions::Known(slice) = required_permissions_for_op(&op) else {
+                panic!("op must have a known requirement");
+            };
+            assert_eq!(serde_json::to_value(slice).expect("serialize"), wire);
+        }
     }
 
-    // Helper returns `RequiredPermissions` carrying `&'static [&'static str]`
+    // Helper returns `RequiredPermissions` carrying `&'static [ChatPermission]`
     // for the Known arm: no allocation. Pin the function pointer signature so
     // a future return-type drift is caught at compile time.
     #[test]
@@ -513,8 +487,8 @@ mod tests {
     fn unknown_op_variant_is_distinct_from_any_known_arm() {
         // Two Known values with different content are unequal; a Known value
         // is never equal to UnknownOp.
-        let a = RequiredPermissions::Known(&[MANAGE_ROLES]);
-        let b = RequiredPermissions::Known(&[MANAGE_MEMBERS]);
+        let a = RequiredPermissions::Known(&[ChatPermission::ManageRoles]);
+        let b = RequiredPermissions::Known(&[ChatPermission::ManageMembers]);
         let u = RequiredPermissions::UnknownOp;
         assert_ne!(a, b);
         assert_ne!(a, u);
@@ -523,7 +497,7 @@ mod tests {
     }
 
     // Oracle for `resolve_channel_permissions`: draft-atwood-jmap-chat-00
-    // §Space Permission Resolution (jmap-chat-spec 91672c9, L1619-1631),
+    // §Space Permission Resolution (jmap-chat-spec 33702a5, L1700-1709),
     // quoted per test. Overrides are hand-written JSON shaped after
     // §ChannelPermission: "`targetId` (String): A SpaceRole id or a
     // SpaceMember `id`. `targetType` (String): `"role"` or `"member"`."
@@ -534,11 +508,11 @@ mod tests {
         serde_json::from_value(v).expect("hand-written ChannelPermission[]")
     }
 
-    fn set(items: &[&str]) -> HashSet<String> {
-        items.iter().map(|s| (*s).to_owned()).collect()
+    fn set(items: &[&str]) -> HashSet<ChatPermission> {
+        serde_json::from_value(json!(items)).expect("hand-written permission names")
     }
 
-    fn resolve(base: &[&str], roles: &[&str], o: serde_json::Value) -> HashSet<String> {
+    fn resolve(base: &[&str], roles: &[&str], o: serde_json::Value) -> HashSet<ChatPermission> {
         let role_ids: HashSet<&str> = roles.iter().copied().collect();
         resolve_channel_permissions(set(base), "m1", &role_ids, &overrides(o))
     }
@@ -615,5 +589,23 @@ mod tests {
             { "targetId": "r1", "targetType": "member", "allow": ["ban"], "deny": [] }
         ]);
         assert_eq!(resolve(&["view"], &["r1"], o), set(&["view"]));
+    }
+
+    // §SpaceRole (jmap-chat-spec 33702a5, L809): "Servers MUST ignore
+    // unrecognized permission names." A `ChatPermission::Other` spelling
+    // of a known name is matched on its wire string when denied, and is
+    // not the known permission when allowed: it can only fail closed.
+    #[test]
+    fn forged_other_spelling_denies_but_never_grants() {
+        let mut o = overrides(json!([
+            { "targetId": "m1", "targetType": "member", "allow": [], "deny": [] }
+        ]));
+        o[0].deny.push(ChatPermission::Other("send".to_owned()));
+        o[0].allow.push(ChatPermission::Other("pin".to_owned()));
+        let role_ids = HashSet::new();
+        let perms = resolve_channel_permissions(set(&["view", "send"]), "m1", &role_ids, &o);
+        assert!(!perms.contains(&ChatPermission::Send));
+        assert!(!perms.contains(&ChatPermission::Pin));
+        assert!(perms.contains(&ChatPermission::View));
     }
 }

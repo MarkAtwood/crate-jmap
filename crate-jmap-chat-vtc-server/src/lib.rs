@@ -27,7 +27,7 @@ use std::collections::HashSet;
 
 use jmap_chat_server::permissions::resolve_channel_permissions;
 use jmap_chat_server::ChatBackend;
-use jmap_chat_types::{Chat, ChatContact, ChatKind, Space};
+use jmap_chat_types::{Chat, ChatContact, ChatKind, ChatPermission, Space};
 use jmap_server::{
     now_utc_string, BackendSetError, GetObject, JmapBackend, SetError, SetErrorType,
 };
@@ -38,11 +38,6 @@ use jmap_vtc_types::{
     VtcParticipantEvent, VtcStreamEnable,
 };
 use serde_json::{json, Value};
-
-/// The Space permission that gates call creation
-/// (draft-atwood-jmap-chat-00 §SpaceRole: "`"start_call"` — initiate a
-/// voice or video call in a channel").
-pub const START_CALL: &str = "start_call";
 
 /// Check the Chat rules of draft-atwood-jmap-vtc-00 §Creating a Ring Call
 /// and §Creating a Room Call for a `VTCCall/set` create.
@@ -56,8 +51,10 @@ pub const START_CALL: &str = "start_call";
 ///   Both cases return the same SetError. A direct Chat always includes
 ///   the owner. A group Chat must list the owner (by accountId) in
 ///   `members`. For a channel, the owner must be a member of its Space.
-/// - A call with a `spaceId` or `channelId` needs the [`START_CALL`]
-///   permission: "the server SHOULD return `forbidden` if the caller lacks
+/// - A call with a `spaceId` or `channelId` needs the
+///   [`ChatPermission::StartCall`] permission (draft-atwood-jmap-chat-00
+///   §SpaceRole: "`"start_call"` — initiate a voice or video call in a
+///   channel"): "the server SHOULD return `forbidden` if the caller lacks
 ///   the `"start_call"` permission in the bound Space or channel." The
 ///   Space is `spaceId`, or else the
 ///   channel's `spaceId`. The permissions are resolved as in
@@ -83,7 +80,7 @@ pub async fn check_call_create<C: ChatBackend>(
     caller: &C::CallerCtx,
     account_id: &Id,
     call: &VtcCall,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, C::Error> {
     if let Some(chat_id) = bound(&call.chat_id) {
         let visible = match get_one::<Chat, _>(chat, caller, account_id, chat_id).await? {
@@ -118,7 +115,7 @@ pub async fn check_call_create<C: ChatBackend>(
     let permissions = space
         .map(|s| member_permissions(&s, account_id, channel.as_ref(), everyone))
         .unwrap_or_default();
-    Ok(if permissions.contains(START_CALL) {
+    Ok(if permissions.contains(&ChatPermission::StartCall) {
         Ok(())
     } else {
         Err(forbidden(
@@ -532,17 +529,17 @@ fn member_permissions(
     space: &Space,
     account_id: &Id,
     channel: Option<&Chat>,
-    everyone: &HashSet<String>,
-) -> HashSet<String> {
+    everyone: &HashSet<ChatPermission>,
+) -> HashSet<ChatPermission> {
     let Some(member) = space.members.iter().find(|m| &m.id == account_id) else {
         return HashSet::new();
     };
     let role_ids: HashSet<&str> = member.role_ids.iter().map(AsRef::as_ref).collect();
-    let space_permissions: HashSet<String> = space
+    let space_permissions: HashSet<ChatPermission> = space
         .roles
         .iter()
         .filter(|r| role_ids.contains(r.id.as_ref()))
-        .flat_map(|r| r.permissions.iter().map(|p| p.as_str().to_owned()))
+        .flat_map(|r| r.permissions.iter().cloned())
         .chain(everyone.iter().cloned())
         .collect();
     match channel {

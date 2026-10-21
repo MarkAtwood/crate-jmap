@@ -20,12 +20,12 @@ use jmap_chat_federation_types::{
 };
 use jmap_chat_server::{
     find_message_by_sender_msg_id, resolve_channel_permissions, store_server_message,
-    BackendSetError, ChatBackend, ChatLimits, SetErrorType, StoreOutcome, MANAGE_CHANNELS, SEND,
+    BackendSetError, ChatBackend, ChatLimits, SetErrorType, StoreOutcome,
 };
 use jmap_chat_types::vocabulary::CHAT_CAP_TASK;
 use jmap_chat_types::{
-    BroadcastMention, Chat, ChatContact, ChatKind, ChatTypingEvent, DeliveryState, Mention,
-    Message, MessageAction, Space, SpaceBan, BROADCAST_MENTION_SCOPES,
+    BroadcastMention, Chat, ChatContact, ChatKind, ChatPermission, ChatTypingEvent, DeliveryState,
+    Mention, Message, MessageAction, Space, SpaceBan, BROADCAST_MENTION_SCOPES,
 };
 use jmap_peer_auth::{bind_identity, IdentityBinding, PeerDomain};
 use jmap_server::{now_utc_string, serialize_value, server_fail_from_backend, HandlerOutput};
@@ -134,7 +134,7 @@ pub trait FederationBackend: ChatBackend {
         caller: &Self::CallerCtx,
         account_id: &Id,
         space: &Space,
-    ) -> HashSet<String>;
+    ) -> HashSet<ChatPermission>;
 
     /// A fresh id in the form the backend assigns to a stored Message.
     ///
@@ -425,7 +425,7 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
         }
         let permissions =
             channel_permissions(backend, caller, account_id, space, &target, sender_id);
-        if !permissions.contains(SEND) {
+        if !permissions.contains(&ChatPermission::Send) {
             return Err(JmapError::forbidden());
         }
         check_slow_mode(
@@ -666,16 +666,16 @@ fn channel_permissions<B: FederationBackend>(
     space: &Space,
     target: &Target,
     sender_id: &Id,
-) -> HashSet<String> {
+) -> HashSet<ChatPermission> {
     let Some(member) = space.members.iter().find(|m| &m.id == sender_id) else {
         return HashSet::new();
     };
     let role_ids: HashSet<&str> = member.role_ids.iter().map(AsRef::as_ref).collect();
-    let space_permissions: HashSet<String> = space
+    let space_permissions: HashSet<ChatPermission> = space
         .roles
         .iter()
         .filter(|r| role_ids.contains(r.id.as_ref()))
-        .flat_map(|r| r.permissions.iter().map(|p| p.as_str().to_owned()))
+        .flat_map(|r| r.permissions.iter().cloned())
         .chain(backend.everyone_permissions(caller, account_id, space))
         .collect();
     let overrides = target
@@ -693,7 +693,7 @@ async fn check_slow_mode<B: ChatBackend>(
     account_id: &Id,
     target: &Target,
     sender_id: &Id,
-    permissions: &HashSet<String>,
+    permissions: &HashSet<ChatPermission>,
     now: &UTCDate,
 ) -> Result<(), JmapError> {
     let slow = target
@@ -701,7 +701,7 @@ async fn check_slow_mode<B: ChatBackend>(
         .as_ref()
         .and_then(|c| c.slow_mode_seconds)
         .unwrap_or(0);
-    if slow == 0 || permissions.contains(MANAGE_CHANNELS) {
+    if slow == 0 || permissions.contains(&ChatPermission::ManageChannels) {
         return Ok(());
     }
     let (messages, _) = backend

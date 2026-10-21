@@ -20,7 +20,9 @@ const CHANNEL: &str = "CH1";
 /// A backend whose owner may start calls in [`SPACE`] and [`CHANNEL`].
 fn bound_with_space() -> Bound {
     let mut backend = Bound::new();
-    backend.everyone.insert("start_call".to_owned());
+    backend
+        .everyone
+        .insert(jmap_chat_types::ChatPermission::StartCall);
     backend.seed_chat_object("Space", space(SPACE, &[], &[(ACCOUNT, &[])]));
     backend.seed_chat_object("Space", space("S2", &[], &[(ACCOUNT, &[])]));
     backend.seed_chat_object("Chat", channel_chat(CHANNEL, SPACE, json!([])));

@@ -16,7 +16,6 @@ not depend on each other; this crate depends on both.
 | `contact_identity` | chat §Terminology: the identity a ChatContact id (or the accountId) names, as VTC `userId` uses it |
 | `eject_banned_user` | vtc §Chat-Bound Calls: on a SpaceBan, set `leftAt` on the banned user's active participants in the Space's calls, apply the §Leaving a Call side effects, and return one `"left"` `VTCParticipantEvent` each |
 | `is_blocked_by_contact` | vtc §Blocked-Sender Suppression, through `ChatContact.blocked` |
-| `START_CALL` | chat §SpaceRole `"start_call"` |
 | `should_deliver_vtc` | vtc-wss §Interoperability with JMAP Chat WebSocket: the union of the `ChatStreamEnable` `"vtc"` path and `VTCStreamEnable`, one decision per event |
 
 ## What it's for

@@ -1246,6 +1246,23 @@ wire behaviour that a conforming peer can observe.
   the README draft notes are gone, and `RELEASING.md` places them in
   layers 2a, 6, 7 and 8 of the publish order.
 
+- **BREAKING** **jmap-chat-server**, **jmap-chat-federation-server**,
+  **jmap-chat-vtc-server**, **jmap-chat-filenode-server**: Space
+  permissions are typed as `jmap_chat_types::ChatPermission` instead of
+  wire strings. The `&str` constants `MANAGE_SPACE`, `MANAGE_ROLES`,
+  `MANAGE_MEMBERS`, `MANAGE_CHANNELS`, `PIN`, `BAN`, `MENTION_BROADCAST`,
+  `VIEW` and `SEND` (`jmap_chat_server::permissions` and the crate root)
+  and `jmap_chat_vtc_server::START_CALL` are removed; use the matching
+  `ChatPermission` variant. `RequiredPermissions::Known` carries
+  `&'static [ChatPermission]`; `resolve_channel_permissions` takes and
+  returns `HashSet<ChatPermission>`; `FederationBackend::everyone_permissions`
+  returns `HashSet<ChatPermission>`; and the `everyone` parameter of
+  `check_call_create`, `check_root_create`, `resolve_filenode_attachment`
+  and the other filenode gates is `&HashSet<ChatPermission>`. A channel
+  `deny` entry removes every permission with its wire string, so a
+  `ChatPermission::Other` spelling of a known name can deny but never
+  grant it.
+
 - **BREAKING** **jmap-chat-types**: broadcast scopes are typed as the new
   `BroadcastScope` enum (`Everyone`, `Here`, `Admins`, `Other(String)`):
   `BroadcastMention.scope: BroadcastScope`, `Span.scope:

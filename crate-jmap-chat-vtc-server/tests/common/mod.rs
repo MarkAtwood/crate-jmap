@@ -32,7 +32,7 @@ pub const CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 pub struct Bound {
     pub vtc: VtcMemory,
     pub chat: ChatMemory,
-    pub everyone: HashSet<String>,
+    pub everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Bound {
