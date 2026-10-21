@@ -1,8 +1,9 @@
 //! The reference `MemoryBackend` enforces sender membership and the
 //! channel `"send"` / `"view"` permissions, resolved per §Space
 //! Permission Resolution, on `Message/set` create, `Message/get` and
-//! `Message/query` (bd:JMAP-y3f2.1), and on `Message/queryChanges`
-//! (bd:JMAP-y3f2.14).
+//! `Message/query` (bd:JMAP-y3f2.1), on `Message/queryChanges`
+//! (bd:JMAP-y3f2.14), and the channel `"mention_broadcast"` permission
+//! (bd:JMAP-559u).
 //!
 //! Oracle: draft-atwood-jmap-chat-00 (jmap-chat-spec 91672c9) §Message/set
 //! L1126-1128, §Message/query L1209 and §Space Permission Resolution
@@ -445,4 +446,74 @@ async fn query_changes_in_unviewable_chat_cannot_calculate() {
     .await
     .expect_err("Message/queryChanges");
     assert_eq!(err.error_type.as_str(), "cannotCalculateChanges");
+}
+
+async fn create_broadcast_message(backend: &MemoryBackend) -> Value {
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
+        backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "m": {
+                "chatId": CHANNEL_ID,
+                "body": "hello all",
+                "bodyType": "text/plain",
+                "sentAt": "2026-01-01T00:00:00Z",
+                "broadcastMentions": [{ "scope": "everyone" }]
+            }}
+        }),
+    )
+    .await
+    .expect("Message/set");
+    resp
+}
+
+/// §BroadcastMention L456: "Servers MUST reject `Message/set` create or
+/// update requests that would write a broadcast mention from a sender
+/// lacking this permission with `forbidden`", with the permission
+/// resolved per §Space Permission Resolution L1703: "When determining
+/// whether a member may perform an action in a channel Chat, servers
+/// MUST evaluate permissions in this order", step 2 applying
+/// role-targeted `deny` entries. The Space role grants
+/// `mention_broadcast`; the channel denies it for that role
+/// (bd:JMAP-559u).
+#[tokio::test]
+async fn channel_role_deny_removes_mention_broadcast() {
+    let backend = MemoryBackend::new();
+    seed_channel(
+        &backend,
+        json!(["view", "send", "mention_broadcast"]),
+        true,
+        json!([]),
+    );
+    assert_created(&create_broadcast_message(&backend).await);
+
+    let backend = MemoryBackend::new();
+    seed_channel(
+        &backend,
+        json!(["view", "send", "mention_broadcast"]),
+        true,
+        json!([{ "targetId": "r1", "targetType": "role", "allow": [], "deny": ["mention_broadcast"] }]),
+    );
+    assert_forbidden(&create_broadcast_message(&backend).await);
+}
+
+/// §Space Permission Resolution L1703 step 5: "Apply `allow` entries from
+/// the same member-targeted record". The Space role lacks
+/// `mention_broadcast`; a member-targeted allow grants it in this channel
+/// (bd:JMAP-559u).
+#[tokio::test]
+async fn channel_member_allow_grants_mention_broadcast() {
+    let backend = MemoryBackend::new();
+    seed_channel(&backend, json!(["view", "send"]), true, json!([]));
+    assert_forbidden(&create_broadcast_message(&backend).await);
+
+    let backend = MemoryBackend::new();
+    seed_channel(
+        &backend,
+        json!(["view", "send"]),
+        true,
+        json!([{ "targetId": ACCOUNT_ID, "targetType": "member", "allow": ["mention_broadcast"], "deny": [] }]),
+    );
+    assert_created(&create_broadcast_message(&backend).await);
 }

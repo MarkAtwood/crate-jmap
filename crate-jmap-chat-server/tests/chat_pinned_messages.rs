@@ -192,3 +192,52 @@ async fn channel_with_pin_permission_may_update_pins() {
     assert_updated(&resp);
     assert_eq!(pinned(&backend).await, json!(["m1"]));
 }
+
+/// Replace the channel seeded by [`seed_channel`] with one whose
+/// `permissionOverrides` is `overrides`.
+fn set_channel_overrides(backend: &IdentityBackend, overrides: Value) {
+    seed_chat(
+        backend,
+        "channel",
+        json!({ "name": "c", "spaceId": SPACE_ID, "permissionOverrides": overrides }),
+    );
+}
+
+/// draft-atwood-jmap-chat-00 §Space Permission Resolution: "When
+/// determining whether a member may perform an action in a channel Chat,
+/// servers MUST evaluate permissions in this order", step 2: "Apply
+/// `deny` entries from any ChannelPermission records matching the
+/// member's roles (`targetType: \"role\"`)". The Space role grants
+/// `pin`; the channel denies it for that role (bd:JMAP-559u).
+#[tokio::test]
+async fn channel_role_deny_removes_pin() {
+    let backend = IdentityBackend::new();
+    seed_channel(&backend, true);
+    set_channel_overrides(
+        &backend,
+        json!([{ "targetId": "r-pin", "targetType": "role", "allow": [], "deny": ["pin"] }]),
+    );
+
+    let resp = update(&backend, json!({ "pinnedMessageIds": ["m1"] })).await;
+
+    assert_forbidden(&resp);
+    assert_eq!(pinned(&backend).await, json!([]));
+}
+
+/// §Space Permission Resolution step 5: "Apply `allow` entries from the
+/// same member-targeted record". The owner holds no role granting `pin`;
+/// a member-targeted allow grants it in this channel (bd:JMAP-559u).
+#[tokio::test]
+async fn channel_member_allow_grants_pin() {
+    let backend = IdentityBackend::new();
+    seed_channel(&backend, false);
+    set_channel_overrides(
+        &backend,
+        json!([{ "targetId": ACCOUNT_ID, "targetType": "member", "allow": ["pin"], "deny": [] }]),
+    );
+
+    let resp = update(&backend, json!({ "pinnedMessageIds": ["m1"] })).await;
+
+    assert_updated(&resp);
+    assert_eq!(pinned(&backend).await, json!(["m1"]));
+}

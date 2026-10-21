@@ -1836,6 +1836,15 @@ pub trait ChatBackend: JmapBackend {
     /// `space_id` is `Some` — the handler skips the call for
     /// group/direct chats with no Space.
     ///
+    /// # `chat_id` semantics
+    ///
+    /// `chat_id` is the target channel Chat, whose `permissionOverrides`
+    /// apply: per draft-atwood-jmap-chat-00 §Space Permission Resolution,
+    /// "When determining whether a member may perform an action in a
+    /// channel Chat, servers MUST evaluate permissions in this order",
+    /// so an override may deny or allow `mention_broadcast` in one
+    /// channel only.
+    ///
     /// # When the handler calls this
     ///
     /// `handle_message_set` invokes `may_broadcast_mention` once per
@@ -1854,19 +1863,21 @@ pub trait ChatBackend: JmapBackend {
     /// workspace's "kit defines the hook; consumer enforces the policy"
     /// posture (see the parallel design of [`Self::may_set_custom_emoji`]).
     /// Production backends SHOULD override this method to check the
-    /// caller's `mention_broadcast` permission in the target Space's
-    /// role hierarchy.
+    /// caller's `mention_broadcast` permission in the target channel,
+    /// resolved per §Space Permission Resolution (see
+    /// [`resolve_channel_permissions`](crate::permissions::resolve_channel_permissions)).
     ///
     /// # SetError shape recommendation
     ///
     /// Production backends SHOULD return
     /// `Ok(Err(SetError::new(SetErrorType::Forbidden)
-    ///     .with_description("sender lacks mention_broadcast permission in this Space")))`.
+    ///     .with_description("sender lacks mention_broadcast permission in this channel")))`.
     fn may_broadcast_mention(
         &self,
         _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         _space_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
         async { Ok(Ok(())) }
     }
@@ -1877,7 +1888,9 @@ pub trait ChatBackend: JmapBackend {
     /// Per draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "For group
     /// chats, only admins may modify this list. For direct chats, the
     /// owner may modify it freely. For channel chats, only members with
-    /// the `"pin"` Space permission may modify this list."
+    /// the `"pin"` Space permission may modify this list." For a channel
+    /// the `"pin"` permission is resolved per §Space Permission
+    /// Resolution, so the channel's `permissionOverrides` apply.
     ///
     /// # When the handler calls this
     ///

@@ -1208,6 +1208,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `ChatBackend::may_broadcast_mention`
+  takes a `chat_id: &Id` after `space_id`, so implementations can apply
+  the target channel's `permissionOverrides`. `MemoryBackend` now resolves
+  `mention_broadcast` and the channel `pin` gate of
+  `may_set_pinned_messages` per draft-atwood-jmap-chat-00 §Space
+  Permission Resolution ("When determining whether a member may perform
+  an action in a channel Chat, servers MUST evaluate permissions in this
+  order"); before, a channel override denying or allowing either
+  permission was ignored.
+
 - **BREAKING** **jmap-chat-server**: Space/set last-administrator
   protection now covers `updateMembers` role changes, `removeRoles` and
   `updateRoles` permission changes as well as `removeMembers`, and the
