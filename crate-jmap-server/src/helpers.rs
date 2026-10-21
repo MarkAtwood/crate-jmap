@@ -207,6 +207,31 @@ pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapE
     Ok((id, args))
 }
 
+/// Parse the optional `maxChanges` argument of `/changes` and
+/// `/queryChanges`. RFC 8620 §5.2: "If supplied by the client, the value
+/// MUST be a positive integer greater than 0. If a value outside of this
+/// range is given, the server MUST reject the call with an
+/// "invalidArguments" error." §5.6 gives no range of its own, so the same
+/// rule applies to `/queryChanges`.
+///
+/// Pass the raw argument as taken from the args map (`args.get(..)` or
+/// `args.remove(..).as_ref()`). Absent or `null` yields `Ok(None)`.
+///
+/// # Errors
+///
+/// Returns `invalidArguments` (`"maxChanges must be a positive integer"`)
+/// for `0`, negative numbers, non-integers, and non-number values.
+pub fn parse_max_changes(value: Option<&Value>) -> Result<Option<u64>, JmapError> {
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => {
+            v.as_u64().filter(|&n| n > 0).map(Some).ok_or_else(|| {
+                JmapError::invalid_arguments("maxChanges must be a positive integer")
+            })
+        }
+    }
+}
+
 /// Return the current UTC instant as an [`UTCDate`] (RFC 3339,
 /// millisecond precision, format `YYYY-MM-DDTHH:MM:SS.mmmZ`).
 ///
@@ -1076,7 +1101,7 @@ pub fn reject_did_bearing_properties(
 mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
-        extract_account_id, filter_arg, json_merge_patch, now_utc_string,
+        extract_account_id, filter_arg, json_merge_patch, now_utc_string, parse_max_changes,
         reject_did_bearing_properties, resolve_query_offset, resolve_query_start,
         utc_date_from_epoch_seconds, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
     };
@@ -2184,5 +2209,24 @@ mod tests {
             start(0, Some(&missing), 0).map_err(|e| e.error_type),
             Err("anchorNotFound".to_owned())
         );
+    }
+
+    /// RFC 8620 §5.2: "the value MUST be a positive integer greater than
+    /// 0. If a value outside of this range is given, the server MUST
+    /// reject the call with an "invalidArguments" error." The argument is
+    /// `UnsignedInt|null`, so absent and `null` mean "not given".
+    #[test]
+    fn parse_max_changes_follows_rfc8620_5_2() {
+        assert_eq!(parse_max_changes(None).ok(), Some(None));
+        assert_eq!(parse_max_changes(Some(&json!(null))).ok(), Some(None));
+        assert_eq!(parse_max_changes(Some(&json!(1))).ok(), Some(Some(1)));
+        assert_eq!(parse_max_changes(Some(&json!(50))).ok(), Some(Some(50)));
+        for bad in [json!(0), json!(-1), json!(1.5), json!("5"), json!(true)] {
+            assert_eq!(
+                parse_max_changes(Some(&bad)).map_err(|e| e.error_type),
+                Err("invalidArguments".to_owned()),
+                "maxChanges = {bad} must be rejected"
+            );
+        }
     }
 }
