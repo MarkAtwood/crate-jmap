@@ -28,6 +28,12 @@
 //! recomputed from its avatars with `leftAt` `null` whenever an avatar
 //! enters or leaves.
 //!
+//! # Interactions
+//!
+//! [`SceneBackend::accept_interaction`] refuses the interactions of users
+//! registered with `rate_limit_interactions` and records the rest, read
+//! back with `accepted_interactions`.
+//!
 //! # Visibility
 //!
 //! [`SceneBackend::may_access_region`] applies the `"invite"` rule of
@@ -84,7 +90,8 @@ use jmap_scene_types::query::{
     SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
 };
 use jmap_scene_types::{
-    AccessPolicy, SceneAsset, SceneAvatar, SceneCapability, SceneObject, SceneRegion,
+    AccessPolicy, SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject,
+    SceneRegion,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
@@ -138,6 +145,11 @@ struct Inner {
     grants: HashSet<(String, String)>,
     /// `(userId, object id)` pairs outside that user's visibility set.
     hidden: HashSet<(String, Id)>,
+    /// UserIds whose interactions [`SceneBackend::accept_interaction`]
+    /// refuses as over the rate.
+    rate_limited: HashSet<String>,
+    /// Interactions [`SceneBackend::accept_interaction`] accepted, in order.
+    interactions: Vec<SceneInteractionEvent>,
     /// `(blocking userId, blocked userId)` pairs.
     blocked: HashSet<(String, String)>,
     /// Reserved avatar display names.
@@ -397,6 +409,20 @@ impl MemoryBackend {
         self.lock()
             .blocked
             .insert((blocker.to_owned(), user.to_owned()));
+    }
+
+    /// Refuse every interaction of `user` as over the rate, for
+    /// [`SceneBackend::accept_interaction`].
+    #[doc(hidden)]
+    pub fn rate_limit_interactions(&self, user: &str) {
+        self.lock().rate_limited.insert(user.to_owned());
+    }
+
+    /// The interactions [`SceneBackend::accept_interaction`] accepted, in
+    /// order: what a WebSocket transport would deliver.
+    #[doc(hidden)]
+    pub fn accepted_interactions(&self) -> Vec<SceneInteractionEvent> {
+        self.lock().interactions.clone()
     }
 
     /// Reserve avatar display name `name`, for
@@ -1074,6 +1100,20 @@ impl SceneBackend for MemoryBackend {
         // "Region owners and administrators MAY eject avatars".
         let inner = self.lock();
         Ok(inner.admins.contains(caller) || inner.owners.get(&avatar.region_id) == Some(caller))
+    }
+
+    async fn accept_interaction(
+        &self,
+        _caller: &String,
+        _account_id: &Id,
+        event: &SceneInteractionEvent,
+    ) -> Result<bool, MemoryError> {
+        let mut inner = self.lock();
+        if inner.rate_limited.contains(&event.user_id) {
+            return Ok(false);
+        }
+        inner.interactions.push(event.clone());
+        Ok(true)
     }
 
     fn supports_type<O: JmapObject>(&self, _caller: &String, _account_id: &Id) -> bool {

@@ -38,6 +38,13 @@
 //! Validation checks and the `withinRadius` and `withinBounds` spatial
 //! filters over region-local positions.
 //!
+//! `SceneObject/interact` (draft §SceneObject/interact): each interaction
+//! is checked for its properties (`invalidProperties`), region access,
+//! existence and the visibility set (`notFound`), an active avatar and
+//! `interactable` (`forbidden`), then passed to
+//! [`SceneBackend::accept_interaction`], which may refuse it with
+//! `rateLimit` and otherwise delivers the `SceneInteractionEvent`.
+//!
 //! The `SceneAvatar/*` methods (draft §SceneAvatar Methods): `/set` create
 //! enters a region (one active avatar per user and region, `alreadyExists`
 //! with `existingId` for a duplicate, reconnect to a departed record,
@@ -98,6 +105,7 @@ pub mod avatar;
 pub mod backend;
 pub mod ephemeral;
 mod helpers;
+pub mod interact;
 /// In-memory reference implementation of [`SceneBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production.
@@ -125,6 +133,7 @@ pub use ephemeral::{
     should_deliver, validate_interaction, RegionScope, SceneEphemeralSubscription,
     SceneStreamFilter,
 };
+pub use interact::handle_scene_object_interact;
 pub use object::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,
     handle_scene_object_query_changes, handle_scene_object_set,
@@ -147,9 +156,9 @@ pub use jmap_server::ClosureHandler;
 ///
 /// After this call the dispatcher handles `/get`, `/changes`, `/set`,
 /// `/query` and `/queryChanges` of `SceneAsset`, `SceneRegion`,
-/// `SceneObject` and `SceneAvatar`. [`Dispatcher::register`] silently
-/// replaces an existing handler of the same name, so register overrides
-/// afterwards.
+/// `SceneObject` and `SceneAvatar`, and `SceneObject/interact`.
+/// [`Dispatcher::register`] silently replaces an existing handler of the
+/// same name, so register overrides afterwards.
 ///
 /// This only wires dispatch. The consumer advertises [`JMAP_SCENE_URI`] in
 /// its Session capabilities, with the same account-level object
@@ -191,6 +200,7 @@ where
         "SceneObject/queryChanges",
         handle_scene_object_query_changes
     );
+    reg!("SceneObject/interact", handle_scene_object_interact);
     reg!("SceneAvatar/get", handle_scene_avatar_get);
     reg!("SceneAvatar/changes", handle_scene_avatar_changes);
     reg!("SceneAvatar/set", handle_scene_avatar_set);

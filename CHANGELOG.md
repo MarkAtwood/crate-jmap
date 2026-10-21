@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: `SceneObject/interact`
+  (draft-atwood-jmap-scene-00 §SceneObject/interact), registered by
+  `register_scene_handlers` as `handle_scene_object_interact`. Each
+  interaction is `invalidProperties` for a missing or wrongly typed
+  property, `notFound` for a missing, inaccessible or invisible region or
+  object, `forbidden` without an active avatar or for an object with
+  `interactable: false`, and otherwise goes to the new
+  `SceneBackend::accept_interaction` hook as a `SceneInteractionEvent`
+  with the caller's userId. The hook returns `false` for `rateLimit` and
+  hands accepted events to the WebSocket transport; its default accepts
+  everything and delivers nothing (fail-open).
+
+- **jmap-scene-types**: `SceneInteraction`, `SceneObjectInteractRequest`
+  and `SceneObjectInteractResponse`, the `SceneObject/interact` arguments
+  and response.
+
 - **jmap-chat-vtc-server**: `eject_banned_user` for the Space ban rule
   of draft-atwood-jmap-vtc-00 §Chat-Bound Calls. On a SpaceBan it sets
   `leftAt` on the banned user's active VTCParticipant records in calls

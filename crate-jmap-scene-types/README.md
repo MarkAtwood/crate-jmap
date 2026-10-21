@@ -23,6 +23,7 @@ simulation.
 | `SceneRegion`, `GeoAnchor`, `ViewHint`, `AccessPolicy` | §SceneRegion |
 | `SceneObject`, `PhysicsMode` | §SceneObject |
 | `SceneAvatar` | §SceneAvatar |
+| `SceneInteraction`, `SceneObjectInteractRequest`, `SceneObjectInteractResponse` | §SceneObject/interact |
 | `query::*` filters and comparators, `WithinRadius`, `WithinBounds` | §…/query, §Spatial Filters |
 | `JMAP_SCENE_WEBSOCKET_URI` | scene-wss §Capability |
 | `SceneEvent`, `SceneAvatarEvent`, `SceneObjectEvent`, `SceneInteractionEvent`, `AvatarEventKind`, `ObjectEventKind` | scene-wss §Ephemeral Event Types |

@@ -16,7 +16,9 @@ pub use jmap_server::{
     SetObject,
 };
 
-use jmap_scene_types::{SceneAsset, SceneAvatar, SceneCapability, SceneObject, SceneRegion};
+use jmap_scene_types::{
+    SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject, SceneRegion,
+};
 
 /// What [`SceneBackend::region_binding`] knows about the object a
 /// SceneRegion binding property references.
@@ -521,6 +523,36 @@ pub trait SceneBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         let _ = (caller, account_id, user_id);
         async { Ok(false) }
+    }
+
+    /// Accept an interaction that passed the `SceneObject/interact`
+    /// checks, or refuse it for its rate (draft-atwood-jmap-scene-00
+    /// §SceneObject/interact).
+    ///
+    /// `event` carries the interaction and the caller's userId from
+    /// [`Self::caller_user_id`]. `Ok(false)` means "The caller has exceeded
+    /// a deployment-defined interaction rate" and the handler reports
+    /// `rateLimit`; draft-atwood-jmap-scene-wss-00 §Rate Limiting suggests
+    /// "no more than five events per user per region per second".
+    /// `Ok(true)` accepts it: count it against the rate and, when the
+    /// WebSocket capability is supported, hand `event` to the transport,
+    /// which "delivers a `SceneInteractionEvent` carrying the interaction
+    /// and the caller's userId to the WebSocket subscribers of the region",
+    /// filtered per recipient by [`crate::should_deliver`]. Counting and
+    /// delivering in this one call keeps them atomic.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` and delivers nothing: no rate limit (fail-open,
+    /// bd:JMAP-bghk) and no WebSocket transport.
+    fn accept_interaction(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        event: &SceneInteractionEvent,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, event);
+        async { Ok(true) }
     }
 
     /// Per-backend capability probe: `true` if this backend supports the
