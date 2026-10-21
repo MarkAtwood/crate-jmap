@@ -1076,6 +1076,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `SceneObject/set` create naming a
+  missing region, or one the caller cannot access, now fails with
+  `invalidProperties` naming `regionId` (was `notFound`), per
+  draft-atwood-jmap-scene-00 §SceneObject/set: "The server MUST return
+  `invalidProperties` naming `regionId` when `regionId` does not exist,
+  and SHOULD return the same error (not `forbidden`) when the caller does
+  not have access to the region".
+
 - **BREAKING** **jmap-scene-server**: `SceneAvatar/set` create now refuses a
   client-supplied `position` or `orientation` with `invalidProperties`
   and always sets them from the region's `spawnPosition` and

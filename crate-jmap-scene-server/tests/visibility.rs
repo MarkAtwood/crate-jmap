@@ -331,13 +331,16 @@ async fn region_set_without_access_is_not_found_never_forbidden() {
     );
 }
 
-/// SceneObject/set Create Errors L1666: "`regionId` does not exist or
-/// caller lacks access | The server returns `notFound` (not `forbidden`)
-/// per the enumeration-safe access-control rule." [`BOB`] is not invited
-/// to [`INVITE`] (L2362), so a create there is `notFound`, the same as for
-/// [`MISSING`]; the same create in [`PUBLIC`] succeeds.
+/// SceneObject/set L1576: "The server MUST return `invalidProperties`
+/// naming `regionId` when `regionId` does not exist, and SHOULD return the
+/// same error (not `forbidden`) when the caller does not have access to the
+/// region"; L1767 "The server returns the same error in both cases (not
+/// `forbidden`)"; L2606 "`invalidProperties` naming `regionId` for a `/set`
+/// create that names the region". [`BOB`] is not invited to [`INVITE`], so
+/// a create there gets the same error as one naming [`MISSING`]; the same
+/// create in [`PUBLIC`] succeeds.
 #[tokio::test]
-async fn object_create_without_region_access_is_not_found() {
+async fn object_create_without_region_access_is_invalid_properties() {
     let backend = scene();
     let resp = call!(
         handle_scene_object_set,
@@ -349,8 +352,11 @@ async fn object_create_without_region_access_is_not_found() {
             "open": { "regionId": PUBLIC, "position": [0, 0, 0] }
         } })
     );
-    assert_eq!(resp["notCreated"]["hidden"]["type"], "notFound", "{resp}");
-    assert_eq!(resp["notCreated"]["missing"]["type"], "notFound", "{resp}");
+    for key in ["hidden", "missing"] {
+        let err = &resp["notCreated"][key];
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["regionId"]), "{resp}");
+    }
     assert!(resp["created"]["open"]["id"].is_string(), "{resp}");
     assert!(resp["created"].get("hidden").is_none(), "{resp}");
 }
