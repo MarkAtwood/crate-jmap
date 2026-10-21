@@ -11,6 +11,8 @@ draft-atwood-jmap-chat-filenode-00 that apply when one server offers
 | Item | Spec |
 |---|---|
 | `check_root_create` | chat-filenode §Creating the File Tree Root: `spaceId` required, Space exists and the caller is a member (`forbidden`), one root per Space (`alreadyExists` with `existingId`), `manage_space` required (`forbidden`, §Permission Mapping) |
+| `space_files_rights` | chat-filenode §Permission Mapping: the `FilesRights` a Space role grants on a node (`myRights`), `None` outside a Space file tree; a non-member gets no flag |
+| `check_space_create`, `check_space_update`, `check_space_destroy` | chat-filenode §Permission Mapping: refuse with `forbidden` a create without `mayAddChildren` on the parent, an update without the right for each patched property (any `shareWith` change, as no role has `mayShare`), and a destroy without `mayDelete` (the root needs `manage_space`) |
 | `check_space_quota` | chat-filenode §Account-Level Capability Object `maxSpaceStorageBytes`: a create that would take the Space file tree over the limit is `overQuota` |
 | `create_space_file_tree` | chat-filenode §Account-Level Capability Object `autoCreateFileTree`: insert the root when a Space is created |
 | `resolve_filenode_attachment` | chat-filenode §filenodeId: an Attachment linked by `filenodeId` must name a file in the channel's Space file tree (`invalidProperties` naming `filenodeId`), the sender needs read access (`forbidden`), and absent `blobId`, `filename`, `contentType`, `size` and `sha256` are filled from the FileNode |
@@ -25,7 +27,10 @@ calls these functions from its trait methods:
 
 | Backend method | Call |
 |---|---|
-| `FileNodeBackend::create_object::<FileNode>`, before the insert | `check_root_create` |
+| `FileNodeBackend::create_object::<FileNode>`, before the insert | `check_root_create` and `check_space_create` |
+| `FileNodeBackend::update_object::<FileNode>`, before the write | `check_space_update` |
+| `FileNodeBackend::destroy_object::<FileNode>`, before the removal | `check_space_destroy` |
+| `JmapBackend::get_objects::<FileNode>` and the other FileNode reads | `space_files_rights`: set `myRights`, and leave out nodes with no flag |
 | The same, when advertising `maxSpaceStorageBytes` | `check_space_quota` |
 | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | `create_space_file_tree` |
 | `ChatBackend::filenode_attachment` | `resolve_filenode_attachment` |
@@ -77,6 +82,12 @@ do not apply to file tree access.
   `FileNodeBackend::destroy_object`, descendants first, so
   `FileNode/changes` and push see the change. It is not atomic; on an
   error, call it again to destroy the rest.
+- `space_files_rights` is per node and reads the ancestors and the Space
+  each time. A node with no flag is not discoverable: `FileNode/get`
+  reports it in `notFound`, and `FileNode/query` and `FileNode/changes`
+  leave it out, so non-members see nothing of the tree.
+- The `check_space_*` gates are reads before the write; re-check under
+  the write's transaction, as for the other create pre-checks.
 - The requesting user is the owner of `account_id`, and the Space and the
   FileNode live in that same account.
 

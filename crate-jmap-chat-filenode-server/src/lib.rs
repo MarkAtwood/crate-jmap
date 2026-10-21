@@ -11,7 +11,10 @@
 //!
 //! | Backend method | Call |
 //! |---|---|
-//! | `FileNodeBackend::create_object::<FileNode>`, before the insert | [`check_root_create`] |
+//! | `FileNodeBackend::create_object::<FileNode>`, before the insert | [`check_root_create`] and [`check_space_create`] |
+//! | `FileNodeBackend::update_object::<FileNode>`, before the write | [`check_space_update`] |
+//! | `FileNodeBackend::destroy_object::<FileNode>`, before the removal | [`check_space_destroy`] |
+//! | `JmapBackend::get_objects::<FileNode>` and the other FileNode reads | [`space_files_rights`] |
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
 //! | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
 //! | `ChatBackend::filenode_attachment` | [`resolve_filenode_attachment`] |
@@ -28,12 +31,12 @@ use std::fmt;
 use jmap_chat_server::{ChatBackend, MANAGE_CHANNELS, MANAGE_SPACE, SEND, VIEW};
 use jmap_chat_types::{Attachment, AttachmentCreate, Chat, ChatKind, Space};
 use jmap_filenode_server::FileNodeBackend;
-use jmap_filenode_types::{FileNode, FileNodeFilterCondition, NodeRole};
+use jmap_filenode_types::{FileNode, FileNodeFilterCondition, FilesRights, NodeRole, NodeType};
 use jmap_server::{BackendQueryError, BackendSetError, SetError, SetErrorType};
-use jmap_types::Id;
+use jmap_types::{Id, PatchObject};
 
-/// A storage failure while checking a FileNode create or a `filenodeId`
-/// Attachment.
+/// A storage failure while checking a FileNode operation or a
+/// `filenodeId` Attachment.
 #[derive(Debug)]
 pub enum RootCheckError<C, F> {
     /// The Chat backend failed to read the Space.
@@ -530,6 +533,328 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
         Ok(filled) => Ok(Ok(Some(filled))),
         Err(_) => invalid("the FileNode lacks a required Attachment field"),
     }
+}
+
+/// The `FilesRights` the owner of `account_id` holds on `node`, per the
+/// draft-atwood-jmap-chat-filenode-00 §Permission Mapping table, or `None`
+/// if `node` is not in a Space file tree.
+///
+/// Set the result as the node's `myRights`: the table gives "the
+/// `FilesRights` flags ... the server reports in `myRights` and enforces on
+/// each FileNode in the Space file tree". "Each row includes the grants of
+/// the rows above it", and the member's permissions are the union over
+/// their SpaceRoles plus `everyone`, as for [`check_root_create`]:
+///
+/// | Highest permission held | Flags `true` |
+/// |---|---|
+/// | `view` | `mayRead` |
+/// | `send` | the above, plus `mayAddChildren` |
+/// | `manage_channels` | the above, plus `mayDelete`, `mayRename` and `mayModifyContent` on every node except the tree root |
+/// | `manage_space` | the above, plus `mayDelete` and `mayRename` on the tree root |
+///
+/// "A flag no applicable row grants is `false`", so `mayShare` and any
+/// flag a later draft adds are always `false`, and a non-member, who
+/// "SHOULD NOT be granted access", gets no flag at all. `mayAddChildren`
+/// is `false` on a node whose `@type` is not `Directory`, and
+/// `mayModifyContent` is `false` on a Directory.
+///
+/// A node with no flag is not discoverable (draft-ietf-jmap-filenode
+/// §Access Control), so the read path leaves it out: `FileNode/get`
+/// reports it in `notFound`, `FileNode/query` omits it, and
+/// `FileNode/changes` omits it from `created` and `updated`, as
+/// "FileNode/changes responses SHOULD be scoped to file trees the
+/// requesting user has access to".
+///
+/// `node` is a stored node: its tree is found from its ancestors. A node
+/// is in a Space file tree if it, or an ancestor, is a top-level node with
+/// role `chatspace` and a `spaceId`.
+///
+/// # Errors
+///
+/// Returns [`RootCheckError::Files`] if reading the ancestors fails, and
+/// [`RootCheckError::Chat`] if reading the Space fails.
+pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
+    files: &F,
+    files_caller: &F::CallerCtx,
+    account_id: &Id,
+    node: &FileNode,
+    everyone: &HashSet<String>,
+) -> Result<Option<FilesRights>, RootCheckError<C::Error, F::Error>> {
+    let space_id = if is_tree_root(node) {
+        node.space_id.clone()
+    } else if node.parent_id.is_some() {
+        files
+            .get_ancestors(files_caller, account_id, std::slice::from_ref(&node.id))
+            .await
+            .map_err(|e| RootCheckError::Files(BackendQueryError::Other(e)))?
+            .into_iter()
+            .find(is_tree_root)
+            .and_then(|root| root.space_id)
+    } else {
+        None
+    };
+    let Some(space_id) = space_id else {
+        return Ok(None);
+    };
+
+    let (spaces, _) = chat
+        .get_objects::<Space>(
+            chat_caller,
+            account_id,
+            Some(std::slice::from_ref(&space_id)),
+            None,
+        )
+        .await
+        .map_err(RootCheckError::Chat)?;
+    let tier = spaces
+        .iter()
+        .find(|s| s.id == space_id)
+        .and_then(|s| member_permissions(s, account_id, everyone))
+        .and_then(|p| {
+            [VIEW, SEND, MANAGE_CHANNELS, MANAGE_SPACE]
+                .iter()
+                .rposition(|t| p.contains(t))
+        })
+        .map_or(0, |i| i + 1);
+
+    let is_root = is_tree_root(node);
+    let is_directory = node.node_type == Some(NodeType::Directory);
+    let manages = if is_root { tier >= 4 } else { tier >= 3 };
+    let mut rights = FilesRights::default();
+    rights.may_read = tier >= 1;
+    rights.may_add_children = tier >= 2 && is_directory;
+    rights.may_delete = manages;
+    rights.may_rename = manages;
+    rights.may_modify_content = tier >= 3 && !is_root && !is_directory;
+    Ok(Some(rights))
+}
+
+/// Check a `FileNode/set` create of `node` against the
+/// draft-atwood-jmap-chat-filenode-00 §Permission Mapping table: a node
+/// created in a Space file tree needs `mayAddChildren` on its parent
+/// ("upload new files and directories"), which `"send"` and above hold.
+///
+/// A Space file tree root (role `chatspace`) is left to
+/// [`check_root_create`], as is a node whose parent is not stored or not
+/// in a Space file tree. Without the right the create fails with
+/// `forbidden`; return that SetError from `create_object` without
+/// inserting.
+///
+/// # Errors
+///
+/// As for [`space_files_rights`], plus [`RootCheckError::Files`] if
+/// reading the parent fails.
+pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
+    files: &F,
+    files_caller: &F::CallerCtx,
+    account_id: &Id,
+    node: &FileNode,
+    everyone: &HashSet<String>,
+) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
+    if node.role == Some(NodeRole::ChatSpace) {
+        return Ok(Ok(()));
+    }
+    let Some(parent_id) = &node.parent_id else {
+        return Ok(Ok(()));
+    };
+    let may_add = may_add_children(
+        chat,
+        chat_caller,
+        files,
+        files_caller,
+        account_id,
+        parent_id,
+        everyone,
+    )
+    .await?;
+    Ok(if may_add {
+        Ok(())
+    } else {
+        Err(forbidden(
+            "creating a node in this Space file tree directory requires mayAddChildren",
+        ))
+    })
+}
+
+/// Check a `FileNode/set` update of the stored `node` by `patch` against
+/// the draft-atwood-jmap-chat-filenode-00 §Permission Mapping table.
+///
+/// For a node in a Space file tree, each patched property needs a right
+/// from [`space_files_rights`], as draft-ietf-jmap-filenode `myRights`
+/// defines them:
+///
+/// - `shareWith`: refused for every member, as "No role is granted
+///   `mayShare`" and "the server rejects a `FileNode/set` update that
+///   changes `shareWith` on a node in a Space file tree with a `forbidden`
+///   SetError". A patch setting the whole of `shareWith` to its stored
+///   value changes nothing and passes.
+/// - `name` and `parentId`: `mayRename`, "rename or move this node".
+/// - `blobId`, `mediaType`, `target`, `modified`, `accessed` and
+///   `executable`: `mayModifyContent`, "the content-related properties of
+///   this node".
+/// - any other property: `mayRead`, so a non-member changes nothing.
+///
+/// A `parentId` naming a new parent in a Space file tree also needs
+/// `mayAddChildren` on that parent, as a node moved there is a new child
+/// of it. Without a needed right the update fails with `forbidden`; return
+/// that SetError from `update_object` without writing.
+///
+/// # Errors
+///
+/// As for [`space_files_rights`], plus [`RootCheckError::Files`] if
+/// reading the new parent fails.
+#[allow(clippy::too_many_arguments)]
+pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
+    files: &F,
+    files_caller: &F::CallerCtx,
+    account_id: &Id,
+    node: &FileNode,
+    patch: &PatchObject,
+    everyone: &HashSet<String>,
+) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
+    let rights = space_files_rights(
+        chat,
+        chat_caller,
+        files,
+        files_caller,
+        account_id,
+        node,
+        everyone,
+    )
+    .await?;
+    if let Some(rights) = rights {
+        let share_with =
+            serde_json::to_value(&node.share_with).expect("shareWith serializes to JSON");
+        for (key, value) in patch.as_map() {
+            let allowed = match key.split('/').next().unwrap_or(key) {
+                "shareWith" => key == "shareWith" && *value == share_with,
+                "name" | "parentId" => rights.may_rename,
+                "blobId" | "mediaType" | "target" | "modified" | "accessed" | "executable" => {
+                    rights.may_modify_content
+                }
+                _ => rights.may_read,
+            };
+            if !allowed {
+                return Ok(Err(forbidden(
+                    "the Space permissions held do not grant this change",
+                )));
+            }
+        }
+    }
+
+    if let Some(new_parent) = patch.as_map().get("parentId").and_then(|v| v.as_str()) {
+        if node.parent_id.as_ref().map(Id::as_ref) != Some(new_parent)
+            && !may_add_children(
+                chat,
+                chat_caller,
+                files,
+                files_caller,
+                account_id,
+                &Id::from(new_parent),
+                everyone,
+            )
+            .await?
+        {
+            return Ok(Err(forbidden(
+                "moving a node into this Space file tree directory requires mayAddChildren",
+            )));
+        }
+    }
+    Ok(Ok(()))
+}
+
+/// Check a `FileNode/set` destroy of the stored `node` against the
+/// draft-atwood-jmap-chat-filenode-00 §Permission Mapping table: a node in
+/// a Space file tree needs `mayDelete` from [`space_files_rights`].
+/// `"manage_channels"` holds it on every node except the tree root, and
+/// destroying the root requires `"manage_space"`, as "Creating the Space
+/// file tree root ... requires `"manage_space"` permission, and so, by the
+/// table above, does destroying it."
+///
+/// This covers the `onExists` replacements of draft-ietf-jmap-filenode,
+/// which "require `mayDelete` on the existing node, and fail with
+/// "forbidden" without it", as `FileNode/set` destroys the replaced node
+/// through `destroy_object`. Without the right the destroy fails with
+/// `forbidden`; return that SetError from `destroy_object` without
+/// removing the node.
+///
+/// # Errors
+///
+/// As for [`space_files_rights`].
+pub async fn check_space_destroy<C: ChatBackend, F: FileNodeBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
+    files: &F,
+    files_caller: &F::CallerCtx,
+    account_id: &Id,
+    node: &FileNode,
+    everyone: &HashSet<String>,
+) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
+    let rights = space_files_rights(
+        chat,
+        chat_caller,
+        files,
+        files_caller,
+        account_id,
+        node,
+        everyone,
+    )
+    .await?;
+    Ok(match rights {
+        Some(r) if !r.may_delete => Err(forbidden(
+            "destroying this Space file tree node requires mayDelete",
+        )),
+        _ => Ok(()),
+    })
+}
+
+/// Whether the owner of `account_id` may add children to the stored node
+/// `parent_id`: `mayAddChildren` from [`space_files_rights`], or `true`
+/// when the node is not stored or not in a Space file tree.
+async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
+    files: &F,
+    files_caller: &F::CallerCtx,
+    account_id: &Id,
+    parent_id: &Id,
+    everyone: &HashSet<String>,
+) -> Result<bool, RootCheckError<C::Error, F::Error>> {
+    let (parents, _) = files
+        .get_objects::<FileNode>(
+            files_caller,
+            account_id,
+            Some(std::slice::from_ref(parent_id)),
+            None,
+        )
+        .await
+        .map_err(|e| RootCheckError::Files(BackendQueryError::Other(e)))?;
+    let Some(parent) = parents.iter().find(|n| &n.id == parent_id) else {
+        return Ok(true);
+    };
+    let rights = space_files_rights(
+        chat,
+        chat_caller,
+        files,
+        files_caller,
+        account_id,
+        parent,
+        everyone,
+    )
+    .await?;
+    Ok(rights.is_none_or(|r| r.may_add_children))
+}
+
+/// Whether `node` is a Space file tree root: a top-level node with role
+/// `chatspace`.
+fn is_tree_root(node: &FileNode) -> bool {
+    node.parent_id.is_none() && node.role == Some(NodeRole::ChatSpace)
 }
 
 /// The Space permissions `account_id` holds as a member of `space`: the
