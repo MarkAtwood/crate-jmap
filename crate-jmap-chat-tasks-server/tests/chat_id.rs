@@ -264,6 +264,20 @@ impl JmapBackend for ViewGate {
 }
 
 impl ChatBackend for ViewGate {
+    async fn attachment_blob(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<
+        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
+        MemoryError,
+    > {
+        self.inner
+            .attachment_blob(caller, account_id, blob_id)
+            .await
+    }
+
     async fn may_view_chat(
         &self,
         _caller: &(),

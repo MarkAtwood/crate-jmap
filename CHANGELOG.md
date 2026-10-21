@@ -1309,6 +1309,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `ChatBackend::attachment_blob` has
+  no default. The removed default returned `Ok(Ok(None))`, so a backend
+  that did not override it never checked an Attachment `size`, which
+  "Servers MUST verify against actual content" (draft-atwood-jmap-chat-00
+  §Attachment, jmap-chat-spec 29e9a41 L368). A backend without a blob
+  store returns `Ok(Ok(None))` explicitly.
+- **jmap-chat-server**: the `ChatBackend::is_contact_blocked` and
+  `validate_pinned_message_ids` defaults read the stored ChatContact and
+  Messages through `get_objects` instead of returning "not blocked" and
+  "valid". Events from a blocked contact are now dropped (§Blocked
+  Contacts, L1780), and a `Chat/set` adding a `pinnedMessageIds` entry
+  that is not a Message in that Chat is rejected with
+  `invalidProperties` (§Chat, L632). The `MemoryBackend` overrides are
+  removed in favour of the defaults.
 - **BREAKING** **jmap-graph-server**: `GraphBackend::edit_log` has no
   default. The removed default returned an empty, uncompacted log, so an
   edit-capable backend that did not override it rejected every non-zero

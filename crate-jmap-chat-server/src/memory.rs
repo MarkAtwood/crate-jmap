@@ -1403,29 +1403,6 @@ impl ChatBackend for MemoryBackend {
         Ok(inner.owner_user_ids.get(account_id.as_ref()).cloned())
     }
 
-    /// Reference implementation of [`ChatBackend::is_contact_blocked`].
-    ///
-    /// Reads `ChatContact.blocked` from `account_id`'s own contact list,
-    /// keyed by `contact_id`. A `contact_id` that `account_id` does not
-    /// hold, even one another account holds, returns `Ok(false)`.
-    ///
-    /// [`ChatContact`]: jmap_chat_types::ChatContact
-    async fn is_contact_blocked(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        contact_id: &Id,
-    ) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
-        let blocked = inner
-            .objects_ref("ChatContact", account_id.as_ref())
-            .and_then(|map| map.get(contact_id))
-            .and_then(|val| val.get("blocked"))
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        Ok(blocked)
-    }
-
     /// Reference implementation of [`ChatBackend::may_set_custom_emoji`].
     ///
     /// Demonstration-only: returns `Ok(Ok(()))` unconditionally. The
@@ -1721,34 +1698,6 @@ impl ChatBackend for MemoryBackend {
             caller_effective_permissions(space, account_id, &inner.everyone_permissions)
                 .is_some_and(|p| p.contains(&ChatPermission::Ban)),
         )
-    }
-
-    /// Reference implementation of
-    /// [`ChatBackend::validate_pinned_message_ids`]: every added id must
-    /// name a stored Message whose `chatId` is `chat_id`.
-    async fn validate_pinned_message_ids(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        chat_id: &Id,
-        added: &[Id],
-    ) -> Result<Result<(), SetError>, Self::Error> {
-        let inner = self.inner.lock().unwrap();
-        let messages = inner.objects_ref("Message", account_id.as_ref());
-        let in_chat = |id: &Id| {
-            messages
-                .and_then(|m| m.get(id))
-                .and_then(|msg| msg.get("chatId"))
-                .and_then(|v| v.as_str())
-                == Some(chat_id.as_ref())
-        };
-        if added.iter().all(in_chat) {
-            return Ok(Ok(()));
-        }
-        let err = SetError::new(SetErrorType::InvalidProperties)
-            .with_properties(["pinnedMessageIds"])
-            .with_description("pinned id is not a Message in this Chat");
-        Ok(Err(err))
     }
 
     /// Reference implementation of [`ChatBackend::slow_mode_check`].
