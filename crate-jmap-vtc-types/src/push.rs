@@ -43,7 +43,8 @@ const VTC_CALL_PUSH_TYPE: &str = "VTCCallPush";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(remote = "Self", rename_all = "camelCase")]
 pub struct VtcCallPush {
-    /// The account receiving the ring.
+    /// "The call's hosting account ... This is usually not the target's
+    /// personal account" (draft-atwood-jmap-vtc-00 §VTCCallPush).
     pub account_id: Id,
     /// The ringing call.
     pub call_id: Id,

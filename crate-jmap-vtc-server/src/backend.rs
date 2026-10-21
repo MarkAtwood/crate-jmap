@@ -176,7 +176,8 @@ pub trait VtcBackend: JmapBackend {
     ///
     /// - for a recording or livestream, refuse with `invalidProperties`
     ///   naming `callId` when the object's `callId` names no call in state
-    ///   `"active"` ("The call MUST be in state `"active"`", rechecked here
+    ///   `"active"` ("The server MUST return `invalidProperties` naming
+    ///   `callId` when the call is not in state `"active"`", rechecked here
     ///   because the call can end after the handler read it). A livestream
     ///   backend then starts the outbound stream;
     /// - for a participant with a non-null `userId`, refuse with
@@ -263,9 +264,10 @@ pub trait VtcBackend: JmapBackend {
     /// advances only when the destroy commits.
     ///
     /// The handler has already applied the permission check. For a
-    /// `VTCLivestream` the backend MUST stop the outbound stream first:
-    /// "the server MUST NOT leave an orphaned stream running after the
-    /// metadata is removed" (§Destroying a Livestream). When the
+    /// `VTCLivestream` the backend MUST stop the outbound stream first: "If
+    /// the livestream is in state `"starting"` or `"live"`, the server first
+    /// stops it, so that no orphaned stream keeps running after the metadata
+    /// is removed" (§Destroying a Livestream). When the
     /// destroyed `VTCCall` is a breakout room (`parentCallId` set), the
     /// backend MUST also remove its id from the parent's `breakoutRoomIds`
     /// and reset the `breakoutCallId`s naming it in the same atomic step,

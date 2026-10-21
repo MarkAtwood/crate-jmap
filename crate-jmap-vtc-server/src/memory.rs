@@ -787,7 +787,8 @@ impl VtcBackend for MemoryBackend {
         let mut value = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
         let mut inner = self.lock();
-        // "The call MUST be in state `"active"`", rechecked under the lock.
+        // "MUST return `invalidProperties` naming `callId` when the call is
+        // not in state `"active"`", rechecked under the lock.
         if matches!(
             O::TYPE_NAME,
             VtcRecording::TYPE_NAME | VtcLivestream::TYPE_NAME

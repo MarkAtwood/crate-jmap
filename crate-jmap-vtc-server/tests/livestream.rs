@@ -157,16 +157,16 @@ async fn ended_call_is_invalid_call_id() {
 async fn stream_key_is_blank_for_non_moderators() {
     let backend = media_backend();
     live(&backend);
-    // L511 "the server MUST return an empty string in `VTCLivestream/get`
-    // responses for participants whose role is not `"moderator"`"; L1655
-    // "the server SHOULD redact or omit `streamUri` for non-moderator
-    // participants."
+    // L562 "the server SHOULD return an empty string in `VTCLivestream/get`
+    // responses for participants whose role is not `"moderator"`"; L1731
+    // "the server SHOULD return `streamUri` as an empty string for
+    // non-moderator participants".
     let seen = get_as(&backend, ALICE, json!({ "ids": ["L1"] })).await;
     assert_eq!(seen["streamKey"], "");
     assert_eq!(seen["streamUri"], "");
     assert_eq!(seen["platform"], "youtube");
 
-    // L1139: moderators are not covered by the rule; Bob initiated C1.
+    // L562: moderators are not covered by the rule; Bob initiated C1.
     let seen = get_as(&backend, BOB, json!({ "ids": ["L1"] })).await;
     assert_eq!(seen["streamKey"], "sk_live_abc123def456");
     assert_eq!(seen["streamUri"], "rtmp://live.example.com/ingest");
@@ -176,9 +176,9 @@ async fn stream_key_is_blank_for_non_moderators() {
 async fn stream_key_stays_blank_when_call_id_is_not_requested() {
     let backend = media_backend();
     live(&backend);
-    // L1139 "The server MUST return the `streamKey` field as an empty string
-    // `""` for participants whose role is not `"moderator"`", whatever the
-    // `properties`. RFC 8620 §5.1: only the requested properties (and `id`)
+    // L562 "the server SHOULD return an empty string in `VTCLivestream/get`
+    // responses for participants whose role is not `"moderator"`", whatever
+    // the `properties`. RFC 8620 §5.1: only the requested properties (and `id`)
     // are returned.
     let seen = get_as(
         &backend,

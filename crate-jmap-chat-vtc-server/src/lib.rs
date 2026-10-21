@@ -276,11 +276,11 @@ pub async fn contact_identity<C: ChatBackend>(
 /// `true` if `user_id` (an identity string) is blocked on the contact list
 /// of `account_id`: a ChatContact with that `identity` has `blocked` set.
 ///
-/// draft-atwood-jmap-vtc-00 §Blocked-Sender Suppression: "the server MUST
+/// draft-atwood-jmap-vtc-00 §Blocked-Sender Suppression: "the server SHOULD
 /// check whether the initiator corresponds to a contact whose `blocked`
 /// field is `true` on the target participant's contact list (when
 /// {{JMAP-CHAT}} is present) ... If the initiator is blocked, the server
-/// MUST silently drop the ring notification." Return it from
+/// SHOULD silently drop the ring notification." Return it from
 /// [`VtcBackend::is_user_blocked`], which
 /// [`jmap_vtc_server::should_deliver`] asks with the recipient's account.
 ///

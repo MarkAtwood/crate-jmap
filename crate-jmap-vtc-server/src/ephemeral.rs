@@ -14,12 +14,14 @@
 //! # Participation is checked at delivery
 //!
 //! `callIds` is kept as sent. An entry naming a call the user is not a
-//! current participant in is "silently ignored" because delivery checks
-//! participation: "Servers MUST verify authorization at the time of each
-//! ephemeral event delivery, not only at the time `VTCStreamEnable` is
-//! received" (draft-atwood-jmap-vtc-wss-00 §Event Authorization). The same
-//! check lets events "resume without a new `VTCStreamEnable`" when the user
-//! rejoins a listed call (§Subscription Scope).
+//! current participant in "produces no events but is retained in the
+//! subscription record" (draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable)
+//! because delivery checks participation: "Servers SHOULD verify
+//! authorization at the time of each ephemeral event delivery, not only at
+//! the time `VTCStreamEnable` is received" (§Event Authorization). The same
+//! check lets "per-call events begin without a new `VTCStreamEnable`" when
+//! the user joins a listed call, and "resume" when the user rejoins one
+//! (§Subscription Scope).
 
 use jmap_types::{Id, JmapError};
 use jmap_vtc_types::{
@@ -173,9 +175,9 @@ enum Origin<'a> {
 ///   userId is blocked, and `VTCUnmuteRequestEvent` when its
 ///   `requestedBy` is (§In-Call Event Suppression). A participant without
 ///   a userId, or without a record in the call, is not blocked.
-/// - `VTCRecordingStateEvent` is never block-suppressed: it "is a
-///   mandatory consent signal and MUST be delivered to all participants
-///   regardless of block status".
+/// - `VTCRecordingStateEvent` is never block-suppressed: the rule "does
+///   not apply to `VTCRecordingStateEvent`, the consent signal that
+///   {{JMAP-VTC}} delivers to all participants regardless of block status".
 ///
 /// `hosting_account_id` is the event's `accountId`: "the id of the call's
 /// hosting account, the account that contains the VTCCall and its

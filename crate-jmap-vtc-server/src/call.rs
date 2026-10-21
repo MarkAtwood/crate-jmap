@@ -620,15 +620,19 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
     patch
 }
 
-/// End `id` on the server's own initiative: the "deployment-defined
-/// inactivity timeout" and "All participants leave" transitions of §State
-/// Machine, which no `VTCCall/set` request makes.
+/// End `id` on the server's own initiative, a transition no `VTCCall/set`
+/// request makes, such as a room call's "deployment-defined inactivity
+/// timeout" (§State Machine).
 ///
 /// The kit runs no timer. A deployment calls this when its own timeout
-/// fires or the last participant leaves, with the `end_reason` the draft
-/// assigns (§VTCCall `endReason`, for example
-/// [`CallEndReason::Timeout`] or [`CallEndReason::Completed`]). The call
-/// ends with the same cascade as a moderator's `VTCCall/set`:
+/// fires, with the `end_reason` the draft assigns (§VTCCall `endReason`,
+/// for example [`CallEndReason::Timeout`]: "A deployment-defined
+/// inactivity timeout fired on an active call with no participants").
+/// The last participant leaving needs no call here: `VTCParticipant/set`
+/// already ends a ring or scheduled call "with `endReason: "completed"`,
+/// or `"cancelled"` if the call was still `"ringing"`", and "A room call
+/// stays `"active"` when it empties" (§Leaving a Call). The call ends with
+/// the same cascade as a moderator's `VTCCall/set`:
 ///
 /// - every breakout room under it that has not ended is ended first
 ///   ("When a parent call ends, all child breakout-room VTCCalls MUST also

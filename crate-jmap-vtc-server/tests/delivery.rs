@@ -293,7 +293,7 @@ async fn per_call_events_need_current_participation() {
     }
 }
 
-/// wss L542-545: "Servers MUST verify authorization at the time of each
+/// wss L605-608: "Servers SHOULD verify authorization at the time of each
 /// ephemeral event delivery, not only at the time `VTCStreamEnable` is
 /// received, since participation, permissions, and block status can
 /// change while the connection is open".
@@ -335,9 +335,9 @@ async fn blocked_initiator_suppresses_ring_and_ring_end() {
     assert!(delivers(&backend, EVE, &sub, &ring()).await);
 }
 
-/// wss L304-322: "If a per-call event originates from a participant whose
+/// wss L357-376: "If a per-call event originates from a participant whose
 /// corresponding contact has `blocked` set to `true` on the recipient's
-/// contact list ..., the server MUST silently drop the event for that
+/// contact list ..., the server SHOULD silently drop the event for that
 /// recipient", for `VTCParticipantEvent`, `VTCMediaStateEvent`,
 /// `VTCActiveSpeakerEvent` ("naming a blocked participant") and
 /// `VTCUnmuteRequestEvent` ("sent by a blocked participant acting as
@@ -360,9 +360,9 @@ async fn blocked_participant_suppresses_in_call_events() {
     assert!(delivers(&backend, BOB, &sub, &participant_event("P-EVE")).await);
 }
 
-/// wss L324-328: "This rule does NOT apply to `VTCRecordingStateEvent`,
-/// which is a mandatory consent signal and MUST be delivered to all
-/// participants regardless of block status. It also does not apply to
+/// wss L378-382: "This rule does not apply to `VTCRecordingStateEvent`,
+/// the consent signal that {{JMAP-VTC}} delivers to all participants
+/// regardless of block status. It also does not apply to
 /// `VTCGatewaySignal`, which is already restricted to moderators".
 #[tokio::test]
 async fn recording_state_and_gateway_signal_ignore_blocks() {

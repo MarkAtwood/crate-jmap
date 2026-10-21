@@ -95,9 +95,9 @@ impl_string_enum!(JoinMethod, "a VTC join method string",
 
 /// One participant in a call (draft-atwood-jmap-vtc-00 §VTCParticipant).
 ///
-/// `id` is opaque. The draft says the server "SHOULD use the userId as the
-/// id within a given call", so ids such as `"user:alice@example.com"`
-/// occur; [`Id`] does not validate on deserialize and carries them.
+/// `id` is opaque: "VTCParticipant ids are ordinary server-assigned JMAP
+/// ids, unique within the call's hosting account" (§VTCParticipant ID
+/// Assignment).
 ///
 /// `T|null` properties are `Option<T>` and serialize `None` as `null`.
 #[non_exhaustive]
