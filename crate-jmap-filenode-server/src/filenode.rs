@@ -107,6 +107,11 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         .get("fetchParents")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    // RFC 8620 §5.1: `properties` null or absent means all properties.
+    let wants_sha256 = match args.get("properties") {
+        Some(Value::Array(props)) => props.iter().any(|p| p == "sha256"),
+        _ => true,
+    };
 
     // Delegate to the generic /get handler. We let it own account_id
     // parsing — the response carries accountId back, so the
@@ -182,6 +187,27 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
                         serde_json::to_value(&ancestor)
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
+                }
+            }
+        }
+    }
+
+    // draft-atwood-jmap-cid-00 §FileNode Extension: with the capability,
+    // "FileNode objects MUST include" `sha256`, which "MUST be `null` for
+    // directory FileNodes". FileNode omits a `None` digest, so fill the
+    // null here (directories, and files created before the capability).
+    if wants_sha256 {
+        if let Some(account_id) = response.get("accountId").and_then(Value::as_str) {
+            let account_id = Id::from(account_id);
+            if backend
+                .cid_advertised(caller, &account_id)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?
+            {
+                if let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) {
+                    for node in list.iter_mut().filter_map(Value::as_object_mut) {
+                        node.entry("sha256").or_insert(Value::Null);
+                    }
                 }
             }
         }

@@ -915,6 +915,18 @@ impl FileNodeBackend for MemoryBackend {
             .and_then(|store| store.blob_sha256.get(blob_id).cloned()))
     }
 
+    /// `true` once any blob digest has been seeded for the account via
+    /// [`MemoryBackend::seed_blob_sha256`], the same signal that makes
+    /// [`FileNodeBackend::blob_sha256`] report the capability.
+    async fn cid_advertised(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .get_or_err(account_id)
+            .is_some_and(|store| !store.blob_sha256.is_empty()))
+    }
+
     /// Case-folding algorithm: `str::to_lowercase` (Unicode simple lowercase,
     /// locale-independent). This is the reference test-and-demo behaviour; per
     /// the [`FileNodeBackend::find_sibling_by_name`] trait doc, the algorithm
