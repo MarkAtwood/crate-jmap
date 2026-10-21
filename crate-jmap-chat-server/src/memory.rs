@@ -740,15 +740,11 @@ impl JmapBackend for MemoryBackend {
                 // Spaces for which the caller is not a member but which have
                 // both `isPublic: true` and `isPubliclyPreviewable: true`."
                 // Any other non-member Space is left out, as Space/get treats
-                // a non-previewable one as not found.
-                // ponytail: only a top-level `isPublic: true` condition
-                // reveals non-member Spaces; under a FilterOperator only
-                // member Spaces are candidates.
+                // a non-previewable one as not found. The condition may sit
+                // inside a FilterOperator; the filter has already been
+                // applied, so a revealed Space also matches all of it.
                 if O::TYPE_NAME == "Space" {
-                    let want_public = filter_val
-                        .as_ref()
-                        .and_then(|fv| fv.get("isPublic"))
-                        .and_then(serde_json::Value::as_bool);
+                    let want_public = filter_val.as_ref().is_some_and(has_is_public_true);
                     keys.retain(|id| {
                         let space = &m[id];
                         let flag = |k: &str| {
@@ -764,9 +760,7 @@ impl JmapBackend for MemoryBackend {
                                 })
                             });
                         is_member
-                            || (want_public == Some(true)
-                                && flag("isPublic")
-                                && flag("isPubliclyPreviewable"))
+                            || (want_public && flag("isPublic") && flag("isPubliclyPreviewable"))
                     });
                 }
 
@@ -4682,6 +4676,16 @@ fn filter_matches(
         Some("NOT") => !conditions.any(sub),
         _ => condition_matches(inner, type_name, obj, filter, account_id),
     }
+}
+
+/// Whether `filter`, a FilterCondition or a FilterOperator tree (RFC 8620
+/// §5.5), contains an `isPublic: true` FilterCondition at any depth.
+fn has_is_public_true(filter: &serde_json::Value) -> bool {
+    filter.get("isPublic") == Some(&serde_json::Value::Bool(true))
+        || filter
+            .get("conditions")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|cs| cs.iter().any(has_is_public_true))
 }
 
 /// Check whether a stored object passes one FilterCondition of the

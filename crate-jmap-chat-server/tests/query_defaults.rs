@@ -250,6 +250,47 @@ async fn space_query_is_public_includes_non_member_previewable_space() {
     assert_eq!(got, ["mine-public", "open"]);
 }
 
+/// jmap-chat-spec 29e9a41 L1394: "When the request includes an `isPublic:
+/// true` filter condition, the server MUST include ... Spaces for which
+/// the caller is not a member but which have both `isPublic: true` and
+/// `isPubliclyPreviewable: true`." A FilterCondition nested in an RFC 8620
+/// §5.5 FilterOperator is still included in the request, and the rest of
+/// the filter (here `name`) still applies.
+#[tokio::test]
+async fn space_query_nested_is_public_includes_non_member_space() {
+    let non_member = |name: &str, previewable: bool| {
+        json!({
+            "name": name,
+            "members": [{ "id": "someone-else" }],
+            "isPublic": true,
+            "isPubliclyPreviewable": previewable,
+        })
+    };
+    let backend = seeded(
+        "Space",
+        &[
+            ("open", non_member("x", true)),
+            ("open-other-name", non_member("y", true)),
+            ("closed", non_member("x", false)),
+            ("mine-private", member_space("x")),
+        ],
+    );
+    let HandlerOutput { primary: resp, .. } = handle_space_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "filter": {
+                "operator": "AND",
+                "conditions": [{ "isPublic": true }, { "name": "x" }],
+            },
+        }),
+    )
+    .await
+    .expect("Space/query");
+    assert_eq!(ids(&resp), ["open"]);
+}
+
 /// L815 `isPubliclyPreviewable`: "When the Space also has `isPublic:
 /// true`, non-members may discover its existence via `Space/query`
 /// requests that include an `isPublic: true` filter condition", and L1310
