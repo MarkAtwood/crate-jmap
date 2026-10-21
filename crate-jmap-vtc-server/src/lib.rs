@@ -84,8 +84,8 @@ pub use media::{
     handle_vtc_recording_set,
 };
 pub use participant::{
-    handle_vtc_participant_changes, handle_vtc_participant_get, handle_vtc_participant_query,
-    handle_vtc_participant_query_changes, handle_vtc_participant_set,
+    after_leave, handle_vtc_participant_changes, handle_vtc_participant_get,
+    handle_vtc_participant_query, handle_vtc_participant_query_changes, handle_vtc_participant_set,
 };
 
 /// Capability URI for `urn:ietf:params:jmap:vtc`.

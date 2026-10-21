@@ -255,3 +255,109 @@ async fn space_ban_ejects_only_active_in_space_records() {
     .expect("VTCParticipant/changes");
     assert_eq!(primary["updated"], json!(["P-active"]));
 }
+
+/// A VTCCall `id` of `call_type` in state `"active"` bound to [`SPACE`],
+/// hand-written from the vtc §VTCCall field list.
+fn active_space_call(id: &str, call_type: &str) -> Value {
+    json!({
+        "id": id,
+        "callType": call_type,
+        "state": "active",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "endedAt": null,
+        "endReason": null,
+        "initiatorId": OWNER,
+        "subject": null,
+        "joinUri": format!("https://vtc.example.com/join/{id}"),
+        "joinPassword": null,
+        "mediaTypes": ["audio"],
+        "activeParticipantCount": 1,
+        "parentCallId": null,
+        "scheduledStartAt": "2026-01-01T00:00:00Z",
+        "gatewayPin": null,
+        "spaceId": SPACE,
+        "channelId": CHANNEL
+    })
+}
+
+/// vtc L966 (jmap-chat-spec 6bcd9d8): "When the last active participant
+/// leaves a ring or scheduled call, the server transitions the VTCCall to
+/// `"ended"` with `endReason: "completed"`". vtc L504, scheduled calls:
+/// "`"active"` → `"ended"`: All participants leave". A ban ejection is
+/// such a leave (vtc L1663).
+#[tokio::test]
+async fn space_ban_of_last_participant_ends_scheduled_call() {
+    let backend = bound_with_space();
+    backend.seed_vtc_object("VTCCall", active_space_call("C-sched", "scheduled"));
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-bob", "C-sched", BOB, json!("2026-01-01T00:00:00Z")),
+    );
+
+    eject_banned_user(
+        &backend.vtc,
+        &OWNER.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from(SPACE),
+        BOB,
+    )
+    .await
+    .expect("eject");
+
+    let call = get_call(&backend, "C-sched").await;
+    assert_eq!(call["state"], "ended");
+    assert_eq!(call["endReason"], "completed");
+}
+
+/// vtc L968 (jmap-chat-spec 6bcd9d8): "When the last moderator leaves a
+/// call that still has active participants, the server SHOULD grant
+/// `"moderator"` to the remaining authenticated participant (non-null
+/// `userId`) who joined earliest". vtc L966: "A room call stays
+/// `"active"` when it empties", so it stays `"active"` here too.
+#[tokio::test]
+async fn space_ban_of_last_moderator_hands_on_the_role() {
+    let backend = bound_with_space();
+    let call = room_call(&backend, SPACE).await;
+    let mut bob = participant("P-bob", &call, BOB, json!("2026-01-01T00:00:00Z"));
+    bob["role"] = json!("moderator");
+    backend.seed_vtc_object("VTCParticipant", bob);
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-alice", &call, ALICE, json!("2026-01-01T00:05:00Z")),
+    );
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-owner", &call, OWNER, json!("2026-01-01T00:10:00Z")),
+    );
+
+    let events = eject_banned_user(
+        &backend.vtc,
+        &OWNER.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from(SPACE),
+        BOB,
+    )
+    .await
+    .expect("eject");
+
+    assert_eq!(events.len(), 1);
+    let HandlerOutput { primary, .. } = handle_vtc_participant_get(
+        &backend,
+        &OWNER.to_owned(),
+        json!({ "accountId": ACCOUNT, "ids": ["P-alice", "P-owner"] }),
+    )
+    .await
+    .expect("VTCParticipant/get");
+    let role = |id: &str| {
+        primary["list"]
+            .as_array()
+            .expect("list")
+            .iter()
+            .find(|p| p["id"] == id)
+            .expect("participant listed")["role"]
+            .clone()
+    };
+    assert_eq!(role("P-alice"), "moderator");
+    assert_eq!(role("P-owner"), "participant");
+    assert_eq!(get_call(&backend, &call).await["state"], "active");
+}

@@ -18,7 +18,7 @@ not depend on each other; this crate depends on both.
 | `sync_active_call_id` | chat §Chat `activeCallId`: set on `"active"`, cleared on `"ended"` |
 | `clear_space_references`, `clear_channel_references` | vtc §VTCCall: clear `spaceId` / `channelId` when the Space or channel is destroyed |
 | `contact_identity` | chat §Terminology: the identity a ChatContact id (or the accountId) names, as VTC `userId` uses it |
-| `eject_banned_user` | vtc §Chat-Bound Calls: on a SpaceBan, set `leftAt` on the banned user's active participants in the Space's calls and return one `"left"` `VTCParticipantEvent` each |
+| `eject_banned_user` | vtc §Chat-Bound Calls: on a SpaceBan, set `leftAt` on the banned user's active participants in the Space's calls, apply the §Leaving a Call side effects, and return one `"left"` `VTCParticipantEvent` each |
 | `is_blocked_by_contact` | vtc §Blocked-Sender Suppression, through `ChatContact.blocked` |
 | `START_CALL` | chat §SpaceRole `"start_call"` |
 | `should_deliver_vtc` | vtc-wss §Interoperability with JMAP Chat WebSocket: the union of the `ChatStreamEnable` `"vtc"` path and `VTCStreamEnable`, one decision per event |
@@ -76,9 +76,10 @@ require.
   permissions on no wire object. Controller principals that "bypass this
   resolution" are also deployment-defined; skip the call for them.
 - `eject_banned_user` returns the `"left"` events and does not deliver
-  them; pass each to `VtcBackend::deliver_event`. It sets only `leftAt`:
-  it does not end a ring or scheduled call that empties or hand on the
-  moderator role, as a `VTCParticipant/set` leave does.
+  them; pass each to `VtcBackend::deliver_event`. Like a
+  `VTCParticipant/set` leave, it then runs `jmap_vtc_server::after_leave`:
+  a ring or scheduled call left with no active participant ends, and a
+  call whose last moderator was ejected hands the role on.
 - Pass `jmap_chat_server::EphemeralSubscription::vtc` as the `chat_vtc`
   flag of `should_deliver_vtc`. It is `true` only when the accepted
   `ChatStreamEnable` listed `"vtc"` and `CompanionStreams` says the server
