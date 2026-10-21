@@ -73,33 +73,41 @@ use jmap_types::{Id, State};
 // Error type
 // ---------------------------------------------------------------------------
 
-/// A simple string error for `MemoryBackend` failures.
+/// Opaque storage-layer error returned by [`MemoryBackend`] operations.
 ///
-/// The message field is private to leave room for adding structured `kind` /
-/// `source` fields without breaking callers. Construct via [`Self::new`];
-/// read the message via [`Self::message`] or the [`Display`] impl.
+/// The inner description is a human-readable string intended for
+/// diagnostic logging; it is not a stable wire-format identifier.
 ///
-/// [`Display`]: std::fmt::Display
+/// # Forward compatibility
+///
+/// This type is `#[non_exhaustive]` and uses a named-field shape so
+/// future revisions can add structured context (error kind, source
+/// reference, account id, etc.) without a breaking change. Outside-
+/// crate construction goes through [`MemoryError::new`]; outside-crate
+/// reads go through [`MemoryError::description`].
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct MemoryError {
-    msg: String,
+    description: String,
 }
 
 impl MemoryError {
-    /// Construct a new `MemoryError` from any string-convertible value.
-    pub fn new(msg: impl Into<String>) -> Self {
-        Self { msg: msg.into() }
+    /// Construct a [`MemoryError`] from a human-readable description.
+    pub fn new(description: impl Into<String>) -> Self {
+        Self {
+            description: description.into(),
+        }
     }
 
-    /// Borrow the underlying error message.
-    pub fn message(&self) -> &str {
-        &self.msg
+    /// Human-readable description of the underlying failure.
+    pub fn description(&self) -> &str {
+        &self.description
     }
 }
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.msg)
+        write!(f, "MemoryBackend error: {}", self.description)
     }
 }
 

@@ -220,12 +220,34 @@ pub(crate) mod test_support {
     use crate::backend::ContactsBackend;
 
     /// Minimal error type for the mock backend.
+    ///
+    /// `#[non_exhaustive]` with a named field, mirroring the canonical
+    /// `jmap-mail-server` `MemoryError`: construction goes through
+    /// [`MockError::new`] and reads through [`MockError::description`], so
+    /// structured context can be added later without a breaking change.
+    #[non_exhaustive]
     #[derive(Debug)]
-    pub struct MockError(pub String);
+    pub struct MockError {
+        description: String,
+    }
+
+    impl MockError {
+        /// Construct a [`MockError`] from a human-readable description.
+        pub fn new(description: impl Into<String>) -> Self {
+            Self {
+                description: description.into(),
+            }
+        }
+
+        /// Human-readable description of the underlying failure.
+        pub fn description(&self) -> &str {
+            &self.description
+        }
+    }
 
     impl std::fmt::Display for MockError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "mock error: {}", self.0)
+            write!(f, "mock error: {}", self.description())
         }
     }
 
@@ -558,7 +580,7 @@ pub(crate) mod test_support {
             address_book_id: &Id,
         ) -> Result<bool, Self::Error> {
             if *self.fail_has_contents.lock().unwrap() {
-                return Err(MockError("simulated storage failure".to_owned()));
+                return Err(MockError::new("simulated storage failure".to_owned()));
             }
             Ok(self
                 .nonempty_books

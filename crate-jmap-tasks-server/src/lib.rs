@@ -219,12 +219,28 @@ pub(crate) mod test_support {
     use crate::backend::TasksBackend;
 
     /// Minimal error type for the mock backend.
+    ///
+    /// `#[non_exhaustive]` with a named field, mirroring the canonical
+    /// `jmap-mail-server` `MemoryError`: reads go through
+    /// [`MockError::description`], so structured context can be added later
+    /// without a breaking change. No mock path fails yet, so it has no
+    /// constructor.
+    #[non_exhaustive]
     #[derive(Debug)]
-    pub struct MockError(pub String);
+    pub struct MockError {
+        description: String,
+    }
+
+    impl MockError {
+        /// Human-readable description of the underlying failure.
+        pub fn description(&self) -> &str {
+            &self.description
+        }
+    }
 
     impl std::fmt::Display for MockError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "mock error: {}", self.0)
+            write!(f, "mock error: {}", self.description())
         }
     }
 

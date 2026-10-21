@@ -259,12 +259,34 @@ pub(crate) mod test_support {
     use crate::backend::SharingBackend;
 
     /// Minimal error type for the mock backend.
+    ///
+    /// `#[non_exhaustive]` with a named field, mirroring the canonical
+    /// `jmap-mail-server` `MemoryError`: construction goes through
+    /// [`MockError::new`] and reads through [`MockError::description`], so
+    /// structured context can be added later without a breaking change.
+    #[non_exhaustive]
     #[derive(Debug)]
-    pub struct MockError(pub String);
+    pub struct MockError {
+        description: String,
+    }
+
+    impl MockError {
+        /// Construct a [`MockError`] from a human-readable description.
+        pub fn new(description: impl Into<String>) -> Self {
+            Self {
+                description: description.into(),
+            }
+        }
+
+        /// Human-readable description of the underlying failure.
+        pub fn description(&self) -> &str {
+            &self.description
+        }
+    }
 
     impl std::fmt::Display for MockError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "mock error: {}", self.0)
+            write!(f, "mock error: {}", self.description())
         }
     }
 
@@ -438,7 +460,7 @@ pub(crate) mod test_support {
             // to honor.
             let server_id = Id::from("mock-id-1");
             let mut val = serde_json::to_value(&obj)
-                .map_err(|e| BackendSetError::Other(MockError(format!("serialize: {e}"))))?;
+                .map_err(|e| BackendSetError::Other(MockError::new(format!("serialize: {e}"))))?;
             // Direct IndexMut form matches the canonical MemoryBackend
             // shape (memory.rs::create_object). The previous defensive
             // `if let Value::Object` shape silently skipped the id
@@ -450,7 +472,7 @@ pub(crate) mod test_support {
             // exists to teach the contract.
             val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
             let stored_obj: O = O::deserialize(&val).map_err(|e| {
-                BackendSetError::Other(MockError(format!("deserialize after create: {e}")))
+                BackendSetError::Other(MockError::new(format!("deserialize after create: {e}")))
             })?;
             Ok((server_id, stored_obj))
         }
@@ -506,7 +528,7 @@ pub(crate) mod test_support {
                         )))
                     }
                 }
-                other => Err(BackendSetError::Other(MockError(format!(
+                other => Err(BackendSetError::Other(MockError::new(format!(
                     "MockBackend::destroy_object unsupported type: {other}"
                 )))),
             }
