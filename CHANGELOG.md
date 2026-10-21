@@ -1380,6 +1380,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-vtc-server**: `should_deliver` delivers a
+  `VTCRecordingStateEvent` even when the subscription's `eventTypes`
+  does not list it; the `callIds` and current-participant checks still
+  apply (draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable: "the server
+  delivers it for every call the subscription covers whether or not
+  `eventTypes` lists it").
 - **BREAKING** **jmap-vtc-server**: a ring `VTCCall/set` create now joins
   the initiator: its VTCParticipant record has `joinedAt` equal to the
   call's `createdAt` and the call's `activeParticipantCount` is 1

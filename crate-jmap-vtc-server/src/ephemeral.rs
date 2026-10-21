@@ -144,7 +144,10 @@ enum Origin<'a> {
 /// of a suppression.
 ///
 /// Delivery needs an active subscription whose `eventTypes` includes the
-/// event's `@type`. An event with an unrecognized `@type` is never
+/// event's `@type`, except for `VTCRecordingStateEvent`: it "is the
+/// recording consent signal ({{JMAP-VTC}}), so the server delivers it for
+/// every call the subscription covers whether or not `eventTypes` lists
+/// it" (§VTCStreamEnable). An event with an unrecognized `@type` is never
 /// delivered. Then:
 ///
 /// - `VTCRingEvent` and `VTCCallEndEvent` are per-user and ignore
@@ -190,7 +193,7 @@ pub async fn should_deliver<B: VtcBackend>(
     let Some(filter) = subscription.filter() else {
         return Ok(false);
     };
-    if !filter.includes(event.type_name()) {
+    if !matches!(event, VtcEvent::RecordingState(_)) && !filter.includes(event.type_name()) {
         return Ok(false);
     }
     let (call_id, origin) = match event {
