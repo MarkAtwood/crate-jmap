@@ -1,6 +1,7 @@
 //! Push notification payload types for chat message delivery.
 
 use crate::chat::ChatKind;
+use crate::message::BroadcastScope;
 use jmap_types::{impl_string_enum, Id, State, UTCDate};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -126,12 +127,10 @@ pub struct ChatMessageEntry {
     pub has_mention: Option<bool>,
     /// The `mentionScopes` property (draft-atwood-jmap-chat-push-00 §5.2).
     ///
-    /// Broadcast scopes (see [`crate::BROADCAST_MENTION_SCOPES`]) by which
-    /// the account owner was targeted. Typed as `String` for the same
-    /// forward-compat reason as [`crate::BroadcastMention::scope`]. Per
+    /// Broadcast scopes by which the account owner was targeted. Per
     /// spec, this field MUST be `None` when `encrypted` is `Some(true)`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mention_scopes: Option<Vec<String>>,
+    pub mention_scopes: Option<Vec<BroadcastScope>>,
     /// The `encrypted` property (draft-atwood-jmap-chat-push-00 §5.2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encrypted: Option<bool>,
@@ -315,7 +314,7 @@ impl ChatMessageEntry {
         sender_id: Id,
         sent_at: UTCDate,
         has_mention: bool,
-        mention_scopes: Vec<String>,
+        mention_scopes: Vec<BroadcastScope>,
         body_snippet: Option<impl Into<String>>,
     ) -> Self {
         Self {
@@ -435,6 +434,24 @@ mod tests {
         let entry: ChatMessageEntry = serde_json::from_str(json).expect("deserialize");
         assert_eq!(entry.has_mention, None);
         assert_eq!(entry.mention_scopes, None);
+    }
+
+    // Oracle: draft-atwood-jmap-chat-push-00 §ChatMessagePush mentionScopes:
+    // "Each element is one of "everyone", "here", or "admins"". Hand-written
+    // JSON; an unknown element is kept as `Other` and serialized back.
+    #[test]
+    fn mention_scopes_decode_typed_and_keep_unknown() {
+        let json = r#"{"mentionScopes":["here","admins","later"]}"#;
+        let entry: ChatMessageEntry = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(
+            entry.mention_scopes,
+            Some(vec![
+                BroadcastScope::Here,
+                BroadcastScope::Admins,
+                BroadcastScope::Other("later".into()),
+            ])
+        );
+        assert_eq!(serde_json::to_string(&entry).expect("serialize"), json);
     }
 
     // Oracle: serde tag contract — serialized ChatMessagePush must carry "@type":"ChatMessagePush".

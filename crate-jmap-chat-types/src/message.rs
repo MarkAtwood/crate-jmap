@@ -253,6 +253,52 @@ pub struct Mention {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// The scope of a [`BroadcastMention`] (draft-atwood-jmap-chat-00
+/// §BroadcastMention), also used by [`crate::Span::scope`] and
+/// [`crate::ChatMessageEntry::mention_scopes`].
+///
+/// The spec defines exactly `"everyone"`, `"here"` and `"admins"`. Servers
+/// reject any other value, but this type keeps it in
+/// [`Other`](Self::Other) and serializes it back unchanged so a client can
+/// pass it through.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum BroadcastScope {
+    /// `"everyone"`: all current members of the Space or Chat.
+    Everyone,
+    /// `"here"`: currently-active members (deployment-defined predicate).
+    Here,
+    /// `"admins"`: members holding administrative authority
+    /// (deployment-defined predicate).
+    Admins,
+    /// Any scope this version does not recognize.
+    ///
+    /// **Forging caveat**: `Other("here".into())` is unequal to
+    /// [`Here`](Self::Here) on `PartialEq` but serializes to the same wire
+    /// string and deserializes back as `Here`. Reserve `Other(s)` for
+    /// unrecognized strings; compare wire equality via
+    /// [`as_str`](Self::as_str).
+    Other(String),
+}
+
+impl BroadcastScope {
+    /// The wire string for this scope.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Everyone => "everyone",
+            Self::Here => "here",
+            Self::Admins => "admins",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(BroadcastScope, "a broadcast scope string",
+    "everyone" => Everyone,
+    "here" => Here,
+    "admins" => Admins,
+);
+
 /// A broadcast-scope `@mention` in a [`Message`]
 /// (draft-atwood-jmap-chat-00 §BroadcastMention).
 ///
@@ -289,8 +335,9 @@ pub struct BroadcastMention {
     ///
     /// Servers MUST reject unrecognized values with `invalidArguments`.
     /// Clients SHOULD treat unrecognized values as opaque pass-through
-    /// for forward-compatibility (a future spec revision might add scopes).
-    pub scope: String,
+    /// for forward-compatibility (a future spec revision might add scopes);
+    /// they deserialize as [`BroadcastScope::Other`].
+    pub scope: BroadcastScope,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -312,9 +359,9 @@ impl Mention {
 
 impl BroadcastMention {
     /// Construct a [`BroadcastMention`] of `scope`.
-    pub fn new(scope: impl Into<String>) -> Self {
+    pub fn new(scope: BroadcastScope) -> Self {
         Self {
-            scope: scope.into(),
+            scope,
             extra: serde_json::Map::new(),
         }
     }
@@ -1131,7 +1178,7 @@ mod tests {
             let raw = serde_json::json!({ "scope": scope });
             let bm: BroadcastMention =
                 serde_json::from_value(raw.clone()).expect("deserialize BroadcastMention");
-            assert_eq!(bm.scope, *scope, "scope must match for {scope}");
+            assert_eq!(bm.scope.as_str(), *scope, "scope must match for {scope}");
             assert!(bm.extra.is_empty(), "no extras expected");
 
             let back = serde_json::to_value(&bm).expect("serialize");
@@ -1143,10 +1190,7 @@ mod tests {
     /// and "Like Mention, a BroadcastMention carries no position in `body`."
     #[test]
     fn broadcast_mention_wire_key_names() {
-        let bm = BroadcastMention {
-            scope: "everyone".to_string(),
-            extra: serde_json::Map::new(),
-        };
+        let bm = BroadcastMention::new(BroadcastScope::Everyone);
         let json = serde_json::to_string(&bm).expect("serialize");
         assert!(json.contains(r#""scope""#), "must have scope key: {json}");
         assert!(
@@ -1182,6 +1226,33 @@ mod tests {
         );
         let back = serde_json::to_value(&bm).unwrap();
         assert_eq!(back["acmeCorpResolvedCount"], 42);
+    }
+
+    /// Each spec scope maps to its typed variant and back. Oracle:
+    /// draft-atwood-jmap-chat-00 §BroadcastMention lists `"everyone"`,
+    /// `"here"` and `"admins"`; the JSON strings are hand-written.
+    #[test]
+    fn broadcast_scope_known_values() {
+        for (wire, scope) in [
+            (r#""everyone""#, BroadcastScope::Everyone),
+            (r#""here""#, BroadcastScope::Here),
+            (r#""admins""#, BroadcastScope::Admins),
+        ] {
+            let parsed: BroadcastScope = serde_json::from_str(wire).expect("deserialize");
+            assert_eq!(parsed, scope);
+            assert_eq!(serde_json::to_string(&scope).expect("serialize"), wire);
+        }
+    }
+
+    /// An unknown scope deserializes as `Other` and serializes back
+    /// unchanged, so clients can pass it through (§BroadcastMention:
+    /// servers reject it; this type does not). Oracle: hand-written JSON.
+    #[test]
+    fn broadcast_scope_unknown_round_trips() {
+        let raw = serde_json::json!({ "scope": "moderators" });
+        let bm: BroadcastMention = serde_json::from_value(raw.clone()).expect("deserialize");
+        assert_eq!(bm.scope, BroadcastScope::Other("moderators".into()));
+        assert_eq!(serde_json::to_value(&bm).expect("serialize"), raw);
     }
 
     /// Verify `BROADCAST_MENTION_SCOPES` matches the spec enumeration exactly.
@@ -1220,7 +1291,7 @@ mod tests {
         }"#;
         let msg: Message = serde_json::from_str(json).expect("deserialize");
         assert_eq!(msg.broadcast_mentions.len(), 1);
-        assert_eq!(msg.broadcast_mentions[0].scope, "everyone");
+        assert_eq!(msg.broadcast_mentions[0].scope, BroadcastScope::Everyone);
 
         let back = serde_json::to_string(&msg).expect("serialize");
         let msg2: Message = serde_json::from_str(&back).expect("re-deserialize");

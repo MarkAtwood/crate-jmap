@@ -14,8 +14,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use jmap_chat_types::{
-    BodyType, Chat, ChatContact, ChatKind, ChatMessageEntry, ChatMessagePush, ChatPushCapability,
-    ChatPushConfig, Message, Space, SpaceMember, UrgencyLevel,
+    BodyType, BroadcastScope, Chat, ChatContact, ChatKind, ChatMessageEntry, ChatMessagePush,
+    ChatPushCapability, ChatPushConfig, Message, Space, SpaceMember, UrgencyLevel,
 };
 use jmap_server::state_change_for;
 use jmap_types::{Id, PushSubscription, State, StateChange, UTCDate};
@@ -585,17 +585,17 @@ fn is_plaintext(body_type: &str) -> bool {
 /// The deduplicated `Message.broadcastMentions[]` scopes that target the
 /// owner, in first-seen order. `"everyone"` always targets a Chat member;
 /// unknown scopes never do.
-fn mention_scopes(msg: &Message, owner: OwnerFlags) -> Vec<String> {
-    let mut scopes: Vec<String> = Vec::new();
-    for scope in msg.broadcast_mentions.iter().map(|b| b.scope.as_str()) {
+fn mention_scopes(msg: &Message, owner: OwnerFlags) -> Vec<BroadcastScope> {
+    let mut scopes: Vec<BroadcastScope> = Vec::new();
+    for scope in msg.broadcast_mentions.iter().map(|b| &b.scope) {
         let targets_owner = match scope {
-            "everyone" => true,
-            "here" => owner.active,
-            "admins" => owner.admin,
+            BroadcastScope::Everyone => true,
+            BroadcastScope::Here => owner.active,
+            BroadcastScope::Admins => owner.admin,
             _ => false,
         };
-        if targets_owner && !scopes.iter().any(|s| s == scope) {
-            scopes.push(scope.to_owned());
+        if targets_owner && !scopes.contains(scope) {
+            scopes.push(scope.clone());
         }
     }
     scopes

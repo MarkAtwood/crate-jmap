@@ -3,7 +3,7 @@
 //! Oracle: draft-atwood-jmap-chat-00 at jmap-chat-spec 91672c9,
 //! §Rich Body Format (L1445-1500).
 
-use jmap_chat_types::{RichBody, SpanType};
+use jmap_chat_types::{BroadcastScope, RichBody, SpanType};
 use serde_json::json;
 
 /// §Example (L1486-1497), copied verbatim from the draft.
@@ -40,7 +40,7 @@ fn draft_example_parses_field_for_field() {
         (s[3].kind.clone(), s[3].text.as_str()),
         (SpanType::Broadcast, "@here")
     );
-    assert_eq!(s[3].scope.as_deref(), Some("here"));
+    assert_eq!(s[3].scope, Some(BroadcastScope::Here));
     assert_eq!(
         (s[5].kind.clone(), s[5].text.as_str()),
         (SpanType::Code, "foo()")

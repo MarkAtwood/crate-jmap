@@ -1208,6 +1208,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: broadcast scopes are typed as the new
+  `BroadcastScope` enum (`Everyone`, `Here`, `Admins`, `Other(String)`):
+  `BroadcastMention.scope: BroadcastScope`, `Span.scope:
+  Option<BroadcastScope>`, `ChatMessageEntry.mention_scopes:
+  Option<Vec<BroadcastScope>>`, and `BroadcastMention::new` and
+  `ChatMessageEntry::plaintext` take `BroadcastScope` instead of strings.
+  Unknown scopes still round-trip through `Other`. The spec closes the set
+  (draft-atwood-jmap-chat-push-00 L188: "Each element is one of
+  `"everyone"`, `"here"`, or `"admins"`").
 - **BREAKING** **jmap-chat-server**: `ChatBackend::may_broadcast_mention`
   takes a `chat_id: &Id` after `space_id`, so implementations can apply
   the target channel's `permissionOverrides`. `MemoryBackend` now resolves
