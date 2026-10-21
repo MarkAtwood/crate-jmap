@@ -2085,6 +2085,8 @@ name = "jmap-graph-server"
 version = "0.3.0"
 dependencies = [
  "base64",
+ "icu_casemap",
+ "icu_normalizer",
  "jmap-graph-server",
  "jmap-graph-types",
  "jmap-server",

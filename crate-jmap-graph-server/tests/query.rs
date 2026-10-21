@@ -88,11 +88,12 @@ async fn node_and_edge_filters_need_graph_id() {
     }
 }
 
-/// This crate does not implement draft-atwood-jmap-graph-search-00, so the
-/// FilterCondition properties it adds (L149-156 at jmap-chat-spec 6bcd9d8)
-/// are unknown to it and are RFC 8620 §5.5 `unsupportedFilter` ("The
-/// "filter" is syntactically valid, but the server cannot process it"),
-/// rather than ignored, which would match every node or edge.
+/// For an account without `urn:ietf:params:jmap:graph:search` the
+/// FilterCondition properties draft-atwood-jmap-graph-search-00 adds
+/// (L149-156 at jmap-chat-spec 6bcd9d8) are RFC 8620 §5.5
+/// `unsupportedFilter` ("The "filter" is syntactically valid, but the
+/// server cannot process it"), rather than ignored, which would match every
+/// node or edge. `tests/search.rs` covers an account with search.
 #[tokio::test]
 async fn search_filter_properties_are_unsupported() {
     let backend = backend();

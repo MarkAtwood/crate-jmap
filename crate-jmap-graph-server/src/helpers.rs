@@ -6,7 +6,10 @@ use jmap_graph_types::{Graph, GraphCapability, GraphEdge, GraphNode, GraphNodeOp
 use jmap_types::{GetObject, Id, JmapError, JmapObject, PatchObject, State};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{BackendSetError, GraphBackend, SetError, SetErrorType};
+use jmap_graph_types::search::CandidateKind;
+
+use crate::backend::{BackendSetError, GraphBackend, QueryObject, SetError, SetErrorType};
+use crate::search::{check_search_filter, uses_search};
 use jmap_server::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
     optional_arg, serialize_value, server_fail_from_backend, server_fail_value_from_backend,
@@ -37,30 +40,97 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     })
 }
 
-/// Refuse a GraphNode or GraphEdge `/query` without a filter, and check
-/// its sort: "The `filter` argument MUST be a single FilterCondition, not
-/// a FilterOperator, and MUST include `graphId`. A server receiving any
-/// other filter, or no filter, rejects the call with an
-/// `unsupportedFilter` error" (draft-atwood-jmap-graph-00 §GraphNode/query).
-/// A FilterOperator or a condition without `graphId` fails the typed
-/// decode, which the generic handler reports as `unsupportedFilter`.
+/// Check the arguments of a GraphNode (`kind` [`CandidateKind::Node`]) or
+/// GraphEdge `/query` or `/queryChanges` and return whether the filter uses
+/// draft-atwood-jmap-graph-search-00.
 ///
-/// This crate does not implement draft-atwood-jmap-graph-search-00, so the
-/// `where`, `language` and `expression` filter properties it defines are
-/// `unsupportedFilter` too, not silently ignored.
-pub(crate) fn require_graph_filter<C: serde::de::DeserializeOwned>(
-    args: Value,
-) -> Result<Value, JmapError> {
-    let filter = args.get("filter").filter(|f| !f.is_null());
-    if filter.is_none_or(|f| {
-        ["where", "language", "expression"]
-            .iter()
-            .any(|k| f.get(k).is_some())
-    }) {
+/// "The `filter` argument MUST be a single FilterCondition, not a
+/// FilterOperator, and MUST include `graphId`. A server receiving any other
+/// filter, or no filter, rejects the call with an `unsupportedFilter`
+/// error" (draft-atwood-jmap-graph-00 §GraphNode/query). A FilterOperator
+/// or a condition without `graphId` fails the typed decode, which the
+/// generic handler reports as `unsupportedFilter`. The sort is checked with
+/// [`reject_unsupported_sort`].
+///
+/// The `where`, `language` and `expression` properties are
+/// `unsupportedFilter`, not silently ignored, unless the account has
+/// [`GraphBackend::graph_search_capability`]; then they are checked with
+/// [`check_search_filter`].
+async fn graph_query_args<C: serde::de::DeserializeOwned, B: GraphBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: &Value,
+    kind: CandidateKind,
+) -> Result<bool, JmapError> {
+    let Some(filter) = args.get("filter").filter(|f| !f.is_null()) else {
         return Err(JmapError::unsupported_filter());
-    }
+    };
     reject_unsupported_sort::<C>(args.get("sort"))?;
-    Ok(args)
+    if !uses_search(filter) {
+        return Ok(false);
+    }
+    let Some(account_id) = args.get("accountId").and_then(Value::as_str).map(Id::from) else {
+        return Err(JmapError::invalid_arguments("accountId is required"));
+    };
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    let cap = backend
+        .graph_search_capability(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+        .ok_or_else(JmapError::unsupported_filter)?;
+    check_search_filter(filter, kind, &cap)?;
+    Ok(true)
+}
+
+/// GraphNode or GraphEdge `/query` (`O`, sorted by `C`, candidates of
+/// `kind`) after [`graph_query_args`]. A search result says
+/// `canCalculateChanges: false`, since its `/queryChanges` is
+/// `cannotCalculateChanges`.
+pub(crate) async fn handle_graph_item_query<O, C, B>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    kind: CandidateKind,
+) -> Result<HandlerOutput, JmapError>
+where
+    O: QueryObject + Send + Sync,
+    C: serde::de::DeserializeOwned,
+    B: GraphBackend,
+{
+    let searched = graph_query_args::<C, B>(backend, caller, &args, kind).await?;
+    let mut out = jmap_server::handlers::handle_query::<O, B>(backend, caller, args).await?;
+    if searched {
+        out.primary["canCalculateChanges"] = Value::Bool(false);
+    }
+    Ok(out)
+}
+
+/// GraphNode or GraphEdge `/queryChanges` after [`graph_query_args`]: a
+/// filter using draft-atwood-jmap-graph-search-00 is
+/// `cannotCalculateChanges` ("Servers MAY return `cannotCalculateChanges`
+/// for any `/queryChanges` call whose filter uses a property defined in
+/// this document", §Query Changes).
+pub(crate) async fn handle_graph_item_query_changes<O, C, B>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    kind: CandidateKind,
+) -> Result<HandlerOutput, JmapError>
+where
+    O: QueryObject + Send + Sync,
+    C: serde::de::DeserializeOwned,
+    B: GraphBackend,
+{
+    if graph_query_args::<C, B>(backend, caller, &args, kind).await? {
+        return Err(JmapError::cannot_calculate_changes());
+    }
+    jmap_server::handlers::handle_query_changes::<O, B>(backend, caller, args).await
 }
 
 /// A `forbidden` SetError.
