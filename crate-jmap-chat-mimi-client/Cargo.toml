@@ -1,0 +1,28 @@
+[package]
+name = "jmap-chat-mimi-client"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Chat MIMI provider client (draft-atwood-jmap-chat-mimi-00 Room/* and GroupInfo/fetch bindings, GroupInfoResponse check) — extension trait over jmap-base-client"
+keywords = ["jmap", "chat", "mimi", "mls", "client"]
+categories = ["network-programming", "asynchronous", "api-bindings"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-base-client = { workspace = true }
+jmap-chat-mimi-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# MLS parsing and labeled signature verification, crates.io only, the same
+# pins as jmap-chat-mimi-server (bd:JMAP-6k5d.1).
+openmls = { version = "=0.9.1", features = ["extensions-draft"] }
+tls_codec = { version = "=0.5.0", features = ["mls"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }
+openmls_rust_crypto = { version = "=0.6.0", features = ["extensions-draft"] }
+openmls_basic_credential = "=0.6.0"

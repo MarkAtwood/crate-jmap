@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-client** (new crate): the draft-atwood-jmap-chat-mimi-00
+  client. `JmapMimiExt::with_mimi_session` binds a `jmap-base-client`
+  session to its primary `urn:ietf:params:jmap:chat:mimi` account;
+  `SessionClient` carries `room_create`, `room_update`, `room_send`,
+  `room_unbind`, `group_info_fetch` and `mimi_capability`.
+  `account_has_left` tells a client that a commit removed the last leaf
+  whose credential identity is `userUri`, after which it SHOULD call
+  `Room/unbind` (§Chat.roomId). `verify_group_info_response` parses a
+  GroupInfoResponse (draft-ietf-mimi-protocol-06 §5.6) and verifies its
+  `GroupInfoResponseTBS` signature with `hub_sender` over the received
+  octets, and `group_info_names_hub_sender` checks that the GroupInfo's
+  `external_senders` contains that `hub_sender` (§GroupInfo/fetch).
 - **jmap-chat-mimi-server** (new crate): `KeyPackage/get` and
   `KeyPackage/set` of draft-atwood-jmap-chat-mimi-00 over a `MimiBackend`
   trait, with a `memory` reference backend. `check_key_package_create`

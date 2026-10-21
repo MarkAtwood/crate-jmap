@@ -318,7 +318,8 @@ cargo fmt --all
 ```
 
 MSRV: 1.91. The floor is set by `openmls@0.9.1` and its `openmls_traits` and
-`openmls_serialization_helpers` dependencies (used by `jmap-chat-mimi-server`),
+`openmls_serialization_helpers` dependencies (used by `jmap-chat-mimi-server`
+and `jmap-chat-mimi-client`),
 which declare `rust-version = "1.91.0"`.
 
 ---
