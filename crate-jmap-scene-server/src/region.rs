@@ -327,7 +327,10 @@ fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
 /// The capability-dependent §Create Errors of region `m`: a non-null
 /// binding in `touched` without its companion capability, and
 /// "`accessPolicy` is `\"space\"` but `urn:ietf:params:jmap:chat` is not in
-/// the server's capabilities" or "but `spaceId` is null".
+/// the server's capabilities" (naming `accessPolicy`) or "but `spaceId` is
+/// null" (naming `spaceId`, as in §Updating a Region: "an update that sets
+/// `spaceId` to `null` while `accessPolicy` is `\"space\"` fails with
+/// `invalidProperties` naming `spaceId`").
 fn capability_errors<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -341,10 +344,12 @@ fn capability_errors<B: SceneBackend>(
         .filter(|(key, uri)| touched(key) && m.get(*key).is_some_and(|v| !v.is_null()) && !has(uri))
         .map(|(key, _)| *key)
         .collect();
-    if m.get("accessPolicy").and_then(Value::as_str) == Some("space")
-        && (!has(JMAP_CHAT_URI) || m.get("spaceId").is_none_or(Value::is_null))
-    {
-        bad.push("accessPolicy");
+    if m.get("accessPolicy").and_then(Value::as_str) == Some("space") {
+        if !has(JMAP_CHAT_URI) {
+            bad.push("accessPolicy");
+        } else if m.get("spaceId").is_none_or(Value::is_null) {
+            bad.push("spaceId");
+        }
     }
     bad
 }
@@ -352,7 +357,9 @@ fn capability_errors<B: SceneBackend>(
 /// Ask [`SceneBackend::region_binding`] about each non-null binding in
 /// `touched` and map the answer to the draft's SetError: `invalidProperties`
 /// naming the property, except `forbidden` for an `activeCallId` the
-/// caller lacks access to.
+/// caller lacks access to. Then ask [`SceneBackend::channel_in_space`]
+/// whether a non-null `channelId` "is a channel of the Space named by
+/// `spaceId`", naming `channelId` if not.
 async fn check_bindings<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -381,6 +388,23 @@ async fn check_bindings<B: SceneBackend>(
                 ));
             }
             _ => {}
+        }
+    }
+    if touched("channelId") || touched("spaceId") {
+        if let (Some(channel), Some(space)) = (
+            m.get("channelId").and_then(Value::as_str),
+            m.get("spaceId").and_then(Value::as_str),
+        ) {
+            let in_space = backend
+                .channel_in_space(caller, account_id, &Id::from(channel), &Id::from(space))
+                .await
+                .map_err(|e| server_fail_value_from_backend(&e))?;
+            if !in_space {
+                return Err(invalid(
+                    &["channelId"],
+                    "channelId is not a channel of the Space named by spaceId",
+                ));
+            }
         }
     }
     Ok(())

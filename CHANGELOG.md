@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: `SceneBackend::channel_in_space` hook.
+  `SceneRegion/set` calls it when a create or update sets `channelId` or
+  `spaceId` and the resulting region has both non-null, and fails with
+  `invalidProperties` naming `channelId` when it returns `false`
+  (draft-atwood-jmap-scene-00 §Updating a Region: "a non-null `channelId`
+  is a channel of the Space named by `spaceId`"). The default accepts
+  every pair (fail-open); `MemoryBackend` accepts only pairs recorded
+  with `set_channel_space`.
+
 - **jmap-scene-types**: `SceneCapability::supports_scene_asset`
   (`supportsSceneAsset`, draft-atwood-jmap-scene-00 §Account-Level
   Capability Object). A capability object without it deserializes as
@@ -1061,6 +1070,13 @@ wire behaviour that a conforming peer can observe.
   (§Attachment), comparing the digest in constant time.
 
 ### Changed
+
+- **BREAKING** **jmap-scene-server**: `SceneRegion/set` names `spaceId`,
+  not `accessPolicy`, in `invalidProperties` when `accessPolicy` is
+  `"space"` and `spaceId` is null (draft-atwood-jmap-scene-00 §Updating a
+  Region: "an update that sets `spaceId` to `null` while `accessPolicy` is
+  `"space"` fails with `invalidProperties` naming `spaceId`"). A missing
+  `urn:ietf:params:jmap:chat` capability still names `accessPolicy`.
 
 - **jmap-scene-server**: `MemoryBackend::may_destroy_region` now lets the
   users registered with `add_admin` destroy a region they do not own, as
