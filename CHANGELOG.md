@@ -1008,6 +1008,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-server**, **jmap-chat-vtc-server**:
+  `should_deliver` and `should_deliver_vtc` take the call's hosting
+  account (the event's `accountId`) and the recipient's own account as
+  separate arguments. The call and its participants are read from the
+  hosting account, and `VtcBackend::is_user_blocked` is asked with the
+  recipient's account, so a block is looked up on "the recipient's
+  contact list" rather than the hosting account's
+  (draft-atwood-jmap-vtc-wss-00 §Event Types and §Blocked-Sender
+  Suppression).
 - **BREAKING** **jmap-vtc-server**: `VTCCall/set` rejects an update of
   `e2eeEnabled` from `true` to `false`, including a `null` patch that
   resets it to its default `false`, with `invalidProperties` naming

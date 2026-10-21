@@ -326,25 +326,46 @@ pub async fn is_blocked_by_contact<C: ChatBackend>(
 /// answer is one `bool` per event and connection, so an event that matches
 /// both paths is still sent once ("MUST NOT deliver duplicate events").
 ///
+/// `hosting_account_id` is the event's `accountId` and
+/// `recipient_account_id` the recipient's own account, as
+/// [`jmap_vtc_server::should_deliver`] takes them.
+///
 /// # Errors
 ///
 /// Returns the backend's error from [`jmap_vtc_server::should_deliver`].
 pub async fn should_deliver_vtc<V: VtcBackend>(
     vtc: &V,
     caller: &V::CallerCtx,
-    account_id: &Id,
+    hosting_account_id: &Id,
+    recipient_account_id: &Id,
     chat_vtc: bool,
     subscription: &VtcEphemeralSubscription,
     event: &VtcEvent,
 ) -> Result<bool, V::Error> {
     if !chat_vtc {
-        return jmap_vtc_server::should_deliver(vtc, caller, account_id, subscription, event).await;
+        return jmap_vtc_server::should_deliver(
+            vtc,
+            caller,
+            hosting_account_id,
+            recipient_account_id,
+            subscription,
+            event,
+        )
+        .await;
     }
     let mut every = VtcEphemeralSubscription::default();
     every
         .replace_with(&VtcStreamEnable::default())
         .expect("a VTCStreamEnable with null eventTypes is always valid");
-    jmap_vtc_server::should_deliver(vtc, caller, account_id, &every, event).await
+    jmap_vtc_server::should_deliver(
+        vtc,
+        caller,
+        hosting_account_id,
+        recipient_account_id,
+        &every,
+        event,
+    )
+    .await
 }
 
 /// The Id in a `T|null` binding property, if it is set.

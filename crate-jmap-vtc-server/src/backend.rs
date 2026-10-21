@@ -363,8 +363,9 @@ pub trait VtcBackend: JmapBackend {
     /// (draft-atwood-jmap-vtc-wss-00 §Blocked-Sender Suppression).
     ///
     /// [`crate::ephemeral::should_deliver`] asks this at delivery time,
-    /// with the recipient as the caller, to suppress ring and in-call
-    /// events from a blocked user.
+    /// with the recipient as the caller and the recipient's own account as
+    /// `account_id`, not the call's hosting account, to suppress ring and
+    /// in-call events from a blocked user.
     ///
     /// # Default implementation
     ///

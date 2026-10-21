@@ -89,7 +89,8 @@ async fn delivers(
     sub: &VtcEphemeralSubscription,
     ev: &VtcEvent,
 ) -> bool {
-    should_deliver(backend, &recipient.to_owned(), &Id::from(ACCOUNT), sub, ev)
+    let account = Id::from(ACCOUNT);
+    should_deliver(backend, &recipient.to_owned(), &account, &account, sub, ev)
         .await
         .expect("should_deliver")
 }
