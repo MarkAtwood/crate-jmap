@@ -6,7 +6,9 @@
 //! example for anyone writing a real backend. All state lives in
 //! `HashMap`s behind a `std::sync::Mutex`; nothing is persisted, and no
 //! ring notification is actually delivered. A `VTCRecordingStateEvent` is
-//! recorded, not sent; `recording_events_for_test` returns them.
+//! recorded, not sent; `recording_events_for_test` returns them. So are the
+//! events of [`VtcBackend::deliver_event`]; `events_for_test` returns
+//! them, and no dial-out call is placed.
 //!
 //! # Caller context
 //!
@@ -16,8 +18,9 @@
 //!
 //! # Query
 //!
-//! `VTCCall/query`, `VTCRecording/query` and `VTCLivestream/query` evaluate
-//! the filter and sort with the [`crate::query`] functions.
+//! `VTCCall/query`, `VTCParticipant/query`, `VTCRecording/query` and
+//! `VTCLivestream/query` evaluate the filter and sort with the
+//! [`crate::query`] functions.
 //! `/queryChanges` is not implemented: results say
 //! `canCalculateChanges: false` and `/queryChanges` returns
 //! `cannotCalculateChanges` (RFC 8620 §5.6).
@@ -35,19 +38,20 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
 use jmap_vtc_types::query::{
-    VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator, VtcRecordingFilter,
+    VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator,
+    VtcParticipantComparator, VtcParticipantFilter, VtcRecordingFilter,
 };
 use jmap_vtc_types::{
-    CallRole, CallState, VtcCall, VtcCapability, VtcLivestream, VtcParticipant, VtcRecording,
-    VtcRecordingStateEvent,
+    CallRole, CallState, VtcCall, VtcCapability, VtcEvent, VtcLivestream, VtcParticipant,
+    VtcRecording, VtcRecordingStateEvent,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::call_already_active_on_chat;
 use crate::query::{
-    call_matches, compare_calls, compare_livestreams, compare_recordings, livestream_matches,
-    recording_matches,
+    call_matches, compare_calls, compare_livestreams, compare_participants, compare_recordings,
+    livestream_matches, participant_matches, recording_matches,
 };
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
@@ -79,6 +83,8 @@ struct Inner {
     advertised: HashSet<(String, String)>,
     /// Every `VTCRecordingStateEvent` delivered, in order.
     recording_events: Vec<VtcRecordingStateEvent>,
+    /// Every [`VtcBackend::deliver_event`] event, in order.
+    events: Vec<VtcEvent>,
     /// `(blocking userId, blocked userId)` pairs.
     blocked: HashSet<(String, String)>,
 }
@@ -123,6 +129,71 @@ impl Inner {
 
     fn participants(&self, account_id: &Id) -> impl Iterator<Item = VtcParticipant> + '_ {
         self.all(account_id)
+    }
+
+    /// The `activeParticipantCount` of `candidate`'s call once `candidate`
+    /// is stored, or `None` when that is a rise above the account's
+    /// `maxParticipantsPerCall`.
+    fn active_count_within_quota(
+        &self,
+        account_id: &Id,
+        candidate: &VtcParticipant,
+    ) -> Option<u64> {
+        let in_call = |p: &VtcParticipant| p.call_id == candidate.call_id && is_active(p);
+        let before = self.participants(account_id).filter(in_call).count();
+        let after = self
+            .participants(account_id)
+            .filter(|p| p.id != candidate.id && in_call(p))
+            .count()
+            + usize::from(is_active(candidate));
+        let max = self
+            .accounts
+            .get(account_id.as_ref())
+            .and_then(|cap| cap.max_participants_per_call);
+        (after <= before || max.is_none_or(|m| after as u64 <= m)).then_some(after as u64)
+    }
+
+    /// Store `count` as `call_id`'s `activeParticipantCount`, advancing the
+    /// VTCCall state only when it changes.
+    fn set_active_count(&mut self, account_id: &Id, call_id: &Id, count: u64) {
+        let Some(call) = self
+            .objects_mut(VtcCall::TYPE_NAME, account_id)
+            .get_mut(call_id)
+        else {
+            return;
+        };
+        if call.get("activeParticipantCount") != Some(&json!(count)) {
+            call["activeParticipantCount"] = json!(count);
+            self.commit(
+                VtcCall::TYPE_NAME,
+                account_id,
+                vec![(call_id.clone(), Change::Updated)],
+            );
+        }
+    }
+
+    /// Reset to `null` every `breakoutCallId` naming `room_id` on the
+    /// participants of `parent_id`.
+    fn clear_breakout_assignments(&mut self, account_id: &Id, parent_id: &Id, room_id: &Id) {
+        let ids: Vec<Id> = self
+            .participants(account_id)
+            .filter(|p| p.call_id == *parent_id && p.breakout_call_id.as_ref() == Some(room_id))
+            .map(|p| p.id)
+            .collect();
+        if ids.is_empty() {
+            return;
+        }
+        let store = self.objects_mut(VtcParticipant::TYPE_NAME, account_id);
+        for id in &ids {
+            if let Some(p) = store.get_mut(id) {
+                p["breakoutCallId"] = Value::Null;
+            }
+        }
+        self.commit(
+            VtcParticipant::TYPE_NAME,
+            account_id,
+            ids.into_iter().map(|id| (id, Change::Updated)).collect(),
+        );
     }
 
     /// Every stored object of type `O` that decodes.
@@ -185,6 +256,12 @@ impl MemoryBackend {
         self.lock().recording_events.clone()
     }
 
+    /// The [`VtcBackend::deliver_event`] events delivered so far, in order.
+    #[doc(hidden)]
+    pub fn events_for_test(&self) -> Vec<VtcEvent> {
+        self.lock().events.clone()
+    }
+
     /// Store `value` as object `id` of `type_name` without validation or a
     /// state change, to seed states the methods cannot reach.
     #[doc(hidden)]
@@ -234,6 +311,18 @@ fn not_found<E>() -> BackendSetError<E> {
     BackendSetError::SetError(SetError::new(SetErrorType::NotFound))
 }
 
+/// "joined and not yet left" (§VTCCall `activeParticipantCount`).
+fn is_active(p: &VtcParticipant) -> bool {
+    p.joined_at.is_some() && p.left_at.is_none()
+}
+
+fn over_quota<E>() -> BackendSetError<E> {
+    BackendSetError::SetError(
+        SetError::new(SetErrorType::OverQuota)
+            .with_description("the call has reached maxParticipantsPerCall"),
+    )
+}
+
 fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
     O::deserialize(v).map_err(|e| MemoryError::new(format!("decode {}: {e}", O::TYPE_NAME)))
 }
@@ -257,7 +346,8 @@ fn ring_participant(call_id: &Id, user_id: &str, role: CallRole) -> Value {
         "speakerTimeMs": 0,
         "kickedBy": null,
         "e2eeFingerprint": null,
-        "unmuteRequested": false
+        "unmuteRequested": false,
+        "breakoutCallId": null
     })
 }
 
@@ -421,6 +511,17 @@ impl JmapBackend for MemoryBackend {
                     .collect();
                 list.sort_by(|a, b| compare_recordings(a, b, &sort));
                 list.into_iter().map(|r| r.id).collect()
+            }
+            VtcParticipant::TYPE_NAME => {
+                let filter: Option<VtcParticipantFilter> =
+                    filter.as_ref().map(recode_as).transpose()?;
+                let sort: Vec<VtcParticipantComparator> = recode_as(&sort)?;
+                let mut list: Vec<VtcParticipant> = inner
+                    .participants(account_id)
+                    .filter(|p| filter.as_ref().is_none_or(|f| participant_matches(f, p)))
+                    .collect();
+                list.sort_by(|a, b| compare_participants(a, b, &sort));
+                list.into_iter().map(|p| p.id).collect()
             }
             VtcLivestream::TYPE_NAME => {
                 let filter: Option<VtcLivestreamFilter> =
@@ -634,6 +735,29 @@ impl VtcBackend for MemoryBackend {
         let id = Id::from(ulid::Ulid::new().to_string());
         value["id"] = json!(id);
         let stored: O = decode(&value).map_err(BackendSetError::Other)?;
+        let participant = (O::TYPE_NAME == VtcParticipant::TYPE_NAME)
+            .then(|| decode::<VtcParticipant>(&value))
+            .transpose()
+            .map_err(BackendSetError::Other)?;
+        let active = match &participant {
+            Some(p) => {
+                // §Reconnecting: one record per user per call.
+                if let Some(existing) = p.user_id.as_ref().and_then(|u| {
+                    inner
+                        .participants(account_id)
+                        .find(|q| q.call_id == p.call_id && q.user_id.as_ref() == Some(u))
+                }) {
+                    return Err(BackendSetError::SetError(
+                        SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing.id),
+                    ));
+                }
+                let count = inner
+                    .active_count_within_quota(account_id, p)
+                    .ok_or_else(over_quota)?;
+                Some((p.call_id.clone(), count))
+            }
+            None => None,
+        };
         inner
             .objects_mut(O::TYPE_NAME, account_id)
             .insert(id.clone(), value);
@@ -642,6 +766,9 @@ impl VtcBackend for MemoryBackend {
             account_id,
             vec![(id.clone(), Change::Created)],
         );
+        if let Some((call_id, count)) = active {
+            inner.set_active_count(account_id, &call_id, count);
+        }
         Ok((id, stored))
     }
 
@@ -652,6 +779,10 @@ impl VtcBackend for MemoryBackend {
         event: VtcRecordingStateEvent,
     ) {
         self.lock().recording_events.push(event);
+    }
+
+    async fn deliver_event(&self, _caller: &String, _account_id: &Id, event: VtcEvent) {
+        self.lock().events.push(event);
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
@@ -686,6 +817,18 @@ impl VtcBackend for MemoryBackend {
                     .with_description(format!("patched {} is invalid", O::TYPE_NAME)),
             ));
         }
+        let active = match (O::TYPE_NAME == VtcParticipant::TYPE_NAME)
+            .then(|| VtcParticipant::deserialize(&current).ok())
+            .flatten()
+        {
+            Some(p) => {
+                let count = inner
+                    .active_count_within_quota(account_id, &p)
+                    .ok_or_else(over_quota)?;
+                Some((p.call_id, count))
+            }
+            None => None,
+        };
 
         let mut changes = vec![(id.clone(), Change::Updated)];
         // A breakout room that ends leaves its parent's breakoutRoomIds.
@@ -695,17 +838,23 @@ impl VtcBackend for MemoryBackend {
             .filter(|c| c.state == CallState::Ended)
             .and_then(|c| c.parent_call_id);
         let calls = inner.objects_mut(O::TYPE_NAME, account_id);
-        if let Some(parent_id) = ended_child {
+        if let Some(parent_id) = &ended_child {
             if let Some(Value::Array(rooms)) = calls
-                .get_mut(&parent_id)
+                .get_mut(parent_id)
                 .and_then(|p| p.get_mut("breakoutRoomIds"))
             {
                 rooms.retain(|r| r.as_str() != Some(id.as_ref()));
-                changes.push((parent_id, Change::Updated));
+                changes.push((parent_id.clone(), Change::Updated));
             }
         }
         calls.insert(id.clone(), current);
         inner.commit(O::TYPE_NAME, account_id, changes);
+        if let Some(parent_id) = ended_child {
+            inner.clear_breakout_assignments(account_id, &parent_id, id);
+        }
+        if let Some((call_id, count)) = active {
+            inner.set_active_count(account_id, &call_id, count);
+        }
         Ok(None)
     }
 
@@ -724,16 +873,19 @@ impl VtcBackend for MemoryBackend {
             .then(|| VtcCall::deserialize(&removed).ok())
             .flatten()
             .and_then(|c| c.parent_call_id);
-        if let Some(parent_id) = parent_id {
+        if let Some(parent_id) = &parent_id {
             if let Some(Value::Array(rooms)) = calls
-                .get_mut(&parent_id)
+                .get_mut(parent_id)
                 .and_then(|p| p.get_mut("breakoutRoomIds"))
             {
                 rooms.retain(|r| r.as_str() != Some(id.as_ref()));
-                changes.push((parent_id, Change::Updated));
+                changes.push((parent_id.clone(), Change::Updated));
             }
         }
         inner.commit(O::TYPE_NAME, account_id, changes);
+        if let Some(parent_id) = parent_id {
+            inner.clear_breakout_assignments(account_id, &parent_id, id);
+        }
         Ok(())
     }
 

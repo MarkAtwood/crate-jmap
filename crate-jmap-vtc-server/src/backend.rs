@@ -15,7 +15,7 @@ pub use jmap_server::{
     SetObject,
 };
 
-use jmap_vtc_types::{VtcCall, VtcCapability, VtcRecordingStateEvent};
+use jmap_vtc_types::{VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
 
 /// The `invalidProperties` SetError that
 /// draft-atwood-jmap-vtc-00 §VTCCall/set requires for a second active call
@@ -128,17 +128,38 @@ pub trait VtcBackend: JmapBackend {
         ring_targets: &[String],
     ) -> impl std::future::Future<Output = Result<VtcCall, BackendSetError<Self::Error>>> + Send;
 
-    /// Create a `VTCRecording` or `VTCLivestream`.
+    /// Create a `VTCRecording`, `VTCLivestream` or `VTCParticipant`.
     ///
     /// The handler has validated `obj` against draft-atwood-jmap-vtc-00
-    /// §Starting a Recording or §Starting a Livestream and filled its
-    /// server-set properties; its `id` is a placeholder. The backend MUST,
-    /// in one atomic step, assign the `id` ("Opaque server-assigned
-    /// identifier"), refuse with `invalidProperties` naming `callId` when
-    /// the object's `callId` names no call in state `"active"` ("The call
-    /// MUST be in state `"active"`", rechecked here because the call can end
-    /// after the handler read it), and store the object. A livestream
-    /// backend then starts the outbound stream.
+    /// §Starting a Recording, §Starting a Livestream, §Joining a Room or
+    /// Scheduled Call or §Gateway Dial-Out and filled its server-set
+    /// properties; its `id` is a placeholder. The backend MUST, in one
+    /// atomic step, assign the `id` ("Opaque server-assigned identifier")
+    /// and store the object. In the same step:
+    ///
+    /// - for a recording or livestream, refuse with `invalidProperties`
+    ///   naming `callId` when the object's `callId` names no call in state
+    ///   `"active"` ("The call MUST be in state `"active"`", rechecked here
+    ///   because the call can end after the handler read it). A livestream
+    ///   backend then starts the outbound stream;
+    /// - for a participant with a non-null `userId`, refuse with
+    ///   `alreadyExists` whose `existingId` names that user's record when
+    ///   the call already has one ("A `create` for a user who already has a
+    ///   record in the call fails with an `alreadyExists` SetError ...
+    ///   whose `existingId` names that record", §Reconnecting);
+    /// - for a participant, keep the call's `activeParticipantCount` equal
+    ///   to its participants with `joinedAt` set and `leftAt` `null`, and
+    ///   refuse with `overQuota` a record that would raise it above
+    ///   `maxParticipantsPerCall`, as for [`Self::update_object`];
+    /// - for a participant whose `displayName` is its `userId`, the
+    ///   handler's placeholder, the backend MAY substitute the name "from
+    ///   the user profile or `ChatContact` record";
+    /// - for a dial-out participant (`userId` `null`, `joinedAt` `null`,
+    ///   `gatewayData` the outbound addressing), initiate the outbound call
+    ///   through the gateway of its `joinMethod`. Later, "When the external
+    ///   party answers, the server sets `joinedAt`. If the outbound call
+    ///   fails or is not answered, the server sets `leftAt` and records the
+    ///   gateway-specific failure reason in `gatewayData`".
     ///
     /// Returns the assigned id and the stored object. `create_id` is the
     /// client's creation id. Error mapping, state-counter and change-log
@@ -179,9 +200,20 @@ pub trait VtcBackend: JmapBackend {
     /// `invalidProperties`. Apply the whole patch or none of it.
     ///
     /// When a `VTCCall` patch moves a breakout room (`parentCallId` set) to
-    /// `"ended"`, the backend MUST also remove its id from the parent's
-    /// `breakoutRoomIds` in the same atomic step ("The server removes its
-    /// id from the parent's `breakoutRoomIds`").
+    /// `"ended"`, the backend MUST also, in the same atomic step, remove its
+    /// id from the parent's `breakoutRoomIds` and reset to `null` every
+    /// `breakoutCallId` naming it on the parent call's participants ("The
+    /// server removes its id from the parent's `breakoutRoomIds` and resets
+    /// to `null` any `breakoutCallId` on the parent call's participants
+    /// that names it").
+    ///
+    /// For a `VTCParticipant` patch the backend MUST, in the same atomic
+    /// step, keep the call's `activeParticipantCount` equal to "Number of
+    /// participants currently in the call (joined and not yet left)" and
+    /// refuse with `overQuota` a patch that would raise it above
+    /// `maxParticipantsPerCall` ("If the call's `activeParticipantCount` has
+    /// reached `maxParticipantsPerCall`, the server MUST return
+    /// `overQuota`").
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -199,13 +231,36 @@ pub trait VtcBackend: JmapBackend {
     /// metadata is removed" (§Destroying a Livestream). When the
     /// destroyed `VTCCall` is a breakout room (`parentCallId` set), the
     /// backend MUST also remove its id from the parent's `breakoutRoomIds`
-    /// in the same atomic step, as for closing one via `update_object`.
+    /// and reset the `breakoutCallId`s naming it in the same atomic step,
+    /// as for closing one via `update_object`.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
+
+    /// Deliver an event that `VTCParticipant/set` produces, after the
+    /// change has committed:
+    ///
+    /// - [`VtcEvent::UnmuteRequest`] to the target participant's WebSocket
+    ///   connections ("The server delivers a `VTCUnmuteRequestEvent` ... to
+    ///   the target participant's WebSocket connections", §Participant-Level
+    ///   Moderator Actions);
+    /// - [`VtcEvent::GatewaySignal`] with `direction` `"outbound"` to the
+    ///   gateway carrying the participant ("The server extracts the
+    ///   signal, delivers it to the gateway, and removes the key",
+    ///   §VTCGatewaySignal). The backend relays `signal` and `data` without
+    ///   interpreting them (§Gateway Signal Injection).
+    ///
+    /// There is no default: both deliveries are the effect the update
+    /// requests. Delivery failures are the backend's to log or retry.
+    fn deliver_event(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        event: VtcEvent,
+    ) -> impl std::future::Future<Output = ()> + Send;
 
     /// `true` if the caller is a moderator on `call`
     /// (draft-atwood-jmap-vtc-00 §Moderator Actions on VTCCall): its
@@ -218,6 +273,9 @@ pub trait VtcBackend: JmapBackend {
     /// `VTCLivestream/set` return `forbidden` to a non-moderator for every
     /// create, update and destroy, and `VTCLivestream/get` returns
     /// `streamKey` and `streamUri` as `""` to a non-moderator.
+    /// `VTCParticipant/set` gives a joining moderator `role` `"moderator"`
+    /// and no lobby, and holds the participant-level moderator actions and
+    /// gateway dial-out to it.
     ///
     /// # Default implementation
     ///

@@ -1,6 +1,6 @@
-//! `/query` filter evaluation and ordering for VTCCall, VTCRecording and
-//! VTCLivestream (draft-atwood-jmap-vtc-00 §VTCCall/query,
-//! §VTCRecording/query, §VTCLivestream/query).
+//! `/query` filter evaluation and ordering for VTCCall, VTCParticipant,
+//! VTCRecording and VTCLivestream (draft-atwood-jmap-vtc-00 §VTCCall/query,
+//! §VTCParticipant/query, §VTCRecording/query, §VTCLivestream/query).
 //!
 //! Pure functions a backend's `query_objects` can apply to its stored
 //! objects; the reference `MemoryBackend` uses them.
@@ -11,9 +11,9 @@ use jmap_types::UTCDate;
 use jmap_vtc_types::query::{
     Filter, Operator, VtcCallComparator, VtcCallFilter, VtcCallFilterCondition,
     VtcCallSortProperty, VtcLivestreamFilter, VtcMediaComparator, VtcMediaSortProperty,
-    VtcRecordingFilter,
+    VtcParticipantComparator, VtcParticipantFilter, VtcParticipantSortProperty, VtcRecordingFilter,
 };
-use jmap_vtc_types::{VtcCall, VtcLivestream, VtcRecording};
+use jmap_vtc_types::{VtcCall, VtcLivestream, VtcParticipant, VtcRecording};
 
 use crate::helpers::utc_key;
 
@@ -129,6 +129,69 @@ fn directed(ord: Ordering, c: &VtcCallComparator) -> Ordering {
     } else {
         ord.reverse()
     }
+}
+
+/// `true` if `participant` matches `filter` (§VTCParticipant/query): "All
+/// filter properties are combined with logical AND." `isActive` `true` is
+/// "participants with `joinedAt != null` and `leftAt == null`", `false`
+/// "participants who have left".
+pub fn participant_matches(filter: &VtcParticipantFilter, participant: &VtcParticipant) -> bool {
+    filter_matches(filter, &|c| {
+        c.call_id
+            .as_ref()
+            .is_none_or(|id| *id == participant.call_id)
+            && c.user_id
+                .as_ref()
+                .is_none_or(|u| participant.user_id.as_ref() == Some(u))
+            && c.role.as_ref().is_none_or(|r| *r == participant.role)
+            && c.is_active.is_none_or(|active| {
+                if active {
+                    participant.joined_at.is_some() && participant.left_at.is_none()
+                } else {
+                    participant.left_at.is_some()
+                }
+            })
+            && c.lobby_state
+                .as_ref()
+                .is_none_or(|l| participant.lobby_state.as_ref() == Some(l))
+            && c.join_method
+                .as_ref()
+                .is_none_or(|m| *m == participant.join_method)
+    })
+}
+
+/// Order two participants by `sort` ("Sort properties: `joinedAt`,
+/// `displayName`"), then by `id` so the order is total.
+///
+/// ponytail: `displayName` compares by code point whatever the
+/// comparator's `collation`, and a `null` `joinedAt` (not yet joined) sorts
+/// last in either direction, as [`compare_calls`] does for `endedAt`.
+/// Upgrade path: honour RFC 8620 §5.5 `collation` with a collation crate.
+pub fn compare_participants(
+    a: &VtcParticipant,
+    b: &VtcParticipant,
+    sort: &[VtcParticipantComparator],
+) -> Ordering {
+    sort.iter()
+        .map(|c| {
+            let ord = match c.property {
+                VtcParticipantSortProperty::JoinedAt => match (&a.joined_at, &b.joined_at) {
+                    (Some(x), Some(y)) => utc_key(x).cmp(utc_key(y)),
+                    (Some(_), None) => return Ordering::Less,
+                    (None, Some(_)) => return Ordering::Greater,
+                    (None, None) => Ordering::Equal,
+                },
+                VtcParticipantSortProperty::DisplayName => a.display_name.cmp(&b.display_name),
+                _ => Ordering::Equal,
+            };
+            if c.is_ascending {
+                ord
+            } else {
+                ord.reverse()
+            }
+        })
+        .find(|o| o.is_ne())
+        .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))
 }
 
 /// `true` if `recording` matches `filter` (§VTCRecording/query): "All

@@ -7,7 +7,8 @@
 use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 use crate::query::{
-    VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator, VtcRecordingFilter,
+    VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator,
+    VtcParticipantComparator, VtcParticipantFilter, VtcRecordingFilter,
 };
 use crate::{VtcCall, VtcLivestream, VtcParticipant, VtcRecording};
 
@@ -33,6 +34,15 @@ impl JmapObject for VtcParticipant {
 }
 
 impl GetObject for VtcParticipant {}
+
+impl SetObject for VtcParticipant {
+    type Patch = PatchObject;
+}
+
+impl QueryObject for VtcParticipant {
+    type Filter = VtcParticipantFilter;
+    type Comparator = VtcParticipantComparator;
+}
 
 impl JmapObject for VtcRecording {
     const TYPE_NAME: &'static str = "VTCRecording";

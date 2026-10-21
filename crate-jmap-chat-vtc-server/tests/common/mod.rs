@@ -17,7 +17,7 @@ use jmap_server::{
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend as VtcMemory, MemoryError as VtcError};
 use jmap_vtc_server::{handle_vtc_call_get, handle_vtc_call_set, VtcBackend};
-use jmap_vtc_types::{VtcCall, VtcCapability, VtcRecordingStateEvent};
+use jmap_vtc_types::{VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
 use serde_json::{json, Value};
 
 pub const ACCOUNT: &str = "A1";
@@ -245,6 +245,10 @@ impl VtcBackend for Bound {
         self.vtc
             .deliver_recording_state_event(caller, account_id, event)
             .await
+    }
+
+    async fn deliver_event(&self, caller: &String, account_id: &Id, event: VtcEvent) {
+        self.vtc.deliver_event(caller, account_id, event).await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(

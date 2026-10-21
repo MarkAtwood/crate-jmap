@@ -63,12 +63,14 @@ const VTC_CALL_GET: &str = r#"{
   "calendarEventId": null
 }"#;
 
-/// VTCParticipant/set `created` response: "the complete VTCParticipant record" (draft-atwood-jmap-vtc-00 L838-L864).
+/// VTCParticipant/set `created` response: "the complete VTCParticipant record"
+/// (draft-atwood-jmap-vtc-00 L896-L923 at jmap-chat-spec 6bcd9d8, which adds
+/// `breakoutCallId`).
 const VTC_PARTICIPANT_CREATED: &str = r#"{
   "created": {
     "p0": {
-      "id": "user:alice@example.com",
-      "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+      "id": "01J4XMVQK7NRYS9PPCEHTK4CD0",
+      "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
       "userId": "user:alice@example.com",
       "displayName": "Alice Chen",
       "role": "participant",
@@ -87,7 +89,8 @@ const VTC_PARTICIPANT_CREATED: &str = r#"{
       "speakerTimeMs": 0,
       "kickedBy": null,
       "e2eeFingerprint": null,
-      "unmuteRequested": false
+      "unmuteRequested": false,
+      "breakoutCallId": null
     }
   }
 }"#;
