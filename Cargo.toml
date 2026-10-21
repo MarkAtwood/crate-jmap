@@ -19,6 +19,7 @@ members = [
     "crate-jmap-peer-auth",
     "crate-jmap-peer-auth-io",
     "crate-jmap-chat-mimi-types",
+    "crate-jmap-chat-mimi-server",
     "crate-jmap-chat-federation-types",
     "crate-jmap-vtc-types",
     "crate-jmap-scene-types",
@@ -93,6 +94,7 @@ jmap-web-push          = { path = "crate-jmap-web-push",         version = "0.3"
 jmap-peer-auth         = { path = "crate-jmap-peer-auth",        version = "0.3" }
 jmap-peer-auth-io      = { path = "crate-jmap-peer-auth-io",     version = "0.3" }
 jmap-chat-mimi-types   = { path = "crate-jmap-chat-mimi-types",  version = "0.3" }
+jmap-chat-mimi-server  = { path = "crate-jmap-chat-mimi-server", version = "0.3" }
 jmap-chat-federation-types = { path = "crate-jmap-chat-federation-types", version = "0.3" }
 jmap-vtc-types         = { path = "crate-jmap-vtc-types",        version = "0.3" }
 jmap-scene-types       = { path = "crate-jmap-scene-types",      version = "0.3" }

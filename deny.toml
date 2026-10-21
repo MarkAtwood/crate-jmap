@@ -20,6 +20,11 @@ ignore = [
     # 1.0.10, which removes the distrusted emSign root. Drop this entry
     # once tokio-tungstenite depends on webpki-roots 1 directly.
     { id = "RUSTSEC-2026-0381", reason = "0.26.11 shim re-exports webpki-roots 1.0.10 (fixed)" },
+    # proc-macro-error2 (unmaintained, not a vulnerability) reaches the build
+    # only through the dev-dependency openmls_rust_crypto -> hpke-rs ->
+    # libcrux -> hax-lib-macros, which jmap-chat-mimi-server's tests use as
+    # their MLS crypto provider (bd:JMAP-6k5d.2). No published crate links it.
+    { id = "RUSTSEC-2026-0173", reason = "dev-only proc macro via openmls_rust_crypto test provider" },
 ]
 
 # ---------------------------------------------------------------------------
