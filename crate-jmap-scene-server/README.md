@@ -106,7 +106,7 @@ an absent one is the identity), `physicsMode` one of `static`, `dynamic`,
 `kinematic` or `none`, and `visualRef` and `visualType` come together.
 `visualType` must be listed in `supportedVisualTypes` (or be
 `model/gltf-binary`) and `visualRef` must name an uploaded blob (else
-`notFound`). A `parentId` must name an existing object (else
+`invalidProperties` naming `visualRef`, on create and update). A `parentId` must name an existing object (else
 `invalidProperties` naming `parentId`, on create and update) in the same
 region, must not make the object its own ancestor, and must
 keep every object within 16 levels; an update that re-parents counts the
