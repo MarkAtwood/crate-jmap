@@ -175,9 +175,10 @@ async fn did_web_document_with_another_id_is_rejected() {
 
 #[tokio::test]
 async fn did_web_http_error_is_a_resolution_failure_and_not_cached() {
-    // chat-did-00 L209: "When a server attempts to resolve a DID and
-    // resolution fails (transient or permanent), the server MUST treat
-    // the DID as unverified".
+    // chat-did-00 L237: "When a server attempts to resolve a DID,
+    // resolution fails (transient or permanent), and the server holds no
+    // usable cached DID Document for that DID, the DID-bound verification
+    // fails ({{did-verification}}) and the request is rejected."
     let stub = Stub::default();
     stub.fail(ALICE_URL, 503);
     let resolver = Resolver::new(&stub, TTL);
@@ -216,8 +217,8 @@ async fn unsupported_method_is_rejected() {
 
 #[tokio::test]
 async fn did_plc_audit_log_verifies_to_directory_state() {
-    // chat-did-00 L252: "Implementations MUST verify operation-log
-    // integrity per DID-PLC". The expected state is the directory's own
+    // chat-did-00 L279: "Resolution per {{methods}} includes the
+    // operation-log integrity check defined by {{DID-PLC}}". The expected state is the directory's own
     // /data response for the same DID.
     let stub = Stub::default();
     stub.serve(EWVI_URL, &fixture("ewvi7nxzyoun6zhxrhs64oiz.audit.json"));
@@ -244,9 +245,9 @@ async fn did_plc_uses_the_configured_directory() {
 
 #[tokio::test]
 async fn did_plc_non_monotonic_log_is_not_trusted() {
-    // chat-did-00 L252: implementations "MUST NOT trust a DID Document
-    // obtained from a PLC directory that has presented an inconsistent
-    // or non-monotonic operation log."
+    // chat-did-00 L279: "a DID Document obtained from a PLC directory that
+    // has presented an inconsistent or non-monotonic operation log fails
+    // that check."
     let synthetic = fixture("synthetic.json");
     let d = synthetic["did"].as_str().unwrap();
     let stub = Stub::default();

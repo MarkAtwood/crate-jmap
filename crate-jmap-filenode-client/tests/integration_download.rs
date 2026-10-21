@@ -1,15 +1,15 @@
 //! Wiremock integration tests for `SessionClient::filenode_download`.
 //!
 //! Governing text: draft-atwood-jmap-cid-00 §FileNode Extension, "Client
-//! Usage" (jmap-chat-spec/draft-atwood-jmap-cid-00.md L228-239):
+//! Usage" (jmap-chat-spec 6bcd9d8, draft-atwood-jmap-cid-00.md L222-233):
 //!
 //! > When downloading a file blob identified by a FileNode, clients SHOULD
 //! > compute the SHA-256 digest of the received bytes and compare it against
 //! > the FileNode's `sha256`. A `sha256` value of null has two possible
 //! > causes: the FileNode is a directory (which has no associated blob and
 //! > should not be downloaded), or the FileNode is a legacy file entry
-//! > created before this capability was active. Clients MUST check the
-//! > FileNode type to distinguish these cases. For a legacy file FileNode
+//! > created before this capability was active. The FileNode type
+//! > distinguishes these cases. For a legacy file FileNode
 //! > with null `sha256`, integrity verification via this mechanism is not
 //! > available; clients SHOULD treat such downloads as unverified. A mismatch
 //! > on a non-null `sha256` indicates storage corruption or modification;
@@ -152,7 +152,7 @@ async fn directory_with_null_sha256_is_not_downloaded() {
     );
 }
 
-/// "Clients MUST check the FileNode type to distinguish these cases": a node
+/// "The FileNode type distinguishes these cases": a node
 /// without `@type` cannot be classified, so it is refused even though it
 /// carries a `blobId`.
 #[tokio::test]
