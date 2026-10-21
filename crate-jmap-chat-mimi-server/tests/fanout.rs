@@ -220,6 +220,33 @@ fn every_ratchet_tree_option_after_a_welcome_parses_and_reserved_does_not() {
     assert!(parse_fanout_messages(&fanout_message(T, &welcome, &[0])).is_err());
 }
 
+/// RFC 9420 §2.1.2: a `<V>` vector's varint length prefix counts the octets
+/// that follow it. A hub body whose `moreProposals`, `externalProposals`,
+/// frank signature or `ratchet_tree<V>` prefix claims more octets than
+/// remain, or that ends inside the MLSMessage, is malformed and is
+/// rejected (not a panic).
+#[test]
+fn a_vector_longer_than_the_body_is_rejected() {
+    let frank = [&[1u8][..], &(0u8..32).collect::<Vec<_>>(), &[0, 1, 5, 0]].concat();
+    let welcome = hex(WELCOME);
+    let commit = hex(PUBLIC_COMMIT);
+    let bodies = [
+        fanout_message(T, &hex(PRIVATE_PROPOSAL), &[5, 1, 2]),
+        fanout_message(T, &commit, &[0x40, 0x10, 1]),
+        fanout_message(T, &hex(APPLICATION), &frank),
+        fanout_message(T, &welcome, &[1, 4, 0]),
+        fanout_message(T, &welcome, &[2, 9]),
+        fanout_message(T, &commit[..commit.len() / 2], &[]),
+    ];
+    for body in &bodies {
+        assert!(
+            parse_fanout_messages(body).is_err(),
+            "{} octets",
+            body.len()
+        );
+    }
+}
+
 /// draft-ietf-mimi-protocol-06 §5.5: a FanoutMessage carries a "PrivateMessage
 /// containing an application message, a SemiPrivateMessage or PublicMessage
 /// containing a proposal or commit, or a Welcome message". ULID spec §Overflow

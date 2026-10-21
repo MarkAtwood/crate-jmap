@@ -18,7 +18,7 @@ use jmap_chat_mimi_types::{ulid, Base64Url};
 use jmap_types::UTCDate;
 use openmls::prelude::{ContentType, MlsMessageBodyIn, MlsMessageIn};
 use sha2::{Digest, Sha256};
-use tls_codec::{DeserializeBytes, Serialize as _, VLBytes};
+use tls_codec::{Deserialize, Serialize as _, VLBytes};
 
 /// The Frank of draft-ietf-mimi-protocol-06 §5.4: `server_frank[32]`,
 /// `franking_signature_ciphersuite`, `franking_integrity_signature<V>`.
@@ -92,6 +92,19 @@ fn malformed(what: &str) -> impl FnOnce(tls_codec::Error) -> FanoutParseError + 
     move |e| FanoutParseError::new(format!("{what}: {e}"))
 }
 
+/// Read a `T` from the front of `bytes`. The `Read`-based `Deserialize` is
+/// used because tls_codec 0.5.0's `DeserializeBytes` for a `<V>` vector
+/// longer than its input hits a `debug_assert_eq!` instead of returning an
+/// error.
+fn read<'a, T: Deserialize>(
+    bytes: &'a [u8],
+    what: &str,
+) -> Result<(T, &'a [u8]), FanoutParseError> {
+    let mut rest = bytes;
+    let value = T::tls_deserialize(&mut rest).map_err(malformed(what))?;
+    Ok((value, rest))
+}
+
 /// Split a `/notify` body into its FanoutMessages, in order.
 ///
 /// Each FanoutMessage is a `uint64 timestamp` and an MLSMessage, followed
@@ -125,10 +138,8 @@ pub fn parse_fanout_messages(body: &[u8]) -> Result<Vec<Fanout>, FanoutParseErro
 }
 
 fn parse_one(bytes: &[u8]) -> Result<(Fanout, &[u8]), FanoutParseError> {
-    let (timestamp, after_timestamp) =
-        u64::tls_deserialize_bytes(bytes).map_err(malformed("timestamp"))?;
-    let (message, tail) =
-        MlsMessageIn::tls_deserialize_bytes(after_timestamp).map_err(malformed("message"))?;
+    let (timestamp, after_timestamp) = read::<u64>(bytes, "timestamp")?;
+    let (message, tail) = read::<MlsMessageIn>(after_timestamp, "message")?;
     let message_octets = &after_timestamp[..after_timestamp.len() - tail.len()];
     let (recipients, tail) = match message.extract() {
         MlsMessageBodyIn::PublicMessage(m) => {
@@ -184,21 +195,9 @@ fn parse_one(bytes: &[u8]) -> Result<(Fanout, &[u8]), FanoutParseError> {
 /// selects in a FanoutMessage.
 fn skip_tail(content_type: ContentType, bytes: &[u8]) -> Result<&[u8], FanoutParseError> {
     let tail = match content_type {
-        ContentType::Application => {
-            Option::<Frank>::tls_deserialize_bytes(bytes)
-                .map_err(malformed("frank"))?
-                .1
-        }
-        ContentType::Proposal => {
-            VLBytes::tls_deserialize_bytes(bytes)
-                .map_err(malformed("moreProposals"))?
-                .1
-        }
-        ContentType::Commit => {
-            VLBytes::tls_deserialize_bytes(bytes)
-                .map_err(malformed("externalProposals"))?
-                .1
-        }
+        ContentType::Application => read::<Option<Frank>>(bytes, "frank")?.1,
+        ContentType::Proposal => read::<VLBytes>(bytes, "moreProposals")?.1,
+        ContentType::Commit => read::<VLBytes>(bytes, "externalProposals")?.1,
     };
     Ok(tail)
 }
@@ -207,12 +206,9 @@ fn skip_tail(content_type: ContentType, bytes: &[u8]) -> Result<&[u8], FanoutPar
 /// `httpsUri(2)` carries `ratchet_tree_url<V>`, `outOfBand(3)` and
 /// `distributionService(4)` carry nothing.
 fn skip_ratchet_tree_option(bytes: &[u8]) -> Result<&[u8], FanoutParseError> {
-    let (representation, rest) =
-        u8::tls_deserialize_bytes(bytes).map_err(malformed("ratchetTreeOption"))?;
+    let (representation, rest) = read::<u8>(bytes, "ratchetTreeOption")?;
     match representation {
-        1 | 2 => Ok(VLBytes::tls_deserialize_bytes(rest)
-            .map_err(malformed("ratchetTreeOption"))?
-            .1),
+        1 | 2 => Ok(read::<VLBytes>(rest, "ratchetTreeOption")?.1),
         3 | 4 => Ok(rest),
         other => Err(FanoutParseError::new(format!(
             "ratchetTreeOption representation {other} is not defined"
