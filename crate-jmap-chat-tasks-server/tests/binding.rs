@@ -1,4 +1,4 @@
-//! Space `taskListId` binding rules.
+//! Space `taskListId` binding rules and capability co-advertisement.
 //!
 //! Oracle: draft-atwood-jmap-chat-tasks-00.md at jmap-chat-spec be46208
 //! ("tasks Lnnn") and RFC 8620:
@@ -23,6 +23,13 @@
 //!   set `taskListId` to the new TaskList's id at Space creation time."
 //! - tasks L129: "The TaskList persists independently and may be unbound
 //!   from the Space without being deleted."
+//! - tasks L84 (at jmap-chat-spec 6bcd9d8): "A deployment that supports
+//!   JMAP Chat but not JMAP Tasks MUST NOT advertise the capability
+//!   defined here."
+//! - tasks L98 (at jmap-chat-spec 6bcd9d8): "This capability is
+//!   meaningful only when both `urn:ietf:params:jmap:chat` and
+//!   `urn:ietf:params:jmap:tasks` are also advertised on the same
+//!   account."
 //! - RFC 8620 §5.3 `invalidProperties`: "The record given is invalid in
 //!   some way."
 //!
@@ -35,7 +42,7 @@
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_chat_tasks_server::{
-    check_task_list_id, create_space_task_list, space_extension_properties,
+    check_task_list_id, create_space_task_list, may_advertise, space_extension_properties,
 };
 use jmap_chat_types::{ChatTasksCapability, Space};
 use jmap_tasks_server::handle_task_list_get;
@@ -45,6 +52,27 @@ use serde_json::{json, Value};
 
 const ACCOUNT: &str = "A1";
 const OTHER_ACCOUNT: &str = "A2";
+
+const CHAT: &str = "urn:ietf:params:jmap:chat";
+const TASKS: &str = "urn:ietf:params:jmap:tasks";
+const CHAT_TASKS: &str = "urn:ietf:params:jmap:chat:tasks";
+
+/// L98: advertised only with both `chat` and `tasks` on the account.
+#[test]
+fn advertise_with_chat_and_tasks() {
+    assert!(may_advertise([CHAT, TASKS]));
+    assert!(may_advertise([TASKS, "urn:ietf:params:jmap:core", CHAT]));
+}
+
+/// L84 ("supports JMAP Chat but not JMAP Tasks MUST NOT advertise") and
+/// L98 ("meaningful only when both").
+#[test]
+fn no_advertise_without_both() {
+    assert!(!may_advertise([CHAT]));
+    assert!(!may_advertise([TASKS]));
+    assert!(!may_advertise([CHAT_TASKS]));
+    assert!(!may_advertise(std::iter::empty()));
+}
 
 /// A TaskList with the draft-ietf-jmap-tasks-06 §TaskList field list.
 fn task_list_json(id: &str) -> Value {

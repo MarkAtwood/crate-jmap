@@ -11,6 +11,7 @@
 //!
 //! | Where | Call |
 //! |---|---|
+//! | Session object, before advertising `urn:ietf:params:jmap:chat:tasks` on an account | [`may_advertise`] |
 //! | `ChatBackend::space_extension_properties` | [`space_extension_properties`] |
 //! | `ChatBackend::create_object::<Space>` and `ChatBackend::apply_space_metadata_patch`, for a `taskListId` value | [`check_task_list_id`] |
 //! | `ChatBackend::create_object::<Space>`, before the insert, for auto-bind on create | [`create_space_task_list`] |
@@ -37,12 +38,31 @@ use std::collections::HashMap;
 
 use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{
-    task_chat_id, ChatTasksCapability, Space, SPACE_TASK_LIST_ID_PROPERTY, TASK_CHAT_ID_PROPERTY,
+    task_chat_id, ChatTasksCapability, Space, JMAP_CHAT_URI, SPACE_TASK_LIST_ID_PROPERTY,
+    TASK_CHAT_ID_PROPERTY,
 };
 use jmap_tasks_server::{BackendSetError, SetError, SetErrorType, TasksBackend};
-use jmap_tasks_types::{Task, TaskList};
+use jmap_tasks_types::{Task, TaskList, JMAP_TASKS_URI};
 use jmap_types::{Id, PatchObject};
 use serde_json::Value;
+
+/// Whether an account may advertise `urn:ietf:params:jmap:chat:tasks`,
+/// given the capability URIs it already advertises.
+///
+/// draft-atwood-jmap-chat-tasks-00 §Capability: "This capability is
+/// meaningful only when both `urn:ietf:params:jmap:chat` and
+/// `urn:ietf:params:jmap:tasks` are also advertised on the same account."
+/// §Relationship to JMAP Tasks: "A deployment that supports JMAP Chat but
+/// not JMAP Tasks MUST NOT advertise the capability defined here."
+/// Returns `true` only when both URIs are present.
+pub fn may_advertise<'a>(account_capabilities: impl IntoIterator<Item = &'a str>) -> bool {
+    let (mut chat, mut tasks) = (false, false);
+    for uri in account_capabilities {
+        chat |= uri == JMAP_CHAT_URI;
+        tasks |= uri == JMAP_TASKS_URI;
+    }
+    chat && tasks
+}
 
 /// The Space extension properties to return from
 /// `ChatBackend::space_extension_properties` for an account advertising

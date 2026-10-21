@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-tasks-server**: `may_advertise`, which returns `true` only
+  when an account advertises both `urn:ietf:params:jmap:chat` and
+  `urn:ietf:params:jmap:tasks` (draft-atwood-jmap-chat-tasks-00
+  §Relationship to JMAP Tasks, §Capability), mirroring
+  `jmap-chat-calendars-server`.
 - **jmap-filenode-server**: `FileNodeBackend::cid_advertised` (default
   `false`). When it returns `true`, `FileNode/get` emits `"sha256": null`
   for directories and for files without a stored digest, since with
