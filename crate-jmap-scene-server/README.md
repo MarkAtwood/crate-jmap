@@ -99,7 +99,8 @@ and SceneAvatars. `/query` defaults to `createdAt` descending, and an
 `accessPolicy` filter value outside the three is `invalidArguments`.
 
 A SceneObject create needs `mayCreateObject`, a `regionId` naming an
-existing region (else `notFound`) and a finite `position`. `scale` must
+existing region the caller can access (else `invalidProperties` naming
+`regionId`, the same for both cases) and a finite `position`. `scale` must
 be finite, `orientation` within 1e-3 of unit length (stored normalized;
 an absent one is the identity), `physicsMode` one of `static`, `dynamic`,
 `kinematic` or `none`, and `visualRef` and `visualType` come together.

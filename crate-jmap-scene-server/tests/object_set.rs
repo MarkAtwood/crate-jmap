@@ -302,12 +302,12 @@ async fn region_id_and_position_are_required() {
 }
 
 #[tokio::test]
-async fn unknown_region_is_not_found() {
-    // L1472 "The server MUST return `notFound` when `regionId` does not
-    // exist"; L1688 `"type": "notFound"`.
+async fn unknown_region_is_invalid_properties() {
+    // L1576 "The server MUST return `invalidProperties` naming `regionId`
+    // when `regionId` does not exist".
     let backend = setup();
     let err = create_error(&backend, bare("01J5NOPE000000000000000000")).await;
-    assert_eq!(err["type"], "notFound");
+    assert_invalid(&err, &["regionId"]);
 }
 
 #[tokio::test]

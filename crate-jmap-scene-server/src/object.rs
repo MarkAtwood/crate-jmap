@@ -469,17 +469,20 @@ async fn create_scene_object<B: SceneBackend>(
         check_visual_type(backend, caller, account_id, t).await?;
     }
 
-    // "`regionId` does not exist or caller lacks access": `notFound`.
+    // "The server MUST return `invalidProperties` naming `regionId` when
+    // `regionId` does not exist, and SHOULD return the same error (not
+    // `forbidden`) when the caller does not have access to the region".
     let region_id = Id::from(m["regionId"].as_str().unwrap_or_default());
+    let inaccessible = || invalid(&["regionId"], "regionId is not an accessible SceneRegion");
     fetch_one::<SceneRegion, B>(backend, caller, account_id, &region_id)
         .await?
-        .ok_or_else(not_found)?;
+        .ok_or_else(inaccessible)?;
     if !backend
         .may_access_region(caller, account_id, &region_id)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
     {
-        return Err(not_found());
+        return Err(inaccessible());
     }
     if let Some(r) = m.get("visualRef").and_then(Value::as_str) {
         check_visual_ref(backend, caller, account_id, r).await?;
