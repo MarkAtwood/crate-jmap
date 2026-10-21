@@ -256,8 +256,8 @@ pub struct VtcUnmuteRequestEvent {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// Recording state changed; a mandatory consent signal
-/// (draft-atwood-jmap-vtc-00 §VTCRecordingStateEvent).
+/// Recording state changed: "This is the consent signal"
+/// (draft-atwood-jmap-vtc-00 §VTCRecordingStateEvent, §Recording Consent).
 ///
 /// "Exactly one of `recordingId` and `livestreamId` is present"; this is
 /// documented, not enforced on deserialize.

@@ -145,11 +145,12 @@ pub async fn handle_vtc_recording_query_changes<B: VtcBackend>(
 /// §VTCLivestream/get).
 ///
 /// Standard RFC 8620 §5.1 `/get`, except that for each livestream whose
-/// call the caller is not a moderator on, `streamKey` is `""` ("The server
-/// MUST return the `streamKey` field as an empty string `""` for
-/// participants whose role is not `"moderator"`") and so is `streamUri`
-/// ("the server SHOULD redact or omit `streamUri` for non-moderator
-/// participants"). A livestream whose call no longer exists is redacted.
+/// call the caller is not a moderator on, `streamKey` is `""` ("the server
+/// SHOULD return an empty string in `VTCLivestream/get` responses for
+/// participants whose role is not `"moderator"`", §VTCLivestream) and so is
+/// `streamUri` ("the server SHOULD return `streamUri` as an empty string for
+/// non-moderator participants", §Livestream Key Exposure). A livestream
+/// whose call no longer exists is redacted.
 pub async fn handle_vtc_livestream_get<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,

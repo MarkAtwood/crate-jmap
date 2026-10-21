@@ -1,11 +1,11 @@
 //! A ring from a blocked contact is dropped at delivery time.
 //!
-//! Oracle: vtc L1329: "Before delivering a `VTCCallPush`, the server MUST
+//! Oracle: vtc L1397: "Before delivering a `VTCCallPush`, the server SHOULD
 //! check whether the initiator corresponds to a contact whose `blocked`
 //! field is `true` on the target participant's contact list (when
 //! {{JMAP-CHAT}} is present) or an equivalent deployment-defined block
-//! list. If the initiator is blocked, the server MUST silently drop the
-//! ring notification." vtc L1350: "the server MUST NOT deliver a
+//! list. If the initiator is blocked, the server SHOULD silently drop the
+//! ring notification." vtc L1418: "the server SHOULD NOT deliver a
 //! `VTCRingEvent` if the initiator is blocked."
 
 mod common;

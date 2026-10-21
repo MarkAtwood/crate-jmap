@@ -103,8 +103,8 @@ is `#[non_exhaustive]`.
 - A call with `e2eeEnabled: true` can never be recorded or streamed
   through these handlers: the draft's key-holding recorder or bridge is
   not implemented. Register your own `/set` handler if you run one.
-- `deliver_recording_state_event` has no default: the draft calls it a
-  mandatory consent signal. It runs after the change commits, so a failed
+- `deliver_recording_state_event` has no default: the draft calls it
+  "the consent signal". It runs after the change commits, so a failed
   delivery does not undo the change.
 - The draft does not say where a livestream with a `null` `startedAt`
   sorts. `compare_livestreams` puts it last.
