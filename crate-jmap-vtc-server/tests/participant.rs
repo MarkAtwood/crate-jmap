@@ -8,7 +8,7 @@ mod common;
 use common::*;
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapObject,
-    QueryChangesResult, QueryObject, QueryResult, SetObject,
+    QueryChangesResult, QueryObject, QueryResult, SetErrorType, SetObject,
 };
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
@@ -1212,6 +1212,67 @@ async fn timeout_on_active_ring_without_pending_targets_is_silent() {
     let backend = ring_fixture("active", "accepted", "declined");
     assert!(!expire(&backend, at(30)).await);
     assert_eq!(get(&backend, "R1").await["state"], "active");
+    assert!(call_end_events(&backend).is_empty());
+}
+
+#[tokio::test]
+async fn timeout_ignores_non_ring_and_settled_calls() {
+    // L1615 times out a ring that "no target participant answers", and an
+    // `"active"` call's still-`"pending"` targets. A room call has no
+    // targets; a `"pending"` or `"ended"` ring call is neither case.
+    for (call_type, state) in [("room", "active"), ("ring", "pending"), ("ring", "ended")] {
+        let backend = ring_fixture("active", "pending", "pending");
+        seed(
+            &backend,
+            stored_call("R1", call_type, state, "2026-10-20T12:00:00Z"),
+        );
+        assert!(!expire(&backend, at(60)).await, "{call_type} {state}");
+        assert_eq!(get(&backend, "R1").await["state"], state);
+        assert!(call_end_events(&backend).is_empty(), "{call_type} {state}");
+    }
+}
+
+#[tokio::test]
+async fn timeout_of_unknown_call_is_not_found() {
+    let backend = backend();
+    match expire_ring(
+        &backend,
+        &BOB.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from("nope"),
+        at(30),
+        RING_TIMEOUT,
+    )
+    .await
+    {
+        Err(BackendSetError::SetError(e)) => assert_eq!(e.error_type, SetErrorType::NotFound),
+        other => panic!("expected notFound, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn timeout_with_malformed_created_at_names_it() {
+    let backend = ring_fixture("ringing", "pending", "pending");
+    // RFC 8620 §1.4: a UTCDate is "a Date where the time-offset component
+    // MUST be Z"; this one has no date at all.
+    seed(&backend, stored_call("R1", "ring", "ringing", "yesterday"));
+    match expire_ring(
+        &backend,
+        &BOB.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from("R1"),
+        at(30),
+        RING_TIMEOUT,
+    )
+    .await
+    {
+        Err(BackendSetError::SetError(e)) => {
+            assert_eq!(e.error_type, SetErrorType::InvalidProperties);
+            assert_eq!(e.properties, Some(vec!["createdAt".to_owned()]));
+        }
+        other => panic!("expected invalidProperties, got {other:?}"),
+    }
+    assert_eq!(get(&backend, "R1").await["state"], "ringing");
     assert!(call_end_events(&backend).is_empty());
 }
 

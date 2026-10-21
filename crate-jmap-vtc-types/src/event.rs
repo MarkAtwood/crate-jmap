@@ -411,7 +411,6 @@ mod tests {
         // example at L1279-1291.
         let ev = round_trip(json!({
             "@type": "VTCRingEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "initiatorId": "user:bob@example.com",
@@ -478,7 +477,6 @@ mod tests {
         // L951-962 example.
         let ev = round_trip(json!({
             "@type": "VTCParticipantEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:charlie@example.com",
@@ -492,7 +490,6 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCMediaStateEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:dave@example.com",
@@ -502,7 +499,6 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCActiveSpeakerEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:alice@example.com"
@@ -511,7 +507,6 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCUnmuteRequestEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:dave@example.com",
@@ -529,7 +524,6 @@ mod tests {
         // `recordingId` and `livestreamId` is present."
         let ev = round_trip(json!({
             "@type": "VTCRecordingStateEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "recordingId": "01J4XP2SN9RXVU1SSEGIUT6GH",
@@ -544,7 +538,6 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCRecordingStateEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "livestreamId": "01J4XQ7VN0SYWV2TTFHJVW7IJ",
@@ -598,7 +591,6 @@ mod tests {
         // Oracle: the `@type` written in each hand-written frame.
         let ev: VtcEvent = serde_json::from_value(json!({
             "@type": "VTCActiveSpeakerEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "C1",
             "participantId": "P1"
@@ -614,7 +606,6 @@ mod tests {
     fn vendor_extras_preserved_without_type_tag() {
         let ev = round_trip(json!({
             "@type": "VTCActiveSpeakerEvent",
-        "accountId": "A1",
             "accountId": "A1",
             "callId": "C1",
             "participantId": "P1",
