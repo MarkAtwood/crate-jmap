@@ -36,7 +36,7 @@ use jmap_server::{server_fail_from_backend, HandlerOutput};
 /// # Capability gating
 ///
 /// If the backend returns `false` from
-/// [`supports_type::<SearchSnippet>()`](MailBackend::supports_type) for the
+/// [`supports_type::<SearchSnippet>(caller, account_id)`](MailBackend::supports_type) for the
 /// request's account, the handler returns an `accountNotSupportedByMethod`
 /// error before fetching any snippets.
 ///

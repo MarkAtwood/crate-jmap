@@ -295,8 +295,8 @@ pub trait CalendarsBackend: JmapBackend {
     /// [`register_calendars_handlers`](crate::register_calendars_handlers)
     /// is registered unconditionally. The intended caller is the server
     /// consumer's session-capability builder, which uses
-    /// `supports_type::<Calendar>()` /
-    /// `supports_type::<CalendarEventNotification>()` to decide which
+    /// `supports_type::<Calendar>(caller, account_id)` /
+    /// `supports_type::<CalendarEventNotification>(caller, account_id)` to decide which
     /// capability URIs to advertise. This is a deliberate divergence
     /// from canonical `jmap-mail-server`, where the handler library DOES
     /// short-circuit optional methods (notably

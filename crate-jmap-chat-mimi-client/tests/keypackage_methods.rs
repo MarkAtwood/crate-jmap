@@ -80,7 +80,8 @@ async fn key_package_set_destroy_only() {
         .expect("KeyPackage/set");
     assert_eq!(resp.destroyed.expect("destroyed")[0].as_ref(), "kp42");
 
-    let (_, call) = sent(&server).await;
+    let (using, call) = sent(&server).await;
+    assert_using(&using);
     assert_eq!(
         call,
         json!(["KeyPackage/set", { "accountId": "u1", "destroy": ["kp42"] }, "r1"])
@@ -167,7 +168,8 @@ async fn key_package_get_all_omits_ids() {
         .expect("KeyPackage/get");
     assert!(resp.list.is_empty());
 
-    let (_, call) = sent(&server).await;
+    let (using, call) = sent(&server).await;
+    assert_using(&using);
     assert_eq!(call, json!(["KeyPackage/get", { "accountId": "u1" }, "r1"]));
 }
 

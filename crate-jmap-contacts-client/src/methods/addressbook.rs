@@ -127,6 +127,9 @@ impl super::SessionClient {
     /// `params` carries the Contacts-specific extra arguments
     /// `onDestroyRemoveContents` and `onSuccessSetIsDefault`. Pass
     /// `None` (or `Some(Default::default())`) when neither is needed.
+    /// Vendor keys in `params.extra` are merged into the method
+    /// arguments; on a key collision the typed argument wins and the
+    /// `extra` value is dropped.
     ///
     /// # Errors
     ///
