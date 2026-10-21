@@ -30,6 +30,13 @@
 //! order its signature key was bound and stored with the binding, so it
 //! stays the same for that signature key.
 //!
+//! # Rooms
+//!
+//! `create_room` keeps each room it hosts and creates, in place of a
+//! `jmap-chat-server` store, a Chat record holding only the fields
+//! §Room/create and §Chat.roomId fix (`id`, `kind`, `name`, `roomId`,
+//! `members`); `room_chat` reads it back.
+//!
 //! # Concurrency
 //!
 //! The `await_holding_lock` lint is denied module-wide: no guard is held
@@ -46,9 +53,10 @@ use openmls::prelude::OpenMlsCrypto;
 use serde_json::json;
 
 use crate::backend::{
-    key_package_over_quota, key_package_ref_in_use, signature_key_bound_elsewhere,
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, MimiBackend, NewKeyPackage, QueryChangesResult, QueryObject, QueryResult, SetError,
+    group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
+    room_signature_key_not_bound, signature_key_bound_elsewhere, BackendChangesError,
+    BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
+    MimiBackend, NewKeyPackage, NewRoom, QueryChangesResult, QueryObject, QueryResult, SetError,
     SetErrorType,
 };
 use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
@@ -57,6 +65,11 @@ use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
 struct Record {
     key_package: KeyPackage,
     signature_key: Vec<u8>,
+}
+
+/// A room this server hosts.
+struct Room {
+    group_id: Vec<u8>,
 }
 
 /// The account a signature key is bound to, and its client's `clientUri`.
@@ -77,6 +90,10 @@ struct Inner {
     bindings: HashMap<Vec<u8>, Binding>,
     /// KeyPackageRef of every KeyPackage handed out → its account.
     handed_out: HashMap<String, String>,
+    /// Room ID → hosted room.
+    rooms: HashMap<String, Room>,
+    /// Chat id → the Chat created for a room.
+    room_chats: HashMap<Id, serde_json::Value>,
     /// Source of record ids.
     next_id: u64,
 }
@@ -132,6 +149,12 @@ impl<C> MemoryBackend<C> {
         self.lock()
             .accounts
             .insert(account_id.as_ref().to_owned(), capability);
+    }
+
+    /// The Chat `create_room` created with id `chat_id`, if any.
+    #[doc(hidden)]
+    pub fn room_chat(&self, chat_id: &Id) -> Option<serde_json::Value> {
+        self.lock().room_chats.get(chat_id).cloned()
     }
 }
 
@@ -422,6 +445,45 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
             inner.bump(account_id);
         }
         Ok(out)
+    }
+
+    async fn create_room(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        room: NewRoom,
+    ) -> Result<Result<Id, JmapError>, MemoryError> {
+        let mut inner = self.lock();
+        if !inner
+            .bindings
+            .get(&room.signature_key)
+            .is_some_and(|bound| bound.account == account_id.as_ref())
+        {
+            return Ok(Err(room_signature_key_not_bound()));
+        }
+        if inner.rooms.contains_key(&room.room_id) {
+            return Ok(Err(room_id_in_use()));
+        }
+        if inner.rooms.values().any(|r| r.group_id == room.group_id) {
+            return Ok(Err(group_id_in_use()));
+        }
+        inner.next_id += 1;
+        let chat_id = Id::from(format!("chat{}", inner.next_id).as_str());
+        let chat = json!({
+            "id": chat_id,
+            "kind": "group",
+            "name": room.room_name,
+            "roomId": room.room_id,
+            "members": [],
+        });
+        inner.room_chats.insert(chat_id.clone(), chat);
+        inner.rooms.insert(
+            room.room_id,
+            Room {
+                group_id: room.group_id,
+            },
+        );
+        Ok(Ok(chat_id))
     }
 
     async fn destroy_key_package(

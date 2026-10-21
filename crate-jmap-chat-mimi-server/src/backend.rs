@@ -16,6 +16,7 @@ pub use jmap_server::{
 };
 
 use jmap_chat_mimi_types::{Base64Url, ClientKeyMaterial, MimiCapability};
+use jmap_types::JmapError;
 use openmls::prelude::OpenMlsCrypto;
 
 use crate::handout::KeyMaterialRequirements;
@@ -39,6 +40,56 @@ pub struct NewKeyPackage {
     /// The leaf node's signature key, which "identifies the client and
     /// binds the KeyPackage to the account".
     pub signature_key: Vec<u8>,
+}
+
+/// A room that passed the checks of draft-atwood-jmap-chat-mimi-00
+/// §Room/create that need no server state, ready for
+/// [`MimiBackend::create_room`].
+///
+/// Built by [`crate::check_room_create`].
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewRoom {
+    /// The room ID: the `room_uri` of the room metadata.
+    pub room_id: String,
+    /// The 16-octet MLS group ID.
+    pub group_id: Vec<u8>,
+    /// The `room_name` of the room metadata, or the empty string when it
+    /// is not UTF-8.
+    pub room_name: String,
+    /// The signature key of the group's one leaf.
+    pub signature_key: Vec<u8>,
+    /// The client's `groupInfo`, verbatim.
+    pub group_info: Base64Url,
+    /// The client's `ratchetTree`, verbatim.
+    pub ratchet_tree: Base64Url,
+}
+
+/// The `invalidArguments` error for a `Room/create` whose leaf signature
+/// key is not bound to the account.
+///
+/// draft-atwood-jmap-chat-mimi-00 §Room/create check 2: the one leaf's
+/// "signature key is bound to the account".
+pub fn room_signature_key_not_bound() -> JmapError {
+    JmapError::invalid_arguments("the leaf signature key is not bound to the account")
+}
+
+/// The `invalidArguments` error for a `Room/create` whose room ID a room
+/// this server hosts already has.
+///
+/// draft-atwood-jmap-chat-mimi-00 §Room/create check 5: "no room this
+/// server hosts has that room ID".
+pub fn room_id_in_use() -> JmapError {
+    JmapError::invalid_arguments("a room this server hosts has that room ID")
+}
+
+/// The `invalidArguments` error for a `Room/create` whose group ID a room
+/// this server hosts already uses.
+///
+/// draft-atwood-jmap-chat-mimi-00 §Room/create check 6: "no room this
+/// server hosts uses it".
+pub fn group_id_in_use() -> JmapError {
+    JmapError::invalid_arguments("a room this server hosts uses that group ID")
 }
 
 /// The `invalidProperties` SetError for a KeyPackage whose signature key
@@ -173,6 +224,32 @@ pub trait MimiBackend: JmapBackend {
         account_id: &jmap_types::Id,
         requirements: &KeyMaterialRequirements,
     ) -> impl std::future::Future<Output = Result<Vec<ClientKeyMaterial>, Self::Error>> + Send;
+
+    /// Create a room with this server as hub and a Chat bound to it
+    /// (draft-atwood-jmap-chat-mimi-00 §Room/create).
+    ///
+    /// The handler has run [`crate::check_room_create`]. The backend MUST,
+    /// in one atomic step, applying the first rule that fails:
+    ///
+    /// - refuse with [`room_signature_key_not_bound`] unless
+    ///   `room.signature_key` is bound to `account_id` by
+    ///   [`MimiBackend::create_key_package`];
+    /// - refuse with [`room_id_in_use`] when a room it hosts, in any
+    ///   account, has `room.room_id`;
+    /// - refuse with [`group_id_in_use`] when a room it hosts uses
+    ///   `room.group_id`;
+    /// - store the room and create a Chat in `account_id` "with `roomId`
+    ///   set to the room ID" and returning its id. Per §Chat.roomId the
+    ///   Chat "has kind `"group"`", its `name` is `room.room_name`, and its
+    ///   `members` "is the empty list".
+    ///
+    /// The outer `Err` is a storage failure (`serverFail`).
+    fn create_room(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        room: NewRoom,
+    ) -> impl std::future::Future<Output = Result<Result<jmap_types::Id, JmapError>, Self::Error>> + Send;
 
     /// Destroy a KeyPackage record by id. Unknown `id` is `notFound`; the
     /// state advances only when the destroy commits. The signature-key

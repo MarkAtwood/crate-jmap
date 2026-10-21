@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Chat MIMI provider server rules (draft-atwood-jmap-chat-mimi-00 KeyPackage/get and /set) — backend-agnostic, plugs into jmap-server Dispatcher"
+description = "JMAP Chat MIMI provider server rules (draft-atwood-jmap-chat-mimi-00 KeyPackage/get and /set, Room/create) — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "chat", "mimi", "mls", "server"]
 categories = ["network-programming", "web-programming::http-server"]
 
@@ -29,6 +29,9 @@ base64 = "0.22"
 # Object Fields). openmls 0.9.1 sets the workspace MSRV of 1.91.
 openmls = { version = "=0.9.1", features = ["extensions-draft"] }
 tls_codec = { version = "=0.5.0", features = ["mls", "derive"] }
+# Throwaway storage for openmls PublicGroup::from_external, which checks the
+# Room/create GroupInfo signature and tree hash (bd:JMAP-6k5d.4).
+openmls_memory_storage = { version = "=0.6.0", features = ["extensions-draft"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

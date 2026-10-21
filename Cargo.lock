@@ -1853,6 +1853,7 @@ dependencies = [
  "jmap-types",
  "openmls",
  "openmls_basic_credential",
+ "openmls_memory_storage",
  "openmls_rust_crypto",
  "serde_json",
  "sha2 0.10.9",

@@ -25,8 +25,20 @@
 //!
 //! KeyPackage hand-out (draft §Handing Out KeyPackages):
 //! [`MimiBackend::claim_key_packages`] claims KeyPackages atomically,
-//! judged by [`KeyMaterialRequirements::fit`]. `KeyMaterial/fetch`,
-//! `Room/*` and `GroupInfo/fetch` are not here yet.
+//! judged by [`KeyMaterialRequirements::fit`].
+//!
+//! `Room/create` (draft §Room/create): the seven checks, those that need
+//! no server state in [`check_room_create`] and the rest in
+//! [`MimiBackend::create_room`], which also creates the bound Chat.
+//!
+//! Room-bound Chats (draft §Chat.roomId, §message/mls):
+//! [`may_update_room_chat`], [`may_create_room_message`] and
+//! [`may_update_room_message`] are the rules a `jmap-chat-server`
+//! `ChatBackend` returns from its `may_update_chat`, `may_create_message`
+//! and `may_update_message` hooks.
+//!
+//! `KeyMaterial/fetch`, `Room/update`, `Room/send`, `Room/unbind` and
+//! `GroupInfo/fetch` are not here yet.
 //!
 //! # `memory` feature (reference implementation)
 //!
@@ -49,13 +61,18 @@ mod keypackage;
 /// Gated behind `feature = "memory"`. Not production.
 #[cfg(feature = "memory")]
 pub mod memory;
+mod restrict;
+mod room;
 
 pub use backend::{
-    key_package_over_quota, key_package_ref_in_use, signature_key_bound_elsewhere, MimiBackend,
-    NewKeyPackage,
+    group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
+    room_signature_key_not_bound, signature_key_bound_elsewhere, MimiBackend, NewKeyPackage,
+    NewRoom,
 };
 pub use handout::{KeyMaterialRequirements, KeyPackageFit};
 pub use keypackage::{check_key_package_create, handle_key_package_get, handle_key_package_set};
+pub use restrict::{may_create_room_message, may_update_room_chat, may_update_room_message};
+pub use room::{check_room_create, handle_room_create};
 
 /// Capability URI for `urn:ietf:params:jmap:chat:mimi`.
 pub use jmap_chat_mimi_types::JMAP_CHAT_MIMI_URI;
@@ -64,8 +81,8 @@ pub use jmap_chat_mimi_types::JMAP_CHAT_MIMI_URI;
 /// re-exported for the registration macro.
 pub use jmap_server::ClosureHandler;
 
-/// Register the `KeyPackage/get` and `KeyPackage/set` handlers on
-/// `dispatcher`.
+/// Register the `KeyPackage/get`, `KeyPackage/set` and `Room/create`
+/// handlers on `dispatcher`.
 ///
 /// Advertise [`JMAP_CHAT_MIMI_URI`] in your Session capabilities, with the
 /// same account-level object [`MimiBackend::mimi_capability`] returns.
@@ -87,4 +104,5 @@ where
 
     reg!("KeyPackage/get", handle_key_package_get);
     reg!("KeyPackage/set", handle_key_package_set);
+    reg!("Room/create", handle_room_create);
 }
