@@ -11,8 +11,8 @@ use common::*;
 use jmap_types::Id;
 use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::{
-    end_call, handle_vtc_call_changes, handle_vtc_recording_get, handle_vtc_recording_set,
-    BackendSetError, SetErrorType,
+    end_call, handle_vtc_call_changes, handle_vtc_livestream_get, handle_vtc_recording_get,
+    handle_vtc_recording_set, BackendSetError, SetErrorType,
 };
 use jmap_vtc_types::{CallEndReason, VtcEvent};
 use serde_json::{json, Value};
@@ -285,4 +285,54 @@ async fn server_end_refuses_an_ended_or_unknown_call() {
         Err(BackendSetError::SetError(e)) => assert_eq!(e.error_type, SetErrorType::NotFound),
         other => panic!("expected notFound, got {other:?}"),
     }
+}
+
+/// Seed a `VTCLivestream` of `call_id` in `state`.
+fn seed_livestream(backend: &MemoryBackend, id: &str, call_id: &str, state: &str) {
+    let mut livestream = stored_livestream(id, state, Value::Null);
+    livestream["callId"] = json!(call_id);
+    seed_as(backend, "VTCLivestream", livestream);
+}
+
+async fn livestream(backend: &MemoryBackend, id: &str) -> Value {
+    call!(
+        handle_vtc_livestream_get,
+        backend,
+        BOB,
+        json!({ "ids": [id] }),
+    )["list"][0]
+        .clone()
+}
+
+#[tokio::test]
+async fn call_end_stops_starting_and_live_livestreams() {
+    let backend = backend_with(media_capability());
+    let parent = room_under(&backend, None).await;
+    let child = room_under(&backend, Some(&parent)).await;
+    let other = room_under(&backend, None).await;
+    seed_livestream(&backend, "LS", &parent, "starting");
+    seed_livestream(&backend, "LL", &child, "live");
+    seed_livestream(&backend, "LF", &parent, "failed");
+    seed_livestream(&backend, "LO", &other, "live");
+
+    update(&backend, BOB, &parent, json!({ "state": "ended" }))
+        .await
+        .expect("end");
+
+    // Spec 6bcd9d8 draft-atwood-jmap-vtc-00 L747 "When a call ends, the
+    // server stops ... every VTCLivestream in state `"starting"` or
+    // `"live"`, as if a moderator had set each to `"stopped"`." The child
+    // room ends with its parent, so its livestream stops too. A
+    // moderator's stop, L1254: "The server sets `stoppedAt` to the current
+    // time."
+    for id in ["LS", "LL"] {
+        let l = livestream(&backend, id).await;
+        assert_eq!(l["state"], "stopped", "{l}");
+        assert!(l["stoppedAt"].is_string(), "stoppedAt must be set: {l}");
+    }
+    // Only `"starting"` or `"live"` livestreams of the ended calls stop.
+    let failed = livestream(&backend, "LF").await;
+    assert_eq!(failed["state"], "failed", "{failed}");
+    assert_eq!(failed["stoppedAt"], Value::Null, "{failed}");
+    assert_eq!(livestream(&backend, "LO").await["state"], "live");
 }

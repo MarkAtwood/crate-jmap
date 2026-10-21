@@ -1389,6 +1389,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-vtc-server**: ending a call, by `VTCCall/set` or `end_call`,
+  also stops its livestreams and those of its breakout rooms in state
+  `"starting"` or `"live"`, setting `stoppedAt`
+  (draft-atwood-jmap-vtc-00 §Ending a Call: "the server stops ... every
+  VTCLivestream in state `"starting"` or `"live"`, as if a moderator had
+  set each to `"stopped"`"). Before, they stayed active.
 - **jmap-vtc-server**: `should_deliver` delivers a
   `VTCRecordingStateEvent` even when the subscription's `eventTypes`
   does not list it; the `callIds` and current-participant checks still
