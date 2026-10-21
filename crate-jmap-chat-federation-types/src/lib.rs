@@ -25,6 +25,8 @@
 //! - [`peer`] — request and response arguments of the eight `Peer/*`
 //!   methods (draft §Server-to-Server Methods). User references are
 //!   identity strings (draft §User References in Peer Methods).
+//! - [`is_jmap_object_uri`] — whether a MessageAction or Endpoint `uri`
+//!   is one a receiving server removes from peer data (same section).
 //! - [`FederationSession`], [`anonymous_well_known_session`] — the
 //!   `ownerUserId`, `peerSigningKeys` and `ownerDirectAddress` Session
 //!   fields, and the anonymous `/.well-known/jmap` Session object (draft
@@ -41,10 +43,10 @@ pub mod session;
 
 pub use contact::{contact_direct_address, contact_server_url};
 pub use peer::{
-    GroupUpdateAction, PeerAck, PeerAttachment, PeerChatMember, PeerDeliverArgs,
-    PeerDeliverResponse, PeerEdit, PeerGroupUpdateArgs, PeerMention, PeerMessage, PeerPresenceArgs,
-    PeerReactionUpdate, PeerReceiptArgs, PeerRetractArgs, PeerRetractResponse, PeerRoleUpdate,
-    PeerSubscribePresenceArgs, PeerSubscribePresenceResponse, PeerTypingArgs,
+    is_jmap_object_uri, GroupUpdateAction, PeerAck, PeerAttachment, PeerChatMember,
+    PeerDeliverArgs, PeerDeliverResponse, PeerEdit, PeerGroupUpdateArgs, PeerMention, PeerMessage,
+    PeerPresenceArgs, PeerReactionUpdate, PeerReceiptArgs, PeerRetractArgs, PeerRetractResponse,
+    PeerRoleUpdate, PeerSubscribePresenceArgs, PeerSubscribePresenceResponse, PeerTypingArgs,
     PeerUnsubscribePresenceArgs, ReactionAction,
 };
 pub use session::{

@@ -233,16 +233,47 @@ fn owner_endpoints_become_contact_endpoints() {
 
 /// L340: `ownerEndpoints` is "optional"; a Session without it, or whose
 /// value is not an Endpoint[] array, advertises no endpoints.
+/// draft-atwood-jmap-chat-federation-00 L337 (jmap-chat-spec 6bcd9d8):
+/// "an array left empty is stored as absent", so an empty array is too.
 #[test]
 fn absent_owner_endpoints_is_none() {
     assert_eq!(owner_endpoints(&Map::new()), None);
     let not_array = json!({ "ownerEndpoints": { "type": "urn:ietf:params:jmap:chat:cap:vtc" } });
     assert_eq!(owner_endpoints(not_array.as_object().unwrap()), None);
     let empty = json!({ "ownerEndpoints": [] });
+    assert_eq!(owner_endpoints(empty.as_object().unwrap()), None);
+}
+
+/// draft-atwood-jmap-chat-federation-00 L337 (jmap-chat-spec 6bcd9d8):
+/// "A receiving server removes every MessageAction and every Endpoint
+/// whose `uri` is a JMAP object URI (a URI with the scheme `jmap`) from
+/// data it receives from a peer, whether in a Peer/* call or from the
+/// peer's Session object (such as `ownerEndpoints`) ... The remaining
+/// entries keep their order, and an array left empty is stored as absent.
+/// MessageActions and Endpoints with other URIs, such as `https` URLs,
+/// are kept." draft-atwood-jmap-object-uri-00 L92: "the scheme name is
+/// case-insensitive".
+#[test]
+fn jmap_object_uri_endpoints_are_removed() {
+    let session = json!({ "ownerEndpoints": [
+        { "type": "urn:ietf:params:jmap:chat:cap:availability", "uri": "jmap:principal:A1:P1" },
+        { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob" },
+        { "type": "urn:ietf:params:jmap:chat:cap:availability", "uri": "JMAP:principal:A1:P2" },
+        { "type": "urn:ietf:params:jmap:chat:cap:payment", "uri": "lightning:lnurl1bob" },
+    ] });
+    let endpoints = owner_endpoints(session.as_object().unwrap()).expect("two remain");
     assert_eq!(
-        owner_endpoints(empty.as_object().unwrap()),
-        Some(Vec::new())
+        serde_json::to_value(&endpoints).unwrap(),
+        json!([
+            { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob" },
+            { "type": "urn:ietf:params:jmap:chat:cap:payment", "uri": "lightning:lnurl1bob" },
+        ])
     );
+
+    let only_jmap = json!({ "ownerEndpoints": [
+        { "type": "urn:ietf:params:jmap:chat:cap:availability", "uri": "jmap:principal:A1:P1" },
+    ] });
+    assert_eq!(owner_endpoints(only_jmap.as_object().unwrap()), None);
 }
 
 /// L372 and L385: an Endpoint has "`type` (String)" and "`uri`

@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-types**: `is_jmap_object_uri`, whether a
+  MessageAction or Endpoint `uri` has the `jmap` scheme
+  (draft-atwood-jmap-chat-federation-00 §User References in Peer Methods).
 - **jmap-chat-types**: `ChatStreamEnable.id`, the optional client-chosen
   message `id` that a resulting `RequestError` echoes as its `requestId`
   (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable). A wire `id` used to
@@ -843,6 +846,15 @@ wire behaviour that a conforming peer can observe.
   (§Attachment), comparing the digest in constant time.
 
 ### Changed
+
+- **BREAKING** **jmap-chat-federation-types**: `owner_endpoints` removes
+  every Endpoint whose `uri` is a JMAP object URI and returns `None`,
+  not `Some(vec![])`, when no entry remains
+  (draft-atwood-jmap-chat-federation-00 §User References in Peer Methods).
+- **jmap-chat-federation-server**: `Peer/deliver` removes every
+  MessageAction whose `uri` is a JMAP object URI before storing the
+  message, keeping the order of the rest; a removed task action's
+  `assigneeIds` are no longer validated (same section).
 
 - **BREAKING** **jmap-chat-server**: `chat_state_change_for` takes
   `carried: &HashSet<Id>` in place of the `ChatPushCapability` map and

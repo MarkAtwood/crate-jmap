@@ -87,9 +87,16 @@ impl FederationSession {
 ///
 /// - `None` when `ownerEndpoints` is absent or not an array: the
 ///   ChatContact has no `endpoints`.
+/// - `None` when no entry remains: draft-atwood-jmap-chat-federation-00
+///   §User References in Peer Methods: "an array left empty is stored as
+///   absent."
 /// - Otherwise the entries that parse as an Endpoint, in order. An entry
 ///   without a string `type` and `uri` is skipped, so one malformed entry
-///   does not hide the others. Entries with an unknown `type` are kept:
+///   does not hide the others. An entry whose `uri` is a JMAP object URI
+///   is removed ([`crate::is_jmap_object_uri`]): the federation draft's
+///   receiving server "removes every MessageAction and every Endpoint
+///   whose `uri` is a JMAP object URI ... from the peer's Session object
+///   (such as `ownerEndpoints`)". Entries with an unknown `type` are kept:
 ///   clients ignore them (§Endpoint).
 ///
 /// The values are peer-supplied and untrusted (draft-atwood-jmap-chat-00
@@ -107,13 +114,14 @@ impl FederationSession {
 /// assert_eq!(endpoints.unwrap()[0].uri, "https://meet.b.example/bob");
 /// ```
 pub fn owner_endpoints(extra: &Map<String, Value>) -> Option<Vec<Endpoint>> {
-    let entries = extra.get("ownerEndpoints")?.as_array()?;
-    Some(
-        entries
-            .iter()
-            .filter_map(|e| serde_json::from_value(e.clone()).ok())
-            .collect(),
-    )
+    let entries: Vec<Endpoint> = extra
+        .get("ownerEndpoints")?
+        .as_array()?
+        .iter()
+        .filter_map(|e| serde_json::from_value::<Endpoint>(e.clone()).ok())
+        .filter(|e| !crate::is_jmap_object_uri(&e.uri))
+        .collect();
+    (!entries.is_empty()).then_some(entries)
 }
 
 /// Why [`anonymous_well_known_session`] refused to build a Session.

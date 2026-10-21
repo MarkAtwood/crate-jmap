@@ -708,6 +708,58 @@ async fn task_action_assignee_ids_must_be_identity_strings() {
     }
 }
 
+/// fed L337 (jmap-chat-spec 6bcd9d8): "A receiving server removes every
+/// MessageAction ... whose `uri` is a JMAP object URI (a URI with the
+/// scheme `jmap`) from data it receives from a peer, whether in a Peer/*
+/// call ... before storing the data ... The remaining entries keep their
+/// order, and an array left empty is stored as absent. MessageActions and
+/// Endpoints with other URIs, such as `https` URLs, are kept." fed L367:
+/// "MessageActions whose `uri` is a JMAP object URI are removed". A
+/// removed task action is not stored, so its `assigneeIds` (here not
+/// identity strings) do not reject the delivery; a kept one is still
+/// mapped. object-uri L92: "the scheme name is case-insensitive".
+#[tokio::test]
+async fn jmap_object_uri_actions_are_removed() {
+    let fed = Fed::new();
+    let mut m = message("M1");
+    m["actions"] = json!([
+        {
+            "type": "urn:ietf:params:jmap:chat:cap:task",
+            "uri": "jmap:task:A9:T1",
+            "metadata": {"assigneeIds": [7]},
+        },
+        {
+            "type": "urn:ietf:params:jmap:chat:cap:task",
+            "uri": "https://tracker.example/T-1",
+            "metadata": {"assigneeIds": [OWNER]},
+        },
+        {"type": "urn:ietf:params:jmap:chat:cap:calendar-event", "uri": "JMAP:calendarevent:A9:E1"},
+        {"type": "urn:example:other", "uri": "https://other.example/1"},
+    ]);
+    fed.deliver(deliver_args(LOW, "direct", m))
+        .await
+        .expect("accepted");
+    let actions = &fed.messages().await[0].actions;
+    let uris: Vec<&str> = actions.iter().map(|a| a.uri.as_str()).collect();
+    assert_eq!(
+        uris,
+        ["https://tracker.example/T-1", "https://other.example/1"]
+    );
+    assert_eq!(actions[0].metadata, Some(json!({"assigneeIds": [ACCOUNT]})));
+
+    let mut m = message("M2");
+    m["actions"] = json!([{"type": "urn:example:other", "uri": "jmap:email:A9:M1"}]);
+    fed.deliver(deliver_args(LOW, "direct", m))
+        .await
+        .expect("accepted");
+    let messages = fed.messages().await;
+    let stored = messages
+        .iter()
+        .find(|m| m.sender_msg_id == "M2")
+        .expect("stored");
+    assert!(stored.actions.is_empty());
+}
+
 /// fed L414: "Reject with `invalidArguments` if any entry's `scope` is not
 /// one of `"everyone"`, `"here"`, or `"admins"`."
 #[tokio::test]
