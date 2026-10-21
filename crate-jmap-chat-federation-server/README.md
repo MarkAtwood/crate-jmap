@@ -79,8 +79,19 @@ Every `handle_peer_*(&backend, &caller, args)` has the signature of the
   Messages of the account per call, and its writes are separate backend
   calls. A backend failure between writes returns `serverFail`; the peer's
   retry reuses what was written.
-- `FederationBackend::fetch_attachment` must apply §Blob Fetch and SSRF to
-  the peer-supplied `fetchUrl`; the handler does not see the URL's target.
+- `FederationBackend::fetch_attachment` and `fetch_avatar` must apply
+  §Blob Fetch and SSRF to the peer-supplied `fetchUrl` and fetch it with a
+  GET signed per §Request Signing (tag `"jmap-chat-peer"`, covering
+  `@method` and `@target-uri`) that follows no cross-origin redirect; the
+  handler does not see the URL's target. `fetch_attachment` maps a
+  connection failure, timeout or 5xx to `Err` (`serverFail`), a 429 to
+  `rateLimited`, and a 403 or 404 to `invalidArguments`.
+- Serving blobs at the `fetchUrl` values this server issues is the
+  deployment's: verify each fetch with `jmap_peer_auth_io::authenticate`,
+  serve the blob only to a peer domain the server sent a payload carrying
+  that `fetchUrl` (recording the grant before sending the payload), answer
+  any other verified peer with 404, and never redirect to another origin
+  (§Blob Fetch).
 - `FederationBackend::forward_typing` owns the `Peer/typing` rate limit
   (one call per peer per chat per 3 s, SHOULD); the handler counts nothing.
 - The presence methods are optional. Without a `FederationPresenceBackend`,

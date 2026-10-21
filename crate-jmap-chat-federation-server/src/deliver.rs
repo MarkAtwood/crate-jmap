@@ -145,14 +145,25 @@ pub trait FederationBackend: ChatBackend {
     /// Fetch `attachment` from its `fetchUrl` and store it as a blob of
     /// `account_id` (step 11).
     ///
-    /// The implementation applies §Blob Fetch and SSRF to the URL. The
-    /// handler compares the returned size and digest with the
-    /// attachment's `size` and `sha256`.
+    /// The implementation applies §Blob Fetch and SSRF to the URL and
+    /// fetches it with an HTTP GET signed as §Request Signing requires
+    /// for "every HTTP request it sends to a peer ... to fetch a blob from
+    /// a `fetchUrl`": one signature tagged `"jmap-chat-peer"` covering
+    /// `@method` and `@target-uri` (a GET has no content, so no
+    /// `content-digest`). A serving server rejects an unsigned fetch. It
+    /// does not follow a redirect to another origin ("a fetching server
+    /// does not follow such a redirect"). The handler compares the
+    /// returned size and digest with the attachment's `size` and `sha256`,
+    /// and rejects a mismatch with `invalidArguments`.
     ///
     /// - `Ok(Ok(blob))`: the fetched blob.
-    /// - `Ok(Err(error))`: reject the request with `error`, e.g.
-    ///   `invalidArguments` for a URL the SSRF policy refuses.
-    /// - `Err(e)`: `serverFail`.
+    /// - `Ok(Err(error))`: reject the request with `error`. Return
+    ///   `JmapError::custom("rateLimited")` when the serving server
+    ///   answers 429, and `invalidArguments` when it answers 403 or 404 or
+    ///   the SSRF policy refuses the URL.
+    /// - `Err(e)`: `serverFail`, which the sender retries. Use it when the
+    ///   connection fails, the request times out, or the serving server
+    ///   answers with a 5xx status.
     fn fetch_attachment(
         &self,
         caller: &Self::CallerCtx,
@@ -163,8 +174,10 @@ pub trait FederationBackend: ChatBackend {
     /// Fetch the `Peer/groupUpdate` `avatar` from its `fetchUrl` and store
     /// it as a blob of `account_id`.
     ///
-    /// The implementation applies §Blob Fetch and SSRF to the URL. The
-    /// handler calls this only after the request's authorization and
+    /// The implementation applies §Blob Fetch and SSRF to the URL and
+    /// fetches it as [`FederationBackend::fetch_attachment`] does: a GET
+    /// signed per §Request Signing that does not follow a redirect to
+    /// another origin. The handler calls this only after the request's authorization and
     /// `closedAt` checks and its own `contentType` and `size` checks, and
     /// compares the returned size and digest with the avatar's `size` and
     /// `sha256`. The avatar is best-effort ("A failed avatar never causes
