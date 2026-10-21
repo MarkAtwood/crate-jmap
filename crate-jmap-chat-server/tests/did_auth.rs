@@ -1,7 +1,7 @@
 //! DID-keyed peer authentication (draft-atwood-jmap-chat-did-00
 //! §Federation Authentication, jmap-chat-spec
 //! draft-atwood-jmap-chat-did-00.md L213-227, §Resolution failure
-//! handling L247, §Caching L243).
+//! handling L247, §Caching L233 at jmap-chat-spec 6bcd9d8).
 //!
 //! Oracles: the RFC 9421 Appendix B.1.4 `test-key-ed25519` key pair
 //! signs every request; its RFC 7638 thumbprint and its did:key form were
@@ -257,12 +257,14 @@ fn did_web_document(x: &str) -> Value {
     })
 }
 
-/// L243: "A server MUST refresh its cached DID Document for a given DID
-/// before next use if a signature verification against that cached
-/// document fails. The rationale is that signature-verification failure
-/// is the strongest available signal that the cached key material has
-/// been rotated". The cached document holds the RFC 8037 A.1 key; the
-/// peer rotated to test-key-ed25519, which the refreshed document holds.
+/// L233: "If the key that verified a request signature is not in the
+/// `authentication` verification relationship of the cached DID Document
+/// ..., the server MUST resolve the DID again, bypassing its cache,
+/// before failing the verification. ... The rationale is that this
+/// mismatch is the strongest available signal that the cached key
+/// material has been rotated". The cached document holds the RFC 8037
+/// A.1 key; the peer rotated to test-key-ed25519, which the refreshed
+/// document holds.
 #[test]
 fn rotated_key_in_cached_document_requires_refresh() {
     let headers = signed_headers(&signing_key(B14_D));
@@ -274,7 +276,7 @@ fn rotated_key_in_cached_document_requires_refresh() {
             Some(DidDocument::Cached(&cached)),
             false
         ),
-        Err(DidAuthRejection::RefreshRequired(Rejection::UnknownKey))
+        Err(DidAuthRejection::RefreshRequired)
     );
     let refreshed = did_web_document(B14_X);
     assert!(verify_with(
@@ -286,11 +288,11 @@ fn rotated_key_in_cached_document_requires_refresh() {
     .is_ok());
 }
 
-/// L243: a signature that does not verify under the cached document's key
-/// is "a signature verification against that cached document" that
-/// fails, so the document is refreshed "before next use".
+/// L233 makes an absent key the refresh trigger. Here the `kid` names
+/// the cached document's key, so the key is present and a signature that
+/// does not verify under it is a plain rejection, not a refresh.
 #[test]
-fn bad_signature_against_cached_document_requires_refresh() {
+fn bad_signature_against_cached_document_is_rejected_without_refresh() {
     let headers = signed_headers(&signing_key(OTHER_D));
     let cached = did_web_document(B14_X);
     assert_eq!(
@@ -300,7 +302,7 @@ fn bad_signature_against_cached_document_requires_refresh() {
             Some(DidDocument::Cached(&cached)),
             false
         ),
-        Err(DidAuthRejection::RefreshRequired(Rejection::BadSignature))
+        Err(DidAuthRejection::Signature(Rejection::BadSignature))
     );
 }
 
@@ -324,8 +326,9 @@ fn bad_signature_against_refreshed_document_is_rejected() {
     );
 }
 
-/// L243 ties the refresh to "a signature verification against that
-/// cached document"; a replayed nonce (federation-00 §Request Signing
+/// L233 ties the refresh to a signing key that "is not in the
+/// `authentication` verification relationship of the cached DID
+/// Document"; a replayed nonce (federation-00 §Request Signing
 /// check 5) fails whatever the document holds, so it is a plain
 /// rejection.
 #[test]
