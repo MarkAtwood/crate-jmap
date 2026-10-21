@@ -1126,6 +1126,128 @@ async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// FileNode/copy — `destroyed` lists the nodes onExists replacement destroyed.
+// Oracle: draft-ietf-jmap-filenode-16 L677-679: "If "replace", the existing
+// item will be destroyed.  In this case, the server MUST include the id of
+// the replaced item in the destroyed response list."; L655-657 (cascade):
+// "the server MUST include the ids of all deleted nodes in the method
+// response."; L773-775: FileNode/copy takes onExists "with the same
+// behaviour". Workspace decision (bd JMAP-510h.55): `destroyed` is omitted
+// when nothing was destroyed. Expected ids are the seeded node ids.
+// ---------------------------------------------------------------------------
+
+/// Sorted string ids from a response's `destroyed` array.
+fn destroyed_ids(resp: &serde_json::Value) -> Vec<String> {
+    let mut ids: Vec<String> = resp["destroyed"]
+        .as_array()
+        .unwrap_or_else(|| panic!("destroyed must be an array: {resp}"))
+        .iter()
+        .map(|v| {
+            v.as_str()
+                .unwrap_or_else(|| panic!("destroyed entries must be strings: {resp}"))
+                .to_owned()
+        })
+        .collect();
+    ids.sort();
+    ids
+}
+
+#[tokio::test]
+async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    let parent = create_node(&backend, "dst", "doc", None, "ep").await;
+    let child = create_node(&backend, "dst", "child", Some(&parent), "ec").await;
+    let grandchild = create_node(&backend, "dst", "gc", Some(&child), "eg").await;
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "replace",
+            "onDestroyRemoveChildren": true,
+            "create": { "c": { "id": &src_id, "role": null } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(
+        resp["created"]["c"].is_object(),
+        "copy must succeed: {resp}"
+    );
+    let mut expected = vec![parent, child, grandchild];
+    expected.sort();
+    assert_eq!(destroyed_ids(&resp), expected, "{resp}");
+}
+
+#[tokio::test]
+async fn filenode_copy_newest_replace_lists_destroyed_id() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    backend.seed_node(
+        "src",
+        make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
+    );
+    backend.seed_node(
+        "dst",
+        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
+    );
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "newest",
+            "create": { "c": { "id": "src-1", "role": null } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(
+        resp["created"]["c"].is_object(),
+        "copy must succeed: {resp}"
+    );
+    assert_eq!(destroyed_ids(&resp), vec!["dst-1".to_owned()], "{resp}");
+}
+
+#[tokio::test]
+async fn filenode_copy_without_collision_omits_destroyed() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "replace",
+            "create": { "c": { "id": &src_id, "role": null } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(
+        resp["created"]["c"].is_object(),
+        "copy must succeed: {resp}"
+    );
+    assert!(
+        resp.get("destroyed").is_none(),
+        "destroyed must be omitted when nothing was destroyed: {resp}"
+    );
+}
+
 #[tokio::test]
 async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
     let backend = MemoryBackend::new().with_account("src").with_account("dst");

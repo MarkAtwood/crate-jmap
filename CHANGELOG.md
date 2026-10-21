@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: `FileNode/copy` responses carry `destroyed`,
+  the ids of destination nodes that onExists `replace` or `newest`
+  destroyed, `onDestroyRemoveChildren` cascades included; omitted when
+  nothing was destroyed (draft-ietf-jmap-filenode-16 L655-657, L677-679,
+  L773-775). **jmap-filenode-client** already decodes it as
+  `SetResponse::destroyed`.
 - **jmap-did-resolver**: `Resolver::resolve_with_hint` uses the account
   capability's `didDocumentUri`. For `did:webvh` the log comes from the
   hint on any origin and is verified as usual; the witness file still
