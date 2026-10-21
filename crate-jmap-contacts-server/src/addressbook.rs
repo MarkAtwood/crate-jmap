@@ -616,12 +616,7 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
     let query_result = backend
         .query_objects::<ContactCard>(caller, account_id, Some(&filter), None, None, 0, None, 0)
         .await
-        .map_err(|e| {
-            json!({
-                "type": "serverFail",
-                "description": format!("cascade query failed: {e}")
-            })
-        })?;
+        .map_err(|e| server_fail_value_from_backend(&e))?;
 
     if query_result.ids.is_empty() {
         return Ok(());
@@ -631,12 +626,7 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
     let (cards, _not_found) = backend
         .get_objects::<ContactCard>(caller, account_id, Some(&query_result.ids), None)
         .await
-        .map_err(|e| {
-            json!({
-                "type": "serverFail",
-                "description": format!("cascade fetch failed: {e}")
-            })
-        })?;
+        .map_err(|e| server_fail_value_from_backend(&e))?;
 
     for card in cards {
         let Some(card_id) = card.id.as_ref() else {
@@ -653,13 +643,7 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
             backend
                 .destroy_object::<ContactCard>(caller, account_id, card_id)
                 .await
-                .map_err(|e| {
-                    json!({
-                        "type": "serverFail",
-                        "description":
-                            format!("cascade destroy of card {card_id} failed: {e:?}")
-                    })
-                })?;
+                .map_err(|e| server_fail_value_from_backend(&e))?;
         } else {
             // Card is shared with other books: PatchObject path
             // "addressBookIds/<id>" = null removes only this entry from the
@@ -674,13 +658,7 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
                     PatchObject::from_map(patch_map),
                 )
                 .await
-                .map_err(|e| {
-                    json!({
-                        "type": "serverFail",
-                        "description":
-                            format!("cascade update of card {card_id} failed: {e:?}")
-                    })
-                })?;
+                .map_err(|e| server_fail_value_from_backend(&e))?;
         }
     }
 
@@ -761,6 +739,45 @@ mod tests {
         assert!(
             resp["destroyed"].is_null(),
             "destroyed must be null when has_contents errs (fail-open is a bug): {resp}"
+        );
+    }
+
+    /// Oracle: bd:JMAP-wlip.2 redaction contract — a backend failure
+    /// during the `onDestroyRemoveContents` cascade surfaces as
+    /// `serverFail` whose description carries none of the backend's
+    /// error text.
+    ///
+    /// Independent check: the mock's forced `query_objects` failure
+    /// embeds [`MOCK_QUERY_FAILURE_DETAIL`]; that string must not appear
+    /// anywhere in the response.
+    #[tokio::test]
+    async fn set_destroy_cascade_failure_redacts_backend_error() {
+        use crate::test_support::MOCK_QUERY_FAILURE_DETAIL;
+
+        let backend = MockBackend::new_with_account("acc1");
+        backend.set_fail_query(true);
+        let args = json!({
+            "accountId": "acc1",
+            "onDestroyRemoveContents": true,
+            "destroy": ["ab-nonempty"]
+        });
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        let err = &resp["notDestroyed"]["ab-nonempty"];
+        assert_eq!(err["type"], "serverFail", "cascade failure: {resp}");
+        assert_eq!(
+            err["description"], "internal error",
+            "cascade failure: {resp}"
+        );
+        assert!(
+            !resp.to_string().contains(MOCK_QUERY_FAILURE_DETAIL),
+            "backend error text leaked to the wire: {resp}"
+        );
+        assert!(
+            resp["destroyed"].is_null(),
+            "book must not be destroyed when the cascade fails: {resp}"
         );
     }
 

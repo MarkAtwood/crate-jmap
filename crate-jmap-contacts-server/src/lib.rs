@@ -272,7 +272,15 @@ pub(crate) mod test_support {
         /// `Ok(_)`, used to exercise the trait's storage-degraded path
         /// (bd:JMAP-qz9v.27).
         fail_has_contents: Arc<Mutex<bool>>,
+        /// When set, `query_objects` returns `Err(BackendQueryError::Other)`
+        /// carrying [`MOCK_QUERY_FAILURE_DETAIL`], used to exercise the
+        /// AddressBook/set cascade's redaction path (bd:JMAP-yt1w.23).
+        fail_query: Arc<Mutex<bool>>,
     }
+
+    /// Backend-internal text the mock puts in a forced `query_objects`
+    /// failure; it must never reach the wire.
+    pub const MOCK_QUERY_FAILURE_DETAIL: &str = "pg: relation contact_cards_7 is locked";
 
     impl MockBackend {
         pub fn new() -> Self {
@@ -285,6 +293,7 @@ pub(crate) mod test_support {
                 })),
                 copy_called: Arc::new(Mutex::new(false)),
                 fail_has_contents: Arc::new(Mutex::new(false)),
+                fail_query: Arc::new(Mutex::new(false)),
             }
         }
 
@@ -292,6 +301,12 @@ pub(crate) mod test_support {
         /// `Err(MockError)` to exercise the storage-degraded path.
         pub fn set_fail_has_contents(&self, fail: bool) {
             *self.fail_has_contents.lock().unwrap() = fail;
+        }
+
+        /// Make subsequent `query_objects` calls return
+        /// `Err(BackendQueryError::Other)` with [`MOCK_QUERY_FAILURE_DETAIL`].
+        pub fn set_fail_query(&self, fail: bool) {
+            *self.fail_query.lock().unwrap() = fail;
         }
 
         pub fn new_with_account(account_id: &str) -> Self {
@@ -444,6 +459,11 @@ pub(crate) mod test_support {
             _anchor: Option<&Id>,
             _anchor_offset: i64,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+            if *self.fail_query.lock().unwrap() {
+                return Err(BackendQueryError::Other(MockError::new(
+                    MOCK_QUERY_FAILURE_DETAIL.to_owned(),
+                )));
+            }
             Ok(QueryResult::new(
                 vec![],
                 0,
