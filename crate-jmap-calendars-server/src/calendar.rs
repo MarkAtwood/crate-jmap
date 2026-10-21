@@ -32,7 +32,6 @@ use crate::backend::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use crate::helpers::{
     apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
-    PLACEHOLDER_ID,
 };
 use jmap_server::{
     bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
@@ -161,15 +160,9 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 );
                 continue;
             }
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.entry("id")
-                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
-                    Value::Object(m)
-                }
-                other => other,
-            };
-            let cal: Calendar = match serde_json::from_value(obj_with_id) {
+            // `Calendar.id` is optional, so the create parses without one
+            // and `build` sets the id the backend mints.
+            let mut cal: Calendar = match serde_json::from_value(obj_val) {
                 Ok(c) => c,
                 Err(e) => {
                     not_created.insert(
@@ -179,8 +172,12 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     continue;
                 }
             };
+            let build = move |id: &Id| {
+                cal.id = Some(id.clone());
+                cal
+            };
             match backend
-                .create_object::<Calendar>(caller, &account_id, &create_id, cal)
+                .create_object::<Calendar, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -694,14 +691,20 @@ mod tests {
         }
 
         impl CalendarsBackend for FaultyBackend {
-            async fn create_object<O: SetObject + Send + Sync>(
+            async fn create_object<O, F>(
                 &self,
                 _caller: &(),
                 _account_id: &Id,
                 _create_id: &str,
-                obj: O,
-            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-                Ok((Id::from("mock-id"), obj))
+                build: F,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>>
+            where
+                O: SetObject + Send + Sync,
+                F: FnOnce(&Id) -> O + Send,
+            {
+                let id = Id::from("mock-id");
+                let obj = build(&id);
+                Ok((id, obj))
             }
 
             async fn update_object<O: SetObject + Send + Sync>(

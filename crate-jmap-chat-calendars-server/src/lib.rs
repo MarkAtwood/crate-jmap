@@ -140,9 +140,9 @@ pub async fn check_calendar_id<K: CalendarsBackend>(
 ///
 /// The Calendar is named after the Space, subscribed, not the default,
 /// with `includeInAvailability: "all"` and every right for the account
-/// owner. It is inserted with [`CalendarsBackend::create_object`] without
-/// an `id`, which the backend assigns; that contract records the create
-/// for `Calendar/changes`. `caller` is a server context.
+/// owner. The [`CalendarsBackend::create_object`] builder sets the `id`
+/// the backend assigns; that contract records the create for
+/// `Calendar/changes`. `caller` is a server context.
 ///
 /// Returns the bound Calendar's id.
 ///
@@ -160,7 +160,7 @@ pub async fn create_space_calendar<K: CalendarsBackend>(
     if let Some(Value::String(existing)) = space.extra.get(SPACE_CALENDAR_ID_PROPERTY) {
         return Ok(Id::from(existing.as_str()));
     }
-    let calendar: Calendar = serde_json::from_value(serde_json::json!({
+    let mut calendar: Calendar = serde_json::from_value(serde_json::json!({
         "name": space.name,
         "isSubscribed": true,
         "isDefault": false,
@@ -178,7 +178,10 @@ pub async fn create_space_calendar<K: CalendarsBackend>(
     }))
     .expect("a Calendar with every required field deserializes");
     let (calendar_id, _) = calendars
-        .create_object(caller, account_id, "spaceCalendar", calendar)
+        .create_object(caller, account_id, "spaceCalendar", move |id: &Id| {
+            calendar.id = Some(id.clone());
+            calendar
+        })
         .await?;
     space.extra.insert(
         SPACE_CALENDAR_ID_PROPERTY.to_owned(),

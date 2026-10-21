@@ -914,13 +914,17 @@ impl JmapBackend for MemoryBackend {
 // ---------------------------------------------------------------------------
 
 impl CalendarsBackend for MemoryBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         let mut inner = self.inner.lock().unwrap();
 
         // accountId existence is enforced at the handler layer (RFC 8620
@@ -931,18 +935,9 @@ impl CalendarsBackend for MemoryBackend {
 
         let server_id = Id::from(uuid::Uuid::new_v4().to_string());
 
-        // Serialize, set "id" to the server-assigned id, then deserialize back.
-        let mut val = serde_json::to_value(&obj)
+        let stored_obj = build(&server_id);
+        let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
-        if let Some(map) = val.as_object_mut() {
-            map.insert(
-                "id".to_owned(),
-                serde_json::Value::String(server_id.as_ref().to_owned()),
-            );
-        }
-        let stored_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
-        })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         // bd:JMAP-ic0j.8 — for CalendarEvent, feed the new value to the
@@ -1651,17 +1646,25 @@ mod calendar_event_counts_tests {
         assert!(!has_key(&backend, "acc1", "cal4"));
     }
 
-    fn calendar_event(uid: &str, calendar_ids: &[&str]) -> jmap_calendars_types::CalendarEvent {
+    fn calendar_event(
+        uid: &str,
+        calendar_ids: &[&str],
+    ) -> impl FnOnce(&Id) -> jmap_calendars_types::CalendarEvent + Send {
         let mut cal_ids = serde_json::Map::new();
         for c in calendar_ids {
             cal_ids.insert((*c).to_owned(), serde_json::Value::Bool(true));
         }
-        serde_json::from_value(serde_json::json!({
-            "@type": "Event",
-            "uid": uid,
-            "calendarIds": cal_ids,
-        }))
-        .expect("CalendarEvent deserialization must succeed for valid fixture JSON")
+        let mut event: jmap_calendars_types::CalendarEvent =
+            serde_json::from_value(serde_json::json!({
+                "@type": "Event",
+                "uid": uid,
+                "calendarIds": cal_ids,
+            }))
+            .expect("CalendarEvent deserialization must succeed for valid fixture JSON");
+        move |id: &Id| {
+            event.id = Some(id.clone());
+            event
+        }
     }
 
     /// Oracle: a sequence of `create_object` / `update_object` /
@@ -1700,7 +1703,7 @@ mod calendar_event_counts_tests {
         // Create three more events through the real /set path, exercising
         // the incremental delta helper.
         let (id1, _) = backend
-            .create_object::<jmap_calendars_types::CalendarEvent>(
+            .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
                 &Id::from("acc1"),
                 "c1",
@@ -1709,7 +1712,7 @@ mod calendar_event_counts_tests {
             .await
             .unwrap();
         let (id2, _) = backend
-            .create_object::<jmap_calendars_types::CalendarEvent>(
+            .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
                 &Id::from("acc1"),
                 "c2",
@@ -1718,7 +1721,7 @@ mod calendar_event_counts_tests {
             .await
             .unwrap();
         let _ = backend
-            .create_object::<jmap_calendars_types::CalendarEvent>(
+            .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
                 &Id::from("acc1"),
                 "c3",
@@ -1757,7 +1760,7 @@ mod calendar_event_counts_tests {
     async fn create_then_destroy_removes_entry() {
         let backend = MemoryBackend::new().with_account("acc1");
         let (id, _) = backend
-            .create_object::<jmap_calendars_types::CalendarEvent>(
+            .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
                 &Id::from("acc1"),
                 "c1",
@@ -1784,7 +1787,7 @@ mod calendar_event_counts_tests {
     async fn create_two_destroy_one_keeps_entry() {
         let backend = MemoryBackend::new().with_account("acc1");
         let (id1, _) = backend
-            .create_object::<jmap_calendars_types::CalendarEvent>(
+            .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
                 &Id::from("acc1"),
                 "c1",
@@ -1793,7 +1796,7 @@ mod calendar_event_counts_tests {
             .await
             .unwrap();
         let _ = backend
-            .create_object::<jmap_calendars_types::CalendarEvent>(
+            .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
                 &Id::from("acc1"),
                 "c2",
