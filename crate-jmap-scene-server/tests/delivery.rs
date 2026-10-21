@@ -2,8 +2,8 @@
 //!
 //! Oracle: draft-atwood-jmap-scene-wss-00 at jmap-chat-spec 0cd3af0,
 //! §Event Summary L626-629, §Visibility Filtering L716-726,
-//! §Blocked-Sender Suppression L728-807 and §Client-to-Server Submission
-//! L364-379. Events are hand-written JSON, taken from the draft's
+//! §Blocked-Sender Suppression L728-807; §Client-to-Server Submission at
+//! jmap-chat-spec 6bcd9d8 L408-419. Events are hand-written JSON, taken from the draft's
 //! examples where it has one; each assertion quotes the rule it checks.
 
 mod common;
@@ -175,10 +175,18 @@ async fn delivers(
         .unwrap()
 }
 
-async fn relayable(backend: &MemoryBackend, sender: &str, e: &SceneInteractionEvent) -> bool {
+async fn relayed(
+    backend: &MemoryBackend,
+    sender: &str,
+    e: &SceneInteractionEvent,
+) -> Option<SceneInteractionEvent> {
     validate_interaction(backend, &sender.to_owned(), &Id::from(ACCOUNT), e)
         .await
         .unwrap()
+}
+
+async fn relayable(backend: &MemoryBackend, sender: &str, e: &SceneInteractionEvent) -> bool {
+    relayed(backend, sender, e).await.is_some()
 }
 
 /// L604-607: events "are delivered as server-to-client text frames over
@@ -380,29 +388,52 @@ async fn interaction_on_a_hidden_object_is_dropped() {
     assert!(delivers(&backend, CAROL, &all(), &e).await);
 }
 
-/// L364-372: "The `userId` MUST match the authenticated session's user.
-/// Before relaying, the server MUST verify: 1. The `userId` corresponds
-/// to the authenticated session. 2. The user has an active avatar
-/// (`leftAt: null`) in the specified `regionId`. 3. The `objectId`
-/// references a SceneObject in that region with `interactable: true`."
+/// jmap-chat-spec 6bcd9d8 wss L413-416: the server verifies that "1. The
+/// user has an active avatar ... in the region identified by `accountId`
+/// and `regionId`. 2. The `objectId` references a SceneObject in that
+/// region with `interactable: true`."
 #[tokio::test]
-async fn interaction_passing_all_three_checks_is_relayed() {
+async fn interaction_passing_both_checks_is_relayed() {
     let backend = scene();
     assert!(relayable(&backend, ALICE, &interaction(R1, SCULPTURE, ALICE)).await);
 }
 
-/// L366-367, check 1: "The `userId` corresponds to the authenticated
-/// session." L374-375: "If validation fails, the server MUST silently
-/// discard the frame".
+/// jmap-chat-spec 6bcd9d8 wss L408-410: "The server sets `userId` on the
+/// relayed event to the authenticated user's userId; a `userId` supplied
+/// in the frame is ignored." BOB, who has an active avatar in R1, sends a
+/// frame naming ALICE; the relayed event names BOB.
 #[tokio::test]
-async fn interaction_for_another_user_is_discarded() {
+async fn interaction_user_id_is_set_to_the_sender() {
     let backend = scene();
-    assert!(!relayable(&backend, BOB, &interaction(R1, SCULPTURE, ALICE)).await);
+    let e = relayed(&backend, BOB, &interaction(R1, SCULPTURE, ALICE))
+        .await
+        .expect("relayed");
+    assert_eq!(e.user_id, BOB);
 }
 
-/// L367-368, check 2: "The user has an active avatar (`leftAt: null`) in
-/// the specified `regionId`." ADMIN's avatar has left; CAROL has none in
-/// VAULT.
+/// jmap-chat-spec 6bcd9d8 wss L408-410: since "a `userId` supplied in the
+/// frame is ignored", a frame without one is accepted and relayed with
+/// the sender's.
+#[tokio::test]
+async fn interaction_frame_without_user_id_is_relayed() {
+    let backend = scene();
+    let frame: SceneInteractionEvent = serde_json::from_value(json!({
+        "@type": "SceneInteractionEvent",
+        "accountId": ACCOUNT,
+        "regionId": R1,
+        "objectId": SCULPTURE,
+        "action": "click",
+        "data": null
+    }))
+    .unwrap();
+    let e = relayed(&backend, ALICE, &frame).await.expect("relayed");
+    assert_eq!(e.user_id, ALICE);
+}
+
+/// jmap-chat-spec 6bcd9d8 wss L413-414, check 1: "The user has an active
+/// avatar ... in the region identified by `accountId` and `regionId`."
+/// L418-419: "If any check fails, the server discards the frame". ADMIN's
+/// avatar has left; CAROL has none in VAULT.
 #[tokio::test]
 async fn interaction_without_an_active_avatar_is_discarded() {
     let backend = scene();
@@ -410,8 +441,8 @@ async fn interaction_without_an_active_avatar_is_discarded() {
     assert!(!relayable(&backend, CAROL, &interaction(VAULT, VAULT_OBJ, CAROL)).await);
 }
 
-/// L369-370, check 3: "The `objectId` references a SceneObject in that
-/// region with `interactable: true`."
+/// jmap-chat-spec 6bcd9d8 wss L415-416, check 2: "The `objectId`
+/// references a SceneObject in that region with `interactable: true`."
 #[tokio::test]
 async fn interaction_needs_an_interactable_object_in_the_region() {
     let backend = scene();
