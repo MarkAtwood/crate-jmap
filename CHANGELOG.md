@@ -1266,6 +1266,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-server**: `expire_ring` drops its `timeout`
+  parameter and reads the period from the new `VtcBackend::ring_timeout`
+  (default `RING_TIMEOUT`, 30 seconds). `VTCParticipant/set` now rejects a
+  still-`"pending"` target's answer (`joinMethod`) or decline
+  (`callResponse`) once `createdAt` plus that period has passed, with
+  `invalidProperties` naming the patched property:
+  draft-atwood-jmap-vtc-00 §Multi-Device Forking, each target "may still
+  answer (and join) or decline until the ring timeout expires".
 - **jmap-scene-types**, **jmap-scene-server**, **jmap-scene-client**,
   **jmap-chat-scene-server**, **jmap-scene-vtc-server**, **jmap-vtc-types**,
   **jmap-vtc-server**, **jmap-vtc-client**, **jmap-chat-vtc-server**,

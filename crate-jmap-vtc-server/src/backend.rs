@@ -387,6 +387,23 @@ pub trait VtcBackend: JmapBackend {
         async { Ok(false) }
     }
 
+    /// The deployment-defined ring timeout period
+    /// (draft-atwood-jmap-vtc-00 §Ring Timeout), counted from a ring
+    /// call's `createdAt`.
+    ///
+    /// [`crate::call::expire_ring`] enforces it on the call. After it,
+    /// `VTCParticipant/set` returns `invalidProperties` naming `joinMethod`
+    /// to a still-`"pending"` target's answer and naming `callResponse` to
+    /// its decline: each target "may still answer (and join) or decline
+    /// until the ring timeout expires" (§Multi-Device Forking).
+    ///
+    /// # Default implementation
+    ///
+    /// Returns [`crate::RING_TIMEOUT`], the RECOMMENDED 30 seconds.
+    fn ring_timeout(&self) -> std::time::Duration {
+        crate::RING_TIMEOUT
+    }
+
     /// Per-backend capability probe: `true` if this backend supports the
     /// JMAP object type `O` for `account_id`. Not called by the handlers;
     /// consumers use it when assembling their Session capabilities.
