@@ -21,16 +21,23 @@ trait.
 | `may_update_room_chat`, `may_create_room_message`, `may_update_room_message` | §Chat.roomId and §message/mls restrictions, for `jmap-chat-server` `ChatBackend` hooks |
 | `parse_fanout_messages`, `Fanout`, `FanoutRecipients`, `FanoutParseError` | §application/mimi-fanout: split a `/notify` body, `senderMsgId`, `sentAt`, Welcome KeyPackageRefs |
 | `MimiBackend::store_fanout`, `MimiBackend::unbind_room` | §application/mimi-fanout storage, Welcome routing, duplicate rules, hub ChatContact; §Chat.roomId bind lifecycle |
+| `handle_key_material_fetch` | §KeyMaterial/fetch: checks, local answer as hub, or the request to the hub |
+| `handle_room_update`, `handle_room_send` | §Room/update, §Room/send: submit to the hub, store the accepted FanoutMessage |
+| `handle_room_unbind` | §Room/unbind |
+| `handle_group_info_fetch` | §GroupInfo/fetch: forward, return the GroupInfoResponse unchanged |
+| `MimiBackend::room_bound`, `MimiBackend::local_key_material_account` | "no Chat in the account is bound to `roomId`"; local target in a hosted room |
+| `MimiBackend::mimi_request`, `MimiEndpoint`, `HubReply`, `HubUnavailable` | MIMI requests to the hub or target provider; `serverUnavailable` |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_mimi_handlers` | wires `KeyPackage/get`, `KeyPackage/set` and `Room/create` |
+| `register_mimi_handlers` | wires every method above |
 
 ## What it's for
 
 A MIMI provider (mimid, or any JMAP Chat server that routes MLS messages
 for its clients) wires these handlers next to `jmap-chat-server`. The crate
 parses and verifies KeyPackages with `openmls`; it never holds MLS secrets
-and never decrypts. `KeyMaterial/fetch`, `Room/update`, `Room/send`,
-`Room/unbind` and `GroupInfo/fetch` are not here yet.
+and never decrypts. It does not implement the hub side of the MIMI
+protocol: `MimiBackend::mimi_request` sends each request to the room's
+hub, or processes it as hub when this server is the hub.
 
 ## How to use
 
@@ -87,6 +94,22 @@ bound to the account and that the room ID and group ID are unused, stores
 the room and creates the bound Chat. Every refusal is the method-level
 `invalidArguments`.
 
+`KeyMaterial/fetch`, `Room/update`, `Room/send` and `GroupInfo/fetch`
+decode the client's MIMI request (draft-ietf-mimi-protocol-06 §5.2-§5.6)
+and require `MimiBackend::room_bound`; anything else is
+`invalidArguments`. `Room/send` wraps the message in a
+SubmitMessageRequest with `sendingUri` set to `userUri`; the others send
+the request unchanged. `MimiBackend::mimi_request` returns the response,
+or `HubUnavailable`, which is `serverUnavailable`. The handler decodes the
+response into the method's arguments, and on success `Room/update` and
+`Room/send` build the FanoutMessage the hub will not send back and store it
+with `MimiBackend::store_fanout`, attributed to `HubReply::provider_uri`.
+In a room this server hosts, `KeyMaterial/fetch` for a local target
+(`MimiBackend::local_key_material_account`) is answered with
+`claim_key_packages` instead: `success` when every client got a
+KeyPackage, `partialSuccess` when some did, otherwise
+`noCompatibleMaterial` with each client's status.
+
 A Chat with a `roomId` changes only through MLS, so its `ChatBackend`
 returns `may_update_room_chat`, `may_create_room_message` and
 `may_update_room_message` from the `may_update_chat`,
@@ -118,6 +141,12 @@ returns `may_update_room_chat`, `may_create_room_message` and
 - The `base_room_policy` component ID is 0x0027, the value
   draft-ietf-mimi-room-policy-04 §10.1.4 suggests; IANA has not assigned
   one.
+- The KeyMaterialRequest and GroupInfoRequest signatures are not
+  verified; the draft does not ask the provider to, and the hub does.
+- The UpdateRequest handshake must be a PublicMessage: openmls 0.9.1 does
+  not decode a SemiPrivateMessage.
+- A hub response that does not parse is `serverFail`, not
+  `invalidArguments`.
 - The `memory` backend keeps handed-out KeyPackageRefs forever; the draft
   lets a backend drop one once a Welcome naming it is delivered or its
   lifetime passes.

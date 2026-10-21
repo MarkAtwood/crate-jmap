@@ -3,7 +3,8 @@
 //! Read-side operations (`get_objects`, `get_state`) are defined on the
 //! [`jmap_server::JmapBackend`] supertrait. This module adds the MLS crypto
 //! provider, the account-level capability object, the KeyPackage writes,
-//! the KeyPackage hand-out, rooms and FanoutMessage storage.
+//! the KeyPackage hand-out, rooms, FanoutMessage storage and the MIMI
+//! requests sent to a room's hub.
 //!
 //! The `pub use` block re-exports the [`jmap_server`] backend types so a
 //! downstream impl can `use jmap_chat_mimi_server::backend::*`; each
@@ -65,6 +66,56 @@ pub struct NewRoom {
     /// The client's `ratchetTree`, verbatim.
     pub ratchet_tree: Base64Url,
 }
+
+/// A MIMI endpoint the handlers send a request to
+/// (draft-ietf-mimi-protocol-06 §5.1 directory).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MimiEndpoint {
+    /// `POST /keyMaterial/{targetUser}` (§5.2), with the KeyMaterialRequest
+    /// `targetUser`.
+    KeyMaterial {
+        /// The target user URI.
+        target_user: String,
+    },
+    /// `POST /update/{roomId}` (§5.3), with an UpdateRequest.
+    Update,
+    /// `POST /submitMessage/{roomId}` (§5.4), with a SubmitMessageRequest.
+    SubmitMessage,
+    /// `POST /groupInfo/{roomId}` (§5.6), with a GroupInfoRequest.
+    GroupInfo,
+}
+
+/// The answer to a [`MimiBackend::mimi_request`].
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HubReply {
+    /// The provider URI of the party that answered, "as authenticated by
+    /// the MIMI transport". For every endpoint but
+    /// [`MimiEndpoint::KeyMaterial`] it is the room's hub, which the
+    /// Messages that `Room/update` and `Room/send` store are attributed to
+    /// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
+    pub provider_uri: String,
+    /// The response body: a KeyMaterialResponse, UpdateRoomResponse,
+    /// SubmitMessageResponse or GroupInfoResponse.
+    pub body: Vec<u8>,
+}
+
+impl HubReply {
+    /// A reply from `provider_uri` with response `body`.
+    pub fn new(provider_uri: impl Into<String>, body: Vec<u8>) -> Self {
+        Self {
+            provider_uri: provider_uri.into(),
+            body,
+        }
+    }
+}
+
+/// The provider a [`MimiBackend::mimi_request`] goes to cannot be reached;
+/// the method returns `serverUnavailable` (draft-atwood-jmap-chat-mimi-00
+/// §KeyMaterial/fetch, §Room/update, §Room/send, §GroupInfo/fetch).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HubUnavailable;
 
 /// The `invalidArguments` error for a `Room/create` whose leaf signature
 /// key is not bound to the account.
@@ -302,6 +353,60 @@ pub trait MimiBackend: JmapBackend {
         account_id: &jmap_types::Id,
         room_id: &str,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
+
+    /// Whether a Chat in `account_id` is bound to `room_id`
+    /// (draft-atwood-jmap-chat-mimi-00 §Chat.roomId).
+    ///
+    /// `KeyMaterial/fetch`, `Room/update`, `Room/send` and
+    /// `GroupInfo/fetch` reject the call "if no Chat in the account is
+    /// bound to" the room, and treat an unbound Chat "as if no Chat in the
+    /// account had that `roomId`".
+    fn room_bound(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        room_id: &str,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
+
+    /// The local account whose `userUri` is `target_user`, when this
+    /// server is the hub of `room_id`; otherwise `None`.
+    ///
+    /// draft-atwood-jmap-chat-mimi-00 §KeyMaterial/fetch: "When this
+    /// server is the room's hub, it answers from its own KeyPackage store
+    /// ... if the target user is local". For `Some`, `KeyMaterial/fetch`
+    /// answers with [`MimiBackend::claim_key_packages`] for that account;
+    /// for `None` it sends the request with [`MimiBackend::mimi_request`].
+    fn local_key_material_account(
+        &self,
+        caller: &Self::CallerCtx,
+        room_id: &str,
+        target_user: &str,
+    ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
+
+    /// Send the MIMI request `body` for `room_id` to `endpoint`, on behalf
+    /// of `account_id`, and return the response.
+    ///
+    /// When this server is not the room's hub, the request goes to the
+    /// hub, `KeyMaterial` "even if the target user is local". When it is
+    /// the hub, the backend "processes the request as hub" for `Update`,
+    /// `SubmitMessage` and `GroupInfo`, and sends `KeyMaterial` to the
+    /// target provider (draft-atwood-jmap-chat-mimi-00 §KeyMaterial/fetch,
+    /// §Room/update, §Room/send, §GroupInfo/fetch). `Ok(Err(HubUnavailable))`
+    /// means the provider "cannot be reached"; the outer `Err` is a
+    /// storage failure (`serverFail`).
+    ///
+    /// The handlers store the `Room/update` and `Room/send` FanoutMessage
+    /// themselves with [`MimiBackend::store_fanout`]; a backend that
+    /// processes the request as hub does not also store it for this
+    /// server's accounts.
+    fn mimi_request(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        room_id: &str,
+        endpoint: &MimiEndpoint,
+        body: &[u8],
+    ) -> impl std::future::Future<Output = Result<Result<HubReply, HubUnavailable>, Self::Error>> + Send;
 
     /// Destroy a KeyPackage record by id. Unknown `id` is `notFound`; the
     /// state advances only when the destroy commits. The signature-key
