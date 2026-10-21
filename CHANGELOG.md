@@ -1892,6 +1892,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-chat-server**: an owner-composed `Message/set` create
+  now has `senderMsgId` equal to its `id` (draft-atwood-jmap-chat-00
+  §Message: "Equals `id` for messages composed by the owner."). It
+  previously stored the client creation id, so creation ids reused across
+  requests collided in `find_message_by_sender_msg_id`. The handler passes
+  `senderMsgId` as the `"placeholder"` sentinel, and
+  `ChatBackend::create_object` MUST replace it with the assigned id in the
+  same write, as `MemoryBackend` now does; a custom backend must add this.
 - **jmap-chat-server**: `MemoryBackend` applies every draft-atwood-jmap-chat-00
   `/query` filter clause: Chat `kind` / `muted`, ChatContact `blocked` /
   `presence`, Message `topicId` / `hasAttachment` / `hasMention: false`,

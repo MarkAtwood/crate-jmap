@@ -53,6 +53,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use crate::helpers::PLACEHOLDER_ID;
 use crate::{
     strip_unsupported_chat_push, validate_chat_push, AddedItem, AttachmentBlob,
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
@@ -908,6 +909,10 @@ impl ChatBackend for MemoryBackend {
         let mut val = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
         val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
+        // `senderMsgId` sentinel contract on `create_object`.
+        if O::TYPE_NAME == "Message" && val["senderMsgId"] == PLACEHOLDER_ID {
+            val["senderMsgId"] = val["id"].clone();
+        }
         let stored_obj: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
