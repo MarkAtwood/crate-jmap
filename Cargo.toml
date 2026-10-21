@@ -55,6 +55,7 @@ members = [
     "crate-jmap-sharing-client",
     "crate-jmap-vtc-client",
     "crate-jmap-scene-client",
+    "crate-jmap-graph-client",
     "crate-jmap-testjig",
 ]
 resolver = "2"
@@ -129,6 +130,7 @@ jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.3"
 jmap-sharing-client    = { path = "crate-jmap-sharing-client",   version = "0.3" }
 jmap-vtc-client        = { path = "crate-jmap-vtc-client",       version = "0.3" }
 jmap-scene-client      = { path = "crate-jmap-scene-client",     version = "0.3" }
+jmap-graph-client      = { path = "crate-jmap-graph-client",     version = "0.3" }
 mime-tree              = "0.4"
 futures                = "0.3"
 serde                  = { version = "1", features = ["derive"] }

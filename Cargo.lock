@@ -2066,6 +2066,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-graph-client"
+version = "0.3.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-graph-types",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-graph-server"
 version = "0.3.0"
 dependencies = [

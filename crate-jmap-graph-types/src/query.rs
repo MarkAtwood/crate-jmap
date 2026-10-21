@@ -102,18 +102,31 @@ impl GraphComparator {
 /// Filter condition for `GraphNode/query`, which is also its whole filter
 /// (draft-atwood-jmap-graph-00 §GraphNode/query and
 /// §GraphNode/queryChanges; see the [module docs](self)).
+///
+/// `object_uri` is the draft-atwood-jmap-graph-projection-00 §GraphNode/query
+/// Filter addition. A request that sets it uses
+/// [`JMAP_GRAPH_PROJECTION_URI`](crate::JMAP_GRAPH_PROJECTION_URI).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GraphNodeFilterCondition {
     /// "The node is in this Graph." Required.
     pub graph_id: Id,
+    /// "The node's `objectUri` is one of these values"
+    /// (draft-atwood-jmap-graph-projection-00). Values are JMAP object URIs
+    /// such as `jmap:email:A1:M42`, compared as strings; they parse with
+    /// [`jmap_types::JmapUri`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_uri: Option<Vec<String>>,
 }
 
 impl GraphNodeFilterCondition {
     /// The condition selecting the nodes of `graph_id`.
     pub fn new(graph_id: Id) -> Self {
-        Self { graph_id }
+        Self {
+            graph_id,
+            object_uri: None,
+        }
     }
 }
 

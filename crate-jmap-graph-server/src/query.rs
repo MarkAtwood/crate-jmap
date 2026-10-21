@@ -83,8 +83,13 @@ pub fn compare_graphs(a: &Graph, b: &Graph, sort: &[GraphComparator]) -> Orderin
 }
 
 /// `true` if `node` matches `cond`: "The node is in this Graph."
+///
+/// A condition with `objectUri` (draft-atwood-jmap-graph-projection-00
+/// §GraphNode/query Filter) matches no node: this crate serves no projected
+/// Graph, and a node's `objectUri` is "Always `null` for nodes that are not
+/// in a projected Graph", so it is never "one of these values".
 pub fn node_matches(cond: &GraphNodeFilterCondition, node: &GraphNode) -> bool {
-    node.graph_id == cond.graph_id
+    node.graph_id == cond.graph_id && cond.object_uri.is_none()
 }
 
 /// Order two nodes by `sort` (`created`, `updated`), then by `id`.

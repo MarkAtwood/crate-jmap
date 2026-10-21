@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-client** (new, `publish = false`): draft-atwood-jmap-graph-00
+  client bindings — `JmapGraphExt::with_graph_session` and `SessionClient`
+  `/get`, `/changes`, `/set`, `/query` and `/queryChanges` of `Graph`,
+  `GraphNode` and `GraphEdge`, typed with the `jmap-graph-types` filters and
+  comparators, and `for_account` for a shared Graph's account (§Accounts).
+  GraphNode and GraphEdge `/query` take a required single filter condition.
+  A GraphNode filter with `objectUri` adds
+  `urn:ietf:params:jmap:graph:projection` to `using`.
+
+- **jmap-graph-types**: `JMAP_GRAPH_PROJECTION_URI`
+  (`urn:ietf:params:jmap:graph:projection`) and
+  `GraphNodeFilterCondition::object_uri`, the
+  draft-atwood-jmap-graph-projection-00 §GraphNode/query Filter. In
+  **jmap-graph-server** a condition with `objectUri` matches no node: its
+  nodes are never projected, so their `objectUri` is `null`.
+
 - **jmap-graph-server** (new, `publish = false`): draft-atwood-jmap-graph-00
   method handlers — `register_graph_handlers` and the standard `/get`,
   `/changes`, `/set`, `/query` and `/queryChanges` of `Graph`, `GraphNode`
