@@ -43,10 +43,12 @@ pub const JMAP_SCENE_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:scene:websocket
 ///     "maxRegionsPerAccount": 10,
 ///     "maxObjectsPerRegion": null,
 ///     "maxAvatarsPerRegion": 100,
-///     "maxAssetSizeBytes": null
+///     "maxAssetSizeBytes": null,
+///     "supportsSceneAsset": true
 /// }"#)?;
 /// assert_eq!(cap.max_avatars_per_region, Some(100));
 /// assert_eq!(cap.max_objects_per_region, None);
+/// assert!(cap.supports_scene_asset);
 /// # Ok::<(), serde_json::Error>(())
 /// ```
 #[non_exhaustive]
@@ -71,6 +73,15 @@ pub struct SceneCapability {
     pub max_avatars_per_region: Option<u64>,
     /// Maximum asset file size in bytes; `None` (`null`) means no limit.
     pub max_asset_size_bytes: Option<u64>,
+    /// `true` if the server supports the SceneAsset methods on this
+    /// account. "When `false`, a call to any SceneAsset method returns an
+    /// `unknownMethod` error" (draft-atwood-jmap-scene-00
+    /// §Account-Level Capability Object).
+    ///
+    /// Defaults to `true` when absent, so a capability object from a peer
+    /// predating the field keeps SceneAsset enabled. Always serialized.
+    #[serde(default = "crate::query::default_true")]
+    pub supports_scene_asset: bool,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -85,7 +96,8 @@ mod tests {
     use serde_json::json;
 
     /// Hand-written from the field list of draft-atwood-jmap-scene-00
-    /// L160-181.
+    /// L160-181, plus `supportsSceneAsset` (L235-236 at jmap-chat-spec
+    /// 6bcd9d8).
     fn sample() -> serde_json::Value {
         json!({
             "mayCreateRegion": true,
@@ -94,8 +106,35 @@ mod tests {
             "maxRegionsPerAccount": null,
             "maxObjectsPerRegion": 5000,
             "maxAvatarsPerRegion": null,
-            "maxAssetSizeBytes": 52428800
+            "maxAssetSizeBytes": 52428800,
+            "supportsSceneAsset": false
         })
+    }
+
+    #[test]
+    fn supports_scene_asset_parses() {
+        // Oracle: 6bcd9d8 L235 "`supportsSceneAsset` (Boolean)" and the
+        // L3039 Session example `"supportsSceneAsset": true`.
+        let cap: SceneCapability = serde_json::from_value(sample()).unwrap();
+        assert!(!cap.supports_scene_asset);
+        let mut raw = sample();
+        raw["supportsSceneAsset"] = json!(true);
+        let cap: SceneCapability = serde_json::from_value(raw).unwrap();
+        assert!(cap.supports_scene_asset);
+    }
+
+    #[test]
+    fn supports_scene_asset_defaults_true_and_is_emitted() {
+        // A capability object from a peer predating 6bcd9d8 L235 lacks the
+        // field; SceneAsset stays enabled and the field is written back.
+        let mut raw = sample();
+        raw.as_object_mut().unwrap().remove("supportsSceneAsset");
+        let cap: SceneCapability = serde_json::from_value(raw).unwrap();
+        assert!(cap.supports_scene_asset);
+        assert_eq!(
+            serde_json::to_value(&cap).unwrap()["supportsSceneAsset"],
+            json!(true)
+        );
     }
 
     #[test]

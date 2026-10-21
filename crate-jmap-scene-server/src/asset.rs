@@ -10,6 +10,11 @@
 //! properties on update and the owner-or-admin rule on update and destroy.
 //! `/query` supplies the "Default sort: `createdAt` descending" before the
 //! standard RFC 8620 §5.5 handling.
+//!
+//! Every handler first returns `unknownMethod` when the account's
+//! [`SceneCapability::supports_scene_asset`] is `false`: "When `false`, a
+//! call to any SceneAsset method returns an `unknownMethod` error"
+//! (§Account-Level Capability Object).
 
 use jmap_scene_types::query::SceneAssetComparator;
 use jmap_scene_types::{SceneAsset, SceneCapability};
@@ -57,6 +62,42 @@ const IMMUTABLE: &[&str] = &[
 /// `assetUri` (String), `sha256` (String)."
 const OPTIONAL_STRINGS: &[&str] = &["name", "assetUri", "sha256"];
 
+/// Capability gate shared by the `SceneAsset/*` handlers.
+///
+/// Returns `unknownMethod` (RFC 8620 §3.6.2) when
+/// [`SceneBackend::scene_capability`] reports `supportsSceneAsset: false`
+/// for the request's account. A missing, malformed or unknown `accountId`
+/// passes through so the handler reports `invalidArguments` or
+/// `accountNotFound` itself.
+async fn ensure_scene_asset_supported<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: &Value,
+) -> Result<(), JmapError> {
+    let Some(account_id) = args
+        .get("accountId")
+        .and_then(Value::as_str)
+        .and_then(|s| Id::new_validated(s).ok())
+    else {
+        return Ok(());
+    };
+    let exists = backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    if !exists {
+        return Ok(());
+    }
+    let cap = backend
+        .scene_capability(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    if !cap.supports_scene_asset {
+        return Err(JmapError::unknown_method());
+    }
+    Ok(())
+}
+
 /// Handle `SceneAsset/get` (draft-atwood-jmap-scene-00 §SceneAsset/get):
 /// standard RFC 8620 §5.1 `/get`.
 pub async fn handle_scene_asset_get<B: SceneBackend>(
@@ -64,6 +105,7 @@ pub async fn handle_scene_asset_get<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    ensure_scene_asset_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_get::<SceneAsset, B>(backend, caller, args).await
 }
 
@@ -74,6 +116,7 @@ pub async fn handle_scene_asset_changes<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    ensure_scene_asset_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_changes::<SceneAsset, B>(backend, caller, args).await
 }
 
@@ -90,6 +133,7 @@ pub async fn handle_scene_asset_query<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    ensure_scene_asset_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_query::<SceneAsset, B>(backend, caller, prepare_query(args)?)
         .await
 }
@@ -102,6 +146,7 @@ pub async fn handle_scene_asset_query_changes<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    ensure_scene_asset_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_query_changes::<SceneAsset, B>(
         backend,
         caller,
@@ -132,6 +177,7 @@ pub async fn handle_scene_asset_set<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    ensure_scene_asset_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: an unknown accountId is `accountNotFound`.
