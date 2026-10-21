@@ -9,7 +9,9 @@ use std::sync::Arc;
 use jmap_chat_federation_server::{
     check_method_access, method_access_guard, FederationCaller, PEER_METHODS,
 };
-use jmap_server::{Dispatcher, HandlerFuture, HandlerOutput, Invocation, JmapHandler, JmapRequest};
+use jmap_server::{
+    CallContext, Dispatcher, HandlerFuture, HandlerOutput, Invocation, JmapHandler, JmapRequest,
+};
 use serde_json::{json, Value};
 
 #[derive(Clone)]
@@ -120,7 +122,7 @@ fn owner_caller_is_not_forbidden_unlisted_peer_name() {
 struct Empty;
 
 impl JmapHandler<Caller> for Empty {
-    fn call(&self, _: String, _: String, _: Value, _: Caller) -> HandlerFuture {
+    fn call(&self, _cx: CallContext<Caller>) -> HandlerFuture {
         Box::pin(async { Ok(HandlerOutput::new(json!({}))) })
     }
 }

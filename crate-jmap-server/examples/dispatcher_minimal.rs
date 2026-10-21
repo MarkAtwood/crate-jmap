@@ -15,16 +15,18 @@
 use std::sync::Arc;
 
 use jmap_server::{
-    Dispatcher, HandlerFuture, HandlerOutput, Invocation, JmapHandler, JmapRequest, JmapResponse,
+    CallContext, Dispatcher, HandlerFuture, HandlerOutput, Invocation, JmapHandler, JmapRequest,
+    JmapResponse,
 };
-use serde_json::{json, Value};
+use serde_json::json;
 
 /// Echoes the method-call arguments back unchanged. The simplest possible
 /// `JmapHandler` — no state, no errors, no extra invocations.
 struct EchoHandler;
 
 impl<C: Clone + Send + 'static> JmapHandler<C> for EchoHandler {
-    fn call(&self, _method: String, _call_id: String, args: Value, _caller: C) -> HandlerFuture {
+    fn call(&self, cx: CallContext<C>) -> HandlerFuture {
+        let args = cx.args;
         Box::pin(async move { Ok(HandlerOutput::new(args)) })
     }
 }

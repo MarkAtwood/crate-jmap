@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use jmap_server::{
-    parse_request, resolve_args, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler,
+    parse_request, resolve_args, CallContext, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler,
 };
 use jmap_types::{Invocation, JmapRequest};
 use serde_json::{json, Value};
@@ -216,7 +216,7 @@ fn bench_resolve_args_no_ref(c: &mut Criterion) {
 struct NoopHandler;
 
 impl JmapHandler<()> for NoopHandler {
-    fn call(&self, _method: String, _call_id: String, _args: Value, _caller: ()) -> HandlerFuture {
+    fn call(&self, _cx: CallContext<()>) -> HandlerFuture {
         Box::pin(async move { Ok(HandlerOutput::new(json!({}))) })
     }
 }

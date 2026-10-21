@@ -33,7 +33,8 @@ use axum::{
 };
 use http_body_util::LengthLimitError;
 use jmap_server::{
-    parse_request, request_error, Dispatcher, HandlerOutput, JmapError, JmapHandler, RequestError,
+    parse_request, request_error, CallContext, Dispatcher, HandlerOutput, JmapError, JmapHandler,
+    RequestError,
 };
 use jmap_types::{Id, State};
 use serde_json::Value;
@@ -516,13 +517,8 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
 struct EchoHandler;
 
 impl JmapHandler<()> for EchoHandler {
-    fn call(
-        &self,
-        _method: String,
-        _call_id: String,
-        args: Value,
-        _caller: (),
-    ) -> jmap_server::HandlerFuture {
+    fn call(&self, cx: CallContext<()>) -> jmap_server::HandlerFuture {
+        let args = cx.args;
         // Per RFC 8620 §4 the response is the exact same arguments
         // object the client sent; there are no extra invocations.
         Box::pin(async move { Ok(HandlerOutput::new(args)) })
