@@ -194,6 +194,7 @@ mod tests {
             may_write: true,
             may_share: false,
             may_delete: false,
+            may_set_metadata: Some(true),
             extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&original).unwrap();
@@ -1609,5 +1610,37 @@ mod tests {
             j,
             r#"{"addressBookIds":{"ab1":true,"ab2":true},"localizations":{"de":{"name/full":"Johann"},"fr":{"name/full":"Jean"}}}"#
         );
+    }
+
+    /// draft-ietf-jmap-metadata-04 §4.1: the rights object "gains the following
+    /// property: *maySetMetadata*: Boolean", present only when the metadata
+    /// capability lists the type. Oracle: hand-written JSON with the spec's wire name.
+    #[test]
+    fn address_book_rights_may_set_metadata_typed_and_optional() {
+        let with = serde_json::json!({
+            "mayRead": true, "mayWrite": false, "mayShare": false, "mayDelete": false,
+            "maySetMetadata": true
+        });
+        let r: AddressBookRights = serde_json::from_value(with.clone()).unwrap();
+        assert_eq!(r.may_set_metadata, Some(true));
+        assert!(!r.extra.contains_key("maySetMetadata"));
+        assert_eq!(serde_json::to_value(&r).unwrap(), with);
+
+        let without = serde_json::json!({
+            "mayRead": true, "mayWrite": false, "mayShare": false, "mayDelete": false
+        });
+        let r: AddressBookRights = serde_json::from_value(without.clone()).unwrap();
+        assert_eq!(r.may_set_metadata, None);
+        assert_eq!(serde_json::to_value(&r).unwrap(), without);
+    }
+
+    /// `maySetMetadata` is a typed wire field, so an `extra` key with that
+    /// name must be reported as a collision.
+    #[test]
+    fn address_book_rights_extra_may_set_metadata_collides() {
+        let mut r = AddressBookRights::default();
+        r.extra
+            .insert("maySetMetadata".to_owned(), serde_json::Value::Bool(true));
+        assert!(r.validate_extras().is_err());
     }
 }

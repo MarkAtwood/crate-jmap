@@ -134,6 +134,12 @@ pub struct FilesRights {
     pub may_modify_content: bool,
     /// User may change the sharing of this node (see RFC 9670 JMAP Sharing).
     pub may_share: bool,
+    /// User may modify the shared metadata of this node
+    /// (draft-ietf-jmap-metadata-04 §4.1).
+    /// `None` when the server omits it: the right is present only when the
+    /// metadata capability lists this type or a type it contains (§4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub may_set_metadata: Option<bool>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

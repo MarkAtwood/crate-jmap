@@ -1,6 +1,6 @@
 mod common;
 
-use jmap_mail_types::{Mailbox, MailboxRole};
+use jmap_mail_types::{Mailbox, MailboxRights, MailboxRole};
 
 #[test]
 fn mailbox_inbox_deserializes_correctly() {
@@ -186,4 +186,27 @@ fn mailbox_without_role_serializes_role_null() {
     let mb: Mailbox = serde_json::from_str(json).expect("deserialize");
     let v = serde_json::to_value(&mb).expect("serialize");
     assert!(v["role"].is_null() && v.get("role").is_some(), "{v}");
+}
+
+/// draft-ietf-jmap-metadata-04 §4.1: the rights object of every data type with
+/// `myRights` "gains the following property: *maySetMetadata*: Boolean", and
+/// the right is only present when the metadata capability lists the type, so
+/// it is optional on the wire. Oracle: hand-written JSON with the spec's wire name.
+#[test]
+fn mailbox_rights_may_set_metadata_typed_and_optional() {
+    let with: serde_json::Value = serde_json::json!({ "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true, "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": false, "mayRename": false, "mayDelete": false, "maySubmit": false, "maySetMetadata": true });
+    let r: MailboxRights = serde_json::from_value(with.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, Some(true));
+    assert!(!r.extra.contains_key("maySetMetadata"));
+    assert_eq!(serde_json::to_value(&r).unwrap(), with);
+
+    let denied: serde_json::Value = serde_json::json!({ "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true, "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": false, "mayRename": false, "mayDelete": false, "maySubmit": false, "maySetMetadata": false });
+    let r: MailboxRights = serde_json::from_value(denied.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, Some(false));
+    assert_eq!(serde_json::to_value(&r).unwrap(), denied);
+
+    let without: serde_json::Value = serde_json::json!({ "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true, "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": false, "mayRename": false, "mayDelete": false, "maySubmit": false });
+    let r: MailboxRights = serde_json::from_value(without.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, None);
+    assert_eq!(serde_json::to_value(&r).unwrap(), without);
 }

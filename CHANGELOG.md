@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-types**, **jmap-calendars-types**, **jmap-contacts-types**,
+  **jmap-filenode-types**, **jmap-tasks-types**: `may_set_metadata:
+  Option<bool>` on `MailboxRights`, `CalendarRights`, `AddressBookRights`,
+  `FilesRights` and `TaskRights`, the `maySetMetadata` right of
+  draft-ietf-jmap-metadata-04 §4.1. It also applies to `shareWith` entries.
+  `None` means the server omitted it. A `maySetMetadata` key now decodes
+  into this field instead of `extra`.
 - **jmap-metadata-server**: `is_well_formed_metadata_path`, which checks
   that a metadata filter path uses `~` only as the RFC 6901 escapes `~0`
   and `~1`. A `/query` handler rejects a path that fails it with

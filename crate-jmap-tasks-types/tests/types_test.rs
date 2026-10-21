@@ -1581,3 +1581,26 @@ fn task_localizations_serialize_in_sorted_key_order() {
         r#"{"localizations":{"de":{"title":"Aufgabe"},"fr":{"title":"Tache"}}}"#
     );
 }
+
+/// draft-ietf-jmap-metadata-04 §4.1: the rights object of every data type with
+/// `myRights` "gains the following property: *maySetMetadata*: Boolean", and
+/// the right is only present when the metadata capability lists the type, so
+/// it is optional on the wire. Oracle: hand-written JSON with the spec's wire name.
+#[test]
+fn task_rights_may_set_metadata_typed_and_optional() {
+    let with: serde_json::Value = serde_json::json!({ "mayReadItems": true, "mayWriteAll": false, "mayWriteOwn": true, "mayUpdatePrivate": true, "mayRSVP": true, "mayAdmin": false, "mayDelete": false, "maySetMetadata": true });
+    let r: TaskRights = serde_json::from_value(with.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, Some(true));
+    assert!(!r.extra.contains_key("maySetMetadata"));
+    assert_eq!(serde_json::to_value(&r).unwrap(), with);
+
+    let denied: serde_json::Value = serde_json::json!({ "mayReadItems": true, "mayWriteAll": false, "mayWriteOwn": true, "mayUpdatePrivate": true, "mayRSVP": true, "mayAdmin": false, "mayDelete": false, "maySetMetadata": false });
+    let r: TaskRights = serde_json::from_value(denied.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, Some(false));
+    assert_eq!(serde_json::to_value(&r).unwrap(), denied);
+
+    let without: serde_json::Value = serde_json::json!({ "mayReadItems": true, "mayWriteAll": false, "mayWriteOwn": true, "mayUpdatePrivate": true, "mayRSVP": true, "mayAdmin": false, "mayDelete": false });
+    let r: TaskRights = serde_json::from_value(without.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, None);
+    assert_eq!(serde_json::to_value(&r).unwrap(), without);
+}

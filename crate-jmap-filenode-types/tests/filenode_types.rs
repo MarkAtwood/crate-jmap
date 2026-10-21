@@ -1145,3 +1145,26 @@ fn filenode_without_space_id_omits_it() {
     let back = serde_json::to_value(&node).unwrap();
     assert!(back.get("spaceId").is_none(), "L122 absent: {back}");
 }
+
+/// draft-ietf-jmap-metadata-04 §4.1: the rights object of every data type with
+/// `myRights` "gains the following property: *maySetMetadata*: Boolean", and
+/// the right is only present when the metadata capability lists the type, so
+/// it is optional on the wire. Oracle: hand-written JSON with the spec's wire name.
+#[test]
+fn files_rights_may_set_metadata_typed_and_optional() {
+    let with: serde_json::Value = serde_json::json!({ "mayRead": true, "mayAddChildren": true, "mayRename": false, "mayDelete": false, "mayModifyContent": true, "mayShare": false, "maySetMetadata": true });
+    let r: FilesRights = serde_json::from_value(with.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, Some(true));
+    assert!(!r.extra.contains_key("maySetMetadata"));
+    assert_eq!(serde_json::to_value(&r).unwrap(), with);
+
+    let denied: serde_json::Value = serde_json::json!({ "mayRead": true, "mayAddChildren": true, "mayRename": false, "mayDelete": false, "mayModifyContent": true, "mayShare": false, "maySetMetadata": false });
+    let r: FilesRights = serde_json::from_value(denied.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, Some(false));
+    assert_eq!(serde_json::to_value(&r).unwrap(), denied);
+
+    let without: serde_json::Value = serde_json::json!({ "mayRead": true, "mayAddChildren": true, "mayRename": false, "mayDelete": false, "mayModifyContent": true, "mayShare": false });
+    let r: FilesRights = serde_json::from_value(without.clone()).unwrap();
+    assert_eq!(r.may_set_metadata, None);
+    assert_eq!(serde_json::to_value(&r).unwrap(), without);
+}
