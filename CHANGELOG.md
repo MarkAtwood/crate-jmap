@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-client** (new crate, `publish = false`): binds every
+  draft-atwood-jmap-vtc-00 method — `/get`, `/changes`, `/set`, `/query`
+  and `/queryChanges` for VTCCall, VTCParticipant, VTCRecording and
+  VTCLivestream — on `SessionClient` via `JmapVtcExt::with_vtc_session`.
+  `/get` decodes the `jmap-vtc-types` objects; `/query` and `/queryChanges`
+  take the `jmap-vtc-types` filters and comparators; `/set` returns the
+  untyped `SetResponse` because RFC 8620 §5.3 created entries carry only
+  server-set properties. `SessionClient::for_account` targets a call's
+  hosting account (§Hosting Account), the primary VTC account staying the
+  default.
+- **jmap-vtc-types**: `VtcParticipantFilter`,
+  `VtcParticipantFilterCondition`, `VtcParticipantSortProperty` and
+  `VtcParticipantComparator` for `VTCParticipant/query`.
 - **jmap-chat-mimi-client** (new crate): the draft-atwood-jmap-chat-mimi-00
   client. `JmapMimiExt::with_mimi_session` binds a `jmap-base-client`
   session to its primary `urn:ietf:params:jmap:chat:mimi` account;

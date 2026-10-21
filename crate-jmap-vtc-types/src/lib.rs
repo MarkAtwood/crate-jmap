@@ -37,7 +37,8 @@
 //!   [`VtcStreamEnable`] and [`VtcStreamDisable`], and the
 //!   [`VTC_EVENT_TYPES`] vocabulary — the client→server stream control
 //!   frames of draft-atwood-jmap-vtc-wss-00.
-//! - [`query`] — the `VTCCall/query` filter and comparator.
+//! - [`query`] — the `VTCCall/query`, `VTCParticipant/query`,
+//!   `VTCRecording/query` and `VTCLivestream/query` filters and comparators.
 //! - `JmapObject` impls for [`VtcCall`] (`"VTCCall"`, get/set/query) and
 //!   [`VtcParticipant`] (`"VTCParticipant"`, get), for `jmap-vtc-server`.
 

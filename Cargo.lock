@@ -2384,6 +2384,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-vtc-client"
+version = "0.3.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-types",
+ "jmap-vtc-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-vtc-server"
 version = "0.3.0"
 dependencies = [

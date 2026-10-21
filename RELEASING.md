@@ -108,7 +108,7 @@ The 2026-05-13 publish wave surfaced these. Read before the next release.
 ### 0. Scene and VTC crates are unpublished drafts (bd:JMAP-38uq.14)
 
 `jmap-scene-{types,server,client}`, `jmap-chat-scene-server`,
-`jmap-scene-vtc-server`, `jmap-vtc-{types,server}` and
+`jmap-scene-vtc-server`, `jmap-vtc-{types,server,client}` and
 `jmap-chat-vtc-server` set `publish = false` and are absent from the
 layer table above. No publishable crate depends on them. Remove the flag
 and add them to the table only once they match their drafts (JMAP-0x0q).
