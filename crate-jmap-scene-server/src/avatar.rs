@@ -31,12 +31,13 @@ use jmap_server::{
     HandlerOutput, SetError, SetErrorType,
 };
 
-/// "The server sets `id`, `userId`, `position` (...), `orientation`
-/// (...), `joinedAt`, and `leftAt` (to `null`)." `position` and
-/// `orientation` may still be supplied ("Position, when supplied by the
-/// client (e.g., for teleport-on-entry), must contain finite Numbers"), and
-/// `userId` is checked against the caller instead, so these remain.
-const SERVER_SET_ON_CREATE: &[&str] = &["id", "joinedAt", "leftAt"];
+/// "The server sets `id`, `userId` (to the caller's userId), `position`
+/// (to the region's `spawnPosition`), `orientation` (to the region's
+/// `spawnOrientation`), `joinedAt`, and `leftAt` (to `null`)." A client
+/// "MUST omit any properties that may only be set by the server" (RFC 8620
+/// §5.3). `userId` is checked against the caller instead (`forbidden`), so
+/// it is not listed.
+const SERVER_SET_ON_CREATE: &[&str] = &["id", "position", "orientation", "joinedAt", "leftAt"];
 
 /// Properties no update may patch: `id` and `regionId` are immutable,
 /// `userId` and `joinedAt` server-set.
@@ -395,11 +396,9 @@ async fn enter_region<B: SceneBackend>(
         m.insert("displayName".to_owned(), json!(name));
     }
     // "The server sets ... `position` (to the region's `spawnPosition`),
-    // `orientation` (to the region's `spawnOrientation`)" unless supplied.
-    m.entry("position")
-        .or_insert_with(|| json!(region.spawn_position));
-    m.entry("orientation")
-        .or_insert_with(|| json!(region.spawn_orientation));
+    // `orientation` (to the region's `spawnOrientation`)".
+    m.insert("position".to_owned(), json!(region.spawn_position));
+    m.insert("orientation".to_owned(), json!(region.spawn_orientation));
     if let Some(q) = normalized_orientation(&m) {
         m.insert("orientation".to_owned(), q);
     }

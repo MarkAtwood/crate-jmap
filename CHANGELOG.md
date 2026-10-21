@@ -1076,6 +1076,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `SceneAvatar/set` create now refuses a
+  client-supplied `position` or `orientation` with `invalidProperties`
+  and always sets them from the region's `spawnPosition` and
+  `spawnOrientation` (draft-atwood-jmap-scene-00 §Entering a Region: "The
+  server sets ... `position` (to the region's `spawnPosition`),
+  `orientation` (to the region's `spawnOrientation`)"; the
+  teleport-on-entry exception was removed). Previously a supplied value
+  was kept.
+
 - **BREAKING** **jmap-scene-server**: `SceneRegion/set` names `spaceId`,
   not `accessPolicy`, in `invalidProperties` when `accessPolicy` is
   `"space"` and `spaceId` is null (draft-atwood-jmap-scene-00 §Updating a

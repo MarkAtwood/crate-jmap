@@ -454,9 +454,9 @@ async fn missing_region_is_invalid_region_id() {
 
 #[tokio::test]
 async fn malformed_creates_are_invalid_properties() {
-    // L2149 "`regionId` is missing"; L2150 "`position` contains non-finite
-    // values (if explicitly supplied)"; L2151 "`visualRef` is present but
-    // `visualType` is absent (or vice versa)".
+    // L2384 "`regionId` is missing"; L2385 "`visualRef` is present but
+    // `visualType` is absent (or vice versa)"; L2137 `position` is
+    // server-set, so any supplied value is refused.
     let backend = setup();
     let err = create_error(&backend, ALICE, json!({ "displayName": "Alice" })).await;
     assert_invalid(&err, &["regionId"]);
@@ -485,18 +485,27 @@ async fn malformed_creates_are_invalid_properties() {
 }
 
 #[tokio::test]
-async fn supplied_position_is_kept() {
-    // L2150 "Position, when supplied by the client (e.g., for
-    // teleport-on-entry), must contain finite Numbers. Normally the server
-    // sets position from `spawnPosition`."
+async fn supplied_position_or_orientation_is_invalid_properties() {
+    // L2135 "Optional: `displayName` (String), `visualRef` (String),
+    // `visualType` (String), `worldState` (Object)." L2137 "The server sets
+    // ... `position` (to the region's `spawnPosition`), `orientation` (to
+    // the region's `spawnOrientation`)". RFC 8620 Section 5.3: the client
+    // "MUST omit any properties that may only be set by the server".
     let backend = setup();
-    let resp = set(
+    let err = create_error(
         &backend,
         ALICE,
-        json!({ "create": { "av0": { "regionId": REGION, "position": [3, 0, 4] } } }),
+        json!({ "regionId": REGION, "position": [3, 0, 4] }),
     )
     .await;
-    assert_eq!(resp["created"]["av0"]["position"], json!([3.0, 0.0, 4.0]));
+    assert_invalid(&err, &["position"]);
+    let err = create_error(
+        &backend,
+        ALICE,
+        json!({ "regionId": REGION, "orientation": [0, 0, 0, 1] }),
+    )
+    .await;
+    assert_invalid(&err, &["orientation"]);
 }
 
 #[tokio::test]
