@@ -177,7 +177,7 @@ requires a backend method beyond what jmapchat-server needed. A new
 (with `removed: Vec<Id>` and `added: Vec<AddedItem>`).
 
 Backends that cannot compute incremental query deltas should return
-`Err(BackendChangesError::TooManyChanges { limit: 0 })`, which the handler
+`Err(BackendChangesError::CannotCalculate)`, which the handler
 maps to `cannotCalculateChanges` per RFC 8620 §5.5.
 
 ### 3. Email/import and Email/parse as separate backend methods

@@ -184,7 +184,7 @@ passed through.
 `ContactCard/queryChanges` requires a backend method beyond generic get/changes.
 `query_changes<ContactCard>` returns `QueryChangesResult` (with `removed: Vec<Id>`
 and `added: Vec<AddedItem>`).  Backends that cannot compute incremental query
-deltas return `Err(BackendChangesError::TooManyChanges { limit: 0 })`, which the
+deltas return `Err(BackendChangesError::CannotCalculate)`, which the
 handler maps to `cannotCalculateChanges` per RFC 8620 §5.6.
 
 Note: there is no `AddressBook/queryChanges` in the contacts draft.
