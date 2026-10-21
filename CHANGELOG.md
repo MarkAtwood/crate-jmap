@@ -821,6 +821,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `EphemeralSubscription::from_enable`
+  and `replace_with` take a new `CompanionStreams` argument naming the
+  companion WebSocket capabilities the server advertises. `"vtc"` and
+  `"scene"` in `dataTypes` now count as recognized when their capability
+  is advertised, so a companion-only `ChatStreamEnable` is accepted, and
+  the new `vtc()` / `scene()` accessors report them
+  (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push: an error only
+  when there is "none of `"typing"`, `"presence"`, or a companion value
+  whose capability the server advertises"). Pass `vtc()` / `scene()` as
+  the `chat_vtc` / `chat_scene` flags of `jmap-chat-vtc-server` and
+  `jmap-chat-scene-server`.
 - **BREAKING** **jmap-chat-types**: `ChatTypingEvent` and
   `ChatPresenceEvent` gain a required `account_id` (`accountId`), the
   account that contains the Chat or ChatContact

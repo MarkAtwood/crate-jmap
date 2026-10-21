@@ -304,14 +304,16 @@ pub async fn is_blocked_by_contact<C: ChatBackend>(
 /// both subscription paths of draft-atwood-jmap-vtc-wss-00
 /// §Interoperability with JMAP Chat WebSocket.
 ///
-/// `chat_vtc` is `true` while the connection's current `ChatStreamEnable`
-/// subscription has `"vtc"` in `dataTypes`. Set it from a frame that
-/// [`jmap_chat_server::EphemeralSubscription::replace_with`] accepted, keep
-/// it when that call fails, and clear it on `ChatStreamDisable`. Pass
-/// `false` when the server does not advertise
-/// `urn:ietf:params:jmap:vtc:websocket`: the server "MUST silently ignore
-/// `"vtc"` in `dataTypes`" then (draft-atwood-jmap-chat-wss-00 §Enabling
-/// Ephemeral Push). `subscription` is the connection's `VTCStreamEnable`
+/// `chat_vtc` is [`jmap_chat_server::EphemeralSubscription::vtc`] of the
+/// connection's current `ChatStreamEnable` subscription: `true` only when
+/// `"vtc"` was in `dataTypes` and the server advertises
+/// `urn:ietf:params:jmap:vtc:websocket`, as passed in
+/// [`jmap_chat_server::CompanionStreams`]. Without that capability,
+/// `"vtc"` "is treated as unrecognized and silently ignored"
+/// (draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push, L196). A
+/// failed [`jmap_chat_server::EphemeralSubscription::replace_with`] leaves
+/// the subscription, and so the flag, unchanged, and `ChatStreamDisable`
+/// clears it. `subscription` is the connection's `VTCStreamEnable`
 /// subscription, which only `VTCStreamDisable` resets (§Subscription
 /// Independence).
 ///

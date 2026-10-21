@@ -46,11 +46,11 @@ checks. One `bool` per event and connection means no duplicates.
 
 ## Gotchas
 
-- The transport keeps the `chat_scene` flag: set it from a
-  `ChatStreamEnable` that `jmap_chat_server::EphemeralSubscription::replace_with`
-  accepted with `"scene"` in `dataTypes`, keep it when that call fails,
-  clear it on `ChatStreamDisable`, and pass `false` when the server does
-  not advertise `urn:ietf:params:jmap:scene:websocket`.
+- Pass `jmap_chat_server::EphemeralSubscription::scene` as `chat_scene`.
+  It is `true` only when the accepted `ChatStreamEnable` listed `"scene"`
+  and `CompanionStreams` says the server advertises
+  `urn:ietf:params:jmap:scene:websocket`; a failed `replace_with` keeps
+  it and `ChatStreamDisable` clears it.
 - A rejected `SceneStreamEnable` leaves the Scene subscription unchanged
   (`replace_with` errors without writing) and never touches the flag, so
   "errors in one mechanism" do not reach the other.

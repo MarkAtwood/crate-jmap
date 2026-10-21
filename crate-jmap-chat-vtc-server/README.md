@@ -76,10 +76,10 @@ require.
 - Space ban enforcement (vtc §Access Control) is not here yet: it writes
   `VTCParticipant.leftAt`, and `VtcParticipant` has no `SetObject` impl
   yet (bd:JMAP-8mem.10). `contact_identity` is its first step.
-- `should_deliver_vtc` takes a `chat_vtc` flag the transport keeps: set
-  it from an accepted `ChatStreamEnable` that lists `"vtc"`, clear it on
-  `ChatStreamDisable`, and pass `false` when the server does not
-  advertise `urn:ietf:params:jmap:vtc:websocket`.
+- Pass `jmap_chat_server::EphemeralSubscription::vtc` as the `chat_vtc`
+  flag of `should_deliver_vtc`. It is `true` only when the accepted
+  `ChatStreamEnable` listed `"vtc"` and `CompanionStreams` says the server
+  advertises `urn:ietf:params:jmap:vtc:websocket`.
 - `clear_*_references` and `is_blocked_by_contact`
   read every record of the type; each carries a `ponytail:` note with the
   upgrade path.
