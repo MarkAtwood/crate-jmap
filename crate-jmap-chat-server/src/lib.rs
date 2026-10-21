@@ -96,7 +96,7 @@ pub use contact::{
     handle_contact_changes, handle_contact_get, handle_contact_query, handle_contact_query_changes,
     handle_contact_set,
 };
-pub use did_auth::{verify_did_signature, DidAuthRejection, DidDocument};
+pub use did_auth::{verify_did_binding, DidAuthRejection, DidDocument};
 pub use emoji::{
     handle_emoji_changes, handle_emoji_get, handle_emoji_query, handle_emoji_query_changes,
     handle_emoji_set,

@@ -25,22 +25,24 @@ wire behaviour that a conforming peer can observe.
 - **jmap-chat-vtc-server**: `sync_active_call_id` sets and clears
   `Chat.activeCallAccountId` together with `activeCallId` in one Chat
   update (draft-atwood-jmap-vtc-00 §Active call banner).
-- **jmap-chat-server**: `verify_did_signature`, DID-keyed peer
-  authentication (draft-atwood-jmap-chat-did-00 §Federation
-  Authentication). It verifies the request's `jmap-chat-peer` RFC 9421
-  signature against the Ed25519 keys of the resolved DID Document's
+- **jmap-chat-server**: `verify_did_binding`, the DID-bound verification
+  of a DID-form peer identity (draft-atwood-jmap-chat-did-00 §DID-Bound
+  Verification). Run after the request signature has verified against
+  the peer domain's `peerSigningKeys`, it takes the key that verified it
+  (`Accepted::key`) and succeeds only if the resolved DID Document's
   `authentication` relationship (embedded, absolute or `#fragment`
-  references; `publicKeyJwk` or Ed25519 `publicKeyMultibase`). No
-  document, a document whose `id` is not the DID, or a failed check is a
-  `DidAuthRejection`. The crate now depends on `jmap-peer-auth`. The
-  caller passes the document as `DidDocument::Cached` or
-  `DidDocument::Refreshed`; when the `kid` names no `authentication` key
-  of a cached document it returns `DidAuthRejection::RefreshRequired`, so
-  the caller refreshes and retries once (§Caching: "If the key that
+  references; `publicKeyJwk` or Ed25519 `publicKeyMultibase`) holds an
+  Ed25519 key equal to it octet for octet. It verifies no signature and
+  records no nonce. No document (`DidAuthRejection::Unresolved`), a
+  document whose `id` is not the DID (`DocumentIdMismatch`) or an absent
+  key (`KeyNotBound`) is a rejection. The crate now depends on
+  `jmap-peer-auth`. The caller passes the document as
+  `DidDocument::Cached` or `DidDocument::Refreshed`; a key absent from a
+  cached document gives `DidAuthRejection::RefreshRequired`, so the
+  caller refreshes and checks once more (§Caching: "If the key that
   verified a request signature is not in the `authentication`
   verification relationship of the cached DID Document ..., the server
-  MUST resolve the DID again"). A bad signature under a key the cached
-  document holds is a plain `DidAuthRejection::Signature`.
+  MUST resolve the DID again").
 - **jmap-chat-federation-server**: `assigneeIds` in the metadata of a
   `urn:jmap:chat:cap:task` MessageAction is mapped as a user reference
   (draft-atwood-jmap-chat-tasks-00 §Federation). `Peer/deliver` resolves

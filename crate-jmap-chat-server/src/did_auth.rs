@@ -1,19 +1,23 @@
-//! DID-keyed peer authentication (draft-atwood-jmap-chat-did-00
+//! DID-bound verification of a peer identity (draft-atwood-jmap-chat-did-00
 //! §Federation Authentication).
 //!
-//! A federated peer whose principal identity is a DID proves control of
-//! that DID with "a cryptographic signature made by a public key bound in
-//! the DID's DID Document". This module follows the draft's recommended
-//! realization: "RFC 9421 HTTP Message Signatures using an Ed25519
-//! signing key selected from the DID Document's `authentication`
-//! verification relationship".
+//! The draft keeps draft-atwood-jmap-chat-federation-00's request signing
+//! as the only signature mechanism: "This document does not change that
+//! mechanism and defines no other." A request is first verified against
+//! the peer domain's `peerSigningKeys` (for example with
+//! [`jmap_peer_auth::SignedRequest::verify`], whose
+//! [`jmap_peer_auth::Accepted`] carries the key that verified it). Then,
+//! for a DID-form peer identity, §DID-Bound Verification: "It takes the
+//! Ed25519 public key that verified the request signature ... The
+//! verification succeeds only if the `authentication` verification
+//! relationship ({{DID-CORE}}) of the resolved DID Document contains a
+//! verification method whose public key is an Ed25519 public key
+//! ({{RFC8032}}) equal, octet for octet, to that key."
+//! [`verify_did_binding`] is that check. It does not verify a signature
+//! or record a nonce.
 //!
-//! The signature is the request's one `jmap-chat-peer` signature of
-//! draft-atwood-jmap-chat-federation-00 §Request Signing, parsed by
-//! [`SignedRequest::parse`]. [`verify_did_signature`] runs the same
-//! checks against the DID's `authentication` keys instead of the peer
-//! domain's `peerSigningKeys`: the `kid` in the `keyid` must be the
-//! RFC 7638 thumbprint of one of those keys.
+//! "For a `did:web` peer identity, {{JMAP-CHAT-FED}} binds the identity by
+//! the domain name it encodes and does not require this verification".
 //!
 //! This crate does no I/O. The caller resolves the DID and passes the
 //! resolved DID Document as a [`DidDocument`], or `None` when resolution
@@ -26,17 +30,15 @@
 //! whose `authentication` keys do not include the signing key yields
 //! [`DidAuthRejection::RefreshRequired`]: the caller refreshes the
 //! document (for example with `jmap_did_resolver::Resolver::refresh`,
-//! which applies the draft's "once every 60 seconds" limit) and verifies
+//! which applies the draft's "once every 60 seconds" limit) and checks
 //! once more with [`DidDocument::Refreshed`].
 
 use std::fmt;
-use std::time::SystemTime;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use jmap_did_types::{Did, DidKey, KeyType};
 use jmap_peer_auth::ed25519_dalek::VerifyingKey;
-use jmap_peer_auth::{Accepted, PeerDomain, PeerSigningKey, Rejection, SignedRequest};
 use serde_json::Value;
 
 /// A resolved DID Document and whether it may come from a cache.
@@ -51,31 +53,31 @@ pub enum DidDocument<'a> {
     Refreshed(&'a Value),
 }
 
-/// Why a request is not authenticated for a DID.
+/// Why a DID-form peer identity is not bound to the signing key.
 ///
-/// draft-atwood-jmap-chat-did-00 §Signature requirement step 4: "If
-/// verification fails, the receiving server SHOULD reject the request
-/// with an authentication error."
+/// draft-atwood-jmap-chat-did-00 §DID-Bound Verification: "If the
+/// verification fails, including because the DID cannot be resolved
+/// ({{resolution}}), the identity binding of {{JMAP-CHAT-FED}} does not
+/// hold and the receiving server rejects the request."
 ///
 /// `#[non_exhaustive]`, so new variants stay semver-additive.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DidAuthRejection {
     /// No usable DID Document: resolution failed and nothing usable is
-    /// cached. §Resolution failure handling: "the server SHOULD treat the
-    /// DID as unverified and SHOULD reject any authentication attempt
-    /// that depends on it."
+    /// cached. §Resolution failure handling: "the DID-bound verification
+    /// fails ({{did-verification}}) and the request is rejected."
     Unresolved,
     /// The document's `id` is not the DID. W3C DID Core §7.1: "The value
     /// of id in the resolved DID document MUST match the DID that was
     /// resolved."
     DocumentIdMismatch,
-    /// The signature failed a check against the DID's `authentication`
-    /// keys. [`Rejection::UnknownKey`] means the `kid` names none of them.
-    Signature(Rejection),
-    /// The `kid` names none of a [`DidDocument::Cached`] document's
-    /// `authentication` keys. Refresh the document and verify once more
-    /// with [`DidDocument::Refreshed`] before rejecting.
+    /// No Ed25519 key of the document's `authentication` relationship
+    /// equals the signing key.
+    KeyNotBound,
+    /// The signing key is absent from a [`DidDocument::Cached`]
+    /// document's `authentication` keys. Refresh the document and check
+    /// once more with [`DidDocument::Refreshed`] before rejecting.
     RefreshRequired,
 }
 
@@ -84,7 +86,9 @@ impl fmt::Display for DidAuthRejection {
         match self {
             Self::Unresolved => f.write_str("DID could not be resolved"),
             Self::DocumentIdMismatch => f.write_str("DID document id does not match the DID"),
-            Self::Signature(_) => f.write_str("DID-bound signature did not verify"),
+            Self::KeyNotBound => {
+                f.write_str("signing key is not in the DID document's authentication keys")
+            }
             Self::RefreshRequired => {
                 f.write_str("signing key is not in the cached DID document's authentication keys")
             }
@@ -92,52 +96,39 @@ impl fmt::Display for DidAuthRejection {
     }
 }
 
-impl std::error::Error for DidAuthRejection {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Signature(rejection) => Some(rejection),
-            Self::Unresolved | Self::DocumentIdMismatch | Self::RefreshRequired => None,
-        }
-    }
-}
+impl std::error::Error for DidAuthRejection {}
 
-/// Verifies that `signed` was made by a key in `did`'s DID Document
-/// `authentication` relationship (draft-atwood-jmap-chat-did-00
-/// §Signature requirement steps 2 to 5).
+/// Checks that `signing_key`, the `peerSigningKeys` key that verified the
+/// request signature, is bound to `did` (draft-atwood-jmap-chat-did-00
+/// §DID-Bound Verification steps 2 and 3).
 ///
-/// `document` is the resolved DID Document of `did`, or `None` when
-/// resolution failed and no usable cached document is held. Pass a
-/// document that may be cached as [`DidDocument::Cached`]. `now` and
-/// `seen` are as for [`SignedRequest::verify`]. A caller that also
-/// verifies `signed` against the peer domain's keys calls `seen` from
-/// both before it records the nonce.
+/// Call it only after the request signature has verified: "After the
+/// request signature has verified ({{JMAP-CHAT-FED}}), the receiving
+/// server verifies a DID-form peer identity as follows". `document` is
+/// the resolved DID Document of `did`, or `None` when resolution failed
+/// and no usable cached document is held. Pass a document that may be
+/// cached as [`DidDocument::Cached`].
 ///
 /// The `authentication` entries are embedded verification methods or
 /// references to `verificationMethod` entries, absolute or `#fragment`
-/// relative to the DID (W3C DID Core §5.3.1, §3.2.2). A method is used
-/// when it is an Ed25519 key: a `publicKeyJwk` with `kty` `OKP`, `crv`
+/// relative to the DID (W3C DID Core §5.3.1, §3.2.2). A method is an
+/// Ed25519 key when it has a `publicKeyJwk` with `kty` `OKP`, `crv`
 /// `Ed25519` and no private member `d`, or a `publicKeyMultibase` that
 /// decodes as an `ed25519-pub` multikey. Other methods are ignored.
-///
-/// On success the request is "authenticated for the claimed DID"
-/// (step 5); record the returned nonce as [`SignedRequest::verify`]
-/// describes.
 ///
 /// # Errors
 ///
 /// [`DidAuthRejection::Unresolved`] when `document` is `None`,
 /// [`DidAuthRejection::DocumentIdMismatch`] when its `id` is not `did`,
-/// and [`DidAuthRejection::Signature`] for the first signature check that
-/// fails, except that a [`DidDocument::Cached`] document failing
-/// [`Rejection::UnknownKey`] gives [`DidAuthRejection::RefreshRequired`]:
-/// only an absent key is a refresh trigger (§Caching).
-pub fn verify_did_signature(
-    signed: &SignedRequest<'_>,
+/// and, when no `authentication` key equals `signing_key`,
+/// [`DidAuthRejection::RefreshRequired`] for a [`DidDocument::Cached`]
+/// document or [`DidAuthRejection::KeyNotBound`] for a
+/// [`DidDocument::Refreshed`] one.
+pub fn verify_did_binding(
     did: &Did,
     document: Option<DidDocument<'_>>,
-    now: SystemTime,
-    seen: impl FnOnce(&PeerDomain, &str) -> bool,
-) -> Result<Accepted, DidAuthRejection> {
+    signing_key: &VerifyingKey,
+) -> Result<(), DidAuthRejection> {
     let (document, cached) = match document.ok_or(DidAuthRejection::Unresolved)? {
         DidDocument::Cached(document) => (document, true),
         DidDocument::Refreshed(document) => (document, false),
@@ -145,20 +136,23 @@ pub fn verify_did_signature(
     if document.get("id").and_then(Value::as_str) != Some(did.as_str()) {
         return Err(DidAuthRejection::DocumentIdMismatch);
     }
-    let keys = authentication_keys(did, document);
-    signed
-        .verify(&keys, now, seen)
-        .map_err(|rejection| match rejection {
-            Rejection::UnknownKey if cached => DidAuthRejection::RefreshRequired,
-            rejection => DidAuthRejection::Signature(rejection),
-        })
+    if authentication_keys(did, document).any(|key| &key == signing_key.as_bytes()) {
+        Ok(())
+    } else if cached {
+        Err(DidAuthRejection::RefreshRequired)
+    } else {
+        Err(DidAuthRejection::KeyNotBound)
+    }
 }
 
-/// The Ed25519 keys of the document's `authentication` relationship.
-fn authentication_keys(did: &Did, document: &Value) -> Vec<PeerSigningKey> {
+/// The Ed25519 public keys of the document's `authentication` relationship.
+fn authentication_keys<'a>(
+    did: &'a Did,
+    document: &'a Value,
+) -> impl Iterator<Item = [u8; 32]> + 'a {
     // ponytail: only `#fragment` relative DID URLs are resolved; a
     // relative path or query reference (RFC 3986 §5) matches nothing.
-    let absolute = |id: &str| match id.strip_prefix('#') {
+    let absolute = move |id: &str| match id.strip_prefix('#') {
         Some(_) => format!("{did}{id}"),
         None => id.to_owned(),
     };
@@ -173,7 +167,7 @@ fn authentication_keys(did: &Did, document: &Value) -> Vec<PeerSigningKey> {
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
-        .filter_map(|entry| match entry {
+        .filter_map(move |entry| match entry {
             Value::String(reference) => {
                 let reference = absolute(reference);
                 methods.iter().copied().find(|method| {
@@ -189,17 +183,16 @@ fn authentication_keys(did: &Did, document: &Value) -> Vec<PeerSigningKey> {
             _ => None,
         })
         .filter_map(ed25519_key)
-        .collect()
 }
 
-/// The Ed25519 key of a verification method, if it has one.
-fn ed25519_key(method: &Value) -> Option<PeerSigningKey> {
-    let bytes: [u8; 32] = if let Some(jwk) = method.get("publicKeyJwk") {
+/// The 32-octet Ed25519 public key of a verification method, if it has one.
+fn ed25519_key(method: &Value) -> Option<[u8; 32]> {
+    if let Some(jwk) = method.get("publicKeyJwk") {
         let member = |name| jwk.get(name).and_then(Value::as_str);
         if member("kty")? != "OKP" || member("crv")? != "Ed25519" || jwk.get("d").is_some() {
             return None;
         }
-        URL_SAFE_NO_PAD.decode(member("x")?).ok()?.try_into().ok()?
+        URL_SAFE_NO_PAD.decode(member("x")?).ok()?.try_into().ok()
     } else {
         // A did:key's method-specific id is exactly a multikey
         // `publicKeyMultibase` value, so the did:key decoder reads it.
@@ -208,7 +201,6 @@ fn ed25519_key(method: &Value) -> Option<PeerSigningKey> {
         if key.key_type() != KeyType::Ed25519 {
             return None;
         }
-        key.public_key().try_into().ok()?
-    };
-    Some(PeerSigningKey::from(VerifyingKey::from_bytes(&bytes).ok()?))
+        key.public_key().try_into().ok()
+    }
 }
