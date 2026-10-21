@@ -2478,9 +2478,15 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// # Default implementation
     ///
-    /// The default returns `Ok(())` without doing anything. This is
-    /// appropriate for backends that have not yet implemented expiry.
-    /// Production backends that need expiry SHOULD override this method.
+    /// The default returns `Ok(())` without doing anything, so expired
+    /// messages stay in the store and remain visible to `Message/get`.
+    /// It is correct only for a backend on which no message ever
+    /// expires. Backends whose messages can carry `senderExpiresAt`,
+    /// `expiresAfterReadSeconds` or a Chat `messageExpirySeconds` MUST
+    /// override this method: for `senderExpiresAt`,
+    /// draft-atwood-jmap-chat-00 §Message says "servers MUST
+    /// permanently delete this message — removing the row entirely,
+    /// not leaving a tombstone — at or before this time".
     fn expire_message(
         &self,
         _caller: &Self::CallerCtx,

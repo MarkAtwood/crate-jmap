@@ -319,9 +319,11 @@ pub trait CalendarsBackend: JmapBackend {
     /// Apply a patch that contains only per-user [`CalendarEvent`](jmap_calendars_types::CalendarEvent) properties
     /// (draft-ietf-jmap-calendars-26 §5.4).
     ///
-    /// Default implementation delegates to `update_object`. Backends serving
-    /// multiple users SHOULD override this to store per-user properties
-    /// separately so that shared `updated` timestamps are not affected.
+    /// There is no default: delegating to [`update_object`](Self::update_object)
+    /// is correct only for a single-user backend whose `update_object` leaves
+    /// the shared `updated` timestamp alone. A backend serving multiple users
+    /// stores per-user properties separately so that the shared `updated`
+    /// timestamp is not affected.
     ///
     /// **Callers must handle the `Some` case.** Same contract as
     /// [`update_object`](Self::update_object): when the return value is
@@ -340,9 +342,7 @@ pub trait CalendarsBackend: JmapBackend {
         patch: PatchObject,
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,
-    > + Send {
-        self.update_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id, patch)
-    }
+    > + Send;
 
     /// Create a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
     /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-26 §5.9).

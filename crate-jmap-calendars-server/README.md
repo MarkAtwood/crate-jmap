@@ -123,17 +123,18 @@ pub trait CalendarsBackend: JmapBackend {
     /// `patch` is a `jmap_types::PatchObject` — the typed wire shape for
     /// RFC 8620 §5.3 PatchObjects.
     ///
-    /// Default implementation delegates to update_object. Backends serving
-    /// multiple users SHOULD override this to store per-user properties
-    /// separately so that the shared updated timestamp is not bumped.
+    /// No default: delegating to update_object is correct only for a
+    /// single-user backend whose update_object leaves the shared updated
+    /// timestamp alone. Backends serving multiple users store per-user
+    /// properties separately so that the shared updated timestamp is not
+    /// bumped.
     fn update_per_user_properties(
         &self,
         caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
         patch: PatchObject,
-    ) -> impl Future<Output = Result<Option<CalendarEvent>, BackendSetError<Self::Error>>> + Send
-    { /* delegates to update_object */ }
+    ) -> impl Future<Output = Result<Option<CalendarEvent>, BackendSetError<Self::Error>>> + Send;
 
     /// Returns Ok(true) if the given Calendar has any events.
     ///

@@ -17,10 +17,9 @@
 //! of draft-ietf-jmap-tasks-06 edge cases are simplified (see source
 //! comments). In particular, UTC-time conversion
 //! ([`compute_utc_times`](crate::TasksBackend::compute_utc_times))
-//! and the per-user property routing
-//! ([`update_task_per_user`](crate::TasksBackend::update_task_per_user))
-//! inherit the trait's default implementations (no time-zone conversion;
-//! per-user patches are stored on the shared object).
+//! inherits the trait's default (no time-zone conversion), and
+//! [`update_task_per_user`](crate::TasksBackend::update_task_per_user)
+//! stores per-user patches on the shared object (single-user backend).
 //!
 //! # Feature flag and API stability
 //!
@@ -874,6 +873,21 @@ impl TasksBackend for MemoryBackend {
         }
 
         Ok(None)
+    }
+
+    async fn update_task_per_user(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        id: &Id,
+        patch: jmap_types::PatchObject,
+    ) -> Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>> {
+        // ponytail: single-user backend (CallerCtx = ()), so per-user state is
+        // the shared object. `update_object` never writes `updated`, which
+        // keeps draft-ietf-jmap-tasks-06 §4.5.1 intact. A multi-user backend
+        // stores the patch per user instead.
+        self.update_object::<jmap_tasks_types::Task>(caller, account_id, id, patch)
+            .await
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(
