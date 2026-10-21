@@ -490,7 +490,7 @@ test.
 ## JMAP Object Metadata data types
 
 The JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
+([draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
 adds two namespace-keyed properties, `metadata` (shared) and
 `privateMetadata` (per-user), to each data type a server lists in the
 account capability's `dataTypes` (§1.2.1, §2). There is no standalone

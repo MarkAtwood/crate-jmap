@@ -1,20 +1,20 @@
 //! JMAP Object Metadata extension data types.
 //!
 //! Implements the data types defined in
-//! [draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
+//! [draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
 //! Types only — no method handlers, no async, no network I/O.
 //!
 //! ## Architecture change from -01 to -02
 //!
-//! draft-ietf-jmap-metadata-02 eliminates the standalone `Metadata` object
-//! type entirely. Instead, each opted-in data type gains `metadata` (shared)
+//! draft-ietf-jmap-metadata-04 eliminates the standalone `Metadata` object
+//! type entirely. Instead, each listed data type gains `metadata` (shared)
 //! and `privateMetadata` (per-user) properties — plain `String[Object]` maps
 //! keyed by namespace identifier.
 //!
 //! This crate provides the helper types that consumers need:
 //!
 //! - [`capability`] — [`DataTypeMetadataInfo`], [`JMAP_METADATA_URI`] (§1.2.1)
-//! - [`filter`] — [`MetadataTextMatch`], [`WithMetadata`] (§3.5)
+//! - [`filter`] — [`MetadataTextMatch`], [`WithMetadata`] (§3.6)
 //! - [`namespace`] — namespace identifier validation (§2.1)
 //!
 //! All public types and functions are re-exported at the crate root.

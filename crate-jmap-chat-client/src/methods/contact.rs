@@ -184,7 +184,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`ChatContactFilterCondition`](jmap_chat_types::query::ChatContactFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<ChatContactFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to send `"filter": null`; name the type when you do (`None::<&ChatContactFilter>`).
     ///
     /// # Errors
@@ -245,7 +245,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`ChatContactFilterCondition`](jmap_chat_types::query::ChatContactFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<ChatContactFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&ChatContactFilter>`).
     ///
     /// # Errors

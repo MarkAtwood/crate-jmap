@@ -391,11 +391,11 @@ async fn chat_query_anchor_offset_calculate_total_serialize() {
     );
 }
 
-/// `Chat/query` carries a draft-ietf-jmap-metadata-02 §3.5 condition on
+/// `Chat/query` carries a draft-ietf-jmap-metadata-04 §3.6 condition on
 /// a leaf.
 ///
 /// Oracle: draft-atwood-jmap-chat-00 §Chat/query — "Filter properties:
-/// `kind` (String), `muted` (Boolean)"; draft-ietf-jmap-metadata-02 §3.5 —
+/// `kind` (String), `muted` (Boolean)"; draft-ietf-jmap-metadata-04 §3.6 —
 /// `privateMetadataExists: String` extends the type's FilterCondition.
 /// The expected JSON is hand-written from those definitions.
 #[tokio::test]
@@ -1108,10 +1108,10 @@ async fn chat_query_changes_all_none_omits_optional_wire_keys() {
 }
 
 /// `Chat/queryChanges` carries a compound filter whose leaf adds a
-/// draft-ietf-jmap-metadata-02 §3.5 condition.
+/// draft-ietf-jmap-metadata-04 §3.6 condition.
 ///
 /// Oracle: draft-atwood-jmap-chat-00 §Chat/query — "Filter properties:
-/// `kind` (String), `muted` (Boolean)"; draft-ietf-jmap-metadata-02 §3.5 —
+/// `kind` (String), `muted` (Boolean)"; draft-ietf-jmap-metadata-04 §3.6 —
 /// `privateMetadataExists: String` extends the type's FilterCondition;
 /// RFC 8620 §5.5 — FilterOperator `operator` / `conditions`. The expected
 /// JSON is hand-written from those definitions.

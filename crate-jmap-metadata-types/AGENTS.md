@@ -6,8 +6,8 @@ This crate is a **sibling under the canonical `jmap-mail-types`
 extension-types template**. Type-naming idioms, `#[non_exhaustive]`
 policy, serde attribute style, doc-comment style, and test layout
 must mirror `jmap-mail-types`. Differences are *only* the spec
-content (draft-ietf-jmap-metadata-02 here; RFC 8621 in mail-types).
-draft-02 defines no JMAP object type of its own, so this crate has
+content (draft-ietf-jmap-metadata-04 here; RFC 8621 in mail-types).
+draft-04 defines no JMAP object type of its own, so this crate has
 no data-object structs, `Property` enum, or `FilterCondition`; that
 is a spec-mandated difference, not drift.
 
@@ -32,7 +32,7 @@ for full workflow context.
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — module layout, design decisions, source material
-2. Read the relevant draft-ietf-jmap-metadata-02 section before
+2. Read the relevant draft-ietf-jmap-metadata-04 section before
    implementing any type
 3. Cross-check the canonical sibling
    `~/PROJECT/crate-jmap/crate-jmap-mail-types/` for the type/serde
@@ -41,9 +41,9 @@ for full workflow context.
 
 ## What This Is
 
-JMAP Metadata extension data types (draft-ietf-jmap-metadata-02).
+JMAP Metadata extension data types (draft-ietf-jmap-metadata-04).
 Types only — no method handlers. No async. Provides
-`DataTypeMetadataInfo` (§1.2.1), `MetadataTextMatch` (§3.5),
+`DataTypeMetadataInfo` (§1.2.1), `MetadataTextMatch` (§3.6),
 namespace identifier validation (§2.1), and `JMAP_METADATA_URI`.
 Consumed by `jmap-metadata-server` and `jmap-metadata-client`.
 
@@ -61,7 +61,7 @@ still compile.
 ## Spec Reference
 
 ```
-https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02   ← normative
+https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04   ← normative
 ~/PROJECT/jmap-chat-spec/references/rfc8620.txt                     ← base protocol
 ```
 
@@ -95,7 +95,7 @@ Run all four before considering any work done.
 | Async | None — sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Dependencies | serde, serde_json only |
-| Field names | Must match draft-ietf-jmap-metadata-02 exactly |
+| Field names | Must match draft-ietf-jmap-metadata-04 exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from spec examples — never from code under test |
 | Attribute order | `#[non_exhaustive]` → `#[derive(...)]` → `#[serde(...)]` on every type |
@@ -116,5 +116,5 @@ Run all four before considering any work done.
 - Do not add dependencies beyond serde, serde_json
 - Do not add async, tokio, or axum
 - Do not add method handler logic — types only
-- Do not add fields or types not present in draft-ietf-jmap-metadata-02
+- Do not add fields or types not present in draft-ietf-jmap-metadata-04
   unless explicitly directed

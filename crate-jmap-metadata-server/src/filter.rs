@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn exists_namespace_present_empty_object() {
-        // §3.5: namespace-only matches if value is not {}.
+        // §3.6: namespace-only matches if value is not {}.
         let map = json!({"photography": {}}).as_object().unwrap().clone();
         assert!(!metadata_path_exists(&map, "photography"));
     }
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     fn spec_example_section_6_7_text_contains() {
-        // Oracle: draft-ietf-jmap-metadata-02 §6.7.
+        // Oracle: draft-ietf-jmap-metadata-04 §6.7.
         let map = json!({"acme.example.com": {"memo": "follow up"}})
             .as_object()
             .unwrap()

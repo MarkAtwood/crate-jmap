@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Object Metadata extension helpers (draft-ietf-jmap-metadata-02) — pure functions for depth validation, namespace support, filter predicates, and /changes classification"
+description = "JMAP Object Metadata extension helpers (draft-ietf-jmap-metadata-04) — pure functions for depth validation, namespace support, filter predicates, and /changes classification"
 keywords = ["jmap", "draft-jmap-metadata", "server", "metadata"]
 categories = ["network-programming", "web-programming::http-server"]
 

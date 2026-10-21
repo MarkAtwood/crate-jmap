@@ -485,8 +485,8 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     );
     jmap_sharing_server::register_sharing_handlers(dispatcher, Arc::clone(&sharing));
 
-    // Metadata (draft-ietf-jmap-metadata-02): metadata is now per-type
-    // properties on opted-in data types, not a standalone object.
+    // Metadata (draft-ietf-jmap-metadata-04): metadata is now per-type
+    // properties on listed data types, not a standalone object.
     // Extension backends handle metadata through their own handlers
     // using helpers from jmap-metadata-server.
 
@@ -931,8 +931,8 @@ mod tests {
     /// for /get with null ids on an empty store; that's still a
     /// successful dispatch.
     ///
-    /// Note: metadata (draft-02) has no standalone methods — metadata
-    /// is now per-type properties on opted-in data types.
+    /// Note: metadata (draft-04) has no standalone methods — metadata
+    /// is now per-type properties on listed data types.
     #[tokio::test]
     async fn post_jmap_all_extension_get_methods_dispatch() {
         // (method name, capability URI) per extension.

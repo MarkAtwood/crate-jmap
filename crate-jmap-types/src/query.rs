@@ -38,12 +38,12 @@ use serde::{Deserialize, Serialize};
 /// and filterability for custom fields should use
 /// `draft-ietf-jmap-metadata` (capability URI
 /// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
-/// `metadata` / `privateMetadata` properties to each opted-in data type,
+/// `metadata` / `privateMetadata` properties to each listed data type,
 /// with per-type schema discovery via the capability's `dataTypes`
 /// (`namespaces` / `supportsVendorNamespaces` / `maxDepth`) and
 /// `metadataExists` / `metadataTextContains` / `metadataTextEquals`
 /// conditions on that type's own `/query` filter
-/// (draft-ietf-jmap-metadata-02 §1.2.1, §3.5). Helpers live in
+/// (draft-ietf-jmap-metadata-04 §1.2.1, §3.6). Helpers live in
 /// `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///
@@ -110,9 +110,9 @@ pub enum Operator {
 /// and filterability for custom fields should use
 /// `draft-ietf-jmap-metadata` (capability URI
 /// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
-/// `metadata` / `privateMetadata` properties to each opted-in data type,
+/// `metadata` / `privateMetadata` properties to each listed data type,
 /// filterable through `metadata*` conditions on that type's own `/query`
-/// (draft-ietf-jmap-metadata-02 §2, §3.5). Helpers live in
+/// (draft-ietf-jmap-metadata-04 §2, §3.6). Helpers live in
 /// `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///

@@ -1,13 +1,13 @@
 //! jmap-metadata-client — JMAP Object Metadata extension client helpers.
 //!
 //! Implements the client-side helpers for
-//! [draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
+//! [draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
 //!
 //! ## Architecture change from -01 to -02
 //!
 //! The -02 revision eliminates the standalone `Metadata` object type.
 //! Metadata becomes `metadata` and `privateMetadata` properties on
-//! each opted-in JMAP data type. Clients read and write metadata
+//! each listed JMAP data type. Clients read and write metadata
 //! through the existing `Foo/get`, `Foo/set`, `Foo/changes`, and
 //! `Foo/query` methods — there are no separate `Metadata/*` methods.
 //!
@@ -74,7 +74,7 @@ pub use jmap_metadata_types::JMAP_METADATA_URI;
 /// Per-data-type metadata capability advertisement (§1.2.1).
 pub use jmap_metadata_types::DataTypeMetadataInfo;
 
-/// Value shape for text-matching filter conditions (§3.5).
+/// Value shape for text-matching filter conditions (§3.6).
 pub use jmap_metadata_types::MetadataTextMatch;
 
 /// Namespace identifier validation helpers.
@@ -84,13 +84,13 @@ pub use jmap_metadata_types::{is_registered_namespace, is_valid_namespace, is_ve
 // Property name constants (§2)
 // ---------------------------------------------------------------------------
 
-/// Wire name of the shared metadata property on opted-in data types (§2).
+/// Wire name of the shared metadata property on listed data types (§2).
 ///
 /// Include in the `properties` list of a `/get` request to fetch the
 /// per-namespace shared metadata map.
 pub const METADATA_PROPERTY: &str = "metadata";
 
-/// Wire name of the per-user private metadata property on opted-in data
+/// Wire name of the per-user private metadata property on listed data
 /// types (§2).
 ///
 /// Include in the `properties` list of a `/get` request to fetch the
@@ -166,10 +166,10 @@ pub fn is_metadata_only_change(updated_properties: &[String]) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// Filter-condition builders (§3.5)
+// Filter-condition builders (§3.6)
 // ---------------------------------------------------------------------------
 
-/// Build a `metadataExists` filter condition (§3.5).
+/// Build a `metadataExists` filter condition (§3.6).
 ///
 /// Returns a JSON object `{ "metadataExists": "<path>" }` suitable for
 /// merging into a per-type `FilterCondition` object in a `/query` request.
@@ -197,7 +197,7 @@ pub fn metadata_exists_condition(path: &str) -> serde_json::Value {
     serde_json::json!({ "metadataExists": path })
 }
 
-/// Build a `privateMetadataExists` filter condition (§3.5).
+/// Build a `privateMetadataExists` filter condition (§3.6).
 ///
 /// Same as [`metadata_exists_condition`] but targets `privateMetadata`.
 ///
@@ -216,7 +216,7 @@ pub fn private_metadata_exists_condition(path: &str) -> serde_json::Value {
     serde_json::json!({ "privateMetadataExists": path })
 }
 
-/// Build a `metadataTextContains` filter condition (§3.5).
+/// Build a `metadataTextContains` filter condition (§3.6).
 ///
 /// Returns a JSON object suitable for merging into a per-type
 /// `FilterCondition`. Matches objects where the string value at `path`
@@ -242,7 +242,7 @@ pub fn metadata_text_contains_condition(path: &str, value: &str) -> serde_json::
     })
 }
 
-/// Build a `privateMetadataTextContains` filter condition (§3.5).
+/// Build a `privateMetadataTextContains` filter condition (§3.6).
 ///
 /// Same as [`metadata_text_contains_condition`] but targets `privateMetadata`.
 ///
@@ -266,7 +266,7 @@ pub fn private_metadata_text_contains_condition(path: &str, value: &str) -> serd
     })
 }
 
-/// Build a `metadataTextEquals` filter condition (§3.5).
+/// Build a `metadataTextEquals` filter condition (§3.6).
 ///
 /// Returns a JSON object suitable for merging into a per-type
 /// `FilterCondition`. Matches objects where the string value at `path`
@@ -292,7 +292,7 @@ pub fn metadata_text_equals_condition(path: &str, value: &str) -> serde_json::Va
     })
 }
 
-/// Build a `privateMetadataTextEquals` filter condition (§3.5).
+/// Build a `privateMetadataTextEquals` filter condition (§3.6).
 ///
 /// Same as [`metadata_text_equals_condition`] but targets `privateMetadata`.
 ///

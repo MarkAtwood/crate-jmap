@@ -1,7 +1,7 @@
 # jmap-metadata-client — Implementation Plan
 
 Pure client-side helpers for the JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-02]).
+([draft-ietf-jmap-metadata-04]).
 
 ## Crate Family Position
 
@@ -24,10 +24,10 @@ rewrite (bd JMAP-ua37.3).
 | `METADATA_PROPERTY`, `PRIVATE_METADATA_PROPERTY` | §2, §3.1 |
 | `IGNORE_METADATA_ONLY_CHANGES` | §3.3 |
 | `is_metadata_property`, `is_metadata_only_change` | §3.3 |
-| `metadata_exists_condition`, `private_metadata_exists_condition` | §3.5 |
-| `metadata_text_contains_condition`, `private_metadata_text_contains_condition` | §3.5 |
-| `metadata_text_equals_condition`, `private_metadata_text_equals_condition` | §3.5 |
-| re-exports from `jmap-metadata-types` | §1.2.1, §2.1, §3.5 |
+| `metadata_exists_condition`, `private_metadata_exists_condition` | §3.6 |
+| `metadata_text_contains_condition`, `private_metadata_text_contains_condition` | §3.6 |
+| `metadata_text_equals_condition`, `private_metadata_text_equals_condition` | §3.6 |
+| re-exports from `jmap-metadata-types` | §1.2.1, §2.1, §3.6 |
 
 ## What This Crate Is Not
 
@@ -49,15 +49,15 @@ src/
 ## Test Strategy
 
 Inline `#[cfg(test)]` unit tests plus rustdoc examples. Oracles are
-wire names and hand-written JSON literals taken from the §3.3 and §3.5
+wire names and hand-written JSON literals taken from the §3.3 and §3.6
 field definitions — never derived from the code under test.
 
 ## References
 
-- **[draft-ietf-jmap-metadata-02]** — JMAP Object Metadata (normative
+- **[draft-ietf-jmap-metadata-04]** — JMAP Object Metadata (normative
   for property names, the `/changes` argument, and filter conditions).
 - **[RFC 8620]** — JMAP Core (`/get`, `/changes`, `/query`, filter
   operators).
 
-[draft-ietf-jmap-metadata-02]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02
+[draft-ietf-jmap-metadata-04]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

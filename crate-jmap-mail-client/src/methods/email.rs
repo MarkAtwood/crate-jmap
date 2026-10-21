@@ -251,7 +251,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`EmailFilterCondition`](jmap_mail_types::query::EmailFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<EmailFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&EmailFilter>`).
     ///
     /// # Errors
@@ -335,7 +335,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`EmailFilterCondition`](jmap_mail_types::query::EmailFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<EmailFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&EmailFilter>`).
     ///
     /// # Errors

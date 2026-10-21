@@ -1,8 +1,8 @@
-//! draft-ietf-jmap-metadata-02 server-side helpers.
+//! draft-ietf-jmap-metadata-04 server-side helpers.
 //!
 //! The -02 revision eliminates the standalone `Metadata` object type.
 //! Metadata becomes `metadata` and `privateMetadata` properties on
-//! each opted-in JMAP data type. Clients read and write metadata
+//! each listed JMAP data type. Clients read and write metadata
 //! through the existing `Foo/get`, `Foo/set`, `Foo/changes`, and
 //! `Foo/query` methods — there are no separate `Metadata/*` methods.
 //!

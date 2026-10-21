@@ -1,13 +1,14 @@
 //! Integration tests for jmap-metadata-types.
 //!
-//! All JSON fixtures are hand-written from draft-ietf-jmap-metadata-02 or
+//! All JSON fixtures are hand-written from draft-ietf-jmap-metadata-04 or
 //! constructed directly from the spec field descriptions. No expected
 //! value is derived from the code under test.
 //!
 //! Test name conventions:
-//! - `*_draft_02_*` — pinned to draft-ietf-jmap-metadata-02 §N example so a
-//!   future spec revision can revise or replace the test alongside the
-//!   wire-format change. All current tests are pinned to -02.
+//! - `*_draft_02_*` — pinned to a draft §N example, so a future spec
+//!   revision can revise or replace the test alongside the wire-format
+//!   change. The names date from -02; every pinned example is unchanged
+//!   in -04.
 
 use jmap_metadata_types::{
     is_registered_namespace, is_valid_namespace, is_vendor_namespace, DataTypeMetadataInfo,
@@ -20,7 +21,7 @@ use jmap_metadata_types::{
 
 #[test]
 fn capability_uri_matches_draft_02() {
-    // Oracle: draft-ietf-jmap-metadata-02 §1.2.1, unchanged from -01.
+    // Oracle: draft-ietf-jmap-metadata-04 §1.2.1, unchanged since -01.
     assert_eq!(JMAP_METADATA_URI, "urn:ietf:params:jmap:metadata");
 }
 
@@ -103,7 +104,7 @@ fn data_type_metadata_info_max_depth_null_round_trips() {
 }
 
 // ---------------------------------------------------------------------------
-// MetadataTextMatch (§3.5)
+// MetadataTextMatch (§3.6)
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -129,7 +130,7 @@ fn metadata_text_match_round_trip() {
 
 #[test]
 fn metadata_text_match_namespace_only_path() {
-    // §3.5: path can be just a namespace (no key suffix).
+    // §3.6: path can be just a namespace (no key suffix).
     let json = r#"{"path": "photography", "value": "beach"}"#;
     let m: MetadataTextMatch = serde_json::from_str(json).unwrap();
     assert_eq!(m.path, "photography");
@@ -188,7 +189,7 @@ fn valid_namespace_rejects_invalid() {
 }
 
 // ---------------------------------------------------------------------------
-// WithMetadata (§3.5)
+// WithMetadata (§3.6)
 // ---------------------------------------------------------------------------
 
 /// Stand-in for a per-type `FilterCondition` (`inMailbox` is the RFC 8621
@@ -202,7 +203,7 @@ struct EmailCondStub {
 
 #[test]
 fn with_metadata_draft_02_section_3_5_all_fields() {
-    // Oracle: the six field names and value types listed in §3.5 ("The
+    // Oracle: the six field names and value types listed in §3.6 ("The
     // extended FilterCondition fields are: metadataExists: String,
     // privateMetadataExists: String, metadataTextContains:
     // MetadataTextMatch, ..."), written by hand next to a base condition
@@ -230,7 +231,7 @@ fn with_metadata_draft_02_section_3_5_all_fields() {
 
 #[test]
 fn with_metadata_unset_fields_are_omitted() {
-    // Oracle: §3.5 calls every added field "optional"; a condition with
+    // Oracle: §3.6 calls every added field "optional"; a condition with
     // only `metadataExists` set sends only that key (RFC 8620 §5.5: a
     // FilterCondition property that is absent places no constraint).
     let mut cond = WithMetadata::<EmailCondStub>::default();

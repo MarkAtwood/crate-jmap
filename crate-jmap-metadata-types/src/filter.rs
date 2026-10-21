@@ -1,15 +1,15 @@
-//! draft-ietf-jmap-metadata-02 §3.5 — metadata filter condition types.
+//! draft-ietf-jmap-metadata-04 §3.6 — metadata filter condition types.
 //!
 //! Provides [`MetadataTextMatch`] — the value shape used by the four
 //! text-matching filter condition fields that this extension adds to each
-//! opted-in data type's `FilterCondition` — and [`WithMetadata`], which
+//! listed data type's `FilterCondition` — and [`WithMetadata`], which
 //! adds those fields to a per-type condition on the client side.
 //!
 //! The six filter condition fields themselves (`metadataExists`,
 //! `privateMetadataExists`, `metadataTextContains`,
 //! `privateMetadataTextContains`, `metadataTextEquals`,
-//! `privateMetadataTextEquals`) extend each opted-in data type's own
-//! `/query` `FilterCondition` (§3.5). They are NOT a standalone filter
+//! `privateMetadataTextEquals`) extend each listed data type's own
+//! `/query` `FilterCondition` (§3.6). They are NOT a standalone filter
 //! type — this is the key architectural difference from -01, which had a
 //! standalone `MetadataFilterCondition`. The typed per-type filter
 //! structs in the extension-types crates (e.g. `EmailFilterCondition`)
@@ -22,7 +22,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Value shape for the text-matching metadata filter conditions
-/// (draft-ietf-jmap-metadata-02 §3.5).
+/// (draft-ietf-jmap-metadata-04 §3.6).
 ///
 /// Used as the value of the `metadataTextContains`,
 /// `privateMetadataTextContains`, `metadataTextEquals`, and
@@ -75,16 +75,16 @@ impl MetadataTextMatch {
 }
 
 /// A per-type `FilterCondition` extended with the six
-/// draft-ietf-jmap-metadata-02 §3.5 condition fields.
+/// draft-ietf-jmap-metadata-04 §3.6 condition fields.
 ///
-/// §3.5: "For each data type listed in dataTypes, the FilterCondition
+/// §3.6: "For each data type listed in dataTypes, the FilterCondition
 /// object for Foo/query is extended with the optional fields defined
 /// below." `base` is the data type's own condition (for example
 /// `jmap_mail_types::query::EmailFilterCondition`); its fields are
 /// flattened into the same JSON object as the metadata fields. Use it as
 /// the leaf of a `jmap_types::query::Filter<WithMetadata<C>>` and pass that
 /// to the extension client's `/query` or `/queryChanges` method; the
-/// conditions compose with `AND` / `OR` / `NOT` as usual (§3.5, RFC 8620
+/// conditions compose with `AND` / `OR` / `NOT` as usual (§3.6, RFC 8620
 /// §5.5).
 ///
 /// # Serialize only
