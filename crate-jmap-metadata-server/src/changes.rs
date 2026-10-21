@@ -1,17 +1,30 @@
-//! draft-ietf-jmap-metadata-02 §3.3 — `/changes` extension helpers.
+//! draft-ietf-jmap-metadata-04 §3.3 — `/changes` extension helpers.
 //!
 //! Provides building blocks for extension-server crates that integrate
 //! the metadata `/changes` extensions:
 //!
 //! - **`ignoreMetadataOnlyChanges`** (request arg): when `true`, the
-//!   server omits ids whose only changes are to `metadata` and/or
-//!   `privateMetadata`. Use [`is_metadata_only_change`] to test whether
-//!   a set of changed property names qualifies.
+//!   server excludes from `updated` any id whose only changes, from the
+//!   viewer's perspective, are to `metadata` and/or `privateMetadata`.
+//!   Use [`is_metadata_only_change`] to test whether a set of changed
+//!   property names qualifies. An id the server "cannot determine" to
+//!   be metadata-only "MUST" stay in `updated`, and "Excluded ids do not
+//!   count toward maxChanges". When the request's `using` lacks
+//!   `urn:ietf:params:jmap:metadata`, -04 §3 says `Foo/changes` "MUST
+//!   behave as if ignoreMetadataOnlyChanges were true".
 //!
-//! - **`updatedProperties`** (response field): if every id in the
-//!   `updated` array had only metadata-property changes, the response
-//!   MUST list those property names. Use [`is_metadata_property`] and
-//!   [`is_metadata_only_change`] to drive this logic.
+//! - **`updatedProperties`** (response field): for a request whose
+//!   `using` includes the capability, it "is always present, and is
+//!   null when updated is empty". If every id in `updated` changed only
+//!   in metadata properties it lists those property names, otherwise it
+//!   is `null`. For `Mailbox/changes`, when every id changed only in its
+//!   RFC 8621 §2.2 counts and/or metadata properties, it is "the union
+//!   of the count property names and the metadata property names that
+//!   may have changed". With `ignoreMetadataOnlyChanges` true it "MUST
+//!   NOT list metadata or privateMetadata": it may list the Mailbox
+//!   counts, and "for other types it MUST be null". Use
+//!   [`is_metadata_property`] and [`is_metadata_only_change`] to drive
+//!   this logic.
 //!
 //! Extension-server backends track which properties changed per update.
 //! These helpers classify the property names — they do not inspect object
@@ -42,16 +55,19 @@ pub fn is_metadata_property(property: &str) -> bool {
 }
 
 /// Returns `true` if **all** properties in `changed_properties` are
-/// metadata extension properties (draft-ietf-jmap-metadata-02 §3.3).
+/// metadata extension properties (draft-ietf-jmap-metadata-04 §3.3).
 ///
 /// Returns `false` if the slice is empty — an empty change set is not a
 /// "metadata-only change".
 ///
 /// # Usage
 ///
-/// When processing `/changes` with `ignoreMetadataOnlyChanges: true`,
-/// call this for each id in the `updated` array. If it returns `true`,
-/// omit that id from the response.
+/// When processing `/changes` with `ignoreMetadataOnlyChanges: true`
+/// (explicit, or implied because `using` lacks the metadata
+/// capability), call this for each candidate id. If it returns `true`,
+/// omit that id from `updated` and do not count it toward
+/// `maxChanges`. Pass only property sets the backend knows to be
+/// complete: an id whose changes are unknown must stay in `updated`.
 ///
 /// # Examples
 ///

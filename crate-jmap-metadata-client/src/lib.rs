@@ -99,22 +99,26 @@ pub const METADATA_PROPERTY: &str = "metadata";
 pub const PRIVATE_METADATA_PROPERTY: &str = "privateMetadata";
 
 // ---------------------------------------------------------------------------
-// /changes helpers (§2.4, §2.5)
+// /changes helpers (§3.3)
 // ---------------------------------------------------------------------------
 
 /// Wire name of the `ignoreMetadataOnlyChanges` argument for `/changes`
-/// requests (§2.4).
+/// requests (draft-ietf-jmap-metadata-04 §3.3).
 ///
 /// When set to `true` in a `/changes` request, objects whose only changes
 /// are to `metadata` and/or `privateMetadata` properties are excluded from
-/// the `updated` array in the response.
+/// the `updated` array in the response. The server still reports an id
+/// it "cannot determine" to be metadata-only. A request whose `using`
+/// lacks `urn:ietf:params:jmap:metadata` behaves as if this were `true`
+/// (-04 §3).
 pub const IGNORE_METADATA_ONLY_CHANGES: &str = "ignoreMetadataOnlyChanges";
 
 /// Returns `true` if `property` is one of the metadata-extension properties
 /// (`metadata` or `privateMetadata`).
 ///
 /// Useful for classifying the `updatedProperties` array in a `/changes`
-/// response (§2.5) to determine whether a change is metadata-only.
+/// response (draft-ietf-jmap-metadata-04 §3.3) to determine whether a
+/// change is metadata-only.
 ///
 /// # Examples
 ///
@@ -131,12 +135,19 @@ pub fn is_metadata_property(property: &str) -> bool {
 }
 
 /// Returns `true` if ALL properties in `updated_properties` are metadata
-/// properties (§2.5).
+/// properties (draft-ietf-jmap-metadata-04 §3.3).
 ///
-/// A `/changes` response with `updatedProperties` present indicates that
-/// only those properties changed. If every property in the list is a
-/// metadata property, the change is metadata-only and may be skipped by
+/// A `/changes` response whose `updatedProperties` is a list indicates
+/// that only those properties changed. If every property in the list is
+/// a metadata property, the change is metadata-only and may be skipped by
 /// clients that don't need metadata state updates.
+///
+/// A `Mailbox/changes` list may also name the RFC 8621 §2.2 count
+/// properties: -04 §3.3 makes it "the union of the count property names
+/// and the metadata property names that may have changed", for example
+/// `["totalEmails", "metadata"]`. This returns `false` for such a list
+/// because a count changed too. A caller that treats "only metadata plus
+/// counts changed" as one case must check for the count names itself.
 ///
 /// Returns `false` for an empty slice (no properties ≠ metadata-only).
 ///
