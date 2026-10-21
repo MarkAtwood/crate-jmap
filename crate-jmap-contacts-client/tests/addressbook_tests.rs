@@ -267,3 +267,66 @@ async fn addressbook_set_on_destroy_remove_contents() {
         "onDestroyRemoveContents must be true in wire request"
     );
 }
+
+/// Test JMAP-cxfx — AddressBook/set routes `params.extra` onto the wire,
+/// and a typed field wins over a colliding extra key.
+///
+/// Oracle: workspace AGENTS.md extras-preservation policy (method-argument
+/// structs in *-client crates must route `extra` onto the wire; typed wins
+/// on collision) and RFC 9610 §2.3 wire key `onDestroyRemoveContents`.
+#[tokio::test]
+async fn addressbook_set_routes_extra_and_typed_wins() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "AddressBook/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s5",
+                "newState": "s6",
+                "destroyed": ["ab-old"]
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let mut params = jmap_contacts_client::AddressBookSetParams {
+        on_destroy_remove_contents: Some(true),
+        on_success_set_is_default: None,
+        extra: serde_json::Map::new(),
+    };
+    params
+        .extra
+        .insert("acmeCorpHint".into(), json!("performance-mode"));
+    params
+        .extra
+        .insert("onDestroyRemoveContents".into(), json!(false));
+
+    helpers::make_client(&server)
+        .address_book_set(
+            None,
+            None,
+            Some(vec![jmap_types::Id::from("ab-old")]),
+            Some(params),
+        )
+        .await
+        .expect("addressbook_set_routes_extra_and_typed_wins: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("addressbook_set_routes_extra_and_typed_wins: recording enabled");
+    assert_eq!(reqs.len(), 1, "must have received exactly one request");
+    let raw = String::from_utf8(reqs[0].body.clone()).expect("body is UTF-8");
+    let body: serde_json::Value = serde_json::from_str(&raw).expect("body is JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(args["acmeCorpHint"], json!("performance-mode"));
+    assert_eq!(args["onDestroyRemoveContents"], json!(true));
+    assert_eq!(raw.matches("\"onDestroyRemoveContents\"").count(), 1);
+}
