@@ -40,7 +40,7 @@ const ROLE: &str = "chatspace";
 struct Fixture {
     chat: ChatMemory,
     files: FilesMemory,
-    everyone: HashSet<String>,
+    everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Fixture {
@@ -231,7 +231,8 @@ async fn unheld_role_grants_nothing() {
 #[tokio::test]
 async fn everyone_floor_with_manage_space_may_create() {
     let mut f = Fixture::new();
-    f.everyone.insert("manage_space".to_owned());
+    f.everyone
+        .insert(jmap_chat_types::ChatPermission::ManageSpace);
     f.seed_space(SPACE, &[], &[(ACCOUNT, &[])]);
     assert_eq!(f.check(root(Some(SPACE))).await, None);
 }

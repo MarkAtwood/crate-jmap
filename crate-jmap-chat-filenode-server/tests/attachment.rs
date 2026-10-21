@@ -50,7 +50,7 @@ const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff
 struct Fixture {
     chat: ChatMemory,
     files: FilesMemory,
-    everyone: HashSet<String>,
+    everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Fixture {
@@ -298,7 +298,7 @@ async fn sender_without_read_access_is_refused() {
 #[tokio::test]
 async fn everyone_view_grants_read() {
     let mut f = Fixture::new(&[]);
-    f.everyone.insert("view".to_owned());
+    f.everyone.insert(jmap_chat_types::ChatPermission::View);
     assert!(f
         .resolve(json!({ "filenodeId": "f1" }))
         .await

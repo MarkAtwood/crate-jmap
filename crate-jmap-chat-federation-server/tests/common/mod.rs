@@ -59,7 +59,7 @@ pub fn hex32(s: &str) -> [u8; 32] {
 pub struct Fed {
     pub chat: MemoryBackend,
     pub peer: Option<AuthenticatedPeer>,
-    pub everyone: HashSet<String>,
+    pub everyone: HashSet<jmap_chat_types::ChatPermission>,
     pub blobs: HashMap<String, FetchedBlob>,
     pub fetched: Mutex<Vec<String>>,
     pub next_id: AtomicU64,
@@ -514,7 +514,7 @@ impl FederationBackend for Fed {
         _caller: &(),
         _account_id: &Id,
         _space: &Space,
-    ) -> HashSet<String> {
+    ) -> HashSet<jmap_chat_types::ChatPermission> {
         self.everyone.clone()
     }
 

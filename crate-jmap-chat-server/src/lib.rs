@@ -34,8 +34,8 @@
 //! [`handle_space_set`] does NOT permission-check.
 //!
 //! The pure helper [`required_permissions_for_op`] in [`permissions`]
-//! maps each [`SpacePatchOp`] variant to its required permission strings
-//! per draft-atwood-jmap-chat-00 §Space/set. Backends consume this
+//! maps each [`SpacePatchOp`] variant to its required
+//! [`ChatPermission`](jmap_chat_types::ChatPermission)s per draft-atwood-jmap-chat-00 §Space/set. Backends consume this
 //! helper inside `apply_space_patch` after resolving the caller's
 //! effective permissions from the Space `members` entry whose `id` is
 //! the `accountId` (the owner, per draft §Terminology). The gates apply
@@ -113,8 +113,7 @@ pub use message::{
 };
 pub use outbound::{GroupUpdateAction, OutboundEvent, ReactionAction};
 pub use permissions::{
-    required_permissions_for_op, resolve_channel_permissions, RequiredPermissions, BAN,
-    MANAGE_CHANNELS, MANAGE_MEMBERS, MANAGE_ROLES, MANAGE_SPACE, PIN, SEND, VIEW,
+    required_permissions_for_op, resolve_channel_permissions, RequiredPermissions,
 };
 pub use position::{handle_position_changes, handle_position_get, handle_position_set};
 pub use presence::{handle_presence_changes, handle_presence_get, handle_presence_set};

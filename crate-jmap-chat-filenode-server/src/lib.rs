@@ -28,8 +28,8 @@
 use std::collections::HashSet;
 use std::fmt;
 
-use jmap_chat_server::{ChatBackend, MANAGE_CHANNELS, MANAGE_SPACE, SEND, VIEW};
-use jmap_chat_types::{Attachment, AttachmentCreate, Chat, ChatKind, Space};
+use jmap_chat_server::ChatBackend;
+use jmap_chat_types::{Attachment, AttachmentCreate, Chat, ChatKind, ChatPermission, Space};
 use jmap_filenode_server::FileNodeBackend;
 use jmap_filenode_types::{FileNode, FileNodeFilterCondition, FilesRights, NodeRole, NodeType};
 use jmap_server::{BackendQueryError, BackendSetError, SetError, SetErrorType};
@@ -115,7 +115,7 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
     if node.role != Some(NodeRole::ChatSpace) {
         return Ok(Ok(()));
@@ -167,13 +167,15 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
             .with_description("the Space already has a file tree root")));
     }
 
-    Ok(if permissions.contains(MANAGE_SPACE) {
-        Ok(())
-    } else {
-        Err(forbidden(
-            "creating a Space file tree root requires the manage_space permission",
-        ))
-    })
+    Ok(
+        if permissions.contains(ChatPermission::ManageSpace.as_str()) {
+            Ok(())
+        } else {
+            Err(forbidden(
+                "creating a Space file tree root requires the manage_space permission",
+            ))
+        },
+    )
 }
 
 /// Check draft-atwood-jmap-chat-filenode-00 `maxSpaceStorageBytes` for a
@@ -433,7 +435,7 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
     account_id: &Id,
     message_chat: &Chat,
     attachment: &AttachmentCreate,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<Option<Attachment>, SetError>, RootCheckError<C::Error, F::Error>> {
     let Some(node_id) = &attachment.filenode_id else {
         return Ok(Ok(None));
@@ -487,11 +489,7 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
         .iter()
         .find(|s| &s.id == space_id)
         .and_then(|s| member_permissions(s, account_id, everyone))
-        .is_some_and(|p| {
-            [VIEW, SEND, MANAGE_CHANNELS, MANAGE_SPACE]
-                .iter()
-                .any(|r| p.contains(r))
-        });
+        .is_some_and(|p| TIERS.iter().any(|r| p.contains(r.as_str())));
     if !may_read {
         return Ok(Err(forbidden(
             "the sender has no read access to the Space file tree",
@@ -580,7 +578,7 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<Option<FilesRights>, RootCheckError<C::Error, F::Error>> {
     let space_id = if is_tree_root(node) {
         node.space_id.clone()
@@ -612,11 +610,7 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
         .iter()
         .find(|s| s.id == space_id)
         .and_then(|s| member_permissions(s, account_id, everyone))
-        .and_then(|p| {
-            [VIEW, SEND, MANAGE_CHANNELS, MANAGE_SPACE]
-                .iter()
-                .rposition(|t| p.contains(t))
-        })
+        .and_then(|p| TIERS.iter().rposition(|t| p.contains(t.as_str())))
         .map_or(0, |i| i + 1);
 
     let is_root = is_tree_root(node);
@@ -653,7 +647,7 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
     if node.role == Some(NodeRole::ChatSpace) {
         return Ok(Ok(()));
@@ -716,7 +710,7 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
     account_id: &Id,
     node: &FileNode,
     patch: &PatchObject,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
     let rights = space_files_rights(
         chat,
@@ -794,7 +788,7 @@ pub async fn check_space_destroy<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
     let rights = space_files_rights(
         chat,
@@ -824,7 +818,7 @@ async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     parent_id: &Id,
-    everyone: &HashSet<String>,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<bool, RootCheckError<C::Error, F::Error>> {
     let (parents, _) = files
         .get_objects::<FileNode>(
@@ -857,6 +851,15 @@ fn is_tree_root(node: &FileNode) -> bool {
     node.parent_id.is_none() && node.role == Some(NodeRole::ChatSpace)
 }
 
+/// The rows of draft-atwood-jmap-chat-filenode-00 §Permission Mapping,
+/// lowest first: "Each row includes the grants of the rows above it".
+const TIERS: [ChatPermission; 4] = [
+    ChatPermission::View,
+    ChatPermission::Send,
+    ChatPermission::ManageChannels,
+    ChatPermission::ManageSpace,
+];
+
 /// The Space permissions `account_id` holds as a member of `space`: the
 /// union over the member's SpaceRoles plus `everyone`, the implicit
 /// `@everyone` role's permissions (draft-atwood-jmap-chat-00 §Space
@@ -867,7 +870,7 @@ fn is_tree_root(node: &FileNode) -> bool {
 fn member_permissions<'a>(
     space: &'a Space,
     account_id: &Id,
-    everyone: &'a HashSet<String>,
+    everyone: &'a HashSet<ChatPermission>,
 ) -> Option<HashSet<&'a str>> {
     let member = space.members.iter().find(|m| &m.id == account_id)?;
     let role_ids: HashSet<&Id> = member.role_ids.iter().collect();
@@ -877,7 +880,7 @@ fn member_permissions<'a>(
             .iter()
             .filter(|r| role_ids.contains(&r.id))
             .flat_map(|r| r.permissions.iter().map(|p| p.as_str()))
-            .chain(everyone.iter().map(String::as_str))
+            .chain(everyone.iter().map(ChatPermission::as_str))
             .collect(),
     )
 }

@@ -82,7 +82,9 @@ async fn member_without_start_call_is_forbidden() {
 #[tokio::test]
 async fn everyone_floor_granting_start_call_permits_the_create() {
     let mut backend = Bound::new();
-    backend.everyone.insert("start_call".to_owned());
+    backend
+        .everyone
+        .insert(jmap_chat_types::ChatPermission::StartCall);
     backend.seed_chat_object("Space", space(SPACE, &[], &[(ACCOUNT, &[])]));
     create_call(
         &backend,
@@ -117,7 +119,9 @@ async fn channel_override_denying_start_call_is_forbidden() {
 #[tokio::test]
 async fn non_member_of_the_space_is_forbidden() {
     let mut backend = Bound::new();
-    backend.everyone.insert("start_call".to_owned());
+    backend
+        .everyone
+        .insert(jmap_chat_types::ChatPermission::StartCall);
     backend.seed_chat_object(
         "Space",
         space(SPACE, &["start_call"], &[("c-bob", &["R-CALLER"])]),

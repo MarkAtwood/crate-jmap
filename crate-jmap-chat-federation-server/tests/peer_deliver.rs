@@ -436,7 +436,7 @@ async fn step5_sender_needs_send_permission() {
     // SpaceRoles held by the member, including the implicit `@everyone`
     // role."
     let mut fed = Fed::new();
-    fed.everyone = HashSet::from(["send".to_owned()]);
+    fed.everyone = HashSet::from([jmap_chat_types::ChatPermission::Send]);
     fed.seed("Chat", channel(0, json!([])));
     fed.seed("Space", space(&["view"], false));
     fed.deliver(deliver_args(CHANNEL, "channel", message("M1")))
