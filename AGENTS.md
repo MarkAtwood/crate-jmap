@@ -239,6 +239,11 @@ jmap-scene-types       — draft-atwood-jmap-scene-00 data types: SceneCapabilit
                              Depends on jmap-server; no chat or VTC dependency.
     └── jmap-scene-client  — Scene method bindings over jmap-base-client, AssetFetcher,
                              scene-wss events.
+    └── jmap-scene-vtc-server — VTC binding for jmap-scene-server: SceneRegion.activeCallId
+                             cleared when its VTCCall ends. Depends on jmap-scene-server
+                             and jmap-vtc-types.
+    └── jmap-chat-scene-server — Chat binding for jmap-scene-server: scene-wss subscription
+                             union. Depends on jmap-scene-server.
 
 jmap-graph-types       — draft-atwood-jmap-graph-00 data types: GraphCapability
                          (urn:ietf:params:jmap:graph), PrincipalGraphCapability,
@@ -251,11 +256,6 @@ jmap-graph-types       — draft-atwood-jmap-graph-00 data types: GraphCapabilit
     └── jmap-graph-projection-server — Mail and Contacts binding: projected nodes and
                              edges, objectUri filter, native-rights visibility. Depends
                              on jmap-mail-types, jmap-contacts-types and jmap-server.
-    └── jmap-scene-vtc-server — VTC binding for jmap-scene-server: SceneRegion.activeCallId
-                             cleared when its VTCCall ends. Depends on jmap-scene-server
-                             and jmap-vtc-types.
-    └── jmap-chat-scene-server — Chat binding for jmap-scene-server: scene-wss subscription
-                             union. Depends on jmap-scene-server.
 
 jmap-chat-filenode-server — Chat binding for jmap-filenode-server: Space file tree
                          root validation, per-Space quota, auto-created
