@@ -844,6 +844,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `chat_state_change_for` takes
+  `carried: &HashSet<Id>` in place of the `ChatPushCapability` map and
+  drops `Message` only for accounts whose every Message change in the
+  batch was carried by a delivered `ChatMessagePush`. It used to drop
+  `Message` for every account with a live `chatPush` entry, so edits,
+  destroys, the owner's own messages and filtered messages were never
+  announced (draft-atwood-jmap-chat-push-00 §PushSubscription Extension:
+  "Every other change in the account is still announced by a standard
+  `StateChange` [...] this includes Message changes that the payload does
+  not carry").
 - **BREAKING** **jmap-chat-types**: `unread_count` moves from
   `ChatMessageEntry` to `ChatMessagePush`, which the spec defines it on
   (draft-atwood-jmap-chat-push-00 §ChatMessagePush: "It is a property of

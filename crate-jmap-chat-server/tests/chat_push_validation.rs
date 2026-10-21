@@ -4,12 +4,12 @@
 //! Oracle: draft-atwood-jmap-chat-push-00 at jmap-chat-spec commit cefc217,
 //! section "PushSubscription Extension" / "ChatPushConfig", plus the
 //! approved JMAP-nbk3 plan decisions D4 (bad urgency is `invalidProperties`
-//! naming `chatPush/<accountId>/<field>`), D9 (unknown `kinds` and
-//! `properties` values are `invalidProperties`) and D10 (an account with a
-//! live `chatPush` entry gets no `Message` type in its `StateChange`). Each
-//! test quotes the sentence it enforces.
+//! naming `chatPush/<accountId>/<field>`) and D9 (unknown `kinds` and
+//! `properties` values are `invalidProperties`). The StateChange split
+//! follows jmap-chat-spec commit 6bcd9d8, push:108. Each test quotes the
+//! sentence it enforces.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_chat_server::{chat_state_change_for, strip_unsupported_chat_push, validate_chat_push};
 use jmap_chat_types::ChatPushCapability;
@@ -165,16 +165,17 @@ fn strip_removes_entries_for_accounts_without_capability() {
     );
 }
 
-/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:106):
-/// "When present for an account, the server delivers `ChatMessagePush`
-/// payloads to the push endpoint for new inbound messages in that account
-/// that match the configuration. When absent or null for an account, the
-/// server delivers standard `StateChange` notifications for that account
-/// without inline message content."
+/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension"
+/// (6bcd9d8 push:108): "A `ChatMessagePush` stands in for the
+/// `StateChange` that the arrival of the messages it carries would
+/// otherwise cause. Every other change in the account is still announced
+/// by a standard `StateChange`, as {{RFC8620}} Section 7 describes: this
+/// includes Message changes that the payload does not carry [...] and
+/// changes to every other data type."
 ///
-/// Per plan decision D10, the `ChatMessagePush` replaces the `Message`
-/// state change for a live `chatPush` account: `Message` is dropped from
-/// that account's TypeState, its other types and other accounts are kept.
+/// Every Message change in `PUSH_ACCOUNT` was carried, so `Message` is
+/// dropped from that account's TypeState; its other types and the other
+/// account are kept.
 #[test]
 fn state_change_drops_message_for_chat_push_account() {
     let sub: PushSubscription = serde_json::from_value(json!({
@@ -197,7 +198,8 @@ fn state_change_drops_message_for_chat_push_account() {
             BTreeMap::from([("Message".to_owned(), state("m2"))]),
         ),
     ]);
-    let sc = chat_state_change_for(&sub, &changed, &caps()).expect("other types still change");
+    let carried = HashSet::from([id(PUSH_ACCOUNT)]);
+    let sc = chat_state_change_for(&sub, &changed, &carried).expect("other types still change");
     let expected = BTreeMap::from([
         (
             id(PUSH_ACCOUNT),
@@ -211,10 +213,10 @@ fn state_change_drops_message_for_chat_push_account() {
     assert_eq!(sc.changed, expected);
 }
 
-/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:106),
-/// as above: when only `Message` changed in a live `chatPush` account, the
-/// `ChatMessagePush` is the whole notification and no `StateChange` is
-/// built (plan decision D10).
+/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension"
+/// (6bcd9d8 push:108), as above: when the only change in the account is
+/// carried Message arrivals, the `ChatMessagePush` "stands in for the
+/// `StateChange`" and none is built.
 #[test]
 fn state_change_is_none_when_only_message_changed_in_chat_push_account() {
     let sub: PushSubscription = serde_json::from_value(json!({
@@ -228,5 +230,33 @@ fn state_change_is_none_when_only_message_changed_in_chat_push_account() {
         id(PUSH_ACCOUNT),
         BTreeMap::from([("Message".to_owned(), state("m1"))]),
     )]);
-    assert!(chat_state_change_for(&sub, &changed, &caps()).is_none());
+    let carried = HashSet::from([id(PUSH_ACCOUNT)]);
+    assert!(chat_state_change_for(&sub, &changed, &carried).is_none());
+}
+
+/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension"
+/// (6bcd9d8 push:108): "Every other change in the account is still
+/// announced by a standard `StateChange`, as {{RFC8620}} Section 7
+/// describes: this includes Message changes that the payload does not
+/// carry (edits, destroys, the owner's own messages, and messages excluded
+/// by `ChatPushConfig`, mute, or block)".
+///
+/// The account has a live `chatPush` entry, but its Message change (an
+/// edit, say) was not carried by any `ChatMessagePush`, so `Message` stays.
+#[test]
+fn state_change_keeps_uncarried_message_for_chat_push_account() {
+    let sub: PushSubscription = serde_json::from_value(json!({
+        "deviceClientId": "device-1",
+        "url": "https://push.example.com/endpoint/1",
+        "types": null,
+        "chatPush": { PUSH_ACCOUNT: {} },
+    }))
+    .expect("valid PushSubscription");
+    let changed = BTreeMap::from([(
+        id(PUSH_ACCOUNT),
+        BTreeMap::from([("Message".to_owned(), state("m1"))]),
+    )]);
+    let sc = chat_state_change_for(&sub, &changed, &HashSet::new())
+        .expect("uncarried Message change is announced");
+    assert_eq!(sc.changed, changed);
 }

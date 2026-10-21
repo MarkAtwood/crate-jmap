@@ -10,7 +10,7 @@
 //! [`build_chat_message_push`] after [`should_push`] allows it, fitted to
 //! the platform size limit with [`fit_chat_message_push`].
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use jmap_chat_types::{
@@ -161,36 +161,32 @@ pub fn strip_unsupported_chat_push(
 /// when nothing is left to send.
 ///
 /// Wraps [`state_change_for`] (which filters by `types`) and drops the
-/// `Message` type for every account with a live `chatPush` entry: one that
-/// is non-null and whose account is in `caps`. For those accounts the
-/// `ChatMessagePush` replaces the `Message` state change.
-/// draft-atwood-jmap-chat-push-00 §PushSubscription Extension: "When
-/// present for an account, the server delivers `ChatMessagePush` payloads
-/// to the push endpoint for new inbound messages in that account that match
-/// the configuration. When absent or null for an account, the server
-/// delivers standard `StateChange` notifications for that account without
-/// inline message content."
+/// `Message` type for each account in `carried`. The caller puts an
+/// account in `carried` only when every Message change for it in `changed`
+/// arrived in a `ChatMessagePush` delivered to `sub`; an edit, a destroy,
+/// the owner's own message or a message [`should_push`] filtered out keeps
+/// the account out, and `Message` stays in its `StateChange`.
+/// draft-atwood-jmap-chat-push-00 §PushSubscription Extension: "A
+/// `ChatMessagePush` stands in for the `StateChange` that the arrival of
+/// the messages it carries would otherwise cause. Every other change in
+/// the account is still announced by a standard `StateChange`, as
+/// {{RFC8620}} Section 7 describes: this includes Message changes that the
+/// payload does not carry (edits, destroys, the owner's own messages, and
+/// messages excluded by `ChatPushConfig`, mute, or block) and changes to
+/// every other data type."
 ///
 /// A consumer falling back to a plain `StateChange` under rate limiting
 /// (§Rate Limiting and Fallback) calls [`state_change_for`] directly.
 pub fn chat_state_change_for(
     sub: &PushSubscription,
     changed: &BTreeMap<Id, BTreeMap<String, State>>,
-    caps: &HashMap<Id, ChatPushCapability>,
+    carried: &HashSet<Id>,
 ) -> Option<StateChange> {
-    let live = |account: &Id| {
-        caps.contains_key(account)
-            && sub
-                .extra
-                .get(CHAT_PUSH)
-                .and_then(|entries| entries.get(account.as_ref()))
-                .is_some_and(|entry| !entry.is_null())
-    };
     let filtered: BTreeMap<Id, BTreeMap<String, State>> = changed
         .iter()
         .map(|(account, types)| {
             let mut types = types.clone();
-            if live(account) {
+            if carried.contains(account) {
                 types.remove("Message");
             }
             (account.clone(), types)
