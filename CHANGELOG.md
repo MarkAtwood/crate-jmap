@@ -847,6 +847,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-federation-server**: the `FederationBackend::fetch_attachment`
+  and `fetch_avatar` contracts now require a GET signed per
+  draft-atwood-jmap-chat-federation-00 §Request Signing that follows no
+  cross-origin redirect (§Blob Fetch), and `fetch_attachment` documents the
+  step 11 failure mapping: connection failure, timeout or 5xx to
+  `serverFail`, 429 to `rateLimited`, 403 or 404 to `invalidArguments`.
 - **BREAKING** **jmap-chat-federation-types**: `PeerGroupUpdateArgs.avatar_blob_id`
   is replaced by `avatar: Option<Clearable<PeerAvatar>>`, the wire
   `avatar` object (`contentType`, `size`, `sha256`, `fetchUrl`) of
