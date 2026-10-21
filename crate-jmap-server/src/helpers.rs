@@ -1159,6 +1159,19 @@ mod tests {
     }
 
     #[test]
+    fn did_update_with_null_over_absent_did_passes() {
+        // L247: "an update can include one only with its current value".
+        // RFC 8620 §5.3: "null ... to remove it (or reset it to its
+        // default value)", so an absent property's current value is null.
+        let stored = did_entry(json!({ "id": "a" }));
+        let entry = did_entry(json!({ "did": null }));
+        assert_eq!(
+            reject_did_bearing_properties(&entry, &["did"], Some(&stored)),
+            None
+        );
+    }
+
+    #[test]
     fn did_update_that_changes_did_is_rejected() {
         // L247: "Servers MUST reject ... an update that changes one". A
         // different value, null over a stored DID, and a path under the
