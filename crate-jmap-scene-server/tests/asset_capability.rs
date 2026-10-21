@@ -84,4 +84,12 @@ async fn supported_account_is_not_gated() {
             .await
             .unwrap_or_else(|e| panic!("SceneAsset/{method}: {e:?}"));
     }
+    // `sinceState` "0" may be one the server cannot calculate changes
+    // from (RFC 8620 §5.2 `cannotCalculateChanges`, §5.6 likewise); the
+    // gate is only about `unknownMethod`.
+    for method in ["changes", "queryChanges"] {
+        if let Err(e) = run(&backend, method, ACCOUNT).await {
+            assert_ne!(e.error_type, "unknownMethod", "SceneAsset/{method}");
+        }
+    }
 }

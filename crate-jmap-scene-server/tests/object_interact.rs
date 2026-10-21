@@ -357,3 +357,31 @@ async fn method_level_errors() {
     .unwrap_err();
     assert_eq!(err.error_type, "accountNotFound");
 }
+
+/// 33702a5 L2017 "The response follows the shape of `/set` ({{RFC8620}}
+/// Section 5.3)", whose `requestTooLarge` is "The total number of objects
+/// to create, update, or destroy exceeds the maximum number the server is
+/// willing to process in a single method call", that is RFC 8620 §2
+/// `maxObjectsInSet`. Exactly the cap is processed; one more is refused
+/// as a whole.
+#[tokio::test]
+async fn interactions_over_max_objects_in_set_are_request_too_large() {
+    let backend = scene();
+    let caller = ALICE.to_owned();
+    let cap = JmapBackend::max_objects_in_set(&backend, &caller, &Id::from(ACCOUNT));
+    let args = |n: u64| {
+        let interactions: serde_json::Map<String, Value> =
+            (0..n).map(|i| (format!("i{i}"), click(R1, OBJ2))).collect();
+        json!({ "accountId": ACCOUNT, "interactions": interactions })
+    };
+
+    let err = handle_scene_object_interact(&backend, &caller, args(cap + 1))
+        .await
+        .unwrap_err();
+    assert_eq!(err.error_type, "requestTooLarge");
+    assert!(backend.accepted_interactions().is_empty());
+
+    handle_scene_object_interact(&backend, &caller, args(cap))
+        .await
+        .expect("exactly maxObjectsInSet interactions are processed");
+}
