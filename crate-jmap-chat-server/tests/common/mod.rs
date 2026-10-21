@@ -657,6 +657,7 @@ impl ChatBackend for TrackingBackend {
         caller: &(),
         account_id: &Id,
         space_id: &Id,
+        chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
         if self.broadcast_mention_deny {
             Ok(Err(SetError::new(SetErrorType::Forbidden)
@@ -665,7 +666,7 @@ impl ChatBackend for TrackingBackend {
                 )))
         } else {
             self.inner
-                .may_broadcast_mention(caller, account_id, space_id)
+                .may_broadcast_mention(caller, account_id, space_id, chat_id)
                 .await
         }
     }

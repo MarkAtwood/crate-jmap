@@ -1401,32 +1401,38 @@ impl ChatBackend for MemoryBackend {
     /// Implements draft-atwood-jmap-chat-00 §BroadcastMention: a
     /// non-empty `broadcastMentions` array in a channel requires the
     /// [`MENTION_BROADCAST`](crate::permissions::MENTION_BROADCAST)
-    /// permission in the containing Space. The caller's member entry is
-    /// `account_id` (draft §Terminology). A Space that does not exist is
-    /// permitted, matching the ban gate.
+    /// permission, resolved in channel `chat_id` per §Space Permission
+    /// Resolution. The caller's member entry is `account_id` (draft
+    /// §Terminology). A Space or Chat that does not exist is permitted,
+    /// matching the ban gate.
     async fn may_broadcast_mention(
         &self,
         _caller: &(),
         account_id: &Id,
         space_id: &Id,
+        chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
         use crate::permissions::MENTION_BROADCAST;
 
         let inner = self.inner.lock().unwrap();
-        let Some(space) = inner
+        let space_exists = inner
             .objects_ref("Space", account_id.as_ref())
-            .and_then(|m| m.get(space_id))
+            .is_some_and(|m| m.contains_key(space_id));
+        let Some(chat) = inner
+            .objects_ref("Chat", account_id.as_ref())
+            .and_then(|m| m.get(chat_id))
+            .filter(|_| space_exists)
         else {
             return Ok(Ok(()));
         };
         Ok(
-            if caller_effective_permissions(space, account_id)
+            if owner_channel_permissions(&inner, account_id, chat)
                 .is_some_and(|perms| perms.contains(MENTION_BROADCAST))
             {
                 Ok(())
             } else {
                 Err(SetError::new(SetErrorType::Forbidden).with_description(
-                    "caller lacks required permission `mention_broadcast` in this Space",
+                    "caller lacks required permission `mention_broadcast` in this channel",
                 ))
             },
         )
@@ -1504,8 +1510,8 @@ impl ChatBackend for MemoryBackend {
     /// Implements draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`:
     /// group chats require the caller to be a member with role `admin`;
     /// direct chats permit the owner freely; channel chats require the
-    /// [`PIN`](crate::permissions::PIN) permission in the containing
-    /// Space. A Chat that does not exist is permitted so `update_object`
+    /// [`PIN`](crate::permissions::PIN) permission, resolved in the
+    /// channel per §Space Permission Resolution. A Chat that does not exist is permitted so `update_object`
     /// surfaces `notFound`.
     ///
     /// The caller is the owner, whose member entry is the accountId
@@ -1540,17 +1546,9 @@ impl ChatBackend for MemoryBackend {
                 (!is_admin).then_some("only group chat admins may modify pinnedMessageIds")
             }
             Some("channel") => {
-                let has_pin = chat
-                    .get("spaceId")
-                    .and_then(|v| v.as_str())
-                    .and_then(|sid| {
-                        inner
-                            .objects_ref("Space", account_id.as_ref())?
-                            .get(&Id::from(sid))
-                    })
-                    .and_then(|space| caller_effective_permissions(space, account_id))
+                let has_pin = owner_channel_permissions(&inner, account_id, chat)
                     .is_some_and(|perms| perms.contains(PIN));
-                (!has_pin).then_some("caller lacks required permission `pin` in this Space")
+                (!has_pin).then_some("caller lacks required permission `pin` in this channel")
             }
             _ => Some("internal: Chat has no recognized kind"),
         };

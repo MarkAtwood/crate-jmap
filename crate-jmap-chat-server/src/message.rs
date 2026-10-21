@@ -1270,7 +1270,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .filter(|_| !broadcast_mentions_val.is_empty())
             {
                 match backend
-                    .may_broadcast_mention(caller, &account_id, sid)
+                    .may_broadcast_mention(caller, &account_id, sid, &chat_id)
                     .await
                 {
                     Ok(Ok(())) => {}
@@ -1940,10 +1940,12 @@ pub async fn handle_message_set<B: ChatBackend>(
                 // chats (no spaceId) are unrestricted per spec.
                 // A Message or Chat not found is left for update_object
                 // to surface downstream.
-                let space_id = stored_chat.as_ref().and_then(|c| c.space_id.as_ref());
-                if let (true, Some(sid)) = (has_bm, space_id) {
+                let channel = stored_chat
+                    .as_ref()
+                    .and_then(|c| Some((c.space_id.as_ref()?, &c.id)));
+                if let (true, Some((sid, chat_id))) = (has_bm, channel) {
                     match backend
-                        .may_broadcast_mention(caller, &account_id, sid)
+                        .may_broadcast_mention(caller, &account_id, sid, chat_id)
                         .await
                     {
                         Ok(Ok(())) => {}
