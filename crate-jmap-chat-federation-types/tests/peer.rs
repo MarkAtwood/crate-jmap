@@ -308,12 +308,42 @@ fn group_update_create() {
         ],
         "name": "Trip",
         "description": "Planning",
-        "avatarBlobId": "B9"
+        "avatar": {
+            "contentType": "image/png",
+            "size": 3,
+            "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            "fetchUrl": "https://a.example/blob/av1"
+        }
     }));
     let members = a.members.expect("members");
     assert_eq!(members[1].id, "bob@b.example");
     assert_eq!(members[1].invited_by.as_deref(), Some("alice@a.example"));
     assert_eq!(members[0].role, ChatMemberRole::Admin);
+    let Some(Clearable::Set(avatar)) = a.avatar else {
+        panic!("avatar object");
+    };
+    assert_eq!(avatar.content_type, "image/png");
+    assert_eq!(avatar.size, 3);
+    assert_eq!(avatar.fetch_url, "https://a.example/blob/av1");
+}
+
+/// fed 6bcd9d8 L667-668: `avatar` (Object|null, optional): "For
+/// `"updateMetadata"`, `null` removes the group avatar; absent leaves it
+/// unchanged." The two must stay distinct.
+#[test]
+fn group_update_avatar_null_and_absent_differ() {
+    let a: PeerGroupUpdateArgs = round_trip(json!({
+        "accountId": "A1", "chatId": "G1", "senderUserId": "alice@a.example",
+        "action": "updateMetadata", "avatar": null
+    }));
+    assert!(matches!(a.avatar, Some(Clearable::Clear)));
+    assert!(a.extra.is_empty());
+
+    let a: PeerGroupUpdateArgs = round_trip(json!({
+        "accountId": "A1", "chatId": "G1", "senderUserId": "alice@a.example",
+        "action": "updateMetadata", "name": "Trip"
+    }));
+    assert!(a.avatar.is_none());
 }
 
 /// L627-635: `addedMembers`, `removedMemberIds` ("The identity strings of

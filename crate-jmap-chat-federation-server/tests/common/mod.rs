@@ -13,7 +13,7 @@ use jmap_chat_federation_server::{
     handle_peer_unsubscribe_presence, AuthenticatedPeer, FederationBackend,
     FederationPresenceBackend, FetchedBlob,
 };
-use jmap_chat_federation_types::PeerAttachment;
+use jmap_chat_federation_types::{PeerAttachment, PeerAvatar};
 use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 use jmap_chat_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
@@ -537,6 +537,19 @@ impl FederationBackend for Fed {
             .get(&attachment.fetch_url)
             .cloned()
             .ok_or_else(|| JmapError::invalid_arguments("fetch refused")))
+    }
+
+    async fn fetch_avatar(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        avatar: &PeerAvatar,
+    ) -> Option<FetchedBlob> {
+        self.fetched
+            .lock()
+            .expect("lock")
+            .push(avatar.fetch_url.clone());
+        self.blobs.get(&avatar.fetch_url).cloned()
     }
 
     async fn create_chat(

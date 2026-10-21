@@ -549,7 +549,7 @@ pub enum GroupUpdateAction {
     RemoveMembers,
     /// Members' roles changed; requires `updatedRoles`.
     UpdateRoles,
-    /// `name`, `description` or `avatarBlobId` changed.
+    /// `name`, `description` or avatar changed.
     UpdateMetadata,
     /// The sender left the group.
     Leave,
@@ -615,6 +615,48 @@ impl PeerRoleUpdate {
     }
 }
 
+/// The `avatar` object of `Peer/groupUpdate`: the `contentType`, `size`
+/// and `sha256` fields of a chat [`Attachment`] plus `fetchUrl` (draft
+/// §Peer/groupUpdate `avatar`).
+///
+/// `fetch_url` is peer-supplied. Restrict the fetch per draft §Blob Fetch
+/// and SSRF before using it.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PeerAvatar {
+    /// Media type of the avatar image.
+    pub content_type: String,
+    /// Size of the blob in bytes.
+    pub size: u64,
+    /// Lowercase hex SHA-256 of the blob.
+    pub sha256: String,
+    /// The URL from which the receiver fetches the blob.
+    pub fetch_url: String,
+    /// Catch-all for extension fields; see workspace AGENTS.md.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl PeerAvatar {
+    /// An avatar of `size` bytes with digest `sha256`, fetchable from
+    /// `fetch_url`.
+    pub fn new(
+        content_type: impl Into<String>,
+        size: u64,
+        sha256: impl Into<String>,
+        fetch_url: impl Into<String>,
+    ) -> Self {
+        Self {
+            content_type: content_type.into(),
+            size,
+            sha256: sha256.into(),
+            fetch_url: fetch_url.into(),
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// `Peer/groupUpdate` request arguments.
 ///
 /// Which optional fields are required depends on `action` (see
@@ -650,9 +692,14 @@ pub struct PeerGroupUpdateArgs {
     /// Group description (`"create"` or `"updateMetadata"`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// Group avatar blob ID (`"create"` or `"updateMetadata"`).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub avatar_blob_id: Option<Id>,
+    /// Group avatar (`"create"` or `"updateMetadata"`). `None` leaves it
+    /// unchanged; `Clear` (`null`) removes it.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "some_clearable"
+    )]
+    pub avatar: Option<Clearable<PeerAvatar>>,
     /// Catch-all for extension fields; see workspace AGENTS.md.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
@@ -677,7 +724,7 @@ impl PeerGroupUpdateArgs {
             updated_roles: None,
             name: None,
             description: None,
-            avatar_blob_id: None,
+            avatar: None,
             extra: serde_json::Map::new(),
         }
     }

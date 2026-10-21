@@ -15,7 +15,7 @@
 use std::collections::{HashMap, HashSet};
 
 use jmap_chat_federation_types::{
-    is_jmap_object_uri, PeerAttachment, PeerDeliverArgs, PeerDeliverResponse, PeerEdit,
+    is_jmap_object_uri, PeerAttachment, PeerAvatar, PeerDeliverArgs, PeerDeliverResponse, PeerEdit,
     PeerMention, PeerMessage, PeerReactionUpdate, ReactionAction,
 };
 use jmap_chat_server::{
@@ -159,6 +159,22 @@ pub trait FederationBackend: ChatBackend {
         account_id: &Id,
         attachment: &PeerAttachment,
     ) -> impl std::future::Future<Output = Result<Result<FetchedBlob, JmapError>, Self::Error>> + Send;
+
+    /// Fetch the `Peer/groupUpdate` `avatar` from its `fetchUrl` and store
+    /// it as a blob of `account_id`.
+    ///
+    /// The implementation applies §Blob Fetch and SSRF to the URL. The
+    /// handler calls this only after the request's authorization and
+    /// `closedAt` checks and its own `contentType` and `size` checks, and
+    /// compares the returned size and digest with the avatar's `size` and
+    /// `sha256`. The avatar is best-effort ("A failed avatar never causes
+    /// the request to be rejected"), so every failure is `None`.
+    fn fetch_avatar(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        avatar: &PeerAvatar,
+    ) -> impl std::future::Future<Output = Option<FetchedBlob>> + Send;
 
     /// Store `chat` under its own `id`.
     ///
@@ -1067,7 +1083,7 @@ fn check_attachments(attachments: &[PeerAttachment], limits: &ChatLimits) -> Res
 /// `Message/set` checks it.
 ///
 /// ponytail: parameters after `;` are not parsed, as in `Message/set`.
-fn valid_media_type(s: &str) -> bool {
+pub(crate) fn valid_media_type(s: &str) -> bool {
     let is_token = |t: &str| {
         !t.is_empty()
             && t.bytes()
@@ -1121,7 +1137,7 @@ fn is_before(a: &UTCDate, b: &UTCDate) -> bool {
 
 /// Whether the 64-hex-digit `hex` encodes `digest`, compared in constant
 /// time as `Message/set` compares attachment digests.
-fn sha256_hex_matches(hex: &str, digest: &[u8; 32]) -> bool {
+pub(crate) fn sha256_hex_matches(hex: &str, digest: &[u8; 32]) -> bool {
     let mut decoded = [0u8; 32];
     for (i, out) in decoded.iter_mut().enumerate() {
         let Some(byte) = hex

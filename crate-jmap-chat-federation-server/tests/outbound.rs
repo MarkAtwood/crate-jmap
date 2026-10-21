@@ -10,6 +10,7 @@ use jmap_chat_federation_server::{
     aggregate_delivery_state, is_transient, other_participants, outbound_reference,
     peer_group_update_args, DeliveryFailure, OutboundError, SenderIdentities,
 };
+use jmap_chat_federation_types::PeerAvatar;
 use jmap_chat_server::GroupUpdateAction;
 use jmap_chat_types::{Chat, ChatContact, ChatMember, DeliveryState, MessageAction, Space};
 use jmap_types::Id;
@@ -133,11 +134,31 @@ fn channel_participants_are_space_members() {
 }
 
 fn group_update(chat_value: Value, action: &GroupUpdateAction) -> Result<Value, OutboundError> {
+    group_update_with_avatar(chat_value, action, None)
+}
+
+fn group_update_with_avatar(
+    chat_value: Value,
+    action: &GroupUpdateAction,
+    avatar: Option<PeerAvatar>,
+) -> Result<Value, OutboundError> {
     let account = Id::from(ACCOUNT);
     let contacts = contacts();
     let ids = SenderIdentities::new(&account, OWNER, &contacts);
-    peer_group_update_args(&ids, Id::from(PEER_ACCOUNT), &chat(chat_value), action)
-        .map(|a| serde_json::to_value(a).expect("serialize"))
+    peer_group_update_args(
+        &ids,
+        Id::from(PEER_ACCOUNT),
+        &chat(chat_value),
+        action,
+        avatar,
+    )
+    .map(|a| serde_json::to_value(a).expect("serialize"))
+}
+
+const AVATAR_URL: &str = "https://home.example/blob/avatar-1";
+
+fn avatar() -> PeerAvatar {
+    PeerAvatar::new("image/png", 3, ABC_SHA256, AVATAR_URL)
 }
 
 // L615: `senderUserId` is "The identity string of the user making the
@@ -229,16 +250,54 @@ fn leave_and_close_carry_only_standard_fields() {
     }
 }
 
-// L624: `"updateMetadata"` — "The group's `name`, `description`, or
-// `avatarBlobId` was changed."
+// fed 6bcd9d8 L645: `"updateMetadata"` — "The group's `name`,
+// `description`, or avatar (`avatarBlobId` in {{JMAP-CHAT}}) was
+// changed." L668: "An Object carries the `contentType`, `size`, and
+// `sha256` fields of an Attachment ({{JMAP-CHAT}}) plus `fetchUrl`".
 #[test]
 fn update_metadata_carries_stored_metadata() {
     let mut group = group_chat(&[ACCOUNT, BOB_ID], false);
     group["avatarBlobId"] = json!("blob-9");
-    let args = group_update(group, &GroupUpdateAction::UpdateMetadata).expect("args");
+    let args = group_update_with_avatar(group, &GroupUpdateAction::UpdateMetadata, Some(avatar()))
+        .expect("args");
     assert_eq!(args["name"], json!("g"));
-    assert_eq!(args["avatarBlobId"], json!("blob-9"));
+    assert_eq!(
+        args["avatar"],
+        json!({
+            "contentType": "image/png",
+            "size": 3,
+            "sha256": ABC_SHA256,
+            "fetchUrl": AVATAR_URL,
+        })
+    );
+    assert!(args.get("avatarBlobId").is_none());
     assert!(args.get("members").is_none());
+}
+
+// fed 6bcd9d8 L668: "For `"updateMetadata"`, `null` removes the group
+// avatar; absent leaves it unchanged." A group with no avatar sends
+// `null`; a `"create"` for one sends nothing.
+#[test]
+fn group_without_avatar_sends_null_on_update_metadata() {
+    let group = group_chat(&[ACCOUNT, BOB_ID], false);
+    let args = group_update(group.clone(), &GroupUpdateAction::UpdateMetadata).expect("args");
+    assert_eq!(args.get("avatar"), Some(&Value::Null));
+    let args = group_update(group, &GroupUpdateAction::Create).expect("args");
+    assert!(args.get("avatar").is_none());
+}
+
+// A stored avatar with no `avatar` object must not go out as `null`,
+// which L668 says "removes the group avatar" at the peer.
+#[test]
+fn stored_avatar_without_object_is_an_error() {
+    let mut group = group_chat(&[ACCOUNT, BOB_ID], false);
+    group["avatarBlobId"] = json!("blob-9");
+    for action in [GroupUpdateAction::UpdateMetadata, GroupUpdateAction::Create] {
+        assert_eq!(
+            group_update(group.clone(), &action),
+            Err(OutboundError::MissingAvatar)
+        );
+    }
 }
 
 // L635: removed members are named by "identity strings"; a local id with

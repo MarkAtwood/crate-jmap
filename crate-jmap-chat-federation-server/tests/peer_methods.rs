@@ -755,22 +755,180 @@ async fn group_update_roles_by_an_admin() {
     );
 }
 
-/// fed L624: `"updateMetadata"` — "The group's `name`, `description`, or
-/// `avatarBlobId` was changed."
+/// A `Peer/groupUpdate` `avatar` object (fed 6bcd9d8 L668: "the
+/// `contentType`, `size`, and `sha256` fields of an Attachment ... plus
+/// `fetchUrl`") for the "abc" blob the test backend serves at `FETCH_URL`.
+fn abc_avatar() -> Value {
+    json!({"contentType": "image/png", "size": 3, "sha256": ABC_SHA256, "fetchUrl": FETCH_URL})
+}
+
+/// The group, `ACCOUNT` a member and Bob an admin, with avatar `blob_id`.
+fn group_with_avatar(blob_id: &str) -> Value {
+    let mut g = group(&[(ACCOUNT, "member"), (BOB_ID, "admin")]);
+    g["avatarBlobId"] = json!(blob_id);
+    g
+}
+
+/// fed 6bcd9d8 L645: `"updateMetadata"` — "The group's `name`,
+/// `description`, or avatar (`avatarBlobId` in {{JMAP-CHAT}}) was
+/// changed." L678: "When `avatar` is an Object and its fetch and checks
+/// succeeded, it stores the fetched blob and sets the Chat's
+/// `avatarBlobId` to the local blobId".
 #[tokio::test]
 async fn group_update_metadata_by_an_admin() {
     let fed = Fed::new();
-    fed.seed("Chat", group(&[(ACCOUNT, "member"), (BOB_ID, "admin")]));
+    fed.seed("Chat", group_with_avatar("old-avatar"));
     fed.group_update(group_args(
         "updateMetadata",
-        json!({"name": "New", "avatarBlobId": "avatar-1"}),
+        json!({"name": "New", "avatar": abc_avatar()}),
     ))
     .await
     .expect("accepted");
     let chat = chat(&fed, GROUP).await.expect("group");
     assert_eq!(chat["name"], json!("New"));
-    assert_eq!(chat["avatarBlobId"], json!("avatar-1"));
+    assert_eq!(chat["avatarBlobId"], json!("local-blob-1"));
     assert_eq!(member_ids(&chat), vec![ACCOUNT, BOB_ID]);
+    assert_eq!(*fed.fetched.lock().expect("lock"), vec![FETCH_URL]);
+}
+
+/// fed 6bcd9d8 L678: "when `avatar` is `null`, it removes
+/// `avatarBlobId`"; L668: "absent leaves it unchanged."
+#[tokio::test]
+async fn group_update_metadata_null_avatar_removes_it() {
+    let fed = Fed::new();
+    fed.seed("Chat", group_with_avatar("old-avatar"));
+    fed.group_update(group_args("updateMetadata", json!({"name": "New"})))
+        .await
+        .expect("accepted");
+    let stored = chat(&fed, GROUP).await.expect("group");
+    assert_eq!(stored["avatarBlobId"], json!("old-avatar"));
+
+    fed.group_update(group_args("updateMetadata", json!({"avatar": null})))
+        .await
+        .expect("accepted");
+    let stored = chat(&fed, GROUP).await.expect("group");
+    assert!(stored.get("avatarBlobId").is_none_or(Value::is_null));
+    assert_eq!(stored["name"], json!("New"));
+}
+
+/// fed 6bcd9d8 L676: "if the fetch or any of these checks fails, the
+/// receiving server still applies the rest of the request, and leaves the
+/// Chat ... with its current avatar (for `"updateMetadata"`). ... A failed
+/// avatar never causes the request to be rejected". The checks are
+/// `contentType` and `size` "per Attachment in {{JMAP-CHAT}}" before the
+/// fetch, then "the byte count against `size` and the content against
+/// `sha256`" after it.
+#[tokio::test]
+async fn group_update_metadata_failed_avatar_keeps_the_current_one() {
+    let mut not_a_type = abc_avatar();
+    not_a_type["contentType"] = json!("png");
+    let mut too_big = abc_avatar();
+    // chat 6bcd9d8 L319 `maxAttachmentBytes`, L1758: "Enforce ...
+    // `maxAttachmentBytes` at parse time, before any fetch". The test
+    // backend's limit is 50000000.
+    too_big["size"] = json!(50_000_001_u64);
+    let mut wrong_size = abc_avatar();
+    wrong_size["size"] = json!(4);
+    let mut wrong_digest = abc_avatar();
+    wrong_digest["sha256"] = json!("0".repeat(64));
+    let mut unfetchable = abc_avatar();
+    unfetchable["fetchUrl"] = json!("https://peer.example/blob/missing");
+    for (avatar, fetches) in [
+        (not_a_type, 0),
+        (too_big, 0),
+        (wrong_size, 1),
+        (wrong_digest, 1),
+        (unfetchable, 1),
+    ] {
+        let fed = Fed::new();
+        fed.seed("Chat", group_with_avatar("old-avatar"));
+        let response = fed
+            .group_update(group_args(
+                "updateMetadata",
+                json!({"name": "New", "avatar": avatar}),
+            ))
+            .await
+            .expect("a failed avatar never rejects the request");
+        assert_eq!(response, ack());
+        let chat = chat(&fed, GROUP).await.expect("group");
+        assert_eq!(chat["name"], json!("New"));
+        assert_eq!(chat["avatarBlobId"], json!("old-avatar"));
+        assert_eq!(fed.fetched.lock().expect("lock").len(), fetches);
+    }
+}
+
+/// fed 6bcd9d8 L676: "After the authorization and `closedAt` checks above
+/// succeed, and only then, if `avatar` is an Object, the receiving server
+/// ... fetches the blob". A non-admin's or a closed group's update fetches
+/// nothing.
+#[tokio::test]
+async fn group_avatar_is_not_fetched_before_the_checks_pass() {
+    let fed = Fed::new();
+    fed.seed("Chat", group(&[(ACCOUNT, "admin"), (BOB_ID, "member")]));
+    assert_error(
+        fed.group_update(group_args(
+            "updateMetadata",
+            json!({"avatar": abc_avatar()}),
+        ))
+        .await,
+        "forbidden",
+    );
+    let mut closed = group(&[(ACCOUNT, "member"), (BOB_ID, "admin")]);
+    closed["closedAt"] = json!(PAST);
+    let fed_closed = Fed::new();
+    fed_closed.seed("Chat", closed);
+    assert_error(
+        fed_closed
+            .group_update(group_args(
+                "updateMetadata",
+                json!({"avatar": abc_avatar()}),
+            ))
+            .await,
+        "forbidden",
+    );
+    let unlisted = Fed::new();
+    assert_error(
+        unlisted
+            .group_update(group_args(
+                "create",
+                json!({"members": [peer_member(OWNER, "admin")], "avatar": abc_avatar()}),
+            ))
+            .await,
+        "forbidden",
+    );
+    assert!(fed.fetched.lock().expect("lock").is_empty());
+    assert!(fed_closed.fetched.lock().expect("lock").is_empty());
+    assert!(unlisted.fetched.lock().expect("lock").is_empty());
+}
+
+/// fed 6bcd9d8 L676-678 for `"create"`: a fetched avatar becomes the new
+/// Chat's `avatarBlobId`; a failed one "leaves the Chat without an
+/// avatar".
+#[tokio::test]
+async fn group_create_fetches_the_avatar() {
+    let members = json!([peer_member(OWNER, "member"), peer_member(BOB, "admin")]);
+    let fed = Fed::new();
+    fed.group_update(group_args(
+        "create",
+        json!({"members": members, "avatar": abc_avatar()}),
+    ))
+    .await
+    .expect("accepted");
+    let stored = chat(&fed, GROUP).await.expect("group stored");
+    assert_eq!(stored["avatarBlobId"], json!("local-blob-1"));
+
+    let mut unfetchable = abc_avatar();
+    unfetchable["fetchUrl"] = json!("https://peer.example/blob/missing");
+    let fed = Fed::new();
+    fed.group_update(group_args(
+        "create",
+        json!({"members": members, "avatar": unfetchable}),
+    ))
+    .await
+    .expect("a failed avatar never rejects the request");
+    let stored = chat(&fed, GROUP).await.expect("group stored");
+    assert!(stored.get("avatarBlobId").is_none_or(Value::is_null));
+    assert_eq!(member_ids(&stored), vec![ACCOUNT, BOB_ID]);
 }
 
 /// fed L625: `"leave"` — "The receiver MUST remove the sender from the

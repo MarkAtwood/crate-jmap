@@ -4,13 +4,18 @@
 
 use std::collections::HashSet;
 
-use jmap_chat_federation_types::{GroupUpdateAction, PeerAck, PeerChatMember, PeerGroupUpdateArgs};
-use jmap_chat_types::{Chat, ChatKind, ChatMember, ChatMemberRole};
+use jmap_chat_federation_types::{
+    GroupUpdateAction, PeerAck, PeerAvatar, PeerChatMember, PeerGroupUpdateArgs,
+};
+use jmap_chat_types::{Chat, ChatKind, ChatMember, ChatMemberRole, Clearable};
 use jmap_server::{now_utc_string, serialize_value, HandlerOutput};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Map, Value};
 
-use crate::deliver::{authenticate, check_account, get_chat, set_failure, Commit, Identities, Who};
+use crate::deliver::{
+    authenticate, check_account, get_chat, set_failure, sha256_hex_matches, valid_media_type,
+    Commit, Identities, Who,
+};
 use crate::FederationBackend;
 
 /// Handle a `Peer/groupUpdate` method call.
@@ -20,9 +25,9 @@ use crate::FederationBackend;
 ///   else `forbidden`. The group Chat is stored under `chatId` through
 ///   [`FederationBackend::create_chat`], with each member's `id` and
 ///   `invitedBy` resolved per §User References in Peer Methods
-///   (placeholder ChatContacts for unknown identities), and `name`,
-///   `description` and `avatarBlobId` as sent. A `chatId` already in use
-///   is `forbidden`, except by an open group Chat the sender is a member
+///   (placeholder ChatContacts for unknown identities), `name` and
+///   `description` as sent, and the fetched `avatar`. A `chatId` already
+///   in use is `forbidden`, except by an open group Chat the sender is a member
 ///   of, which answers a retried create without writing; a closed one is
 ///   `forbidden` (see `closedAt` below).
 /// - Every other action needs a stored group Chat with this id, else
@@ -34,15 +39,22 @@ use crate::FederationBackend;
 ///   for `"create"`. `"removeMembers"` and `"updateRoles"` act on the
 ///   named identities that are members and skip the others; an identity
 ///   with no local user is no member, so they create no placeholders.
-///   `"updateMetadata"` sets the `name`, `description` and `avatarBlobId`
-///   present. `"leave"` removes the sender. `"close"` removes the sender
-///   and sets `closedAt`.
+///   `"updateMetadata"` sets the `name`, `description` and `avatar`
+///   present; `avatar: null` removes `avatarBlobId`. `"leave"` removes
+///   the sender. `"close"` removes the sender and sets `closedAt`.
 /// - Every rejection, including a missing required array or an empty
 ///   identity string, happens before the first write.
 ///
-/// `avatarBlobId` names a blob on the sending server; it is stored as
-/// sent, and fetching it ("the receiver MAY fetch this blob") is left to
-/// the deployment.
+/// An `avatar` object is fetched through [`FederationBackend::fetch_avatar`]
+/// only after the checks above pass: "After the authorization and
+/// `closedAt` checks above succeed, and only then, if `avatar` is an
+/// Object, the receiving server validates `contentType` and `size` per
+/// Attachment ..., fetches the blob from `fetchUrl` ..., and verifies the
+/// byte count against `size` and the content against `sha256`". The
+/// fetched blob's local id becomes `avatarBlobId`. "The avatar is
+/// best-effort": when a check or the fetch fails, the rest of the request
+/// still applies and the Chat keeps no avatar (`"create"`) or its current
+/// one (`"updateMetadata"`).
 ///
 /// # Errors
 ///
@@ -97,7 +109,9 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
         chat.members = Some(add_members(&mut ctx, Vec::new(), members).await?);
         chat.name = args.name.clone();
         chat.description = args.description.clone();
-        chat.avatar_blob_id = args.avatar_blob_id.clone();
+        if let Some(Clearable::Set(avatar)) = &args.avatar {
+            chat.avatar_blob_id = fetch_avatar(backend, caller, account_id, avatar).await;
+        }
         backend
             .create_chat(caller, account_id, chat)
             .await
@@ -145,8 +159,15 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
             if let Some(description) = &args.description {
                 patch.insert("description".to_owned(), json!(description));
             }
-            if let Some(avatar) = &args.avatar_blob_id {
-                patch.insert("avatarBlobId".to_owned(), json!(avatar));
+            let avatar = match &args.avatar {
+                Some(Clearable::Set(avatar)) => fetch_avatar(backend, caller, account_id, avatar)
+                    .await
+                    .map(|id| json!(id)),
+                Some(Clearable::Clear) => Some(Value::Null),
+                None => None,
+            };
+            if let Some(avatar) = avatar {
+                patch.insert("avatarBlobId".to_owned(), avatar);
             }
         }
         GroupUpdateAction::Leave => members.retain(|m| m.id != sender),
@@ -166,6 +187,24 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
             .map_err(set_failure)?;
     }
     Ok(ack)
+}
+
+/// The local blob id of `avatar` once it passes the `contentType` and
+/// `size` checks of draft-atwood-jmap-chat-00 §Attachment, is fetched,
+/// and matches its `size` and `sha256`; `None` on any failure.
+async fn fetch_avatar<B: FederationBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    avatar: &PeerAvatar,
+) -> Option<Id> {
+    let limits = backend.limits(caller, account_id);
+    if !valid_media_type(&avatar.content_type) || avatar.size > limits.max_attachment_bytes {
+        return None;
+    }
+    let blob = backend.fetch_avatar(caller, account_id, avatar).await?;
+    (blob.size == avatar.size && sha256_hex_matches(&avatar.sha256, &blob.sha256))
+        .then_some(blob.blob_id)
 }
 
 /// The array an action requires, or `invalidArguments` naming it.
