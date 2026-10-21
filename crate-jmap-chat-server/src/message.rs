@@ -23,7 +23,7 @@
 //! `invalidPatch` paths) surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::query::{Filter, MessageComparator, MessageFilter};
+use jmap_chat_types::query::{Filter, MessageComparator, MessageFilter, MessageFilterCondition};
 use jmap_chat_types::{
     Attachment, AttachmentCreate, BroadcastMention, Chat, DeliveryState, Mention, Message,
     MessageAction, PresenceStatus, ReadPosition, Space, BROADCAST_MENTION_SCOPES,
@@ -298,32 +298,12 @@ pub async fn handle_message_query<B: ChatBackend>(
     let filter: Option<MessageFilter> =
         optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 
-    // §Message/query: "Servers MUST return an `unsupportedFilter` error
-    // for any request that omits `chatId` without also including
-    // `hasMention: true`." Only a top-level condition can satisfy this.
-    let top = match &filter {
-        Some(Filter::Condition(c)) => Some(c),
-        _ => None,
-    };
-    if !top.is_some_and(|c| c.chat_id.is_some() || c.has_mention == Some(true)) {
-        return Err(JmapError::unsupported_filter());
-    }
-    // §Message/query: `text` — "Servers that do not support full-text
-    // search MUST return `unsupportedFilter`."; `threadRootId` — "Valid
-    // only when `supportsThreads` is `true`; otherwise servers MUST
-    // return `unsupportedFilter`."
-    // ponytail: no backend implements `text`, so it is refused for every
-    // backend; a backend that adds it needs a ChatBackend capability hook
-    // to lift the refusal. `threadRootId` follows
-    // `ChatLimits::supports_threads`.
     let supports_threads = backend.limits(caller, &account_id).supports_threads;
-    if top.is_some_and(|c| c.text.is_some() || (c.thread_root_id.is_some() && !supports_threads)) {
-        return Err(JmapError::unsupported_filter());
-    }
+    let top = check_message_filter(filter.as_ref(), supports_threads)?;
 
     // §Message/query: "Default sort: `receivedAt` ascending when `chatId`
     // is present; `receivedAt` descending when `chatId` is absent."
-    let in_one_chat = top.is_some_and(|c| c.chat_id.is_some());
+    let in_one_chat = top.chat_id.is_some();
     default_sort(
         &mut args,
         json!([{ "property": "receivedAt", "isAscending": in_one_chat }]),
@@ -336,7 +316,7 @@ pub async fn handle_message_query<B: ChatBackend>(
     // caller cannot view MUST be omitted". A query scoped to one Chat the
     // caller cannot view matches nothing; a query without `chatId` relies
     // on the backend (see `ChatBackend::may_view_chat`).
-    let hidden = match top.and_then(|c| c.chat_id.as_ref()) {
+    let hidden = match top.chat_id.as_ref() {
         Some(chat_id) => !backend
             .may_view_chat(caller, &account_id, chat_id)
             .await
@@ -379,6 +359,42 @@ pub async fn handle_message_query<B: ChatBackend>(
     Ok(HandlerOutput::new(resp))
 }
 
+/// Apply the draft-atwood-jmap-chat-00 §Message/query `unsupportedFilter`
+/// refusals and return the top-level filter condition.
+///
+/// Shared by `Message/query` and `Message/queryChanges`, whose filter is
+/// that of the original query (RFC 8620 §5.6).
+///
+/// # Errors
+///
+/// `unsupportedFilter` when the filter is not a top-level condition with
+/// `chatId` or `hasMention: true` ("Servers MUST return an
+/// `unsupportedFilter` error for any request that omits `chatId` without
+/// also including `hasMention: true`"), sets `text` ("Servers that do not
+/// support full-text search MUST return `unsupportedFilter`"), or sets
+/// `threadRootId` while `supports_threads` is `false` ("Valid only when
+/// `supportsThreads` is `true`; otherwise servers MUST return
+/// `unsupportedFilter`").
+///
+/// ponytail: no backend implements `text`, so it is refused for every
+/// backend; a backend that adds it needs a ChatBackend capability hook to
+/// lift the refusal.
+fn check_message_filter(
+    filter: Option<&MessageFilter>,
+    supports_threads: bool,
+) -> Result<&MessageFilterCondition, JmapError> {
+    match filter {
+        Some(Filter::Condition(c))
+            if (c.chat_id.is_some() || c.has_mention == Some(true))
+                && c.text.is_none()
+                && (c.thread_root_id.is_none() || supports_threads) =>
+        {
+            Ok(c)
+        }
+        _ => Err(JmapError::unsupported_filter()),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Message/queryChanges
 // ---------------------------------------------------------------------------
@@ -417,9 +433,21 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
     }
     reject_unsupported_sort::<MessageComparator>(args.get("sort"))?;
 
+    // RFC 8620 §5.6: the filter is that of the original query, so the
+    // §Message/query `unsupportedFilter` refusals apply here too.
+    let account_id = args.get("accountId").and_then(Value::as_str).map(Id::from);
+    if let Some(account_id) = &account_id {
+        let filter: Option<MessageFilter> = args
+            .get("filter")
+            .filter(|f| !f.is_null())
+            .map(|f| MessageFilter::deserialize(f).map_err(|_| JmapError::unsupported_filter()))
+            .transpose()?;
+        let supports_threads = backend.limits(caller, account_id).supports_threads;
+        check_message_filter(filter.as_ref(), supports_threads)?;
+    }
+
     // §Message/query: "messages in channels the caller cannot view MUST be
     // omitted", so changes to such a Chat's messages are not reported.
-    let account_id = args.get("accountId").and_then(Value::as_str).map(Id::from);
     if let (Some(account_id), Some(chat_id)) = (account_id, chat_id) {
         if !backend
             .may_view_chat(caller, &account_id, &chat_id)

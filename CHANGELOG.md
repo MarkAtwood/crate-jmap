@@ -1892,6 +1892,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: `MemoryBackend` applies every draft-atwood-jmap-chat-00
+  `/query` filter clause: Chat `kind` / `muted`, ChatContact `blocked` /
+  `presence`, Message `topicId` / `hasAttachment` / `hasMention: false`,
+  Space `name` (substring), and CustomEmoji `spaceId`, as well as RFC 8620
+  §5.5 `AND` / `OR` / `NOT` FilterOperators. It previously accepted these
+  and ignored them, and ignored any FilterOperator entirely. `/queryChanges`
+  re-runs the same query, so its deltas follow the filter too.
+- **BREAKING** **jmap-chat-server**: `Message/queryChanges` returns
+  `unsupportedFilter` for the filters `Message/query` refuses (no `chatId`
+  without `hasMention: true`, any `text`, `threadRootId` without
+  `supportsThreads`), since RFC 8620 §5.6 takes the filter of the original
+  query. It previously passed them through unchecked.
 - **jmap-mail-server**: `Mailbox/queryChanges` decodes and forwards
   `filter` and `sort` to `query_changes`, as `Mailbox/query` does (RFC 8620
   §5.6: they are the arguments "that was used with Foo/query"). It

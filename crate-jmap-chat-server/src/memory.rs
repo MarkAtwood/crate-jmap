@@ -689,19 +689,13 @@ impl JmapBackend for MemoryBackend {
             .map(|m| {
                 let mut keys: Vec<Id> = m.keys().cloned().collect();
 
-                // Message-specific filtering (draft-atwood-jmap-chat-00
-                // §4.13 hasMention + chatId). The MemoryBackend applies
-                // these filters in-process; production backends would
-                // push them into a database query.
+                // RFC 8620 §5.5 `filter`, applied in-process; production
+                // backends would push it into a database query.
+                if let Some(ref fv) = filter_val {
+                    keys.retain(|id| filter_matches(O::TYPE_NAME, &m[id], fv, account_id));
+                }
+
                 if O::TYPE_NAME == "Message" {
-                    if let Some(ref fv) = filter_val {
-                        keys.retain(|id| {
-                            let Some(obj) = m.get(id) else {
-                                return false;
-                            };
-                            message_matches_filter(obj, fv, account_id)
-                        });
-                    }
                     // draft-atwood-jmap-chat-00 §Message/query: "messages
                     // in channels the caller cannot view MUST be omitted".
                     keys.retain(|id| {
@@ -714,17 +708,6 @@ impl JmapBackend for MemoryBackend {
                     });
                 }
 
-                // draft-atwood-jmap-chat-00 §ChatContact/query `identity`:
-                // "matches the ChatContact whose `identity` equals the
-                // value octet for octet".
-                if O::TYPE_NAME == "ChatContact" {
-                    if let Some(identity) = filter_val.as_ref().and_then(|fv| fv.get("identity")) {
-                        keys.retain(|id| {
-                            m.get(id).and_then(|obj| obj.get("identity")) == Some(identity)
-                        });
-                    }
-                }
-
                 // draft-atwood-jmap-chat-00 §Space/query: "When the request
                 // includes an `isPublic: true` filter condition, the server
                 // MUST include in the result `ids` array the identifiers of
@@ -732,9 +715,9 @@ impl JmapBackend for MemoryBackend {
                 // both `isPublic: true` and `isPubliclyPreviewable: true`."
                 // Any other non-member Space is left out, as Space/get treats
                 // a non-previewable one as not found.
-                // ponytail: only a top-level `isPublic` condition is read; a
-                // FilterOperator lists member Spaces only, unfiltered
-                // (bd:JMAP-vwr2 owns the remaining filter clauses).
+                // ponytail: only a top-level `isPublic: true` condition
+                // reveals non-member Spaces; under a FilterOperator only
+                // member Spaces are candidates.
                 if O::TYPE_NAME == "Space" {
                     let want_public = filter_val
                         .as_ref()
@@ -754,11 +737,10 @@ impl JmapBackend for MemoryBackend {
                                         == Some(account_id.as_ref())
                                 })
                             });
-                        let visible = is_member
+                        is_member
                             || (want_public == Some(true)
                                 && flag("isPublic")
-                                && flag("isPubliclyPreviewable"));
-                        visible && want_public.is_none_or(|want| flag("isPublic") == want)
+                                && flag("isPubliclyPreviewable"))
                     });
                 }
 
@@ -4556,15 +4538,93 @@ fn compare_by_sort(
     Ordering::Equal
 }
 
-/// Check whether a stored Message JSON value passes the given filter.
+/// Check whether a stored object of type `type_name` passes an RFC 8620
+/// §5.5 filter: a FilterOperator (`AND` / `OR` / `NOT` over `conditions`)
+/// or a type-specific FilterCondition (see [`condition_matches`]).
+fn filter_matches(
+    type_name: &str,
+    obj: &serde_json::Value,
+    filter: &serde_json::Value,
+    account_id: &Id,
+) -> bool {
+    let mut conditions = filter
+        .get("conditions")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten();
+    let sub = |f: &serde_json::Value| filter_matches(type_name, obj, f, account_id);
+    // RFC 8620 §5.5: "AND: All of the conditions must match", "OR: At
+    // least one of the conditions must match", "NOT: None of the
+    // conditions must match".
+    match filter.get("operator").and_then(serde_json::Value::as_str) {
+        Some("AND") => conditions.all(sub),
+        Some("OR") => conditions.any(sub),
+        Some("NOT") => !conditions.any(sub),
+        _ => condition_matches(type_name, obj, filter, account_id),
+    }
+}
+
+/// Check whether a stored object passes one FilterCondition of the
+/// draft-atwood-jmap-chat-00 `/query` method for `type_name`; all supplied
+/// keys must match (AND semantics).
 ///
-/// Supported filter keys:
-/// - `chatId`: exact match against the message's `chatId` field
-/// - `threadRootId`: exact match against the message's `threadRootId`
-/// - `hasMention`: when `true`, the message must contain a mention of
-///   the owner — either a `mentions` entry whose `id` is `account_id` or in
-///   `broadcastMentions` (at least one entry whose scope resolves to
-///   include the owner via [`broadcast_mention_matches_owner`])
+/// - Chat (§Chat/query): `kind`, `muted`.
+/// - ChatContact (§ChatContact/query): `blocked`, `presence`, and
+///   `identity` ("equals the value octet for octet").
+/// - Message: see [`message_matches_filter`].
+/// - Space (§Space/query): `name` ("substring match"), `isPublic`.
+/// - CustomEmoji (§CustomEmoji/query): `spaceId`; absent returns all.
+///
+/// A Boolean property absent from the stored object takes its `false`
+/// default.
+fn condition_matches(
+    type_name: &str,
+    obj: &serde_json::Value,
+    cond: &serde_json::Value,
+    account_id: &Id,
+) -> bool {
+    let eq = |k: &str| cond.get(k).is_none_or(|want| obj.get(k) == Some(want));
+    let flag_eq = |k: &str| {
+        cond.get(k)
+            .and_then(serde_json::Value::as_bool)
+            .is_none_or(|want| {
+                obj.get(k)
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false)
+                    == want
+            })
+    };
+    match type_name {
+        "Chat" => eq("kind") && flag_eq("muted"),
+        "ChatContact" => flag_eq("blocked") && eq("presence") && eq("identity"),
+        "Message" => message_matches_filter(obj, cond, account_id),
+        "Space" => {
+            flag_eq("isPublic")
+                && cond
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .is_none_or(|part| {
+                        obj.get("name")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|name| name.contains(part))
+                    })
+        }
+        "CustomEmoji" => eq("spaceId"),
+        _ => true,
+    }
+}
+
+/// Check whether a stored Message JSON value passes one
+/// draft-atwood-jmap-chat-00 §Message/query FilterCondition.
+///
+/// Supported filter keys (`text` is refused by the handler):
+/// - `chatId`, `threadRootId`, `topicId`: exact match against the
+///   message's field of the same name
+/// - `hasAttachment`: whether `attachments` is non-empty
+/// - `hasMention`: whether the message mentions the owner — either a
+///   `mentions` entry whose `id` is `account_id` or a `broadcastMentions`
+///   entry whose scope resolves to include the owner via
+///   [`broadcast_mention_matches_owner`]
 ///
 /// All supplied filter keys must match (AND semantics).
 fn message_matches_filter(
@@ -4572,18 +4632,23 @@ fn message_matches_filter(
     filter: &serde_json::Value,
     account_id: &Id,
 ) -> bool {
-    // chatId filter: exact match
-    if let Some(expected_chat) = filter.get("chatId").and_then(|v| v.as_str()) {
-        let actual_chat = obj.get("chatId").and_then(|v| v.as_str()).unwrap_or("");
-        if actual_chat != expected_chat {
-            return false;
-        }
+    // §Message/query `chatId`, `threadRootId` ("Return only messages in
+    // this thread") and `topicId` ("Return only messages whose `topicId`
+    // equals this value"). An encrypted Message carries no `topicId`, so
+    // it never matches that filter.
+    let eq = |k: &str| filter.get(k).is_none_or(|want| obj.get(k) == Some(want));
+    if !(eq("chatId") && eq("threadRootId") && eq("topicId")) {
+        return false;
     }
 
-    // draft-atwood-jmap-chat-00 §Thread Model: "A thread is the set of
-    // Messages sharing a common `threadRootId`."
-    if let Some(root) = filter.get("threadRootId").and_then(|v| v.as_str()) {
-        if obj.get("threadRootId").and_then(|v| v.as_str()) != Some(root) {
+    // §Message/query `hasAttachment`: "Filter to messages with or without
+    // attachments."
+    if let Some(want) = filter.get("hasAttachment").and_then(|v| v.as_bool()) {
+        let has = obj
+            .get("attachments")
+            .and_then(|v| v.as_array())
+            .is_some_and(|a| !a.is_empty());
+        if has != want {
             return false;
         }
     }
@@ -4591,8 +4656,7 @@ fn message_matches_filter(
     // draft-atwood-jmap-chat-00 §Message/query `hasMention`: "the
     // accountId appears in `mentions`, OR `broadcastMentions` contains a
     // scope whose resolved recipient set includes the owner."
-    if let Some(true) = filter.get("hasMention").and_then(|v| v.as_bool()) {
-        // Check direct mentions first (short-circuit)
+    if let Some(want) = filter.get("hasMention").and_then(|v| v.as_bool()) {
         let has_direct = obj
             .get("mentions")
             .and_then(|v| v.as_array())
@@ -4600,17 +4664,13 @@ fn message_matches_filter(
                 arr.iter()
                     .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()))
             });
-
-        if !has_direct {
-            // Fallback: check broadcastMentions
-            let has_broadcast = obj
+        let has = has_direct
+            || obj
                 .get("broadcastMentions")
                 .and_then(|v| v.as_array())
                 .is_some_and(|arr| arr.iter().any(broadcast_mention_matches_owner));
-
-            if !has_broadcast {
-                return false;
-            }
+        if has != want {
+            return false;
         }
     }
 
