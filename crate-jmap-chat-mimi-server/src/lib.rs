@@ -51,7 +51,8 @@
 //! client's fanout create in every Chat, room-bound or not.
 //!
 //! FanoutMessages (draft §application/mimi-fanout, §Chat.roomId): a
-//! `/notify` handler splits the body with [`parse_fanout_messages`] and
+//! `/notify` handler rejects a sender that [`notify_from_hub`] says is not
+//! the room's hub, splits the body with [`parse_fanout_messages`] and
 //! hands each [`Fanout`] to [`MimiBackend::store_fanout`], which routes
 //! Welcomes, drops duplicates and attributes Messages to the hub's
 //! ChatContact. [`MimiBackend::unbind_room`] ends a Chat's binding.
@@ -97,7 +98,9 @@ pub use backend::{
     room_signature_key_not_bound, signature_key_bound_elsewhere, HubReply, HubUnavailable,
     MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom,
 };
-pub use fanout::{parse_fanout_messages, Fanout, FanoutParseError, FanoutRecipients};
+pub use fanout::{
+    notify_from_hub, parse_fanout_messages, Fanout, FanoutParseError, FanoutRecipients,
+};
 pub use handout::{KeyMaterialRequirements, KeyPackageFit};
 pub use hub::{
     handle_group_info_fetch, handle_key_material_fetch, handle_room_send, handle_room_unbind,

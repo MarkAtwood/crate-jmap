@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-server**: `notify_from_hub(room_id, sender_uri)`
+  accepts a `/notify` only when the transport-authenticated sender's
+  authority is the room ID's authority, the room's hub; `store_fanout`
+  docs require the check for `/notify` (draft-atwood-jmap-chat-mimi-00
+  §application/mimi-fanout, jmap-chat-spec 29e9a41 L439).
 - **jmap-filenode-server**: `FileNode/copy` responses carry `destroyed`,
   the ids of destination nodes that onExists `replace` or `newest`
   destroyed, `onDestroyRemoveChildren` cascades included; omitted when

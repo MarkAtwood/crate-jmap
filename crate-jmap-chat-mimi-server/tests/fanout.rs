@@ -14,7 +14,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use jmap_chat_mimi_server::memory::MemoryBackend;
 use jmap_chat_mimi_server::{
-    handle_key_package_set, parse_fanout_messages, Fanout, FanoutRecipients,
+    handle_key_package_set, notify_from_hub, parse_fanout_messages, Fanout, FanoutRecipients,
     KeyMaterialRequirements, MimiBackend,
 };
 use jmap_chat_mimi_types::{Base64Url, MimiCapability};
@@ -609,4 +609,42 @@ async fn blocking_the_hub_drops_its_fanout_messages() {
         "only the Welcome before the block"
     );
     assert_eq!(backend.room_chat_id(&Id::from("c1"), ROOM), None);
+}
+
+/// jmap-chat-spec 29e9a41 L439: "A room's hub is the provider named by the
+/// authority component of its room ID. The server MUST reject a `/notify`
+/// request for a room, and MUST NOT store its FanoutMessages, unless the
+/// MIMI transport authenticated the sender as that provider."
+#[test]
+fn notify_accepted_only_from_the_room_id_authority() {
+    let room = "mimi://hub.example/r/k5qwmzlqmfsgk3tbnvsxi2lf4a";
+    for hub in [
+        "mimi://hub.example",
+        "https://hub.example",
+        "https://hub.example/",
+        "mimi://HUB.Example",
+    ] {
+        assert!(notify_from_hub(room, hub), "{hub}");
+    }
+    for other in [
+        "mimi://other.example",
+        "https://other.example",
+        "https://hub.example.other.example",
+        "https://evil@hub.example",
+        "mimi://hub.example:8443",
+        "hub.example",
+        "",
+    ] {
+        assert!(!notify_from_hub(room, other), "{other}");
+    }
+    for bad_room in [
+        "mimi:///r/k5qwmzlqmfsgk3tbnvsxi2lf4a",
+        "https://hub.example/r/x",
+        "",
+    ] {
+        assert!(
+            !notify_from_hub(bad_room, "mimi://hub.example"),
+            "{bad_room}"
+        );
+    }
 }
