@@ -44,6 +44,7 @@ async fn seeded() -> (InjectableBackend, String) {
         .as_str()
         .expect("created id")
         .to_owned();
+    common::make_received(&backend.inner, &id).await;
     (backend, id)
 }
 

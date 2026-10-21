@@ -2059,6 +2059,8 @@ async fn message_set_burn_on_read_fires_on_read_at() {
         json!(true),
         "burnOnRead must be stored verbatim on create"
     );
+    // Only a received copy burns (§Message `burnOnRead`).
+    common::make_received(&backend, &msg_id).await;
 
     // Mark the message as read. This should fire the burn.
     let HandlerOutput {
@@ -2244,6 +2246,61 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
     .expect("get");
     assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
     assert_eq!(get_resp["list"][0]["readAt"], "2024-01-02T00:00:00Z");
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Message `burnOnRead`: "Applies only
+/// to the receiving mailbox; the sender's own copy is not affected." The
+/// owner marking its own sent `burnOnRead` message read keeps the row.
+#[tokio::test]
+async fn message_set_burn_on_read_spares_senders_own_copy() {
+    let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        "own",
+        json!({
+            "id": "own",
+            "senderMsgId": "smid-own",
+            "senderId": ACCOUNT_ID,
+            "chatId": "c1",
+            "body": "my own burnable message",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:00Z",
+            "deliveryState": "delivered",
+            "burnOnRead": true
+        }),
+    );
+
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "own": { "readAt": "2024-01-02T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["notUpdated"], json!(null), "{update_resp}");
+
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["own"] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["notFound"], json!([]), "{get_resp}");
+    assert_eq!(get_resp["list"][0]["readAt"], "2024-01-02T00:00:00Z");
+    assert_eq!(get_resp["list"][0]["burnOnRead"], json!(true));
 }
 
 /// Oracle: a patch that clears `readAt` via `readAt: null` is a PatchObject
@@ -2473,6 +2530,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
         .as_str()
         .expect("id in created response")
         .to_owned();
+    common::make_received(&backend.inner, &msg_id).await;
 
     // Inject the fault on the atomic readAt-and-burn call; it fails with
     // a MemoryError whose Display contains the canary.
