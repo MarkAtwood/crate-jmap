@@ -931,6 +931,99 @@ async fn group_create_fetches_the_avatar() {
     assert_eq!(member_ids(&stored), vec![ACCOUNT, BOB_ID]);
 }
 
+/// Hand-written `avatar` objects that are not a valid avatar: each breaks
+/// one field of fed 33702a5 L668 ("the `contentType`, `size`, and `sha256`
+/// fields of an Attachment ... plus `fetchUrl` (String)").
+fn malformed_avatars() -> Vec<Value> {
+    let mut negative = abc_avatar();
+    negative["size"] = json!(-1);
+    let mut fractional = abc_avatar();
+    fractional["size"] = json!(1.5);
+    let mut no_url = abc_avatar();
+    no_url.as_object_mut().expect("object").remove("fetchUrl");
+    let mut numeric_type = abc_avatar();
+    numeric_type["contentType"] = json!(7);
+    vec![negative, fractional, no_url, numeric_type]
+}
+
+/// fed 33702a5 L676: "After the authorization and `closedAt` checks above
+/// succeed, and only then, if `avatar` is an Object, the receiving server
+/// validates ... The avatar is best-effort: if the fetch or any of these
+/// checks fails, the receiving server still applies the rest of the
+/// request ... A failed avatar never causes the request to be rejected".
+/// A malformed avatar object is such a failure.
+#[tokio::test]
+async fn group_malformed_avatar_still_applies_the_rest() {
+    let members = json!([peer_member(OWNER, "member"), peer_member(BOB, "admin")]);
+    for avatar in malformed_avatars() {
+        let fed = Fed::new();
+        fed.seed("Chat", group_with_avatar("old-avatar"));
+        let response = fed
+            .group_update(group_args(
+                "updateMetadata",
+                json!({"name": "New", "avatar": avatar}),
+            ))
+            .await
+            .expect("a malformed avatar never rejects the request");
+        assert_eq!(response, ack());
+        let stored = chat(&fed, GROUP).await.expect("group");
+        assert_eq!(stored["name"], json!("New"));
+        assert_eq!(stored["avatarBlobId"], json!("old-avatar"));
+
+        let created = Fed::new();
+        created
+            .group_update(group_args(
+                "create",
+                json!({"members": members, "avatar": avatar}),
+            ))
+            .await
+            .expect("a malformed avatar never rejects the request");
+        let stored = chat(&created, GROUP).await.expect("group stored");
+        assert!(stored.get("avatarBlobId").is_none_or(Value::is_null));
+        assert_eq!(member_ids(&stored), vec![ACCOUNT, BOB_ID]);
+        assert!(fed.fetched.lock().expect("lock").is_empty());
+        assert!(created.fetched.lock().expect("lock").is_empty());
+    }
+}
+
+/// fed 33702a5 L676: the avatar is examined "After the authorization and
+/// `closedAt` checks above succeed, and only then"; L672: "the receiving
+/// server MUST verify that the ChatContact that `senderUserId` resolves to
+/// ... holds an admin role ... before applying any changes"; L674: a
+/// closed Chat answers `forbidden`. A malformed avatar from a non-admin,
+/// for a closed group, or on a create that does not list the sender gets
+/// that `forbidden`, not `invalidArguments`.
+#[tokio::test]
+async fn group_malformed_avatar_does_not_preempt_authorization() {
+    for avatar in malformed_avatars() {
+        let fed = Fed::new();
+        fed.seed("Chat", group(&[(ACCOUNT, "admin"), (BOB_ID, "member")]));
+        assert_error(
+            fed.group_update(group_args("updateMetadata", json!({"avatar": avatar})))
+                .await,
+            "forbidden",
+        );
+        let mut closed = group(&[(ACCOUNT, "member"), (BOB_ID, "admin")]);
+        closed["closedAt"] = json!(PAST);
+        let fed = Fed::new();
+        fed.seed("Chat", closed);
+        assert_error(
+            fed.group_update(group_args("updateMetadata", json!({"avatar": avatar})))
+                .await,
+            "forbidden",
+        );
+        assert_error(
+            Fed::new()
+                .group_update(group_args(
+                    "create",
+                    json!({"members": [peer_member(OWNER, "admin")], "avatar": avatar}),
+                ))
+                .await,
+            "forbidden",
+        );
+    }
+}
+
 /// fed L625: `"leave"` — "The receiver MUST remove the sender from the
 /// group's member list without requiring admin authorization."
 #[tokio::test]

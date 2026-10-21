@@ -1839,6 +1839,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-federation-server**: `handle_peer_group_update` parses an
+  `avatar` object only after the authorization and `closedAt` checks, as
+  draft-atwood-jmap-chat-federation-00 §Peer/groupUpdate Receiver
+  Behavior requires. A malformed one (negative `size`, no `fetchUrl`) used
+  to reject the whole request with `invalidArguments`, before an
+  unauthorized peer's `forbidden`; it is now a failed avatar, and the rest
+  of the update applies.
 - **jmap-chat-client**: `server_retry_after` (and so `message_create`)
   validates `serverRetryAfter` as an RFC 8620 §1.4 `UTCDate`. Any string
   used to be accepted, so `"in five seconds"` became the `RateLimited`

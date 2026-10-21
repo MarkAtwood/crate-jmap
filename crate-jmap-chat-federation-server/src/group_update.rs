@@ -54,7 +54,9 @@ use crate::FederationBackend;
 /// fetched blob's local id becomes `avatarBlobId`. "The avatar is
 /// best-effort": when a check or the fetch fails, the rest of the request
 /// still applies and the Chat keeps no avatar (`"create"`) or its current
-/// one (`"updateMetadata"`).
+/// one (`"updateMetadata"`). An `avatar` object is parsed only then too,
+/// so a malformed one (say a negative `size` or no `fetchUrl`) is a
+/// failed avatar, not `invalidArguments`.
 ///
 /// # Errors
 ///
@@ -63,8 +65,12 @@ use crate::FederationBackend;
 pub async fn handle_peer_group_update<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    args: Value,
+    mut args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    let avatar_object = match args.get("avatar") {
+        Some(Value::Object(_)) => args.as_object_mut().and_then(|a| a.remove("avatar")),
+        _ => None,
+    };
     let args: PeerGroupUpdateArgs = serde_json::from_value(args)
         .map_err(|e| JmapError::invalid_arguments(format!("Peer/groupUpdate arguments: {e}")))?;
     authenticate(backend, caller, &args.sender_user_id)?;
@@ -109,7 +115,7 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
         chat.members = Some(add_members(&mut ctx, Vec::new(), members).await?);
         chat.name = args.name.clone();
         chat.description = args.description.clone();
-        if let Some(Clearable::Set(avatar)) = &args.avatar {
+        if let Some(avatar) = avatar_object {
             chat.avatar_blob_id = fetch_avatar(backend, caller, account_id, avatar).await;
         }
         backend
@@ -159,11 +165,11 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
             if let Some(description) = &args.description {
                 patch.insert("description".to_owned(), json!(description));
             }
-            let avatar = match &args.avatar {
-                Some(Clearable::Set(avatar)) => fetch_avatar(backend, caller, account_id, avatar)
+            let avatar = match avatar_object {
+                Some(avatar) => fetch_avatar(backend, caller, account_id, avatar)
                     .await
                     .map(|id| json!(id)),
-                Some(Clearable::Clear) => Some(Value::Null),
+                None if args.avatar == Some(Clearable::Clear) => Some(Value::Null),
                 None => None,
             };
             if let Some(avatar) = avatar {
@@ -189,20 +195,22 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
     Ok(ack)
 }
 
-/// The local blob id of `avatar` once it passes the `contentType` and
-/// `size` checks of draft-atwood-jmap-chat-00 §Attachment, is fetched,
-/// and matches its `size` and `sha256`; `None` on any failure.
+/// The local blob id of the `avatar` object once it parses as a
+/// [`PeerAvatar`], passes the `contentType` and `size` checks of
+/// draft-atwood-jmap-chat-00 §Attachment, is fetched, and matches its
+/// `size` and `sha256`; `None` on any failure.
 async fn fetch_avatar<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
-    avatar: &PeerAvatar,
+    avatar: Value,
 ) -> Option<Id> {
+    let avatar: PeerAvatar = serde_json::from_value(avatar).ok()?;
     let limits = backend.limits(caller, account_id);
     if !valid_media_type(&avatar.content_type) || avatar.size > limits.max_attachment_bytes {
         return None;
     }
-    let blob = backend.fetch_avatar(caller, account_id, avatar).await?;
+    let blob = backend.fetch_avatar(caller, account_id, &avatar).await?;
     (blob.size == avatar.size && sha256_hex_matches(&avatar.sha256, &blob.sha256))
         .then_some(blob.blob_id)
 }
