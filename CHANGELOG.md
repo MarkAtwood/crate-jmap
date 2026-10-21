@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `ChatStreamEnable.id`, the optional client-chosen
+  message `id` that a resulting `RequestError` echoes as its `requestId`
+  (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable). A wire `id` used to
+  land in `extra`.
 - **jmap-chat-types**: `Chat.active_call_account_id`, the server-set
   `activeCallAccountId` property (draft-atwood-jmap-chat-00 §Chat): the
   account hosting the VTCCall named by `activeCallId`, serialized as
