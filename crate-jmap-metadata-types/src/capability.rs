@@ -63,11 +63,13 @@ pub struct DataTypeMetadataInfo {
     #[serde(default)]
     pub supports_private: bool,
 
-    /// Maximum depth of nested objects within a namespace value (§1.2.1,
-    /// §2.1). `null` means no server-enforced limit.
+    /// Maximum depth of a namespace value (§1.2.1, §2.1). `null` means
+    /// no server-enforced limit; otherwise draft-ietf-jmap-metadata-04
+    /// §1.2.1 says "the value MUST be at least 1."
     ///
-    /// Depth 1 = flat properties only; depth 2 = one level of nesting.
-    /// Arrays do not contribute to depth themselves, but objects inside
-    /// arrays do (§2.1).
+    /// Per -04 §2.1, a scalar has depth 0, an array has the maximum depth
+    /// of its elements (0 if empty), and an object has depth 1 plus the
+    /// maximum depth of its member values (1 if empty). So depth 1 allows
+    /// a flat namespace object and depth 2 one level of nested objects.
     pub max_depth: Option<u64>,
 }
