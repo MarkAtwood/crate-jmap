@@ -14190,6 +14190,157 @@ async fn email_query_changes_unknown_filter_key_returns_unsupported_filter() {
     assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
 }
 
+/// Oracle: RFC 8620 §5.6 — /queryChanges takes "The filter argument that was
+/// used with Foo/query", so the §5.5 unsupportedFilter rule applies to
+/// Mailbox/queryChanges too. `isSubscribedd` is not an RFC 8621 §2.3
+/// FilterCondition property.
+#[tokio::test]
+async fn mailbox_query_changes_unknown_filter_key_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "sinceQueryState": "0",
+        "filter": { "isSubscribedd": true },
+    });
+    let err = handle_mailbox_query_changes(&backend, &(), args)
+        .await
+        .expect_err("unknown filter key must be refused");
+    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+}
+
+/// Oracle: RFC 8620 §5.6 — /queryChanges takes "The sort argument that was
+/// used with Foo/query"; RFC 8621 §2.3 lists only `sortOrder` and `name` as
+/// Mailbox sort properties, and §5.5 makes any other unsupportedSort.
+#[tokio::test]
+async fn mailbox_query_changes_unknown_sort_property_returns_unsupported_sort() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "sinceQueryState": "0",
+        "sort": [{ "property": "totalEmails" }],
+    });
+    let err = handle_mailbox_query_changes(&backend, &(), args)
+        .await
+        .expect_err("unknown sort property must be refused");
+    assert_eq!(err.error_type, "unsupportedSort", "{err:?}");
+}
+
+/// Create the named Mailboxes in `acct1` and return their server ids in order.
+async fn create_mailboxes(backend: &MemoryBackend, names: &[&str]) -> Vec<String> {
+    let create: serde_json::Map<String, serde_json::Value> = names
+        .iter()
+        .map(|n| ((*n).to_owned(), serde_json::json!({ "name": n })))
+        .collect();
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(
+        backend,
+        &(),
+        serde_json::json!({ "accountId": "acct1", "create": create }),
+    )
+    .await
+    .expect("mailbox create must succeed");
+    names
+        .iter()
+        .map(|n| {
+            resp["created"][n]["id"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{n} must be created: {resp}"))
+                .to_owned()
+        })
+        .collect()
+}
+
+/// The current Mailbox query state of `acct1`.
+async fn mailbox_query_state(backend: &MemoryBackend) -> String {
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query_changes(
+        backend,
+        &(),
+        serde_json::json!({ "accountId": "acct1", "sinceQueryState": "0" }),
+    )
+    .await
+    .expect("initial queryChanges must succeed");
+    resp["newQueryState"]
+        .as_str()
+        .expect("newQueryState must be present")
+        .to_owned()
+}
+
+/// Oracle: RFC 8620 §5.6 `added`: "The id and index in the query results (in
+/// the new state) for every Foo that has been added to the results since the
+/// old state". RFC 8621 §2.3 `name`: "The Mailbox name contains the given
+/// string." A Mailbox created after the old state whose name does not
+/// contain the filter string was never added to the filtered results.
+#[tokio::test]
+async fn mailbox_query_changes_applies_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+    let since = mailbox_query_state(&backend).await;
+    let ids = create_mailboxes(&backend, &["Projects", "Archive"]).await;
+
+    let HandlerOutput { primary: qc, .. } = handle_mailbox_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "acct1",
+            "sinceQueryState": since,
+            "filter": { "name": "Proj" },
+        }),
+    )
+    .await
+    .expect("filtered queryChanges must succeed");
+
+    let added: Vec<&str> = qc["added"]
+        .as_array()
+        .expect("added must be an array")
+        .iter()
+        .map(|v| v["id"].as_str().expect("added id"))
+        .collect();
+    assert_eq!(added, vec![ids[0].as_str()], "{qc}");
+}
+
+/// Oracle: RFC 8620 §5.6 `added` carries each id's "index in the query
+/// results (in the new state)", and those results are ordered by the given
+/// `sort`; RFC 8620 §5.5 `isAscending`: "If true, sort in ascending order.
+/// If false, reverse the comparator's results". Reversing the `name`
+/// comparator therefore swaps the relative order of "Alpha" and "Beta".
+#[tokio::test]
+async fn mailbox_query_changes_applies_sort() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+    let since = mailbox_query_state(&backend).await;
+    let ids = create_mailboxes(&backend, &["Beta", "Alpha"]).await;
+    let (beta, alpha) = (ids[0].as_str(), ids[1].as_str());
+
+    for ascending in [true, false] {
+        let HandlerOutput { primary: qc, .. } = handle_mailbox_query_changes(
+            &backend,
+            &(),
+            serde_json::json!({
+                "accountId": "acct1",
+                "sinceQueryState": since,
+                "sort": [{ "property": "name", "isAscending": ascending }],
+            }),
+        )
+        .await
+        .expect("sorted queryChanges must succeed");
+        let index_of = |id: &str| {
+            qc["added"]
+                .as_array()
+                .expect("added must be an array")
+                .iter()
+                .find(|v| v["id"] == id)
+                .and_then(|v| v["index"].as_u64())
+                .unwrap_or_else(|| panic!("{id} must be in added: {qc}"))
+        };
+        assert_eq!(
+            index_of(alpha) < index_of(beta),
+            ascending,
+            "isAscending={ascending}: {qc}"
+        );
+    }
+}
+
 /// Oracle: RFC 8621 §2.3 Mailbox/query FilterCondition properties are
 /// `parentId`, `name`, `role`, `hasAnyRole`, `isSubscribed`. This server
 /// decodes Mailbox filters as a bare FilterCondition, so an RFC 8620 §5.5
