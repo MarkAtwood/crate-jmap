@@ -20,7 +20,7 @@ use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
     handle_get_visible, handle_graph_item_query, handle_graph_item_query_changes, handle_set,
     invalid, is_uri, listed_in, mistyped, not_found, patched, patched_properties, readable_rights,
-    set_error_value, string_or_null, to_map, SetOps, TypeCheck, PLACEHOLDER_ID,
+    set_error_value, string_or_null, to_map, SetOps, TypeCheck,
 };
 use jmap_server::{now_utc_string, HandlerOutput};
 
@@ -160,14 +160,15 @@ fn require_write(rights: &GraphRights) -> Result<(), Value> {
     }
 }
 
-/// Fill the server-set properties of create `m`: `id` (a placeholder),
-/// `created`, `updated`, and `createdBy`/`updatedBy` from
+/// Fill the server-set properties of create `m`: `id` (`""`, which is not
+/// an Id under RFC 8620 §1.2 "at least 1 and a maximum of 255 octets"; the
+/// `create_object` builder overwrites it with the minted id), `created`, `updated`, and `createdBy`/`updatedBy` from
 /// [`JmapBackend::principal_id`] ("or `null` if the server does not
 /// support Principals or cannot determine it").
 pub(crate) fn fill_server_set<B: GraphBackend>(caller: &B::CallerCtx, m: &mut Map<String, Value>) {
     let now = now_utc_string();
     let principal = json!(<B as JmapBackend>::principal_id(caller));
-    m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
+    m.insert("id".to_owned(), json!(""));
     m.insert("created".to_owned(), json!(now));
     m.insert("updated".to_owned(), json!(now));
     m.insert("createdBy".to_owned(), principal.clone());
@@ -337,10 +338,13 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             m.entry(*k).or_insert(Value::Null);
         }
         fill_server_set::<B>(caller, &mut m);
-        let node: GraphNode = serde_json::from_value(Value::Object(m))
+        let mut node: GraphNode = serde_json::from_value(Value::Object(m))
             .map_err(|e| invalid(&[], &format!("invalid GraphNode: {e}")))?;
         let (id, stored) = backend
-            .create_object(caller, account_id, create_id, node)
+            .create_object(caller, account_id, create_id, move |id: &Id| {
+                node.id = id.clone();
+                node
+            })
             .await
             .map_err(backend_set_error_value)?;
         Ok(created_entry(&id, &stored, &omitted))

@@ -25,7 +25,7 @@ use crate::backend::{GraphBackend, JmapBackend, SetError, SetErrorType};
 use crate::edit::base64url_len;
 use crate::helpers::{
     backend_set_error_value, fetch_one, forbidden, handle_get_visible, handle_set, invalid,
-    listed_in, readable_rights, set_error_value, to_map, SetOps, PLACEHOLDER_ID,
+    listed_in, readable_rights, set_error_value, to_map, SetOps,
 };
 
 /// The server-set properties of a GraphNodeOp.
@@ -276,7 +276,10 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
             ));
         }
 
-        m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
+        // `id` is required by the type, so the parse uses "", which is not an
+        // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+        // `create_object` builder overwrites it with the minted id.
+        m.insert("id".to_owned(), json!(""));
         m.insert("graphId".to_owned(), json!(node.graph_id));
         m.insert("seq".to_owned(), json!(0));
         m.insert("created".to_owned(), json!(now_utc_string()));
@@ -284,10 +287,13 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
             "createdBy".to_owned(),
             json!(<B as JmapBackend>::principal_id(caller)),
         );
-        let op: GraphNodeOp = serde_json::from_value(Value::Object(m))
+        let mut op: GraphNodeOp = serde_json::from_value(Value::Object(m))
             .map_err(|e| invalid(&[], &format!("invalid GraphNodeOp: {e}")))?;
         let (id, stored) = backend
-            .create_object(caller, account_id, create_id, op)
+            .create_object(caller, account_id, create_id, move |id: &Id| {
+                op.id = id.clone();
+                op
+            })
             .await
             .map_err(backend_set_error_value)?;
         let stored = to_map(&stored);

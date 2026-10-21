@@ -831,17 +831,20 @@ impl GraphBackend for MemoryBackend {
             .ok_or_else(|| MemoryError::new("account not registered"))
     }
 
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &Id,
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
-        let mut value = serde_json::to_value(&obj).map_err(other)?;
-        let mut inner = self.lock();
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         let id = Id::from(ulid::Ulid::new().to_string());
-        value["id"] = json!(id);
+        let mut value = serde_json::to_value(build(&id)).map_err(other)?;
+        let mut inner = self.lock();
         if O::TYPE_NAME == Graph::TYPE_NAME {
             if !inner.is_owner(caller, account_id) {
                 return Err(set_error(

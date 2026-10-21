@@ -143,10 +143,10 @@ pub trait GraphBackend: JmapBackend {
 
     /// Create an object.
     ///
-    /// The handler has validated `obj` and filled the server-set
-    /// properties; its `id` is a placeholder. The backend MUST, in one
-    /// atomic step, assign the `id`, re-verify the rules below, and store
-    /// the object. Returns the assigned id and the stored object, which for
+    /// The handler has validated the create and filled the server-set
+    /// properties other than `id`. The backend MUST, in one atomic step,
+    /// mint the `id`, call `build(&id)` once for the object carrying it,
+    /// re-verify the rules below, and store the object. Returns the assigned id and the stored object, which for
     /// a `Graph` carries the caller's `myRights`. Error mapping,
     /// state-counter and change-log rules are those of the canonical
     /// `jmap-mail-server` `create_object`: the state advances only when the
@@ -165,14 +165,17 @@ pub trait GraphBackend: JmapBackend {
     /// NOT distinguish a node that does not exist from a node in another
     /// Graph"). A backend MAY refuse with `overQuota` past a limit on nodes
     /// per Graph or edges per node (§Denial of Service).
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Apply an RFC 8620 §5.3 PatchObject to an existing object.
     ///

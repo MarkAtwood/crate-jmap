@@ -17,7 +17,7 @@ use crate::backend::GraphBackend;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
     handle_get_visible, handle_set, invalid, listed_in, mistyped, not_found, patched,
-    patched_properties, reject_unsupported_sort, to_map, SetOps, TypeCheck, PLACEHOLDER_ID,
+    patched_properties, reject_unsupported_sort, to_map, SetOps, TypeCheck,
 };
 use jmap_server::{now_utc_string, HandlerOutput};
 
@@ -147,17 +147,23 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
             .filter(|k| !m.contains_key(*k))
             .collect();
         let now = now_utc_string();
-        m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
+        // `id` is required by the type, so the parse uses "", which is not an
+        // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+        // `create_object` builder overwrites it with the minted id.
+        m.insert("id".to_owned(), json!(""));
         m.insert("created".to_owned(), json!(now));
         m.insert("updated".to_owned(), json!(now));
         m.insert(
             "myRights".to_owned(),
             json!({ "mayRead": false, "mayWrite": false, "mayAdmin": false }),
         );
-        let graph: Graph = serde_json::from_value(Value::Object(m))
+        let mut graph: Graph = serde_json::from_value(Value::Object(m))
             .map_err(|e| invalid(&[], &format!("invalid Graph: {e}")))?;
         let (id, stored) = backend
-            .create_object(caller, account_id, create_id, graph)
+            .create_object(caller, account_id, create_id, move |id: &Id| {
+                graph.id = id.clone();
+                graph
+            })
             .await
             .map_err(backend_set_error_value)?;
         let stored = to_map(&stored);
