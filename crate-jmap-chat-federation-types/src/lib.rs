@@ -43,7 +43,7 @@ pub mod session;
 
 pub use contact::{contact_direct_address, contact_server_url};
 pub use peer::{
-    is_jmap_object_uri, GroupUpdateAction, PeerAck, PeerAttachment, PeerChatMember,
+    is_jmap_object_uri, GroupUpdateAction, PeerAck, PeerAttachment, PeerAvatar, PeerChatMember,
     PeerDeliverArgs, PeerDeliverResponse, PeerEdit, PeerGroupUpdateArgs, PeerMention, PeerMessage,
     PeerPresenceArgs, PeerReactionUpdate, PeerReceiptArgs, PeerRetractArgs, PeerRetractResponse,
     PeerRoleUpdate, PeerSubscribePresenceArgs, PeerSubscribePresenceResponse, PeerTypingArgs,

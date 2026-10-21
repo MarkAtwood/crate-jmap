@@ -847,6 +847,25 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-federation-types**: `PeerGroupUpdateArgs.avatar_blob_id`
+  is replaced by `avatar: Option<Clearable<PeerAvatar>>`, the wire
+  `avatar` object (`contentType`, `size`, `sha256`, `fetchUrl`) of
+  draft-atwood-jmap-chat-federation-00 §Peer/groupUpdate; `null` removes
+  the group avatar and absent leaves it unchanged. A wire `avatarBlobId`
+  now lands in `extra`.
+- **BREAKING** **jmap-chat-federation-server**: `FederationBackend` gains
+  the required `fetch_avatar`. `handle_peer_group_update` fetches an
+  `avatar` object after the authorization and `closedAt` checks, checks
+  `contentType`, `size` and `sha256`, and stores the local blob id as
+  `avatarBlobId`; a failed avatar leaves the Chat's avatar as it was and
+  never rejects the request. `avatar: null` on `"updateMetadata"` removes
+  `avatarBlobId`. The sender's blob id is no longer stored verbatim.
+- **BREAKING** **jmap-chat-federation-server**: `peer_group_update_args`
+  takes an `avatar: Option<PeerAvatar>` argument, the object the
+  deployment built (minting `fetchUrl` and recording the grant) for the
+  chat's `avatarBlobId`. `"updateMetadata"` for a chat without an avatar
+  sends `avatar: null`; a chat with one and no object given is the new
+  `OutboundError::MissingAvatar`.
 - **BREAKING** **jmap-chat-federation-types**: `owner_endpoints` removes
   every Endpoint whose `uri` is a JMAP object URI and returns `None`,
   not `Some(vec![])`, when no entry remains

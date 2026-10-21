@@ -89,8 +89,11 @@ Every `handle_peer_*(&backend, &caller, args)` has the signature of the
   with none is acknowledged and ignored.
 - Sending `Peer/presence` to subscribers, its rate limit, and subscription
   expiry are the deployment's.
-- `Peer/groupUpdate` stores the sender's `avatarBlobId` as sent; fetching
-  the blob is left to the deployment.
+- `Peer/groupUpdate` fetches an `avatar` object through
+  `FederationBackend::fetch_avatar`, best-effort: a failed avatar never
+  rejects the request. `peer_group_update_args` takes the outbound
+  `avatar` object; minting its `fetchUrl` and recording the grant are the
+  deployment's.
 
 ## References
 

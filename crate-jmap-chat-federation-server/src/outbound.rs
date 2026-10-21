@@ -10,12 +10,14 @@
 use std::fmt;
 
 use jmap_chat_federation_types::{
-    GroupUpdateAction as PeerAction, PeerChatMember, PeerGroupUpdateArgs, PeerRoleUpdate,
+    GroupUpdateAction as PeerAction, PeerAvatar, PeerChatMember, PeerGroupUpdateArgs,
+    PeerRoleUpdate,
 };
 use jmap_chat_server::{ChatBackend, GroupUpdateAction};
 use jmap_chat_types::vocabulary::CHAT_CAP_TASK;
 use jmap_chat_types::{
-    Chat, ChatContact, ChatKind, ChatMember, DeliveryState, Message, MessageAction, Space,
+    Chat, ChatContact, ChatKind, ChatMember, Clearable, DeliveryState, Message, MessageAction,
+    Space,
 };
 use jmap_types::Id;
 use serde_json::Value;
@@ -180,6 +182,9 @@ pub enum OutboundError {
     UnknownUser(Id),
     /// A `GroupUpdateAction` this crate does not know how to send.
     UnknownAction,
+    /// The group has an `avatarBlobId` but no `avatar` object was given
+    /// for it.
+    MissingAvatar,
 }
 
 impl fmt::Display for OutboundError {
@@ -187,6 +192,7 @@ impl fmt::Display for OutboundError {
         match self {
             Self::UnknownUser(id) => write!(f, "no identity string for user id {id}"),
             Self::UnknownAction => f.write_str("unknown group update action"),
+            Self::MissingAvatar => f.write_str("no avatar object for the group avatarBlobId"),
         }
     }
 }
@@ -199,22 +205,36 @@ impl std::error::Error for OutboundError {}
 ///
 /// `senderUserId` is the owner's `ownerUserId`, and every ChatMember
 /// `id` and `invitedBy` becomes an identity string. `"create"` carries
-/// the full `members` list with `name`, `description` and `avatarBlobId`;
+/// the full `members` list with `name`, `description` and `avatar`;
 /// `"updateMetadata"` carries those three; `"addMembers"`,
 /// `"removeMembers"` and `"updateRoles"` carry `addedMembers`,
 /// `removedMemberIds` and `updatedRoles`; `"leave"` and `"close"` carry
 /// nothing more.
 ///
+/// `avatar` is the `avatar` object for the chat's `avatarBlobId`, used
+/// only for `"create"` and `"updateMetadata"` and only when the chat has
+/// one. The deployment builds it from the local blob's `contentType`,
+/// `size` and `sha256`, minting a `fetchUrl` and recording the grant to
+/// the receiving peer domain first: the serving server "SHOULD serve the
+/// blob only to a peer domain to which it has sent a payload carrying
+/// that `fetchUrl`, recording the grant before it sends the payload"
+/// (§Blob Fetch Authorization). A chat without an `avatarBlobId` sends
+/// `avatar: null` for `"updateMetadata"` ("`null` removes the group
+/// avatar") and no `avatar` for `"create"`.
+///
 /// # Errors
 ///
 /// [`OutboundError::UnknownUser`] when a member id has no identity
 /// string, [`OutboundError::UnknownAction`] for an action this crate does
-/// not know.
+/// not know, [`OutboundError::MissingAvatar`] when `"create"` or
+/// `"updateMetadata"` is built for a chat with an `avatarBlobId` and
+/// `avatar` is `None`.
 pub fn peer_group_update_args(
     identities: &SenderIdentities<'_>,
     peer_account_id: Id,
     chat: &Chat,
     action: &GroupUpdateAction,
+    avatar: Option<PeerAvatar>,
 ) -> Result<PeerGroupUpdateArgs, OutboundError> {
     let peer_action = match action {
         GroupUpdateAction::Create => PeerAction::Create,
@@ -235,9 +255,12 @@ pub fn peer_group_update_args(
     match action {
         GroupUpdateAction::Create => {
             args.members = Some(identities.members(chat.members.as_deref().unwrap_or_default())?);
-            set_metadata(&mut args, chat);
+            set_metadata(&mut args, chat, avatar)?;
         }
-        GroupUpdateAction::UpdateMetadata => set_metadata(&mut args, chat),
+        GroupUpdateAction::UpdateMetadata => {
+            set_metadata(&mut args, chat, avatar)?;
+            args.avatar.get_or_insert(Clearable::Clear);
+        }
         GroupUpdateAction::AddMembers { added } => {
             args.added_members = Some(identities.members(added)?);
         }
@@ -267,10 +290,17 @@ pub fn peer_group_update_args(
     Ok(args)
 }
 
-fn set_metadata(args: &mut PeerGroupUpdateArgs, chat: &Chat) {
+fn set_metadata(
+    args: &mut PeerGroupUpdateArgs,
+    chat: &Chat,
+    avatar: Option<PeerAvatar>,
+) -> Result<(), OutboundError> {
     args.name.clone_from(&chat.name);
     args.description.clone_from(&chat.description);
-    args.avatar_blob_id.clone_from(&chat.avatar_blob_id);
+    if chat.avatar_blob_id.is_some() {
+        args.avatar = Some(Clearable::Set(avatar.ok_or(OutboundError::MissingAvatar)?));
+    }
+    Ok(())
 }
 
 /// The aggregate `deliveryState` of a Message from each recipient's
