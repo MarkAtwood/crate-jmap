@@ -243,6 +243,40 @@ impl Inner {
                 .any(|p| p.call_id == call_id && p.user_id.as_deref() == Some(caller))
     }
 
+    /// The `get_objects` read of `ids`, hiding what `caller` may not see
+    /// ([`Self::visible`]), or nothing when `caller` is `None`.
+    fn get<O: JmapObject>(
+        &self,
+        caller: Option<&str>,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+    ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
+        let map = self.objects(O::TYPE_NAME, account_id);
+        let shown = |v: &Value| caller.is_none_or(|c| self.visible(c, account_id, O::TYPE_NAME, v));
+        match ids {
+            None => {
+                let list = map
+                    .into_iter()
+                    .flat_map(HashMap::values)
+                    .filter(|v| shown(v))
+                    .map(decode)
+                    .collect::<Result<_, _>>()?;
+                Ok((list, Vec::new()))
+            }
+            Some(ids) => {
+                let mut found = Vec::new();
+                let mut missing = Vec::new();
+                for id in ids {
+                    match map.and_then(|m| m.get(id)) {
+                        Some(v) if shown(v) => found.push(decode(v)?),
+                        _ => missing.push(id.clone()),
+                    }
+                }
+                Ok((found, missing))
+            }
+        }
+    }
+
     /// Every stored object of type `O` that decodes.
     fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ {
         self.objects(O::TYPE_NAME, account_id)
@@ -427,32 +461,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
-        let inner = self.lock();
-        let map = inner.objects(O::TYPE_NAME, account_id);
-        match ids {
-            None => {
-                let list = map
-                    .into_iter()
-                    .flat_map(HashMap::values)
-                    .filter(|v| inner.visible(caller, account_id, O::TYPE_NAME, v))
-                    .map(decode)
-                    .collect::<Result<_, _>>()?;
-                Ok((list, Vec::new()))
-            }
-            Some(ids) => {
-                let mut found = Vec::new();
-                let mut missing = Vec::new();
-                for id in ids {
-                    match map.and_then(|m| m.get(id)) {
-                        Some(v) if inner.visible(caller, account_id, O::TYPE_NAME, v) => {
-                            found.push(decode(v)?)
-                        }
-                        _ => missing.push(id.clone()),
-                    }
-                }
-                Ok((found, missing))
-            }
-        }
+        self.lock().get::<O>(Some(caller), account_id, ids)
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
@@ -987,6 +996,15 @@ impl VtcBackend for MemoryBackend {
             .calls(account_id)
             .filter(|c| c.state == CallState::Active)
             .count() as u64)
+    }
+
+    async fn get_objects_unscoped<O: GetObject + Send + Sync>(
+        &self,
+        _caller: &String,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+    ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
+        self.lock().get::<O>(None, account_id, ids)
     }
 
     async fn is_user_blocked(

@@ -65,6 +65,7 @@ pub fn call_already_active_on_chat() -> SetError {
 /// applies the bound Chat's membership, `"view"` permission and the
 /// initiator's blocks; a standalone call admits its participants and
 /// initiator. A backend with no rule grants access (bd:JMAP-bghk).
+/// [`Self::get_objects_unscoped`] is the one read exempt from this rule.
 ///
 /// For a call with `e2eeEnabled: true` the same reads MUST also hide its
 /// `VTCParticipant` records from a user with no record in it: "For such
@@ -361,6 +362,25 @@ pub trait VtcBackend: JmapBackend {
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<u64, Self::Error>> + Send;
 
+    /// [`JmapBackend::get_objects`] without §Per-call access: the `O`
+    /// records of `ids`, or every `O` record of `account_id` when `ids` is
+    /// `None`, whether or not the caller may access their call. The second
+    /// list holds the requested ids that are not stored.
+    ///
+    /// Ending a call reads its breakout rooms, and the recordings and
+    /// livestreams of each ended call, through this: "when a parent call
+    /// ends, its child breakout-room VTCCalls MUST also be ended"
+    /// (jmap-vtc-implementer-guide §Breakout room cleanup), and "the server
+    /// MUST stop every recording for that call" (jmap-vtc-recording-guide
+    /// §Auto-stop on call end), including a room the ending moderator
+    /// cannot access. The handlers return none of these records to a
+    /// client.
+    fn get_objects_unscoped<O: GetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        ids: Option<&[jmap_types::Id]>,
+    ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send;
     /// `true` if `user_id` is blocked by the caller: the caller's
     /// ChatContact for `user_id` has `blocked` set to `true` (when
     /// `urn:ietf:params:jmap:chat` is present), or the user is on an

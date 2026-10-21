@@ -11,8 +11,8 @@ use common::*;
 use jmap_types::Id;
 use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::{
-    end_call, handle_vtc_call_changes, handle_vtc_livestream_get, handle_vtc_recording_get,
-    handle_vtc_recording_set, BackendSetError, SetErrorType,
+    end_call, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_livestream_get,
+    handle_vtc_recording_get, handle_vtc_recording_set, BackendSetError, SetErrorType,
 };
 use jmap_vtc_types::{CallEndReason, VtcEvent};
 use serde_json::{json, Value};
@@ -335,4 +335,55 @@ async fn call_end_stops_starting_and_live_livestreams() {
     assert_eq!(failed["state"], "failed", "{failed}");
     assert_eq!(failed["stoppedAt"], Value::Null, "{failed}");
     assert_eq!(livestream(&backend, "LO").await["state"], "live");
+}
+
+/// The stored `VTCCall`, `VTCRecording` or `VTCLivestream` `id` as
+/// [`ALICE`] sees it; [`BOB`] is denied the room under test.
+async fn as_alice(kind: &str, backend: &MemoryBackend, id: &str) -> Value {
+    let args = json!({ "accountId": ACCOUNT, "ids": [id] });
+    let resp = match kind {
+        "call" => call!(handle_vtc_call_get, backend, ALICE, args),
+        "recording" => call!(handle_vtc_recording_get, backend, ALICE, args),
+        _ => call!(handle_vtc_livestream_get, backend, ALICE, args),
+    };
+    resp["list"][0].clone()
+}
+
+#[tokio::test]
+async fn end_cascades_through_a_room_the_moderator_cannot_access() {
+    let backend = backend_with(media_capability());
+    let parent = room_under(&backend, None).await;
+    let hidden = room_under(&backend, Some(&parent)).await;
+    let nested = room_under(&backend, Some(&hidden)).await;
+    let hidden_rec = start_recording(&backend, &hidden).await;
+    seed_livestream(&backend, "LH", &hidden, "live");
+    // Spec 33702a5 draft-atwood-jmap-vtc-00 L1671 "Non-participants
+    // receive `notFound` for calls they cannot access."
+    backend.deny_call_access(BOB, &hidden);
+    assert!(get(&backend, &hidden).await.is_null(), "BOB is denied");
+
+    update(&backend, BOB, &parent, json!({ "state": "ended" }))
+        .await
+        .expect("end parent");
+
+    // Spec 33702a5 jmap-vtc-implementer-guide L911-913 "when a parent call
+    // ends, its child breakout-room VTCCalls MUST also be ended". The
+    // rooms were active: draft L744 "`"completed"`: The call was in state
+    // `"active"` when ended."
+    for id in [&parent, &hidden, &nested] {
+        assert_ended(&as_alice("call", &backend, id).await, "completed");
+    }
+    // Draft L771 "The server removes its id from the parent's
+    // `breakoutRoomIds`".
+    assert_eq!(
+        as_alice("call", &backend, &parent).await["breakoutRoomIds"],
+        json!([])
+    );
+    // Draft L747 "When a call ends, the server stops every VTCRecording
+    // for the call in state `"recording"` or `"paused"` and every
+    // VTCLivestream in state `"starting"` or `"live"`".
+    let r = as_alice("recording", &backend, &hidden_rec).await;
+    assert_eq!(r["state"], "stopped", "{r}");
+    let l = as_alice("livestream", &backend, "LH").await;
+    assert_eq!(l["state"], "stopped", "{l}");
 }
