@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::chat::ChannelPermission;
 use crate::clearable::{some_clearable, Clearable};
-use crate::space::{Category, SpaceRole};
+use crate::space::SpaceRole;
 
 /// Per-entry input for `addMembers` (draft-atwood-jmap-chat-00 §Space/set).
 ///
@@ -44,7 +44,7 @@ use crate::space::{Category, SpaceRole};
 /// inline `SpacePatchOp::AddMember { user_id, role_ids }` variant;
 /// this struct exists so that all four `Add*` variants of
 /// [`SpacePatchOp`] are uniformly `Add*(<Create>)`, in parity with
-/// [`SpaceRole`] / [`ChannelCreate`] / [`Category`] for roles,
+/// [`SpaceRole`] / [`ChannelCreate`] / [`CategoryCreate`] for roles,
 /// channels, and categories respectively. The normalization lets
 /// unified visitors over `SpacePatchOp` pattern-match
 /// `AddMember(create)` the same way they match the other Add
@@ -119,6 +119,36 @@ pub struct ChannelCreate {
     /// The `topic` property (draft-atwood-jmap-chat-00 §Space/set — optional).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub topic: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Per-entry input for `addCategories` (draft-atwood-jmap-chat-00 §Space/set).
+///
+/// The draft: "Each entry: `name` (String), optional `position`
+/// (UnsignedInt) and `channelIds` (String[]). Server assigns ULIDs." This
+/// struct carries only that client-supplied subset of [`crate::Category`].
+/// An absent `channelIds` deserializes as an empty list. An absent
+/// `position` is left to the server; the draft does not define a default,
+/// and the reference server appends the category after the highest
+/// existing `position`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CategoryCreate {
+    /// The `name` property (draft-atwood-jmap-chat-00 §Space/set — required).
+    pub name: String,
+    /// The `position` property (draft-atwood-jmap-chat-00 §Space/set — optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<u64>,
+    /// The `channelIds` property (draft-atwood-jmap-chat-00 §Space/set —
+    /// optional; absent means no channels).
+    #[serde(default)]
+    pub channel_ids: Vec<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -405,12 +435,12 @@ impl SpaceMetadataPatch {
 /// This is a Rust internal representation; it has no wire form of its own.
 /// The wire form is the pluralized patch object as defined in the draft.
 /// Round-trip JSON tests exist for the contained payload types
-/// ([`SpaceRole`], [`Category`], [`ChannelCreate`], [`RolePatch`],
+/// ([`SpaceRole`], [`CategoryCreate`], [`ChannelCreate`], [`RolePatch`],
 /// [`MemberPatch`], [`ChannelPatch`], [`CategoryPatch`]) — see this module's
 /// test section.
 ///
 /// For `Add*` variants whose payload is a server-stored type with a
-/// server-assigned `id` ([`SpaceRole`], [`Category`]), the input value
+/// server-assigned `id` ([`SpaceRole`]), the input value
 /// carries a placeholder `id`; the server replaces it with a real id
 /// before storing.
 #[non_exhaustive]
@@ -468,14 +498,11 @@ pub enum SpacePatchOp {
     },
     /// Add a category to the Space (one entry from wire key `addCategories`).
     ///
-    /// The contained [`Category`]'s `id` is a **client-side
-    /// placeholder**. The backend MUST mint its own server-assigned id
-    /// (the reference implementation uses a ULID) and surface it via
-    /// the per-op result. Clients SHOULD treat the placeholder as
-    /// opaque and rely on the returned id for subsequent references.
-    /// Backends that honor the client-supplied id break server-side
-    /// id minting and are spec-noncompliant.
-    AddCategory(Category),
+    /// The entry carries no `id`: the backend mints the server-assigned
+    /// id (draft: "Server assigns ULIDs") and surfaces it via the per-op
+    /// result. When [`CategoryCreate::position`] is `None` the backend
+    /// picks the stored [`crate::Category`]'s `position`.
+    AddCategory(CategoryCreate),
     /// Remove a category from the Space (one entry from wire key `removeCategories`).
     ///
     /// Channels in the removed category move to `uncategorizedChannelIds`.
@@ -649,6 +676,28 @@ mod tests {
         assert_eq!(c.topic, None);
     }
 
+    // Oracle: spec §Space/set addCategories — "Each entry: `name` (String),
+    // optional `position` (UnsignedInt) and `channelIds` (String[])."
+    #[test]
+    fn category_create_minimal() {
+        let c: CategoryCreate =
+            serde_json::from_str(r#"{"name":"Text"}"#).expect("deserialize CategoryCreate");
+        assert_eq!(c.name, "Text");
+        assert_eq!(c.position, None);
+        assert!(c.channel_ids.is_empty());
+    }
+
+    // Oracle: spec §Space/set addCategories — all three entry fields.
+    #[test]
+    fn category_create_full() {
+        let c: CategoryCreate =
+            serde_json::from_str(r#"{"name":"Voice","position":3,"channelIds":["ch1","ch2"]}"#)
+                .expect("deserialize CategoryCreate");
+        assert_eq!(c.name, "Voice");
+        assert_eq!(c.position, Some(3));
+        assert_eq!(c.channel_ids, vec![Id::from("ch1"), Id::from("ch2")]);
+    }
+
     // Oracle: spec §Space/set top-level metadata mutation — every field
     // round-trips, including the Clearable null-vs-set distinction.
     #[test]
@@ -733,10 +782,9 @@ mod tests {
             position: 1,
             extra: serde_json::Map::new(),
         };
-        let cat = Category {
-            id: Id::from("placeholder"),
+        let cat = CategoryCreate {
             name: "Voice".to_owned(),
-            position: 0,
+            position: None,
             channel_ids: vec![],
             extra: serde_json::Map::new(),
         };
