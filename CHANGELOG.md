@@ -1905,6 +1905,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-contacts-server**: `AddressBook/set` with
+  `onDestroyRemoveContents` no longer copies backend error text into the
+  `serverFail` description when the contents cascade fails; the
+  description is the fixed `"internal error"`, as everywhere else.
 - **jmap-chat-server**: `MemoryBackend` `Message/query` `hasMention` no
   longer treats every `"admins"` broadcast mention as targeting the
   owner. The owner is an admin when its group ChatMember `role` is
