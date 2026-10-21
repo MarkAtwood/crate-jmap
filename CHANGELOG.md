@@ -400,8 +400,9 @@ wire behaviour that a conforming peer can observe.
   §Relationship to JMAP Tasks, §Capability), mirroring
   `jmap-chat-calendars-server`.
 - **jmap-filenode-server**: `FileNodeBackend::cid_advertised` (default
-  `false`). When it returns `true`, `FileNode/get` emits `"sha256": null`
-  for directories and for files without a stored digest, since with
+  `false`). When it returns `true`, `FileNode/get` and each `FileNode/set`
+  `created` entry emit `"sha256": null` for directories and for files
+  without a stored digest, since with
   `urn:ietf:params:jmap:cid` advertised FileNode objects "MUST include"
   `sha256` (draft-atwood-jmap-cid-00 §FileNode Extension).
   `MemoryBackend` returns `true` once a digest is seeded for the account.

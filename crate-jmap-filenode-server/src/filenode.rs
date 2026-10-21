@@ -345,6 +345,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
+        // draft-atwood-jmap-cid-00 §FileNode Extension: with the capability,
+        // FileNode objects "MUST include" `sha256`, which "MUST be `null`
+        // for directory FileNodes"; RFC 8620 §5.3 puts server-set properties
+        // in `created`. Asked once, before any create mutates state, so an
+        // Err is a clean top-level serverFail.
+        let cid_advertised = backend
+            .cid_advertised(caller, &account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
         for (create_id, obj_val) in create_map {
             // Inject a placeholder `id` — the backend replaces it with the
             // server-assigned id on success.
@@ -775,9 +784,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     // the new 'name' value in the created or updated
                     // response field for this id." Enforce regardless
                     // of whether the backend echoed the supplied name.
-                    if let Some(name) = renamed_to.as_deref() {
-                        if let Value::Object(ref mut m) = value {
+                    if let Value::Object(ref mut m) = value {
+                        if let Some(name) = renamed_to.as_deref() {
                             m.insert("name".to_owned(), Value::String(name.to_owned()));
+                        }
+                        if cid_advertised {
+                            m.entry("sha256").or_insert(Value::Null);
                         }
                     }
                     created.insert(create_id, value);
@@ -2390,6 +2402,8 @@ mod tests {
     ///   call to `get_ancestors` returns `Err`.
     /// - [`inject_blob_exists_err`][Self::inject_blob_exists_err]: next call
     ///   to `blob_exists` returns `Err`.
+    /// - [`inject_cid_advertised_err`][Self::inject_cid_advertised_err]: next
+    ///   call to `cid_advertised` returns `Err`.
     /// - [`inject_query_objects_err`][Self::inject_query_objects_err]: next
     ///   call to `query_objects` returns `Err`.
     /// - [`inject_query_objects_err_after`][Self::inject_query_objects_err_after]:
@@ -2422,6 +2436,9 @@ mod tests {
         /// When `Some`, the next call to `blob_exists` returns
         /// `Err(MemoryError::new(msg))`. Cleared on consumption.
         blob_exists_err: Option<String>,
+        /// When `Some`, the next call to `cid_advertised` returns
+        /// `Err(MemoryError::new(msg))`. Cleared on consumption.
+        cid_advertised_err: Option<String>,
         /// When `Some`, `query_objects` returns `Err(MemoryError::new(msg))`
         /// once `query_objects_calls` reaches `after_calls`. The first
         /// matching call fires the fault and clears the entry; subsequent
@@ -2464,6 +2481,12 @@ mod tests {
         /// call. Single-shot.
         fn inject_get_ancestors_err(&self, msg: &str) {
             self.faults.lock().unwrap().get_ancestors_err = Some(msg.to_owned());
+        }
+
+        /// Schedule a `MemoryError::new(msg)` for the next `cid_advertised`
+        /// call. Single-shot.
+        fn inject_cid_advertised_err(&self, msg: &str) {
+            self.faults.lock().unwrap().cid_advertised_err = Some(msg.to_owned());
         }
 
         /// Schedule a `MemoryError::new(msg)` for the next `blob_exists`
@@ -2740,6 +2763,14 @@ mod tests {
                 return Err(MemoryError::new(msg));
             }
             self.inner.blob_exists(&(), account_id, blob_id).await
+        }
+
+        async fn cid_advertised(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+            // Single-shot: consume the entry on this call.
+            if let Some(msg) = self.faults.lock().unwrap().cid_advertised_err.take() {
+                return Err(MemoryError::new(msg));
+            }
+            self.inner.cid_advertised(&(), account_id).await
         }
 
         async fn find_sibling_by_name(
@@ -3395,6 +3426,48 @@ mod tests {
             "transient backend error MUST surface as serverFail so the \
              client retries; got: {err:?}"
         );
+    }
+
+    /// Oracle: FileNodeBackend::cid_advertised contract, "`Err(e)`: the
+    /// `FileNode/get` call ... fails with `serverFail`". Dropping the
+    /// error would omit the `sha256` that draft-atwood-jmap-cid-00
+    /// (jmap-chat-spec 33702a5 L200-202) says "FileNode objects MUST
+    /// include" when the capability is advertised.
+    #[tokio::test]
+    async fn get_cid_advertised_err_propagates_as_server_fail() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("n1", None, "n1"));
+        backend.inject_cid_advertised_err("simulated config store timeout");
+
+        let args = json!({ "accountId": "acc1", "ids": ["n1"] });
+        let err = handle_filenode_get(&backend, &(), args)
+            .await
+            .expect_err("cid_advertised Err must surface as a JmapError");
+        assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
+    }
+
+    /// Oracle: FileNodeBackend::cid_advertised contract, "`Err(e)`: ... a
+    /// `FileNode/set` call with `create`, fails with `serverFail` (before
+    /// any create is applied)"; RFC 8620 §3.6.2 serverFail is a
+    /// method-level error, so nothing may be created.
+    #[tokio::test]
+    async fn set_create_cid_advertised_err_propagates_as_server_fail() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.inject_cid_advertised_err("simulated config store timeout");
+
+        let args = json!({
+            "accountId": "acc1",
+            "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
+        });
+        let err = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect_err("cid_advertised Err must surface as a JmapError");
+        assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
+
+        let get = handle_filenode_get(&backend, &(), json!({ "accountId": "acc1", "ids": null }))
+            .await
+            .expect("get after failed set");
+        assert_eq!(get.primary["list"], json!([]), "{}", get.primary);
     }
 
     // -----------------------------------------------------------------------
