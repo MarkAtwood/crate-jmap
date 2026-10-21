@@ -6,10 +6,12 @@
 //!
 //! ## Public surface
 //!
-//! - [`JmapMimiExt`] / [`SessionClient`] — the `Room/create`,
-//!   `Room/update`, `Room/send`, `Room/unbind` and `GroupInfo/fetch`
-//!   bindings (draft §Rooms) and the account's [`MimiCapability`]
-//!   (draft §Account-Level Capability Object).
+//! - [`JmapMimiExt`] / [`SessionClient`] — the `KeyPackage/get` and
+//!   `KeyPackage/set` bindings (draft §KeyPackages), `KeyMaterial/fetch`
+//!   (draft §KeyMaterial/fetch), the `Room/create`, `Room/update`,
+//!   `Room/send`, `Room/unbind` and `GroupInfo/fetch` bindings (draft
+//!   §Rooms) and the account's [`MimiCapability`] (draft §Account-Level
+//!   Capability Object).
 //! - [`account_has_left`] — whether a commit removed the last of the
 //!   account's clients, after which the client SHOULD call `Room/unbind`
 //!   (draft §Chat.roomId).

@@ -1,6 +1,8 @@
 //! Shared test helpers for jmap-chat-mimi-client integration tests.
 
-use wiremock::MockServer;
+use serde_json::{json, Value};
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// The account-level `urn:ietf:params:jmap:chat:mimi` object, with the
 /// fields of draft-atwood-jmap-chat-mimi-00 §Account-Level Capability
@@ -64,4 +66,42 @@ pub fn make_client(server: &MockServer, mimi: bool) -> jmap_chat_mimi_client::Se
     )
     .expect("JmapClient construction must succeed");
     client.with_mimi_session(make_session(server, mimi))
+}
+
+/// Start a mock server answering every POST with `name` and `response`.
+pub async fn serve(name: &str, response: Value) -> MockServer {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "sessionState": "s1",
+            "methodResponses": [[name, response, "r1"]]
+        })))
+        .mount(&server)
+        .await;
+    server
+}
+
+/// The one request the server received: its `using` and its single
+/// method call `[name, args, callId]`.
+pub async fn sent(server: &MockServer) -> (Value, Value) {
+    let requests = server.received_requests().await.expect("recording on");
+    assert_eq!(requests.len(), 1, "exactly one request");
+    let body: Value = serde_json::from_slice(&requests[0].body).expect("JSON body");
+    let calls = body["methodCalls"].as_array().expect("methodCalls");
+    assert_eq!(calls.len(), 1, "exactly one method call");
+    (body["using"].clone(), calls[0].clone())
+}
+
+/// Oracle: draft L149: "This capability is meaningful only when
+/// `urn:ietf:params:jmap:chat` is also present."
+pub fn assert_using(using: &Value) {
+    let using = using.as_array().expect("using array");
+    for uri in [
+        "urn:ietf:params:jmap:core",
+        "urn:ietf:params:jmap:chat",
+        "urn:ietf:params:jmap:chat:mimi",
+    ] {
+        assert!(using.contains(&json!(uri)), "using must include {uri}");
+    }
 }

@@ -11,6 +11,9 @@ JMAP Chat server as its MIMI provider. An extension trait over
 |---|---|
 | `JmapMimiExt::with_mimi_session`, `SessionClient` | session binding to the primary `urn:ietf:params:jmap:chat:mimi` account |
 | `SessionClient::mimi_capability` | §Account-Level Capability Object |
+| `SessionClient::key_package_get` | §KeyPackage/get |
+| `SessionClient::key_package_set` | §KeyPackage/set (create and destroy; the server rejects every update) |
+| `SessionClient::key_material_fetch` | §KeyMaterial/fetch |
 | `SessionClient::room_create` | §Room/create |
 | `SessionClient::room_update` | §Room/update |
 | `SessionClient::room_send` | §Room/send |
@@ -27,8 +30,7 @@ example an openmls `MlsGroup`) and its crypto provider; this crate carries
 its MLS messages to the server and checks what comes back. It holds no MLS
 secrets.
 
-Not here yet: `KeyPackage/get`, `KeyPackage/set` and `KeyMaterial/fetch`
-bindings, and decrypting `encrypted_groupinfo_and_tree`.
+Not here yet: decrypting `encrypted_groupinfo_and_tree`.
 
 ## How to use
 
