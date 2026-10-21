@@ -394,9 +394,10 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// `handle_filenode_set` calls it for a `File` create with a `blobId`
     /// (after [`Self::blob_exists`]) and for an update whose patch sets
-    /// `blobId`, then stores the result as the node's `sha256`. The
-    /// property is server-set: a client-supplied `sha256` is dropped on
-    /// create, and an update patch may carry it only at its current value
+    /// `blobId`, and `handle_filenode_copy` calls it (in the destination
+    /// account) for each copied `File` with a `blobId`; each stores the
+    /// result as the node's `sha256`. The property is server-set: a
+    /// client-supplied or source `sha256` is dropped on create and copy, and an update patch may carry it only at its current value
     /// (RFC 8620 §5.3), otherwise the update fails with `invalidProperties`.
     ///
     /// # Return mapping
@@ -432,18 +433,20 @@ pub trait FileNodeBackend: JmapBackend {
     /// are advertised, "FileNode objects MUST include" `sha256`, which "MUST
     /// be `null` for directory FileNodes". A stored node without a digest
     /// (a directory, or a file created before the capability was enabled)
-    /// has no `sha256` field, so `handle_filenode_get` and
-    /// `handle_filenode_set` ask this method whether to emit
-    /// `"sha256": null` for it.
+    /// has no `sha256` field, so `handle_filenode_get`,
+    /// `handle_filenode_set` and `handle_filenode_copy` ask this method
+    /// whether to emit `"sha256": null` for it.
     ///
     /// # Return mapping
     ///
     /// - `Ok(true)`: `FileNode/get` emits `"sha256": null` for every node
     ///   without a digest (unless `properties` excludes `sha256`), and
-    ///   `FileNode/set` does the same for each `created` entry.
+    ///   `FileNode/set` and `FileNode/copy` do the same for each `created`
+    ///   entry (for `/copy`, asked of the destination account).
     /// - `Ok(false)`: nodes without a digest have no `sha256` property.
-    /// - `Err(e)`: the `FileNode/get` call, or a `FileNode/set` call with
-    ///   `create`, fails with `serverFail` (before any create is applied).
+    /// - `Err(e)`: the `FileNode/get` call, or a `FileNode/set` or
+    ///   `FileNode/copy` call with `create`, fails with `serverFail` (before
+    ///   any create is applied).
     ///
     /// # Default implementation
     ///

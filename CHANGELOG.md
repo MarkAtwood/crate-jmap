@@ -1857,6 +1857,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-filenode-server**: `FileNode/copy` sets `sha256` as
+  `FileNode/set` create does, per draft-atwood-jmap-cid-00 §FileNode
+  Extension: a copied file gets the digest of its blob in the destination
+  account (the source's or an override's value is dropped), and with the
+  destination advertising `urn:ietf:params:jmap:cid` a copy without a
+  digest returns `"sha256": null` in `created`. A `cid_advertised` `Err`
+  is now a top-level `serverFail` before any copy is applied.
 - **jmap-chat-mimi-server**: `MemoryBackend::store_fanout` no longer
   rebinds an unbound Chat for a Welcome FanoutMessage it already stores.
   A hub retrying the same `/notify` after `Room/unbind` used to bind the

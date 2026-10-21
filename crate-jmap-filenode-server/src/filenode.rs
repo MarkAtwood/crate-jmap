@@ -1540,6 +1540,14 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
+        // draft-atwood-jmap-cid-00 §FileNode Extension: as for FileNode/set
+        // create, the destination's capability decides whether each copy
+        // carries `sha256`. Asked once, before any copy mutates state, so an
+        // Err is a clean top-level serverFail.
+        let cid_advertised = backend
+            .cid_advertised(caller, &account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
         for (create_id, obj_val) in create_map {
             // obj_val is the per-copy descriptor from the client: it must
             // contain `id` (the source node id in fromAccountId) plus any
@@ -1616,6 +1624,23 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             if let Some(err) = create_type_error(&source_node) {
                 not_copied.insert(create_id, err);
                 continue;
+            }
+            // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is
+            // server-set ("MUST be `null` for directory FileNodes"; for a
+            // file, the digest of the stored blob), so neither the source's
+            // nor an override's value is kept. Computed before any onExists
+            // destroy so a failure has no side effects.
+            source_node.sha256 = None;
+            if matches!(source_node.node_type.as_ref(), Some(NodeType::File)) {
+                if let Some(ref blob_id) = source_node.blob_id {
+                    match backend.blob_sha256(caller, &account_id, blob_id).await {
+                        Ok(digest) => source_node.sha256 = digest,
+                        Err(e) => {
+                            not_copied.insert(create_id, server_fail_value_from_backend(&e));
+                            continue;
+                        }
+                    }
+                }
             }
             // The destination assigns a new id; clear the source id so
             // create_object cannot accidentally reuse it. The id field
@@ -2002,9 +2027,12 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     // §3.2.3 lines 687-690 MUST: enforce the renamed
                     // name in the response regardless of whether the
                     // backend echoed it.
-                    if let Some(name) = renamed_to.as_deref() {
-                        if let Value::Object(ref mut m) = value {
+                    if let Value::Object(ref mut m) = value {
+                        if let Some(name) = renamed_to.as_deref() {
                             m.insert("name".to_owned(), Value::String(name.to_owned()));
+                        }
+                        if cid_advertised {
+                            m.entry("sha256").or_insert(Value::Null);
                         }
                     }
                     copied_source_ids.push((create_id.clone(), source_id));
