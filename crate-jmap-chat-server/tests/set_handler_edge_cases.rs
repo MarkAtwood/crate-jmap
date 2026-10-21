@@ -12,15 +12,16 @@
 //!   Chats only.**". L1003 a direct create "accepts" `contactId`; L1018
 //!   group create: "Optional at creation: `description` (String),
 //!   `avatarBlobId` (String), `messageExpirySeconds` (UnsignedInt)."
-//! - `ChatBackend::create_object` rustdoc: "The `id` field in the input
-//!   object is always set to `"placeholder"`."
+//! - `ChatBackend::create_object` rustdoc: "The backend mints the new
+//!   object's id, calls `build(&id)` exactly once to obtain the complete
+//!   object, and stores that object under `id`".
 //! - The bead: the Chat/set and Message/set update checks reuse the one
 //!   stored-object read instead of re-reading it per check.
 
 mod common;
 
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_chat_set, handle_message_set, store_server_message};
+use jmap_chat_server::{handle_chat_set, handle_message_set, store_server_message, StoreOutcome};
 use jmap_chat_types::{DeliveryState, Message};
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, UTCDate};
@@ -199,32 +200,44 @@ async fn group_create_keeps_group_properties() {
     assert_eq!(created["avatarBlobId"], "blob-1", "{resp}");
 }
 
-/// The `create_object` contract: the handler hands the backend the
-/// `"placeholder"` id, never one the caller chose.
+/// The `create_object` contract: the backend mints the id and the
+/// builder's Message carries it, so the stored id is the one returned.
 #[tokio::test]
-async fn store_server_message_passes_placeholder_id() {
+async fn store_server_message_builds_with_backend_id() {
     let backend = TrackingBackend::new();
     seed(backend.inner());
     let at = UTCDate::from("2026-01-02T00:00:00Z");
-    let msg = Message::new(
-        Id::from("caller-chosen"),
-        Id::from("01J00000000000000000000009"),
-        Id::from("contact-hub"),
-        Id::from(GROUP),
-        "AAEC".to_owned(),
-        "application/mimi-fanout".to_owned(),
-        at.clone(),
-        at,
-        DeliveryState::Delivered,
-    );
+    let smid = Id::from("01J00000000000000000000009");
+    let build = |id: &Id| {
+        Message::new(
+            id.clone(),
+            smid.clone(),
+            Id::from("contact-hub"),
+            Id::from(GROUP),
+            "AAEC".to_owned(),
+            "application/mimi-fanout".to_owned(),
+            at.clone(),
+            at.clone(),
+            DeliveryState::Delivered,
+        )
+    };
 
-    store_server_message(&backend, &(), &Id::from(ACCOUNT_ID), msg)
-        .await
-        .expect("store");
+    let outcome = store_server_message(
+        &backend,
+        &(),
+        &Id::from(ACCOUNT_ID),
+        &Id::from(GROUP),
+        &smid,
+        build,
+    )
+    .await
+    .expect("store");
 
+    let StoreOutcome::Stored(id) = outcome else {
+        panic!("first store must not be a duplicate: {outcome:?}");
+    };
     let ids = backend.create_input_ids();
-    assert_eq!(ids.first(), Some(&json!("placeholder")), "{ids:?}");
-    assert!(!ids.contains(&json!("caller-chosen")), "{ids:?}");
+    assert_eq!(ids.first(), Some(&json!(id.as_ref())), "{ids:?}");
 }
 
 /// A Chat/set update touching the admin, member and pin checks reads the

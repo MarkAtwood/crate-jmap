@@ -13,21 +13,6 @@ pub(crate) use jmap_server::{
     now_utc_string, optional_arg, serialize_value,
 };
 
-/// Sentinel object id that `*/set` create handlers pass to
-/// [`ChatBackend::create_object`] before the backend assigns the real one.
-///
-/// Used by the create arms in `ban.rs`, `chat.rs`, `contact.rs`,
-/// `emoji.rs`, `invite.rs`, `message.rs`, and `space.rs`, and by the
-/// `ReadPosition` that `message.rs` creates alongside a Message. The
-/// backend MUST replace this value with a real, unique, account-scoped
-/// Id and return it as the first element of the result tuple (see the
-/// `create_object` contract). Clients must never see this value.
-///
-/// Defined as a constant so every write-side site uses the same string
-/// and a rename is caught at compile time. Visibility is `pub(crate)`,
-/// matching `jmap-mail-server` (bd:JMAP-q2wa.23).
-pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
-
 /// JSON type that a client-supplied optional `/set` create property must
 /// carry when present and non-null.
 #[derive(Clone, Copy)]

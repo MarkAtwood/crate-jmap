@@ -28,7 +28,6 @@ use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use crate::helpers::PLACEHOLDER_ID;
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_sort,
@@ -250,16 +249,10 @@ pub async fn handle_contact_set<B: ChatBackend>(
             }
 
             let now = UTCDate::from(now_utc_string().as_ref());
-            let contact = ChatContact::new(
-                Id::from(PLACEHOLDER_ID),
-                identity,
-                identity,
-                now.clone(),
-                now,
-                false,
-            );
+            let contact =
+                |id: &Id| ChatContact::new(id.clone(), identity, identity, now.clone(), now, false);
             match backend
-                .create_object::<ChatContact>(caller, &account_id, create_id, contact)
+                .create_object::<ChatContact, _>(caller, &account_id, create_id, contact)
                 .await
             {
                 Ok((_server_id, created_obj)) => {

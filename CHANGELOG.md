@@ -1311,6 +1311,16 @@ wire behaviour that a conforming peer can observe.
   `"singleton"` for `VacationResponse` (RFC 8621 §8) and a fresh UUID
   otherwise, and no longer keeps a caller-supplied id. Email `blobId`
   and `size` remain backend-assigned on `Email/set` create.
+- **BREAKING** **jmap-chat-server**: `ChatBackend::create_object` takes
+  the same builder. The `senderMsgId` sentinel is gone: `Message/set`
+  builds an owner-composed Message with `senderMsgId` equal to the
+  minted id (draft-atwood-jmap-chat-00 §Message `senderMsgId`), and the
+  backend stores `senderMsgId` as built, so a server-originated Message
+  whose `senderMsgId` is literally `"placeholder"` is no longer
+  rewritten. `store_server_message(backend, caller, account_id, chat_id,
+  sender_msg_id, build)` takes the Chat id, the `senderMsgId` and a
+  builder in place of a prebuilt `Message`. **jmap-chat-federation-server**
+  `Peer/deliver` and placeholder ChatContact creation use the builders.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

@@ -57,18 +57,25 @@ fn setup() -> MemoryBackend {
     backend
 }
 
-fn fanout(chat_id: &str, sender_msg_id: &str, body: &str) -> Message {
-    Message::new(
-        Id::from("ignored"),
-        Id::from(sender_msg_id),
-        Id::from(HUB),
-        Id::from(chat_id),
-        body,
-        FANOUT,
-        UTCDate::from("2026-01-02T00:00:00Z"),
-        UTCDate::from("2026-01-02T00:00:01Z"),
-        DeliveryState::Delivered,
-    )
+fn fanout(chat_id: &str, sender_msg_id: &str, body: &str) -> impl FnOnce(&Id) -> Message + Send {
+    let (chat_id, sender_msg_id, body) = (
+        chat_id.to_owned(),
+        sender_msg_id.to_owned(),
+        body.to_owned(),
+    );
+    move |id: &Id| {
+        Message::new(
+            id.clone(),
+            Id::from(sender_msg_id),
+            Id::from(HUB),
+            Id::from(chat_id),
+            body,
+            FANOUT,
+            UTCDate::from("2026-01-02T00:00:00Z"),
+            UTCDate::from("2026-01-02T00:00:01Z"),
+            DeliveryState::Delivered,
+        )
+    }
 }
 
 async fn messages(backend: &MemoryBackend) -> Value {
@@ -93,10 +100,22 @@ async fn positions(backend: &MemoryBackend) -> Vec<Value> {
     primary["list"].as_array().expect("list").clone()
 }
 
-async fn store(backend: &MemoryBackend, msg: Message) -> StoreOutcome {
-    store_server_message(backend, &(), &Id::from(ACCOUNT_ID), msg)
-        .await
-        .expect("store_server_message")
+async fn store(
+    backend: &MemoryBackend,
+    chat_id: &str,
+    sender_msg_id: &str,
+    body: &str,
+) -> StoreOutcome {
+    store_server_message(
+        backend,
+        &(),
+        &Id::from(ACCOUNT_ID),
+        &Id::from(chat_id),
+        &Id::from(sender_msg_id),
+        fanout(chat_id, sender_msg_id, body),
+    )
+    .await
+    .expect("store_server_message")
 }
 
 /// mimi L430 "Only servers create such Messages": the helper stores a
@@ -105,14 +124,13 @@ async fn store(backend: &MemoryBackend, msg: Message) -> StoreOutcome {
 #[tokio::test]
 async fn stores_server_reserved_body_type() {
     let backend = setup();
-    let StoreOutcome::Stored(id) = store(&backend, fanout("g", SMID, "AAEC")).await else {
+    let StoreOutcome::Stored(id) = store(&backend, "g", SMID, "AAEC").await else {
         panic!("first store must not be a duplicate");
     };
     let list = messages(&backend).await["list"].clone();
     assert_eq!(list.as_array().map(Vec::len), Some(1), "{list}");
     let m = &list[0];
     assert_eq!(m["id"], json!(id.as_ref()));
-    assert_ne!(m["id"], json!("ignored"), "the backend assigns id");
     assert_eq!(m["bodyType"], json!(FANOUT));
     assert_eq!(m["senderMsgId"], json!(SMID));
     assert_eq!(m["senderId"], json!(HUB));
@@ -125,12 +143,12 @@ async fn stores_server_reserved_body_type() {
 #[tokio::test]
 async fn same_sender_msg_id_same_chat_is_duplicate() {
     let backend = setup();
-    let StoreOutcome::Stored(first) = store(&backend, fanout("g", SMID, "AAEC")).await else {
+    let StoreOutcome::Stored(first) = store(&backend, "g", SMID, "AAEC").await else {
         panic!("first store must not be a duplicate");
     };
     let before = messages(&backend).await;
 
-    let again = store(&backend, fanout("g", SMID, "different body")).await;
+    let again = store(&backend, "g", SMID, "different body").await;
     assert_eq!(again, StoreOutcome::Duplicate(first));
 
     let after = messages(&backend).await;
@@ -146,10 +164,10 @@ async fn same_sender_msg_id_same_chat_is_duplicate() {
 #[tokio::test]
 async fn same_sender_msg_id_other_chat_stores() {
     let backend = setup();
-    let StoreOutcome::Stored(in_g) = store(&backend, fanout("g", SMID, "AAEC")).await else {
+    let StoreOutcome::Stored(in_g) = store(&backend, "g", SMID, "AAEC").await else {
         panic!("first store must not be a duplicate");
     };
-    let StoreOutcome::Stored(in_h) = store(&backend, fanout("h", SMID, "AAEC")).await else {
+    let StoreOutcome::Stored(in_h) = store(&backend, "h", SMID, "AAEC").await else {
         panic!("another Chat is not a duplicate");
     };
     assert_ne!(in_g, in_h);
@@ -168,12 +186,12 @@ async fn first_message_creates_read_position() {
     let backend = setup();
     assert!(positions(&backend).await.is_empty());
 
-    store(&backend, fanout("g", SMID, "AAEC")).await;
+    store(&backend, "g", SMID, "AAEC").await;
     let list = positions(&backend).await;
     assert_eq!(list.len(), 1, "{list:?}");
     assert_eq!(list[0]["chatId"], json!("g"));
 
-    store(&backend, fanout("g", "01J00000000000000000000002", "AAED")).await;
+    store(&backend, "g", "01J00000000000000000000002", "AAED").await;
     assert_eq!(positions(&backend).await.len(), 1);
 
     let HandlerOutput { primary, .. } = handle_chat_get(
@@ -192,7 +210,7 @@ async fn first_message_creates_read_position() {
 #[tokio::test]
 async fn lookup_by_chat_and_sender_msg_id() {
     let backend = setup();
-    let StoreOutcome::Stored(id) = store(&backend, fanout("g", SMID, "AAEC")).await else {
+    let StoreOutcome::Stored(id) = store(&backend, "g", SMID, "AAEC").await else {
         panic!("first store must not be a duplicate");
     };
     let account = Id::from(ACCOUNT_ID);
@@ -207,4 +225,23 @@ async fn lookup_by_chat_and_sender_msg_id() {
         .await
         .expect("lookup");
     assert!(other.is_none());
+}
+
+/// draft-atwood-jmap-chat-00 L677 (jmap-chat-spec 29e9a41): "The receiving
+/// mailbox stores both its own `id` and the `senderMsgId`." Only an
+/// owner-composed Message has `senderMsgId` equal to `id` (L687), so a
+/// server-originated Message whose originator chose the `senderMsgId`
+/// `"placeholder"` keeps it and gets its own distinct `id` (bd:JMAP-dpbp).
+#[tokio::test]
+async fn placeholder_sender_msg_id_is_stored_verbatim() {
+    let backend = setup();
+    let StoreOutcome::Stored(id) = store(&backend, "g", "placeholder", "AAEC").await else {
+        panic!("first store must not be a duplicate");
+    };
+    let list = messages(&backend).await["list"].clone();
+    assert_eq!(list.as_array().map(Vec::len), Some(1), "{list}");
+    let m = &list[0];
+    assert_eq!(m["senderMsgId"], json!("placeholder"), "{m}");
+    assert_eq!(m["id"], json!(id.as_ref()), "{m}");
+    assert_ne!(m["id"], m["senderMsgId"], "{m}");
 }

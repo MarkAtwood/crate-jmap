@@ -37,7 +37,7 @@ use crate::helpers::{
     default_sort, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     now_utc_string, reject_unsupported_sort, set_error_value, SetAccumulators,
 };
-use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
+use crate::helpers::{mistyped_create_props, PropType};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
@@ -868,31 +868,35 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .and_then(|v| v.as_bool())
                 .unwrap_or(true);
 
-            let mut chat = Chat::new(
-                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-                Id::from(PLACEHOLDER_ID),
-                kind,
-                now,
-                0,
-                vec![],
-                muted,
-                receive_typing_indicators,
-            );
-            chat.contact_id = contact_id;
-            chat.name = name;
-            chat.description = description;
             // "Optional at creation: `description` (String), `avatarBlobId`
             // (String), `messageExpirySeconds` (UnsignedInt)."
-            chat.avatar_blob_id = obj_val
+            let avatar_blob_id = obj_val
                 .get("avatarBlobId")
                 .and_then(Value::as_str)
                 .map(Id::from);
-            chat.message_expiry_seconds =
+            let message_expiry_seconds =
                 obj_val.get("messageExpirySeconds").and_then(Value::as_u64);
-            chat.members = members;
+            let build = |id: &Id| {
+                let mut chat = Chat::new(
+                    id.clone(),
+                    kind,
+                    now,
+                    0,
+                    vec![],
+                    muted,
+                    receive_typing_indicators,
+                );
+                chat.contact_id = contact_id;
+                chat.name = name;
+                chat.description = description;
+                chat.avatar_blob_id = avatar_blob_id;
+                chat.message_expiry_seconds = message_expiry_seconds;
+                chat.members = members;
+                chat
+            };
 
             match backend
-                .create_object::<Chat>(caller, &account_id, create_id, chat)
+                .create_object::<Chat, _>(caller, &account_id, create_id, build)
                 .await
             {
                 Ok((new_id, created_obj)) => {

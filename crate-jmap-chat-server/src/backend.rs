@@ -541,28 +541,20 @@ pub trait ChatBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
-    /// # Sentinel fields the backend MUST replace
+    /// # Id assignment
     ///
-    /// The method handlers in this crate pass partially-constructed objects
-    /// with sentinel values that the backend MUST replace with real values
-    /// before storing:
+    /// The backend mints the new object's id, calls `build(&id)` exactly
+    /// once to obtain the complete object, and stores that object under
+    /// `id` in the same atomic write. `build` sets the object's `id` field
+    /// to the id it is given; the backend stores the built object as is.
+    /// RFC 8620 §5.3 lists `id` among the "server-set properties".
     ///
-    /// - **`id`**: The `id` field in the input object is always set to
-    ///   `"placeholder"`. The backend MUST replace it with a real, unique,
-    ///   account-scoped ID and return that ID as the first element of the
-    ///   result tuple.
-    /// - **`senderMsgId`** of a `Message`: `Message/set` composes the
-    ///   owner's Messages with `senderMsgId` set to `"placeholder"`. The
-    ///   backend MUST replace it with the same id it assigns to `id`, in
-    ///   the same write (draft-atwood-jmap-chat-00 §Message: "Equals `id`
-    ///   for messages composed by the owner."). A server-originated
-    ///   Message ([`crate::store_server_message`]) carries its real
-    ///   `senderMsgId`, which the backend stores unchanged.
-    ///
-    /// Failing to replace this sentinel will cause the client to receive an
-    /// invalid wire value (`"placeholder"`) as the assigned id of every
-    /// created `Space`, `Chat`, `Message`, `SpaceInvite`, `SpaceBan`,
-    /// `CustomEmoji`, and `ReadPosition`.
+    /// `Message/set` builds an owner-composed Message with `senderMsgId`
+    /// equal to that id (draft-atwood-jmap-chat-00 §Message `senderMsgId`:
+    /// "Equals `id` for messages composed by the owner."). A
+    /// server-originated Message ([`crate::store_server_message`]) carries
+    /// the `senderMsgId` its originator chose. In both cases the backend
+    /// stores `senderMsgId` unchanged.
     ///
     /// # Per-type uniqueness contracts
     ///
@@ -671,14 +663,17 @@ pub trait ChatBackend: JmapBackend {
     /// all three under one mutex acquisition, and a database backend uses
     /// one transaction. A call that returns `Err` MUST leave the stored
     /// data, the state and the change log unchanged.
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing object.
     ///

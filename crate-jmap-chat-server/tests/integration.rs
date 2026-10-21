@@ -54,17 +54,19 @@ async fn memory_backend_state_advances_after_create() {
         .await
         .expect("get_state");
 
-    let chat = Chat::new(
-        Id::from("placeholder"),
-        ChatKind::Group,
-        UTCDate::from("2026-01-01T00:00:00Z"),
-        0,
-        vec![],
-        false,
-        true,
-    );
+    let chat = |id: &Id| {
+        Chat::new(
+            id.clone(),
+            ChatKind::Group,
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            0,
+            vec![],
+            false,
+            true,
+        )
+    };
     backend
-        .create_object::<Chat>(&(), &account_id, "c0", chat)
+        .create_object::<Chat, _>(&(), &account_id, "c0", chat)
         .await
         .expect("create_object");
 
@@ -86,17 +88,19 @@ async fn memory_backend_create_then_get() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
-    let chat = Chat::new(
-        Id::from("placeholder"),
-        ChatKind::Group,
-        UTCDate::from("2026-01-01T00:00:00Z"),
-        0,
-        vec![],
-        false,
-        true,
-    );
+    let chat = |id: &Id| {
+        Chat::new(
+            id.clone(),
+            ChatKind::Group,
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            0,
+            vec![],
+            false,
+            true,
+        )
+    };
     let (server_id, _) = backend
-        .create_object::<Chat>(&(), &account_id, "c0", chat)
+        .create_object::<Chat, _>(&(), &account_id, "c0", chat)
         .await
         .expect("create_object");
 
@@ -8192,19 +8196,21 @@ async fn space_join_invite_at_max_uses_rejected() {
 
     // Insert a pre-exhausted invite directly via the backend:
     // uses=1, maxUses=Some(1) → uses >= max → join must be rejected.
-    let invite = SpaceInvite::new(
-        Id::from("placeholder"),
-        "exhaustedcode",
-        Id::from("s1"),
-        account_id.clone(),
-        1,
-        UTCDate::from("2026-01-01T00:00:00Z"),
-        None,
-        None,
-        Some(1),
-    );
+    let invite = |id: &Id| {
+        SpaceInvite::new(
+            id.clone(),
+            "exhaustedcode",
+            Id::from("s1"),
+            account_id.clone(),
+            1,
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            None,
+            None,
+            Some(1),
+        )
+    };
     backend
-        .create_object::<SpaceInvite>(&(), &account_id, "i0", invite)
+        .create_object::<SpaceInvite, _>(&(), &account_id, "i0", invite)
         .await
         .expect("create SpaceInvite");
 

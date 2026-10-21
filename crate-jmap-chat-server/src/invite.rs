@@ -36,7 +36,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
     SetAccumulators,
 };
-use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
+use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
@@ -351,27 +351,26 @@ pub async fn handle_invite_set<B: ChatBackend>(
             // from the client body. The creator is the owner, referenced by
             // the accountId (draft-atwood-jmap-chat-00 §Terminology,
             // §SpaceInvite.createdBy).
-            let invite = SpaceInvite::new(
-                Id::from(PLACEHOLDER_ID),
-                code,
-                space_id,
-                account_id.clone(),
-                0,
-                now,
-                default_channel_id,
-                expires_at,
-                max_uses,
-            );
-
-            if let Some(err) =
-                invite_denied(backend, caller, &account_id, &invite.space_id, None).await
-            {
+            if let Some(err) = invite_denied(backend, caller, &account_id, &space_id, None).await {
                 not_created.insert(create_id.clone(), err);
                 continue;
             }
 
+            let invite = |id: &Id| {
+                SpaceInvite::new(
+                    id.clone(),
+                    code,
+                    space_id,
+                    account_id.clone(),
+                    0,
+                    now,
+                    default_channel_id,
+                    expires_at,
+                    max_uses,
+                )
+            };
             match backend
-                .create_object::<SpaceInvite>(caller, &account_id, create_id, invite)
+                .create_object::<SpaceInvite, _>(caller, &account_id, create_id, invite)
                 .await
             {
                 Ok((_server_id, created_obj)) => {

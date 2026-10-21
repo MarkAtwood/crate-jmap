@@ -46,7 +46,7 @@ use crate::helpers::{
     extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string,
     optional_arg, reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
 };
-use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
+use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{
     query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
     QueryParams,
@@ -1025,33 +1025,35 @@ pub async fn handle_space_set<B: ChatBackend>(
             }))
             .expect("bootstrap member literal matches SpaceMember");
 
-            let mut space = Space::new(
-                Id::from(PLACEHOLDER_ID),
-                name,
-                vec![admin_role],
-                vec![owner],
-                vec![],
-                vec![],
-                now,
-                is_public,
-                is_publicly_previewable,
-                1,
-            );
-
-            if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
-                space.description = Some(desc.to_owned());
-            }
-            for &key in &extension_props {
-                match obj_val.get(key) {
-                    None | Some(Value::Null) => {}
-                    Some(v) => {
-                        space.extra.insert(key.to_owned(), v.clone());
+            let build = |id: &Id| {
+                let mut space = Space::new(
+                    id.clone(),
+                    name,
+                    vec![admin_role],
+                    vec![owner],
+                    vec![],
+                    vec![],
+                    now,
+                    is_public,
+                    is_publicly_previewable,
+                    1,
+                );
+                if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
+                    space.description = Some(desc.to_owned());
+                }
+                for &key in &extension_props {
+                    match obj_val.get(key) {
+                        None | Some(Value::Null) => {}
+                        Some(v) => {
+                            space.extra.insert(key.to_owned(), v.clone());
+                        }
                     }
                 }
-            }
+                space
+            };
 
             match backend
-                .create_object::<Space>(caller, &account_id, create_id, space)
+                .create_object::<Space, _>(caller, &account_id, create_id, build)
                 .await
             {
                 Ok((_server_id, created_obj)) => {

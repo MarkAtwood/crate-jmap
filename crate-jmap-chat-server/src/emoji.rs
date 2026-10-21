@@ -34,7 +34,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_sort,
     serialize_value, set_error_value, SetAccumulators,
 };
-use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
+use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{
     query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
     QueryParams,
@@ -388,17 +388,15 @@ pub async fn handle_emoji_set<B: ChatBackend>(
 
             // createdBy is the owner, referenced by the accountId
             // (draft-atwood-jmap-chat-00 §Terminology).
-            let mut emoji = CustomEmoji::new(
-                Id::from(PLACEHOLDER_ID),
-                name,
-                blob_id,
-                account_id.clone(),
-                now,
-            );
-            emoji.space_id = space_id;
+            let emoji = |id: &Id| {
+                let mut emoji =
+                    CustomEmoji::new(id.clone(), name, blob_id, account_id.clone(), now);
+                emoji.space_id = space_id;
+                emoji
+            };
 
             match backend
-                .create_object::<CustomEmoji>(caller, &account_id, create_id, emoji)
+                .create_object::<CustomEmoji, _>(caller, &account_id, create_id, emoji)
                 .await
             {
                 Ok((_server_id, created_obj)) => {
