@@ -7,8 +7,37 @@
 ## What it is
 
 Client support for the JMAP Scene extension ([draft-atwood-jmap-scene-00]).
-`AssetFetcher` fetches a SceneAsset or SceneObject `assetUri` under the
-draft's §assetUri Is Untrusted rules.
+`JmapSceneExt` binds the `/get`, `/changes`, `/set`, `/query` and
+`/queryChanges` methods of SceneAsset, SceneRegion, SceneObject and
+SceneAvatar over `jmap-base-client`. `AssetFetcher` fetches a SceneAsset or
+SceneObject `assetUri` under the draft's §assetUri Is Untrusted rules.
+
+## Scene methods
+
+`with_scene_session` binds a `JmapClient` to a session; each method on the
+returned `SessionClient` targets the primary `urn:ietf:params:jmap:scene`
+account, or the account chosen with `for_account`. A region's records live
+in its hosting account, which other users reach as a shared account
+(§Accounts), so pass that account's id to `for_account` to enter or query
+a region hosted elsewhere.
+
+```rust,no_run
+use jmap_scene_client::JmapSceneExt;
+use jmap_scene_types::query::{Filter, SceneObjectFilterCondition, WithinRadius};
+
+# async fn run(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
+let session = client.fetch_session().await?;
+let sc = client.with_scene_session(session);
+let mut cond = SceneObjectFilterCondition::default();
+cond.region_id = Some("01J5ABC0000000000000000001".into());
+cond.within_radius = Some(WithinRadius::new([5.0, 0.0, -2.0], 20.0));
+let nearby = sc
+    .scene_object_query(Some(&Filter::Condition(cond)), None, None, Some(25))
+    .await?;
+# Ok(()) }
+```
+
+`SceneObject/interact` is not bound yet.
 
 ## What it's for
 
