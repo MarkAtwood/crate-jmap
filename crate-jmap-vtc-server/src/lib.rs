@@ -22,8 +22,11 @@
 //! machine, ending a call, the call-level moderator actions and `/query`.
 //! Ending a call, by `VTCCall/set` or by the server through [`end_call`],
 //! also ends its breakout rooms and stops its active recordings.
+//! [`expire_ring`] applies the ring timeout when the deployment's timer
+//! fires.
 //! The `VTCParticipant/*` methods: joining, gateway dial-out, answering
-//! and declining a ring, media state under the call policy, leaving and
+//! and declining a ring (with the `answered_elsewhere` fork to the
+//! answering user's other devices), media state under the call policy, leaving and
 //! reconnecting, the participant-level moderator actions (mute, ask to
 //! unmute, kick, lobby admission, role, breakout assignment), the outbound
 //! `gatewayData/pendingSignal` relay, the call transitions they cause, and
@@ -69,8 +72,8 @@ pub use backend::{
     QueryObject, QueryResult, SetError, SetErrorType, SetObject, VtcBackend,
 };
 pub use call::{
-    end_call, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
-    handle_vtc_call_query_changes, handle_vtc_call_set,
+    end_call, expire_ring, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
+    handle_vtc_call_query_changes, handle_vtc_call_set, RING_TIMEOUT,
 };
 pub use ephemeral::{should_deliver, CallScope, VtcEphemeralSubscription, VtcStreamFilter};
 pub use media::{

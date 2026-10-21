@@ -9,10 +9,12 @@ use common::*;
 use jmap_types::Id;
 use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::{
-    handle_vtc_participant_get, handle_vtc_participant_query, handle_vtc_participant_set,
+    expire_ring, handle_vtc_participant_get, handle_vtc_participant_query,
+    handle_vtc_participant_set, RING_TIMEOUT,
 };
 use jmap_vtc_types::{SignalDirection, VtcEvent};
 use serde_json::{json, Value};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const CAROL: &str = "user:carol@example.com";
 
@@ -1047,4 +1049,164 @@ async fn records_are_not_destroyed() {
     assert_error(&resp["notDestroyed"][&alice], "forbidden", None);
     assert_error(&resp["notDestroyed"]["nope"], "notFound", None);
     assert_eq!(participant(&backend, &alice).await["id"], json!(alice));
+}
+
+/// The `VTCCallEndEvent`s delivered so far, as wire JSON.
+fn call_end_events(backend: &MemoryBackend) -> Vec<Value> {
+    backend
+        .events_for_test()
+        .into_iter()
+        .filter_map(|e| match e {
+            VtcEvent::CallEnd(e) => Some(serde_json::to_value(e).expect("serialize")),
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn answering_forks_answered_elsewhere_to_other_devices() {
+    let backend = backend();
+    let call = ring_to(&backend, &[ALICE, CAROL]).await;
+    let alice = ring_record(&backend, &call, ALICE).await;
+    let carol = ring_record(&backend, &call, CAROL).await;
+
+    // L846 "On success, if the call is `"ringing"`, the server transitions
+    // it to `"active"`. In either case the server dispatches a
+    // `VTCCallEndEvent` with `endReason: "answered_elsewhere"` to the
+    // answering user's other ringing devices".
+    pupdate(&backend, ALICE, &alice, json!({"joinMethod": "webrtc"}))
+        .await
+        .expect("first answer");
+    assert_eq!(get(&backend, &call).await["state"], "active");
+    let expected = json!({
+        "accountId": ACCOUNT,
+        "callId": call,
+        "endReason": "answered_elsewhere"
+    });
+    assert_eq!(call_end_events(&backend), std::slice::from_ref(&expected));
+
+    // L1611 "The other targets keep ringing: each may still answer (and
+    // join)"; "In either case" covers the answer to the active call.
+    pupdate(&backend, CAROL, &carol, json!({"joinMethod": "webrtc"}))
+        .await
+        .expect("second answer");
+    assert_eq!(call_end_events(&backend), [expected.clone(), expected]);
+}
+
+#[tokio::test]
+async fn declining_does_not_fork_answered_elsewhere() {
+    let backend = backend();
+    let call = ring_to(&backend, &[ALICE, CAROL]).await;
+    let alice = ring_record(&backend, &call, ALICE).await;
+    // L1431 "`\"answered_elsewhere\"` (the same user answered on a
+    // different device)": a decline is not an answer.
+    pupdate(&backend, ALICE, &alice, json!({"callResponse": "declined"}))
+        .await
+        .expect("decline");
+    assert!(call_end_events(&backend)
+        .iter()
+        .all(|e| e["endReason"] != "answered_elsewhere"));
+}
+
+/// 2026-10-20T12:00:00Z plus `secs`, from `date -u -d 2026-10-20T12:00:00Z
+/// +%s` = 1792497600.
+fn at(secs: u64) -> SystemTime {
+    UNIX_EPOCH + Duration::from_secs(1_792_497_600 + secs)
+}
+
+/// Ring call `R1` created 2026-10-20T12:00:00Z by [`BOB`], in `state`,
+/// with targets [`ALICE`] and [`CAROL`] whose `callResponse`s are given.
+fn ring_fixture(state: &str, alice: &str, carol: &str) -> MemoryBackend {
+    let backend = backend();
+    seed(
+        &backend,
+        stored_call("R1", "ring", state, "2026-10-20T12:00:00Z"),
+    );
+    seed_participant(
+        &backend,
+        record(
+            "P-BOB",
+            "R1",
+            Some(BOB),
+            "moderator",
+            Some("2026-10-20T12:00:00Z"),
+        ),
+    );
+    for (id, user, response) in [("P-ALICE", ALICE, alice), ("P-CAROL", CAROL, carol)] {
+        let joined = (response == "accepted").then_some("2026-10-20T12:00:05Z");
+        let mut p = record(id, "R1", Some(user), "participant", joined);
+        p["callResponse"] = json!(response);
+        seed_participant(&backend, p);
+    }
+    backend
+}
+
+async fn expire(backend: &MemoryBackend, now: SystemTime) -> bool {
+    expire_ring(
+        backend,
+        &BOB.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from("R1"),
+        now,
+        RING_TIMEOUT,
+    )
+    .await
+    .expect("expire_ring")
+}
+
+#[test]
+fn ring_timeout_is_thirty_seconds() {
+    // L1615 "a deployment-defined period (RECOMMENDED: 30 seconds)".
+    assert_eq!(RING_TIMEOUT, Duration::from_secs(30));
+}
+
+#[tokio::test]
+async fn unanswered_ring_ends_missed_at_thirty_seconds() {
+    let backend = ring_fixture("ringing", "pending", "pending");
+
+    assert!(!expire(&backend, at(29)).await);
+    assert_eq!(get(&backend, "R1").await["state"], "ringing");
+    assert!(call_end_events(&backend).is_empty());
+
+    // L1615 "If no target participant answers within a deployment-defined
+    // period (RECOMMENDED: 30 seconds), the server transitions the call to
+    // `"ended"` with `endReason: "missed"` and dispatches `VTCCallEndEvent`
+    // with `endReason: "timeout"` to all ringing devices."
+    assert!(expire(&backend, at(30)).await);
+    let call = get(&backend, "R1").await;
+    assert_eq!(call["state"], "ended");
+    assert_eq!(call["endReason"], "missed");
+    assert_eq!(
+        call_end_events(&backend),
+        [json!({"accountId": ACCOUNT, "callId": "R1", "endReason": "timeout"})]
+    );
+
+    // An ended call has no ring left to time out.
+    assert!(!expire(&backend, at(31)).await);
+    assert_eq!(call_end_events(&backend).len(), 1);
+}
+
+#[tokio::test]
+async fn timeout_on_active_ring_keeps_the_call() {
+    let backend = ring_fixture("active", "accepted", "pending");
+    // L1615 "If the call is already `"active"` when the period expires, the
+    // call continues; the server dispatches `VTCCallEndEvent` with
+    // `endReason: "timeout"` to the devices of targets whose
+    // `callResponse` is still `"pending"`."
+    assert!(expire(&backend, at(30)).await);
+    assert_eq!(get(&backend, "R1").await["state"], "active");
+    assert_eq!(
+        call_end_events(&backend),
+        [json!({"accountId": ACCOUNT, "callId": "R1", "endReason": "timeout"})]
+    );
+}
+
+#[tokio::test]
+async fn timeout_on_active_ring_without_pending_targets_is_silent() {
+    // L1615: the event goes only to "targets whose `callResponse` is still
+    // `"pending"`"; here there are none.
+    let backend = ring_fixture("active", "accepted", "declined");
+    assert!(!expire(&backend, at(30)).await);
+    assert_eq!(get(&backend, "R1").await["state"], "active");
+    assert!(call_end_events(&backend).is_empty());
 }

@@ -18,8 +18,6 @@ use crate::{CallRole, GatewayProtocol, MediaKind, RecordingState, VtcMediaState}
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum RingEndReason {
-    /// `"answered"`: a different target user answered.
-    Answered,
     /// `"answered_elsewhere"`: the same user answered on another device.
     AnsweredElsewhere,
     /// `"declined"`.
@@ -35,7 +33,6 @@ pub enum RingEndReason {
 }
 
 impl_string_enum!(RingEndReason, "a VTC ring end reason string",
-    "answered" => Answered,
     "answered_elsewhere" => AnsweredElsewhere,
     "declined" => Declined,
     "cancelled" => Cancelled,
@@ -429,9 +426,11 @@ mod tests {
 
     #[test]
     fn ring_end_reason_wire_values() {
-        // Oracle: L1363 "Values: `\"answered\"` ..., `\"answered_elsewhere\"`
-        // ..., `\"declined\"`, `\"cancelled\"` ..., `\"timeout\"`,
-        // `\"failed\"`."
+        // Oracle: draft-atwood-jmap-vtc-00.md at jmap-chat-spec 6bcd9d8,
+        // L1431 "Values: `\"answered_elsewhere\"` (the same user answered on
+        // a different device), `\"declined\"`, `\"cancelled\"` ...,
+        // `\"timeout\"`, `\"failed\"`." The list has no `"answered"`, so it
+        // is an unregistered value.
         let v: Vec<RingEndReason> = serde_json::from_value(json!([
             "answered",
             "answered_elsewhere",
@@ -444,7 +443,7 @@ mod tests {
         assert_eq!(
             v,
             [
-                RingEndReason::Answered,
+                RingEndReason::Other("answered".to_owned()),
                 RingEndReason::AnsweredElsewhere,
                 RingEndReason::Declined,
                 RingEndReason::Cancelled,

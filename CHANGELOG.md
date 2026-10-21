@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: ring fork and ring timeout of
+  draft-atwood-jmap-vtc-00 §Multi-Device Forking and §Ring Timeout.
+  Answering a ring delivers a `VTCCallEndEvent` with `endReason`
+  `"answered_elsewhere"` through `VtcBackend::deliver_event`, for the
+  answering user's other devices. `expire_ring` applies the timeout when
+  the deployment's timer fires, with an injected clock: a ringing call
+  ends with `endReason: "missed"`, an active one continues, and a
+  `"timeout"` `VTCCallEndEvent` goes to the still-pending targets.
+  `RING_TIMEOUT` is the recommended 30 seconds.
 - **jmap-vtc-server**: the `VTCParticipant/*` handlers of
   draft-atwood-jmap-vtc-00, registered by `register_vtc_handlers`.
   `/set` create joins a room, scheduled or ring call (lobby `"waiting"`
@@ -1359,6 +1368,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-vtc-types**: `RingEndReason::Answered`.
+  draft-atwood-jmap-vtc-00 (jmap-chat-spec 6bcd9d8, L1431) no longer
+  lists `"answered"`, which now decodes as `RingEndReason::Other`.
 - **BREAKING** **jmap-chat-client**: `ContactPresenceFilter` and its
   `TryFrom<Presence>` impl. Its only consumer, `ChatContactQueryInput`,
   was removed when `chat_contact_query` moved to `Filter`, whose
