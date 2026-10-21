@@ -37,9 +37,8 @@
 //!   (draft §SceneObject/interact).
 //! - [`query`] — the `/query` filters, including the `withinRadius` and
 //!   `withinBounds` spatial filters, and comparators of the four types.
-//! - [`set_error`] — the `contentPolicy` SetError type and the
-//!   `retryAfter` property of `rateLimit` (draft §Content Moderation for
-//!   User-Created Objects).
+//! - [`set_error`] — the `contentPolicy` SetError type (draft §Content
+//!   Moderation for User-Created Objects).
 //! - [`JMAP_SCENE_WEBSOCKET_URI`] — the WebSocket capability
 //!   (scene-wss draft §Capability).
 //! - [`SceneEvent`], [`SceneAvatarEvent`], [`SceneObjectEvent`],
@@ -78,5 +77,5 @@ pub use event::{
 pub use interact::{SceneInteraction, SceneObjectInteractRequest, SceneObjectInteractResponse};
 pub use object::{PhysicsMode, SceneObject};
 pub use region::{AccessPolicy, GeoAnchor, SceneRegion, ViewHint};
-pub use set_error::{retry_after, RetryAfterError, CONTENT_POLICY, RETRY_AFTER};
+pub use set_error::CONTENT_POLICY;
 pub use stream::{SceneStreamDisable, SceneStreamEnable, SceneStreamMessage, SCENE_EVENT_TYPES};

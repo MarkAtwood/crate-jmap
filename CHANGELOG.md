@@ -1599,6 +1599,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-scene-types**: `RETRY_AFTER`, `retry_after` and
+  `RetryAfterError`. draft-atwood-jmap-scene-00 (jmap-chat-spec 6bcd9d8,
+  L2690) no longer defines a `retryAfter` property on `rateLimit`: "When a
+  rate limit is exceeded, the server SHOULD return a `SetError` of type
+  `rateLimit` ({{RFC8620}} Section 5.3)." `CONTENT_POLICY` stays.
 - **BREAKING** **jmap-vtc-types**: `RingEndReason::Answered`.
   draft-atwood-jmap-vtc-00 (jmap-chat-spec 6bcd9d8, L1431) no longer
   lists `"answered"`, which now decodes as `RingEndReason::Other`.

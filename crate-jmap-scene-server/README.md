@@ -169,10 +169,6 @@ every condition, for a `withinRadius.radius` <= 0 or a `withinBounds`
   `may_access_region`.
 - `caller_user_id` has no default. Avatar ownership is a spec rule, not
   a policy hook.
-- Avatar ids are backend-assigned, not the userId the draft suggests
-  ("SHOULD use the userId as the id within a given region"): one user
-  can have avatar records in several regions of an account, and JMAP ids
-  are unique per type per account.
 - Re-parenting an object reads every SceneObject of the account to find
   the moved subtree's height. A backend with a `parentId` index can
   register a faster `SceneObject/set`.

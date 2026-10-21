@@ -16,8 +16,8 @@ use crate::{Orientation, Position};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneAvatar {
-    /// Server-assigned identifier; the server "SHOULD use the userId as
-    /// the id within a given region".
+    /// Server-assigned identifier: "A ULID assigned at creation, unique
+    /// within the account like any JMAP id".
     pub id: Id,
     /// The SceneRegion this avatar is in.
     pub region_id: Id,
