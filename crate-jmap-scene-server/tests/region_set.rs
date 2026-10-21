@@ -9,8 +9,9 @@ mod common;
 use common::*;
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{
-    handle_scene_region_changes, handle_scene_region_get, handle_scene_region_set, BindingTarget,
-    JmapBackend,
+    handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_object_changes,
+    handle_scene_object_get, handle_scene_region_changes, handle_scene_region_get,
+    handle_scene_region_set, BindingTarget, JmapBackend,
 };
 use jmap_scene_types::{SceneAvatar, SceneObject};
 use jmap_types::Id;
@@ -700,9 +701,9 @@ fn avatar_in(id: &str, region: &str) -> Value {
 
 #[tokio::test]
 async fn destroy_removes_contained_objects_and_avatars() {
-    // L1117 "`destroy` removes the SceneRegion and all contained
-    // SceneObject and SceneAvatar records"; L1148-1150 the region id is in
-    // `destroyed`.
+    // L1210 (jmap-chat-spec 6bcd9d8) "`destroy` removes the SceneRegion
+    // and all SceneObject and SceneAvatar records in it"; L1240-1242 the
+    // region id is in `destroyed`.
     let backend = backend();
     let id = create(&backend, design_review_room()).await;
     let other = create(&backend, main_plaza()).await;
@@ -732,6 +733,54 @@ async fn destroy_removes_contained_objects_and_avatars() {
         .await
         .unwrap();
     assert!(avatars.is_empty());
+}
+
+#[tokio::test]
+async fn destroy_reports_contained_records_destroyed_in_changes() {
+    // L1210 (jmap-chat-spec 6bcd9d8) "`SceneObject/changes` and
+    // `SceneAvatar/changes` report those records as destroyed".
+    let backend = backend();
+    let id = create(&backend, design_review_room()).await;
+    let other = create(&backend, main_plaza()).await;
+    seed_as(&backend, "SceneObject", object_in("obj-in", &id));
+    seed_as(&backend, "SceneObject", object_in("obj-out", &other));
+    seed_as(&backend, "SceneAvatar", avatar_in("av-in", &id));
+    let object_since = call!(
+        handle_scene_object_get,
+        &backend,
+        ALICE,
+        json!({ "ids": [] })
+    )["state"]
+        .clone();
+    let avatar_since = call!(
+        handle_scene_avatar_get,
+        &backend,
+        ALICE,
+        json!({ "ids": [] })
+    )["state"]
+        .clone();
+
+    let resp = set(&backend, ALICE, json!({ "destroy": [id] })).await;
+    assert_eq!(resp["destroyed"], json!([id]));
+
+    let objects = call!(
+        handle_scene_object_changes,
+        &backend,
+        ALICE,
+        json!({ "sinceState": object_since })
+    );
+    assert_eq!(objects["destroyed"], json!(["obj-in"]));
+    assert_eq!(objects["created"], json!([]));
+    assert_eq!(objects["updated"], json!([]));
+    let avatars = call!(
+        handle_scene_avatar_changes,
+        &backend,
+        ALICE,
+        json!({ "sinceState": avatar_since })
+    );
+    assert_eq!(avatars["destroyed"], json!(["av-in"]));
+    assert_eq!(avatars["created"], json!([]));
+    assert_eq!(avatars["updated"], json!([]));
 }
 
 #[tokio::test]

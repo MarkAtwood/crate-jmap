@@ -1003,8 +1003,8 @@ impl SceneBackend for MemoryBackend {
             account_id,
             gone.into_iter().map(|k| (k, Change::Destroyed)).collect(),
         );
-        // "removes the SceneRegion and all contained SceneObject and
-        // SceneAvatar records", in the same locked step.
+        // "removes the SceneRegion and all SceneObject and SceneAvatar
+        // records in it", each reported destroyed, in the same locked step.
         if O::TYPE_NAME == SceneRegion::TYPE_NAME {
             for contained in [SceneObject::TYPE_NAME, SceneAvatar::TYPE_NAME] {
                 let map = inner.objects_mut(contained, account_id);

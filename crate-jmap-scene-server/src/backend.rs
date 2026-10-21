@@ -184,10 +184,12 @@ pub trait SceneBackend: JmapBackend {
     /// applied the permission check.
     ///
     /// Destroying a `SceneRegion` "removes the SceneRegion and all
-    /// contained SceneObject and SceneAvatar records" (draft-atwood-jmap-
-    /// scene-00 §Destroying a Region): in the same atomic step the backend
-    /// destroys every SceneObject and SceneAvatar whose `regionId` is `id`
-    /// and advances those types' states. It does not end a VTCCall the
+    /// SceneObject and SceneAvatar records in it; `SceneObject/changes` and
+    /// `SceneAvatar/changes` report those records as destroyed"
+    /// (draft-atwood-jmap-scene-00 §Destroying a Region): in the same atomic
+    /// step the backend destroys every SceneObject and SceneAvatar whose
+    /// `regionId` is `id` and records each as a destroyed change of its
+    /// type. It does not end a VTCCall the
     /// region's `activeCallId` references ("the server MUST NOT
     /// automatically end the referenced VTCCall").
     ///
