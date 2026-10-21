@@ -713,30 +713,25 @@ impl JmapBackend for MemoryBackend {
 // ---------------------------------------------------------------------------
 
 impl TasksBackend for MemoryBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
+        let server_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let stored_obj = build(&server_id);
+        let val = serde_json::to_value(&stored_obj)
+            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
+
         let mut inner = self.inner.lock().unwrap();
 
         inner.known_accounts.insert(account_id.as_ref().to_owned());
-
-        let server_id = Id::from(uuid::Uuid::new_v4().to_string());
-
-        let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
-        if let Some(map) = val.as_object_mut() {
-            map.insert(
-                "id".to_owned(),
-                serde_json::Value::String(server_id.as_ref().to_owned()),
-            );
-        }
-        let stored_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
-        })?;
 
         let task_list_id = if O::TYPE_NAME == "Task" {
             Inner::task_list_id_of(&val)

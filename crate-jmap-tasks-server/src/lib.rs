@@ -469,14 +469,22 @@ pub(crate) mod test_support {
     }
 
     impl TasksBackend for MockBackend {
-        async fn create_object<O: SetObject + Send + Sync>(
+        async fn create_object<O, F>(
             &self,
             _caller: &(),
             _account_id: &Id,
             _create_id: &str,
-            obj: O,
-        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-            Ok((Id::from("mock-id-1"), obj))
+            build: F,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>>
+        where
+            O: SetObject + Send + Sync,
+            F: FnOnce(&Id) -> O + Send,
+        {
+            {
+                let id = Id::from("mock-id-1");
+                let obj = build(&id);
+                Ok((id, obj))
+            }
         }
 
         async fn update_object<O: SetObject + Send + Sync>(
@@ -978,14 +986,22 @@ mod tests {
         }
 
         impl TasksBackend for AccountIdRecorder {
-            async fn create_object<O: SetObject + Send + Sync>(
+            async fn create_object<O, F>(
                 &self,
                 _caller: &(),
                 _account_id: &Id,
                 _create_id: &str,
-                obj: O,
-            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-                Ok((Id::from("t1"), obj))
+                build: F,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>>
+            where
+                O: SetObject + Send + Sync,
+                F: FnOnce(&Id) -> O + Send,
+            {
+                {
+                    let id = Id::from("t1");
+                    let obj = build(&id);
+                    Ok((id, obj))
+                }
             }
 
             async fn update_object<O: SetObject + Send + Sync>(

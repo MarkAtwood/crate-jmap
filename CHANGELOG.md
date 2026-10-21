@@ -1321,6 +1321,11 @@ wire behaviour that a conforming peer can observe.
   sender_msg_id, build)` takes the Chat id, the `senderMsgId` and a
   builder in place of a prebuilt `Message`. **jmap-chat-federation-server**
   `Peer/deliver` and placeholder ChatContact creation use the builders.
+- **BREAKING** **jmap-tasks-server**: `TasksBackend::create_object`
+  takes the same builder; the `"placeholder"` id sentinel is gone.
+  `Task/set` and `Task/copy` parse the create without an id and the
+  builder sets it. **jmap-chat-tasks-server** `create_space_task_list`
+  builds its TaskList in the builder.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

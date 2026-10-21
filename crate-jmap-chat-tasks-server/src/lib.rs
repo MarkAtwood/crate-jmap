@@ -165,10 +165,10 @@ pub async fn check_task_list_id<K: TasksBackend>(
 /// it is and nothing is created.
 ///
 /// The TaskList is named after the Space, subscribed, without a role, and
-/// with every right for the account owner. It is passed to
-/// [`TasksBackend::create_object`] with the placeholder id `TaskList/set`
-/// also uses; the backend assigns the real id and records the create for
-/// `TaskList/changes`. `caller` is a server context.
+/// with every right for the account owner. It is built by the
+/// [`TasksBackend::create_object`] builder for the id the backend assigns,
+/// and the backend records the create for `TaskList/changes`. `caller` is
+/// a server context.
 ///
 /// Returns the bound TaskList's id.
 ///
@@ -186,23 +186,26 @@ pub async fn create_space_task_list<K: TasksBackend>(
     if let Some(Value::String(existing)) = space.extra.get(SPACE_TASK_LIST_ID_PROPERTY) {
         return Ok(Id::from(existing.as_str()));
     }
-    let task_list: TaskList = serde_json::from_value(serde_json::json!({
-        "id": "placeholder",
-        "name": space.name,
-        "isSubscribed": true,
-        "myRights": {
-            "mayReadItems": true,
-            "mayWriteAll": true,
-            "mayWriteOwn": true,
-            "mayUpdatePrivate": true,
-            "mayRSVP": true,
-            "mayAdmin": true,
-            "mayDelete": true,
-        },
-    }))
-    .expect("a TaskList with every required field deserializes");
+    let name = space.name.clone();
+    let build = move |id: &Id| -> TaskList {
+        serde_json::from_value(serde_json::json!({
+            "id": id,
+            "name": name,
+            "isSubscribed": true,
+            "myRights": {
+                "mayReadItems": true,
+                "mayWriteAll": true,
+                "mayWriteOwn": true,
+                "mayUpdatePrivate": true,
+                "mayRSVP": true,
+                "mayAdmin": true,
+                "mayDelete": true,
+            },
+        }))
+        .expect("a TaskList with every required field deserializes")
+    };
     let (task_list_id, _) = tasks
-        .create_object(caller, account_id, "spaceTaskList", task_list)
+        .create_object(caller, account_id, "spaceTaskList", build)
         .await?;
     space.extra.insert(
         SPACE_TASK_LIST_ID_PROPERTY.to_owned(),
