@@ -480,3 +480,87 @@ async fn calendar_event_set_create_with_client_id_invalid_properties() {
         "client-supplied id must be rejected: {resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Test 12: CalendarEvent/query honours anchor / anchorOffset
+// Oracle: RFC 8620 §5.5 (https://www.rfc-editor.org/rfc/rfc8620.txt):
+// "If found, the "anchorOffset" is then added to its index.  If the
+// resulting index is now negative, it is clamped to 0. ... If the anchor
+// is not found, the call is rejected with an "anchorNotFound" error.  If an
+// "anchor" is specified, any position argument supplied by the client MUST
+// be ignored."  Bead: JMAP-yt1w.26.
+// ---------------------------------------------------------------------------
+
+/// `acc1` holding CalendarEvents `e1`..`e4`; `MemoryBackend` returns
+/// query ids in lexical id order, so `e2` is at index 1.
+fn backend_with_four_events() -> MemoryBackend {
+    let backend = MemoryBackend::new().with_account("acc1");
+    for id in ["e1", "e2", "e3", "e4"] {
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            id,
+            json!({ "id": id, "calendarIds": { "cal1": true } }),
+        );
+    }
+    backend
+}
+
+#[tokio::test]
+async fn calendar_event_query_anchor_selects_page_and_ignores_position() {
+    let backend = backend_with_four_events();
+    let args = json!({
+        "accountId": "acc1",
+        "position": 0,
+        "anchor": "e2",
+        "anchorOffset": 1,
+        "limit": 2
+    });
+
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect("/query must not return top-level error");
+
+    assert_eq!(resp["ids"], json!(["e3", "e4"]), "anchor e2 + 1: {resp}");
+    assert_eq!(resp["position"], 2, "{resp}");
+}
+
+#[tokio::test]
+async fn calendar_event_query_negative_anchor_offset_clamps_to_zero() {
+    let backend = backend_with_four_events();
+    let args = json!({ "accountId": "acc1", "anchor": "e2", "anchorOffset": -5 });
+
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect("/query must not return top-level error");
+
+    assert_eq!(resp["ids"], json!(["e1", "e2", "e3", "e4"]), "{resp}");
+    assert_eq!(resp["position"], 0, "{resp}");
+}
+
+#[tokio::test]
+async fn calendar_event_query_unknown_anchor_is_anchor_not_found() {
+    let backend = backend_with_four_events();
+    let args = json!({ "accountId": "acc1", "anchor": "missing" });
+
+    let err = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect_err("an anchor absent from the results must be rejected");
+
+    assert_eq!(err.error_type, "anchorNotFound");
+}
+
+/// RFC 8620 §5.5: "anchor: "Id" (default: null)"; any other JSON type is
+/// `invalidArguments`, which RFC 8620 §3.6.2 defines as "One of the
+/// arguments is of the wrong type or otherwise invalid".
+#[tokio::test]
+async fn calendar_event_query_non_id_anchor_is_invalid_arguments() {
+    let backend = backend_with_four_events();
+    let args = json!({ "accountId": "acc1", "anchor": 7 });
+
+    let err = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect_err("a non-Id anchor must be rejected");
+
+    assert_eq!(err.error_type, "invalidArguments");
+}

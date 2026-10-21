@@ -934,6 +934,8 @@ pub(crate) mod test_support {
             sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
             limit: Option<u64>,
             position: i64,
+            anchor: Option<&Id>,
+            anchor_offset: i64,
             args: &CalendarEventQueryArgs,
         ) -> Result<jmap_server::QueryResult, QueryCalendarEventsError<Self::Error>> {
             if let Some(f) = filter {
@@ -951,7 +953,14 @@ pub(crate) mod test_support {
             }
             let _ = args; // happy path delegates to the generic backend
             self.query_objects::<jmap_calendars_types::CalendarEvent>(
-                caller, account_id, filter, sort, limit, position, None, 0,
+                caller,
+                account_id,
+                filter,
+                sort,
+                limit,
+                position,
+                anchor,
+                anchor_offset,
             )
             .await
             .map_err(|e| match e {
