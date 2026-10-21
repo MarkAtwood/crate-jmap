@@ -24,7 +24,7 @@ use crate::helpers::{
     backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
     extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
     invalid, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
-    set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    set_error_value, SetAccumulators,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -407,14 +407,20 @@ async fn enter_region<B: SceneBackend>(
     for key in ["visualRef", "visualType", "worldState"] {
         m.entry(key).or_insert(Value::Null);
     }
-    m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
+    // `id` is required by the type, so the parse uses "", which is not an
+    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `create_object` builder overwrites it with the minted id.
+    m.insert("id".to_owned(), json!(""));
     m.insert("userId".to_owned(), json!(user_id));
     m.insert("joinedAt".to_owned(), json!(now_utc_string()));
     m.insert("leftAt".to_owned(), Value::Null);
-    let avatar: SceneAvatar = serde_json::from_value(Value::Object(m))
+    let mut avatar: SceneAvatar = serde_json::from_value(Value::Object(m))
         .map_err(|e| invalid(&[], &format!("invalid SceneAvatar: {e}")))?;
     let (_, stored) = backend
-        .create_object(caller, account_id, create_id, avatar)
+        .create_object(caller, account_id, create_id, move |id: &Id| {
+            avatar.id = id.clone();
+            avatar
+        })
         .await
         .map_err(backend_set_error_value)?;
     Ok(serde_json::to_value(stored).expect("derive(Serialize) on plain data is infallible"))

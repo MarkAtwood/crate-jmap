@@ -1346,6 +1346,9 @@ wire behaviour that a conforming peer can observe.
   takes the same builder; the `"placeholder"` id sentinel is gone. The
   GraphNodeOp `seq` and Graph `myRights` the backend fills are
   unchanged.
+- **BREAKING** **jmap-scene-server**: `SceneBackend::create_object`
+  takes the same builder; the `"placeholder"` id sentinel is gone. The
+  SceneObject `ownerId` the backend fills is unchanged.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

@@ -229,8 +229,9 @@ impl Inner {
         }
     }
 
-    /// §Entering a Region for `avatar`, under the lock: the steps of
-    /// [`SceneBackend::create_object`] for a `SceneAvatar`. Returns the
+    /// §Entering a Region for `avatar`, which carries its minted id, under
+    /// the lock: the steps of [`SceneBackend::create_object`] for a
+    /// `SceneAvatar`. Returns the
     /// trait's error type unboxed, as `create_object` does.
     #[allow(clippy::result_large_err)]
     fn enter(
@@ -252,10 +253,9 @@ impl Inner {
             ));
         }
         let (mut changes, mut regions) = self.admit(account_id, &avatar)?;
-        let id = Id::from(ulid::Ulid::new().to_string());
-        let mut value = serde_json::to_value(&avatar)
+        let id = avatar.id.clone();
+        let value = serde_json::to_value(&avatar)
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
-        value["id"] = json!(id);
         self.objects_mut(SceneAvatar::TYPE_NAME, account_id)
             .insert(id.clone(), value.clone());
         changes.push((id, Change::Created));
@@ -814,20 +814,24 @@ impl SceneBackend for MemoryBackend {
             .copied())
     }
 
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &String,
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
-        let mut value = serde_json::to_value(&obj)
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
+        let id = Id::from(ulid::Ulid::new().to_string());
+        let mut value = serde_json::to_value(build(&id))
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
         let mut inner = self.lock();
         if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
             let avatar: SceneAvatar = decode(&value).map_err(BackendSetError::Other)?;
             let stored = inner.enter(account_id, avatar)?;
-            let id = Id::from(stored["id"].as_str().unwrap_or_default());
             return Ok((id, decode(&stored).map_err(BackendSetError::Other)?));
         }
         // "Account asset storage quota exceeded", checked under the lock.
@@ -879,8 +883,6 @@ impl SceneBackend for MemoryBackend {
             }
             value["ownerId"] = json!(caller);
         }
-        let id = Id::from(ulid::Ulid::new().to_string());
-        value["id"] = json!(id);
         let stored: O = decode(&value).map_err(BackendSetError::Other)?;
         inner
             .objects_mut(O::TYPE_NAME, account_id)
