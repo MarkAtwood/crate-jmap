@@ -11,15 +11,17 @@ AGENTS.md "Canonical Templates").
 ## What this crate is
 
 draft-atwood-jmap-graph-00 `Graph/*`, `GraphNode/*` and `GraphEdge/*`
-method handlers, the `GraphBackend` trait and a `memory` reference
-backend. Depends on RFC 8620 crates and `jmap-graph-types` only. Not
+method handlers, the draft-atwood-jmap-graph-edit-00 `GraphNodeOp/*` and
+`GraphNode/cursor` handlers and WebSocket stream check, the `GraphBackend`
+trait and a `memory` reference backend. Depends on RFC 8620 crates and `jmap-graph-types` only. Not
 published (`publish = false`).
 
 ## Before starting any work
 
 1. Run `bd ready`.
-2. Read `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-graph-00.md` for the
-   method you are changing.
+2. Read `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-graph-00.md` (or
+   `draft-atwood-jmap-graph-edit-00.md` for live editing) for the method
+   you are changing.
 
 ## Build & Test
 
@@ -46,4 +48,10 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-graph-serv
 | `maxAnnotationSize` | compact JSON length, `tooLarge` |
 | Sharing | RFC 9670 via `jmap-sharing-server`; ShareNotification `name` is the Graph's `name` (backend duty) |
 | Cross-call `#creationId` | not resolved: dispatcher gap, bd:JMAP-8ypy |
+| Edit capability | `GraphBackend::graph_edit_capability`, default `None`; without it the edit handlers answer `accountNotSupportedByMethod` and `GraphNode/set` ignores the extensions |
+| Op `seq` | assigned by the backend in `create_object`, atomically with the `baseSeq`/`editFormat`/`mayWrite` re-check; op events leave from that step |
+| `opsCompacted` | `EditLog::compacted_through` read after the query; front-only compaction makes that sufficient |
+| Compaction | backend policy, not a trait method; memory `compact_ops` |
+| Stream | `GraphEditSubscription` per connection + `should_deliver`; transport is the consumer's (scene/chat pattern) |
+| Cursor fan-out, block check | `publish_cursor` (no-op default), `is_sender_blocked` (fail-open, bd:JMAP-bghk) |
 | Tests | Each assertion quotes its draft line; never the code under test |

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use jmap_graph_types::{Graph, GraphCapability, GraphEdge, GraphNode, GraphRights};
+use jmap_graph_types::{Graph, GraphCapability, GraphEdge, GraphNode, GraphNodeOp, GraphRights};
 use jmap_types::{GetObject, Id, JmapError, JmapObject, PatchObject, State};
 use serde_json::{json, Map, Value};
 
@@ -148,6 +148,16 @@ impl InGraph for Graph {
 }
 
 impl InGraph for GraphNode {
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn graph_id(&self) -> &Id {
+        &self.graph_id
+    }
+}
+
+impl InGraph for GraphNodeOp {
     fn id(&self) -> &Id {
         &self.id
     }

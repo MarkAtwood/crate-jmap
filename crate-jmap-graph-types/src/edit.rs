@@ -462,6 +462,20 @@ pub struct GraphCursorEvent {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl GraphCursorEvent {
+    /// Construct a [`GraphCursorEvent`] from its four fields, with no
+    /// extras.
+    pub fn new(account_id: Id, node_id: Id, sender_id: Option<Id>, data: String) -> Self {
+        Self {
+            account_id,
+            node_id,
+            sender_id,
+            data,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// A Graph edit stream event frame, discriminated by its `@type`.
 ///
 /// Unrecognised `@type` values deserialize to [`GraphEditEvent::Unknown`],

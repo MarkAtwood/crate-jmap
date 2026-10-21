@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-server**: draft-atwood-jmap-graph-edit-00 server support —
+  `register_graph_edit_handlers` with `GraphNodeOp/get`, `/changes`,
+  create-only `/set` (backend-assigned `seq`, `baseSeq`, base64url `data`
+  and `maxOpSize` checks), `/query` and `/queryChanges` (single
+  `nodeId`/`afterSeq` condition, `seq` ascending, `opsCompacted`), and
+  `GraphNode/cursor`; the GraphNode `editFormat`/`snapshotSeq` rules when
+  the account has the edit capability; `GraphBackend` hooks
+  `graph_edit_capability`, `edit_log` (`EditLog`), `projected_graph_id`,
+  `publish_cursor` and `is_sender_blocked`, all with defaults; the
+  `stream` module (`GraphEditSubscription`, `should_deliver`) for the
+  WebSocket op and cursor stream; and in `MemoryBackend` an op log,
+  front-only `compact_ops` honoring `opRetention`, and op destroy
+  cascades.
+
+- **jmap-graph-types**: `GraphCursorEvent::new`.
+
 - **jmap-graph-types**: `edit` module for draft-atwood-jmap-graph-edit-00
   (`urn:ietf:params:jmap:graph:edit`) — `JMAP_GRAPH_EDIT_URI`,
   `GraphEditCapability`, the `GraphNodeOp` object with its `JmapObject`

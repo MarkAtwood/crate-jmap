@@ -7,17 +7,19 @@
 //! the node's Graph, validates `graphId` and `uri`, and leaves the edge
 //! cascade of a destroy to the backend.
 
+use jmap_graph_types::edit::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
 use jmap_graph_types::query::GraphNodeComparator;
 use jmap_graph_types::{GraphCapability, GraphNode, GraphRights};
 use jmap_types::{Id, JmapError};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{GraphBackend, JmapBackend};
+use crate::backend::{EditLog, GraphBackend, JmapBackend};
+use crate::edit::check_node_edit;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
     handle_get_visible, handle_set, invalid, is_uri, listed_in, mistyped, not_found, patched,
-    patched_properties, readable_rights, require_graph_filter, string_or_null, to_map, SetOps,
-    TypeCheck, PLACEHOLDER_ID,
+    patched_properties, readable_rights, require_graph_filter, set_error_value, string_or_null,
+    to_map, SetOps, TypeCheck, PLACEHOLDER_ID,
 };
 use jmap_server::{now_utc_string, HandlerOutput};
 
@@ -65,6 +67,48 @@ fn validate(m: &Map<String, Value>, cap: &GraphCapability) -> Result<(), Value> 
         return Err(invalid(&["uri"], "uri is not a URI (RFC 3986)"));
     }
     check_annotations(m, cap)
+}
+
+/// Apply the draft-atwood-jmap-graph-edit-00 §GraphNode Extensions rules
+/// to `next`, the node as it would be stored, when the account advertises
+/// `urn:ietf:params:jmap:graph:edit` ([`GraphBackend::graph_edit_capability`]);
+/// otherwise accept it unchanged. `node_id` is `None` on a create, whose
+/// edit log is empty. See [`check_node_edit`].
+#[allow(clippy::too_many_arguments)]
+async fn check_edit<B: GraphBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    graph_id: &Id,
+    node_id: Option<&Id>,
+    current: Option<&Map<String, Value>>,
+    next: &Map<String, Value>,
+    sets_snapshot_seq: bool,
+) -> Result<bool, Value> {
+    let fail = |e: B::Error| jmap_server::server_fail_value_from_backend(&e);
+    if backend
+        .graph_edit_capability(caller, account_id)
+        .await
+        .map_err(fail)?
+        .is_none()
+    {
+        return Ok(false);
+    }
+    let log = match node_id {
+        Some(id) => backend
+            .edit_log(caller, account_id, id)
+            .await
+            .map_err(fail)?,
+        None => EditLog::default(),
+    };
+    let projected = backend
+        .projected_graph_id(caller, account_id)
+        .await
+        .map_err(fail)?
+        .is_some_and(|g| g == *graph_id);
+    check_node_edit(current, next, sets_snapshot_seq, log.head, projected)
+        .map_err(|e| set_error_value(&e))?;
+    Ok(true)
 }
 
 /// The `graphId` of create `m`, required, and the caller's rights on it:
@@ -207,6 +251,12 @@ pub async fn handle_graph_node_query_changes<B: GraphBackend>(
 /// Graph." On create "`graphId` is required"; `graphId` is immutable. A
 /// destroy also destroys the node's edges
 /// ([`GraphBackend::destroy_object`]).
+///
+/// When the account has the `urn:ietf:params:jmap:graph:edit` capability,
+/// the `editFormat` and `snapshotSeq` extensions default to `null` and
+/// follow draft-atwood-jmap-graph-edit-00 §GraphNode Extensions and
+/// §Snapshots against the head of the node's edit log
+/// ([`GraphBackend::edit_log`]).
 pub async fn handle_graph_node_set<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -236,12 +286,39 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             return Err(invalid(&fixed, "these properties are set by the server"));
         }
         validate(&m, cap)?;
-        create_graph_id(backend, caller, account_id, &m).await?;
+        let graph_id = create_graph_id(backend, caller, account_id, &m).await?;
+        let sets_snapshot_seq = m.contains_key(GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY);
+        let edit = check_edit(
+            backend,
+            caller,
+            account_id,
+            &graph_id,
+            None,
+            None,
+            &m,
+            sets_snapshot_seq,
+        )
+        .await?;
+        // With the edit capability, both extensions default to `null`
+        // (draft-atwood-jmap-graph-edit-00 §GraphNode Extensions) and are
+        // stored and echoed like the graph-00 defaults.
+        let edit_defaults: &[&str] = if edit {
+            &[
+                GRAPH_NODE_EDIT_FORMAT_PROPERTY,
+                GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY,
+            ]
+        } else {
+            &[]
+        };
         let omitted: Vec<&str> = DEFAULTED
             .iter()
+            .chain(edit_defaults)
             .copied()
             .filter(|k| !m.contains_key(*k))
             .collect();
+        for k in edit_defaults {
+            m.entry(*k).or_insert(Value::Null);
+        }
         fill_server_set::<B>(caller, &mut m);
         let node: GraphNode = serde_json::from_value(Value::Object(m))
             .map_err(|e| invalid(&[], &format!("invalid GraphNode: {e}")))?;
@@ -273,7 +350,19 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
                 "these properties are immutable or server-set",
             ));
         }
-        validate(&patched(&node, &patch)?, cap)?;
+        let next = patched(&node, &patch)?;
+        validate(&next, cap)?;
+        check_edit(
+            backend,
+            caller,
+            account_id,
+            &node.graph_id,
+            Some(id),
+            Some(&to_map(&node)),
+            &next,
+            keys.iter().any(|k| k == GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY),
+        )
+        .await?;
         let echo = touch::<B>(caller, &mut patch);
         match backend
             .update_object::<GraphNode>(caller, account_id, id, patch)

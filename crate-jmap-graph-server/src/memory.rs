@@ -24,8 +24,23 @@
 //!
 //! # Destroy
 //!
-//! Destroying a Graph also destroys its nodes and edges, and destroying a
-//! node its edges, each in the same locked step as the destroy.
+//! Destroying a Graph also destroys its nodes, edges and ops, and
+//! destroying a node its edges and ops, each in the same locked step as the
+//! destroy.
+//!
+//! # Live editing
+//!
+//! `register_edit` advertises `urn:ietf:params:jmap:graph:edit` for an
+//! account. A GraphNodeOp create is sequenced under the lock: the next
+//! `seq` of its node, after re-checking `mayWrite`, the node's
+//! `editFormat` and `baseSeq`. A GraphNode update re-checks the
+//! §GraphNode Extensions rules under the lock. `compact_ops` is the
+//! compaction policy: front-only, never past `snapshotSeq`, never an op
+//! younger than `opRetention`. `set_projected_graph` marks an account's
+//! projected Graph. Cursor events are recorded, read back with
+//! `published_cursors`; `block` makes one Principal blocked by another,
+//! for [`GraphBackend::is_sender_blocked`]. No op events are recorded:
+//! there is no WebSocket transport.
 //!
 //! # Query
 //!
@@ -41,14 +56,18 @@
 
 #![deny(clippy::await_holding_lock)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::{Duration, SystemTime};
 
+use jmap_graph_types::edit::{GraphCursorEvent, GraphNodeOpFilterCondition};
 use jmap_graph_types::query::{
     GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphFilter,
     GraphNodeComparator, GraphNodeFilterCondition,
 };
-use jmap_graph_types::{Graph, GraphCapability, GraphEdge, GraphNode, GraphRights};
+use jmap_graph_types::{
+    Graph, GraphCapability, GraphEdge, GraphEditCapability, GraphNode, GraphNodeOp, GraphRights,
+};
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
 use serde::de::DeserializeOwned;
@@ -56,11 +75,12 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+use crate::edit::check_node_edit;
 use crate::query::{
     compare_edges, compare_graphs, compare_nodes, edge_matches, graph_matches, node_matches,
 };
 use crate::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, EditLog, GetObject,
     GraphBackend, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
     SetErrorType, SetObject,
 };
@@ -79,6 +99,17 @@ type Key = (&'static str, String);
 struct Account {
     owner: Id,
     capability: GraphCapability,
+    edit: Option<GraphEditCapability>,
+    projected: Option<Id>,
+}
+
+/// One node's edit log: its head, how far it is compacted, and the
+/// `(seq, op id, sequenced at)` of each op still held, oldest first.
+#[derive(Default)]
+struct OpLog {
+    head: u64,
+    compacted_through: u64,
+    held: VecDeque<(u64, Id, SystemTime)>,
 }
 
 #[derive(Default)]
@@ -92,6 +123,12 @@ struct Inner {
     accounts: HashMap<String, Account>,
     /// `(graph id, user)` → that user's `isSubscribed`.
     subscriptions: HashMap<(Id, Id), bool>,
+    /// `(account id, node id)` → the node's edit log.
+    op_logs: HashMap<(String, Id), OpLog>,
+    /// Cursor events [`GraphBackend::publish_cursor`] received, in order.
+    cursors: Vec<GraphCursorEvent>,
+    /// `(blocking Principal, blocked Principal)` pairs.
+    blocked: HashSet<(Id, Id)>,
 }
 
 impl Inner {
@@ -255,6 +292,30 @@ impl Inner {
             .collect()
     }
 
+    fn edit(&self, account_id: &Id) -> Option<&GraphEditCapability> {
+        self.accounts
+            .get(account_id.as_ref())
+            .and_then(|a| a.edit.as_ref())
+    }
+
+    fn log(&self, account_id: &Id, node_id: &Id) -> EditLog {
+        self.op_logs
+            .get(&(account_id.as_ref().to_owned(), node_id.clone()))
+            .map_or_else(EditLog::default, |l| {
+                EditLog::new(l.head, l.compacted_through)
+            })
+    }
+
+    /// Drop the edit logs of nodes no longer stored, after a cascade.
+    fn forget_logs(&mut self, account_id: &Id) {
+        let nodes: HashSet<Id> = self
+            .objects(GraphNode::TYPE_NAME, account_id)
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        self.op_logs
+            .retain(|(a, n), _| a != account_id.as_ref() || nodes.contains(n));
+    }
+
     /// `true` if the caller may read Graph `graph_id`.
     fn may_read(&self, caller: &Id, account_id: &Id, graph_id: &Id) -> bool {
         self.rights(caller, account_id, graph_id)
@@ -290,8 +351,89 @@ impl MemoryBackend {
             Account {
                 owner: owner.clone(),
                 capability,
+                edit: None,
+                projected: None,
             },
         );
+    }
+
+    /// Advertise `urn:ietf:params:jmap:graph:edit` for the registered
+    /// `account_id` with `capability`.
+    #[doc(hidden)]
+    pub fn register_edit(&self, account_id: &Id, capability: GraphEditCapability) {
+        if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
+            a.edit = Some(capability);
+        }
+    }
+
+    /// Mark `graph_id` as the registered `account_id`'s projected Graph.
+    #[doc(hidden)]
+    pub fn set_projected_graph(&self, account_id: &Id, graph_id: &Id) {
+        if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
+            a.projected = Some(graph_id.clone());
+        }
+    }
+
+    /// Make Principal `blocked` blocked by Principal `blocker`.
+    #[doc(hidden)]
+    pub fn block(&self, blocker: &Id, blocked: &Id) {
+        self.lock()
+            .blocked
+            .insert((blocker.clone(), blocked.clone()));
+    }
+
+    /// The cursor events [`GraphBackend::publish_cursor`] received, in
+    /// order.
+    #[doc(hidden)]
+    pub fn published_cursors(&self) -> Vec<GraphCursorEvent> {
+        self.lock().cursors.clone()
+    }
+
+    /// Compact node `node_id`'s edit log through `through`
+    /// (draft-atwood-jmap-graph-edit-00 §Compaction and History) and return
+    /// the highest `seq` now compacted.
+    ///
+    /// Destroys held ops from the front only, none past the node's
+    /// `snapshotSeq` ("The server MUST NOT destroy an op whose `seq` is
+    /// greater than `snapshotSeq`") and none sequenced less than
+    /// `opRetention` seconds ago, each a destroyed GraphNodeOp change.
+    #[doc(hidden)]
+    pub fn compact_ops(&self, account_id: &Id, node_id: &Id, through: u64) -> u64 {
+        let mut inner = self.lock();
+        let snapshot = inner
+            .get(GraphNode::TYPE_NAME, account_id, node_id)
+            .and_then(|n| n.get("snapshotSeq"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let retention = inner
+            .edit(account_id)
+            .and_then(|c| c.op_retention)
+            .map(Duration::from_secs);
+        let limit = through.min(snapshot);
+        let now = SystemTime::now();
+        let key = (account_id.as_ref().to_owned(), node_id.clone());
+        let Some(log) = inner.op_logs.get_mut(&key) else {
+            return 0;
+        };
+        let mut gone = Vec::new();
+        while let Some((seq, id, at)) = log.held.front() {
+            let young = retention.is_some_and(|r| now.duration_since(*at).unwrap_or_default() < r);
+            if *seq > limit || young {
+                break;
+            }
+            log.compacted_through = *seq;
+            gone.push((id.clone(), Change::Destroyed));
+            log.held.pop_front();
+        }
+        let compacted = log.compacted_through;
+        if !gone.is_empty() {
+            let ops = inner.objects_mut(GraphNodeOp::TYPE_NAME, account_id);
+            for (id, _) in &gone {
+                ops.remove(id);
+            }
+            inner.commit(GraphNodeOp::TYPE_NAME, account_id, gone);
+        }
+        compacted
     }
 }
 
@@ -534,6 +676,19 @@ impl JmapBackend for MemoryBackend {
                 |a, b| compare_edges(a, b, &sort),
                 |e| e.id,
             )
+        } else if O::TYPE_NAME == GraphNodeOp::TYPE_NAME {
+            let filter: Option<GraphNodeOpFilterCondition> = filter.map(recode).transpose()?;
+            sorted_ids(
+                inner.all::<GraphNodeOp>(caller, account_id),
+                |o| {
+                    filter
+                        .as_ref()
+                        .is_some_and(|f| o.node_id == f.node_id && o.seq > f.after_seq.unwrap_or(0))
+                        && inner.may_read(caller, account_id, &o.graph_id)
+                },
+                |a, b| a.seq.cmp(&b.seq),
+                |o| o.id,
+            )
         } else {
             return Err(BackendQueryError::Other(MemoryError::new(format!(
                 "query of {} is not implemented",
@@ -608,6 +763,8 @@ impl GraphBackend for MemoryBackend {
             inner
                 .subscriptions
                 .insert((id.clone(), caller.clone()), subscribed);
+        } else if O::TYPE_NAME == GraphNodeOp::TYPE_NAME {
+            sequence(&mut inner, caller, account_id, &id, &mut value)?;
         } else {
             // The rights and the edge endpoints, re-checked under the lock.
             let graph_id = graph_of(&value);
@@ -681,6 +838,7 @@ impl GraphBackend for MemoryBackend {
             inner.require_write(caller, account_id, &graph_of(&current), not_found)?;
         }
 
+        let old = current.clone();
         let Value::Object(base) = &mut current else {
             return Err(BackendSetError::Other(MemoryError::new(
                 "stored object is not a JSON object",
@@ -693,6 +851,23 @@ impl GraphBackend for MemoryBackend {
                 SetErrorType::InvalidProperties,
                 &format!("patched {} is invalid", O::TYPE_NAME),
             ));
+        }
+        if O::TYPE_NAME == GraphNode::TYPE_NAME && inner.edit(account_id).is_some() {
+            // §GraphNode Extensions and §Snapshots, re-checked under the
+            // lock so concurrent snapshot writes cannot regress.
+            let projected = inner
+                .accounts
+                .get(account_id.as_ref())
+                .and_then(|a| a.projected.as_ref())
+                .is_some_and(|g| *g == graph_of(&current));
+            check_node_edit(
+                old.as_object(),
+                current.as_object().unwrap_or(&serde_json::Map::new()),
+                keys.iter().any(|k| k == "snapshotSeq"),
+                inner.log(account_id, id).head,
+                projected,
+            )
+            .map_err(BackendSetError::SetError)?;
         }
         if O::TYPE_NAME == GraphEdge::TYPE_NAME {
             let moved: Vec<&'static str> = ["fromId", "toId"]
@@ -751,7 +926,12 @@ impl GraphBackend for MemoryBackend {
         if O::TYPE_NAME == Graph::TYPE_NAME {
             // "the server MUST also destroy every GraphNode and GraphEdge
             // in it".
-            for contained in [GraphNode::TYPE_NAME, GraphEdge::TYPE_NAME] {
+            // "when a Graph is destroyed, so are the ops of all its nodes".
+            for contained in [
+                GraphNode::TYPE_NAME,
+                GraphEdge::TYPE_NAME,
+                GraphNodeOp::TYPE_NAME,
+            ] {
                 inner.destroy_where(contained, account_id, |v| {
                     v.get("graphId").and_then(Value::as_str) == id_str
                 });
@@ -765,11 +945,109 @@ impl GraphBackend for MemoryBackend {
                     .iter()
                     .any(|k| v.get(*k).and_then(Value::as_str) == id_str)
             });
+            // "When a node is destroyed, its ops are destroyed with it".
+            inner.destroy_where(GraphNodeOp::TYPE_NAME, account_id, |v| {
+                v.get("nodeId").and_then(Value::as_str) == id_str
+            });
         }
+        inner.forget_logs(account_id);
         Ok(())
     }
 
-    fn supports_type<O: JmapObject>(&self, _caller: &Id, _account_id: &Id) -> bool {
-        [Graph::TYPE_NAME, GraphNode::TYPE_NAME, GraphEdge::TYPE_NAME].contains(&O::TYPE_NAME)
+    async fn graph_edit_capability(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+    ) -> Result<Option<GraphEditCapability>, MemoryError> {
+        Ok(self.lock().edit(account_id).cloned())
     }
+
+    async fn edit_log(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        node_id: &Id,
+    ) -> Result<EditLog, MemoryError> {
+        Ok(self.lock().log(account_id, node_id))
+    }
+
+    async fn projected_graph_id(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+    ) -> Result<Option<Id>, MemoryError> {
+        Ok(self
+            .lock()
+            .accounts
+            .get(account_id.as_ref())
+            .and_then(|a| a.projected.clone()))
+    }
+
+    async fn publish_cursor(&self, _caller: &Id, _account_id: &Id, event: &GraphCursorEvent) {
+        self.lock().cursors.push(event.clone());
+    }
+
+    async fn is_sender_blocked(
+        &self,
+        caller: &Id,
+        _account_id: &Id,
+        sender_id: &Id,
+    ) -> Result<bool, MemoryError> {
+        Ok(self
+            .lock()
+            .blocked
+            .contains(&(caller.clone(), sender_id.clone())))
+    }
+
+    fn supports_type<O: JmapObject>(&self, _caller: &Id, account_id: &Id) -> bool {
+        [Graph::TYPE_NAME, GraphNode::TYPE_NAME, GraphEdge::TYPE_NAME].contains(&O::TYPE_NAME)
+            || (O::TYPE_NAME == GraphNodeOp::TYPE_NAME && self.lock().edit(account_id).is_some())
+    }
+}
+
+/// Sequence GraphNodeOp `value`, whose id is `id`, under the lock: re-check
+/// that its node is one the caller may read with a non-null `editFormat`
+/// (`invalidProperties` naming `nodeId`), `mayWrite` (`forbidden`) and
+/// `baseSeq` against the head (`invalidProperties` naming `baseSeq`), then
+/// give it the node's Graph and "the next `seq` of the node".
+#[allow(clippy::result_large_err)]
+fn sequence(
+    inner: &mut Inner,
+    caller: &Id,
+    account_id: &Id,
+    id: &Id,
+    value: &mut Value,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let bad_node = || {
+        invalid(
+            &["nodeId"],
+            "nodeId does not identify a node the user may read whose editFormat is not null",
+        )
+    };
+    let node_id = Id::from(value["nodeId"].as_str().unwrap_or_default());
+    let node = inner
+        .get(GraphNode::TYPE_NAME, account_id, &node_id)
+        .ok_or_else(bad_node)?;
+    let graph_id = graph_of(node);
+    let editable = node.get("editFormat").is_some_and(Value::is_string);
+    inner.require_write(caller, account_id, &graph_id, bad_node)?;
+    if !editable {
+        return Err(bad_node());
+    }
+    let log = inner
+        .op_logs
+        .entry((account_id.as_ref().to_owned(), node_id))
+        .or_default();
+    if value["baseSeq"].as_u64().is_none_or(|b| b > log.head) {
+        return Err(invalid(
+            &["baseSeq"],
+            "baseSeq is greater than the head of the edit log",
+        ));
+    }
+    log.head += 1;
+    log.held
+        .push_back((log.head, id.clone(), SystemTime::now()));
+    value["seq"] = json!(log.head);
+    value["graphId"] = json!(graph_id);
+    Ok(())
 }

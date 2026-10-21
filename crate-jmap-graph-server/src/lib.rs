@@ -42,6 +42,24 @@
 //!   refuses a sort property the draft does not list with
 //!   `unsupportedSort`. [`query`] holds the match and order functions.
 //!
+//! # Live editing (draft-atwood-jmap-graph-edit-00)
+//!
+//! For an account whose [`GraphBackend::graph_edit_capability`] is `Some`:
+//!
+//! - `GraphNode/set` applies the §GraphNode Extensions and §Snapshots
+//!   rules to `editFormat` and `snapshotSeq`; a projected Graph's nodes
+//!   cannot be given an `editFormat` (`forbidden`).
+//! - [`register_graph_edit_handlers`] wires `GraphNodeOp/get`, `/changes`,
+//!   create-only `/set` (the backend assigns `seq`), `/query` and
+//!   `/queryChanges` (single `nodeId` condition with `afterSeq`, `seq`
+//!   ascending, `opsCompacted`), and `GraphNode/cursor` ([`op`]).
+//! - [`stream`] holds the per-connection `GraphEditStreamEnable`
+//!   subscription and the [`should_deliver`] check a WebSocket transport
+//!   applies to each `GraphNodeOpEvent` and `GraphCursorEvent`.
+//!
+//! Sequencing, front-only compaction and the destroy cascades to ops are
+//! backend duties; see [`GraphBackend`].
+//!
 //! Sharing (`shareWith`, Principals, ShareNotifications) is RFC 9670,
 //! served by `jmap-sharing-server`; see [`GraphBackend`].
 //!
@@ -60,6 +78,7 @@ use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod backend;
 pub mod edge;
+mod edit;
 pub mod graph;
 mod helpers;
 /// In-memory reference implementation of [`GraphBackend`].
@@ -68,12 +87,14 @@ mod helpers;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod node;
+pub mod op;
 pub mod query;
+pub mod stream;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    GraphBackend, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
-    SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, EditLog,
+    GetObject, GraphBackend, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
+    SetError, SetErrorType, SetObject,
 };
 pub use edge::{
     handle_graph_edge_changes, handle_graph_edge_get, handle_graph_edge_query,
@@ -87,9 +108,17 @@ pub use node::{
     handle_graph_node_changes, handle_graph_node_get, handle_graph_node_query,
     handle_graph_node_query_changes, handle_graph_node_set,
 };
+pub use op::{
+    handle_graph_node_cursor, handle_graph_node_op_changes, handle_graph_node_op_get,
+    handle_graph_node_op_query, handle_graph_node_op_query_changes, handle_graph_node_op_set,
+};
+pub use stream::{should_deliver, GraphEditStreamFilter, GraphEditSubscription};
 
 /// Capability URI for `urn:ietf:params:jmap:graph`.
 pub use jmap_graph_types::JMAP_GRAPH_URI;
+
+/// Capability URI for `urn:ietf:params:jmap:graph:edit`.
+pub use jmap_graph_types::JMAP_GRAPH_EDIT_URI;
 
 /// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`],
 /// re-exported for the registration macro.
@@ -121,7 +150,6 @@ where
             dispatcher.register($method, h);
         }};
     }
-
     reg!("Graph/get", handle_graph_get);
     reg!("Graph/changes", handle_graph_changes);
     reg!("Graph/set", handle_graph_set);
@@ -137,4 +165,40 @@ where
     reg!("GraphEdge/set", handle_graph_edge_set);
     reg!("GraphEdge/query", handle_graph_edge_query);
     reg!("GraphEdge/queryChanges", handle_graph_edge_query_changes);
+}
+
+/// Register the draft-atwood-jmap-graph-edit-00 method handlers with
+/// `dispatcher`: `GraphNodeOp/get`, `/changes`, `/set`, `/query`,
+/// `/queryChanges` and `GraphNode/cursor`.
+///
+/// Call it alongside [`register_graph_handlers`] when the consumer
+/// advertises [`JMAP_GRAPH_EDIT_URI`] with the account-level object
+/// [`GraphBackend::graph_edit_capability`] returns. The handlers answer
+/// `accountNotSupportedByMethod` for an account without it. The WebSocket
+/// stream frames are not methods; see [`stream`].
+pub fn register_graph_edit_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
+where
+    B: GraphBackend + 'static,
+{
+    macro_rules! reg {
+        ($method:expr, $handler:ident) => {{
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+                Arc::clone(&backend),
+                move |b: Arc<B>, _ci: String, a: serde_json::Value, ctx: B::CallerCtx| {
+                    Box::pin(async move { $handler(&*b, &ctx, a).await }) as HandlerFuture
+                },
+            ));
+            dispatcher.register($method, h);
+        }};
+    }
+
+    reg!("GraphNodeOp/get", handle_graph_node_op_get);
+    reg!("GraphNodeOp/changes", handle_graph_node_op_changes);
+    reg!("GraphNodeOp/set", handle_graph_node_op_set);
+    reg!("GraphNodeOp/query", handle_graph_node_op_query);
+    reg!(
+        "GraphNodeOp/queryChanges",
+        handle_graph_node_op_query_changes
+    );
+    reg!("GraphNode/cursor", handle_graph_node_cursor);
 }
