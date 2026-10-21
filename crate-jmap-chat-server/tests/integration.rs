@@ -2660,6 +2660,61 @@ async fn chat_set_direct_recheck_read_failure_rolls_back_create() {
     );
 }
 
+/// Oracle: RFC 8620 §5.3 defines `newState` as "The state string that will
+/// now be returned by Foo/get". When the duplicate re-check read fails and
+/// the rollback destroy also fails, the committed Direct Chat stays live,
+/// so `newState` must differ from `oldState` or a client syncing from
+/// `newState` never sees that Chat via `Chat/changes` (bd:JMAP-0x0q.64).
+/// The per-id error stays a redacted `serverFail`.
+#[tokio::test]
+async fn chat_set_direct_recheck_and_rollback_failure_advances_state() {
+    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+
+    let backend = InjectableBackend::new();
+    let account_id = Id::from(ACCOUNT_ID);
+    backend.inner.register_account(&account_id);
+    backend.queue_chat_get_fault_after_create();
+    backend.inject("Chat", "destroy");
+
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
+        }),
+    )
+    .await
+    .expect("re-check read failure must not be a method-level error");
+
+    let wire = resp.to_string();
+    assert!(
+        !wire.contains(INJECTABLE_BACKEND_CANARY),
+        "backend error text must not reach the wire: {wire}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c0"]["type"].as_str(),
+        Some("serverFail"),
+        "resp: {resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c0"]["description"].as_str(),
+        Some(jmap_server::SERVER_FAIL_INTERNAL_DESC),
+        "resp: {resp}"
+    );
+
+    let (chats, _) = backend
+        .inner
+        .get_objects::<Chat>(&(), &account_id, None, None)
+        .await
+        .expect("get_objects");
+    assert_eq!(chats.len(), 1, "the failed rollback leaves the Chat live");
+    assert_ne!(
+        resp["newState"], resp["oldState"],
+        "the live Chat must be visible from newState; resp: {resp}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Edit-history retention gate
 // (draft-atwood-jmap-chat-00 commit 0783fc4 + §Message editHistory)

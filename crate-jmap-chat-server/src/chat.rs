@@ -896,6 +896,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .await
             {
                 Ok((new_id, created_obj)) => {
+                    // The create is committed; every branch below (including
+                    // rollback and cleanup failure) has moved backend state,
+                    // so newState must be re-read (RFC 8620 §5.3).
+                    mutated = true;
                     // For Direct chats: re-fetch to detect a concurrent duplicate
                     // (optimistic create-then-validate, required for JMAP-0c9).
                     // We fetch all chats because the backend does not currently
@@ -999,7 +1003,6 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         };
                         backend.on_outbound_event(caller, &account_id, &event).await;
                     }
-                    mutated = true;
                     created.insert(
                         create_id.clone(),
                         serde_json::to_value(&created_obj)

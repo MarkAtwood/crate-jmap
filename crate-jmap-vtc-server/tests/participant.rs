@@ -6,13 +6,17 @@
 mod common;
 
 use common::*;
-use jmap_types::Id;
-use jmap_vtc_server::memory::MemoryBackend;
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapObject,
+    QueryChangesResult, QueryObject, QueryResult, SetObject,
+};
+use jmap_types::{Id, State};
+use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
 use jmap_vtc_server::{
     expire_ring, handle_vtc_participant_get, handle_vtc_participant_query,
-    handle_vtc_participant_set, RING_TIMEOUT,
+    handle_vtc_participant_set, VtcBackend, RING_TIMEOUT,
 };
-use jmap_vtc_types::{SignalDirection, VtcEvent};
+use jmap_vtc_types::{SignalDirection, VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
 use serde_json::{json, Value};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -1209,4 +1213,246 @@ async fn timeout_on_active_ring_without_pending_targets_is_silent() {
     assert!(!expire(&backend, at(30)).await);
     assert_eq!(get(&backend, "R1").await["state"], "active");
     assert!(call_end_events(&backend).is_empty());
+}
+
+/// [`MemoryBackend`] whose `update_object::<VtcCall>` always fails, so the
+/// call-state transition that follows a stored join cannot commit.
+struct FailCallUpdate(MemoryBackend);
+
+impl jmap_server::JmapBackend for FailCallUpdate {
+    type Error = MemoryError;
+    type CallerCtx = String;
+
+    async fn account_exists(&self, caller: &String, account_id: &Id) -> Result<bool, MemoryError> {
+        self.0.account_exists(caller, account_id).await
+    }
+
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[String]>,
+    ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
+        self.0
+            .get_objects::<O>(caller, account_id, ids, properties)
+            .await
+    }
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+    ) -> Result<State, MemoryError> {
+        self.0.get_state::<O>(caller, account_id).await
+    }
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
+        self.0
+            .get_changes::<O>(caller, account_id, since_state, max_changes)
+            .await
+    }
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
+    ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
+        self.0
+            .query_objects::<O>(
+                caller,
+                account_id,
+                filter,
+                sort,
+                limit,
+                position,
+                anchor,
+                anchor_offset,
+            )
+            .await
+    }
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        since_query_state: &State,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        max_changes: Option<u64>,
+        up_to_id: Option<&Id>,
+        collapse_threads: bool,
+    ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
+        self.0
+            .query_changes::<O>(
+                caller,
+                account_id,
+                since_query_state,
+                filter,
+                sort,
+                max_changes,
+                up_to_id,
+                collapse_threads,
+            )
+            .await
+    }
+}
+
+impl VtcBackend for FailCallUpdate {
+    async fn vtc_capability(
+        &self,
+        caller: &String,
+        account_id: &Id,
+    ) -> Result<VtcCapability, MemoryError> {
+        self.0.vtc_capability(caller, account_id).await
+    }
+
+    fn has_capability(&self, caller: &String, account_id: &Id, uri: &str) -> bool {
+        self.0.has_capability(caller, account_id, uri)
+    }
+
+    async fn caller_user_id(
+        &self,
+        caller: &String,
+        account_id: &Id,
+    ) -> Result<String, MemoryError> {
+        self.0.caller_user_id(caller, account_id).await
+    }
+
+    async fn create_call(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        call: VtcCall,
+        ring_targets: &[String],
+    ) -> Result<VtcCall, BackendSetError<MemoryError>> {
+        self.0
+            .create_call(caller, account_id, call, ring_targets)
+            .await
+    }
+
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
+        self.0
+            .create_object::<O>(caller, account_id, create_id, obj)
+            .await
+    }
+
+    async fn deliver_recording_state_event(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        event: VtcRecordingStateEvent,
+    ) {
+        self.0
+            .deliver_recording_state_event(caller, account_id, event)
+            .await
+    }
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<MemoryError>> {
+        if O::TYPE_NAME == VtcCall::TYPE_NAME {
+            return Err(BackendSetError::Other(MemoryError::new(
+                "injected VTCCall update failure",
+            )));
+        }
+        self.0
+            .update_object::<O>(caller, account_id, id, patch)
+            .await
+    }
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        self.0.destroy_object::<O>(caller, account_id, id).await
+    }
+
+    async fn deliver_event(&self, caller: &String, account_id: &Id, event: VtcEvent) {
+        self.0.deliver_event(caller, account_id, event).await
+    }
+
+    async fn is_moderator(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        call: &VtcCall,
+    ) -> Result<bool, MemoryError> {
+        self.0.is_moderator(caller, account_id, call).await
+    }
+
+    async fn active_call_count(
+        &self,
+        caller: &String,
+        account_id: &Id,
+    ) -> Result<u64, MemoryError> {
+        self.0.active_call_count(caller, account_id).await
+    }
+
+    async fn is_user_blocked(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        user_id: &str,
+    ) -> Result<bool, MemoryError> {
+        self.0.is_user_blocked(caller, account_id, user_id).await
+    }
+
+    fn supports_type<O: JmapObject>(&self, caller: &String, account_id: &Id) -> bool {
+        self.0.supports_type::<O>(caller, account_id)
+    }
+}
+
+#[tokio::test]
+async fn failed_pending_activation_still_reports_the_committed_join() {
+    let backend = FailCallUpdate(backend());
+    seed(
+        &backend.0,
+        stored_call("S1", "scheduled", "pending", "2026-06-05T14:30:00Z"),
+    );
+    let resp = handle_vtc_participant_set(
+        &backend,
+        &ALICE.to_owned(),
+        json!({
+            "accountId": ACCOUNT,
+            "create": { "j0": { "callId": "S1", "joinMethod": "webrtc" } }
+        }),
+    )
+    .await
+    .expect("VTCParticipant/set")
+    .primary;
+
+    // The join is stored before the `"pending"` -> `"active"` transition,
+    // which the backend refuses here; the stored join is the create's
+    // outcome.
+    assert!(resp["notCreated"].is_null(), "resp: {resp}");
+    assert!(resp["created"]["j0"]["id"].is_string(), "resp: {resp}");
+    // RFC 8620 §5.3 `newState`: "The state string that will now be
+    // returned by Foo/get."
+    assert_ne!(resp["newState"], resp["oldState"], "resp: {resp}");
+    assert_eq!(get(&backend.0, "S1").await["state"], "pending");
 }
