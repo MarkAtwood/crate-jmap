@@ -1309,6 +1309,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-graph-server**: `GraphBackend::edit_log` has no
+  default. The removed default returned an empty, uncompacted log, so an
+  edit-capable backend that did not override it rejected every non-zero
+  `baseSeq` and `snapshotSeq` and never raised `opsCompacted`, a MUST of
+  draft-atwood-jmap-graph-edit-00 §GraphNodeOp/query. Backends without
+  edit support return `Ok(EditLog::default())` explicitly.
 - **BREAKING** **jmap-mail-server**: `MailBackend::create_object` takes
   a builder `build: F` with `F: FnOnce(&Id) -> O + Send` in place of a
   prebuilt object whose `id` was the sentinel `"placeholder"`. The
