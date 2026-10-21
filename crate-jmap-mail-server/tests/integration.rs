@@ -13300,6 +13300,76 @@ async fn query_changes_with_filter_returns_filtered_delta() {
     );
 }
 
+/// Oracle: an Email updated while it stays in the results is reported in
+/// both `removed` and `added`.
+///
+/// RFC 8620 §5.6 `removed`: "If the "filter" or "sort" includes a mutable
+/// property, the server MUST include all Foos in the current results for
+/// which this property may have changed." `added`: "every Foo in the current
+/// results that was included in the "removed" array (due to a filter or sort
+/// based upon a mutable property)." `keywords` is mutable (RFC 8621 §4.1.1),
+/// so a client applying removed-then-added keeps exactly one copy at index 0.
+#[tokio::test]
+async fn query_changes_reports_updated_id_in_removed_and_added() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+
+    let HandlerOutput { primary: set, .. } = handle_email_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "acct1",
+            "create": { "e0": { "mailboxIds": { "inbox": true } } }
+        }),
+    )
+    .await
+    .expect("create must succeed");
+    let email_id = set["created"]["e0"]["id"]
+        .as_str()
+        .expect("e0 id")
+        .to_string();
+
+    let filter = serde_json::json!({ "notKeyword": "$flagged" });
+    let HandlerOutput { primary: query, .. } = handle_email_query(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "acct1", "filter": filter }),
+    )
+    .await
+    .expect("query must succeed");
+    assert_eq!(query["ids"], serde_json::json!([email_id]), "{query}");
+
+    let HandlerOutput { primary: upd, .. } = handle_email_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "acct1",
+            "update": { &email_id: { "keywords/$seen": true } }
+        }),
+    )
+    .await
+    .expect("update must succeed");
+    assert!(upd["notUpdated"].is_null(), "{upd}");
+
+    let HandlerOutput { primary: qc, .. } = handle_email_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "acct1",
+            "filter": filter,
+            "sinceQueryState": query["queryState"]
+        }),
+    )
+    .await
+    .expect("queryChanges must succeed");
+    assert_eq!(qc["removed"], serde_json::json!([email_id]), "{qc}");
+    assert_eq!(
+        qc["added"],
+        serde_json::json!([{ "id": email_id, "index": 0 }]),
+        "{qc}"
+    );
+}
+
 /// Oracle: Email/queryChanges with upToId truncates added at that position.
 ///
 /// RFC 8620 §5.6 — upToId: the server should only return changes up to and

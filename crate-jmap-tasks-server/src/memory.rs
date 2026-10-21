@@ -665,16 +665,16 @@ impl JmapBackend for MemoryBackend {
                 BackendQueryError::Method(_) => BackendChangesError::CannotCalculate,
                 BackendQueryError::Other(e) => BackendChangesError::Other(e),
             })?;
-        let current_set: HashSet<&Id> = current.ids.iter().collect();
         let created_set: HashSet<&Id> = changes.created.iter().collect();
         let updated_set: HashSet<&Id> = changes.updated.iter().collect();
 
-        // Destroyed ids, and updated ids that no longer match the query.
+        // Every destroyed or updated id: an update may touch a filter or
+        // sort property, so RFC 8620 §5.6 requires the id in `removed` and,
+        // if it still matches, reinserted via `added`.
         let mut removed: Vec<Id> = changes
             .destroyed
             .iter()
             .chain(changes.updated.iter())
-            .filter(|id| !current_set.contains(id))
             .cloned()
             .collect();
         removed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));

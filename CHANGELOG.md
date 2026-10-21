@@ -1892,6 +1892,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**, **jmap-chat-server**, **jmap-tasks-server**:
+  `MemoryBackend::query_changes` lists every updated id in `removed`, and
+  `added` reinserts those still in the results (RFC 8620 §5.6: "the server
+  MUST include all Foos in the current results for which this property may
+  have changed"). An updated id that still matched was previously only in
+  `added`, so a client applying `removed` then `added` duplicated it.
 - **jmap-contacts-client**: `address_book_set` now sends
   `AddressBookSetParams::extra` on the wire; it was silently dropped.
   Typed fields win over a colliding `extra` key, as in `mailbox_set`.
