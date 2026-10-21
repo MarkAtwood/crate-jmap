@@ -40,6 +40,11 @@ wire behaviour that a conforming peer can observe.
   `/changes` SHOULD omit what the caller may not read and report gained or
   lost `mayRead` as created or destroyed (draft-atwood-jmap-graph-00
   §Security Considerations). `MemoryBackend` does not scope `/changes`.
+- **jmap-scene-server**: the `SceneBackend` rustdoc states that
+  `get_changes` is per account, not scoped to the caller: Scene visibility
+  filtering "does not change the JMAP state model" and a hidden object MAY
+  be reported in `notFound` from `/get` (draft-atwood-jmap-scene-00
+  §Visibility Contract).
 
 - **jmap-server**: `Dispatcher::set_guard` installs an optional per-call
   guard, run with the method name and caller after result references
