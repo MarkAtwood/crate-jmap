@@ -317,9 +317,9 @@ cargo clippy --workspace -- -D warnings
 cargo fmt --all
 ```
 
-MSRV: 1.88. The actual floor is driven by transitive dependencies (`icu_*@2.2.0`
-requires 1.86; `hashbrown@0.17.0` needs the edition2024 Cargo feature stabilized
-in 1.85); 1.88 is the conservative pick with a margin against further dep churn.
+MSRV: 1.91. The floor is set by `openmls@0.9.1` and its `openmls_traits` and
+`openmls_serialization_helpers` dependencies (used by `jmap-chat-mimi-server`),
+which declare `rust-version = "1.91.0"`.
 
 ---
 
