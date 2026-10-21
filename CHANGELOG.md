@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `Dispatcher::set_guard` installs an optional per-call
+  guard, run with the method name and caller after result references
+  resolve and before handler lookup; an `Err` becomes that call's error
+  response. Without a guard every call reaches its handler, as before.
+- **jmap-chat-federation-server**: `method_access_guard`, the peer-role
+  check `check_method_access` shaped for `Dispatcher::set_guard`, so the
+  `forbidden` rules of draft-atwood-jmap-chat-federation-00 §Account-Level
+  Capability and §Server-to-Server Methods cover every registered handler.
+
 - **jmap-chat-server**: `ChatBackend::maintains_unread_count` (default
   `false`, today's exact upkeep). A backend that returns `true` keeps
   `Chat.unreadCount` itself and may defer, coalesce or cap it, as the

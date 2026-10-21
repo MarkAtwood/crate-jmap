@@ -4,8 +4,15 @@
 //! Oracle: the draft text quoted on each test and the method list of
 //! §Server-to-Server Methods, written out by hand below.
 
-use jmap_chat_federation_server::{check_method_access, FederationCaller, PEER_METHODS};
+use std::sync::Arc;
 
+use jmap_chat_federation_server::{
+    check_method_access, method_access_guard, FederationCaller, PEER_METHODS,
+};
+use jmap_server::{Dispatcher, HandlerFuture, HandlerOutput, Invocation, JmapHandler, JmapRequest};
+use serde_json::{json, Value};
+
+#[derive(Clone)]
 struct Caller {
     peer: bool,
 }
@@ -107,4 +114,63 @@ fn owner_caller_may_call_other_methods() {
 #[test]
 fn owner_caller_is_not_forbidden_unlisted_peer_name() {
     assert!(check_method_access(&OWNER, "Peer/unknown").is_ok());
+}
+
+/// Answers every call with an empty object.
+struct Empty;
+
+impl JmapHandler<Caller> for Empty {
+    fn call(&self, _: String, _: String, _: Value, _: Caller) -> HandlerFuture {
+        Box::pin(async { Ok(HandlerOutput::new(json!({}))) })
+    }
+}
+
+async fn guarded_dispatch(caller: Caller) -> Vec<(String, Value)> {
+    let mut d: Dispatcher<Caller> = Dispatcher::new();
+    d.register("Chat/get", Arc::new(Empty));
+    d.register("Peer/deliver", Arc::new(Empty));
+    d.set_guard(method_access_guard);
+    let req = JmapRequest::new(
+        vec!["urn:ietf:params:jmap:core".into()],
+        vec![
+            Invocation::new("Chat/get", json!({}), "c0"),
+            Invocation::new("Peer/deliver", json!({}), "c1"),
+        ],
+        None,
+    );
+    d.dispatch(req, caller, "s0".into())
+        .await
+        .method_responses
+        .into_iter()
+        .map(|i| (i.name, i.arguments))
+        .collect()
+}
+
+/// 33702a5 L277: "Callers authenticated as a peer and operating against an
+/// account where `role` is `\"peer\"` MUST receive `forbidden` for any
+/// method not listed in {{peer-methods}}" — enforced by the dispatcher
+/// before a registered handler runs.
+#[tokio::test]
+async fn dispatcher_guard_forbids_peer_caller_other_methods() {
+    assert_eq!(
+        guarded_dispatch(PEER).await,
+        vec![
+            ("error".into(), json!({"type": "forbidden"})),
+            ("Peer/deliver".into(), json!({})),
+        ]
+    );
+}
+
+/// 33702a5 L319: "Callers without the `\"peer\"` role MUST receive
+/// `forbidden` for all methods in this section" — enforced by the
+/// dispatcher before a registered handler runs.
+#[tokio::test]
+async fn dispatcher_guard_forbids_non_peer_caller_peer_methods() {
+    assert_eq!(
+        guarded_dispatch(OWNER).await,
+        vec![
+            ("Chat/get".into(), json!({})),
+            ("error".into(), json!({"type": "forbidden"})),
+        ]
+    );
 }

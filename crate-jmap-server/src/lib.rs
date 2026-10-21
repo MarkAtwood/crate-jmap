@@ -202,7 +202,10 @@ fn extract_created_ids_into(primary: &Value, sink: &mut BTreeMap<Id, Id>) {
 /// safe to call concurrently.
 pub struct Dispatcher<CallerCtx> {
     handlers: HashMap<String, Arc<dyn JmapHandler<CallerCtx>>>,
+    guard: Option<MethodGuard<CallerCtx>>,
 }
+
+type MethodGuard<CallerCtx> = Box<dyn Fn(&str, &CallerCtx) -> Result<(), JmapError> + Send + Sync>;
 
 /// Returned by [`Dispatcher::try_register`] when a handler is already
 /// registered under the requested method name.
@@ -230,7 +233,28 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
+            guard: None,
         }
+    }
+
+    /// Install a guard that every method call must pass before its handler
+    /// runs.
+    ///
+    /// [`Dispatcher::dispatch`] calls `guard` with the method name and the
+    /// caller after resolving the call's result references and before
+    /// looking up its handler. An `Err` becomes that call's error response
+    /// (RFC 8620 §3.6.2), in its place in `methodResponses`; the handler
+    /// does not run, and later calls in the batch are still processed.
+    /// A rejected call produces no result for later references to resolve
+    /// against (RFC 8620 §3.7).
+    ///
+    /// Without a guard every call reaches its handler. Setting a guard
+    /// again replaces the previous one.
+    pub fn set_guard(
+        &mut self,
+        guard: impl Fn(&str, &CallerCtx) -> Result<(), JmapError> + Send + Sync + 'static,
+    ) {
+        self.guard = Some(Box::new(guard));
     }
 
     /// Register a handler for the given method name.
@@ -383,6 +407,11 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                 continue;
             }
 
+            if let Some(Err(e)) = self.guard.as_ref().map(|guard| guard(&method, &caller)) {
+                method_responses.push(error_invocation(&call_id, e));
+                continue;
+            }
+
             // Look up the handler.
             let Some(handler) = self.handlers.get(&method).map(Arc::clone) else {
                 method_responses.push(error_invocation(&call_id, JmapError::unknown_method()));
@@ -496,6 +525,7 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Dispatcher")
             .field("methods", &self.handlers.keys())
+            .field("guard", &self.guard.is_some())
             .finish()
     }
 }
@@ -1320,6 +1350,94 @@ mod tests {
             1,
             "no extra entries should appear from the collision"
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // Method guard
+    // -----------------------------------------------------------------------
+
+    /// Oracle: RFC 8620 §3.6.2 — a method-level error is returned as an
+    /// `["error", {"type": ...}, callId]` response in place of that call's
+    /// response, and later calls in the batch are still processed.
+    #[tokio::test]
+    async fn guard_rejection_replaces_only_that_call() {
+        let captured = Arc::new(Mutex::new(None::<String>));
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register("Foo/get", Arc::new(EchoHandler(json!({"list": []}))));
+        d.register(
+            "Bar/set",
+            Arc::new(CaptureCallerHandler(Arc::clone(&captured))),
+        );
+        d.set_guard(|method, caller: &String| {
+            if method == "Bar/set" && caller == "mallory" {
+                Err(JmapError::forbidden())
+            } else {
+                Ok(())
+            }
+        });
+        let batch = || {
+            JmapRequest::new(
+                vec!["urn:ietf:params:jmap:core".into()],
+                vec![
+                    Invocation::new("Foo/get", json!({}), "c0"),
+                    Invocation::new("Bar/set", json!({}), "c1"),
+                    Invocation::new("Foo/get", json!({}), "c2"),
+                ],
+                None,
+            )
+        };
+
+        let resp = d.dispatch(batch(), "mallory".into(), "s0".into()).await;
+        let got: Vec<(String, Value, String)> = resp
+            .method_responses
+            .into_iter()
+            .map(|i| (i.name, i.arguments, i.call_id))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("Foo/get".into(), json!({"list": []}), "c0".into()),
+                ("error".into(), json!({"type": "forbidden"}), "c1".into()),
+                ("Foo/get".into(), json!({"list": []}), "c2".into()),
+            ]
+        );
+        assert!(
+            captured.lock().unwrap().is_none(),
+            "rejected call's handler must not run"
+        );
+
+        let resp = d.dispatch(batch(), "alice".into(), "s0".into()).await;
+        assert_eq!(resp.method_responses[1].name, "Bar/set");
+        assert_eq!(captured.lock().unwrap().as_deref(), Some("alice"));
+    }
+
+    /// Oracle: bd:JMAP-v9py.15.8 decision — the guard runs after result
+    /// references resolve (RFC 8620 §3.7 `invalidResultReference` wins) and
+    /// before handler lookup (a rejected unregistered method gets the
+    /// guard's error, not RFC 8620 §3.6.2 `unknownMethod`).
+    #[tokio::test]
+    async fn guard_runs_after_reference_resolution_before_lookup() {
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.set_guard(|_, _: &String| Err(JmapError::forbidden()));
+        let req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![
+                Invocation::new(
+                    "Foo/get",
+                    json!({"#ids": {"resultOf": "nonexistent", "name": "Foo/get", "path": "/x"}}),
+                    "c0",
+                ),
+                Invocation::new("Unregistered/get", json!({}), "c1"),
+            ],
+            None,
+        );
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        assert_eq!(resp.method_responses.len(), 2);
+        assert_eq!(
+            resp.method_responses[0].arguments["type"],
+            "invalidResultReference"
+        );
+        assert_eq!(resp.method_responses[1].arguments["type"], "forbidden");
     }
 
     // -----------------------------------------------------------------------

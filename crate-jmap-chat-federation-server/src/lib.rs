@@ -67,8 +67,31 @@
 //! - Any other caller gets `forbidden` for every method in
 //!   [`PEER_METHODS`] (§Server-to-Server Methods).
 //!
-//! Call it before the method's handler runs, with the method name the
-//! dispatcher is about to invoke:
+//! With `jmap_server::Dispatcher`, install [`method_access_guard`] so the
+//! check covers every registered handler:
+//!
+//! ```
+//! use jmap_chat_federation_server::{method_access_guard, FederationCaller};
+//! use jmap_server::Dispatcher;
+//!
+//! #[derive(Clone)]
+//! struct Caller {
+//!     peer: bool,
+//! }
+//!
+//! impl FederationCaller for Caller {
+//!     fn is_peer(&self) -> bool {
+//!         self.peer
+//!     }
+//! }
+//!
+//! let mut dispatcher: Dispatcher<Caller> = Dispatcher::new();
+//! dispatcher.set_guard(method_access_guard);
+//! ```
+//!
+//! A deployment with its own dispatch loop calls [`check_method_access`]
+//! before the method's handler runs, with the method name it is about to
+//! invoke:
 //!
 //! ```
 //! use jmap_chat_federation_server::{check_method_access, FederationCaller};
@@ -157,4 +180,18 @@ pub fn check_method_access<C: FederationCaller + ?Sized>(
     } else {
         Err(JmapError::forbidden())
     }
+}
+
+/// [`check_method_access`] with the argument order of
+/// `jmap_server::Dispatcher::set_guard`, so it can be installed as the
+/// dispatcher's guard.
+///
+/// # Errors
+///
+/// As [`check_method_access`].
+pub fn method_access_guard<C: FederationCaller + ?Sized>(
+    method: &str,
+    caller: &C,
+) -> Result<(), JmapError> {
+    check_method_access(caller, method)
 }
