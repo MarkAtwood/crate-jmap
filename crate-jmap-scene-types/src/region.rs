@@ -76,8 +76,9 @@ pub struct GeoAnchor {
     /// Altitude in meters above the reference frame's datum; `None`
     /// (`null`) when unknown, treated as surface level.
     pub altitude: Option<f64>,
-    /// Clockwise degrees from North to the region's positive Z axis.
-    /// Draft default `0`.
+    /// Clockwise degrees from North to the region's negative Z axis,
+    /// viewed from above. Draft default `0`: negative Z points North,
+    /// positive X East and positive Z South.
     #[serde(default)]
     pub heading: f64,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -302,7 +303,8 @@ mod tests {
 
     #[test]
     fn heading_defaults_to_zero() {
-        // Oracle: L326 heading "Default: `0` (positive Z = North)".
+        // Oracle: draft-atwood-jmap-scene-00 (jmap-chat-spec 6bcd9d8)
+        // L387 heading "Default: `0` (negative Z points North)".
         let a: GeoAnchor = serde_json::from_value(json!({
             "referenceFrame": null,
             "latitude": 47.6301,
