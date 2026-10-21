@@ -206,14 +206,26 @@ fn assert_rejected(scenario: &str, expected: WebvhError) {
 /// not resolve ("marking all entries from the first invalid entry to the
 /// end of the log as invalid").
 fn assert_invalid_from(scenario: &str, index: usize, expected: WebvhError) {
-    let log = verify(scenario, "ts").unwrap_or_else(|e| panic!("{scenario}: {e:?}"));
-    assert_eq!(log.invalid_entry(), Some((index, &expected)), "{scenario}");
-    assert_eq!(log.versions().count(), index, "{scenario}");
-    assert_eq!(log.current(), None, "{scenario}");
+    let log = verify(scenario, "ts");
+    assert_log_invalid_from(log, index, expected, scenario);
+}
+
+/// The checks of [`assert_invalid_from`] on an already verified log.
+fn assert_log_invalid_from(
+    log: Result<WebvhLog, WebvhError>,
+    index: usize,
+    expected: WebvhError,
+    context: &str,
+) {
+    let log = log.unwrap_or_else(|e| panic!("{context}: {e:?}"));
+    assert_eq!(log.invalid_entry(), Some((index, &expected)), "{context}");
+    assert_eq!(log.versions().count(), index, "{context}");
+    assert_eq!(log.current(), None, "{context}");
     let earlier = log.latest().version_id.clone();
     assert_eq!(
         log.version(&earlier).map(|v| v.version_number),
-        Some(index as u64)
+        Some(index as u64),
+        "{context}"
     );
 }
 
@@ -581,5 +593,161 @@ fn altered_signature_is_rejected() {
     assert_eq!(
         verify_webvh_log(&did, altered.as_bytes(), None, now()).err(),
         Some(WebvhError::InvalidProof)
+    );
+}
+
+// ------------------------------------------- tampered suite entries
+//
+// Each check below runs before the entry hash and proof checks, so
+// editing one line of a suite log reaches it without re-signing.
+
+/// `scenario/ts/did.jsonl` with the single occurrence of `from` in line
+/// `line` replaced by `to`, and the DID its first entry created.
+fn tampered(scenario: &str, line: usize, from: &str, to: &str) -> (Did, Vec<u8>) {
+    let log = String::from_utf8(read(&fixtures().join(scenario).join("ts/did.jsonl"))).unwrap();
+    let mut lines: Vec<String> = log.lines().map(str::to_owned).collect();
+    assert_eq!(lines[line].matches(from).count(), 1, "{scenario}: {from}");
+    lines[line] = lines[line].replacen(from, to, 1);
+    (created_did(log.as_bytes()), lines.join("\n").into_bytes())
+}
+
+#[test]
+fn altered_genesis_state_breaks_the_scid() {
+    // "When processing the first DID log entry, verify the SCID [...]
+    // according to the SCID Generation and Verification section". The
+    // SCID hashes the genesis entry, `state` included.
+    let (did, log) = tampered(
+        "basic-update",
+        0,
+        r#""authentication":["did:webvh:"#,
+        r#""alsoKnownAs":["did:web:example.org"],"authentication":["did:webvh:"#,
+    );
+    assert_eq!(
+        verify_webvh_log(&did, &log, None, now()).err(),
+        Some(WebvhError::ScidMismatch)
+    );
+}
+
+#[test]
+fn later_state_id_with_another_scid_is_invalid() {
+    // "The SCID segment of `state.id` MUST be byte-for-byte identical to
+    // the `scid` value in the DID and the first entry's
+    // `parameters.scid`. This check MUST apply to every entry's
+    // `state.id`, not just the first."
+    let (did, log) = tampered(
+        "basic-update",
+        1,
+        r#""id":"did:webvh:QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com","controller""#,
+        &format!(r#""id":"did:webvh:{SCID}:example.com","controller""#),
+    );
+    assert_log_invalid_from(
+        verify_webvh_log(&did, &log, None, now()),
+        1,
+        WebvhError::ScidMismatch,
+        "basic-update",
+    );
+}
+
+#[test]
+fn pre_rotation_rejects_any_uncommitted_update_key() {
+    // "The hash of every multikey in `parameters.updateKeys` [...] MUST
+    // appear in the previous entry's `nextKeyHashes`. The check applies
+    // to the full `updateKeys` set, not only keys that are new relative
+    // to the previous entry. A key not in the previous entry's
+    // `nextKeyHashes` MUST cause resolution to terminate, even if it
+    // appeared in an earlier entry's `updateKeys`." The genesis key of
+    // pre-rotation-consume is not committed in its `nextKeyHashes`.
+    let committed =
+        r#""parameters":{"updateKeys":["z6MknGc3ocHs3zdPiJbnaaqDi58NGb4pk1Sp9WxWufuXSdxf"]"#;
+    let genesis_key = "z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG";
+    for to in [
+        format!(r#""parameters":{{"updateKeys":["{genesis_key}"]"#),
+        format!(
+            r#""parameters":{{"updateKeys":["z6MknGc3ocHs3zdPiJbnaaqDi58NGb4pk1Sp9WxWufuXSdxf","{genesis_key}"]"#
+        ),
+    ] {
+        let (did, log) = tampered("pre-rotation-consume", 1, committed, &to);
+        assert_log_invalid_from(
+            verify_webvh_log(&did, &log, None, now()),
+            1,
+            WebvhError::PreRotation,
+            &to,
+        );
+    }
+}
+
+#[test]
+fn move_without_portability_is_invalid() {
+    // "a `did:webvh` DID can be renamed by changing the `id` DID string
+    // [...] if the following conditions are met. [...] The parameter
+    // `portable` MUST be set to `true` in the first log entry."
+    // basic-update sets `"portable":false`.
+    let (did, log) = tampered(
+        "basic-update",
+        1,
+        r#"QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.com","controller""#,
+        r#"QmUy89VrfryQ254CeHZzQfmcKqByPoKNGqYykP3SeXuegQ:example.org","controller""#,
+    );
+    assert_log_invalid_from(
+        verify_webvh_log(&did, &log, None, now()),
+        1,
+        WebvhError::IllegalMove,
+        "basic-update",
+    );
+}
+
+#[test]
+fn portable_move_without_the_prior_did_in_also_known_as_is_invalid() {
+    // "The DIDDoc MUST contain the prior DID string as an `alsoKnownAs`
+    // entry."
+    let (did, log) = tampered(
+        "portable-move",
+        1,
+        r#""alsoKnownAs":["did:webvh:QmfG1Dx5wj8zxVVkdTcD81teRgV5DLuQcUvzizd75x8Zxd:example.com"]"#,
+        r#""alsoKnownAs":["did:web:example.com"]"#,
+    );
+    assert_log_invalid_from(
+        verify_webvh_log(&did, &log, None, now()),
+        1,
+        WebvhError::IllegalMove,
+        "portable-move",
+    );
+}
+
+#[test]
+fn later_entry_setting_portable_is_invalid() {
+    // "Setting `portable: true` is permitted only in the first entry. A
+    // later entry that sets `portable: true` MUST be rejected by
+    // resolvers, regardless of historical state."
+    let (did, log) = tampered(
+        "basic-update",
+        1,
+        r#""parameters":{"#,
+        r#""parameters":{"portable":true,"#,
+    );
+    assert_log_invalid_from(
+        verify_webvh_log(&did, &log, None, now()),
+        1,
+        WebvhError::InvalidParameter {
+            name: "portable".to_owned(),
+        },
+        "basic-update",
+    );
+}
+
+#[test]
+fn entry_after_deactivation_is_invalid() {
+    // `deactivated`: "If set to `true`, the DID is considered deactivated
+    // and no further updates to the DID are permitted." Any third line
+    // will do; this repeats the deactivating entry.
+    let log = String::from_utf8(read(&fixtures().join("deactivate/ts/did.jsonl"))).unwrap();
+    let did = created_did(log.as_bytes());
+    let last = log.lines().last().unwrap();
+    let extended = format!("{}\n{last}\n", log.trim_end());
+    assert_log_invalid_from(
+        verify_webvh_log(&did, extended.as_bytes(), None, now()),
+        2,
+        WebvhError::AfterDeactivation,
+        "deactivate",
     );
 }
