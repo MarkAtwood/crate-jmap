@@ -4,8 +4,8 @@
 > (jmap-chat-spec 63e9d08 revised it); `publish = false` until the crate
 > matches it (JMAP-0x0q, JMAP-38uq.14).
 
-Method handlers for the `VTCCall`, `VTCRecording` and `VTCLivestream`
-data types of the JMAP VTC extension
+Method handlers for the `VTCCall`, `VTCParticipant`, `VTCRecording` and
+`VTCLivestream` data types of the JMAP VTC extension
 (draft-atwood-jmap-vtc-00), backend-agnostic, for a
 `jmap-server` `Dispatcher`. You supply storage through the `VtcBackend`
 trait.
@@ -20,12 +20,16 @@ trait.
 | `handle_vtc_call_query`, `handle_vtc_call_query_changes` | §VTCCall/query, §VTCCall/queryChanges |
 | `call_already_active_on_chat` | §VTCCall/set: at most one active call per Chat |
 | `query::call_matches`, `query::compare_calls` | §VTCCall/query filter and sort |
+| `handle_vtc_participant_set` create | §Joining a Room or Scheduled Call, §Gateway Dial-Out |
+| `handle_vtc_participant_set` update | §Answering, §Declining, §Updating Media State, §Leaving, §Reconnecting, §Participant-Level Moderator Actions, §VTCGatewaySignal `pendingSignal` |
+| `handle_vtc_participant_get`, `_changes`, `_query`, `_query_changes` | §VTCParticipant/get, /changes, /query, /queryChanges |
+| `query::participant_matches`, `query::compare_participants` | §VTCParticipant/query filter and sort |
 | `handle_vtc_recording_*` | §VTCRecording Methods: get, changes, set, query, queryChanges |
 | `handle_vtc_livestream_*` | §VTCLivestream Methods, with §Livestream Key Exposure in `/get` |
 | `query::recording_matches`, `query::livestream_matches`, `compare_*` | §VTCRecording/query, §VTCLivestream/query filter and sort |
-| `VtcBackend` | storage, capability object, caller userId, moderator hook, recording consent event |
+| `VtcBackend` | storage, capability object, caller userId, moderator hook, recording consent event, unmute-request and gateway-signal delivery |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_vtc_handlers` | wires the fifteen `VTCCall/*`, `VTCRecording/*` and `VTCLivestream/*` methods |
+| `register_vtc_handlers` | wires the twenty `VTCCall/*`, `VTCParticipant/*`, `VTCRecording/*` and `VTCLivestream/*` methods |
 
 ## What it's for
 
@@ -33,7 +37,6 @@ A JMAP server that offers voice and video calls wires these handlers next
 to its other extensions. The crate depends on `jmap-types`, `jmap-server`
 and `jmap-vtc-types` only. The Chat binding (`chatId` membership,
 `start_call`, `Chat.activeCallId`) goes in a separate binding crate.
-VTCParticipant methods are not here yet.
 
 ## How to use
 
@@ -74,6 +77,14 @@ can only be stopped, from `starting` or `live`, and its `streamUri`,
 `streamKey` and `platform` change only while `stopped` or `failed`.
 `VTCLivestream/get` returns `streamKey` and `streamUri` as `""` to callers
 who are not moderators on the livestream's call.
+`VTCParticipant/set` checks each update against the caller (own record
+or moderator) and the call policy, adds the server-set times
+(`joinedAt`, `leftAt`, `kickedBy`), then hands it to
+`VtcBackend::update_object`; the call transitions it causes (answer,
+join, last decline, last departure, moderator promotion) and its event
+deliveries run after that commits. `VtcBackend::create_object` and
+`update_object` keep `activeParticipantCount` and refuse `alreadyExists`
+and `overQuota` atomically.
 The backend trait is not object-safe (generic methods); every public type
 is `#[non_exhaustive]`.
 
@@ -97,8 +108,15 @@ is `#[non_exhaustive]`.
   delivery does not undo the change.
 - The draft does not say where a livestream with a `null` `startedAt`
   sorts. `compare_livestreams` puts it last.
-- Transitions driven by participants (answer, join, leave, decline) and
-  the ring timeout need VTCParticipant/set and are not handled here.
+- With `is_moderator`'s fail-open default every joiner is a moderator:
+  it bypasses the lobby and the call policy and may kick, admit and dial
+  out.
+- A join without `mediaState` gets the draft example's defaults (audio
+  and video on) less what the policy keeps off. The handler sets
+  `displayName` to the userId; the backend may replace it.
+- The `answered_elsewhere` fork to the answerer's other devices, the ring
+  timeout, and per-call access and E2EE participant visibility are not
+  here (bd:JMAP-8mem.7, bd:JMAP-8mem.5).
 
 ## References
 

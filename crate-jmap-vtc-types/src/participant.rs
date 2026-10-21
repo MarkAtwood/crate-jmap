@@ -143,6 +143,11 @@ pub struct VtcParticipant {
     /// `false`.
     #[serde(default)]
     pub unmute_requested: bool,
+    /// The child breakout-room call a moderator has assigned this
+    /// participant to; `None` (serialized as `null`, the draft default)
+    /// when unassigned.
+    #[serde(default)]
+    pub breakout_call_id: Option<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -175,7 +180,8 @@ mod tests {
             "speakerTimeMs": 0,
             "kickedBy": null,
             "e2eeFingerprint": null,
-            "unmuteRequested": false
+            "unmuteRequested": false,
+            "breakoutCallId": null
         })
     }
 
@@ -257,6 +263,33 @@ mod tests {
         raw.as_object_mut().unwrap().remove("unmuteRequested");
         let p: VtcParticipant = serde_json::from_value(raw).unwrap();
         assert!(!p.unmute_requested);
+    }
+
+    #[test]
+    fn breakout_call_id_defaults_null_and_round_trips() {
+        // Oracle: draft-atwood-jmap-vtc-00 (jmap-chat-spec 6bcd9d8) L380-381
+        // "`breakoutCallId` (String|null): The id of a child breakout-room
+        // VTCCall to which a moderator has assigned this participant ...
+        // Default: `null`."; L920 shows `"breakoutCallId": null` in the
+        // complete record.
+        let mut raw = pstn();
+        raw.as_object_mut().unwrap().remove("breakoutCallId");
+        let p: VtcParticipant = serde_json::from_value(raw).unwrap();
+        assert_eq!(p.breakout_call_id, None);
+        assert_eq!(
+            serde_json::to_value(&p).unwrap()["breakoutCallId"],
+            json!(null)
+        );
+
+        let mut raw = pstn();
+        raw["breakoutCallId"] = json!("01J4XZBRK0TZXX3VVGJMXY8KM0");
+        let p: VtcParticipant = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            p.breakout_call_id,
+            Some(Id::from("01J4XZBRK0TZXX3VVGJMXY8KM0"))
+        );
+        assert!(p.extra.is_empty(), "typed, not an extra: {:?}", p.extra);
+        assert_eq!(serde_json::to_value(&p).unwrap(), raw);
     }
 
     #[test]

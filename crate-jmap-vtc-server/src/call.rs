@@ -569,6 +569,25 @@ fn end_reason_for(state: &CallState) -> Option<CallEndReason> {
     }
 }
 
+/// Move call `id` to `state`, a transition a participant's join, answer
+/// or departure causes (§State Machine). The `Err` value is the SetError
+/// JSON.
+pub(crate) async fn set_call_state<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    state: CallState,
+) -> Result<(), Value> {
+    let mut patch = PatchObject::new();
+    patch.as_map_mut().insert("state".to_owned(), json!(state));
+    backend
+        .update_object::<VtcCall>(caller, account_id, id, patch)
+        .await
+        .map(|_| ())
+        .map_err(backend_set_error_value)
+}
+
 /// The patch that ends a call: `state` `"ended"` with the `endedAt` and
 /// `endReason` §Ending a Call says the server sets.
 fn ended_patch(end_reason: CallEndReason) -> PatchObject {

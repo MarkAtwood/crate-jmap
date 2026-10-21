@@ -14,6 +14,32 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: the `VTCParticipant/*` handlers of
+  draft-atwood-jmap-vtc-00, registered by `register_vtc_handlers`.
+  `/set` create joins a room, scheduled or ring call (lobby `"waiting"`
+  for non-moderators when `lobbyEnabled`, `muteOnEntry` /
+  `videoOffOnEntry` and the `participantsCan*` policy applied to
+  `mediaState`, `maxConcurrentCalls` when the join activates a pending
+  call) or, with `gatewayData`, dials out through a gateway whose
+  `supportsDialOut` is `true` (moderators only, `forbidden` on an E2EE
+  call). `/set` update answers and declines rings, enforces the call
+  policy on a participant's own `mediaState`, leaves (server time),
+  kicks (`kickedBy`), reconnects (refused while `kickedBy` is set), and
+  holds lobby admission, role changes, `breakoutCallId` and
+  `unmuteRequested` to moderators. A moderator's
+  `gatewayData/pendingSignal` is delivered as an outbound
+  `VTCGatewaySignal` and not stored. The call transitions follow: answer
+  and join activate, all targets declining ends with `"declined"`, the
+  last departure ends a ring or scheduled call, and the last moderator's
+  departure promotes the earliest-joined authenticated participant.
+  Destroy is `forbidden`. `/query` defaults to `joinedAt` ascending and
+  refuses a filter scoped by neither `callId` nor `userId` with
+  `unsupportedFilter`; `query::participant_matches` and
+  `query::compare_participants` evaluate it. `MemoryBackend` implements
+  the participant contracts and records delivered events
+  (`events_for_test`).
+- **jmap-vtc-types**: `VtcParticipant` implements `SetObject` and
+  `QueryObject`.
 - **jmap-vtc-client** (new crate, `publish = false`): binds every
   draft-atwood-jmap-vtc-00 method — `/get`, `/changes`, `/set`, `/query`
   and `/queryChanges` for VTCCall, VTCParticipant, VTCRecording and
@@ -972,6 +998,20 @@ wire behaviour that a conforming peer can observe.
   (§Attachment), comparing the digest in constant time.
 
 ### Changed
+
+- **BREAKING** **jmap-vtc-server**: `VtcBackend` has a new required
+  method, `deliver_event`, for the `VTCUnmuteRequestEvent` and outbound
+  `VTCGatewaySignal` that `VTCParticipant/set` produces. The
+  `create_object` and `update_object` contracts now cover
+  `VTCParticipant` (`alreadyExists` with `existingId` for a second record
+  of a user, `activeParticipantCount` upkeep, `overQuota` above
+  `maxParticipantsPerCall`, placing a dial-out call), and ending or
+  destroying a breakout room also resets the parent call's participants'
+  `breakoutCallId` naming it.
+- **BREAKING** **jmap-vtc-types**: `VtcParticipant` has a typed
+  `breakout_call_id: Option<Id>` (draft-atwood-jmap-vtc-00 §VTCParticipant
+  `breakoutCallId`, "Default: `null`"), which always serializes, as
+  `null` when unset; it no longer lands in `extra`.
 
 - **BREAKING** (MSRV): the workspace minimum supported Rust version is
   now 1.91 (was 1.88) for every crate. `openmls` 0.9.1, which
