@@ -37,6 +37,19 @@
 //! `ChatBackend` returns from its `may_update_chat`, `may_create_message`
 //! and `may_update_message` hooks.
 //!
+//! Body types: that `ChatBackend`'s `limits` lists
+//! [`jmap_chat_mimi_types::MIMI_FANOUT_BODY_TYPE`] in
+//! `ChatLimits::supported_body_types` (draft §Account-Level Capability
+//! Object: the server "MUST include
+//! `"application/mimi-fanout"` in `supportedBodyTypes`"), in
+//! `ChatLimits::server_reserved_body_types` ("Only servers create such
+//! Messages; the server MUST reject a `Message/set` create with this body
+//! type with an `invalidProperties` SetError naming `bodyType`", draft
+//! §application/mimi-fanout) and in `ChatLimits::encrypted_body_types`
+//! ("It is an encrypted body type for the purposes of" JMAP Chat, draft
+//! §MLS Messages). `jmap-chat-server` then refuses a
+//! client's fanout create in every Chat, room-bound or not.
+//!
 //! FanoutMessages (draft §application/mimi-fanout, §Chat.roomId): a
 //! `/notify` handler splits the body with [`parse_fanout_messages`] and
 //! hands each [`Fanout`] to [`MimiBackend::store_fanout`], which routes
