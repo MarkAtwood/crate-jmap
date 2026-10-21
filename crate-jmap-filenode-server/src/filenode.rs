@@ -95,6 +95,10 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 /// appended to the response `list` (deduplicated against already-present nodes).
 /// Oracle: §3.2.1.
 ///
+/// Unless `properties` excludes `myRights`, each node in `list` whose
+/// [`FileNodeBackend::files_rights`] is `Some` reports that value as its
+/// `myRights`, which draft-ietf-jmap-filenode-16 makes "server-set".
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_get<B: FileNodeBackend>(
     backend: &B,
@@ -108,10 +112,12 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     // RFC 8620 §5.1: `properties` null or absent means all properties.
-    let wants_sha256 = match args.get("properties") {
-        Some(Value::Array(props)) => props.iter().any(|p| p == "sha256"),
+    let wants = |property: &str| match args.get("properties") {
+        Some(Value::Array(props)) => props.iter().any(|p| p == property),
         _ => true,
     };
+    let wants_sha256 = wants("sha256");
+    let wants_my_rights = wants("myRights");
 
     // Delegate to the generic /get handler. We let it own account_id
     // parsing — the response carries accountId back, so the
@@ -192,6 +198,10 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         }
     }
 
+    if wants_my_rights {
+        report_files_rights(backend, caller, &mut response).await?;
+    }
+
     // draft-atwood-jmap-cid-00 §FileNode Extension: with the capability,
     // "FileNode objects MUST include" `sha256`, which "MUST be `null` for
     // directory FileNodes". FileNode omits a `None` digest, so fill the
@@ -214,6 +224,70 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     }
 
     Ok(HandlerOutput::new(response).with_extra(tail))
+}
+
+/// Replace the `myRights` of each node in a `FileNode/get` response `list`
+/// with the [`FileNodeBackend::files_rights`] result, where it is `Some`.
+///
+/// ponytail: re-reads every listed node with one `get_objects` call,
+/// because `properties` may have stripped the fields a rights policy
+/// needs (`parentId`, `role`, `spaceId`, `@type`). This costs one extra
+/// read per `FileNode/get`, even with the default hook. The upgrade is to
+/// deserialize the list directly when `properties` is null.
+async fn report_files_rights<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    response: &mut Value,
+) -> Result<(), JmapError> {
+    let Some(account_id) = response
+        .get("accountId")
+        .and_then(Value::as_str)
+        .map(Id::from)
+    else {
+        return Ok(());
+    };
+    let ids: Vec<Id> = response
+        .get("list")
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(|n| n.get("id").and_then(Value::as_str).map(Id::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let (nodes, _) = backend
+        .get_objects::<FileNode>(caller, &account_id, Some(&ids), None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let mut rights = std::collections::HashMap::new();
+    for node in &nodes {
+        if let Some(r) = backend
+            .files_rights(caller, &account_id, node)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            rights.insert(node.id.as_ref().to_owned(), r);
+        }
+    }
+    if let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) {
+        for node in list.iter_mut().filter_map(Value::as_object_mut) {
+            let Some(r) = node
+                .get("id")
+                .and_then(Value::as_str)
+                .and_then(|id| rights.remove(id))
+            else {
+                continue;
+            };
+            node.insert(
+                "myRights".to_owned(),
+                serde_json::to_value(r).expect("FilesRights serializes to JSON"),
+            );
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -2404,6 +2478,10 @@ mod tests {
     ///   to `blob_exists` returns `Err`.
     /// - [`inject_cid_advertised_err`][Self::inject_cid_advertised_err]: next
     ///   call to `cid_advertised` returns `Err`.
+    /// - [`inject_files_rights_err`][Self::inject_files_rights_err]: next
+    ///   call to `files_rights` returns `Err`.
+    /// - [`set_files_rights`][Self::set_files_rights]: persistent rights
+    ///   that `files_rights` returns for one node id (`None` otherwise).
     /// - [`inject_query_objects_err`][Self::inject_query_objects_err]: next
     ///   call to `query_objects` returns `Err`.
     /// - [`inject_query_objects_err_after`][Self::inject_query_objects_err_after]:
@@ -2439,6 +2517,11 @@ mod tests {
         /// When `Some`, the next call to `cid_advertised` returns
         /// `Err(MemoryError::new(msg))`. Cleared on consumption.
         cid_advertised_err: Option<String>,
+        /// When `Some`, the next call to `files_rights` returns
+        /// `Err(MemoryError::new(msg))`. Cleared on consumption.
+        files_rights_err: Option<String>,
+        /// Rights `files_rights` returns, keyed by node id. Persistent.
+        files_rights: std::collections::HashMap<String, jmap_filenode_types::FilesRights>,
         /// When `Some`, `query_objects` returns `Err(MemoryError::new(msg))`
         /// once `query_objects_calls` reaches `after_calls`. The first
         /// matching call fires the fault and clears the entry; subsequent
@@ -2487,6 +2570,23 @@ mod tests {
         /// call. Single-shot.
         fn inject_cid_advertised_err(&self, msg: &str) {
             self.faults.lock().unwrap().cid_advertised_err = Some(msg.to_owned());
+        }
+
+        /// Schedule a `MemoryError::new(msg)` for the next `files_rights`
+        /// call. Single-shot.
+        fn inject_files_rights_err(&self, msg: &str) {
+            self.faults.lock().unwrap().files_rights_err = Some(msg.to_owned());
+        }
+
+        /// Make `files_rights` return `rights` (hand-written wire JSON)
+        /// for node `id`. Persistent.
+        fn set_files_rights(&self, id: &str, rights: Value) {
+            let rights = serde_json::from_value(rights).expect("FilesRights fixture");
+            self.faults
+                .lock()
+                .unwrap()
+                .files_rights
+                .insert(id.to_owned(), rights);
         }
 
         /// Schedule a `MemoryError::new(msg)` for the next `blob_exists`
@@ -2771,6 +2871,19 @@ mod tests {
                 return Err(MemoryError::new(msg));
             }
             self.inner.cid_advertised(&(), account_id).await
+        }
+
+        async fn files_rights(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            node: &FileNode,
+        ) -> Result<Option<jmap_filenode_types::FilesRights>, Self::Error> {
+            let mut faults = self.faults.lock().unwrap();
+            if let Some(msg) = faults.files_rights_err.take() {
+                return Err(MemoryError::new(msg));
+            }
+            Ok(faults.files_rights.get(node.id.as_ref()).cloned())
         }
 
         async fn find_sibling_by_name(
@@ -3443,6 +3556,108 @@ mod tests {
         let err = handle_filenode_get(&backend, &(), args)
             .await
             .expect_err("cid_advertised Err must surface as a JmapError");
+        assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
+    }
+
+    /// All six draft-ietf-jmap-filenode-16 FilesRights flags, `mayRead`
+    /// only: a hand-written policy result.
+    fn read_only_rights() -> Value {
+        json!({
+            "mayRead": true,
+            "mayAddChildren": false,
+            "mayRename": false,
+            "mayDelete": false,
+            "mayModifyContent": false,
+            "mayShare": false
+        })
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-16 L431-434, "myRights:
+    /// "FilesRights" (server-set) The set of rights (ACLs) the user has in
+    /// relation to this node", and the FileNodeBackend::files_rights
+    /// contract: `Some(rights)` is reported as `myRights`, `None` leaves
+    /// the stored value.
+    #[tokio::test]
+    async fn get_reports_files_rights_as_my_rights() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("n1", None, "n1"));
+        backend.seed_node("acc1", make_filenode("n2", None, "n2"));
+        backend.set_files_rights("n1", read_only_rights());
+
+        let args = json!({ "accountId": "acc1", "ids": ["n1", "n2"] });
+        let resp = handle_filenode_get(&backend, &(), args)
+            .await
+            .expect("get")
+            .primary;
+        let by_id = |id: &str| {
+            resp["list"]
+                .as_array()
+                .expect("list")
+                .iter()
+                .find(|n| n["id"] == id)
+                .cloned()
+                .expect("listed")
+        };
+        assert_eq!(by_id("n1")["myRights"], read_only_rights(), "{resp}");
+        assert_eq!(by_id("n2")["myRights"], Value::Null, "{resp}");
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-16 L431-434 (as above) for every
+    /// node in `list`, including the ancestors `fetchParents` appends.
+    #[tokio::test]
+    async fn get_fetch_parents_reports_ancestor_files_rights() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("p", None, "p"));
+        backend.seed_node("acc1", make_filenode("c", Some("p"), "c"));
+        backend.set_files_rights("p", read_only_rights());
+
+        let args = json!({ "accountId": "acc1", "ids": ["c"], "fetchParents": true });
+        let resp = handle_filenode_get(&backend, &(), args)
+            .await
+            .expect("get")
+            .primary;
+        let parent = resp["list"]
+            .as_array()
+            .expect("list")
+            .iter()
+            .find(|n| n["id"] == "p")
+            .cloned()
+            .expect("fetchParents appends p");
+        assert_eq!(parent["myRights"], read_only_rights(), "{resp}");
+    }
+
+    /// Oracle: RFC 8620 §5.1, `properties` "If supplied, only the
+    /// properties listed in the array are returned for each object". With
+    /// `myRights` not listed the hook is not asked, so its scheduled Err
+    /// never fires and no `myRights` appears.
+    #[tokio::test]
+    async fn get_without_my_rights_property_skips_files_rights() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("n1", None, "n1"));
+        backend.set_files_rights("n1", read_only_rights());
+        backend.inject_files_rights_err("simulated policy store timeout");
+
+        let args = json!({ "accountId": "acc1", "ids": ["n1"], "properties": ["name"] });
+        let resp = handle_filenode_get(&backend, &(), args)
+            .await
+            .expect("get")
+            .primary;
+        assert!(resp["list"][0].get("myRights").is_none(), "{resp}");
+    }
+
+    /// Oracle: FileNodeBackend::files_rights contract, "`Err(e)`: the
+    /// `FileNode/get` call fails with `serverFail`"; reporting the stored
+    /// value instead would misstate the server-set rights.
+    #[tokio::test]
+    async fn get_files_rights_err_propagates_as_server_fail() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("n1", None, "n1"));
+        backend.inject_files_rights_err("simulated policy store timeout");
+
+        let args = json!({ "accountId": "acc1", "ids": ["n1"] });
+        let err = handle_filenode_get(&backend, &(), args)
+            .await
+            .expect_err("files_rights Err must surface as a JmapError");
         assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
     }
 

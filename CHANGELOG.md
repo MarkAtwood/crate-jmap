@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: `FileNodeBackend::files_rights` (default
+  `Ok(None)`, fail-open). `FileNode/get` reports a `Some` result as the
+  node's `myRights`, including the ancestors `fetchParents` appends; an
+  `Err` is `serverFail`. Unless `properties` excludes `myRights`, each
+  `FileNode/get` now makes one extra `get_objects` read.
+- **jmap-chat-filenode-server**: a deployment returns `space_files_rights`
+  from `FileNodeBackend::files_rights`, so `FileNode/get` reports the
+  §Permission Mapping rights without patching its reads.
 - **jmap-graph-types**: `GraphProjectionCapability`, the account-level
   `urn:ietf:params:jmap:graph:projection` object (`graphId`) of
   draft-atwood-jmap-graph-projection-00 §Account-Level Capability Object.
