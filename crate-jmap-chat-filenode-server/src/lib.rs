@@ -14,7 +14,8 @@
 //! | `FileNodeBackend::create_object::<FileNode>`, before the insert | [`check_root_create`] and [`check_space_create`] |
 //! | `FileNodeBackend::update_object::<FileNode>`, before the write | [`check_space_update`] |
 //! | `FileNodeBackend::destroy_object::<FileNode>`, before the removal | [`check_space_destroy`] |
-//! | `JmapBackend::get_objects::<FileNode>` and the other FileNode reads | [`space_files_rights`] |
+//! | `FileNodeBackend::files_rights`, which `FileNode/get` reports as `myRights` | return [`space_files_rights`] |
+//! | `JmapBackend::get_objects::<FileNode>` and the other FileNode reads, to leave out nodes with no flag | [`space_files_rights`] |
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
 //! | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
 //! | `ChatBackend::filenode_attachment` | [`resolve_filenode_attachment`] |
@@ -537,7 +538,8 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// draft-atwood-jmap-chat-filenode-00 §Permission Mapping table, or `None`
 /// if `node` is not in a Space file tree.
 ///
-/// Set the result as the node's `myRights`: the table gives "the
+/// Return the result from [`FileNodeBackend::files_rights`], which
+/// `FileNode/get` reports as the node's `myRights`: the table gives "the
 /// `FilesRights` flags ... the server reports in `myRights` and enforces on
 /// each FileNode in the Space file tree". "Each row includes the grants of
 /// the rows above it", and the member's permissions are the union over

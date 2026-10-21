@@ -10,7 +10,7 @@
 //! FileNode-specific structural queries live here.
 
 pub use jmap_filenode_types::backend::FileNodeProperty;
-use jmap_filenode_types::FileNode;
+use jmap_filenode_types::{FileNode, FilesRights};
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
@@ -456,6 +456,46 @@ pub trait FileNodeBackend: JmapBackend {
         _account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         async { Ok(false) }
+    }
+
+    /// The `myRights` the caller holds on the stored `node`, when this
+    /// backend derives them from a policy outside the stored node.
+    ///
+    /// draft-ietf-jmap-filenode-16 §FileNode properties makes `myRights`
+    /// "server-set": "The set of rights (ACLs) the user has in relation to
+    /// this node". `handle_filenode_get` calls this method for each node in
+    /// its `list`, including the ancestors `fetchParents` appends, unless
+    /// `properties` excludes `myRights`. A deployment offering
+    /// draft-atwood-jmap-chat-filenode-00 returns the result of
+    /// `jmap_chat_filenode_server::space_files_rights` here.
+    ///
+    /// The handler only reports these rights. Backends enforce them in
+    /// [`Self::create_object`], [`Self::update_object`] and
+    /// [`Self::destroy_object`], atomically with the write, and leave
+    /// undiscoverable nodes out of their reads (draft-ietf-jmap-filenode-16
+    /// §Access Control), since discoverability depends on a node's
+    /// ancestors and descendants and not on its own rights alone.
+    ///
+    /// # Return mapping
+    ///
+    /// - `Ok(Some(rights))`: `FileNode/get` reports `rights` as the node's
+    ///   `myRights`.
+    /// - `Ok(None)`: no policy applies to this node; `FileNode/get` reports
+    ///   the `myRights` that [`JmapBackend::get_objects`] returned.
+    /// - `Err(e)`: the `FileNode/get` call fails with `serverFail`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(None)` for every node: the stored `myRights` stand and
+    /// nothing is restricted (fail-open, bd:JMAP-bghk). Backends with an
+    /// access policy override this method.
+    fn files_rights(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _node: &FileNode,
+    ) -> impl std::future::Future<Output = Result<Option<FilesRights>, Self::Error>> + Send {
+        async { Ok(None) }
     }
 
     /// Returns the id of any sibling node that already has the given name, or
