@@ -29,11 +29,13 @@ use jmap_server::{
 pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 const JMAP_VTC_URI: &str = "urn:ietf:params:jmap:vtc";
 
-/// "The server sets `id`, `accountId`, `activeAvatarCount` (to `0`),
-/// `createdAt`, and `updatedAt`." None of them may be set or patched.
+/// "The server sets `id`, `accountId`, `ownerId` (to the caller's
+/// userId), `activeAvatarCount` (to `0`), `createdAt`, and `updatedAt`."
+/// None of them may be set or patched.
 const SERVER_SET: &[&str] = &[
     "id",
     "accountId",
+    "ownerId",
     "activeAvatarCount",
     "createdAt",
     "updatedAt",
@@ -56,7 +58,9 @@ const ACCESS_POLICIES: &[&str] = &["public", "invite", "space"];
 /// Handle `SceneRegion/get` (draft-atwood-jmap-scene-00 §SceneRegion/get):
 /// standard RFC 8620 §5.1 `/get`, with a region the caller has no access
 /// to ([`SceneBackend::may_access_region`]) reported as `notFound`
-/// (§Region Access).
+/// (§Region Access). Of `invitedUserIds`, "The server returns the list
+/// only to callers who may update the region; for every other caller, the
+/// server returns `[]`" ([`SceneBackend::may_update_region`]).
 pub async fn handle_scene_region_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -258,8 +262,8 @@ fn bounds_ok(v: &Value) -> bool {
 /// `invalidProperties` row that needs no backend fact: `name` "missing or
 /// empty", `bounds` missing or malformed or `min > max`, an unknown
 /// `accessPolicy`, a `spawnPosition` that is not 3 Numbers, a
-/// `spawnOrientation` that is not a unit quaternion, and a property of
-/// the wrong JSON type.
+/// `spawnOrientation` that is not a unit quaternion, "`invitedUserIds` is
+/// not an array of Strings", and a property of the wrong JSON type.
 fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
     let mut bad = Vec::new();
     let mut check = |key: &'static str, ok: bool| {
@@ -309,6 +313,12 @@ fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
         "accessPolicy",
         optional("accessPolicy", |v| {
             v.as_str().is_some_and(|p| ACCESS_POLICIES.contains(&p))
+        }),
+    );
+    check(
+        "invitedUserIds",
+        optional("invitedUserIds", |v| {
+            v.as_array().is_some_and(|a| a.iter().all(Value::is_string))
         }),
     );
     bad
@@ -409,7 +419,8 @@ fn server_set_in<'a>(keys: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
 }
 
 /// One §Creating a Region. The `Ok` value is the `created` entry: the
-/// server-set `id`, `accountId`, `activeAvatarCount`, `createdAt` and
+/// server-set `id`, `accountId`, `ownerId` (from
+/// [`SceneBackend::caller_user_id`]), `activeAvatarCount`, `createdAt` and
 /// `updatedAt`.
 async fn create_region<B: SceneBackend>(
     backend: &B,
@@ -444,6 +455,10 @@ async fn create_region<B: SceneBackend>(
     }
 
     validate(backend, caller, account_id, &m, &|_| true).await?;
+    let owner_id = backend
+        .caller_user_id(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
 
     for (key, uri) in BINDINGS {
         if backend.has_capability(caller, account_id, uri) {
@@ -453,6 +468,7 @@ async fn create_region<B: SceneBackend>(
     let now = now_utc_string();
     m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
     m.insert("accountId".to_owned(), json!(account_id));
+    m.insert("ownerId".to_owned(), json!(owner_id));
     m.insert("activeAvatarCount".to_owned(), json!(0));
     m.insert("createdAt".to_owned(), json!(now));
     m.insert("updatedAt".to_owned(), json!(now));
@@ -465,6 +481,7 @@ async fn create_region<B: SceneBackend>(
     Ok(json!({
         "id": id,
         "accountId": stored.account_id,
+        "ownerId": stored.owner_id,
         "activeAvatarCount": stored.active_avatar_count,
         "createdAt": stored.created_at,
         "updatedAt": stored.updated_at,

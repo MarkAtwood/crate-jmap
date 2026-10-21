@@ -204,6 +204,18 @@ pub(crate) trait Visible: GetObject + Send + Sync {
         caller: &B::CallerCtx,
         account_id: &Id,
     ) -> impl std::future::Future<Output = Result<bool, B::Error>> + Send;
+
+    /// The record as `/get` returns it to a caller who may see it; by
+    /// default unchanged.
+    fn redact<B: SceneBackend>(
+        self,
+        backend: &B,
+        caller: &B::CallerCtx,
+        account_id: &Id,
+    ) -> impl std::future::Future<Output = Result<Self, B::Error>> + Send {
+        let _ = (backend, caller, account_id);
+        async { Ok(self) }
+    }
 }
 
 impl Visible for SceneRegion {
@@ -222,6 +234,23 @@ impl Visible for SceneRegion {
         _account_id: &Id,
     ) -> Result<bool, B::Error> {
         Ok(true)
+    }
+
+    /// `invitedUserIds`: "The server returns the list only to callers who
+    /// may update the region; for every other caller, the server returns
+    /// `[]`" (draft-atwood-jmap-scene-00 at 6bcd9d8, L457).
+    async fn redact<B: SceneBackend>(
+        mut self,
+        backend: &B,
+        caller: &B::CallerCtx,
+        account_id: &Id,
+    ) -> Result<Self, B::Error> {
+        if !self.invited_user_ids.is_empty()
+            && !backend.may_update_region(caller, account_id, &self).await?
+        {
+            self.invited_user_ids.clear();
+        }
+        Ok(self)
     }
 }
 
@@ -323,7 +352,11 @@ pub(crate) async fn handle_get_visible<O: Visible, B: SceneBackend>(
             .await
             .map_err(|e| server_fail_from_backend(&e))?
         {
-            list.push(o);
+            list.push(
+                o.redact(backend, caller, &account_id)
+                    .await
+                    .map_err(|e| server_fail_from_backend(&e))?,
+            );
         }
     }
     // `notFound` in request order, so a hidden id cannot be told from a

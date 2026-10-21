@@ -1054,6 +1054,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-types**: `SceneRegion` gains `owner_id`
+  (`ownerId`, required) and `invited_user_ids` (`invitedUserIds`, default
+  `[]`) (draft-atwood-jmap-scene-00 §SceneRegion). A region without
+  `ownerId` no longer deserializes.
+
+- **BREAKING** **jmap-scene-server**: `SceneRegion/set` create sets
+  `ownerId` to `SceneBackend::caller_user_id` and echoes it in `created`;
+  `ownerId` is refused on create and update like the other server-set
+  properties, and an `invitedUserIds` that is not a String array is
+  `invalidProperties`. `SceneRegion/get` returns `invitedUserIds` as `[]`
+  to callers for whom `SceneBackend::may_update_region` is `false`.
+  `MemoryBackend` takes the region owner from `ownerId` and admits users
+  to an `"invite"` region by `invitedUserIds` and by an active avatar in
+  it, besides `grant_region_access`.
+
 - **BREAKING** **jmap-scene-server**: `validate_interaction` returns
   `Option<SceneInteractionEvent>`, the event to relay with `userId` set to
   the caller's, instead of `bool`. A frame whose `userId` names another

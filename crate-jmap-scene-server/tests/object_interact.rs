@@ -248,8 +248,10 @@ async fn not_found_cases() {
         // The object is in another region than `regionId`.
         (ALICE, click(R1, VAULT_OBJ)),
         // No access to the region (L2606: "`notFound` ... for
-        // `SceneObject/interact`"), despite an avatar in it.
-        (BOB, click(VAULT, VAULT_OBJ)),
+        // `SceneObject/interact`"). BOB's active avatar in VAULT would
+        // give him access: "A user has access to a region when ... the
+        // user has an active SceneAvatar in it" (6bcd9d8 L2595).
+        (CAROL, click(VAULT, VAULT_OBJ)),
         // Outside the visibility set (L2589: "The server SHOULD NOT return
         // `forbidden`, as that would confirm the object still exists").
         (BOB, click(R1, OBJ2)),

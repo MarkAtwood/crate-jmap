@@ -44,7 +44,7 @@ pub enum AccessPolicy {
     /// `"public"`: any authenticated user.
     #[default]
     Public,
-    /// `"invite"`: only users explicitly granted access.
+    /// `"invite"`: the users listed in [`SceneRegion::invited_user_ids`].
     Invite,
     /// `"space"`: members of the bound Space (with JMAP Chat).
     Space,
@@ -110,6 +110,9 @@ pub struct SceneRegion {
     pub id: Id,
     /// The account that owns this region.
     pub account_id: Id,
+    /// "The userId of the user who created this region": the "region
+    /// owner" of the draft's permission rules. Immutable and server-set.
+    pub owner_id: String,
     /// Human-readable name.
     pub name: String,
     /// Optional description.
@@ -148,6 +151,11 @@ pub struct SceneRegion {
     /// Who may enter. Draft default `"public"`.
     #[serde(default)]
     pub access_policy: AccessPolicy,
+    /// "The userIds admitted to the region when `accessPolicy` is
+    /// `\"invite\"`. Default: `[]`." The server returns it only to callers
+    /// who may update the region and `[]` to everyone else.
+    #[serde(default)]
+    pub invited_user_ids: Vec<String>,
     /// Time the region was created.
     pub created_at: UTCDate,
     /// Time the region was last modified.
@@ -208,6 +216,7 @@ mod tests {
         json!({
             "id": "01J5ABC0000000000000000003",
             "accountId": "A1",
+            "ownerId": "user:curator@example.com",
             "name": "Main Plaza",
             "description": null,
             "bounds": {"min": [-10.0, 0.0, -10.0], "max": [10.0, 5.0, 10.0]},
@@ -220,6 +229,7 @@ mod tests {
             "viewHint": null,
             "geoAnchor": null,
             "accessPolicy": "invite",
+            "invitedUserIds": ["user:alice@example.com"],
             "createdAt": "2026-06-01T10:00:00Z",
             "updatedAt": "2026-06-01T10:00:00Z",
             "worldState": null
@@ -383,6 +393,35 @@ mod tests {
                 "missing {field} must be rejected"
             );
         }
+    }
+
+    #[test]
+    fn owner_id_is_required() {
+        // Oracle: 6bcd9d8 L327 "`ownerId` (String, immutable,
+        // server-set)": neither nullable nor defaulted.
+        let mut raw = standalone();
+        raw.as_object_mut().unwrap().remove("ownerId");
+        assert!(serde_json::from_value::<SceneRegion>(raw).is_err());
+    }
+
+    #[test]
+    fn invited_user_ids_default_and_round_trip() {
+        // Oracle: 6bcd9d8 L456-457 "`invitedUserIds` (String\[\]): The
+        // userIds admitted to the region ... Default: `[]`."
+        let raw = standalone();
+        let r: SceneRegion = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(r.invited_user_ids, ["user:alice@example.com"]);
+        assert_eq!(r.owner_id, "user:curator@example.com");
+        assert_eq!(serde_json::to_value(&r).unwrap(), raw);
+
+        let mut raw = standalone();
+        raw.as_object_mut().unwrap().remove("invitedUserIds");
+        let r: SceneRegion = serde_json::from_value(raw).unwrap();
+        assert!(r.invited_user_ids.is_empty());
+        assert_eq!(
+            serde_json::to_value(&r).unwrap()["invitedUserIds"],
+            json!([])
+        );
     }
 
     #[test]

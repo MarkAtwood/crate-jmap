@@ -357,6 +357,7 @@ pub fn region(id: &str, call_id: &str) -> Value {
     json!({
         "id": id,
         "accountId": ACCOUNT,
+        "ownerId": OWNER,
         "name": "Plaza",
         "description": null,
         "bounds": { "min": [-10.0, 0.0, -10.0], "max": [10.0, 5.0, 10.0] },
