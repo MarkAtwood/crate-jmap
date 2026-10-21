@@ -69,14 +69,19 @@ let resolved = resolver.refresh(&did).await?;
 
 ## Gotchas
 
-- The `didDocumentUri` hint of the account capability is not used.
+- `resolve_with_hint` uses the account capability's `didDocumentUri`
+  only where it cannot change what is trusted: any origin for `did:webvh`
+  (the log is verified wherever it comes from), the method-derived origin
+  for `did:web`, never for `did:key` or `did:plc`. An unreachable hint
+  falls back to the method-derived URL; a hint that serves a bad document
+  or log is an error. `refresh` never uses a hint.
 - `did:plc` returns `PlcState`, not a DID document.
 - `did:webvh` returns the whole `WebvhLog`, not a DID document, and its
   `current()` is `None` when an entry is invalid or the DID is
   deactivated.
 - The `did:webvh` `ttl` parameter is not used; the resolver's own TTL
   applies. The witness file is always fetched from the method-derived
-  URL.
+  URL, even when a hint served the log.
 - A `versionId` newer than the cached log is found only after
   `refresh`.
 

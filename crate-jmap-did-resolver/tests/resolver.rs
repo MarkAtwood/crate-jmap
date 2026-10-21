@@ -6,6 +6,9 @@
 //!
 //! - draft-atwood-jmap-chat-did-00 (jmap-chat-spec 6bcd9d8) §Caching L233
 //!   and §Resolution failure handling L237, quoted at each test.
+//! - draft-atwood-jmap-did-00 L194 at jmap-chat-spec 29e9a41
+//!   (`didDocumentUri`) and the JMAP-6itf.11 decision on the hint
+//!   (2026-10-21), quoted at each hint test.
 //! - did:web Method Specification (<https://w3c-ccg.github.io/did-method-web/>)
 //!   §Read (Resolve) and its `w3c-ccg.github.io/user/alice` example.
 //! - did:key Method v0.9 (<https://w3c-ccg.github.io/did-key-spec/>) and
@@ -203,6 +206,83 @@ async fn did_web_http_error_is_a_resolution_failure_and_not_cached() {
     stub.serve(ALICE_URL, &alice_document("key-0"));
     assert!(resolver.resolve(&did(ALICE)).await.is_ok());
     assert_eq!(stub.calls(), [ALICE_URL, ALICE_URL]);
+}
+
+// ---------------------------------------------------- didDocumentUri hint
+
+/// A same-origin location for `ALICE`'s document other than `ALICE_URL`.
+const ALICE_SAME_ORIGIN_HINT: &str = "https://w3c-ccg.github.io:443/mirror/alice.json";
+
+#[tokio::test]
+async fn did_web_hint_on_the_method_origin_is_used() {
+    // JMAP-6itf.11 decision (2026-10-21): "did:web: use the
+    // didDocumentUri hint only when its https origin (scheme+host+port)
+    // equals the method-derived origin". The explicit :443 is the https
+    // default port, so the origin is that of ALICE_URL.
+    let stub = Stub::default();
+    stub.serve(ALICE_SAME_ORIGIN_HINT, &alice_document("key-0"));
+    let resolver = Resolver::new(&stub, TTL);
+    let resolved = resolver
+        .resolve_with_hint(&did(ALICE), ALICE_SAME_ORIGIN_HINT)
+        .await;
+    assert_eq!(document(resolved.unwrap()), alice_document("key-0"));
+    assert_eq!(stub.calls(), [ALICE_SAME_ORIGIN_HINT]);
+}
+
+#[tokio::test]
+async fn did_web_hint_on_another_origin_is_ignored() {
+    // Same decision: "otherwise ignore it and resolve by method". Each
+    // hint differs from ALICE_URL's origin in one of scheme, host, port.
+    for hint in [
+        "http://w3c-ccg.github.io/user/alice/did.json",
+        "https://jmap.example.net/user/alice/did.json",
+        "https://w3c-ccg.github.io:8443/user/alice/did.json",
+        "not a URL",
+    ] {
+        let stub = Stub::default();
+        stub.serve(hint, &alice_document("key-hint"));
+        stub.serve(ALICE_URL, &alice_document("key-0"));
+        let resolver = Resolver::new(&stub, TTL);
+        let resolved = resolver.resolve_with_hint(&did(ALICE), hint).await;
+        assert_eq!(
+            document(resolved.unwrap()),
+            alice_document("key-0"),
+            "{hint}"
+        );
+        assert_eq!(stub.calls(), [ALICE_URL], "{hint}");
+    }
+}
+
+#[tokio::test]
+async fn did_web_unreachable_hint_falls_back_to_the_method_url() {
+    // draft-atwood-jmap-did-00 L194 at jmap-chat-spec 29e9a41: "When
+    // didDocumentUri is non-null but unreachable (network error, HTTP
+    // 4xx/5xx), clients SHOULD fall back to standard method-specific
+    // resolution for the DID."
+    let stub = Stub::default();
+    stub.fail(ALICE_SAME_ORIGIN_HINT, 503);
+    stub.serve(ALICE_URL, &alice_document("key-0"));
+    let resolver = Resolver::new(&stub, TTL);
+    let resolved = resolver
+        .resolve_with_hint(&did(ALICE), ALICE_SAME_ORIGIN_HINT)
+        .await;
+    assert_eq!(document(resolved.unwrap()), alice_document("key-0"));
+    assert_eq!(stub.calls(), [ALICE_SAME_ORIGIN_HINT, ALICE_URL]);
+}
+
+#[tokio::test]
+async fn did_plc_hint_is_ignored() {
+    // JMAP-6itf.11 decision: "did:key/did:plc: ignore the hint."
+    let stub = Stub::default();
+    let hint = "https://jmap.example.net/plc/log/audit";
+    stub.serve(hint, &fixture("synthetic.json"));
+    stub.serve(EWVI_URL, &fixture("ewvi7nxzyoun6zhxrhs64oiz.audit.json"));
+    let resolver = Resolver::new(&stub, TTL);
+    assert!(matches!(
+        resolver.resolve_with_hint(&did(EWVI), hint).await,
+        Ok(Resolved::Plc(_))
+    ));
+    assert_eq!(stub.calls(), [EWVI_URL]);
 }
 
 #[tokio::test]
@@ -788,4 +868,92 @@ async fn did_webvh_unknown_version_id_is_not_found() {
         resolver.resolve_webvh_version(&did(ALICE), "1-x").await,
         Err(ResolveError::UnsupportedMethod(method)) if method == "web"
     ));
+}
+
+/// A `didDocumentUri` on another origin than `WEBVH_LOG_URL`.
+const WEBVH_CROSS_ORIGIN_HINT: &str = "https://jmap.example.net/dids/alice/did.jsonl";
+
+#[tokio::test]
+async fn did_webvh_log_from_a_cross_origin_hint_verifies() {
+    // draft-atwood-jmap-did-00 L194 at jmap-chat-spec 29e9a41: "a log
+    // fetched from this URI is resolved as defined in {{did-webvh}}, like
+    // one fetched from the method-derived URL." JMAP-6itf.11 addendum:
+    // "the hint MUST work cross-origin for did:webvh". The log is the DIF
+    // basic-update vector; its own resolution result is the oracle.
+    let (d, version_id) = webvh_expected("basic-update");
+    let stub = Stub::default();
+    stub.serve_bytes(
+        WEBVH_CROSS_ORIGIN_HINT,
+        &webvh_fixture("basic-update", "did.jsonl"),
+    );
+    let resolver = Resolver::new(&stub, TTL);
+    let resolved = resolver.resolve_with_hint(&d, WEBVH_CROSS_ORIGIN_HINT);
+    let log = webvh_log(resolved.await.unwrap());
+    let current = log.current().unwrap();
+    assert_eq!(current.version_id, version_id);
+    assert_eq!(current.document["id"], d.as_str());
+    assert_eq!(stub.calls(), [WEBVH_CROSS_ORIGIN_HINT]);
+}
+
+#[tokio::test]
+async fn did_webvh_tampered_log_from_a_cross_origin_hint_is_rejected() {
+    // JMAP-6itf.11 addendum: "a tampered log from the cross-origin hint is
+    // rejected". The genesis entry's versionTime is changed by hand, so its
+    // entry hash no longer matches its versionId (DIF did:webvh v1.0
+    // §Read (Resolve)). Verification failure is not "unreachable" (L194),
+    // so the method-derived URL is not tried, and nothing is cached.
+    let (d, _) = webvh_expected("basic-update");
+    let log = String::from_utf8(webvh_fixture("basic-update", "did.jsonl")).unwrap();
+    let tampered = log.replacen("2000-01-01T00:00:00Z", "2000-01-02T00:00:00Z", 1);
+    assert_ne!(tampered, log);
+    let stub = Stub::default();
+    stub.serve_bytes(WEBVH_CROSS_ORIGIN_HINT, tampered.as_bytes());
+    stub.serve_bytes(WEBVH_LOG_URL, log.as_bytes());
+    let resolver = Resolver::new(&stub, TTL);
+    assert!(matches!(
+        resolver
+            .resolve_with_hint(&d, WEBVH_CROSS_ORIGIN_HINT)
+            .await,
+        Err(ResolveError::Webvh(_))
+    ));
+    assert_eq!(stub.calls(), [WEBVH_CROSS_ORIGIN_HINT]);
+    assert!(resolver.resolve(&d).await.is_ok());
+    assert_eq!(stub.calls(), [WEBVH_CROSS_ORIGIN_HINT, WEBVH_LOG_URL]);
+}
+
+#[tokio::test]
+async fn did_webvh_witness_file_comes_from_the_method_url_under_a_hint() {
+    // L194: "The witness proofs file (did-witness.json) always comes from
+    // the method-derived URL ({{DID-WEBVH}}), even when this URI served
+    // the log." A witness file beside the hint is never requested.
+    let (d, version_id) = webvh_expected("witness-threshold");
+    let stub = Stub::default();
+    stub.serve_bytes(
+        WEBVH_CROSS_ORIGIN_HINT,
+        &webvh_fixture("witness-threshold", "did.jsonl"),
+    );
+    stub.serve_bytes(
+        WEBVH_WITNESS_URL,
+        &webvh_fixture("witness-threshold", "did-witness.json"),
+    );
+    let resolver = Resolver::new(&stub, TTL);
+    let resolved = resolver.resolve_with_hint(&d, WEBVH_CROSS_ORIGIN_HINT);
+    let log = webvh_log(resolved.await.unwrap());
+    assert_eq!(log.current().unwrap().version_id, version_id);
+    assert_eq!(stub.calls(), [WEBVH_CROSS_ORIGIN_HINT, WEBVH_WITNESS_URL]);
+}
+
+#[tokio::test]
+async fn did_webvh_unreachable_hint_falls_back_to_the_method_url() {
+    // L194: "When didDocumentUri is non-null but unreachable (network
+    // error, HTTP 4xx/5xx), clients SHOULD fall back to standard
+    // method-specific resolution for the DID."
+    let (d, version_id) = webvh_expected("basic-update");
+    let stub = Stub::default();
+    stub.serve_bytes(WEBVH_LOG_URL, &webvh_fixture("basic-update", "did.jsonl"));
+    let resolver = Resolver::new(&stub, TTL);
+    let resolved = resolver.resolve_with_hint(&d, WEBVH_CROSS_ORIGIN_HINT);
+    let log = webvh_log(resolved.await.unwrap());
+    assert_eq!(log.current().unwrap().version_id, version_id);
+    assert_eq!(stub.calls(), [WEBVH_CROSS_ORIGIN_HINT, WEBVH_LOG_URL]);
 }

@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-did-resolver**: `Resolver::resolve_with_hint` uses the account
+  capability's `didDocumentUri`. For `did:webvh` the log comes from the
+  hint on any origin and is verified as usual; the witness file still
+  comes from the method-derived URL (draft-atwood-jmap-did-00 L194 at
+  jmap-chat-spec 29e9a41). For `did:web` the hint is used only when its
+  origin is the method-derived URL's origin. `did:key` and `did:plc`
+  ignore it. An unreachable hint falls back to the method-derived URL.
 - **jmap-server**: `parse_max_changes`, the shared RFC 8620 §5.2
   `maxChanges` parser (absent/`null` -> `None`; `0`, negative or
   non-integer -> `invalidArguments`). `handle_changes`,
