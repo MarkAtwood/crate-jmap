@@ -1,4 +1,5 @@
-//! `Space/set` destroy cascades to the Space's channels (bd:JMAP-x2gd.59).
+//! `Space/set` destroy cascades to the Space's channels (bd:JMAP-x2gd.59)
+//! and requires `manage_space` (bd:JMAP-wwwx).
 //!
 //! Oracle: draft-atwood-jmap-chat-00 §Destroying a Space: "Cascades to
 //! all channel Chats and their Messages. Hard-deletes all records; no
@@ -23,8 +24,13 @@ const OTHER_SPACE_ID: &str = "space2";
 /// accountId, draft §Terminology), holding a role with `"view"`, so its
 /// channel messages are visible: §Message/query "For channel Chats, the
 /// server MUST verify the caller holds the `"view"` permission before
-/// returning messages in `Message/get`".
+/// returning messages in `Message/get`". The role also grants
+/// `"manage_space"`, which §Destroying a Space requires.
 fn seed_space(backend: &MemoryBackend, id: &str) {
+    seed_space_with(backend, id, json!(["view", "manage_space"]));
+}
+
+fn seed_space_with(backend: &MemoryBackend, id: &str, permissions: Value) {
     backend.insert_object_for_test(
         "Space",
         ACCOUNT_ID,
@@ -38,7 +44,7 @@ fn seed_space(backend: &MemoryBackend, id: &str) {
             "uncategorizedChannelIds": [],
             "isPublic": false,
             "isPubliclyPreviewable": false,
-            "roles": [{ "id": "r-view", "name": "Viewer", "permissions": ["view"], "position": 1 }],
+            "roles": [{ "id": "r-view", "name": "Viewer", "permissions": permissions, "position": 1 }],
             "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-view"], "joinedAt": "2026-01-01T00:00:00Z" }]
         }),
     );
@@ -238,6 +244,60 @@ async fn channel_read_failure_leaves_space_and_channels() {
     assert_eq!(chats["notFound"], json!([]), "{chats:?}");
     let space = jmap_chat_server::JmapBackend::get_objects::<jmap_chat_types::Space>(
         inner,
+        &(),
+        &Id::from(ACCOUNT_ID),
+        Some(&[Id::from(SPACE_ID)]),
+        None,
+    )
+    .await
+    .expect("read");
+    assert_eq!(space.0.len(), 1, "the Space must survive");
+}
+
+/// §Destroying a Space (jmap-chat-spec 33702a5 L1383): "The caller MUST
+/// hold `"manage_space"` ... Servers MUST return a `forbidden` SetError
+/// when the caller does not satisfy the deployment's destroy-authorization
+/// rules." A caller whose only role grants `"view"` gets `forbidden`, and
+/// the Space and its channels survive.
+#[tokio::test]
+async fn destroy_without_manage_space_is_forbidden() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from(ACCOUNT_ID));
+    seed_space_with(&backend, SPACE_ID, json!(["view"]));
+    seed_chat(
+        &backend,
+        "ch1",
+        json!({ "kind": "channel", "name": "a", "spaceId": SPACE_ID }),
+    );
+
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
+    )
+    .await
+    .expect("Space/set");
+    assert_eq!(
+        resp["notDestroyed"][SPACE_ID]["type"], "forbidden",
+        "{resp}"
+    );
+    assert!(
+        !resp["destroyed"]
+            .as_array()
+            .is_some_and(|d| d.contains(&json!(SPACE_ID))),
+        "{resp}"
+    );
+
+    let HandlerOutput { primary: chats, .. } = handle_chat_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["ch1"] }),
+    )
+    .await
+    .expect("Chat/get");
+    assert_eq!(chats["notFound"], json!([]), "{chats:?}");
+    let space = jmap_chat_server::JmapBackend::get_objects::<jmap_chat_types::Space>(
+        &backend,
         &(),
         &Id::from(ACCOUNT_ID),
         Some(&[Id::from(SPACE_ID)]),

@@ -1011,6 +1011,26 @@ impl ChatBackend for MemoryBackend {
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
 
+        // draft-atwood-jmap-chat-00 §Destroying a Space: "The caller MUST
+        // hold `"manage_space"`". Checked under the same lock hold as the
+        // removal, as `apply_space_metadata_patch_impl` does.
+        if O::TYPE_NAME == "Space" {
+            if let Some(space_val) = inner
+                .objects_ref("Space", account_id.as_ref())
+                .and_then(|m| m.get(id))
+            {
+                let caller_perms =
+                    caller_effective_permissions(space_val, account_id).unwrap_or_default();
+                if !caller_perms.contains(&ChatPermission::ManageSpace) {
+                    return Err(BackendSetError::SetError(
+                        SetError::new(SetErrorType::Forbidden).with_description(
+                            "caller lacks required permission `manage_space` to destroy the Space",
+                        ),
+                    ));
+                }
+            }
+        }
+
         let removed = if O::TYPE_NAME == "Message" {
             hard_delete_message(&mut inner, account_id.as_ref(), id)
         } else {
