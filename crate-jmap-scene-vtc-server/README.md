@@ -15,6 +15,7 @@ this crate depends on `jmap-scene-server` and `jmap-vtc-types`.
 | Item | Spec |
 |---|---|
 | `clear_active_call_id` | scene §SceneRegion `activeCallId`: cleared to `null`, with a SceneRegion `StateChange`, when the referenced VTCCall transitions to `"ended"` |
+| `may_see_region_avatars` | scene §Security Considerations: a region bound to a VTCCall with `e2eeEnabled` hides its SceneAvatar records and `SceneAvatarEvent`s from users who are not participants in the call |
 
 ## What it's for
 
@@ -41,6 +42,12 @@ async fn update_object<O: SetObject + Send + Sync>(&self, caller: &Ctx, account_
 
 `tests/common/mod.rs` wires the two reference `MemoryBackend`s this way.
 
+`SceneBackend::may_see_region_avatars` loads the region and, when its
+`activeCallId` is set, the VTCCall as stored, then returns
+`may_see_region_avatars(&self.vtc, caller, account_id, &call, &user_id)`;
+a region with no `activeCallId` answers `true`. The same answer must
+drive the omission in your `query_objects` and `query_changes`.
+
 ## How it works
 
 The function does nothing unless the call is `"ended"`. Otherwise it
@@ -58,7 +65,11 @@ state.
   scene-vtc integration guide calls that direction "not normatively
   required by either spec".
 - It reads every SceneRegion in the account; the `ponytail:` note names
-  the upgrade path.
+  the upgrade path. `may_see_region_avatars` likewise reads every
+  VTCParticipant of the account.
+- A participant is anyone with a VTCParticipant record in the call, left
+  or not (vtc §Participant Visibility: "users who do not have a
+  VTCParticipant record in it").
 
 ## References
 

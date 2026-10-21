@@ -50,9 +50,11 @@ const EJECT_PROPERTIES: &[&str] = &["leftAt"];
 
 /// Handle `SceneAvatar/get` (draft-atwood-jmap-scene-00 §SceneAvatar/get):
 /// standard RFC 8620 §5.1 `/get`, with an avatar in a region the caller
-/// has no access to ([`SceneBackend::may_access_region`]) or of a user the
-/// caller blocked ([`SceneBackend::is_user_blocked`]) reported as
-/// `notFound` (§Region Access, §Blocked-Contact Spatial Presence).
+/// has no access to ([`SceneBackend::may_access_region`]), of a user the
+/// caller blocked ([`SceneBackend::is_user_blocked`]) or in a region whose
+/// avatars the caller may not see ([`SceneBackend::may_see_region_avatars`],
+/// a region bound to an E2EE call) reported as `notFound` (§Region Access,
+/// §Blocked-Contact Spatial Presence, §Security Considerations).
 pub async fn handle_scene_avatar_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,

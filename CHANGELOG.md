@@ -14,6 +14,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: `SceneBackend::may_see_region_avatars` hook
+  (draft-atwood-jmap-scene-00 §Security Considerations: for a region
+  bound to an E2EE VTCCall the server "SHOULD return `notFound` for
+  `SceneAvatar/get`, exclude the records from `SceneAvatar/query`, and
+  suppress `SceneAvatarEvent` ... delivery" toward non-participants).
+  `SceneAvatar/get` reports the avatars of a region answering `false` in
+  `notFound` and `should_deliver` drops their `SceneAvatarEvent`s; the
+  backend's `query_objects`/`query_changes` must omit them. The default
+  hides nothing (fail-open); `MemoryBackend` hides what
+  `hide_region_avatars` records.
+- **jmap-scene-vtc-server**: `may_see_region_avatars`, the VTC answer for
+  that hook: `true` unless the region's VTCCall has `e2eeEnabled` and the
+  user has no VTCParticipant record in it.
+
 - **jmap-scene-types**: `SceneStreamEnable::id` (draft-atwood-jmap-scene-wss-00
   §SceneStreamEnable: "A `RequestError` caused by this message carries
   this value as its `requestId`"). An `id` on the wire now lands in this

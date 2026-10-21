@@ -10,13 +10,14 @@
 //! | Backend method | Call |
 //! |---|---|
 //! | `VtcBackend::update_object::<VtcCall>`, after the write | [`clear_active_call_id`] |
+//! | `SceneBackend::may_see_region_avatars`, for a region with an `activeCallId` | [`may_see_region_avatars`] |
 
 #![forbid(unsafe_code)]
 
-use jmap_scene_server::{BackendSetError, SceneBackend};
+use jmap_scene_server::{BackendSetError, JmapBackend, SceneBackend};
 use jmap_scene_types::SceneRegion;
 use jmap_types::{Id, PatchObject};
-use jmap_vtc_types::{CallState, VtcCall};
+use jmap_vtc_types::{CallState, VtcCall, VtcParticipant};
 use serde_json::Value;
 
 /// Clear `activeCallId` on every SceneRegion that names `call`, the
@@ -71,4 +72,51 @@ pub async fn clear_active_call_id<S: SceneBackend>(
             .await?;
     }
     Ok(())
+}
+
+/// Whether `user_id` may see the SceneAvatar records of a region whose
+/// `activeCallId` names `call`, the VTCCall as stored.
+///
+/// draft-atwood-jmap-scene-00 at jmap-chat-spec 6bcd9d8, L2654: "When a
+/// SceneRegion's `activeCallId` references a VTCCall with `e2eeEnabled`
+/// set to `true`, the server SHOULD NOT expose the region's SceneAvatar
+/// records to users who are not participants in the bound VTCCall". A
+/// participant is a user with a VTCParticipant record in the call, as in
+/// draft-atwood-jmap-vtc-00 at 6bcd9d8, L1644 ("users who do not have a
+/// VTCParticipant record in it"), whether or not that record has left.
+///
+/// A call with `e2eeEnabled` `false` hides nothing, and no VTC read is
+/// made. Otherwise `vtc` is the VTC storage, read as `caller`, whose
+/// userId is `user_id`, for the VTCParticipant records of `account_id`,
+/// the call's hosting account. A `VtcBackend` shows the caller its own
+/// record in an E2EE call, so a caller-scoped read is enough.
+///
+/// A `SceneBackend` returns this from
+/// [`SceneBackend::may_see_region_avatars`] after loading the region and,
+/// when its `activeCallId` is set, that VTCCall; a region with no
+/// `activeCallId` answers `true`. The Scene handlers then hide the avatars
+/// from `SceneAvatar/get` and drop their `SceneAvatarEvent`s, and the
+/// backend's `query_objects` and `query_changes` omit them.
+///
+/// # Errors
+///
+/// Returns the VTC backend's error from reading the participants.
+pub async fn may_see_region_avatars<B: JmapBackend>(
+    vtc: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    call: &VtcCall,
+    user_id: &str,
+) -> Result<bool, B::Error> {
+    if !call.e2ee_enabled {
+        return Ok(true);
+    }
+    // ponytail: reads every VTCParticipant of the account; O(participants)
+    // per check. Upgrade: a `callId` filtered query_objects.
+    let (participants, _) = vtc
+        .get_objects::<VtcParticipant>(caller, account_id, None, None)
+        .await?;
+    Ok(participants
+        .iter()
+        .any(|p| p.call_id == call.id && p.user_id.as_deref() == Some(user_id)))
 }

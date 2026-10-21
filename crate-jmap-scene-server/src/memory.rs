@@ -42,7 +42,10 @@
 //! active avatar in it; other policies, and a region that is not stored,
 //! admit everyone (there are no Spaces here). `hide_object` takes an object out of one user's
 //! visibility set, for [`SceneBackend::is_object_visible`]; `block` makes
-//! one user blocked by another, for [`SceneBackend::is_user_blocked`].
+//! one user blocked by another, for [`SceneBackend::is_user_blocked`];
+//! `hide_region_avatars` hides a region's avatars from one user, as for a
+//! region bound to an E2EE call, for
+//! [`SceneBackend::may_see_region_avatars`].
 //! `reserve_display_name` adds a name to the list
 //! [`SceneBackend::reserved_display_names`] returns for every account.
 //! `/query` omits the regions, objects and avatars those hooks hide from
@@ -162,6 +165,9 @@ struct Inner {
     interactions: Vec<SceneInteractionEvent>,
     /// `(blocking userId, blocked userId)` pairs.
     blocked: HashSet<(String, String)>,
+    /// `(userId, region id)` pairs: regions whose avatars that user may
+    /// not see.
+    hidden_avatars: HashSet<(String, Id)>,
     /// Reserved avatar display names.
     reserved_names: Vec<String>,
 }
@@ -464,6 +470,15 @@ impl MemoryBackend {
             .insert((blocker.to_owned(), user.to_owned()));
     }
 
+    /// Hide the avatars of region `region_id` from `user`, for
+    /// [`SceneBackend::may_see_region_avatars`].
+    #[doc(hidden)]
+    pub fn hide_region_avatars(&self, user: &str, region_id: &str) {
+        self.lock()
+            .hidden_avatars
+            .insert((user.to_owned(), Id::from(region_id)));
+    }
+
     /// Refuse every interaction of `user` as over the rate, for
     /// [`SceneBackend::accept_interaction`].
     #[doc(hidden)]
@@ -708,6 +723,9 @@ impl JmapBackend for MemoryBackend {
                 |a| {
                     inner.may_access(caller, account_id, &a.region_id)
                         && !inner.blocked.contains(&(caller.clone(), a.user_id.clone()))
+                        && !inner
+                            .hidden_avatars
+                            .contains(&(caller.clone(), a.region_id.clone()))
                         && filter.as_ref().is_none_or(|f| avatar_matches(f, a))
                 },
                 |a, b| compare_avatars(a, b, &sort),
@@ -1141,6 +1159,18 @@ impl SceneBackend for MemoryBackend {
             .lock()
             .blocked
             .contains(&(caller.clone(), user_id.to_owned())))
+    }
+
+    async fn may_see_region_avatars(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+        region_id: &Id,
+    ) -> Result<bool, MemoryError> {
+        Ok(!self
+            .lock()
+            .hidden_avatars
+            .contains(&(caller.clone(), region_id.clone())))
     }
 
     async fn reserved_display_names(
