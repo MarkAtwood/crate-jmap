@@ -363,6 +363,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
+    // RFC 8620 §3.6.2 accountNotFound, as in the canonical
+    // jmap-mail-server::handle_mailbox_set (bd:JMAP-2wuk).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
 
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.7). Reject
     // unbounded /set batches before touching the storage layer.
@@ -3351,14 +3360,14 @@ mod tests {
     /// accountId given corresponds to a valid account, but the account
     /// does not support this method or data type." An unknown account is
     /// therefore `accountNotFound`, even on a backend that opts out of
-    /// FileNode for it. `FileNode/set` is not listed: it has no
-    /// `accountNotFound` check yet (bd:JMAP-2wuk).
+    /// FileNode for it.
     #[tokio::test]
     async fn gate_reports_unknown_account_as_account_not_found() {
         let backend = NoFileNodeBackend(MemoryBackend::new().with_account("acc2"));
         let cases = [
             "FileNode/get",
             "FileNode/changes",
+            "FileNode/set",
             "FileNode/copy",
             "FileNode/query",
             "FileNode/queryChanges",
@@ -3374,6 +3383,7 @@ mod tests {
             let err = match method {
                 "FileNode/get" => handle_filenode_get(&backend, &(), args).await.err(),
                 "FileNode/changes" => handle_filenode_changes(&backend, &(), args).await.err(),
+                "FileNode/set" => handle_filenode_set(&backend, &(), args).await.err(),
                 "FileNode/copy" => handle_filenode_copy(
                     &backend,
                     &(),

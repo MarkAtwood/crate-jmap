@@ -1876,6 +1876,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-filenode-server**: `FileNode/set` now answers `accountNotFound`
+  for an unknown `accountId` (RFC 8620 §3.6.2), like the other
+  `FileNode/*` handlers. It previously returned an empty `/set` response.
 - **BREAKING** **jmap-chat-server**: `Space/set` destroy now requires
   `manage_space`. `MemoryBackend::destroy_object::<Space>` returns a
   `forbidden` SetError when the caller lacks it, and the
