@@ -97,7 +97,7 @@ use jmap_scene_types::{
     SceneRegion,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
-use jmap_types::{Id, State, UTCDate};
+use jmap_types::{Id, State};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -121,6 +121,10 @@ enum Change {
 }
 
 type Key = (&'static str, String);
+
+/// The avatar changes and the regions to recount that [`Inner::admit`]
+/// leaves for its caller to commit.
+type Admitted = (Vec<(Id, Change)>, Vec<Id>);
 
 #[derive(Default)]
 struct Inner {
@@ -223,18 +227,45 @@ impl Inner {
         account_id: &Id,
         avatar: SceneAvatar,
     ) -> Result<Value, BackendSetError<MemoryError>> {
-        let mine: Vec<SceneAvatar> = self
+        // "When the user already has a SceneAvatar record in the same
+        // region, whether present or departed, the server MUST NOT create a
+        // second record and MUST return an `alreadyExists` SetError".
+        if let Some(existing) = self
             .all::<SceneAvatar>(account_id)
-            .filter(|a| a.user_id == avatar.user_id)
-            .collect();
-        let here = mine.iter().find(|a| a.region_id == avatar.region_id);
-        if let Some(current) = here.filter(|a| a.left_at.is_none()) {
+            .find(|a| a.user_id == avatar.user_id && a.region_id == avatar.region_id)
+        {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::AlreadyExists)
-                    .with_description("the user already has an active avatar in this region")
-                    .with_existing_id(current.id.clone()),
+                    .with_description("the user already has an avatar record in this region")
+                    .with_existing_id(existing.id),
             ));
         }
+        let (mut changes, mut regions) = self.admit(account_id, &avatar)?;
+        let id = Id::from(ulid::Ulid::new().to_string());
+        let mut value = serde_json::to_value(&avatar)
+            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+        value["id"] = json!(id);
+        self.objects_mut(SceneAvatar::TYPE_NAME, account_id)
+            .insert(id.clone(), value.clone());
+        changes.push((id, Change::Created));
+        regions.push(avatar.region_id);
+        self.commit(SceneAvatar::TYPE_NAME, account_id, changes);
+        self.recount(account_id, &regions);
+        Ok(value)
+    }
+
+    /// The steps a create and a re-entry of `avatar` share, under the
+    /// lock: refuse with `overQuota` when its region already holds
+    /// `maxAvatarsPerRegion` present avatars, then set `leftAt` to
+    /// `avatar.joined_at` on the user's present avatars ("a user is
+    /// present in at most one region at a time"). Returns those avatars'
+    /// changes and their regions, for the caller to commit and recount.
+    #[allow(clippy::result_large_err)]
+    fn admit(
+        &mut self,
+        account_id: &Id,
+        avatar: &SceneAvatar,
+    ) -> Result<Admitted, BackendSetError<MemoryError>> {
         let max = self
             .accounts
             .get(account_id.as_ref())
@@ -250,42 +281,23 @@ impl Inner {
             ));
         }
 
-        let mut changes = Vec::new();
-        let mut regions = vec![avatar.region_id.clone()];
+        let previous: Vec<SceneAvatar> = self
+            .all::<SceneAvatar>(account_id)
+            .filter(|a| a.user_id == avatar.user_id && a.left_at.is_none())
+            .collect();
         let avatars = self.objects_mut(SceneAvatar::TYPE_NAME, account_id);
-        // "the server MUST set `leftAt` on the previous avatar before
-        // creating the new one".
-        for previous in mine.iter().filter(|a| a.left_at.is_none()) {
+        let mut changes = Vec::new();
+        let mut regions = Vec::new();
+        // "When the user has an active SceneAvatar in a different region,
+        // the server SHOULD set `leftAt` on the previous avatar".
+        for previous in previous {
             if let Some(v) = avatars.get_mut(&previous.id) {
                 v["leftAt"] = json!(avatar.joined_at);
-                changes.push((previous.id.clone(), Change::Updated));
-                regions.push(previous.region_id.clone());
+                changes.push((previous.id, Change::Updated));
+                regions.push(previous.region_id);
             }
         }
-        // §Reconnecting: "update the existing SceneAvatar record rather
-        // than creating a new one".
-        let value = match here {
-            Some(departed) => {
-                let v = avatars.get_mut(&departed.id).ok_or_else(not_found)?;
-                v["leftAt"] = Value::Null;
-                v["joinedAt"] = json!(avatar.joined_at);
-                v["position"] = json!(avatar.position);
-                changes.push((departed.id.clone(), Change::Updated));
-                v.clone()
-            }
-            None => {
-                let id = Id::from(ulid::Ulid::new().to_string());
-                let mut v = serde_json::to_value(&avatar)
-                    .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
-                v["id"] = json!(id);
-                avatars.insert(id.clone(), v.clone());
-                changes.push((id, Change::Created));
-                v
-            }
-        };
-        self.commit(SceneAvatar::TYPE_NAME, account_id, changes);
-        self.recount(account_id, &regions);
-        Ok(value)
+        Ok((changes, regions))
     }
 
     /// The stored region `region_id`, if it decodes.
@@ -856,6 +868,7 @@ impl SceneBackend for MemoryBackend {
             .cloned()
             .ok_or_else(not_found)?;
 
+        let was_left = current.get("leftAt").is_some_and(|l| !l.is_null());
         let patch = serde_json::to_value(&patch)
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
         let (Value::Object(patch), Value::Object(base)) = (patch, &mut current) else {
@@ -874,38 +887,42 @@ impl SceneBackend for MemoryBackend {
                     .with_description(format!("patched {} is invalid", O::TYPE_NAME)),
             ));
         }
-        // "double-leave is invalid", re-checked under the lock.
-        let leaving = O::TYPE_NAME == SceneAvatar::TYPE_NAME && patch.contains_key("leftAt");
-        if leaving {
-            let stored = inner
-                .objects(O::TYPE_NAME, account_id)
-                .and_then(|m| m.get(id))
-                .and_then(|v| v.get("leftAt"))
-                .and_then(|l| serde_json::from_value::<Option<UTCDate>>(l.clone()).ok())
-                .flatten();
-            if stored.is_some() {
-                return Err(BackendSetError::SetError(
+        let mut changes = Vec::new();
+        let mut regions = Vec::new();
+        let left_to = patch
+            .get("leftAt")
+            .filter(|_| O::TYPE_NAME == SceneAvatar::TYPE_NAME);
+        if let Some(to) = left_to {
+            // Leave and re-entry preconditions, re-checked under the lock.
+            let refuse = |description: &str| {
+                BackendSetError::SetError(
                     SetError::new(SetErrorType::InvalidProperties)
-                        .with_description("the avatar has already left")
+                        .with_description(description)
                         .with_properties(["leftAt"]),
-                ));
+                )
+            };
+            match (to.is_null(), was_left) {
+                (false, true) => return Err(refuse("the avatar has already left")),
+                (true, false) => return Err(refuse("the avatar is present")),
+                (true, true) => {
+                    let avatar: SceneAvatar = decode(&current).map_err(BackendSetError::Other)?;
+                    (changes, regions) = inner.admit(account_id, &avatar)?;
+                }
+                (false, false) => {}
             }
+            regions.extend(
+                current
+                    .get("regionId")
+                    .and_then(Value::as_str)
+                    .map(Id::from),
+            );
         }
-        let region = current
-            .get("regionId")
-            .and_then(Value::as_str)
-            .map(Id::from);
         inner
             .objects_mut(O::TYPE_NAME, account_id)
             .insert(id.clone(), current);
-        inner.commit(
-            O::TYPE_NAME,
-            account_id,
-            vec![(id.clone(), Change::Updated)],
-        );
-        if let Some(region) = region.filter(|_| leaving) {
-            inner.recount(account_id, &[region]);
-        }
+        changes.push((id.clone(), Change::Updated));
+        inner.commit(O::TYPE_NAME, account_id, changes);
+        inner.recount(account_id, &regions);
         Ok(None)
     }
 

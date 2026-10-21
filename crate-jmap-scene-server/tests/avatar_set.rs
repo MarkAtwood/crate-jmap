@@ -216,17 +216,38 @@ async fn entering_another_region_ejects_the_previous_avatar() {
     assert_eq!(active_avatar_count(&backend, OTHER_REGION).await, 1);
 }
 
+/// The 6bcd9d8 L2366-2372 re-entry patch.
+fn reenter() -> Value {
+    json!({ "leftAt": null })
+}
+
+/// [`ALICE`] enters `region` and leaves; returns her avatar id.
+async fn departed(backend: &MemoryBackend, region: &str) -> String {
+    let id = enter(backend, ALICE, region).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(update(backend, ALICE, &id, leave()).await["notUpdated"].is_null());
+    id
+}
+
 #[tokio::test]
-async fn reentering_reuses_the_departed_record() {
-    // L2139 "When a user who has left (non-null `leftAt`) re-enters the
-    // same region, the server MUST update the existing SceneAvatar record
-    // rather than creating a new one: clear `leftAt` to `null`, update
-    // `joinedAt` to the current time, and set `position` to
-    // `spawnPosition`."
+async fn reentering_updates_the_departed_record() {
+    // jmap-chat-spec 6bcd9d8 L2363 "A user who has left (has a non-null
+    // `leftAt`) re-enters the same region by updating their existing
+    // SceneAvatar record to set `leftAt` to `null`. The server sets
+    // `joinedAt` to the current time, `position` to the region's
+    // `spawnPosition`, and `orientation` to the region's
+    // `spawnOrientation`. ... `SceneAvatar/changes` reports the record as
+    // updated."
     let backend = setup();
     let first = enter(&backend, ALICE, REGION).await;
     let id = first["id"].as_str().unwrap().to_owned();
-    let teleport = json!({ "position": [25.0, 0, -12.3] });
+    // The 6bcd9d8 L2269-2270 teleport moves her off the spawn point.
+    let teleport = json!({
+        "position": [25.0, 0, -12.3],
+        "orientation": [0, 0.924, 0, 0.383]
+    });
     assert!(update(&backend, ALICE, &id, teleport).await["notUpdated"].is_null());
     assert!(update(&backend, ALICE, &id, leave()).await["notUpdated"].is_null());
     assert_eq!(active_avatar_count(&backend, REGION).await, 0);
@@ -238,15 +259,26 @@ async fn reentering_reuses_the_departed_record() {
         json!({ "ids": [] })
     )["state"]
         .clone();
-    let again = enter(&backend, ALICE, REGION).await;
-    assert_eq!(again["id"], first["id"]);
+    let resp = update(&backend, ALICE, &id, reenter()).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    // RFC 8620 §5.3: the echo carries "any properties that changed in a
+    // way not explicitly requested by the PatchObject".
+    let echo = &resp["updated"][&id];
+    assert_eq!(echo["position"], json!([0.0, 0.0, 10.0]), "{resp}");
+    assert_eq!(echo["orientation"], json!([0.0, 0.0, 0.0, 1.0]), "{resp}");
+    assert!(echo["joinedAt"].is_string(), "{resp}");
+
+    let again = get(&backend, &id).await;
     assert_eq!(again["leftAt"], Value::Null);
+    // The region fixture's `spawnPosition` and `spawnOrientation`.
     assert_eq!(again["position"], json!([0.0, 0.0, 10.0]));
-    assert_ne!(again["joinedAt"], "2026-06-06T11:45:00Z");
+    assert_eq!(again["orientation"], json!([0.0, 0.0, 0.0, 1.0]));
+    assert_eq!(again["joinedAt"], echo["joinedAt"]);
+    // "`displayName`, `visualRef`, `visualType`, and `worldState` keep
+    // their values".
+    assert_eq!(again["displayName"], first["displayName"]);
     assert_eq!(active_avatar_count(&backend, REGION).await, 1);
 
-    // RFC 8620 §5.2: an existing record that changed is `updated`, not
-    // `created`.
     let changes = call!(
         handle_scene_avatar_changes,
         &backend,
@@ -255,6 +287,134 @@ async fn reentering_reuses_the_departed_record() {
     );
     assert_eq!(changes["created"], json!([]), "{changes}");
     assert_eq!(changes["updated"], json!([id]), "{changes}");
+}
+
+#[tokio::test]
+async fn create_for_a_departed_avatar_is_already_exists() {
+    // 6bcd9d8 L2232 "When the user already has a SceneAvatar record in
+    // the same region, whether present or departed, the server MUST NOT
+    // create a second record and MUST return an `alreadyExists` SetError
+    // ... with `existingId` set to the id of that record".
+    let backend = setup();
+    let id = departed(&backend, REGION).await;
+    let err = create_error(&backend, ALICE, alice_enters()).await;
+    assert_eq!(err["type"], "alreadyExists", "{err}");
+    assert_eq!(err["existingId"], id);
+    assert_eq!(get(&backend, &id).await["leftAt"], "2026-06-06T11:45:00Z");
+    assert_eq!(active_avatar_count(&backend, REGION).await, 0);
+}
+
+#[tokio::test]
+async fn reentry_may_patch_identity_properties() {
+    // 6bcd9d8 L2363 "`displayName`, `visualRef`, `visualType`, and
+    // `worldState` keep their values unless the same update patches them."
+    let backend = setup();
+    let id = departed(&backend, REGION).await;
+    let patch = json!({
+        "leftAt": null,
+        "displayName": "Alice C.",
+        "visualRef": "blob-avatar-alice-formal",
+        "visualType": "model/gltf-binary",
+        "worldState": { "animation": "waving" }
+    });
+    let resp = update(&backend, ALICE, &id, patch).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    let stored = get(&backend, &id).await;
+    assert_eq!(stored["leftAt"], Value::Null);
+    assert_eq!(stored["displayName"], "Alice C.");
+    assert_eq!(stored["visualRef"], "blob-avatar-alice-formal");
+    assert_eq!(stored["worldState"], json!({ "animation": "waving" }));
+}
+
+#[tokio::test]
+async fn reentry_position_is_server_set() {
+    // 6bcd9d8 L2363 "The server sets ... `position` to the region's
+    // `spawnPosition`, and `orientation` to the region's
+    // `spawnOrientation`"; only the identity properties may ride along.
+    let backend = setup();
+    let id = departed(&backend, REGION).await;
+    let patch = json!({ "leftAt": null, "position": [1, 2, 3] });
+    let err = update_error(&backend, ALICE, &id, patch).await;
+    assert_invalid(&err, &["position"]);
+    assert_eq!(get(&backend, &id).await["leftAt"], "2026-06-06T11:45:00Z");
+}
+
+#[tokio::test]
+async fn clearing_left_at_of_a_present_avatar_is_invalid() {
+    // 6bcd9d8 L2363: only "A user who has left (has a non-null `leftAt`)"
+    // re-enters.
+    let backend = setup();
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let err = update_error(&backend, ALICE, &id, reenter()).await;
+    assert_invalid(&err, &["leftAt"]);
+    assert_eq!(active_avatar_count(&backend, REGION).await, 1);
+}
+
+#[tokio::test]
+async fn reentry_without_access_is_not_found() {
+    // 6bcd9d8 L2363 "a caller who no longer has access to the region
+    // receives `notFound`, because the record is then hidden from the
+    // caller"; L2595 access by "an active SceneAvatar in it", which a
+    // departed avatar is not.
+    let backend = setup();
+    let invite = "01J5ABC0000000000000000003";
+    let mut r = region(invite, "invite");
+    r["invitedUserIds"] = json!([ALICE]);
+    seed_as(&backend, "SceneRegion", r.clone());
+    let id = departed(&backend, invite).await;
+    // BOB withdraws the invitation.
+    r["invitedUserIds"] = json!([]);
+    seed_as(&backend, "SceneRegion", r);
+    let err = update_error(&backend, ALICE, &id, reenter()).await;
+    assert_eq!(err["type"], "notFound", "{err}");
+}
+
+#[tokio::test]
+async fn reentry_beyond_max_avatars_is_over_quota() {
+    // 6bcd9d8 L2363 "The access checks and errors for entering a region
+    // ({{scene-avatar-create-errors}}) apply"; L2406 "`maxAvatarsPerRegion`
+    // would be exceeded | The region has reached its concurrent-avatar
+    // capacity."
+    let mut cap = capability();
+    cap["maxAvatarsPerRegion"] = json!(1);
+    let backend = backend_with_regions(cap);
+    let id = departed(&backend, REGION).await;
+    enter(&backend, BOB, REGION).await;
+    let err = update_error(&backend, ALICE, &id, reenter()).await;
+    assert_eq!(err["type"], "overQuota", "{err}");
+    assert_eq!(get(&backend, &id).await["leftAt"], "2026-06-06T11:45:00Z");
+    assert_eq!(active_avatar_count(&backend, REGION).await, 1);
+}
+
+#[tokio::test]
+async fn reentry_ejects_the_avatar_in_another_region() {
+    // 6bcd9d8 L2232 "When the user has an active SceneAvatar in a
+    // different region, the server SHOULD set `leftAt` on the previous
+    // avatar ... (a user is present in at most one region at a time)",
+    // which L2363 applies to re-entry.
+    let backend = setup();
+    let id = departed(&backend, REGION).await;
+    let other = enter(&backend, ALICE, OTHER_REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(update(&backend, ALICE, &id, reenter()).await["notUpdated"].is_null());
+    assert!(get(&backend, &other).await["leftAt"].is_string());
+    assert_eq!(active_avatar_count(&backend, REGION).await, 1);
+    assert_eq!(active_avatar_count(&backend, OTHER_REGION).await, 0);
+}
+
+#[tokio::test]
+async fn region_owner_cannot_reenter_another_users_avatar() {
+    // 6bcd9d8 L2314: only the eject case lets a region owner update
+    // another user's avatar, and an eject sets `leftAt`.
+    let backend = setup();
+    let id = departed(&backend, REGION).await;
+    let err = update_error(&backend, BOB, &id, reenter()).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
 }
 
 #[tokio::test]
@@ -633,9 +793,9 @@ async fn active_avatar_count_tracks_presence() {
     create_error(&backend, BOB, json!({ "regionId": REGION })).await;
     assert_eq!(active_avatar_count(&backend, REGION).await, 3);
 
-    // ALICE leaves, then re-enters.
+    // ALICE leaves, then re-enters (6bcd9d8 L2363).
     update(&backend, ALICE, &alice, leave()).await;
     assert_eq!(active_avatar_count(&backend, REGION).await, 2);
-    enter(&backend, ALICE, REGION).await;
+    update(&backend, ALICE, &alice, reenter()).await;
     assert_eq!(active_avatar_count(&backend, REGION).await, 3);
 }

@@ -1062,6 +1062,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: a departed user re-enters a region
+  by updating their SceneAvatar to `leftAt: null`
+  (draft-atwood-jmap-scene-00 §Re-entering a Region), not by a create. A
+  create for a user with any record in the region, present or departed,
+  is now `alreadyExists` with `existingId`. Re-entry sets `joinedAt`,
+  `position` and `orientation` (the region's spawn point) and echoes them
+  in `updated`; a `position` or `orientation` in the same patch is
+  `invalidProperties`. Lost region access is `notFound`,
+  `SceneBackend::may_enter_region` `false` is `forbidden`, and
+  `maxAvatarsPerRegion` is `overQuota`; the user's present avatar in
+  another region is ejected. `SceneBackend::update_object` implementors
+  must apply the capacity, auto-eject and `activeAvatarCount` rules to a
+  `SceneAvatar` patch that sets `leftAt` to `null`.
+
 - **BREAKING** **jmap-scene-types**: `SceneAsset` gains `owner_id`
   (`ownerId`, required, "The userId of the user who created this asset")
   (draft-atwood-jmap-scene-00 §SceneAsset). An asset without `ownerId` no
