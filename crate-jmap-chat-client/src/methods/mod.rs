@@ -1418,10 +1418,11 @@ pub fn server_retry_after(
 ) -> Result<Option<jmap_types::UTCDate>, ServerRetryAfterError> {
     match err.extra.get("serverRetryAfter") {
         None => Ok(None),
-        Some(v) => match jmap_types::UTCDate::deserialize(v) {
-            Ok(d) => Ok(Some(d)),
-            Err(_) => Err(ServerRetryAfterError::Malformed(v.clone())),
-        },
+        Some(v) => v
+            .as_str()
+            .and_then(|s| jmap_types::UTCDate::new_validated(s).ok())
+            .map(Some)
+            .ok_or_else(|| ServerRetryAfterError::Malformed(v.clone())),
     }
 }
 

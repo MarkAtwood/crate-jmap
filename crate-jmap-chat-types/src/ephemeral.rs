@@ -682,6 +682,14 @@ mod tests {
         assert_eq!(back, serde_json::json!({"dataTypes": ["typing"]}));
     }
 
+    /// wss 33702a5 L185: "`id` (String, optional)". A non-string `id` is a
+    /// malformed frame, not a vendor extra.
+    #[test]
+    fn chat_stream_enable_non_string_id_rejected() {
+        let json = r#"{"@type":"ChatStreamEnable","dataTypes":["typing"],"id":7}"#;
+        assert!(serde_json::from_str::<EphemeralMessage>(json).is_err());
+    }
+
     /// `ChatStreamDisable.extra` captures vendor fields and preserves them.
     #[test]
     fn chat_stream_disable_preserves_vendor_extras() {

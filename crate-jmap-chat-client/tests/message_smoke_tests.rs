@@ -780,6 +780,114 @@ async fn message_create_rate_limit_without_hint_retries_now() {
     }
 }
 
+/// The legacy custom `rateLimited` SetError is not an alias for the RFC
+/// 8620 §5.3 `rateLimit` type that draft-atwood-jmap-chat-00 33702a5 L617
+/// names for slow mode (CHANGELOG clean break). Like any other per-create
+/// rejection it must come back as `Ok` with the error in `notCreated`.
+#[tokio::test]
+async fn message_create_legacy_rate_limited_is_not_created_not_error() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_OLD,
+        json!({
+            "notCreated": {
+                "client-msg-1": {
+                    "type": "rateLimited",
+                    "serverRetryAfter": "2024-06-15T09:00:07Z"
+                }
+            }
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-1"),
+        chat_id: &chat_id,
+        body: "hello",
+        body_type: jmap_chat_client::BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
+    let set_resp = sc
+        .message_create(&input)
+        .await
+        .expect("legacy rateLimited must not map to ClientError::RateLimited");
+    let err = set_resp
+        .not_created
+        .as_ref()
+        .and_then(|m| m.get("client-msg-1"))
+        .expect("creation key must be in notCreated");
+    assert_eq!(err.error_type, "rateLimited");
+}
+
+/// A `rateLimit` SetError whose `serverRetryAfter` is not a UTCDate (RFC
+/// 8620 §1.4: an RFC 3339 `date-time` in UTC) cannot yield a retry
+/// deadline, so `message_create` reports `UnexpectedResponse` rather than
+/// guessing one.
+#[tokio::test]
+async fn message_create_rate_limit_malformed_retry_after_is_unexpected() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_OLD,
+        json!({
+            "notCreated": {
+                "client-msg-1": {
+                    "type": "rateLimit",
+                    "serverRetryAfter": "in five seconds"
+                }
+            }
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let input = jmap_chat_client::methods::MessageCreateInput {
+        client_id: Some("client-msg-1"),
+        chat_id: &chat_id,
+        body: "hello",
+        body_type: jmap_chat_client::BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
+    let err = sc
+        .message_create(&input)
+        .await
+        .expect_err("malformed serverRetryAfter must be an error");
+    assert!(
+        matches!(err, jmap_base_client::ClientError::UnexpectedResponse(_)),
+        "expected UnexpectedResponse, got {err:?}"
+    );
+}
+
 /// `Message/set` update with `body` patch must emit `body` inside the
 /// per-id patch object (message.rs:222-224, RFC 8620 §5.3).
 #[tokio::test]

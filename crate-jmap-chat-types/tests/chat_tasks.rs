@@ -219,6 +219,18 @@ fn task_metadata_keeps_unknown_keys() {
 }
 
 #[test]
+fn task_metadata_status_key_is_not_progress() {
+    // 33702a5 L200: the key is "`progress` (String) — the Task's current
+    // `progress` value". The pre-rename `status` key is not an alias: it is
+    // an unknown key, kept verbatim but never read as `progress`.
+    let raw = json!({ "status": "completed" });
+    let m: TaskMetadata = serde_json::from_value(raw.clone()).expect("deserialize");
+    assert_eq!(m.progress, None);
+    assert_eq!(m.extra.get("status"), Some(&json!("completed")));
+    assert_eq!(serde_json::to_value(&m).expect("serialize"), raw);
+}
+
+#[test]
 fn task_metadata_priority_is_integer() {
     // L199: "`priority` (Integer, optional)".
     assert!(serde_json::from_value::<TaskMetadata>(json!({ "priority": 1.5 })).is_err());
