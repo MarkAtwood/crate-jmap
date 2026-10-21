@@ -97,11 +97,16 @@ async fn update_with_unsupported_urgency_keeps_stored_config() {
     );
 }
 
-/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:108):
-/// "Servers MUST NOT include `chatPush` entries for accounts whose
-/// `accountCapabilities` does not include `urn:ietf:params:jmap:chat:push`."
-/// An entry stored while the account advertised the capability is not
-/// returned after the capability is withdrawn.
+/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:110):
+/// "If a `PushSubscription/set` create or update includes a `chatPush`
+/// entry for an account whose `accountCapabilities` does not include
+/// `urn:ietf:params:jmap:chat:push`, the server MUST return an
+/// `invalidProperties` SetError whose `properties` names the offending
+/// entry (e.g., `chatPush/<id>`) and MUST NOT store the subscription
+/// change."
+/// The draft states no rule for an entry stored while the account
+/// advertised the capability; this server stops returning it after the
+/// capability is withdrawn, because `should_push` then treats it as absent.
 #[tokio::test]
 async fn list_strips_entry_after_capability_is_withdrawn() {
     let backend = backend();

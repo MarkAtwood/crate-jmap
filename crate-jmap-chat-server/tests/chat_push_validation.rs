@@ -70,10 +70,14 @@ fn valid_config_is_accepted() {
     validate_chat_push(&extra, &caps()).expect("valid config is accepted");
 }
 
-/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:108):
-/// "Servers MUST NOT include `chatPush` entries for accounts whose
-/// `accountCapabilities` does not include `urn:ietf:params:jmap:chat:push`."
-/// On `/set` the entry for such an account is rejected rather than stored.
+/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:110):
+/// "If a `PushSubscription/set` create or update includes a `chatPush`
+/// entry for an account whose `accountCapabilities` does not include
+/// `urn:ietf:params:jmap:chat:push`, the server MUST return an
+/// `invalidProperties` SetError whose `properties` names the offending
+/// entry (e.g., `chatPush/<id>`) and MUST NOT store the subscription
+/// change."
+/// The entry for such an account is rejected rather than stored.
 #[test]
 fn chat_push_for_account_without_capability_is_rejected() {
     let extra = extra_with(json!({ PLAIN_ACCOUNT: { "urgency": "normal" } }));
@@ -138,11 +142,16 @@ fn unknown_entry_property_is_rejected() {
     assert_invalid(&extra, &format!("chatPush/{PUSH_ACCOUNT}/properties"));
 }
 
-/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:108):
-/// "Servers MUST NOT include `chatPush` entries for accounts whose
-/// `accountCapabilities` does not include `urn:ietf:params:jmap:chat:push`."
-/// On `/get`, an entry stored while the account had the capability is
-/// stripped once the account no longer advertises it.
+/// draft-atwood-jmap-chat-push-00 §"PushSubscription Extension" (push:110):
+/// "If a `PushSubscription/set` create or update includes a `chatPush`
+/// entry for an account whose `accountCapabilities` does not include
+/// `urn:ietf:params:jmap:chat:push`, the server MUST return an
+/// `invalidProperties` SetError whose `properties` names the offending
+/// entry (e.g., `chatPush/<id>`) and MUST NOT store the subscription
+/// change."
+/// The draft states no rule for an entry stored while the account had the
+/// capability; this server strips it on `/get` once the account no longer
+/// advertises it, because `should_push` then treats it as absent.
 #[test]
 fn strip_removes_entries_for_accounts_without_capability() {
     let mut extra = extra_with(json!({
