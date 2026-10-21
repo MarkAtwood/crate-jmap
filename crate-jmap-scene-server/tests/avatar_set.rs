@@ -733,7 +733,9 @@ async fn spec_leave_example() {
     // `leftAt`; the value the client supplies only signals the intent to
     // leave." The supplied value is in the past, so the stored one differs
     // and RFC 8620 §5.3 echoes it as "changed in a way not explicitly
-    // requested by the client".
+    // requested by the client". The 33702a5 example responses (L2349-2351,
+    // L3304-3306) show `updated: {id: null}`, which contradicts that echo;
+    // RFC 8620 wins here, and bd:JMAP-38uq.17 tracks the spec fix.
     let backend = setup();
     let id = enter(&backend, ALICE, REGION).await["id"]
         .as_str()
@@ -793,7 +795,9 @@ async fn spec_eject_example() {
     // setting `leftAt` on another user's SceneAvatar; the server records
     // its own current time as `leftAt` ... An eject update patches only
     // `leftAt`"; the L3561-3569 patch; L3589 "The server decrements the
-    // region's `activeAvatarCount`".
+    // region's `activeAvatarCount`". The 33702a5 L3579-3581 example
+    // response shows `updated: {id: null}`; the echo of the server-set
+    // `leftAt` follows RFC 8620 §5.3 instead (bd:JMAP-38uq.17).
     let backend = setup();
     let alice = enter(&backend, ALICE, REGION).await["id"]
         .as_str()
@@ -873,4 +877,48 @@ async fn active_avatar_count_tracks_presence() {
     assert_eq!(active_avatar_count(&backend, REGION).await, 2);
     update(&backend, ALICE, &alice, reenter()).await;
     assert_eq!(active_avatar_count(&backend, REGION).await, 3);
+}
+
+#[tokio::test]
+async fn ejected_avatar_loses_invite_region_access() {
+    // 33702a5 L2595 "A user has access to a region when its
+    // `accessPolicy` admits the user, ... or when the user has an active
+    // SceneAvatar in it"; L3602 after an eject "the user no longer has
+    // access to the region ({{access-control}}), so the server reports
+    // the record in `notFound`".
+    let backend = setup();
+    let invite = "01J5ABC0000000000000000003";
+    let mut r = region(invite, "invite");
+    r["invitedUserIds"] = json!([ALICE]);
+    seed_as(&backend, "SceneRegion", r.clone());
+    let id = enter(&backend, ALICE, invite).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    // BOB withdraws the invitation: ALICE's active avatar still admits her.
+    r["invitedUserIds"] = json!([]);
+    seed_as(&backend, "SceneRegion", r);
+    async fn alice_get(backend: &MemoryBackend, id: &str) -> Value {
+        call!(
+            handle_scene_avatar_get,
+            backend,
+            ALICE,
+            json!({ "ids": [id] })
+        )
+    }
+    let resp = alice_get(&backend, &id).await;
+    assert_eq!(resp["list"][0]["id"], json!(id), "{resp}");
+
+    // BOB owns the region and ejects her.
+    let resp = update(
+        &backend,
+        BOB,
+        &id,
+        json!({ "leftAt": "2026-06-06T10:22:15Z" }),
+    )
+    .await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    let resp = alice_get(&backend, &id).await;
+    assert_eq!(resp["list"], json!([]), "{resp}");
+    assert_eq!(resp["notFound"], json!([id]), "{resp}");
 }
