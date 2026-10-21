@@ -1389,6 +1389,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-vtc-server**: `VTCRecording/set` destroy of a recording in state
+  `"recording"` or `"paused"` first stops it, setting `stoppedAt`, and
+  delivers a `VTCRecordingStateEvent` with `state: "stopped"`
+  (draft-atwood-jmap-vtc-00 §Destroying a Recording: "the server first
+  stops it and delivers the `VTCRecordingStateEvent` with
+  `state: "stopped"`"). Before, the recording was removed with no stop
+  and no consent event.
 - **jmap-vtc-server**: ending a call, by `VTCCall/set` or `end_call`,
   also stops its livestreams and those of its breakout rooms in state
   `"starting"` or `"live"`, setting `stoppedAt`

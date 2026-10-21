@@ -384,20 +384,28 @@ where
     finalize_set_response::<B, O>(backend, caller, &account_id, old_state, mutated, acc).await
 }
 
-/// The `callId` both media types carry.
+/// The `callId` both media types carry, and the recording itself for the
+/// destroy rule only recordings have.
 trait MediaObject {
     fn call_id(&self) -> &Id;
+    fn as_recording(&self) -> Option<&VtcRecording>;
 }
 
 impl MediaObject for VtcRecording {
     fn call_id(&self) -> &Id {
         &self.call_id
     }
+    fn as_recording(&self) -> Option<&VtcRecording> {
+        Some(self)
+    }
 }
 
 impl MediaObject for VtcLivestream {
     fn call_id(&self) -> &Id {
         &self.call_id
+    }
+    fn as_recording(&self) -> Option<&VtcRecording> {
+        None
     }
 }
 
@@ -633,25 +641,44 @@ pub(crate) async fn stop_recordings<B: VtcBackend>(
         .caller_user_id(caller, account_id)
         .await
         .map_err(BackendSetError::Other)?;
-    for recording in live {
-        let mut patch = PatchObject::new();
-        let map = patch.as_map_mut();
-        map.insert("state".to_owned(), json!(RecordingState::Stopped));
-        map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
-        backend
-            .update_object::<VtcRecording>(caller, account_id, &recording.id, patch)
-            .await?;
-        deliver(
-            backend,
-            caller,
-            account_id,
-            recording.call_id,
-            recording.id,
-            RecordingState::Stopped,
-            initiator.clone(),
-        )
-        .await;
+    for recording in &live {
+        stop_recording(backend, caller, account_id, recording, initiator.clone()).await?;
     }
+    Ok(())
+}
+
+/// Transition `recording` to `"stopped"`, set `stoppedAt` and deliver the
+/// `VTCRecordingStateEvent` naming `initiated_by`.
+///
+/// # Errors
+///
+/// Returns the [`VtcBackend::update_object`] error; no event is delivered.
+// Same error type as `VtcBackend::update_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+async fn stop_recording<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    recording: &VtcRecording,
+    initiated_by: String,
+) -> Result<(), BackendSetError<B::Error>> {
+    let mut patch = PatchObject::new();
+    let map = patch.as_map_mut();
+    map.insert("state".to_owned(), json!(RecordingState::Stopped));
+    map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+    backend
+        .update_object::<VtcRecording>(caller, account_id, &recording.id, patch)
+        .await?;
+    deliver(
+        backend,
+        caller,
+        account_id,
+        recording.call_id.clone(),
+        recording.id.clone(),
+        RecordingState::Stopped,
+        initiated_by,
+    )
+    .await;
     Ok(())
 }
 
@@ -961,7 +988,10 @@ async fn update_livestream<B: VtcBackend>(
 }
 
 /// §Destroying a Recording and §Destroying a Livestream: "The server MUST
-/// return `forbidden` when the caller is not a moderator".
+/// return `forbidden` when the caller is not a moderator". §Destroying a
+/// Recording: "If the recording is in state `"recording"` or `"paused"`,
+/// the server first stops it and delivers the `VTCRecordingStateEvent`
+/// with `state: "stopped"`."
 async fn destroy_media<O, B>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -972,7 +1002,19 @@ where
     O: SetObject + GetObject + MediaObject + Send + Sync,
     B: VtcBackend,
 {
-    fetch_moderated::<O, B>(backend, caller, account_id, id).await?;
+    let obj: O = fetch_moderated(backend, caller, account_id, id).await?;
+    if let Some(recording) = obj
+        .as_recording()
+        .filter(|r| matches!(r.state, RecordingState::Recording | RecordingState::Paused))
+    {
+        let initiator = backend
+            .caller_user_id(caller, account_id)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        stop_recording(backend, caller, account_id, recording, initiator)
+            .await
+            .map_err(backend_set_error_value)?;
+    }
     backend
         .destroy_object::<O>(caller, account_id, id)
         .await

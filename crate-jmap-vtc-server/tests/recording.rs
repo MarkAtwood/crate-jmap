@@ -274,6 +274,41 @@ async fn moderator_destroys_a_recording() {
 }
 
 #[tokio::test]
+async fn destroying_a_live_recording_stops_it_first() {
+    let backend = media_backend();
+    for (id, state) in [("R1", "recording"), ("R2", "paused"), ("R3", "available")] {
+        seed_as(
+            &backend,
+            "VTCRecording",
+            stored_recording(id, state, "2026-06-05T14:40:00Z"),
+        );
+    }
+    // jmap-chat-spec 6bcd9d8 L1169: "If the recording is in state
+    // `"recording"` or `"paused"`, the server first stops it and delivers
+    // the `VTCRecordingStateEvent` with `state: "stopped"`."
+    let resp = set(&backend, BOB, json!({ "destroy": ["R1", "R2", "R3"] })).await;
+    assert_eq!(resp["destroyed"], json!(["R1", "R2", "R3"]), "{resp}");
+    for id in ["R1", "R2", "R3"] {
+        assert_eq!(stored(&backend, id).await, Value::Null, "{id}");
+    }
+    let got: Vec<(Value, Value)> = events(&backend)
+        .iter()
+        .map(|e| (e["recordingId"].clone(), e["state"].clone()))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            (json!("R1"), json!("stopped")),
+            (json!("R2"), json!("stopped")),
+        ]
+    );
+    for e in events(&backend) {
+        assert_eq!(e["callId"], "C1");
+        assert_eq!(e["initiatedBy"], BOB);
+    }
+}
+
+#[tokio::test]
 async fn query_defaults_to_started_at_descending() {
     let backend = media_backend();
     seed_as(
