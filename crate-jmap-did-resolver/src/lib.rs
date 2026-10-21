@@ -27,6 +27,34 @@
 //!   witnessing, the `did-witness.json` beside it is fetched too and the
 //!   log verified again with it.
 //!
+//! ## The `didDocumentUri` hint
+//!
+//! [`Resolver::resolve_with_hint`] takes the `didDocumentUri` of the
+//! account capability, "a convenience hint, not a binding constraint"
+//! (draft-atwood-jmap-did-00 L194 at jmap-chat-spec 29e9a41):
+//!
+//! - `did:webvh`: the log is fetched from the hint, from any origin, and
+//!   verified as one from the method-derived URL would be ("a log fetched
+//!   from this URI is resolved as defined in {{did-webvh}}"). "The
+//!   witness proofs file (`did-witness.json`) always comes from the
+//!   method-derived URL".
+//! - `did:web`: the hint is used only when its origin (scheme, host and
+//!   port) is the origin of [`Did::web_document_url`]; otherwise it is
+//!   ignored. did:web has no check beyond TLS to the controller's domain,
+//!   which is what protects it (L421: "the DID document is hosted at a
+//!   well-known URL under the DID controller's domain"), so a document
+//!   from another origin would let the JMAP server pick the document that
+//!   checks its own binding.
+//! - `did:key` and `did:plc`: the hint is ignored. A `did:key` document is
+//!   derived from the DID, and a `did:plc` audit log comes from the PLC
+//!   directory.
+//!
+//! When the hint is used and its fetch fails, the method-derived URL is
+//! fetched instead ("When `didDocumentUri` is non-null but unreachable
+//! (network error, HTTP 4xx/5xx), clients SHOULD fall back to standard
+//! method-specific resolution"). A document or log from the hint that
+//! fails its check is an error, not a fallback.
+//!
 //! ## Caching
 //!
 //! draft-atwood-jmap-chat-did-00 §Caching (L233 at jmap-chat-spec
@@ -366,6 +394,29 @@ impl<F: Fetch> Resolver<F> {
     /// A [`ResolveError`] when the DID cannot be resolved and verified.
     /// Errors are not cached.
     pub async fn resolve(&self, did: &Did) -> Result<Resolved, ResolveError> {
+        self.resolve_hinted(did, None).await
+    }
+
+    /// Resolves `did` as [`resolve`](Self::resolve) does, fetching from
+    /// `did_document_uri`, the account capability's `didDocumentUri`, where
+    /// the method allows it (see [the crate docs](crate#the-diddocumenturi-hint)).
+    ///
+    /// # Errors
+    ///
+    /// As [`resolve`](Self::resolve).
+    pub async fn resolve_with_hint(
+        &self,
+        did: &Did,
+        did_document_uri: &str,
+    ) -> Result<Resolved, ResolveError> {
+        self.resolve_hinted(did, Some(did_document_uri)).await
+    }
+
+    async fn resolve_hinted(
+        &self,
+        did: &Did,
+        hint: Option<&str>,
+    ) -> Result<Resolved, ResolveError> {
         if did.method() == "key" {
             return derive_key(did);
         }
@@ -377,7 +428,7 @@ impl<F: Fetch> Resolver<F> {
             .map(|entry| entry.resolved.clone());
         match cached {
             Some(resolved) => Ok(resolved),
-            None => self.fetch_and_store(did).await,
+            None => self.fetch_and_store(did, hint).await,
         }
     }
 
@@ -441,7 +492,7 @@ impl<F: Fetch> Resolver<F> {
             return self.resolve(did).await;
         }
         self.lock().remove(did);
-        self.fetch_and_store(did).await
+        self.fetch_and_store(did, None).await
     }
 
     /// Records a forced refresh of `did` now, unless the last one was
@@ -480,8 +531,12 @@ impl<F: Fetch> Resolver<F> {
         relock(&self.cache)
     }
 
-    async fn fetch_and_store(&self, did: &Did) -> Result<Resolved, ResolveError> {
-        let resolved = self.fetch(did).await?;
+    async fn fetch_and_store(
+        &self,
+        did: &Did,
+        hint: Option<&str>,
+    ) -> Result<Resolved, ResolveError> {
+        let resolved = self.fetch(did, hint).await?;
         if matches!(&resolved, Resolved::Webvh(log) if log.invalid_entry().is_some()) {
             return Ok(resolved);
         }
@@ -501,11 +556,12 @@ impl<F: Fetch> Resolver<F> {
         Ok(resolved)
     }
 
-    async fn fetch(&self, did: &Did) -> Result<Resolved, ResolveError> {
+    async fn fetch(&self, did: &Did, hint: Option<&str>) -> Result<Resolved, ResolveError> {
         match did.method() {
             "web" => {
                 let url = did.web_document_url().ok_or(ResolveError::InvalidDid)?;
-                let body = self.fetcher.get(&url).await?;
+                let hint = hint.filter(|hint| same_origin(hint, &url));
+                let body = self.get_hinted(hint, &url).await?;
                 let document: Value = serde_json::from_slice(&body).map_err(ResolveError::Json)?;
                 if document.get("id").and_then(Value::as_str) != Some(did.as_str()) {
                     return Err(ResolveError::IdMismatch);
@@ -525,7 +581,7 @@ impl<F: Fetch> Resolver<F> {
             }
             "webvh" => {
                 let url = webvh_log_url(did).ok_or(ResolveError::InvalidDid)?;
-                let log = self.fetcher.get(&url).await?;
+                let log = self.get_hinted(hint, &url).await?;
                 let now = SystemTime::now();
                 let mut verified = verify_webvh_log(did, &log, None, now);
                 if lacks_witnesses(&verified) {
@@ -543,6 +599,17 @@ impl<F: Fetch> Resolver<F> {
         }
     }
 
+    /// GETs `hint` when there is one, and `url` when there is none or its
+    /// fetch fails.
+    async fn get_hinted(&self, hint: Option<&str>, url: &str) -> Result<Vec<u8>, FetchError> {
+        if let Some(hint) = hint {
+            if let Ok(body) = self.fetcher.get(hint).await {
+                return Ok(body);
+            }
+        }
+        self.fetcher.get(url).await
+    }
+
     /// Fails when `log` lacks the latest `versionId` of the log stored for
     /// `did`, and otherwise stores `log` as the newest.
     fn record_webvh(&self, did: &Did, log: &WebvhLog) -> Result<(), ResolveError> {
@@ -555,6 +622,15 @@ impl<F: Fetch> Resolver<F> {
         self.make_room(&mut stored, did, |(_, at)| *at);
         stored.insert(did.clone(), (log.clone(), (self.clock)()));
         Ok(())
+    }
+}
+
+/// Whether `hint` and `url` parse to the same origin (scheme, host and
+/// port, the default port filled in).
+fn same_origin(hint: &str, url: &str) -> bool {
+    match (reqwest::Url::parse(hint), reqwest::Url::parse(url)) {
+        (Ok(hint), Ok(url)) => hint.origin() == url.origin(),
+        _ => false,
     }
 }
 
