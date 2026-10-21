@@ -88,3 +88,7 @@ hge = "hge"
 # §Comparison Operators and its Rust field (crate-jmap-graph-types/src/search.rs).
 # Not a typo of `min` / `inn`.
 nin = "nin"
+
+# `hax` — the hax-lib-macros crate (pulled in by libcrux, see deny.toml).
+# A crate name, not a typo of `hex`.
+hax = "hax"
