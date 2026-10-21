@@ -684,15 +684,16 @@ pub async fn end_call<B: VtcBackend>(
 
 /// The ring timeout period draft-atwood-jmap-vtc-00 §Ring Timeout
 /// recommends: "a deployment-defined period (RECOMMENDED: 30 seconds)".
+/// The default of [`VtcBackend::ring_timeout`].
 pub const RING_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Enforce the ring timeout of ring call `id` at the instant `now`
 /// (draft-atwood-jmap-vtc-00 §Ring Timeout).
 ///
 /// The kit runs no timer. A deployment calls this once per ring call when
-/// its own timer fires, `timeout` after the call's `createdAt`, passing
-/// [`RING_TIMEOUT`] unless it defines another period. `now` is the
-/// deployment's clock reading. Before `createdAt` plus `timeout`, or when
+/// its own timer fires, [`VtcBackend::ring_timeout`] after the call's
+/// `createdAt`. `now` is the deployment's clock reading. Before
+/// `createdAt` plus that period, or when
 /// the call is not a ring call in state `"ringing"` or `"active"`, nothing
 /// happens. Otherwise:
 ///
@@ -725,7 +726,6 @@ pub async fn expire_ring<B: VtcBackend>(
     account_id: &Id,
     id: &Id,
     now: SystemTime,
-    timeout: Duration,
 ) -> Result<bool, BackendSetError<B::Error>> {
     let (found, _) = backend
         .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
@@ -740,21 +740,8 @@ pub async fn expire_ring<B: VtcBackend>(
     {
         return Ok(false);
     }
-    // Whole seconds suffice for a period of seconds; `utc_key` drops the
-    // fractional part `to_epoch_seconds` does not accept.
-    let deadline = UTCDate::from(format!("{}Z", utc_key(&call.created_at)))
-        .to_epoch_seconds()
-        .ok()
-        .and_then(|secs| u64::try_from(secs).ok())
-        .and_then(|secs| UNIX_EPOCH.checked_add(Duration::from_secs(secs)))
-        .and_then(|created| created.checked_add(timeout))
-        .ok_or_else(|| {
-            BackendSetError::SetError(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(["createdAt"])
-                    .with_description("the call's createdAt is not a UTCDate"),
-            )
-        })?;
+    let deadline = ring_deadline(&call.created_at, backend.ring_timeout())
+        .map_err(BackendSetError::SetError)?;
     if now < deadline {
         return Ok(false);
     }
@@ -784,6 +771,34 @@ pub async fn expire_ring<B: VtcBackend>(
         .deliver_event(caller, account_id, VtcEvent::CallEnd(event))
         .await;
     Ok(true)
+}
+
+/// The instant a ring call created at `created_at` times out: `created_at`
+/// plus `timeout` (draft-atwood-jmap-vtc-00 §Ring Timeout).
+///
+/// # Errors
+///
+/// `invalidProperties` naming `createdAt` when `created_at` is not an
+/// RFC 8620 `UTCDate` at or after 1970.
+// The `SetError` both callers return as is.
+#[allow(clippy::result_large_err)]
+pub(crate) fn ring_deadline(
+    created_at: &UTCDate,
+    timeout: Duration,
+) -> Result<SystemTime, SetError> {
+    // Whole seconds suffice for a period of seconds; `utc_key` drops the
+    // fractional part `to_epoch_seconds` does not accept.
+    UTCDate::from(format!("{}Z", utc_key(created_at)))
+        .to_epoch_seconds()
+        .ok()
+        .and_then(|secs| u64::try_from(secs).ok())
+        .and_then(|secs| UNIX_EPOCH.checked_add(Duration::from_secs(secs)))
+        .and_then(|created| created.checked_add(timeout))
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["createdAt"])
+                .with_description("the call's createdAt is not a UTCDate")
+        })
 }
 
 /// Apply `patch`, which ends `call`, after ending every breakout room

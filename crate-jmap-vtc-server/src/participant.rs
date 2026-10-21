@@ -32,9 +32,10 @@ use jmap_vtc_types::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use std::time::SystemTime;
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
-use crate::call::{end_call, set_call_state};
+use crate::call::{end_call, ring_deadline, set_call_state};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
@@ -691,6 +692,16 @@ async fn update_participant<B: VtcBackend>(
     };
 
     let new = preview(&old, &patch)?;
+    // §Multi-Device Forking: a target "may still answer (and join) or
+    // decline until the ring timeout expires".
+    let ring_expired = || -> Result<bool, Value> {
+        if call.call_type != CallType::Ring {
+            return Ok(false);
+        }
+        let deadline = ring_deadline(&call.created_at, backend.ring_timeout())
+            .map_err(|e| set_error_value(&e))?;
+        Ok(SystemTime::now() >= deadline)
+    };
     let now = json!(now_utc_string());
     let mut echo = Map::new();
     let mut effects = Effects::default();
@@ -707,6 +718,9 @@ async fn update_participant<B: VtcBackend>(
                 &["joinMethod"],
                 "the call is not ringing or active, or this ring was already answered",
             ));
+        }
+        if ring_expired()? {
+            return Err(invalid(&["joinMethod"], "the ring timeout has expired"));
         }
         echo.insert("joinedAt".to_owned(), now.clone());
         echo.insert("callResponse".to_owned(), json!(CallResponse::Accepted));
@@ -727,6 +741,9 @@ async fn update_participant<B: VtcBackend>(
                 &["callResponse"],
                 "only a pending ring of a ringing or active call can be declined",
             ));
+        }
+        if ring_expired()? {
+            return Err(invalid(&["callResponse"], "the ring timeout has expired"));
         }
         echo.insert("leftAt".to_owned(), now.clone());
         effects.declined = true;

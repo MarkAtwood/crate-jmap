@@ -1152,7 +1152,6 @@ async fn expire(backend: &MemoryBackend, now: SystemTime) -> bool {
         &Id::from(ACCOUNT),
         &Id::from("R1"),
         now,
-        RING_TIMEOUT,
     )
     .await
     .expect("expire_ring")
@@ -1162,6 +1161,7 @@ async fn expire(backend: &MemoryBackend, now: SystemTime) -> bool {
 fn ring_timeout_is_thirty_seconds() {
     // L1615 "a deployment-defined period (RECOMMENDED: 30 seconds)".
     assert_eq!(RING_TIMEOUT, Duration::from_secs(30));
+    assert_eq!(backend().ring_timeout(), Duration::from_secs(30));
 }
 
 #[tokio::test]
@@ -1216,6 +1216,29 @@ async fn timeout_on_active_ring_without_pending_targets_is_silent() {
 }
 
 #[tokio::test]
+async fn late_answer_or_decline_after_ring_timeout_is_rejected() {
+    // L1611 "each may still answer (and join) or decline until the ring
+    // timeout expires"; L1615 "a deployment-defined period (RECOMMENDED: 30
+    // seconds)". R1 was created 2026-10-20T12:00:00Z, so the default period
+    // ended long before the wall clock this test reads.
+    let backend = ring_fixture("active", "accepted", "pending");
+    let err = pupdate(&backend, CAROL, "P-CAROL", json!({"joinMethod": "webrtc"}))
+        .await
+        .unwrap_err();
+    assert_error(&err, "invalidProperties", Some(&["joinMethod"]));
+    let err = pupdate(
+        &backend,
+        CAROL,
+        "P-CAROL",
+        json!({"callResponse": "declined"}),
+    )
+    .await
+    .unwrap_err();
+    assert_error(&err, "invalidProperties", Some(&["callResponse"]));
+    assert_eq!(get(&backend, "R1").await["state"], "active");
+}
+
+#[tokio::test]
 async fn timeout_ignores_non_ring_and_settled_calls() {
     // L1615 times out a ring that "no target participant answers", and an
     // `"active"` call's still-`"pending"` targets. A room call has no
@@ -1241,7 +1264,6 @@ async fn timeout_of_unknown_call_is_not_found() {
         &Id::from(ACCOUNT),
         &Id::from("nope"),
         at(30),
-        RING_TIMEOUT,
     )
     .await
     {
@@ -1262,7 +1284,6 @@ async fn timeout_with_malformed_created_at_names_it() {
         &Id::from(ACCOUNT),
         &Id::from("R1"),
         at(30),
-        RING_TIMEOUT,
     )
     .await
     {
