@@ -1,0 +1,38 @@
+[package]
+name = "jmap-chat-mimi-server"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Chat MIMI provider server rules (draft-atwood-jmap-chat-mimi-00 KeyPackage/get and /set) — backend-agnostic, plugs into jmap-server Dispatcher"
+keywords = ["jmap", "chat", "mimi", "mls", "server"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[features]
+# Public, feature-gated in-memory reference implementation of MimiBackend.
+# Not production — intended as a reference impl, integration-test harness, and
+# documentation example. Mirrors the canonical jmap-mail-server `memory`
+# feature (JMAP-hwdv.1).
+memory = []
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-server = { workspace = true }
+jmap-chat-mimi-types = { workspace = true }
+serde_json = { workspace = true }
+base64 = "0.22"
+# MLS parsing and verification, crates.io only (bd:JMAP-6k5d.1). The
+# `extensions-draft` feature carries the app_data_dictionary extension that
+# marks last-resort KeyPackages (draft-atwood-jmap-chat-mimi-00 §KeyPackage
+# Object Fields). openmls 0.9.1 sets the workspace MSRV of 1.91.
+openmls = { version = "=0.9.1", features = ["extensions-draft"] }
+tls_codec = { version = "=0.5.0", features = ["mls", "derive"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+jmap-chat-mimi-server = { workspace = true, features = ["memory"] }
+openmls_rust_crypto = { version = "=0.6.0", features = ["extensions-draft"] }
+openmls_basic_credential = "=0.6.0"
+sha2 = "0.10"

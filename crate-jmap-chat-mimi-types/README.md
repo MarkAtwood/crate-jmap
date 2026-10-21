@@ -32,7 +32,7 @@ The session-level capability value is `{}` and has no type.
 
 ## What it's for
 
-It gives the MIMI provider server (mimid and the planned
+It gives the MIMI provider server (mimid and
 `jmap-chat-mimi-server`) and its clients one definition of the extension's
 wire types. It sits beside `jmap-chat-types` and does not depend on it;
 it reuses `jmap-types` for `Id` and the RFC 8620 `/get` and `/set`

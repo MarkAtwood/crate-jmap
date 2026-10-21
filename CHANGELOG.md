@@ -14,6 +14,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-server** (new crate): `KeyPackage/get` and
+  `KeyPackage/set` of draft-atwood-jmap-chat-mimi-00 over a `MimiBackend`
+  trait, with a `memory` reference backend. `check_key_package_create`
+  parses and verifies the KeyPackage with openmls 0.9.1 and refuses it
+  with `invalidProperties` naming `keyPackage` when it does not parse,
+  does not verify, uses a cipher suite outside `cipherSuites`, has an
+  expired lifetime, has a non-Basic credential, or has an identity other
+  than `userUri`. It derives `lastResort` from the `app_data_dictionary`
+  `last_resort_key_package` component and refuses a differing claim
+  (`invalidProperties` naming `lastResort`). `MimiBackend::create_key_package`
+  binds the signature key to the account, refuses a KeyPackageRef already
+  stored or handed out, replaces the client's previous last-resort
+  KeyPackage, and returns `overQuota` beyond `maxKeyPackages`. Every
+  update is `forbidden`.
 - **jmap-mail-types**, **jmap-calendars-types**, **jmap-contacts-types**,
   **jmap-filenode-types**, **jmap-tasks-types**: `may_set_metadata:
   Option<bool>` on `MailboxRights`, `CalendarRights`, `AddressBookRights`,
