@@ -49,6 +49,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    QueryChangesParams, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -208,12 +209,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                 .query_objects::<EmailSubmission>(
                     caller,
                     &account_id,
-                    filter.as_ref(),
-                    None,
-                    None,
-                    0,
-                    None,
-                    0,
+                    QueryParams::new().filter(filter.as_ref()),
                 )
                 .await
                 .map_err(JmapError::from)?;
@@ -244,12 +240,10 @@ pub async fn handle_submission_query<B: MailBackend>(
                 .query_objects::<EmailSubmission>(
                     caller,
                     &account_id,
-                    filter.as_ref(),
-                    None,
-                    limit,
-                    position,
-                    None,
-                    0,
+                    QueryParams::new()
+                        .filter(filter.as_ref())
+                        .limit(limit)
+                        .position(position),
                 )
                 .await
                 .map_err(JmapError::from)?;
@@ -332,12 +326,9 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         .query_changes::<EmailSubmission>(
             caller,
             &account_id,
-            &since_query_state,
-            None,
-            None,
-            max_changes,
-            up_to_id.as_ref(),
-            false, // collapseThreads does not apply to EmailSubmission
+            QueryChangesParams::new(&since_query_state)
+                .max_changes(max_changes)
+                .up_to_id(up_to_id.as_ref()),
         )
         .await
         .map_err(JmapError::from)?;

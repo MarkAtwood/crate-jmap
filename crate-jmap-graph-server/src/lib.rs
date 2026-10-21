@@ -107,8 +107,8 @@ pub mod stream;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, EditLog,
-    GetObject, GraphBackend, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject,
+    GetObject, GraphBackend, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use edge::{
     handle_graph_edge_changes, handle_graph_edge_get, handle_graph_edge_query,

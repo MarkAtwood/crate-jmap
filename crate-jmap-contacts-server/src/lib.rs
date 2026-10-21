@@ -49,7 +49,8 @@ pub use addressbook::{
 pub use backend::{
     AddedItem, AddressBookProperty, BackendChangesError, BackendQueryError, BackendSetError,
     ChangesResult, ContactCardProperty, ContactsBackend, GetObject, JmapBackend, JmapObject,
-    QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
+    SetErrorType, SetObject,
 };
 pub use card::{
     handle_contact_card_changes, handle_contact_card_copy, handle_contact_card_get,
@@ -218,8 +219,8 @@ pub(crate) mod test_support {
     use jmap_contacts_types::{AddressBook, ContactCard};
     use jmap_server::{
         BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
-        SetErrorType, SetObject,
+        JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+        QueryResult, SetError, SetErrorType, SetObject,
     };
     use jmap_types::{Id, State};
 
@@ -458,12 +459,7 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _limit: Option<u64>,
-            _position: i64,
-            _anchor: Option<&Id>,
-            _anchor_offset: i64,
+            _params: QueryParams<'_, O>,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             if *self.fail_query.lock().unwrap() {
                 return Err(BackendQueryError::Other(MockError::new(
@@ -483,13 +479,11 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             _account_id: &Id,
-            since_query_state: &State,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _max_changes: Option<u64>,
-            _up_to_id: Option<&Id>,
-            _collapse_threads: bool,
+            params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            let QueryChangesParams {
+                since_query_state, ..
+            } = params;
             Ok(QueryChangesResult::new(
                 since_query_state.clone(),
                 State::from("0"),

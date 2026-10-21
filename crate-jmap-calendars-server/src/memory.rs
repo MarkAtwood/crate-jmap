@@ -61,8 +61,8 @@ use std::sync::{Arc, Mutex};
 use crate::backend::{CalendarsBackend, SetDefaultResult};
 use crate::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
@@ -774,13 +774,16 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        let QueryParams {
+            filter,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
         // bd:JMAP-ic0j.16 — sort is NOT honored. The `_sort` parameter is
         // prefixed with `_` and never consulted; ids are returned in
         // lexical-by-id order. Production backends that override
@@ -856,13 +859,13 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        let QueryChangesParams {
+            since_query_state,
+            max_changes,
+            ..
+        } = params;
         let changes = self
             .get_changes::<O>(&(), account_id, since_query_state, max_changes)
             .await?;

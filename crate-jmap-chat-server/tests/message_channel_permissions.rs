@@ -14,7 +14,7 @@ mod common;
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{
     handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
-    ChatBackend, JmapBackend,
+    ChatBackend, JmapBackend, QueryChangesParams,
 };
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
@@ -453,12 +453,7 @@ async fn query_changes_omits_messages_in_channel_without_view() {
         .query_changes::<Message>(
             &(),
             &Id::from(ACCOUNT_ID),
-            &State::from("0"),
-            None,
-            None,
-            None,
-            None,
-            false,
+            QueryChangesParams::new(&State::from("0")),
         )
         .await
         .expect("query_changes");

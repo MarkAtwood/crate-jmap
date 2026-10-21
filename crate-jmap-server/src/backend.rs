@@ -381,6 +381,233 @@ impl QueryChangesResult {
 }
 
 // ---------------------------------------------------------------------------
+// Query parameters
+// ---------------------------------------------------------------------------
+
+/// The `/query` arguments (RFC 8620 §5.5) passed to
+/// [`JmapBackend::query_objects`], after `accountId`.
+///
+/// `#[non_exhaustive]` so a new RFC or extension argument is a new field,
+/// not a breaking change to every backend (bd:JMAP-wf92.7). Backends read
+/// the public fields; callers build one with [`QueryParams::new`] and the
+/// setters:
+///
+/// ```
+/// # use jmap_server::{JmapObject, QueryObject, QueryParams};
+/// # #[derive(serde::Serialize, serde::Deserialize)]
+/// # struct Foo;
+/// # impl JmapObject for Foo { const TYPE_NAME: &'static str = "Foo"; type Property = (); }
+/// # impl QueryObject for Foo { type Filter = serde_json::Value; type Comparator = serde_json::Value; }
+/// let filter = serde_json::json!({"text": "hello"});
+/// let params = QueryParams::<Foo>::new().filter(Some(&filter)).limit(Some(50));
+/// assert_eq!(params.position, 0);
+/// ```
+#[non_exhaustive]
+pub struct QueryParams<'a, O: QueryObject> {
+    /// `filter`; `None` matches every object.
+    pub filter: Option<&'a O::Filter>,
+    /// `sort`; `None` leaves the order to the server.
+    pub sort: Option<&'a [O::Comparator]>,
+    /// `limit`; `None` means no client limit.
+    pub limit: Option<u64>,
+    /// `position`. Negative values count from the end of the results
+    /// (RFC 8620 §5.5); ignored when `anchor` is set.
+    pub position: i64,
+    /// `anchor`: start the page at this id's index instead of `position`.
+    pub anchor: Option<&'a jmap_types::Id>,
+    /// `anchorOffset`, added to the anchor's index; ignored without an
+    /// `anchor`.
+    pub anchor_offset: i64,
+}
+
+impl<'a, O: QueryObject> QueryParams<'a, O> {
+    /// The RFC 8620 §5.5 defaults: no filter, sort, limit or anchor, and
+    /// `position` and `anchorOffset` 0.
+    pub fn new() -> Self {
+        Self {
+            filter: None,
+            sort: None,
+            limit: None,
+            position: 0,
+            anchor: None,
+            anchor_offset: 0,
+        }
+    }
+
+    /// Set [`filter`](Self::filter).
+    #[must_use]
+    pub fn filter(mut self, filter: Option<&'a O::Filter>) -> Self {
+        self.filter = filter;
+        self
+    }
+
+    /// Set [`sort`](Self::sort).
+    #[must_use]
+    pub fn sort(mut self, sort: Option<&'a [O::Comparator]>) -> Self {
+        self.sort = sort;
+        self
+    }
+
+    /// Set [`limit`](Self::limit).
+    #[must_use]
+    pub fn limit(mut self, limit: Option<u64>) -> Self {
+        self.limit = limit;
+        self
+    }
+
+    /// Set [`position`](Self::position).
+    #[must_use]
+    pub fn position(mut self, position: i64) -> Self {
+        self.position = position;
+        self
+    }
+
+    /// Set [`anchor`](Self::anchor).
+    #[must_use]
+    pub fn anchor(mut self, anchor: Option<&'a jmap_types::Id>) -> Self {
+        self.anchor = anchor;
+        self
+    }
+
+    /// Set [`anchor_offset`](Self::anchor_offset).
+    #[must_use]
+    pub fn anchor_offset(mut self, anchor_offset: i64) -> Self {
+        self.anchor_offset = anchor_offset;
+        self
+    }
+}
+
+impl<O: QueryObject> Default for QueryParams<'_, O> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Manual impls: derives would wrongly require `O: Clone` / `O: Debug`.
+impl<O: QueryObject> Clone for QueryParams<'_, O> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<O: QueryObject> Copy for QueryParams<'_, O> {}
+
+impl<O: QueryObject> std::fmt::Debug for QueryParams<'_, O>
+where
+    O::Filter: std::fmt::Debug,
+    O::Comparator: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QueryParams")
+            .field("filter", &self.filter)
+            .field("sort", &self.sort)
+            .field("limit", &self.limit)
+            .field("position", &self.position)
+            .field("anchor", &self.anchor)
+            .field("anchor_offset", &self.anchor_offset)
+            .finish()
+    }
+}
+
+/// The `/queryChanges` arguments (RFC 8620 §5.6) passed to
+/// [`JmapBackend::query_changes`], after `accountId`.
+///
+/// `#[non_exhaustive]` for the same reason as [`QueryParams`]. Build one
+/// with [`QueryChangesParams::new`], which takes the one required
+/// argument, `sinceQueryState`, and the setters.
+#[non_exhaustive]
+pub struct QueryChangesParams<'a, O: QueryObject> {
+    /// `sinceQueryState`, the `queryState` the client already has.
+    pub since_query_state: &'a jmap_types::State,
+    /// `filter`, as passed to the original `/query`.
+    pub filter: Option<&'a O::Filter>,
+    /// `sort`, as passed to the original `/query`.
+    pub sort: Option<&'a [O::Comparator]>,
+    /// `maxChanges`; `None` means no client limit.
+    pub max_changes: Option<u64>,
+    /// `upToId`: the last id in the client's cached results.
+    pub up_to_id: Option<&'a jmap_types::Id>,
+    /// `collapseThreads`, meaningful only for `Email/queryChanges`
+    /// (RFC 8621 §4.5); `false` for every other type.
+    pub collapse_threads: bool,
+}
+
+impl<'a, O: QueryObject> QueryChangesParams<'a, O> {
+    /// Changes since `since_query_state`, with no filter, sort,
+    /// `maxChanges` or `upToId`, and `collapseThreads` false.
+    pub fn new(since_query_state: &'a jmap_types::State) -> Self {
+        Self {
+            since_query_state,
+            filter: None,
+            sort: None,
+            max_changes: None,
+            up_to_id: None,
+            collapse_threads: false,
+        }
+    }
+
+    /// Set [`filter`](Self::filter).
+    #[must_use]
+    pub fn filter(mut self, filter: Option<&'a O::Filter>) -> Self {
+        self.filter = filter;
+        self
+    }
+
+    /// Set [`sort`](Self::sort).
+    #[must_use]
+    pub fn sort(mut self, sort: Option<&'a [O::Comparator]>) -> Self {
+        self.sort = sort;
+        self
+    }
+
+    /// Set [`max_changes`](Self::max_changes).
+    #[must_use]
+    pub fn max_changes(mut self, max_changes: Option<u64>) -> Self {
+        self.max_changes = max_changes;
+        self
+    }
+
+    /// Set [`up_to_id`](Self::up_to_id).
+    #[must_use]
+    pub fn up_to_id(mut self, up_to_id: Option<&'a jmap_types::Id>) -> Self {
+        self.up_to_id = up_to_id;
+        self
+    }
+
+    /// Set [`collapse_threads`](Self::collapse_threads).
+    #[must_use]
+    pub fn collapse_threads(mut self, collapse_threads: bool) -> Self {
+        self.collapse_threads = collapse_threads;
+        self
+    }
+}
+
+impl<O: QueryObject> Clone for QueryChangesParams<'_, O> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<O: QueryObject> Copy for QueryChangesParams<'_, O> {}
+
+impl<O: QueryObject> std::fmt::Debug for QueryChangesParams<'_, O>
+where
+    O::Filter: std::fmt::Debug,
+    O::Comparator: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("QueryChangesParams")
+            .field("since_query_state", &self.since_query_state)
+            .field("filter", &self.filter)
+            .field("sort", &self.sort)
+            .field("max_changes", &self.max_changes)
+            .field("up_to_id", &self.up_to_id)
+            .field("collapse_threads", &self.collapse_threads)
+            .finish()
+    }
+}
+
+// ---------------------------------------------------------------------------
 // JmapBackend — the read-side supertrait
 // ---------------------------------------------------------------------------
 
@@ -393,9 +620,8 @@ impl QueryChangesResult {
 /// object types belong here. Write operations (`create_object`, `update_object`,
 /// `destroy_object`) and domain-specific operations remain in the domain crate.
 ///
-/// The `collapse_threads` parameter on `query_changes` is included for
-/// `Email/queryChanges` (RFC 8621 §4.5). Non-mail backends should pass `false`
-/// and may ignore the parameter.
+/// [`QueryChangesParams::collapse_threads`] is included for
+/// `Email/queryChanges` (RFC 8621 §4.5). Non-mail backends may ignore it.
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl JmapBackend>` when sharing across tasks.
@@ -556,11 +782,12 @@ pub trait JmapBackend: Send + Sync + 'static {
 
     /// Execute a `/query` and return a page of matching ids.
     ///
-    /// `position` may be negative — negative values are relative to the end of
-    /// the result set per RFC 8620 §5.5 (e.g. -1 means the last result).
+    /// `params.position` may be negative — negative values are relative to
+    /// the end of the result set per RFC 8620 §5.5 (e.g. -1 means the last
+    /// result).
     ///
-    /// `anchor` and `anchor_offset` are the RFC 8620 §5.5 `anchor` and
-    /// `anchorOffset` arguments. With an `anchor`, `position` MUST be
+    /// `params.anchor` and `params.anchor_offset` are the RFC 8620 §5.5
+    /// `anchor` and `anchorOffset` arguments. With an `anchor`, `position` MUST be
     /// ignored and the page starts at the anchor's index in the filtered,
     /// sorted results plus `anchor_offset`, clamped to 0; an anchor not in
     /// the results is [`JmapError::anchor_not_found`] via
@@ -592,34 +819,22 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// ...); handlers pass it to the client unchanged. Return
     /// [`BackendQueryError::Other`] (or use `?` on `Self::Error`) for an
     /// internal failure; handlers surface it as a redacted `serverFail`.
-    #[allow(clippy::too_many_arguments)]
     fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&jmap_types::Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
 
     /// Execute a `/queryChanges` and return deltas since `since_query_state`.
     ///
-    /// `collapse_threads` is only meaningful for `Email/queryChanges`
-    /// (RFC 8621 §4.5). Pass `false` for all other object types.
-    #[allow(clippy::too_many_arguments)]
+    /// `params.collapse_threads` is only meaningful for `Email/queryChanges`
+    /// (RFC 8621 §4.5); it is `false` for all other object types.
     fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        since_query_state: &jmap_types::State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&jmap_types::Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> impl std::future::Future<
         Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
     > + Send;
@@ -935,12 +1150,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &jmap_types::Id,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _limit: Option<u64>,
-                _position: i64,
-                _anchor: Option<&jmap_types::Id>,
-                _anchor_offset: i64,
+                _params: QueryParams<'_, O>,
             ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 unreachable!("only principal_id is exercised in this test")
             }
@@ -949,12 +1159,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &jmap_types::Id,
-                _since_query_state: &jmap_types::State,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _max_changes: Option<u64>,
-                _up_to_id: Option<&jmap_types::Id>,
-                _collapse_threads: bool,
+                _params: QueryChangesParams<'_, O>,
             ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
                 unreachable!("only principal_id is exercised in this test")
             }
@@ -1032,12 +1237,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &jmap_types::Id,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _limit: Option<u64>,
-                _position: i64,
-                _anchor: Option<&jmap_types::Id>,
-                _anchor_offset: i64,
+                _params: QueryParams<'_, O>,
             ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 unreachable!("only max_objects_in_set is exercised in this test")
             }
@@ -1046,12 +1246,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &jmap_types::Id,
-                _since_query_state: &jmap_types::State,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _max_changes: Option<u64>,
-                _up_to_id: Option<&jmap_types::Id>,
-                _collapse_threads: bool,
+                _params: QueryChangesParams<'_, O>,
             ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
                 unreachable!("only max_objects_in_set is exercised in this test")
             }

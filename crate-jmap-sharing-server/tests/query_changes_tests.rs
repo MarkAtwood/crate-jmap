@@ -15,8 +15,8 @@ use std::sync::Arc;
 use jmap_server::{Dispatcher, JmapRequest, State};
 use jmap_sharing_server::{
     register_sharing_handlers, BackendChangesError, BackendQueryError, BackendSetError,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
-    QueryResult, SetObject, SharingBackend,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetObject, SharingBackend,
 };
 use jmap_sharing_types::{Principal, PrincipalFilterCondition, ShareNotification};
 use jmap_types::Id;
@@ -126,29 +126,21 @@ impl JmapBackend for FilteringBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         // Only intercept Principal queries — all others delegate as-is.
         if O::TYPE_NAME != "Principal" {
-            return self
-                .0
-                .query_objects::<O>(
-                    caller,
-                    account_id,
-                    filter,
-                    sort,
-                    limit,
-                    position,
-                    anchor,
-                    anchor_offset,
-                )
-                .await;
+            return self.0.query_objects::<O>(caller, account_id, params).await;
         }
+        let QueryParams {
+            filter,
+            sort,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
 
         // Fetch the raw result from the inner backend (which ignores filters).
         let base = self
@@ -156,12 +148,12 @@ impl JmapBackend for FilteringBackend {
             .query_objects::<O>(
                 caller,
                 account_id,
-                None,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
+                QueryParams::new()
+                    .sort(sort)
+                    .limit(limit)
+                    .position(position)
+                    .anchor(anchor)
+                    .anchor_offset(anchor_offset),
             )
             .await?;
 
@@ -222,25 +214,9 @@ impl JmapBackend for FilteringBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        self.0
-            .query_changes::<O>(
-                caller,
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
-            .await
+        self.0.query_changes::<O>(caller, account_id, params).await
     }
 }
 

@@ -15,8 +15,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use jmap_server::{
     is_deliverable, register_push_subscription_handlers, state_change_for, BackendChangesError,
     BackendQueryError, BackendSetError, ChangesResult, Dispatcher, GetObject, Id, JmapBackend,
-    JmapObject, JmapRequest, PushSubscriptionBackend, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, State, StoredPushSubscription, UTCDate,
+    JmapObject, JmapRequest, PushSubscriptionBackend, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, State, StoredPushSubscription,
+    UTCDate,
 };
 use jmap_types::PushSubscription;
 use serde_json::{json, Value};
@@ -134,12 +135,7 @@ impl JmapBackend for MockBackend {
         &self,
         _caller: &Id,
         _account_id: &Id,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _limit: Option<u64>,
-        _position: i64,
-        _anchor: Option<&Id>,
-        _anchor_offset: i64,
+        _params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MockError>> {
         unreachable!("not exercised")
     }
@@ -148,12 +144,7 @@ impl JmapBackend for MockBackend {
         &self,
         _caller: &Id,
         _account_id: &Id,
-        _since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MockError>> {
         unreachable!("not exercised")
     }

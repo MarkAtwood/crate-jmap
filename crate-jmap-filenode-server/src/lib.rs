@@ -44,8 +44,8 @@ pub mod memory;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-    FileNodeBackend, FileNodeProperty, GetObject, JmapBackend, JmapObject, QueryChangesResult,
-    QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    FileNodeBackend, FileNodeProperty, GetObject, JmapBackend, JmapObject, QueryChangesParams,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use filenode::{
     handle_filenode_changes, handle_filenode_copy, handle_filenode_get, handle_filenode_query,

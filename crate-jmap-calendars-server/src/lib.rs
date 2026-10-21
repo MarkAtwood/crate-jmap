@@ -51,8 +51,8 @@ pub use backend::{
     CalendarEventGetArgs, CalendarEventNotificationProperty, CalendarEventParseResult,
     CalendarEventProperty, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarProperty,
     CalendarsBackend, CalendarsLimits, ChangesResult, GetObject, JmapBackend, JmapObject,
-    ParticipantIdentityProperty, QueryCalendarEventsError, QueryChangesResult, QueryObject,
-    QueryResult, SetDefaultResult, SetError, SetErrorType, SetObject,
+    ParticipantIdentityProperty, QueryCalendarEventsError, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetDefaultResult, SetError, SetErrorType, SetObject,
 };
 pub use calendar::{handle_calendar_changes, handle_calendar_get, handle_calendar_set};
 pub use event::{
@@ -295,8 +295,8 @@ pub(crate) mod test_support {
 
     use jmap_server::{
         apply_patch_object, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-        GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
-        SetErrorType, SetObject,
+        GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
+        QueryParams, QueryResult, SetError, SetErrorType, SetObject,
     };
     use jmap_types::{Id, State};
 
@@ -593,13 +593,9 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             account_id: &Id,
-            filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _limit: Option<u64>,
-            _position: i64,
-            _anchor: Option<&Id>,
-            _anchor_offset: i64,
+            params: QueryParams<'_, O>,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+            let QueryParams { filter, .. } = params;
             // Minimal filter implementation for the cleanup test path:
             // for CalendarEvent with an `inCalendar` filter, return ids of
             // stored events whose calendarIds map contains that calendar id.
@@ -668,13 +664,11 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             _account_id: &Id,
-            since_query_state: &State,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _max_changes: Option<u64>,
-            _up_to_id: Option<&Id>,
-            _collapse_threads: bool,
+            params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            let QueryChangesParams {
+                since_query_state, ..
+            } = params;
             Ok(QueryChangesResult::new(
                 since_query_state.clone(),
                 State::from("0"),
@@ -973,12 +967,13 @@ pub(crate) mod test_support {
             self.query_objects::<jmap_calendars_types::CalendarEvent>(
                 caller,
                 account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
+                QueryParams::new()
+                    .filter(filter)
+                    .sort(sort)
+                    .limit(limit)
+                    .position(position)
+                    .anchor(anchor)
+                    .anchor_offset(anchor_offset),
             )
             .await
             .map_err(|e| match e {

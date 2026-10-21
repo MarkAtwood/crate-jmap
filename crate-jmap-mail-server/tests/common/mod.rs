@@ -25,7 +25,8 @@ pub use jmap_mail_server::memory::{seed, MemoryBackend, MemoryError};
 
 use jmap_mail_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, MailBackend, QueryChangesResult, QueryObject, QueryResult, SetObject,
+    JmapObject, MailBackend, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetObject,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -129,50 +130,18 @@ impl JmapBackend for FaultyBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-        self.inner
-            .query_objects::<O>(
-                &(),
-                account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
-            )
-            .await
+        self.inner.query_objects::<O>(&(), account_id, params).await
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         _caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        self.inner
-            .query_changes::<O>(
-                &(),
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
-            .await
+        self.inner.query_changes::<O>(&(), account_id, params).await
     }
 }
 

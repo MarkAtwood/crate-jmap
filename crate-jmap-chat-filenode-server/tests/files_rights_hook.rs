@@ -23,8 +23,8 @@ use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_chat_types::ChatPermission;
 use jmap_filenode_server::backend::{
     BackendChangesError, BackendQueryError, BackendSetError, CaseFolding, ChangesResult,
-    FileNodeBackend, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
-    QueryResult, SetObject,
+    FileNodeBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetObject,
 };
 use jmap_filenode_server::filenode::handle_filenode_get;
 use jmap_filenode_server::memory::{MemoryBackend as FilesMemory, MemoryError};
@@ -131,50 +131,18 @@ impl JmapBackend for Deployment {
         &self,
         _caller: &(),
         account_id: &Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-        self.files
-            .query_objects::<O>(
-                &(),
-                account_id,
-                filter,
-                sort,
-                limit,
-                position,
-                anchor,
-                anchor_offset,
-            )
-            .await
+        self.files.query_objects::<O>(&(), account_id, params).await
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         _caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        self.files
-            .query_changes::<O>(
-                &(),
-                account_id,
-                since_query_state,
-                filter,
-                sort,
-                max_changes,
-                up_to_id,
-                collapse_threads,
-            )
-            .await
+        self.files.query_changes::<O>(&(), account_id, params).await
     }
 }
 

@@ -55,8 +55,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject, SharingBackend,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject, SharingBackend,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
@@ -483,13 +483,15 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        let QueryParams {
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
         let inner = self.inner.lock().unwrap();
 
         let mut ids: Vec<Id> = inner
@@ -539,13 +541,13 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        let QueryChangesParams {
+            since_query_state,
+            max_changes,
+            ..
+        } = params;
         let changes = self
             .get_changes::<O>(&(), account_id, since_query_state, max_changes)
             .await?;

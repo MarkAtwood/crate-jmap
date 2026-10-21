@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 use jmap_server::{
     register_push_subscription_handlers, BackendChangesError, BackendQueryError, BackendSetError,
     ChangesResult, Dispatcher, GetObject, Id, JmapBackend, JmapObject, JmapRequest,
-    PushSubscriptionBackend, QueryChangesResult, QueryObject, QueryResult, State,
-    StoredPushSubscription,
+    PushSubscriptionBackend, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, State, StoredPushSubscription,
 };
 use jmap_types::PushSubscription;
 use serde_json::{json, Value};
@@ -92,12 +92,7 @@ impl JmapBackend for MockBackend {
         &self,
         _caller: &Id,
         _account_id: &Id,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _limit: Option<u64>,
-        _position: i64,
-        _anchor: Option<&Id>,
-        _anchor_offset: i64,
+        _params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MockError>> {
         unreachable!("not exercised")
     }
@@ -106,12 +101,7 @@ impl JmapBackend for MockBackend {
         &self,
         _caller: &Id,
         _account_id: &Id,
-        _since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
+        _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MockError>> {
         unreachable!("not exercised")
     }

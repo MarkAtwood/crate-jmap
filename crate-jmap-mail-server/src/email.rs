@@ -41,7 +41,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     bool_arg, filter_arg, resolve_query_offset, server_fail_from_backend,
-    server_fail_value_from_backend, take_bool_arg, HandlerOutput,
+    server_fail_value_from_backend, take_bool_arg, HandlerOutput, QueryChangesParams, QueryParams,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -848,12 +848,10 @@ pub async fn handle_email_query<B: MailBackend>(
                     .query_objects::<Email>(
                         caller,
                         &account_id,
-                        filter.as_ref(),
-                        sort_slice,
-                        Some(0),
-                        0,
-                        None,
-                        0,
+                        QueryParams::new()
+                            .filter(filter.as_ref())
+                            .sort(sort_slice)
+                            .limit(Some(0)),
                     )
                     .await
                     .map_err(JmapError::from)?;
@@ -874,12 +872,10 @@ pub async fn handle_email_query<B: MailBackend>(
                 .query_objects::<Email>(
                     caller,
                     &account_id,
-                    filter.as_ref(),
-                    sort_slice,
-                    Some(collapse_cap as u64 + 1),
-                    0,
-                    None,
-                    0,
+                    QueryParams::new()
+                        .filter(filter.as_ref())
+                        .sort(sort_slice)
+                        .limit(Some(collapse_cap as u64 + 1)),
                 )
                 .await
                 .map_err(JmapError::from)?;
@@ -947,12 +943,11 @@ pub async fn handle_email_query<B: MailBackend>(
                 .query_objects::<Email>(
                     caller,
                     &account_id,
-                    filter.as_ref(),
-                    sort_slice,
-                    Some(effective_limit),
-                    position,
-                    None,
-                    0,
+                    QueryParams::new()
+                        .filter(filter.as_ref())
+                        .sort(sort_slice)
+                        .limit(Some(effective_limit))
+                        .position(position),
                 )
                 .await
                 .map_err(JmapError::from)?;
@@ -1056,12 +1051,12 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         .query_changes::<Email>(
             caller,
             &account_id,
-            &since_query_state,
-            filter.as_ref(),
-            sort_slice,
-            max_changes,
-            up_to_id.as_ref(),
-            collapse_threads,
+            QueryChangesParams::new(&since_query_state)
+                .filter(filter.as_ref())
+                .sort(sort_slice)
+                .max_changes(max_changes)
+                .up_to_id(up_to_id.as_ref())
+                .collapse_threads(collapse_threads),
         )
         .await
         .map_err(JmapError::from)?;

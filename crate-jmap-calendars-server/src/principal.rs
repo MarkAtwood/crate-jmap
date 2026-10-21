@@ -304,9 +304,9 @@ mod tests {
     async fn get_availability_other_error_is_redacted_on_the_wire() {
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-            JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
-            SetError as JsSetError, SetErrorType as JsSetErrorType, SetObject,
-            SERVER_FAIL_INTERNAL_DESC,
+            JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
+            QueryParams, QueryResult, SetError as JsSetError, SetErrorType as JsSetErrorType,
+            SetObject, SERVER_FAIL_INTERNAL_DESC,
         };
         use jmap_types::State;
 
@@ -373,12 +373,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &Id,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _limit: Option<u64>,
-                _position: i64,
-                _anchor: Option<&Id>,
-                _anchor_offset: i64,
+                _params: QueryParams<'_, O>,
             ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
@@ -393,13 +388,11 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &Id,
-                since_query_state: &State,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _max_changes: Option<u64>,
-                _up_to_id: Option<&Id>,
-                _collapse_threads: bool,
+                params: QueryChangesParams<'_, O>,
             ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                let QueryChangesParams {
+                    since_query_state, ..
+                } = params;
                 Ok(QueryChangesResult::new(
                     since_query_state.clone(),
                     State::from("0"),

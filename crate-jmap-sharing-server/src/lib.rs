@@ -83,8 +83,9 @@ pub mod principal;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, PrincipalProperty, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject, ShareNotificationProperty, SharingBackend,
+    JmapBackend, JmapObject, PrincipalProperty, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+    ShareNotificationProperty, SharingBackend,
 };
 pub use notification::{
     handle_share_notification_changes, handle_share_notification_get,
@@ -256,8 +257,8 @@ pub(crate) mod test_support {
 
     use jmap_server::{
         BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
-        SetErrorType, SetObject,
+        JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+        QueryResult, SetError, SetErrorType, SetObject,
     };
     use jmap_sharing_types::{Principal, ShareNotification};
     use jmap_types::{Id, State};
@@ -409,12 +410,7 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _limit: Option<u64>,
-            _position: i64,
-            _anchor: Option<&Id>,
-            _anchor_offset: i64,
+            _params: QueryParams<'_, O>,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             Ok(QueryResult::new(
                 vec![],
@@ -429,13 +425,11 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             _account_id: &Id,
-            since_query_state: &State,
-            _filter: Option<&O::Filter>,
-            _sort: Option<&[O::Comparator]>,
-            _max_changes: Option<u64>,
-            _up_to_id: Option<&Id>,
-            _collapse_threads: bool,
+            params: QueryChangesParams<'_, O>,
         ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            let QueryChangesParams {
+                since_query_state, ..
+            } = params;
             Ok(QueryChangesResult::new(
                 since_query_state.clone(),
                 State::from("0"),

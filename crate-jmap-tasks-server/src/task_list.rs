@@ -35,7 +35,9 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+};
 
 // ---------------------------------------------------------------------------
 // TaskList/get
@@ -372,7 +374,7 @@ async fn destroy_task_list_tasks<B: TasksBackend>(
     let mut filter = TaskFilterCondition::default();
     filter.task_list_id = Some(task_list_id.clone());
     let ids = backend
-        .query_objects::<Task>(caller, account_id, Some(&filter), None, None, 0, None, 0)
+        .query_objects::<Task>(caller, account_id, QueryParams::new().filter(Some(&filter)))
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
         .ids;

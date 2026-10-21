@@ -13,8 +13,8 @@ pub use jmap_filenode_types::backend::FileNodeProperty;
 use jmap_filenode_types::{FileNode, FilesRights};
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 
 // ---------------------------------------------------------------------------
@@ -626,12 +626,7 @@ pub trait FileNodeBackend: JmapBackend {
                         .query_objects::<FileNode>(
                             caller,
                             &account_id,
-                            Some(&child_filter),
-                            None,
-                            None,
-                            0,
-                            None,
-                            0,
+                            QueryParams::new().filter(Some(&child_filter)),
                         )
                         .await?;
                     for id in result.ids {

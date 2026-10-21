@@ -35,7 +35,7 @@ use crate::helpers::{
     PLACEHOLDER_ID,
 };
 use jmap_server::{
-    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -450,7 +450,11 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
     let mut filter = CalendarEventFilterCondition::default();
     filter.in_calendar = Some(calendar_id.clone());
     let event_ids: Vec<Id> = backend
-        .query_objects::<CalendarEvent>(caller, account_id, Some(&filter), None, None, 0, None, 0)
+        .query_objects::<CalendarEvent>(
+            caller,
+            account_id,
+            QueryParams::new().filter(Some(&filter)),
+        )
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
         .ids;
@@ -587,8 +591,8 @@ mod tests {
     async fn set_destroy_calendar_has_events_error_returns_server_fail() {
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-            JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
-            SetError as JsSetError, SetErrorType as JsSetErrorType, SetObject,
+            JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
+            QueryResult, SetError as JsSetError, SetErrorType as JsSetErrorType, SetObject,
         };
         use jmap_types::{Id, PatchObject, State};
 
@@ -659,12 +663,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &Id,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _limit: Option<u64>,
-                _position: i64,
-                _anchor: Option<&Id>,
-                _anchor_offset: i64,
+                _params: QueryParams<'_, O>,
             ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
@@ -679,13 +678,11 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &Id,
-                since_query_state: &State,
-                _filter: Option<&O::Filter>,
-                _sort: Option<&[O::Comparator]>,
-                _max_changes: Option<u64>,
-                _up_to_id: Option<&Id>,
-                _collapse_threads: bool,
+                params: QueryChangesParams<'_, O>,
             ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                let QueryChangesParams {
+                    since_query_state, ..
+                } = params;
                 Ok(QueryChangesResult::new(
                     since_query_state.clone(),
                     State::from("0"),

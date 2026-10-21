@@ -130,8 +130,8 @@ pub use avatar::{
 };
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, BindingTarget,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
-    QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
 };
 pub use ephemeral::{
     should_deliver, validate_interaction, RegionScope, SceneEphemeralSubscription,
