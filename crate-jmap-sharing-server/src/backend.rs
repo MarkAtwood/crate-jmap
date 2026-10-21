@@ -79,7 +79,7 @@ pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProper
 /// principal, and a `None` caller removes the authorization input.
 ///
 /// **Single-user dev backends and test fixtures** may leave the default
-/// `None` impl in place. The reference [`memory::MemoryBackend`] does
+/// `None` impl in place. The reference `memory::MemoryBackend` does
 /// this and is correct for its single-user, in-memory, demonstration-
 /// only use case.
 ///
@@ -99,8 +99,6 @@ pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProper
 /// per-method docs on `create_object`, `update_object`, and
 /// `destroy_object` restate this contract; the foundation rule lives
 /// here.
-///
-/// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
 pub trait SharingBackend: JmapBackend {
     /// Create a new object.
     ///
@@ -171,7 +169,7 @@ pub trait SharingBackend: JmapBackend {
     /// appears, and `/changes` reports a `created` id that
     /// `/get` cannot resolve.
     ///
-    /// The reference [`memory::MemoryBackend::create_object`]
+    /// The reference `memory::MemoryBackend::create_object`
     /// (`src/memory.rs`) demonstrates the correct ordering: serialize,
     /// patch `val["id"]`, deserialize into `O`, THEN advance state,
     /// THEN insert into the objects map, THEN push the change-log
@@ -183,7 +181,7 @@ pub trait SharingBackend: JmapBackend {
     /// `create_id` is the client-side creation id from the `/set` request's
     /// `create` map key (e.g. `"c1"` in `{"create": {"c1": {...}}}`).
     /// Backends typically **ignore this argument**; both in-tree reference
-    /// impls ([`memory::MemoryBackend`] and the test `MockBackend`) bind
+    /// impls (`memory::MemoryBackend` and the test `MockBackend`) bind
     /// it as `_create_id`. It is plumbed through the trait for two
     /// permitted backend uses:
     ///
@@ -200,8 +198,6 @@ pub trait SharingBackend: JmapBackend {
     /// `created` map (keyed by `create_id`) inside the
     /// [`jmap_server::Dispatcher`], not on the backend's input. Backends
     /// have no need to participate in `#cid` resolution.
-    ///
-    /// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
     /// [`jmap_server::Dispatcher`]: jmap_server::Dispatcher
     ///
     /// # Invariant — MUST hold; not enforced at the type level
@@ -218,7 +214,7 @@ pub trait SharingBackend: JmapBackend {
     /// by the handler — see `principal.rs` create branch), and no `cargo test` of the backend
     /// alone will catch it. End-to-end JMAP integration is the only signal.
     ///
-    /// Reference implementations: see [`memory::MemoryBackend::create_object`]
+    /// Reference implementations: see `memory::MemoryBackend::create_object`
     /// (`src/memory.rs`) for the recommended shape — serialize to JSON, set
     /// `val["id"]`, deserialize back to `O`. The canonical sibling
     /// `jmap-mail-server`'s `MemoryBackend::create_object` uses the same
@@ -233,8 +229,6 @@ pub trait SharingBackend: JmapBackend {
     /// `9c0d34f` review pass and may motivate a future workspace-wide
     /// handler-side defensive id-patch — file a workspace-architectural
     /// decision bead before reshaping this trait).
-    ///
-    /// [`memory::MemoryBackend::create_object`]: crate::memory::MemoryBackend
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -284,7 +278,7 @@ pub trait SharingBackend: JmapBackend {
     ///   "verified to exist" when invoked through the standard
     ///   handler path, but defense-in-depth (returning `NotFound`
     ///   for an unknown account, as the reference
-    ///   [`memory::MemoryBackend`] does) is RECOMMENDED.
+    ///   `memory::MemoryBackend` does) is RECOMMENDED.
     /// - **Patch shape is malformed** (e.g. JSON Pointer references
     ///   a non-existent path, or a leaf assignment violates the
     ///   target field's type): return
@@ -333,8 +327,6 @@ pub trait SharingBackend: JmapBackend {
     /// time. RFC 8620 §5.3 does not require idempotency; this
     /// matches the workspace convention shared with the canonical
     /// `jmap-mail-server`.
-    ///
-    /// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
     ///
     /// # Patch format
     ///
@@ -392,7 +384,7 @@ pub trait SharingBackend: JmapBackend {
     ///   `account_id` argument as "verified to exist" when invoked
     ///   through the standard handler path, but defense-in-depth
     ///   (returning `NotFound` for an unknown account, as the
-    ///   reference [`memory::MemoryBackend`] does) is RECOMMENDED.
+    ///   reference `memory::MemoryBackend` does) is RECOMMENDED.
     /// - **Other storage failure**: return
     ///   `BackendSetError::Other(your_error_type)`; the handler maps
     ///   this to a `serverFail` SetError on the wire.
@@ -414,8 +406,6 @@ pub trait SharingBackend: JmapBackend {
     /// shared with the canonical `jmap-mail-server` and aligns with
     /// "second destroy is a request to destroy something that does not
     /// exist".
-    ///
-    /// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
     ///
     /// # Cascades
     ///
@@ -439,7 +429,7 @@ pub trait SharingBackend: JmapBackend {
     /// `forbidden` [`SetError`] is the wire-visible enforcement
     /// mechanism). Backends that support all types unconditionally
     /// SHOULD return `true` always; both in-tree reference impls
-    /// ([`memory::MemoryBackend`] and the test `MockBackend`) do exactly
+    /// (`memory::MemoryBackend` and the test `MockBackend`) do exactly
     /// this.
     ///
     /// # Intended consumer use
@@ -469,8 +459,6 @@ pub trait SharingBackend: JmapBackend {
     /// `accountCapabilities`), so the answer may vary with `caller` and
     /// `account_id`. Backends that support every type in this trait for
     /// every account can ignore both arguments and return `true`.
-    ///
-    /// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
     fn supports_type<O: JmapObject>(
         &self,
         caller: &Self::CallerCtx,
