@@ -20,6 +20,7 @@ no I/O.
 | `GraphEdge` | §GraphEdge |
 | `query::*` filters and comparators | §Graph/query, §GraphNode/query, §GraphEdge/query |
 | `JMAP_URI_GRAPH_TYPE`, `JMAP_URI_GRAPH_NODE_TYPE`, `JMAP_URI_GRAPH_EDGE_TYPE` | §JMAP Object URI Type Registrations |
+| `edit::*` — `JMAP_GRAPH_EDIT_URI`, `GraphEditCapability`, `GraphNodeOp`, `GraphNode::edit_format`/`snapshot_seq`, `OPS_COMPACTED`, `GraphNode/cursor`, the WebSocket stream frames | draft-atwood-jmap-graph-edit-00 |
 
 The session-level capability value is `{}` and has no type. Every Graph
 method is a standard RFC 8620 method, so requests and responses use the
@@ -61,6 +62,12 @@ assert_eq!(f.from_id.as_deref().map(<[_]>::len), Some(1));
   filter without `graphId`, and a decode failure is `unsupportedFilter`.
   Rejecting a missing `filter` is the server's job.
 - The edge `type` property is the Rust field `edge_type`.
+- The graph-edit GraphNode properties `editFormat` and `snapshotSeq` are
+  not fields: they stay in `GraphNode::extra` and are read with
+  `edit_format()` and `snapshot_seq()`, so nodes of a server without
+  `urn:ietf:params:jmap:graph:edit` do not grow them.
+- Op and cursor `data` are the base64url `String`; decoding, size limits
+  and the `baseSeq`/`snapshotSeq` rules are server checks.
 - Not enforced on deserialize: non-empty annotation keys,
   `maxAnnotationSize`, `uri` being a URI, and `fromId`/`toId` naming nodes
   of the edge's Graph. Those are server checks.
@@ -70,9 +77,11 @@ assert_eq!(f.from_id.as_deref().map(<[_]>::len), Some(1));
 ## References
 
 - [draft-atwood-jmap-graph-00] — JMAP for Graphs
+- [draft-atwood-jmap-graph-edit-00] — JMAP Graph Live Editing
 - [RFC 8620] — JMAP Core
 - [RFC 9670] — JMAP Sharing
 
 [draft-atwood-jmap-graph-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-graph-edit-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 9670]: https://www.rfc-editor.org/rfc/rfc9670

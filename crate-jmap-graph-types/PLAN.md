@@ -10,6 +10,7 @@ bindings in `jmap-graph-client`.
 |---|---|---|
 | JMAP-ef3q.1 | Capability, Principal capability, Graph, GraphRights, GraphNode, GraphEdge, `/query` filters and comparators, `JmapObject` impls, JMAP Object URI type names | landed |
 | JMAP-ef3q.3 | Projection `objectUri` GraphNode filter, `JMAP_GRAPH_PROJECTION_URI` | landed |
+| JMAP-ef3q.4 | `edit` module (draft-atwood-jmap-graph-edit-00): capability, GraphNodeOp with filter/comparator, GraphNode `editFormat`/`snapshotSeq` accessors, `opsCompacted`, `GraphNode/cursor`, stream frames and events | landed |
 
 ## Decisions
 
@@ -31,3 +32,11 @@ bindings in `jmap-graph-client`.
   workspace map rule requires); `shareWith` is `BTreeMap<Id, GraphRights>`.
 - Server-set properties are required on deserialize, as in
   `jmap-scene-types`.
+- graph-edit's GraphNode `editFormat` and `snapshotSeq` live in
+  `GraphNode::extra` behind accessors (`edit_format`, `snapshot_seq`), as
+  in `jmap-chat-types` `Space::calendar_id`: typed fields would serialize
+  on every node, including those of servers without the edit capability.
+- `GraphNodeOpFilterCondition` follows the GraphNode filter: the draft
+  (L222) requires a single condition with `nodeId`.
+- Op and cursor `data` stay base64url `String`s; the server never reads
+  them (draft §Design Principles), so decoding belongs to clients.

@@ -2,15 +2,17 @@
 //!
 //! Defined here so that `jmap-graph-server` can use them without violating
 //! the orphan rule. The type names are those of draft-atwood-jmap-graph-00
-//! §JMAP Data Type Registration.
+//! §JMAP Data Type Registration and draft-atwood-jmap-graph-edit-00 §JMAP
+//! Data Type Registration.
 
 use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
+use crate::edit::{GraphNodeOpComparator, GraphNodeOpFilterCondition};
 use crate::query::{
     GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphFilter,
     GraphNodeComparator, GraphNodeFilterCondition,
 };
-use crate::{Graph, GraphEdge, GraphNode};
+use crate::{Graph, GraphEdge, GraphNode, GraphNodeOp};
 
 impl JmapObject for Graph {
     const TYPE_NAME: &'static str = "Graph";
@@ -58,4 +60,20 @@ impl SetObject for GraphEdge {
 impl QueryObject for GraphEdge {
     type Filter = GraphEdgeFilterCondition;
     type Comparator = GraphEdgeComparator;
+}
+
+impl JmapObject for GraphNodeOp {
+    const TYPE_NAME: &'static str = "GraphNodeOp";
+    type Property = ();
+}
+
+impl GetObject for GraphNodeOp {}
+
+impl SetObject for GraphNodeOp {
+    type Patch = PatchObject;
+}
+
+impl QueryObject for GraphNodeOp {
+    type Filter = GraphNodeOpFilterCondition;
+    type Comparator = GraphNodeOpComparator;
 }
