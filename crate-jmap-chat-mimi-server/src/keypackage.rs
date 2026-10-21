@@ -116,7 +116,7 @@ pub fn check_key_package_create<C: OpenMlsCrypto>(
         .ok()
         .and_then(|r| r.tls_serialize_detached().ok())
         .ok_or_else(|| {
-            SetError::new(SetErrorType::custom("serverFail"))
+            SetError::new(SetErrorType::from("serverFail"))
                 .with_description("KeyPackageRef computation failed")
         })?;
     let key_package_ref = Base64Url::try_from(URL_SAFE_NO_PAD.encode(key_package_ref))

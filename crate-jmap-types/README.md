@@ -219,7 +219,7 @@ jmap-types          ← this crate
 
 ## Gotchas
 
-- **No field validation.** `Id::from("")` succeeds. `UTCDate::from("not-a-date")` succeeds. `SetError::new("")` also succeeds and produces a wire-noncompliant `{"type":""}` shape. RFC 8620 field constraints (non-empty Ids, valid date formats, non-empty SetError types) are enforced by consumers such as `jmap-server`, not here. The typed construction path for SetError lives in `jmap_server::backend::SetError`; callers that need compile-time guarantees should construct that and convert.
+- **No field validation.** `Id::from("")` succeeds. `UTCDate::from("not-a-date")` succeeds. `SetError::new("")` also succeeds and produces a wire-noncompliant `{"type":""}` shape. RFC 8620 field constraints (non-empty Ids, valid date formats, non-empty SetError types) are enforced by consumers such as `jmap-server`, not here. Construct a `SetError` from a typed `SetErrorType` variant when the type is a known one.
 - **`Argument<T>` sealed type set.** The `Argument<T>` type (which holds either a plain value or a `ResultReference`) is constrained to a sealed set of inner types. Newtypes that serialize as JSON strings (`Id`, `Date`, `UTCDate`, `State`, plus their `Vec<_>` forms), plus `String`, `Vec<String>`, `u32`, `u64`, and `bool` are in the set. `serde_json::Value` and every JSON-object-shaped type are intentionally excluded — including `serde_json::Value` would silently swallow any `ResultReference` payload. To add a new type to the sealed set, a PR to this crate is required.
 - **`JmapError` method-level only.** `JmapError` covers RFC 8620 §3.6.2 method-level errors. Request-level errors (§3.6.1, returned as HTTP 400/500 with an RFC 7807 body) are `RequestError` in `jmap-server`, not here.
 

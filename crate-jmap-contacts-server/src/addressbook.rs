@@ -48,10 +48,9 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, Hand
 /// — a typo at the const declaration site fails the integration test
 /// in `tests/contacts_tests.rs`, which hardcodes the literal
 /// `"addressBookHasContents"` as an independent oracle. Per the foundation
-/// `SetErrorType::custom` policy in `jmap-server::backend.rs` (variant
-/// policy docstring, bd:JMAP-wlip.19), extension-specific error types do
-/// NOT get typed variants on the foundation enum — they go through
-/// [`SetErrorType::custom`] (bd:JMAP-qz9v.7).
+/// [`SetErrorType`] variant policy (bd:JMAP-wlip.19), extension-specific
+/// error types do NOT get typed variants on the foundation enum — they go
+/// through [`SetErrorType::Other`] via `SetErrorType::from` (bd:JMAP-qz9v.7).
 pub(crate) const ADDRESS_BOOK_HAS_CONTENTS: &str = "addressBookHasContents";
 
 // ---------------------------------------------------------------------------
@@ -387,7 +386,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     Ok(true) => {
                         not_destroyed.insert(
                             id_str,
-                            set_error_value(&SetError::new(SetErrorType::custom(
+                            set_error_value(&SetError::new(SetErrorType::from(
                                 ADDRESS_BOOK_HAS_CONTENTS,
                             ))),
                         );

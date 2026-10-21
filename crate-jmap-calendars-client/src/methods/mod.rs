@@ -620,7 +620,8 @@ mod tests {
             not_updated
                 .get(&Id::from("ev-1"))
                 .expect("ev-1 key present")
-                .error_type,
+                .error_type
+                .to_string(),
             "stateMismatch",
             "notUpdated key must deserialize as Id, not String"
         );
@@ -629,7 +630,8 @@ mod tests {
             not_destroyed
                 .get(&Id::from("ev-2"))
                 .expect("ev-2 key present")
-                .error_type,
+                .error_type
+                .to_string(),
             "notFound",
             "notDestroyed key must deserialize as Id, not String"
         );

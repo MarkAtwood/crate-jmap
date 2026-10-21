@@ -97,7 +97,7 @@ use jmap_types::PatchObject;
 /// If the backend cannot deliver to at least one recipient (no usable
 /// `calendarAddress` URI), it MUST return a
 /// `BackendSetError::SetError` whose type is
-/// `SetErrorType::custom("noSupportedScheduleMethods")` for that operation
+/// `SetErrorType::from("noSupportedScheduleMethods")` for that operation
 /// per §10.7.2; the handler surfaces this verbatim in the corresponding
 /// `notCreated`/`notUpdated`/`notDestroyed` map entry.
 ///
@@ -351,7 +351,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// being created. When `args.send_scheduling_messages` is `true`, the
     /// backend MUST send appropriate iTIP REQUEST/ADD messages on success
     /// (§5.9.2.1), or return
-    /// `BackendSetError::SetError(SetError::new(SetErrorType::custom("noSupportedScheduleMethods")))`
+    /// `BackendSetError::SetError(SetError::new(SetErrorType::from("noSupportedScheduleMethods")))`
     /// when at least one recipient has no `calendarAddress` URI the server
     /// can deliver to (§10.7.2).
     ///
@@ -386,7 +386,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// `args.send_scheduling_messages` is `true`, the backend MUST send
     /// appropriate iTIP messages on success (REQUEST for non-per-user property
     /// changes per §5.9.2.1), or return
-    /// `BackendSetError::SetError(SetError::new(SetErrorType::custom("noSupportedScheduleMethods")))`
+    /// `BackendSetError::SetError(SetError::new(SetErrorType::from("noSupportedScheduleMethods")))`
     /// when at least one recipient has no `calendarAddress` URI the server
     /// can deliver to.
     ///
@@ -420,7 +420,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// `args.send_scheduling_messages` is `true`, the backend MUST send
     /// appropriate iTIP CANCEL or REPLY messages on success (§5.9.2.2 /
     /// §5.9.2.4), or return
-    /// `BackendSetError::SetError(SetError::new(SetErrorType::custom("noSupportedScheduleMethods")))`
+    /// `BackendSetError::SetError(SetError::new(SetErrorType::from("noSupportedScheduleMethods")))`
     /// when at least one recipient has no `calendarAddress` URI the server
     /// can deliver to.
     ///

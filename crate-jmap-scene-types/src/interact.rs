@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(
             resp.not_accepted.as_ref().unwrap()["i1"]
                 .error_type
-                .as_str(),
+                .to_string(),
             "forbidden"
         );
         assert_eq!(serde_json::to_value(&resp).unwrap(), raw);

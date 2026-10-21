@@ -853,7 +853,7 @@ pub(crate) mod test_support {
         {
             if args.send_scheduling_messages {
                 return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::custom("noSupportedScheduleMethods"),
+                    SetErrorType::from("noSupportedScheduleMethods"),
                 )));
             }
             self.create_object::<jmap_calendars_types::CalendarEvent>(
@@ -873,7 +873,7 @@ pub(crate) mod test_support {
         {
             if args.send_scheduling_messages {
                 return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::custom("noSupportedScheduleMethods"),
+                    SetErrorType::from("noSupportedScheduleMethods"),
                 )));
             }
             self.update_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id, patch)
@@ -889,7 +889,7 @@ pub(crate) mod test_support {
         ) -> Result<(), BackendSetError<Self::Error>> {
             if args.send_scheduling_messages {
                 return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::custom("noSupportedScheduleMethods"),
+                    SetErrorType::from("noSupportedScheduleMethods"),
                 )));
             }
             self.destroy_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id)

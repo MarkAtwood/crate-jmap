@@ -189,7 +189,8 @@ async fn filenode_set_destroy_node_has_children_error() {
         .get("node-abc")
         .expect("notDestroyed must contain node-abc");
     assert_eq!(
-        err.error_type, "nodeHasChildren",
+        err.error_type.to_string(),
+        "nodeHasChildren",
         "error type must be nodeHasChildren; got: {}",
         err.error_type
     );

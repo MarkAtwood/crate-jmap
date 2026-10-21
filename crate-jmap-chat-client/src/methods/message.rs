@@ -311,7 +311,7 @@ impl super::SessionClient {
         // Check for server-side rate limiting on the creation key.
         if let Some(not_created) = &set_resp.not_created {
             if let Some(err) = not_created.get(client_id_str) {
-                if err.error_type == "rateLimit" {
+                if err.error_type == jmap_types::SetErrorType::RateLimit {
                     let retry_after = match super::server_retry_after(err) {
                         Ok(Some(t)) => t,
                         Ok(None) => jmap_types::UTCDate::from(

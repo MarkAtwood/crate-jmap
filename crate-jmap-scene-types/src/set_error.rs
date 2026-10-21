@@ -26,6 +26,6 @@ mod tests {
         // policies with a `SetError` of type `contentPolicy`".
         let err: SetError =
             serde_json::from_value(json!({ "type": "contentPolicy" })).expect("a SetError");
-        assert_eq!(err.error_type, CONTENT_POLICY);
+        assert_eq!(err.error_type.to_string(), CONTENT_POLICY);
     }
 }

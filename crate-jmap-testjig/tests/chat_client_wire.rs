@@ -202,7 +202,7 @@ async fn chat_create_direct_and_group_round_trip() {
         .as_ref()
         .and_then(|m| m.get("d2"))
         .expect("duplicate direct chat must be rejected");
-    assert_eq!(err.error_type, "alreadyExists");
+    assert_eq!(err.error_type.to_string(), "alreadyExists");
     assert_eq!(err.existing_id.as_ref(), Some(&direct_id));
 }
 
@@ -261,7 +261,7 @@ async fn chat_update_member_patch_keys() {
         .as_ref()
         .and_then(|m| m.get(&group_id))
         .expect("unknown role must be rejected");
-    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(
         err.properties.as_deref(),
         Some(&["updateMemberRoles".to_owned()][..])
@@ -328,7 +328,7 @@ async fn last_admin_leave_closes_group() {
         .as_ref()
         .and_then(|m| m.get("m"))
         .expect("create in a closed group must be rejected");
-    assert_eq!(err.error_type, "forbidden");
+    assert_eq!(err.error_type.to_string(), "forbidden");
 
     let resp = sc
         .chat_destroy(std::slice::from_ref(&group_id))
@@ -555,7 +555,7 @@ async fn message_create_keeps_optional_properties() {
         .as_ref()
         .and_then(|m| m.get("m2"))
         .unwrap_or_else(|| panic!("empty topicId must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(err.properties.as_deref(), Some(&["topicId".to_owned()][..]));
 }
 
@@ -598,7 +598,7 @@ async fn message_create_rejects_fields_forbidden_by_body_type() {
         .as_ref()
         .and_then(|m| m.get("m1"))
         .unwrap_or_else(|| panic!("m1 must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(err.properties.as_deref(), Some(&["topicId".to_owned()][..]));
 }
 
@@ -643,7 +643,7 @@ async fn message_create_rejects_body_over_max_body_bytes() {
         .as_ref()
         .and_then(|m| m.get("m1"))
         .unwrap_or_else(|| panic!("over-long body must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "tooLarge");
+    assert_eq!(err.error_type.to_string(), "tooLarge");
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Message `bodyType`: "MIME type of
@@ -695,7 +695,7 @@ async fn message_unsupported_body_type_is_invalid_properties() {
         .as_ref()
         .and_then(|m| m.get("bad"))
         .unwrap_or_else(|| panic!("unsupported bodyType must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(
         err.properties.as_deref(),
         Some(&["bodyType".to_owned()][..])
@@ -712,7 +712,7 @@ async fn message_unsupported_body_type_is_invalid_properties() {
         .as_ref()
         .and_then(|m| m.get(&msg_id))
         .unwrap_or_else(|| panic!("unsupported bodyType edit must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(
         err.properties.as_deref(),
         Some(&["bodyType".to_owned()][..])
@@ -899,7 +899,7 @@ async fn message_edit_after_delete_is_forbidden() {
         .as_ref()
         .and_then(|m| m.get(&msg_id))
         .unwrap_or_else(|| panic!("edit of a deleted Message must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "forbidden");
+    assert_eq!(err.error_type.to_string(), "forbidden");
 
     let got = sc.message_get(&[msg_id], None).await.expect("Message/get");
     assert_eq!(got.list[0].body, "");

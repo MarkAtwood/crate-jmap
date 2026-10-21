@@ -4,10 +4,8 @@
 //! `/query`, and `/queryChanges` method (across mail, calendars, contacts,
 //! chat, etc.) returns one of these shapes. Centralising them here avoids
 //! drift between the seven `jmap-*-client` crates that previously each
-//! defined their own copies. Server crates may still hand-build wire JSON
-//! for their `/set` responses (so they can use the typed
-//! [`SetErrorType`](crate::backend) enum at construction time); this crate's
-//! [`SetError`] is the deserialization target on the client side.
+//! defined their own copies. [`SetResponse`] carries [`SetError`] values,
+//! defined in [`crate::set_error`].
 //!
 //! All types use camelCase JSON via `#[serde(rename_all = "camelCase")]` and
 //! are marked `#[non_exhaustive]` so future RFC errata or extensions can add
@@ -19,7 +17,7 @@
 //! |---|---|
 //! | [`GetResponse`] | RFC 8620 §5.1 |
 //! | [`ChangesResponse`] | RFC 8620 §5.2 |
-//! | [`SetResponse`], [`SetError`] | RFC 8620 §5.3 |
+//! | [`SetResponse`] | RFC 8620 §5.3 |
 //! | [`QueryResponse`] | RFC 8620 §5.5 |
 //! | [`QueryChangesResponse`], [`AddedItem`] | RFC 8620 §5.6 |
 
@@ -27,7 +25,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Id, State};
+use crate::{Id, SetError, State};
 
 // ---------------------------------------------------------------------------
 // /get
@@ -191,131 +189,6 @@ where
 // /set
 // ---------------------------------------------------------------------------
 
-/// A per-item failure in a `/set` response (RFC 8620 §5.3).
-///
-/// Appears as the value type in the `notCreated`, `notUpdated`, and
-/// `notDestroyed` maps of [`SetResponse`]. The `error_type` field uses
-/// `String` rather than a typed enum so extension errors (e.g.
-/// `"calendarHasEvent"`, `"noSupportedScheduleMethods"`) round-trip
-/// cleanly without requiring a version-bump on every new spec extension.
-///
-/// All fields beyond `error_type` are optional and present only when the
-/// corresponding error type calls for them per RFC 8620 §5.3 / RFC 8621
-/// §5.5, §5.7, §7.5:
-///
-/// | Field | Set when error_type is | Spec |
-/// |---|---|---|
-/// | `description` | any (optional human-readable detail) | RFC 8620 §5.3 |
-/// | `properties` | `invalidProperties` | RFC 8620 §5.3 |
-/// | `existing_id` | `alreadyExists` | RFC 8620 §5.4, RFC 8621 §5.7 |
-/// | `not_found` | `blobNotFound` | RFC 8621 §5.5 |
-/// | `max_recipients` | `tooManyRecipients` | RFC 8621 §7.5 |
-/// | `invalid_recipients` | `invalidRecipients` | RFC 8621 §7.5 |
-/// | `max_size` | `tooLarge` | RFC 8621 §7.5 |
-///
-/// # Extension fields
-///
-/// JMAP extensions (e.g. JMAP Chat's `serverRetryAfter` for slow-mode
-/// rate limiting) MAY add additional SetError fields beyond the RFC 8620
-/// base set. The `extra` field captures any such field via
-/// `#[serde(flatten)]` so it round-trips losslessly. Extension crates
-/// (e.g. `jmap-chat-client`) provide typed accessor helpers that read
-/// from `extra` — the base type stays free of extension-specific fields.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SetError {
-    /// The machine-readable error type (e.g. `"forbidden"`, `"notFound"`,
-    /// `"alreadyExists"`, or an extension-defined string).
-    #[serde(rename = "type")]
-    pub error_type: String,
-    /// Human-readable description of the error. Optional per RFC 8620 §5.3.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    /// Property names that caused the error (for `invalidProperties`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub properties: Option<Vec<String>>,
-    /// The existing object id (for `alreadyExists`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub existing_id: Option<Id>,
-    /// Missing blob ids (for `blobNotFound`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub not_found: Option<Vec<Id>>,
-    /// Maximum recipients allowed (for `tooManyRecipients`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_recipients: Option<u64>,
-    /// Invalid recipient addresses (for `invalidRecipients`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invalid_recipients: Option<Vec<String>>,
-    /// Maximum message size in octets (for `tooLarge`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_size: Option<u64>,
-    /// Catch-all for extension SetError fields not in the RFC 8620 base
-    /// set. Captured via `#[serde(flatten)]` so they round-trip losslessly.
-    /// Extension crates provide typed accessors (e.g.
-    /// `jmap-chat-client`'s helper for reading `serverRetryAfter`).
-    ///
-    /// Uses `serde_json::Map` (which, under the workspace's default
-    /// `serde_json` features — `preserve_order` is NOT enabled — is
-    /// backed by `BTreeMap` and therefore deterministically serializes
-    /// in lexicographic key order, NOT in insertion order) to match the
-    /// workspace extras-preservation policy (see workspace `AGENTS.md`)
-    /// and to give callers deterministic serialized output.
-    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
-    pub extra: serde_json::Map<String, serde_json::Value>,
-}
-
-impl SetError {
-    /// Construct a `SetError` with the given type string and all optional
-    /// fields `None` / empty. Use this when deserializing tests or when
-    /// constructing a wire-shaped error from a typed source. Server crates
-    /// that want a typed enum for construction should use
-    /// `jmap_server::backend::SetError` (declared in the `jmap-server`
-    /// crate, not linkable from here since `jmap-types` does not depend on
-    /// `jmap-server`) — this type is deliberately String-typed for
-    /// client-side parsing flexibility.
-    ///
-    /// # Caller contract — input is not validated
-    ///
-    /// `error_type` is stored verbatim. The constructor does not check
-    /// that the string is non-empty, that it matches an RFC 8620 §5.3
-    /// known type, or that the optional fields populated elsewhere on
-    /// the struct are consistent with the chosen type. `SetError::new("")`
-    /// succeeds and produces a wire-noncompliant `{"type":""}` shape.
-    ///
-    /// Callers who want compile-time guarantees should construct
-    /// `jmap_server::backend::SetError` (the typed enum) and convert,
-    /// rather than calling this constructor with a raw string. Callers
-    /// who do want raw-string construction (e.g. proxies forwarding an
-    /// upstream's error) MUST validate the input themselves before
-    /// passing it here. This matches the workspace pattern for the
-    /// other permissive constructors in this crate
-    /// ([`crate::Id::from`], [`crate::UTCDate::from`] — see the
-    /// jmap-types README "Gotchas" section).
-    pub fn new(error_type: impl Into<String>) -> Self {
-        Self {
-            error_type: error_type.into(),
-            description: None,
-            properties: None,
-            existing_id: None,
-            not_found: None,
-            max_recipients: None,
-            invalid_recipients: None,
-            max_size: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl std::fmt::Display for SetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.description {
-            Some(desc) => write!(f, "{}: {}", self.error_type, desc),
-            None => write!(f, "{}", self.error_type),
-        }
-    }
-}
-
 /// RFC 8620 §5.3 — `Foo/set` response shape.
 ///
 /// Wire shape per RFC 8620 §5.3 (rfc8620.txt §5.3 around line 2033):
@@ -473,6 +346,7 @@ pub struct QueryChangesResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SetErrorType;
     use serde_json::json;
 
     // Independent oracles: hand-written JSON shapes from the RFC 8620
@@ -744,7 +618,7 @@ mod tests {
         let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw).unwrap();
         let nu = resp.not_updated.unwrap();
         assert_eq!(
-            nu.get(&Id::from("ev1")).unwrap().error_type,
+            nu.get(&Id::from("ev1")).unwrap().error_type.to_string(),
             "stateMismatch"
         );
     }
@@ -767,7 +641,7 @@ mod tests {
             "maxSize": 10485760
         });
         let err = SetError::deserialize(&raw).unwrap();
-        assert_eq!(err.error_type, "alreadyExists");
+        assert_eq!(err.error_type, SetErrorType::AlreadyExists);
         assert_eq!(err.description.as_deref(), Some("conflict"));
         assert_eq!(err.properties.as_ref().unwrap()[0], "name");
         assert_eq!(err.existing_id.as_ref().unwrap().as_ref(), "obj-7");
@@ -815,7 +689,7 @@ mod tests {
             "serverRetryAfter": "2026-01-01T00:00:00Z"
         });
         let err = SetError::deserialize(&raw).unwrap();
-        assert_eq!(err.error_type, "rateLimited");
+        assert_eq!(err.error_type.to_string(), "rateLimited");
         assert_eq!(err.description.as_deref(), Some("slow-mode active"));
         assert_eq!(
             err.extra.get("serverRetryAfter").and_then(|v| v.as_str()),
@@ -829,18 +703,21 @@ mod tests {
     #[test]
     fn set_error_extension_type_round_trips() {
         // Extension errors (e.g. calendars draft §10.7.2) MUST round-trip
-        // through the String error_type without a new variant being added.
+        // through SetErrorType::Other without a new variant being added.
         let err = SetError::new("noSupportedScheduleMethods");
         let json = serde_json::to_value(&err).unwrap();
         assert_eq!(json["type"], "noSupportedScheduleMethods");
         let back: SetError = serde_json::from_value(json).unwrap();
-        assert_eq!(back.error_type, "noSupportedScheduleMethods");
+        assert_eq!(
+            back.error_type,
+            SetErrorType::Other("noSupportedScheduleMethods".to_owned())
+        );
     }
 
     #[test]
     fn set_error_display_with_description() {
         let err = SetError {
-            error_type: "forbidden".to_owned(),
+            error_type: SetErrorType::Forbidden,
             description: Some("not your calendar".to_owned()),
             ..SetError::new("forbidden")
         };
