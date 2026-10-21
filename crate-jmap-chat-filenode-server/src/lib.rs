@@ -271,15 +271,17 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
     account_id: &Id,
     space_id: &Id,
 ) -> Result<(Id, FileNode), BackendSetError<F::Error>> {
-    let root: FileNode = serde_json::from_value(serde_json::json!({
-        "id": space_id,
-        "@type": "Directory",
-        "name": space_id,
-        "parentId": null,
-        "role": NodeRole::ChatSpace.to_wire_str(),
-        "spaceId": space_id,
-    }))
-    .expect("a Directory FileNode with every required field deserializes");
+    let root = |id: &Id| -> FileNode {
+        serde_json::from_value(serde_json::json!({
+            "id": id,
+            "@type": "Directory",
+            "name": space_id,
+            "parentId": null,
+            "role": NodeRole::ChatSpace.to_wire_str(),
+            "spaceId": space_id,
+        }))
+        .expect("a Directory FileNode with every required field deserializes")
+    };
     files
         .create_object(caller, account_id, "spaceFileTree", root)
         .await

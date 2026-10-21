@@ -1336,6 +1336,12 @@ wire behaviour that a conforming peer can observe.
 - **BREAKING** **jmap-sharing-server**: `SharingBackend::create_object`
   takes the same builder; the `"placeholder"` id sentinel is gone, and
   the returned object carrying the minted id holds by construction.
+- **BREAKING** **jmap-filenode-server**: `FileNodeBackend::create_object`
+  takes the same builder; the `"placeholder"` id sentinel of
+  `FileNode/set` and `FileNode/copy` is gone.
+  **jmap-chat-filenode-server** `create_space_file_tree` builds the root
+  for the minted id (it previously passed the Space id for the backend
+  to replace).
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

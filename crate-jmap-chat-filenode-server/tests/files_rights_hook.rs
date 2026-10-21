@@ -147,15 +147,19 @@ impl JmapBackend for Deployment {
 }
 
 impl FileNodeBackend for Deployment {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         self.files
-            .create_object::<O>(&(), account_id, create_id, obj)
+            .create_object(&(), account_id, create_id, build)
             .await
     }
 
