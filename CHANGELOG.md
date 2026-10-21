@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-vtc-server**: `eject_banned_user` for the Space ban rule
+  of draft-atwood-jmap-vtc-00 §Chat-Bound Calls. On a SpaceBan it sets
+  `leftAt` on the banned user's active VTCParticipant records in calls
+  bound to the Space and returns one `"left"` `VTCParticipantEvent` per
+  record, for the caller to deliver. Call it from
+  `ChatBackend::on_space_ban_created` after `contact_identity`.
+
 - **jmap-vtc-client**: `VtcWsExt`, `VtcWsFrame` and `parse_vtc_ws_frame`
   for draft-atwood-jmap-vtc-wss-00 on a `jmap_base_client::WsSession`.
   `send_vtc_stream_enable` and `send_vtc_stream_disable` send the

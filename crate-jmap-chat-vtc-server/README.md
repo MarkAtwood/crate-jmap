@@ -18,6 +18,7 @@ not depend on each other; this crate depends on both.
 | `sync_active_call_id` | chat §Chat `activeCallId`: set on `"active"`, cleared on `"ended"` |
 | `clear_space_references`, `clear_channel_references` | vtc §VTCCall: clear `spaceId` / `channelId` when the Space or channel is destroyed |
 | `contact_identity` | chat §Terminology: the identity a ChatContact id (or the accountId) names, as VTC `userId` uses it |
+| `eject_banned_user` | vtc §Chat-Bound Calls: on a SpaceBan, set `leftAt` on the banned user's active participants in the Space's calls and return one `"left"` `VTCParticipantEvent` each |
 | `is_blocked_by_contact` | vtc §Blocked-Sender Suppression, through `ChatContact.blocked` |
 | `START_CALL` | chat §SpaceRole `"start_call"` |
 | `should_deliver_vtc` | vtc-wss §Interoperability with JMAP Chat WebSocket: the union of the `ChatStreamEnable` `"vtc"` path and `VTCStreamEnable`, one decision per event |
@@ -34,6 +35,7 @@ these functions from its trait methods:
 | `VtcBackend::is_user_blocked` | `is_blocked_by_contact` |
 | `ChatBackend::on_chat_destroyed` | `clear_channel_references` |
 | `ChatBackend::on_space_destroyed` | `clear_space_references` |
+| `ChatBackend::on_space_ban_created` | `contact_identity`, then `eject_banned_user` |
 | WebSocket transport, before sending a VTC event | `should_deliver_vtc` |
 
 ## How to use
@@ -73,14 +75,15 @@ require.
   argument. The draft says every member holds that role but puts its
   permissions on no wire object. Controller principals that "bypass this
   resolution" are also deployment-defined; skip the call for them.
-- Space ban enforcement (vtc §Access Control) is not here yet: it writes
-  `VTCParticipant.leftAt`, and `VtcParticipant` has no `SetObject` impl
-  yet (bd:JMAP-8mem.10). `contact_identity` is its first step.
+- `eject_banned_user` returns the `"left"` events and does not deliver
+  them; pass each to `VtcBackend::deliver_event`. It sets only `leftAt`:
+  it does not end a ring or scheduled call that empties or hand on the
+  moderator role, as a `VTCParticipant/set` leave does.
 - Pass `jmap_chat_server::EphemeralSubscription::vtc` as the `chat_vtc`
   flag of `should_deliver_vtc`. It is `true` only when the accepted
   `ChatStreamEnable` listed `"vtc"` and `CompanionStreams` says the server
   advertises `urn:ietf:params:jmap:vtc:websocket`.
-- `clear_*_references` and `is_blocked_by_contact`
+- `clear_*_references`, `eject_banned_user` and `is_blocked_by_contact`
   read every record of the type; each carries a `ponytail:` note with the
   upgrade path.
 

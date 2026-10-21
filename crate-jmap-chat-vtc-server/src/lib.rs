@@ -15,6 +15,7 @@
 //! | `VtcBackend::is_user_blocked` | [`is_blocked_by_contact`] |
 //! | `ChatBackend::on_chat_destroyed` | [`clear_channel_references`] |
 //! | `ChatBackend::on_space_destroyed` | [`clear_space_references`] |
+//! | `ChatBackend::on_space_ban_created` | [`contact_identity`], then [`eject_banned_user`] |
 //! | WebSocket transport, before sending a VTC event | [`should_deliver_vtc`] |
 //!
 //! Each function takes only the backend it reads or writes, so the two
@@ -27,10 +28,15 @@ use std::collections::HashSet;
 use jmap_chat_server::permissions::resolve_channel_permissions;
 use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{Chat, ChatContact, ChatKind, Space};
-use jmap_server::{BackendSetError, GetObject, JmapBackend, SetError, SetErrorType};
+use jmap_server::{
+    now_utc_string, BackendSetError, GetObject, JmapBackend, SetError, SetErrorType,
+};
 use jmap_types::{Id, PatchObject};
 use jmap_vtc_server::{VtcBackend, VtcEphemeralSubscription};
-use jmap_vtc_types::{CallState, VtcCall, VtcEvent, VtcStreamEnable};
+use jmap_vtc_types::{
+    CallState, ParticipantEventKind, VtcCall, VtcEvent, VtcParticipant, VtcParticipantEvent,
+    VtcStreamEnable,
+};
 use serde_json::{json, Value};
 
 /// The Space permission that gates call creation
@@ -271,6 +277,92 @@ pub async fn contact_identity<C: ChatBackend>(
             .await?
             .map(|c| c.identity),
     )
+}
+
+/// Remove the banned user `user_id` (an identity string, from
+/// [`contact_identity`]) from every call bound to the Space `space_id`.
+///
+/// draft-atwood-jmap-vtc-00 §Chat-Bound Calls: "When a user is banned from a
+/// Space (via SpaceBan creation) and has an active VTCParticipant record
+/// in a call bound to that Space (via `spaceId`), the server SHOULD set
+/// `leftAt` on that VTCParticipant record and emit a
+/// `VTCParticipantEvent` with event `"left"`. The ban takes effect
+/// immediately on active calls."
+///
+/// The calls are those in `account_id` whose `spaceId` is `space_id` and
+/// that have not ended. A participant is active when its `userId` is
+/// `user_id`, `joinedAt` is set and `leftAt` is `null`, as in
+/// §VTCParticipant/query `isActive`. A ring target that has not answered
+/// is not active and is left as it is. Each `leftAt` write goes through
+/// [`VtcBackend::update_object`], which advances the VTCParticipant
+/// state.
+///
+/// Returns one `"left"` event per participant written, for the caller to
+/// pass to [`VtcBackend::deliver_event`]. This sets `leftAt` and nothing
+/// else: it does not end a call that empties or hand on the moderator
+/// role, as a `VTCParticipant/set` leave does.
+///
+/// # Errors
+///
+/// Returns the VTC backend's error from reading the calls or the
+/// participants, or from updating a participant. Participants updated
+/// before the error stay updated, and their events are lost; the
+/// VTCParticipant `StateChange` still reports them.
+// Same error type as `VtcBackend::update_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+pub async fn eject_banned_user<V: VtcBackend>(
+    vtc: &V,
+    caller: &V::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+    user_id: &str,
+) -> Result<Vec<VtcParticipantEvent>, BackendSetError<V::Error>> {
+    // ponytail: reads every VTCCall and VTCParticipant; O(calls +
+    // participants) per ban. Upgrade: VTCCall/query on `spaceId` and
+    // VTCParticipant/query on `callId`.
+    let (calls, _) = vtc
+        .get_objects::<VtcCall>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    let calls: HashSet<&Id> = calls
+        .iter()
+        .filter(|c| c.state != CallState::Ended && bound(&c.space_id) == Some(space_id))
+        .map(|c| &c.id)
+        .collect();
+    if calls.is_empty() {
+        return Ok(Vec::new());
+    }
+    let (participants, _) = vtc
+        .get_objects::<VtcParticipant>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    let mut events = Vec::new();
+    for p in participants.iter().filter(|p| {
+        calls.contains(&p.call_id)
+            && p.user_id.as_deref() == Some(user_id)
+            && p.joined_at.is_some()
+            && p.left_at.is_none()
+    }) {
+        vtc.update_object::<VtcParticipant>(
+            caller,
+            account_id,
+            &p.id,
+            patch("leftAt", json!(now_utc_string())),
+        )
+        .await?;
+        events.push(
+            serde_json::from_value(json!({
+                "accountId": account_id,
+                "callId": p.call_id,
+                "participantId": p.id,
+                "event": ParticipantEventKind::Left,
+                "displayName": p.display_name,
+                "role": p.role,
+            }))
+            .expect("a VTCParticipantEvent built from a stored participant is valid"),
+        );
+    }
+    Ok(events)
 }
 
 /// `true` if `user_id` (an identity string) is blocked on the contact list

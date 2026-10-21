@@ -1,13 +1,17 @@
 //! Chat-side events applied to VTC records: Space and channel destroy, and
-//! the identity a SpaceBan's `userId` names.
+//! SpaceBan ejection.
 
 mod common;
 
 use common::*;
-use jmap_chat_vtc_server::{clear_channel_references, clear_space_references, contact_identity};
+use jmap_chat_vtc_server::{
+    clear_channel_references, clear_space_references, contact_identity, eject_banned_user,
+};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use jmap_vtc_server::handle_vtc_call_changes;
+use jmap_vtc_server::{
+    handle_vtc_call_changes, handle_vtc_participant_changes, handle_vtc_participant_get,
+};
 use serde_json::{json, Value};
 
 const SPACE: &str = "S1";
@@ -135,4 +139,119 @@ async fn contact_identity_maps_contacts_and_the_owner() {
         .await
         .expect("contact read");
     assert_eq!(missing, None);
+}
+
+/// A VTCParticipant `id` in call `call_id` for `user_id`, hand-written from
+/// the vtc §VTCParticipant field list.
+fn participant(id: &str, call_id: &str, user_id: &str, joined_at: Value) -> Value {
+    json!({
+        "id": id,
+        "callId": call_id,
+        "userId": user_id,
+        "displayName": id,
+        "role": "participant",
+        "joinedAt": joined_at,
+        "leftAt": null,
+        "callResponse": null,
+        "joinMethod": "webrtc",
+        "gatewayData": null,
+        "lobbyState": null,
+        "mediaState": { "audio": true, "video": false, "screen": false, "raisedHand": false },
+        "speakerTimeMs": 0,
+        "kickedBy": null,
+        "e2eeFingerprint": null,
+        "unmuteRequested": false,
+        "breakoutCallId": null
+    })
+}
+
+async fn participant_state(backend: &Bound) -> String {
+    let HandlerOutput { primary, .. } = handle_vtc_participant_get(
+        backend,
+        &OWNER.to_owned(),
+        json!({ "accountId": ACCOUNT, "ids": [] }),
+    )
+    .await
+    .expect("VTCParticipant/get");
+    primary["state"].as_str().expect("state").to_owned()
+}
+
+async fn left_at(backend: &Bound, id: &str) -> Value {
+    let HandlerOutput { primary, .. } = handle_vtc_participant_get(
+        backend,
+        &OWNER.to_owned(),
+        json!({ "accountId": ACCOUNT, "ids": [id] }),
+    )
+    .await
+    .expect("VTCParticipant/get");
+    primary["list"][0]["leftAt"].clone()
+}
+
+/// vtc L1663 (jmap-chat-spec 6bcd9d8): "When a user is banned from a Space
+/// (via SpaceBan creation) and has an active VTCParticipant record in a
+/// call bound to that Space (via `spaceId`), the server SHOULD set
+/// `leftAt` on that VTCParticipant record and emit a `VTCParticipantEvent`
+/// with event `"left"`." Active is vtc L1086: "`joinedAt != null` and
+/// `leftAt == null`". The event fields are vtc L1518-1538.
+#[tokio::test]
+async fn space_ban_ejects_only_active_in_space_records() {
+    let backend = bound_with_space();
+    let in_space = room_call(&backend, SPACE).await;
+    let other_space = room_call(&backend, "S2").await;
+    let joined = json!("2026-01-01T00:00:00Z");
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-active", &in_space, BOB, joined.clone()),
+    );
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-ringing", &in_space, BOB, Value::Null),
+    );
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-elsewhere", &other_space, BOB, joined.clone()),
+    );
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-alice", &in_space, ALICE, joined),
+    );
+    let before = participant_state(&backend).await;
+
+    let events = eject_banned_user(
+        &backend.vtc,
+        &OWNER.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from(SPACE),
+        BOB,
+    )
+    .await
+    .expect("eject");
+
+    assert_eq!(
+        serde_json::to_value(&events).expect("events serialize"),
+        json!([{
+            "accountId": ACCOUNT,
+            "callId": in_space,
+            "participantId": "P-active",
+            "event": "left",
+            "displayName": "P-active",
+            "role": "participant"
+        }])
+    );
+    assert!(left_at(&backend, "P-active").await.is_string());
+    for untouched in ["P-ringing", "P-elsewhere", "P-alice"] {
+        assert_eq!(
+            left_at(&backend, untouched).await,
+            Value::Null,
+            "{untouched}"
+        );
+    }
+    let HandlerOutput { primary, .. } = handle_vtc_participant_changes(
+        &backend,
+        &OWNER.to_owned(),
+        json!({ "accountId": ACCOUNT, "sinceState": before }),
+    )
+    .await
+    .expect("VTCParticipant/changes");
+    assert_eq!(primary["updated"], json!(["P-active"]));
 }
