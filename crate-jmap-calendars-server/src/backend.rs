@@ -609,7 +609,8 @@ pub trait CalendarsBackend: JmapBackend {
     /// arguments (draft-ietf-jmap-calendars-26).
     ///
     /// Receives the standard RFC 8620 §5.5 query parameters (filter, sort,
-    /// limit, position, anchor, anchorOffset) alongside the parsed [`CalendarEventQueryArgs`] carrying
+    /// limit, position, anchor, anchorOffset) as a [`QueryParams`],
+    /// alongside the parsed [`CalendarEventQueryArgs`] carrying
     /// `expandRecurrences` and `timeZone`. When
     /// `args.expand_recurrences` is `true`, the backend MUST expand recurring
     /// events into per-instance synthetic ids within the filter's
@@ -628,17 +629,11 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default implementation ignores `args` and delegates to
     /// [`query_objects`](JmapBackend::query_objects). Backends that support
     /// recurrence expansion MUST override this method.
-    #[allow(clippy::too_many_arguments)]
     fn query_calendar_events(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
-        sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
-        limit: Option<u64>,
-        position: i64,
-        anchor: Option<&jmap_types::Id>,
-        anchor_offset: i64,
+        params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
         args: &CalendarEventQueryArgs,
     ) -> impl std::future::Future<Output = Result<QueryResult, QueryCalendarEventsError<Self::Error>>>
            + Send {
@@ -646,22 +641,12 @@ pub trait CalendarsBackend: JmapBackend {
         // recurrence expansion override this method.
         let _ = args;
         async move {
-            self.query_objects::<jmap_calendars_types::CalendarEvent>(
-                caller,
-                account_id,
-                QueryParams::new()
-                    .filter(filter)
-                    .sort(sort)
-                    .limit(limit)
-                    .position(position)
-                    .anchor(anchor)
-                    .anchor_offset(anchor_offset),
-            )
-            .await
-            .map_err(|e| match e {
-                BackendQueryError::Method(e) => QueryCalendarEventsError::Method(e),
-                BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
-            })
+            self.query_objects::<jmap_calendars_types::CalendarEvent>(caller, account_id, params)
+                .await
+                .map_err(|e| match e {
+                    BackendQueryError::Method(e) => QueryCalendarEventsError::Method(e),
+                    BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
+                })
         }
     }
 

@@ -1316,6 +1316,12 @@ wire behaviour that a conforming peer can observe.
   `QueryChangesParams::new(since_query_state)` plus setters. Both are
   re-exported from `jmap_server` and from each extension server's
   `backend` module.
+- **BREAKING** **jmap-calendars-server**:
+  `CalendarsBackend::query_calendar_events` takes
+  `params: QueryParams<'_, CalendarEvent>` in place of the same six
+  positional `/query` arguments; `args: &CalendarEventQueryArgs` still
+  carries the §5.11 `expandRecurrences` / `timeZone` extras. The default
+  impl forwards `params` to `query_objects` unchanged.
 - **BREAKING** **jmap-server**: `JmapHandler::call` takes one
   `#[non_exhaustive]` `CallContext<CallerCtx>` (`method`, `call_id`,
   `args`, `caller`) instead of four positional arguments, and

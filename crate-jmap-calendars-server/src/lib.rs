@@ -942,15 +942,10 @@ pub(crate) mod test_support {
             &self,
             caller: &(),
             account_id: &Id,
-            filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
-            sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
-            limit: Option<u64>,
-            position: i64,
-            anchor: Option<&Id>,
-            anchor_offset: i64,
+            params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
             args: &CalendarEventQueryArgs,
         ) -> Result<jmap_server::QueryResult, QueryCalendarEventsError<Self::Error>> {
-            if let Some(f) = filter {
+            if let Some(f) = params.filter {
                 if let Some(in_cal) = f.in_calendar.as_ref() {
                     match in_cal.as_ref() {
                         "trigger-too-large" => {
@@ -964,22 +959,12 @@ pub(crate) mod test_support {
                 }
             }
             let _ = args; // happy path delegates to the generic backend
-            self.query_objects::<jmap_calendars_types::CalendarEvent>(
-                caller,
-                account_id,
-                QueryParams::new()
-                    .filter(filter)
-                    .sort(sort)
-                    .limit(limit)
-                    .position(position)
-                    .anchor(anchor)
-                    .anchor_offset(anchor_offset),
-            )
-            .await
-            .map_err(|e| match e {
-                BackendQueryError::Method(e) => QueryCalendarEventsError::Method(e),
-                BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
-            })
+            self.query_objects::<jmap_calendars_types::CalendarEvent>(caller, account_id, params)
+                .await
+                .map_err(|e| match e {
+                    BackendQueryError::Method(e) => QueryCalendarEventsError::Method(e),
+                    BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
+                })
         }
 
         // §4.3 onSuccessSetIsDefault for Calendar/set: track the default in

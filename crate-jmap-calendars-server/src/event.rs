@@ -43,7 +43,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     bool_arg, filter_arg, query_anchor_args, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -1129,12 +1129,13 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         .query_calendar_events(
             caller,
             &account_id,
-            filter.as_ref(),
-            sort.as_deref(),
-            limit,
-            position,
-            anchor.as_ref(),
-            anchor_offset,
+            QueryParams::new()
+                .filter(filter.as_ref())
+                .sort(sort.as_deref())
+                .limit(limit)
+                .position(position)
+                .anchor(anchor.as_ref())
+                .anchor_offset(anchor_offset),
             &query_args,
         )
         .await
@@ -2012,12 +2013,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &Id,
-                _filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
-                _sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
-                _limit: Option<u64>,
-                _position: i64,
-                _anchor: Option<&Id>,
-                _anchor_offset: i64,
+                _params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
                 _args: &CalendarEventQueryArgs,
             ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
                 *self.query_calendar_events_count.lock().unwrap() += 1;
@@ -2884,12 +2880,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &jmap_types::Id,
-                _filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
-                _sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
-                _limit: Option<u64>,
-                _position: i64,
-                _anchor: Option<&Id>,
-                _anchor_offset: i64,
+                _params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
                 _args: &CalendarEventQueryArgs,
             ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
                 Err(QueryCalendarEventsError::Other(FaultyError(CANARY)))
