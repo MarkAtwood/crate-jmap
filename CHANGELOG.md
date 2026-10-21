@@ -1105,6 +1105,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: when the duplicate re-check read after a direct
+  `Chat/set` create fails, the handler destroys the new Chat and reports
+  that create in `notCreated` as `serverFail`, and the rest of the batch
+  goes on. It used to fail the whole method with `serverFail` even though
+  the Chat and earlier changes in the batch were already committed (RFC
+  8620 §3.6.2: "The method call made no changes to the server's state").
 - **BREAKING** **jmap-chat-server**: a `Message/set` create throttled by
   `ChatBackend::slow_mode_check` is rejected in `notCreated` with the RFC
   8620 §5.3 `rateLimit` SetError (`SetErrorType::RateLimit`), not the

@@ -2594,6 +2594,72 @@ async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_displ
     );
 }
 
+/// Oracle: RFC 8620 §3.6.2 says a method-level `serverFail` means "The
+/// method call made no changes to the server's state", so once a Direct
+/// Chat is committed, a failure of the duplicate re-check read (needed for
+/// draft-atwood-jmap-chat-00 6bcd9d8 L1090: "If a direct Chat with this
+/// contactId already exists, the server MUST reject the create with a
+/// SetError of type `alreadyExists`") must not surface as a method error.
+/// The handler instead destroys the new Chat and reports
+/// `notCreated[id]` with a redacted `serverFail`; later creates in the
+/// same batch still run (bd:JMAP-y3f2.19).
+#[tokio::test]
+async fn chat_set_direct_recheck_read_failure_rolls_back_create() {
+    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+
+    let backend = InjectableBackend::new();
+    let account_id = Id::from(ACCOUNT_ID);
+    backend.inner.register_account(&account_id);
+    backend.queue_chat_get_fault_after_create();
+
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": {
+                "c0": { "kind": "direct", "contactId": "contact-1" },
+                "c1": { "kind": "direct", "contactId": "contact-2" }
+            }
+        }),
+    )
+    .await
+    .expect("re-check read failure must not be a method-level error");
+
+    let wire = resp.to_string();
+    assert!(
+        !wire.contains(INJECTABLE_BACKEND_CANARY),
+        "backend error text must not reach the wire: {wire}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c0"]["type"].as_str(),
+        Some("serverFail"),
+        "resp: {resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c0"]["description"].as_str(),
+        Some(jmap_server::SERVER_FAIL_INTERNAL_DESC),
+        "resp: {resp}"
+    );
+    assert!(resp["created"].get("c0").is_none(), "resp: {resp}");
+    assert!(resp["created"]["c1"]["id"].is_string(), "resp: {resp}");
+
+    let (chats, _) = backend
+        .inner
+        .get_objects::<Chat>(&(), &account_id, None, None)
+        .await
+        .expect("get_objects");
+    let contacts: Vec<Option<&str>> = chats
+        .iter()
+        .map(|c| c.contact_id.as_ref().map(|id| id.as_ref()))
+        .collect();
+    assert_eq!(
+        contacts,
+        vec![Some("contact-2")],
+        "the c0 Chat must be rolled back; only c1 may remain"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Edit-history retention gate
 // (draft-atwood-jmap-chat-00 commit 0783fc4 + §Message editHistory)
