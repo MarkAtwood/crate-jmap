@@ -361,7 +361,10 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
 /// against the source state at destroy time.
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
-/// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3.
+/// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3. If
+/// `destroyFromIfInState` does not match the source account's ContactCard
+/// state, the single extra invocation is an `error` of type `stateMismatch`
+/// and the originals are left untouched.
 pub async fn handle_contact_card_copy<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -584,56 +587,51 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         let mut destroyed: Vec<Value> = Vec::new();
         let mut not_destroyed = serde_json::Map::new();
 
-        // RFC 8620 §5.4: destroyFromIfInState gates the implicit destroy
-        // against the source account state at destroy time. Mismatch
-        // skips every destroy with a stateMismatch SetError per source
-        // id; the /copy itself is unaffected (already succeeded).
-        let state_matches = destroy_from_if_in_state
+        // RFC 8620 §5.4: `destroyFromIfInState` "is passed on as the
+        // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
+        // mismatch aborts that whole call with a method-level stateMismatch
+        // error in place of the ContactCard/set response. Nothing is
+        // destroyed; the /copy itself already succeeded.
+        if destroy_from_if_in_state
             .as_deref()
-            .is_none_or(|expected| expected == from_old_state.as_ref());
+            .is_some_and(|expected| expected != from_old_state.as_ref())
+        {
+            extra.push(Invocation::new(
+                "error",
+                json!({ "type": "stateMismatch" }),
+                call_id.to_owned(),
+            ));
+            return Ok(HandlerOutput::new(resp).with_extra(extra));
+        }
 
-        if !state_matches {
-            for (_, source_id) in &copied_source_ids {
-                not_destroyed.insert(
-                    source_id.as_ref().to_owned(),
-                    json!({
-                        "type": "stateMismatch",
-                        "description":
-                            "destroyFromIfInState did not match source account state",
-                    }),
-                );
-            }
-        } else {
-            for (_, source_id) in &copied_source_ids {
-                match backend
-                    .destroy_object::<ContactCard>(caller, &from_account_id, source_id)
-                    .await
-                {
-                    Ok(()) => {
-                        destroyed.push(Value::String(source_id.as_ref().to_owned()));
-                    }
-                    Err(BackendSetError::SetError(set_err)) => {
-                        not_destroyed
-                            .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
-                    }
-                    Err(BackendSetError::Other(e)) => {
-                        not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            server_fail_value_from_backend(&e),
-                        );
-                    }
-                    // BackendSetError is #[non_exhaustive]; surface any future
-                    // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
-                    Err(other) => {
-                        not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            json!({
-                                "type": "serverFail",
-                                "description":
-                                    format!("unhandled backend error variant: {other:?}"),
-                            }),
-                        );
-                    }
+        for (_, source_id) in &copied_source_ids {
+            match backend
+                .destroy_object::<ContactCard>(caller, &from_account_id, source_id)
+                .await
+            {
+                Ok(()) => {
+                    destroyed.push(Value::String(source_id.as_ref().to_owned()));
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_destroyed.insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_destroyed.insert(
+                        source_id.as_ref().to_owned(),
+                        server_fail_value_from_backend(&e),
+                    );
+                }
+                // BackendSetError is #[non_exhaustive]; surface any future
+                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                Err(other) => {
+                    not_destroyed.insert(
+                        source_id.as_ref().to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
+                        }),
+                    );
                 }
             }
         }
@@ -1201,12 +1199,15 @@ mod tests {
         );
     }
 
-    /// Oracle (RFC 8620 §5.4): `destroyFromIfInState` mismatching the
-    /// source account state at destroy time produces a stateMismatch
-    /// SetError per source id in the synthetic /set's notDestroyed.
+    /// Oracle: RFC 8620 §5.4 — `destroyFromIfInState` "is passed on as the
+    /// "ifInState" argument to the implicit "Foo/set" call", and §5.3
+    /// `ifInState`: "If supplied, the string must match the current state;
+    /// otherwise, the method will be aborted and a "stateMismatch" error
+    /// returned." A stale value therefore replaces the implicit
+    /// ContactCard/set with a stateMismatch error and destroys nothing.
     /// The /copy itself is unaffected (it already succeeded).
     #[tokio::test]
-    async fn copy_destroy_from_if_in_state_mismatch_fails_all_destroys() {
+    async fn copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_account("acc2");
         backend.add_contact_card("acc1", "card1");
@@ -1226,24 +1227,33 @@ mod tests {
             .await
             .expect("/copy must succeed (mismatch only affects implicit destroy)");
 
-        // The /copy itself succeeded.
         assert!(
             resp["copied"]["c1"].is_object(),
             "copy must succeed despite destroyFromIfInState mismatch: {resp}"
         );
 
-        // The synthetic /set's notDestroyed carries stateMismatch.
+        assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
         let Invocation {
-            arguments: set_resp,
-            ..
+            name,
+            arguments,
+            call_id,
         } = &extra[0];
+        assert_eq!(name, "error");
+        assert_eq!(arguments, &json!({ "type": "stateMismatch" }));
+        assert_eq!(call_id, "c0");
+
+        let after = handle_contact_card_get(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": ["card1"] }),
+        )
+        .await
+        .expect("get must succeed");
         assert_eq!(
-            set_resp["notDestroyed"]["card1"]["type"], "stateMismatch",
-            "destroyFromIfInState mismatch must produce stateMismatch: {set_resp}"
-        );
-        assert!(
-            set_resp["destroyed"].is_null(),
-            "no destroys must succeed when destroyFromIfInState mismatches: {set_resp}"
+            after.primary["list"].as_array().map(Vec::len),
+            Some(1),
+            "source card must be kept: {}",
+            after.primary
         );
     }
 
