@@ -105,6 +105,36 @@ fn read<'a, T: Deserialize>(
     Ok((value, rest))
 }
 
+/// Whether a `/notify` for `room_id` may be accepted from `sender_uri`, the
+/// provider URI "the MIMI transport authenticated the sender as"
+/// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
+///
+/// "A room's hub is the provider named by the authority component of its
+/// room ID". The server "MUST reject a `/notify` request for a room, and
+/// MUST NOT store its FanoutMessages, unless the MIMI transport
+/// authenticated the sender as that provider", so a `/notify` handler
+/// calls this before [`parse_fanout_messages`] and
+/// [`crate::MimiBackend::store_fanout`] and rejects the request on
+/// `false`.
+///
+/// `true` when `room_id` is a `mimi://` URI whose authority equals, ignoring
+/// ASCII case (RFC 3986 §3.2.2), the authority of `sender_uri`. A missing
+/// or empty authority on either side is `false`.
+pub fn notify_from_hub(room_id: &str, sender_uri: &str) -> bool {
+    fn authority(uri: &str) -> Option<&str> {
+        let rest = &uri[uri.find("://")? + 3..];
+        let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+        Some(&rest[..end]).filter(|a| !a.is_empty())
+    }
+    match (
+        room_id.strip_prefix("mimi://").and(authority(room_id)),
+        authority(sender_uri),
+    ) {
+        (Some(hub), Some(sender)) => hub.eq_ignore_ascii_case(sender),
+        _ => false,
+    }
+}
+
 /// Split a `/notify` body into its FanoutMessages, in order.
 ///
 /// Each FanoutMessage is a `uint64 timestamp` and an MLSMessage, followed

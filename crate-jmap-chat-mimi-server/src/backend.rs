@@ -307,9 +307,12 @@ pub trait MimiBackend: JmapBackend {
     /// `room_id` (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
     ///
     /// `hub_uri` is "the hub's provider URI as authenticated by the MIMI
-    /// transport". Call it once per [`Fanout`] of
-    /// [`crate::parse_fanout_messages`], in the order received. The
-    /// backend MUST, in one atomic step:
+    /// transport". For a `/notify`, call it only when
+    /// [`crate::notify_from_hub`] accepts `room_id` from `hub_uri`: the
+    /// server "MUST NOT store its FanoutMessages, unless the MIMI transport
+    /// authenticated the sender as" the room's hub. Call it once per
+    /// [`Fanout`] of [`crate::parse_fanout_messages`], in the order
+    /// received. The backend MUST, in one atomic step:
     ///
     /// - choose the Chats: for [`FanoutRecipients::Room`], "every Chat of
     ///   a local account bound to that room"; for
