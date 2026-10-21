@@ -454,7 +454,7 @@ async fn missing_region_is_invalid_region_id() {
 
 #[tokio::test]
 async fn malformed_creates_are_invalid_properties() {
-    // L2384 "`regionId` is missing"; L2385 "`visualRef` is present but
+    // L2383 "`regionId` is missing"; L2384 "`visualRef` is present but
     // `visualType` is absent (or vice versa)"; L2137 `position` is
     // server-set, so any supplied value is refused.
     let backend = setup();

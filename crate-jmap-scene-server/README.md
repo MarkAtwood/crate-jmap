@@ -174,7 +174,7 @@ every condition, for a `withinRadius.radius` <= 0 or a `withinBounds`
   crate sends no VTCCall StateChange. That belongs to the Scene/VTC
   binding crate.
 - `blob_size` has no default. Return `Err` for a storage failure, not
-  `Ok(None)`, or the client sees `notFound` and does not retry.
+  `Ok(None)`, or the client sees `invalidProperties` and does not retry.
 - `model/gltf-binary` is accepted even if your capability object omits
   it. The draft requires you to list it.
 - "Recognized audio/image type" means any `audio/*` or `image/*` media
