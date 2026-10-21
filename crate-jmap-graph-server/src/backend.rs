@@ -72,6 +72,18 @@ impl EditLog {
 /// user may not read SHOULD be indistinguishable from one that does not
 /// exist: ... absence from `/query` results".
 ///
+/// [`JmapBackend::get_changes`] for `Graph`, `GraphNode`, `GraphEdge` and
+/// `GraphNodeOp` SHOULD be scoped to the caller the same way: the draft
+/// evaluates rights "for every method call that reads or changes the Graph
+/// or its contents", and of `GraphNodeOp/get` and `/changes`
+/// draft-atwood-jmap-graph-edit-00 says "Both require `mayRead` on the op's
+/// Graph". It reports no id of a
+/// Graph the caller may not read, nor of a node, edge or op in one; a Graph
+/// the caller gains `mayRead` on since `sinceState` is reported, with its
+/// contents, as created, and one it loses `mayRead` on as destroyed. The
+/// `/changes` handlers pass the backend's result through unfiltered, since
+/// only the backend knows what the caller could read at `sinceState`.
+///
 /// # Sharing
 ///
 /// `shareWith` follows RFC 9670, whose Principal and ShareNotification

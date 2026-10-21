@@ -643,6 +643,12 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    // ponytail: the change log is per account, not per caller, so a
+    // caller without `mayRead` on a Graph still sees the ids of it and of
+    // its nodes, edges and ops, and a `shareWith` change surfaces nothing
+    // as created or destroyed (the `GraphBackend` # Rights SHOULD).
+    // Upgrade path: record each change's Graph and each user's `mayRead`
+    // transitions in the log and filter the net changes by them.
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
         _caller: &Id,

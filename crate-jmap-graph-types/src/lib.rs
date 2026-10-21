@@ -28,7 +28,8 @@
 //! - [`GraphEdge`] (draft §GraphEdge).
 //! - [`query`] — the `/query` filters and comparators of the three types,
 //!   including the draft-atwood-jmap-graph-projection-00 GraphNode
-//!   `objectUri` filter and its [`JMAP_GRAPH_PROJECTION_URI`] capability.
+//!   `objectUri` filter and its [`JMAP_GRAPH_PROJECTION_URI`] capability,
+//!   whose account-level object is [`GraphProjectionCapability`].
 //! - [`JMAP_URI_GRAPH_TYPE`], [`JMAP_URI_GRAPH_NODE_TYPE`],
 //!   [`JMAP_URI_GRAPH_EDGE_TYPE`] — the JMAP Object URI type names (draft
 //!   §JMAP Object URI Type Registrations).
@@ -55,8 +56,9 @@ pub mod search;
 mod wire;
 
 pub use capability::{
-    GraphCapability, PrincipalGraphCapability, JMAP_GRAPH_PROJECTION_URI, JMAP_GRAPH_URI,
-    JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE, JMAP_URI_GRAPH_TYPE,
+    GraphCapability, GraphProjectionCapability, PrincipalGraphCapability,
+    JMAP_GRAPH_PROJECTION_URI, JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE,
+    JMAP_URI_GRAPH_TYPE,
 };
 pub use edge::GraphEdge;
 pub use edit::{GraphEditCapability, GraphNodeOp, JMAP_GRAPH_EDIT_URI};

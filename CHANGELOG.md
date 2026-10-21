@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-types**: `GraphProjectionCapability`, the account-level
+  `urn:ietf:params:jmap:graph:projection` object (`graphId`) of
+  draft-atwood-jmap-graph-projection-00 §Account-Level Capability Object.
+- **jmap-graph-server**: the `GraphBackend` rustdoc states the
+  `get_changes` duty: Graph, GraphNode, GraphEdge and GraphNodeOp
+  `/changes` SHOULD omit what the caller may not read and report gained or
+  lost `mayRead` as created or destroyed (draft-atwood-jmap-graph-00
+  §Security Considerations). `MemoryBackend` does not scope `/changes`.
+
 - **jmap-server**: `Dispatcher::set_guard` installs an optional per-call
   guard, run with the method name and caller after result references
   resolve and before handler lookup; an `Err` becomes that call's error
