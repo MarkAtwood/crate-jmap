@@ -88,6 +88,38 @@ async fn node_and_edge_filters_need_graph_id() {
     }
 }
 
+/// This crate does not implement draft-atwood-jmap-graph-search-00, so the
+/// FilterCondition properties it adds (L149-156 at jmap-chat-spec 6bcd9d8)
+/// are unknown to it and are RFC 8620 §5.5 `unsupportedFilter` ("The
+/// "filter" is syntactically valid, but the server cannot process it"),
+/// rather than ignored, which would match every node or edge.
+#[tokio::test]
+async fn search_filter_properties_are_unsupported() {
+    let backend = backend();
+    let g = graph(&backend, "g").await;
+    node(&backend, &g).await;
+    for extra in [
+        json!({ "where": {} }),
+        json!({ "language": "opencypher", "expression": "MATCH (a) RETURN a" }),
+        json!({ "expression": "x" }),
+    ] {
+        let mut filter = json!({ "graphId": g });
+        filter
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let args = json!({ "filter": filter });
+        let t = call_err!(handle_graph_node_query, &backend, ALICE, args.clone());
+        assert_eq!(t, "unsupportedFilter", "GraphNode/query {filter}");
+        let t = call_err!(handle_graph_edge_query, &backend, ALICE, args.clone());
+        assert_eq!(t, "unsupportedFilter", "GraphEdge/query {filter}");
+        let mut args = args;
+        args["sinceQueryState"] = json!("0");
+        let t = call_err!(handle_graph_edge_query_changes, &backend, ALICE, args);
+        assert_eq!(t, "unsupportedFilter", "GraphEdge/queryChanges {filter}");
+    }
+}
+
 /// L292, L330: "The following sort properties are supported: `created`,
 /// `updated`"; L265 for Graph/query: "`name`, `created`, `updated`".
 /// Anything else is RFC 8620 §5.5 `unsupportedSort`.

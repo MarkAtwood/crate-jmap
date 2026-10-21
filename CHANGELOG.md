@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-types**: `search` module for draft-atwood-jmap-graph-search-00
+  (`urn:ietf:params:jmap:graph:search`) — `JMAP_GRAPH_SEARCH_URI`,
+  `GraphSearchCapability` (`languages`, `maxDepth`, `supportsText`), the
+  `where`, `language` and `expression` fields of `GraphNodeFilterCondition`
+  and `GraphEdgeFilterCondition` (`where` as raw JSON), the built-in filter
+  language AST `Expression` (`FieldTest`, `Bound`, `EdgeTest`, `ReachTest`,
+  `Direction`) with `Expression::parse` (well-formedness per candidate kind;
+  `WhereError` maps to `invalidArguments` or `unsupportedFilter`),
+  `Expression::to_value` and `Expression::traversal_depth`, and the
+  `queryTooComplex` method error name. `jmap-graph-server` keeps rejecting
+  the three filter properties with `unsupportedFilter` until it implements
+  search.
+
 - **jmap-graph-client**: draft-atwood-jmap-graph-edit-00 client bindings —
   `SessionClient::graph_node_op_get`, `graph_node_op_changes`, create-only
   `graph_node_op_set`, `graph_node_op_query`, `graph_node_op_query_changes`
