@@ -1,9 +1,5 @@
 # jmap-chat-scene-server
 
-> **Draft, not published.** Tracks a draft spec that is still changing
-> (jmap-chat-spec 63e9d08 revised it); `publish = false` until the crate
-> matches it (JMAP-0x0q, JMAP-38uq.14).
-
 The Chat binding for `jmap-scene-server`: the rules of
 draft-atwood-jmap-scene-wss-00 that apply when one server offers both
 `urn:ietf:params:jmap:chat:websocket` and

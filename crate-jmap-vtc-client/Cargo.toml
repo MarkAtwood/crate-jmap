@@ -6,7 +6,6 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-publish = false
 description = "JMAP VTC HTTP client (draft-atwood-jmap-vtc-00) — extension trait over jmap-base-client"
 keywords = ["jmap", "vtc", "video", "client"]
 categories = ["network-programming", "asynchronous", "api-bindings"]

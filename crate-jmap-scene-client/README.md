@@ -1,9 +1,5 @@
 # jmap-scene-client
 
-> **Draft, not published.** Tracks a draft spec that is still changing
-> (jmap-chat-spec 63e9d08 revised it); `publish = false` until the crate
-> matches it (JMAP-0x0q, JMAP-38uq.14).
-
 ## What it is
 
 Client support for the JMAP Scene extension ([draft-atwood-jmap-scene-00]).

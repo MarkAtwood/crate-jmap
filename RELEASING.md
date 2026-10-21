@@ -63,6 +63,16 @@ jmap-jscalendar-types       (RFC 8984 typed sub-objects, no JMAP dep, only serde
 
 jmap-jscontact-types        (RFC 9553 typed sub-objects, no JMAP dep, only serde)
     └── jmap-contacts-types  (re-exports as `jscontact` module alias)
+
+jmap-{vtc,scene,graph}-types                     (depend on jmap-types only)
+    └── jmap-{vtc,scene,graph}-server            (also depend on jmap-server)
+    └── jmap-{vtc,scene,graph}-client            (also depend on jmap-base-client;
+                                                  jmap-scene-client also on jmap-cid-types)
+    └── jmap-graph-projection-server             (also jmap-mail-types, jmap-contacts-types,
+                                                  jmap-server)
+    └── jmap-chat-vtc-server                     (jmap-chat-server + jmap-vtc-server)
+    └── jmap-chat-scene-server                   (jmap-scene-server)
+    └── jmap-scene-vtc-server                    (jmap-scene-server + jmap-vtc-types)
 ```
 
 Layer table:
@@ -70,19 +80,23 @@ Layer table:
 | Layer | Crates | Depends on |
 |---|---|---|
 | 1 | `jmap-types` | (nothing) |
-| 2a | `jmap-mail-types`, `jmap-chat-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-jscalendar-types`, `jmap-jscontact-types`, `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types` | layer 1 (or just serde, for the two `js*-types`) |
+| 2a | `jmap-mail-types`, `jmap-chat-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-jscalendar-types`, `jmap-jscontact-types`, `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-vtc-types`, `jmap-scene-types`, `jmap-graph-types` | layer 1 (or just serde, for the two `js*-types`) |
 | 2b | `jmap-contacts-types`, `jmap-calendars-types`, `jmap-tasks-types` | layer 2a (consume `jmap-jscontact-types` or `jmap-jscalendar-types`) |
 | 3 | `jmap-mime` | layer 2a (`jmap-mail-types`) |
 | 4 | `jmap-server` | layer 1 |
 | 5 | `jmap-base-client` | layer 1 |
 | 6 | `jmap-mail-server` | layers 1, 2a, 3, 4 (incl. `jmap-mime`) |
-| 6 | `jmap-chat-server`, `jmap-contacts-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-filenode-server`, `jmap-sharing-server`, `jmap-metadata-server` | layers 1, 2a or 2b (the matching `*-types`), 4 |
-| 7 | `jmap-mail-client`, `jmap-chat-client`, `jmap-contacts-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-filenode-client`, `jmap-sharing-client`, `jmap-metadata-client` | layers 1, 2a or 2b, 5 |
+| 6 | `jmap-chat-server`, `jmap-contacts-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-filenode-server`, `jmap-sharing-server`, `jmap-metadata-server`, `jmap-vtc-server`, `jmap-scene-server`, `jmap-graph-server` | layers 1, 2a or 2b (the matching `*-types`), 4 |
+| 6 | `jmap-graph-projection-server` | layers 1, 2a (`jmap-graph-types`, `jmap-mail-types`), 2b (`jmap-contacts-types`), 4 |
+| 7 | `jmap-mail-client`, `jmap-chat-client`, `jmap-contacts-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-filenode-client`, `jmap-sharing-client`, `jmap-metadata-client`, `jmap-vtc-client`, `jmap-scene-client`, `jmap-graph-client` | layers 1, 2a or 2b, 5 |
+| 8 | `jmap-chat-vtc-server`, `jmap-chat-scene-server`, `jmap-scene-vtc-server` | layers 1, 2a, 4, 6 (`jmap-chat-server`, `jmap-vtc-server`, `jmap-scene-server`) |
 
 Crates within the same layer (and sub-layer) have no dependencies on each
 other and can be published in parallel. The 2a/2b split exists because
 `jmap-contacts-types` consumes `jmap-jscontact-types`, and both
 `jmap-calendars-types` and `jmap-tasks-types` consume `jmap-jscalendar-types`.
+Layer 8 holds the binding crates that depend on layer-6 server crates, so
+they publish after layer 6.
 
 ## Publish procedure
 
@@ -104,14 +118,6 @@ parallel by spawning multiple `cargo publish` processes.
 ## Known publish blockers
 
 The 2026-05-13 publish wave surfaced these. Read before the next release.
-
-### 0. Scene and VTC crates are unpublished drafts (bd:JMAP-38uq.14)
-
-`jmap-scene-{types,server,client}`, `jmap-chat-scene-server`,
-`jmap-scene-vtc-server`, `jmap-vtc-{types,server,client}` and
-`jmap-chat-vtc-server` set `publish = false` and are absent from the
-layer table above. No publishable crate depends on them. Remove the flag
-and add them to the table only once they match their drafts (JMAP-0x0q).
 
 ### 1. Server-crate self-dev-dep + new features (bd:JMAP-31o4)
 
@@ -180,7 +186,9 @@ six new crates (`jmap-jscalendar-types`, `jmap-jscontact-types`,
 `jmap-cid-types`, `jmap-metadata-types`, `jmap-metadata-server`,
 `jmap-metadata-client`) and hit the limit twice. Plan the publish
 order so first-time publishes are spread across multiple ten-minute
-windows when introducing more than five new crates.
+windows when introducing more than five new crates. The first publish of
+the Scene, VTC and Graph crates (layers 2a, 6, 7 and 8 above) introduces
+13 new crates, so it spans at least three windows.
 
 ### 4. Uncommitted changes block `cargo publish`
 

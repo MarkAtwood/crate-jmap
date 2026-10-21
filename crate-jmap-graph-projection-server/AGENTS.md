@@ -5,7 +5,7 @@
 The Mail and Contacts binding for `jmap-graph-server` (bd:JMAP-ef3q.9):
 draft-atwood-jmap-graph-projection-00 as free functions a deployment
 calls from its `GraphBackend` impl and its Mail and Contacts write paths.
-No handlers, no backend trait, no memory backend. Not published.
+No handlers, no backend trait, no memory backend.
 
 ## Before starting any work
 
