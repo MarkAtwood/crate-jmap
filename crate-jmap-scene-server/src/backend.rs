@@ -54,6 +54,17 @@ pub enum BindingTarget {
 /// handlers apply the draft's checks (media type, blob, size quota, the
 /// owner-or-admin rule via [`Self::may_modify_asset`]) as defense in depth.
 ///
+/// # Changes
+///
+/// Unlike `/get` and `/query`, [`JmapBackend::get_changes`] is not scoped to
+/// the caller. Visibility filtering "does not change the JMAP state model:
+/// each data type has one state string per account", and `/changes` reports
+/// the account's changes (draft-atwood-jmap-scene-00 §Visibility Contract).
+/// A `/changes` result may therefore name an id that `/get` then hides: "A
+/// server MAY report an object hidden from the caller in `notFound` from
+/// `/get`". Unlike draft-atwood-jmap-graph-00, Scene does not ask `/changes`
+/// to omit what the caller may not read.
+///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl SceneBackend>` when sharing across tasks.
 pub trait SceneBackend: JmapBackend {
