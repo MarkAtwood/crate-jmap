@@ -88,7 +88,7 @@ fn account_example_round_trips() {
 
 #[test]
 fn key_custody_values_match_draft() {
-    // L151: "`"server"` means the server, or a party operating on its
+    // L195: "`"server"` means the server, or a party operating on its
     // behalf, holds at least one of those private keys. `"user"` means
     // the server holds none of them. `null` means the server does not
     // disclose custody".
@@ -110,7 +110,7 @@ fn key_custody_values_match_draft() {
 
 #[test]
 fn unknown_key_custody_round_trips() {
-    // L151: "clients and peers MUST NOT infer `"user"` from `null`" — an
+    // L195: "clients and peers SHOULD NOT infer `"user"` from `null`" — an
     // unknown value is kept verbatim and is not `User` either.
     let raw = json!({
         "did": "did:web:example.com",

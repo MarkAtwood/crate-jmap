@@ -1,8 +1,9 @@
 //! `did:plc` operation-log verification over supplied bytes
-//! (draft-atwood-jmap-chat-did-00 §did:plc operation log integrity:
-//! "Implementations MUST verify operation-log integrity per DID-PLC and
-//! MUST NOT trust a DID Document obtained from a PLC directory that has
-//! presented an inconsistent or non-monotonic operation log.").
+//! (draft-atwood-jmap-chat-did-00 §did:plc operation log integrity, L279
+//! at jmap-chat-spec 6bcd9d8: "Resolution per {{methods}} includes the
+//! operation-log integrity check defined by {{DID-PLC}}; a DID Document
+//! obtained from a PLC directory that has presented an inconsistent or
+//! non-monotonic operation log fails that check.").
 //!
 //! [`verify_plc_audit_log`] replays a directory's audit log
 //! (`/:did/log/audit`) by the did:plc Method Specification v0.3.0 rules:

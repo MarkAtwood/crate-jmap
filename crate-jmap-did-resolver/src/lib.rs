@@ -17,12 +17,14 @@
 //!   document matches the Web DID being resolved."
 //! - `did:plc`: a GET of the PLC directory's `/<did>/log/audit`, checked
 //!   by [`verify_plc_audit_log`]
-//!   (draft-atwood-jmap-chat-did-00 §did:plc operation log integrity:
-//!   "Implementations MUST verify operation-log integrity").
+//!   (draft-atwood-jmap-chat-did-00 L175 at jmap-chat-spec 6bcd9d8:
+//!   resolution "including the operation-log integrity check defined by
+//!   that protocol").
 //!
 //! ## Caching
 //!
-//! draft-atwood-jmap-chat-did-00 §Caching leaves the policy to the
+//! draft-atwood-jmap-chat-did-00 §Caching (L233 at jmap-chat-spec
+//! 6bcd9d8) leaves the policy to the
 //! deployment except for one rule: "If the key that verified a request
 //! signature is not in the `authentication` verification relationship of
 //! the cached DID Document ..., the server MUST resolve the DID again,
@@ -38,8 +40,8 @@
 //! [`Resolver::with_refresh_interval`]).
 //!
 //! A forced refresh drops the cached entry before it fetches, so a
-//! failed refresh leaves nothing cached: §Resolution failure handling,
-//! "Servers SHOULD NOT silently downgrade to an unauthenticated mode or
+//! failed refresh leaves nothing cached: §Resolution failure handling
+//! (L237), "Servers SHOULD NOT silently downgrade to an unauthenticated mode or
 //! proceed with stale cached state when the cache entry has been
 //! explicitly invalidated, including by the refresh requirement above."
 //!
@@ -184,9 +186,12 @@ pub enum Resolved {
 
 /// Error from [`Resolver::resolve`] or [`Resolver::refresh`].
 ///
-/// draft-atwood-jmap-chat-did-00 §Resolution failure handling: on any of
-/// these "the server MUST treat the DID as unverified and MUST reject any
-/// authentication attempt that depends on it."
+/// draft-atwood-jmap-chat-did-00 §Resolution failure handling (L237 at
+/// jmap-chat-spec 6bcd9d8): when resolution fails "and the server holds no
+/// usable cached DID Document for that DID, the DID-bound verification
+/// fails ({{did-verification}}) and the request is rejected." This
+/// resolver never serves an expired or invalidated entry, so every one of
+/// these is such a failure.
 ///
 /// `#[non_exhaustive]`, so new variants stay semver-additive.
 #[derive(Debug, thiserror::Error)]

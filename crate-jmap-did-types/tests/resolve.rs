@@ -409,9 +409,10 @@ fn plc_operation_signed_by_non_rotation_key_is_rejected() {
 
 #[test]
 fn plc_non_monotonic_log_is_rejected() {
-    // draft-atwood-jmap-chat-did-00 L252: "MUST NOT trust a DID Document
-    // obtained from a PLC directory that has presented an inconsistent
-    // or non-monotonic operation log." Entry 1 predates entry 0.
+    // draft-atwood-jmap-chat-did-00 L279 (jmap-chat-spec 6bcd9d8): "a DID
+    // Document obtained from a PLC directory that has presented an
+    // inconsistent or non-monotonic operation log fails that check."
+    // Entry 1 predates entry 0.
     let synthetic = fixture("synthetic.json");
     assert!(matches!(
         verify(

@@ -113,8 +113,8 @@ pub struct DidAccountCapability {
     pub previous_did: Option<String>,
     /// Who holds the private keys of the bound DID's `authentication`
     /// verification relationship. `None` means the server does not
-    /// disclose custody, and "clients and peers MUST NOT infer `"user"`
-    /// from `null`".
+    /// disclose custody, and "clients and peers SHOULD NOT infer `"user"`
+    /// from `null`" (draft-atwood-jmap-did-00 L195, jmap-chat-spec 6bcd9d8).
     pub key_custody: Option<KeyCustody>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
