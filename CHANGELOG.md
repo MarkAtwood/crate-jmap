@@ -1328,6 +1328,11 @@ wire behaviour that a conforming peer can observe.
   builds its TaskList in the builder.
 - **BREAKING** **jmap-contacts-server**: `ContactsBackend::create_object`
   takes the same builder; the `"placeholder"` id sentinel is gone.
+- **BREAKING** **jmap-calendars-server**: `CalendarsBackend::create_object`
+  and `create_calendar_event` take the same builder (`build: F` in place
+  of `event`); the `"placeholder"` id sentinel is gone.
+  **jmap-chat-calendars-server** `create_space_calendar` sets the id in
+  the builder.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

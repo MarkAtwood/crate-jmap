@@ -113,26 +113,17 @@ pub trait CalendarsBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
-    /// # Sentinel fields the backend MUST replace
+    /// # Id assignment
     ///
-    /// The method handlers in this crate pass partially-constructed objects
-    /// with a sentinel value that the backend MUST replace with a real
-    /// value before storing:
+    /// The backend mints the new object's id, calls `build(&id)` exactly
+    /// once to obtain the complete object, and stores that object under
+    /// `id` in the same atomic write. `build` sets the object's `id` field
+    /// to the id it is given; the backend stores the built object as is.
+    /// RFC 8620 §5.3 lists `id` among the "server-set properties".
     ///
-    /// - **`id`**: The `id` field in the input object is always set to
-    ///   the sentinel string `"placeholder"` (private const
-    ///   `crate::helpers::PLACEHOLDER_ID`). The backend MUST replace it
-    ///   with a real, unique, account-scoped ID and return that ID as
-    ///   the first element of the result tuple.
-    ///
-    /// Failing to replace this sentinel will cause the client to receive
-    /// invalid wire values (`"placeholder"`).
-    ///
-    /// Mirrors the canonical jmap-mail-server `create_object` sentinel
-    /// contract at `crate-jmap-mail-server/src/backend.rs:64-87`
+    /// Mirrors the canonical jmap-mail-server `create_object` contract
     /// (bd:JMAP-ic0j.33). Calendars has no `blob_id` / `size` analogs and
-    /// no singleton types per the current draft, so this trait carries a
-    /// shorter contract than the canonical.
+    /// no singleton types per the current draft.
     ///
     /// # Errors
     ///
@@ -171,14 +162,17 @@ pub trait CalendarsBackend: JmapBackend {
     /// all three under one mutex acquisition, and a database backend uses
     /// one transaction. A call that returns `Err` MUST leave the stored
     /// data, the state and the change log unchanged.
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing object of type `O`.
     ///
@@ -347,8 +341,9 @@ pub trait CalendarsBackend: JmapBackend {
     /// Create a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
     /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-26 §5.9).
     ///
-    /// Receives the per-call [`CalendarEventSetArgs`] in addition to the event
-    /// being created. When `args.send_scheduling_messages` is `true`, the
+    /// Receives the per-call [`CalendarEventSetArgs`] in addition to the
+    /// builder of the event being created, which the backend calls as for
+    /// [`create_object`](Self::create_object). When `args.send_scheduling_messages` is `true`, the
     /// backend MUST send appropriate iTIP REQUEST/ADD messages on success
     /// (§5.9.2.1), or return
     /// `BackendSetError::SetError(SetError::new(SetErrorType::from("noSupportedScheduleMethods")))`
@@ -358,24 +353,25 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default implementation ignores `args` and delegates to
     /// [`create_object`](Self::create_object). Backends with iTIP delivery
     /// support MUST override this method.
-    fn create_calendar_event(
+    fn create_calendar_event<F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        event: jmap_calendars_types::CalendarEvent,
+        build: F,
         args: &CalendarEventSetArgs,
     ) -> impl std::future::Future<
         Output = Result<
             (jmap_types::Id, jmap_calendars_types::CalendarEvent),
             BackendSetError<Self::Error>,
         >,
-    > + Send {
+    > + Send
+    where
+        F: FnOnce(&jmap_types::Id) -> jmap_calendars_types::CalendarEvent + Send,
+    {
         // Default ignores scheduling args; backends with iTIP delivery override.
         let _ = args;
-        self.create_object::<jmap_calendars_types::CalendarEvent>(
-            caller, account_id, create_id, event,
-        )
+        self.create_object(caller, account_id, create_id, build)
     }
 
     /// Apply a partial update to a

@@ -28,7 +28,6 @@ use crate::backend::{BackendSetError, CalendarsBackend};
 use crate::helpers::{
     apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
-    PLACEHOLDER_ID,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
@@ -144,15 +143,9 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                 );
                 continue;
             }
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.entry("id")
-                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
-                    Value::Object(m)
-                }
-                other => other,
-            };
-            let pi: ParticipantIdentity = match serde_json::from_value(obj_with_id) {
+            // `ParticipantIdentity.id` is optional, so the create parses without one
+            // and `build` sets the id the backend mints.
+            let mut pi: ParticipantIdentity = match serde_json::from_value(obj_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_created.insert(
@@ -162,8 +155,12 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                     continue;
                 }
             };
+            let build = move |id: &Id| {
+                pi.id = Some(id.clone());
+                pi
+            };
             match backend
-                .create_object::<ParticipantIdentity>(caller, &account_id, &create_id, pi)
+                .create_object::<ParticipantIdentity, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {

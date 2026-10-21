@@ -680,13 +680,17 @@ pub(crate) mod test_support {
     }
 
     impl CalendarsBackend for MockBackend {
-        async fn create_object<O: SetObject + Send + Sync>(
+        async fn create_object<O, F>(
             &self,
             _caller: &(),
             account_id: &Id,
             _create_id: &str,
-            obj: O,
-        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            build: F,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>>
+        where
+            O: SetObject + Send + Sync,
+            F: FnOnce(&Id) -> O + Send,
+        {
             // Persist the created object so subsequent operations
             // (set_default_*, get, update, destroy) can find it. The mock
             // assigns a unique id per call within a (account, type) namespace
@@ -696,28 +700,12 @@ pub(crate) mod test_support {
             let acct = guard.entry(account_id.as_ref().to_owned()).or_default();
             let store = acct.objects.entry(type_name.to_owned()).or_default();
             let id = Id::from(format!("mock-{}-{}", type_name, store.len() + 1));
-            // Stamp the assigned id into the serialized form so:
-            // 1. The handler's response shows the real id (not "placeholder").
-            // 2. Subsequent get_objects calls return the object with id set.
-            // 3. The onSuccessSetIsDefault creation-ref path can resolve
-            //    "#createId" → assigned id via the response's "id" field.
-            let mut as_json = serde_json::to_value(&obj).map_err(|e| {
+            let obj = build(&id);
+            let as_json = serde_json::to_value(&obj).map_err(|e| {
                 BackendSetError::Other(MockError::new(format!("create serialize failed: {e}")))
             })?;
-            if let Some(map) = as_json.as_object_mut() {
-                map.insert(
-                    "id".to_owned(),
-                    serde_json::Value::String(id.as_ref().to_owned()),
-                );
-            }
-            store.insert(id.clone(), as_json.clone());
-            // Re-deserialize so the returned O carries the assigned id.
-            // If deserialization fails (shouldn't, since we just serialized
-            // the same shape), fall back to returning the original obj —
-            // the response will still show the assigned id via the JSON
-            // serialization in `created`.
-            let typed: O = serde_json::from_value(as_json).unwrap_or(obj);
-            Ok((id, typed))
+            store.insert(id.clone(), as_json);
+            Ok((id, obj))
         }
 
         async fn update_object<O: SetObject + Send + Sync>(
@@ -842,24 +830,24 @@ pub(crate) mod test_support {
         // §5.9, §10.7.2. When sendSchedulingMessages is false the mock falls
         // through to the generic create/update/destroy_object path used by
         // every other test in this file.
-        async fn create_calendar_event(
+        async fn create_calendar_event<F>(
             &self,
             caller: &(),
             account_id: &Id,
             create_id: &str,
-            event: jmap_calendars_types::CalendarEvent,
+            build: F,
             args: &CalendarEventSetArgs,
         ) -> Result<(Id, jmap_calendars_types::CalendarEvent), BackendSetError<Self::Error>>
+        where
+            F: FnOnce(&Id) -> jmap_calendars_types::CalendarEvent + Send,
         {
             if args.send_scheduling_messages {
                 return Err(BackendSetError::SetError(SetError::new(
                     SetErrorType::from("noSupportedScheduleMethods"),
                 )));
             }
-            self.create_object::<jmap_calendars_types::CalendarEvent>(
-                caller, account_id, create_id, event,
-            )
-            .await
+            self.create_object(caller, account_id, create_id, build)
+                .await
         }
 
         async fn update_calendar_event(
