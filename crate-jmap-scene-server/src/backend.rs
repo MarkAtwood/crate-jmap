@@ -121,20 +121,16 @@ pub trait SceneBackend: JmapBackend {
     /// backend:
     ///
     /// 1. refuses with `alreadyExists` and `existingId` naming the record
-    ///    when the user already has an avatar with `leftAt` `null` in the
-    ///    region ("the server MUST NOT create a duplicate and MUST return
-    ///    an `alreadyExists` SetError ... with `existingId` set to the id
-    ///    of the current avatar record");
+    ///    when the user already has an avatar in the region, present or
+    ///    departed ("the server MUST NOT create a second record and MUST
+    ///    return an `alreadyExists` SetError ... with `existingId` set to
+    ///    the id of that record");
     /// 2. refuses with `overQuota` when the region already holds
     ///    `maxAvatarsPerRegion` avatars with `leftAt` `null`;
     /// 3. sets `leftAt` to the new `joinedAt` on the user's active avatar
-    ///    in any other region ("the server MUST set `leftAt` on the
+    ///    in any other region ("the server SHOULD set `leftAt` on the
     ///    previous avatar before creating the new one");
-    /// 4. when the user has a departed avatar in the region, updates that
-    ///    record instead of storing a new one ("clear `leftAt` to `null`,
-    ///    update `joinedAt` to the current time, and set `position`"), and
-    ///    returns its id;
-    /// 5. keeps each affected region's `activeAvatarCount` ("Number of
+    /// 4. keeps each affected region's `activeAvatarCount` ("Number of
     ///    avatars currently present in the region") equal to its avatars
     ///    with `leftAt` `null`, advancing the SceneRegion state.
     ///
@@ -159,12 +155,22 @@ pub trait SceneBackend: JmapBackend {
     /// `invalidPatch`; a result that no longer decodes is
     /// `invalidProperties`. Apply the whole patch or none of it.
     ///
-    /// For a `SceneAvatar` whose patch sets `leftAt`, the backend refuses
-    /// with `invalidProperties` naming `leftAt` when the stored `leftAt` is
-    /// already non-null ("double-leave is invalid"), and otherwise
-    /// decrements the region's `activeAvatarCount` in the same atomic step
-    /// ("The server decrements the region's `activeAvatarCount`"),
-    /// advancing the SceneRegion state.
+    /// For a `SceneAvatar` whose patch sets `leftAt` to a UTCDate, the
+    /// backend refuses with `invalidProperties` naming `leftAt` when the
+    /// stored `leftAt` is already non-null ("double-leave is invalid"), and
+    /// otherwise decrements the region's `activeAvatarCount` in the same
+    /// atomic step ("The server decrements the region's
+    /// `activeAvatarCount`"), advancing the SceneRegion state.
+    ///
+    /// A patch that sets `leftAt` to `null` re-enters the region
+    /// (§Re-entering a Region); the handler has added `joinedAt` (now),
+    /// `position` and `orientation` (the region's spawn point). In the
+    /// same atomic step the backend refuses with `invalidProperties`
+    /// naming `leftAt` when the stored `leftAt` is `null`, then applies
+    /// steps 2 to 4 of [`Self::create_object`] for a `SceneAvatar`: the
+    /// `maxAvatarsPerRegion` `overQuota`, setting `leftAt` on the user's
+    /// active avatar in any other region, and the `activeAvatarCount`
+    /// update.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -385,8 +391,10 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(Vec::new()) }
     }
 
-    /// `true` if the caller may enter `region`. `SceneAvatar/set` create
-    /// returns `forbidden` when this is `false`: "`accessPolicy` is
+    /// `true` if the caller may enter `region`. `SceneAvatar/set` create,
+    /// and an update that re-enters a region (after
+    /// [`Self::may_access_region`] admitted the caller), return
+    /// `forbidden` when this is `false`: "`accessPolicy` is
     /// `\"invite\"` and the caller has not been granted access, or
     /// `\"space\"` and the caller is not a member of the bound Space", and
     /// "User is banned or ejected with a cooldown period still active"
