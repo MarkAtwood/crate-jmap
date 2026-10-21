@@ -23,21 +23,24 @@ use jmap_chat_types::{ChannelPermission, ChatPermission};
 ///
 /// `space_permissions` is step 1, the union of `permissions` across every
 /// SpaceRole the member holds, including the implicit `@everyone` role.
-/// `role_ids` are the SpaceRole ids the member holds, `member_id` is its
-/// SpaceMember `id`, and `overrides` is the channel's
-/// `permissionOverrides`. Steps 2 to 5 then apply, in order: `deny` of
-/// role-targeted records matching `role_ids`, their `allow`, `deny` of
-/// the record targeting `member_id`, and its `allow`.
+/// `space_id` is the id of the Space holding the channel, `role_ids` are
+/// the SpaceRole ids the member holds, `member_id` is its SpaceMember
+/// `id`, and `overrides` is the channel's `permissionOverrides`. Steps 2
+/// to 5 then apply, in order: `deny` of role-targeted records matching
+/// `role_ids` or `space_id`, their `allow`, `deny` of the record
+/// targeting `member_id`, and its `allow`.
 ///
 /// Within one step every entry has the same effect (remove or add), so
 /// the draft's "ascending position order" for role-targeted records
 /// cannot change the result and is not consulted.
 ///
 /// Records whose `targetType` is neither `"role"` nor `"member"` match
-/// nothing. The draft gives the implicit `@everyone` role no id
-/// (§SpaceRole: it "is not included in the `roles` array"), so no
-/// role-targeted record can address it; restrict or grant the floor with
-/// member-targeted records instead.
+/// nothing. Every member holds the implicit `@everyone` role, which has
+/// no SpaceRole id; a role-targeted record whose `targetId` is
+/// `space_id` addresses it (§ChannelPermission `targetId`: "A record
+/// with `targetType: "role"` whose `targetId` is the id of the Space
+/// itself addresses the implicit `@everyone` role"), so it matches every
+/// member.
 ///
 /// A `deny` entry removes every permission with the same wire string
 /// ([`ChatPermission::as_str`]), so a forged
@@ -46,13 +49,17 @@ use jmap_chat_types::{ChannelPermission, ChatPermission};
 /// never grants the known variant.
 pub fn resolve_channel_permissions(
     space_permissions: HashSet<ChatPermission>,
+    space_id: &str,
     member_id: &str,
     role_ids: &HashSet<&str>,
     overrides: &[ChannelPermission],
 ) -> HashSet<ChatPermission> {
     let role_records: Vec<&ChannelPermission> = overrides
         .iter()
-        .filter(|o| o.target_type.as_str() == "role" && role_ids.contains(o.target_id.as_ref()))
+        .filter(|o| {
+            let target = o.target_id.as_ref();
+            o.target_type.as_str() == "role" && (target == space_id || role_ids.contains(target))
+        })
         .collect();
     let member_records: Vec<&ChannelPermission> = overrides
         .iter()
@@ -513,7 +520,7 @@ mod tests {
 
     fn resolve(base: &[&str], roles: &[&str], o: serde_json::Value) -> HashSet<ChatPermission> {
         let role_ids: HashSet<&str> = roles.iter().copied().collect();
-        resolve_channel_permissions(set(base), "m1", &role_ids, &overrides(o))
+        resolve_channel_permissions(set(base), "s1", "m1", &role_ids, &overrides(o))
     }
 
     // Step 1: "Compute the union of `permissions` across all SpaceRoles
@@ -590,6 +597,41 @@ mod tests {
         assert_eq!(resolve(&["view"], &["r1"], o), set(&["view"]));
     }
 
+    // §ChannelPermission `targetId` (jmap-chat-spec 29e9a41, L853): "A
+    // record with `targetType: "role"` whose `targetId` is the id of the
+    // Space itself addresses the implicit `@everyone` role". Step 2 (L1706)
+    // applies "the record for `@everyone`, whose `targetId` is the Space
+    // id", so it matches a member that holds no SpaceRole.
+    #[test]
+    fn space_id_role_record_addresses_everyone() {
+        let o = json!([
+            { "targetId": "s1", "targetType": "role", "allow": ["pin"], "deny": ["send"] }
+        ]);
+        assert_eq!(resolve(&["view", "send"], &[], o), set(&["view", "pin"]));
+    }
+
+    // The `@everyone` record is role-targeted, so it is applied in steps
+    // 2 and 3, before the member-targeted steps 4 and 5: a member allow
+    // beats an `@everyone` deny.
+    #[test]
+    fn member_allow_overrides_everyone_deny() {
+        let o = json!([
+            { "targetId": "s1", "targetType": "role", "allow": [], "deny": ["send"] },
+            { "targetId": "m1", "targetType": "member", "allow": ["send"], "deny": [] }
+        ]);
+        assert_eq!(resolve(&["view", "send"], &[], o), set(&["view", "send"]));
+    }
+
+    // Only `targetType: "role"` with the Space id addresses `@everyone`;
+    // a member-targeted record naming the Space id matches no member.
+    #[test]
+    fn space_id_member_record_matches_nothing() {
+        let o = json!([
+            { "targetId": "s1", "targetType": "member", "allow": [], "deny": ["send"] }
+        ]);
+        assert_eq!(resolve(&["view", "send"], &[], o), set(&["view", "send"]));
+    }
+
     // §SpaceRole (jmap-chat-spec 33702a5, L809): "Servers MUST ignore
     // unrecognized permission names." A `ChatPermission::Other` spelling
     // of a known name is matched on its wire string when denied, and is
@@ -602,7 +644,7 @@ mod tests {
         o[0].deny.push(ChatPermission::Other("send".to_owned()));
         o[0].allow.push(ChatPermission::Other("pin".to_owned()));
         let role_ids = HashSet::new();
-        let perms = resolve_channel_permissions(set(&["view", "send"]), "m1", &role_ids, &o);
+        let perms = resolve_channel_permissions(set(&["view", "send"]), "s1", "m1", &role_ids, &o);
         assert!(!perms.contains(&ChatPermission::Send));
         assert!(!perms.contains(&ChatPermission::Pin));
         assert!(perms.contains(&ChatPermission::View));

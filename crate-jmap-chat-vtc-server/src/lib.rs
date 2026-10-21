@@ -545,6 +545,7 @@ fn member_permissions(
     match channel {
         Some(c) => resolve_channel_permissions(
             space_permissions,
+            space.id.as_ref(),
             account_id.as_ref(),
             &role_ids,
             c.permission_overrides.as_deref().unwrap_or_default(),

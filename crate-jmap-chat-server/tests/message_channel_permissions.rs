@@ -14,14 +14,23 @@ mod common;
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{
     handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
-    JmapBackend,
+    ChatBackend, JmapBackend,
 };
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, State};
 use serde_json::{json, Value};
+use std::collections::HashSet;
 
 const CHANNEL_ID: &str = "ch1";
+
+/// A `MemoryBackend` whose `@everyone` role grants nothing, so a test
+/// controls every permission through role `r1` and the overrides.
+fn backend_without_everyone_floor() -> MemoryBackend {
+    let backend = MemoryBackend::new();
+    backend.set_everyone_permissions(HashSet::new());
+    backend
+}
 
 /// Seed `SPACE_ID` with role `r1` (`role_perms`), the owner's member
 /// entry (id = accountId, draft §Terminology) holding `r1` when
@@ -178,7 +187,7 @@ async fn channel_create_by_space_non_member_is_forbidden() {
 /// server MUST return a SetError of type `forbidden`."
 #[tokio::test]
 async fn channel_create_without_send_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = backend_without_everyone_floor();
     seed_channel(&backend, json!(["view"]), true, json!([]));
     assert_forbidden(&create_message(&backend, CHANNEL_ID).await);
 }
@@ -229,12 +238,12 @@ async fn channel_member_allow_overrides_role_deny() {
 
 /// §SpaceMember L738: "An empty list means the member holds only the
 /// `@everyone` role." Role `r1` would grant `send` but is not held, and
-/// the `@everyone` floor grants nothing, so the owner starts without
+/// this backend's `@everyone` floor is set to nothing, so the owner starts without
 /// `send`. §Space Permission Resolution step 5: "Apply `allow` entries
 /// from the same member-targeted record" restores it.
 #[tokio::test]
 async fn channel_member_allow_overrides_everyone_floor() {
-    let backend = MemoryBackend::new();
+    let backend = backend_without_everyone_floor();
     let members = json!([{ "id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }]);
     seed_channel_with_members(
         &backend,
@@ -244,7 +253,7 @@ async fn channel_member_allow_overrides_everyone_floor() {
     );
     assert_forbidden(&create_message(&backend, CHANNEL_ID).await);
 
-    let backend = MemoryBackend::new();
+    let backend = backend_without_everyone_floor();
     seed_channel_with_members(
         &backend,
         json!(["view", "send"]),
@@ -254,6 +263,40 @@ async fn channel_member_allow_overrides_everyone_floor() {
     assert_created(&create_message(&backend, CHANNEL_ID).await);
 }
 
+/// §SpaceMember L822: "An empty list means the member holds only the
+/// `@everyone` role." `MemoryBackend::new` gives that role `view` and
+/// `send` (bd:JMAP-3rq7), so a member with no SpaceRole may send in and
+/// read a channel with no overrides.
+#[tokio::test]
+async fn default_everyone_floor_grants_view_and_send() {
+    let backend = MemoryBackend::new();
+    let members = json!([{ "id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }]);
+    seed_channel_with_members(&backend, json!([]), members, json!([]));
+    assert_created(&create_message(&backend, CHANNEL_ID).await);
+    assert!(backend
+        .may_view_chat(&(), &Id::from(ACCOUNT_ID), &Id::from(CHANNEL_ID))
+        .await
+        .expect("may_view_chat"));
+}
+
+/// §ChannelPermission `targetId` (jmap-chat-spec 29e9a41, L853): "A
+/// record with `targetType: \"role\"` whose `targetId` is the id of the
+/// Space itself addresses the implicit `@everyone` role". Step 2 (L1706)
+/// applies its `deny` to every member, here both a member with no
+/// SpaceRole and one holding `r1`, which grants `send`.
+#[tokio::test]
+async fn space_id_override_denies_everyone() {
+    let everyone_deny =
+        json!([{ "targetId": SPACE_ID, "targetType": "role", "allow": [], "deny": ["send"] }]);
+    for role_ids in [json!([]), json!(["r1"])] {
+        let backend = MemoryBackend::new();
+        let members =
+            json!([{ "id": ACCOUNT_ID, "roleIds": role_ids, "joinedAt": "2026-01-01T00:00:00Z" }]);
+        seed_channel_with_members(&backend, json!(["send"]), members, everyone_deny.clone());
+        assert_forbidden(&create_message(&backend, CHANNEL_ID).await);
+    }
+}
+
 /// §Message/query L1209: "For channel Chats, the server MUST verify the
 /// caller holds the `\"view\"` permission before returning messages in
 /// `Message/get` or `Message/query` responses; messages in channels the
@@ -261,7 +304,7 @@ async fn channel_member_allow_overrides_everyone_floor() {
 /// reported as `notFound` (RFC 8620 §5.1), and a full fetch drops it.
 #[tokio::test]
 async fn get_omits_messages_in_channel_without_view() {
-    let backend = MemoryBackend::new();
+    let backend = backend_without_everyone_floor();
     seed_channel(&backend, json!(["send"]), true, json!([]));
     seed_message(&backend, "m1", CHANNEL_ID);
 
@@ -402,7 +445,7 @@ async fn handlers_consult_view_hook() {
 /// it is not announced. The role grants `send` without `view`.
 #[tokio::test]
 async fn query_changes_omits_messages_in_channel_without_view() {
-    let backend = MemoryBackend::new();
+    let backend = backend_without_everyone_floor();
     seed_channel(&backend, json!(["send"]), true, json!([]));
     assert_created(&create_message(&backend, CHANNEL_ID).await);
 

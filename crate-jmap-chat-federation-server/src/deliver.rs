@@ -683,7 +683,13 @@ fn channel_permissions<B: FederationBackend>(
         .as_ref()
         .and_then(|c| c.permission_overrides.as_deref())
         .unwrap_or_default();
-    resolve_channel_permissions(space_permissions, sender_id.as_ref(), &role_ids, overrides)
+    resolve_channel_permissions(
+        space_permissions,
+        space.id.as_ref(),
+        sender_id.as_ref(),
+        &role_ids,
+        overrides,
+    )
 }
 
 /// Step 6: slow mode, exempting holders of `"manage_channels"`.
