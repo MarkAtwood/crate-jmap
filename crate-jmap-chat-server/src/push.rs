@@ -381,47 +381,46 @@ pub fn build_chat_message_push(
 }
 
 /// Fit `push` to a platform payload limit of `max_bytes` serialized JSON
-/// bytes, or `None` when it cannot fit and the caller MUST send a plain
-/// `StateChange` for that subscription instead.
+/// bytes, returning the payloads to deliver in order. A `None` element
+/// stands for one message whose entry cannot fit; the caller delivers a
+/// `StateChange` for the `Message` data type in its place.
 ///
 /// The limit is the delivery platform's; for Web Push,
 /// jmap-push-platform-guide §Payload size: "Servers MUST keep plaintext
 /// under **3993 bytes**", so pass 3992 there.
 ///
-/// Follows jmap-chat-push-platform-guide §Payload truncation. While the
-/// payload is too large, each of `bodySnippet`, `spaceId`, `sentAt`,
-/// `spaceName`, `chatName` and `senderDisplayName` is dropped, in that
-/// order, from every entry. Then entries are dropped from the end of
-/// `messages`, keeping the first. "If a single minimal entry still exceeds
-/// the platform limit, servers MUST fall back to a plain `StateChange`".
-///
-/// `@type`, `accountId`, `state`, `messageId`, `chatId`, `chatKind`,
-/// `senderId`, `hasMention`, `mentionScopes` and `encrypted` are never
-/// dropped (the guide's MUST NOT list). Fields the guide lists in neither
-/// set (`unreadCount`, extension fields) are kept as well.
+/// draft-atwood-jmap-chat-push-00 §Delivery: "If a single
+/// `ChatMessageEntry` does not fit, the server SHOULD shorten or omit that
+/// entry's `bodySnippet`; if the entry still does not fit, the server
+/// delivers a `StateChange` for the `Message` data type in place of a
+/// `ChatMessagePush` for that message." A `push` that fits is returned
+/// unchanged. Otherwise each entry goes in a payload of its own, with the
+/// same `accountId`, `state` and extension fields, so no message is lost
+/// (§Delivery: "the server MUST deliver additional `ChatMessagePush`
+/// payloads to cover the remainder"). An entry that does not fit alone
+/// loses `bodySnippet`; no other field is ever removed.
+// ponytail: the snippet is omitted, not shortened, since JSON escaping
+// makes the fitting length a search. Upgrade path: trim it on a UTF-8
+// boundary until the payload fits.
 pub fn fit_chat_message_push(
     mut push: ChatMessagePush,
     max_bytes: usize,
-) -> Option<ChatMessagePush> {
+) -> Vec<Option<ChatMessagePush>> {
     let fits = |p: &ChatMessagePush| serde_json::to_vec(p).is_ok_and(|v| v.len() <= max_bytes);
-    let drops: [fn(&mut ChatMessageEntry); 6] = [
-        |e| e.body_snippet = None,
-        |e| e.space_id = None,
-        |e| e.sent_at = None,
-        |e| e.space_name = None,
-        |e| e.chat_name = None,
-        |e| e.sender_display_name = None,
-    ];
-    for drop in drops {
-        if fits(&push) {
-            return Some(push);
-        }
-        push.messages.iter_mut().for_each(drop);
+    if fits(&push) {
+        return vec![Some(push)];
     }
-    while push.messages.len() > 1 && !fits(&push) {
-        push.messages.pop();
-    }
-    fits(&push).then_some(push)
+    std::mem::take(&mut push.messages)
+        .into_iter()
+        .map(|entry| {
+            let mut single = push.clone();
+            single.messages = vec![entry];
+            if !fits(&single) {
+                single.messages[0].body_snippet = None;
+            }
+            fits(&single).then_some(single)
+        })
+        .collect()
 }
 
 /// Whether a `ChatMessagePush` for the new inbound message `msg` goes to
