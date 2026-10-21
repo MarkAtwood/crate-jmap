@@ -302,11 +302,25 @@ pub trait VtcBackend: JmapBackend {
     ///   `joinMethod`), then dispatches `VTCCallEndEvent` with `endReason:
     ///   "answered_elsewhere"` to all other devices of that participant",
     ///   §Multi-Device Forking). `caller` is the answering request's
-    ///   context, which identifies the device that answered.
+    ///   context, which identifies the device that answered;
+    /// - [`VtcEvent::CallEnd`] with `endReason` `"declined"`, after a
+    ///   target declines a ring, to that user's other devices that
+    ///   received the ring ("When a ring call is answered or declined on
+    ///   one device, the server SHOULD deliver a silent push notification
+    ///   ... to all other devices that received the original
+    ///   `VTCCallPush`", §VTCCallEndEvent). `caller` is the declining
+    ///   request's context, which identifies the device that declined.
     ///
     /// [`crate::call::expire_ring`] also delivers [`VtcEvent::CallEnd`],
     /// with `endReason` `"timeout"`, to the devices of the call's targets
-    /// whose `callResponse` is still `"pending"` (§Ring Timeout).
+    /// whose `callResponse` is still `"pending"` (§Ring Timeout). A
+    /// ringing call that ends `"cancelled"`, through `VTCCall/set`,
+    /// [`crate::call::end_call`] or [`crate::participant::after_leave`],
+    /// delivers [`VtcEvent::CallEnd`] with `endReason` `"cancelled"`, to
+    /// the devices of the targets whose `callResponse` is still
+    /// `"pending"` ("When a ringing call is answered, declined, cancelled,
+    /// or times out, the server delivers a `VTCCallEndEvent` to all
+    /// devices that received the ring", §VTCCallEndEvent).
     ///
     /// There is no default: each delivery is the effect the update
     /// requests. Delivery failures are the backend's to log or retry.

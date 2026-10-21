@@ -1112,6 +1112,57 @@ async fn declining_does_not_fork_answered_elsewhere() {
         .all(|e| e["endReason"] != "answered_elsewhere"));
 }
 
+#[tokio::test]
+async fn declining_forks_declined_to_other_devices() {
+    let backend = backend();
+    let call = ring_to(&backend, &[ALICE, CAROL]).await;
+    let alice = ring_record(&backend, &call, ALICE).await;
+    let carol = ring_record(&backend, &call, CAROL).await;
+    // jmap-chat-spec 33702a5 L1422 "When a ringing call is answered,
+    // declined, cancelled, or times out, the server delivers a
+    // `VTCCallEndEvent` to all devices that received the ring."; L1443
+    // "When a ring call is answered or declined on one device ... all
+    // other devices that received the original `VTCCallPush`, carrying the
+    // `endReason` (`"answered_elsewhere"`, `"declined"`, or `"timeout"`)".
+    let declined = json!({"accountId": ACCOUNT, "callId": call, "endReason": "declined"});
+    pupdate(&backend, ALICE, &alice, json!({"callResponse": "declined"}))
+        .await
+        .expect("decline");
+    assert_eq!(call_end_events(&backend), std::slice::from_ref(&declined));
+    // L930 the last decline ends the call `"declined"`, not `"cancelled"`:
+    // the second target's devices get its own decline, and nothing more.
+    pupdate(&backend, CAROL, &carol, json!({"callResponse": "declined"}))
+        .await
+        .expect("decline");
+    assert_eq!(get(&backend, &call).await["endReason"], "declined");
+    assert_eq!(call_end_events(&backend), [declined.clone(), declined]);
+}
+
+#[tokio::test]
+async fn initiator_leaving_a_ringing_call_cancels_the_ring() {
+    let backend = backend();
+    let call = ring_to(&backend, &[ALICE]).await;
+    let bob = ring_record(&backend, &call, BOB).await;
+    // jmap-chat-spec 33702a5 L966 "When the last active participant leaves
+    // a ring or scheduled call, the server transitions the VTCCall to
+    // `"ended"` with ... `"cancelled"` if the call was still `"ringing"`";
+    // L1422 a cancelled ringing call delivers a `VTCCallEndEvent`; L1431
+    // "`"cancelled"` (initiator withdrew the ring)".
+    pupdate(
+        &backend,
+        BOB,
+        &bob,
+        json!({"leftAt": "2026-06-05T15:00:00Z"}),
+    )
+    .await
+    .expect("leave");
+    assert_eq!(get(&backend, &call).await["endReason"], "cancelled");
+    assert_eq!(
+        call_end_events(&backend),
+        [json!({"accountId": ACCOUNT, "callId": call, "endReason": "cancelled"})]
+    );
+}
+
 /// 2026-10-20T12:00:00Z plus `secs`, from `date -u -d 2026-10-20T12:00:00Z
 /// +%s` = 1792497600.
 fn at(secs: u64) -> SystemTime {

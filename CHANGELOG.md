@@ -1888,6 +1888,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-vtc-server**: a decline and a cancelled ring now deliver a
+  `VTCCallEndEvent` through `VtcBackend::deliver_event`, per
+  draft-atwood-jmap-vtc-00 §VTCCallEndEvent: "When a ringing call is
+  answered, declined, cancelled, or times out, the server delivers a
+  `VTCCallEndEvent` to all devices that received the ring." Declining
+  delivers `endReason` `"declined"` for the decliner's other devices. A
+  ringing call ending `"cancelled"` (the initiator's `VTCCall/set`, the
+  initiator leaving, or `end_call`) delivers `"cancelled"`. Only
+  `"answered_elsewhere"` and `"timeout"` were delivered before.
 - **jmap-filenode-server**: `FileNode/set` now answers `accountNotFound`
   for an unknown `accountId` (RFC 8620 §3.6.2), like the other
   `FileNode/*` handlers. It previously returned an empty `/set` response.

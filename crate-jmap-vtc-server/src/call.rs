@@ -565,7 +565,14 @@ async fn update_call<B: VtcBackend>(
             .update_object::<VtcCall>(caller, account_id, id, patch)
             .await
     } else {
-        end_cascade(backend, caller, account_id, &call, patch).await
+        let ended = end_cascade(backend, caller, account_id, &call, patch).await;
+        if ended.is_ok() && call.state == CallState::Ringing {
+            // §VTCCallEndEvent: "When a ringing call is answered, declined,
+            // cancelled, or times out, the server delivers a
+            // `VTCCallEndEvent` to all devices that received the ring."
+            deliver_call_end(backend, caller, account_id, id, RingEndReason::Cancelled).await;
+        }
+        ended
     };
     match result {
         Ok(Some(obj)) if echo.is_null() => {
@@ -642,7 +649,14 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 ///   parent's `breakoutRoomIds`;
 /// - each ended call's recordings in state `"recording"` or `"paused"` are
 ///   stopped, with `stoppedAt` set and a `VTCRecordingStateEvent`
-///   delivered (jmap-vtc-recording-guide §Auto-stop on call end).
+///   delivered (jmap-vtc-recording-guide §Auto-stop on call end);
+/// - a `"ringing"` call that ends `"cancelled"` delivers a
+///   `VTCCallEndEvent` with `endReason` `"cancelled"` through
+///   [`VtcBackend::deliver_event`]: "When a ringing call is answered,
+///   declined, cancelled, or times out, the server delivers a
+///   `VTCCallEndEvent` to all devices that received the ring"
+///   (§VTCCallEndEvent). `VTCCall/set` does the same when the initiator
+///   ends a ringing call.
 ///
 /// `caller` is the server's own context; the moderator checks of
 /// `VTCCall/set` do not apply, and it is the `initiatedBy` of each
@@ -677,9 +691,12 @@ pub async fn end_call<B: VtcBackend>(
                 .with_description("the call is already in state \"ended\""),
         ));
     }
-    end_cascade(backend, caller, account_id, &call, ended_patch(end_reason))
-        .await
-        .map(|_| ())
+    let cancelled = call.state == CallState::Ringing && end_reason == CallEndReason::Cancelled;
+    end_cascade(backend, caller, account_id, &call, ended_patch(end_reason)).await?;
+    if cancelled {
+        deliver_call_end(backend, caller, account_id, id, RingEndReason::Cancelled).await;
+    }
+    Ok(())
 }
 
 /// The ring timeout period draft-atwood-jmap-vtc-00 §Ring Timeout
@@ -761,16 +778,29 @@ pub async fn expire_ring<B: VtcBackend>(
             return Ok(false);
         }
     }
+    deliver_call_end(backend, caller, account_id, id, RingEndReason::Timeout).await;
+    Ok(true)
+}
+
+/// Deliver a `VTCCallEndEvent` for call `call_id` with `end_reason`
+/// through [`VtcBackend::deliver_event`], which routes it to the devices
+/// that received the ring (§VTCCallEndEvent).
+pub(crate) async fn deliver_call_end<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    call_id: &Id,
+    end_reason: RingEndReason,
+) {
     let event: VtcCallEndEvent = serde_json::from_value(json!({
         "accountId": account_id,
-        "callId": id,
-        "endReason": RingEndReason::Timeout,
+        "callId": call_id,
+        "endReason": end_reason,
     }))
     .expect("every field is supplied with its type");
     backend
         .deliver_event(caller, account_id, VtcEvent::CallEnd(event))
         .await;
-    Ok(true)
 }
 
 /// The instant a ring call created at `created_at` times out: `created_at`
