@@ -57,7 +57,7 @@ use jmap_vtc_types::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::call_already_active_on_chat;
+use crate::backend::{call_already_active_on_chat, StatefulObject};
 use crate::query::{
     call_matches, compare_calls, compare_livestreams, compare_participants, compare_recordings,
     livestream_matches, participant_matches, recording_matches,
@@ -101,6 +101,80 @@ struct Inner {
 }
 
 impl Inner {
+    /// [`VtcBackend::update_object`] under the held lock.
+    // Same error type as `VtcBackend::update_object`, which it implements.
+    #[allow(clippy::result_large_err)]
+    fn update<O: SetObject>(
+        &mut self,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<MemoryError>> {
+        let mut current = self
+            .objects(O::TYPE_NAME, account_id)
+            .and_then(|m| m.get(id))
+            .cloned()
+            .ok_or_else(not_found)?;
+
+        let patch = serde_json::to_value(&patch)
+            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+        let (Value::Object(patch), Value::Object(base)) = (patch, &mut current) else {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::InvalidPatch,
+            )));
+        };
+        apply_patch_object(base, &patch).map_err(|e| {
+            BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+            )
+        })?;
+        if O::deserialize(&current).is_err() {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_description(format!("patched {} is invalid", O::TYPE_NAME)),
+            ));
+        }
+        let active = match (O::TYPE_NAME == VtcParticipant::TYPE_NAME)
+            .then(|| VtcParticipant::deserialize(&current).ok())
+            .flatten()
+        {
+            Some(p) => {
+                let count = self
+                    .active_count_within_quota(account_id, &p)
+                    .ok_or_else(over_quota)?;
+                Some((p.call_id, count))
+            }
+            None => None,
+        };
+
+        let mut changes = vec![(id.clone(), Change::Updated)];
+        // A breakout room that ends leaves its parent's breakoutRoomIds.
+        let ended_child = (O::TYPE_NAME == VtcCall::TYPE_NAME)
+            .then(|| VtcCall::deserialize(&current).ok())
+            .flatten()
+            .filter(|c| c.state == CallState::Ended)
+            .and_then(|c| c.parent_call_id);
+        let calls = self.objects_mut(O::TYPE_NAME, account_id);
+        if let Some(parent_id) = &ended_child {
+            if let Some(Value::Array(rooms)) = calls
+                .get_mut(parent_id)
+                .and_then(|p| p.get_mut("breakoutRoomIds"))
+            {
+                rooms.retain(|r| r.as_str() != Some(id.as_ref()));
+                changes.push((parent_id.clone(), Change::Updated));
+            }
+        }
+        calls.insert(id.clone(), current);
+        self.commit(O::TYPE_NAME, account_id, changes);
+        if let Some(parent_id) = ended_child {
+            self.clear_breakout_assignments(account_id, &parent_id, id);
+        }
+        if let Some((call_id, count)) = active {
+            self.set_active_count(account_id, &call_id, count);
+        }
+        Ok(None)
+    }
+
     fn objects(&self, type_name: &'static str, account_id: &Id) -> Option<&HashMap<Id, Value>> {
         self.objects
             .get(&(type_name, account_id.as_ref().to_owned()))
@@ -879,70 +953,29 @@ impl VtcBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<MemoryError>> {
+        self.lock().update::<O>(account_id, id, patch)
+    }
+
+    async fn update_object_if<O: StatefulObject + Send + Sync>(
+        &self,
+        _caller: &String,
+        account_id: &Id,
+        id: &Id,
+        expected: &[O::State],
+        patch: O::Patch,
+    ) -> Result<Result<Option<O>, O::State>, BackendSetError<MemoryError>> {
         let mut inner = self.lock();
-        let mut current = inner
+        let Some(value) = inner
             .objects(O::TYPE_NAME, account_id)
             .and_then(|m| m.get(id))
-            .cloned()
-            .ok_or_else(not_found)?;
-
-        let patch = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
-        let (Value::Object(patch), Value::Object(base)) = (patch, &mut current) else {
-            return Err(BackendSetError::SetError(SetError::new(
-                SetErrorType::InvalidPatch,
-            )));
+        else {
+            return Err(not_found());
         };
-        apply_patch_object(base, &patch).map_err(|e| {
-            BackendSetError::SetError(
-                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-            )
-        })?;
-        if O::deserialize(&current).is_err() {
-            return Err(BackendSetError::SetError(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_description(format!("patched {} is invalid", O::TYPE_NAME)),
-            ));
+        let stored: O = decode(value).map_err(BackendSetError::Other)?;
+        if !expected.contains(stored.state()) {
+            return Ok(Err(stored.state().clone()));
         }
-        let active = match (O::TYPE_NAME == VtcParticipant::TYPE_NAME)
-            .then(|| VtcParticipant::deserialize(&current).ok())
-            .flatten()
-        {
-            Some(p) => {
-                let count = inner
-                    .active_count_within_quota(account_id, &p)
-                    .ok_or_else(over_quota)?;
-                Some((p.call_id, count))
-            }
-            None => None,
-        };
-
-        let mut changes = vec![(id.clone(), Change::Updated)];
-        // A breakout room that ends leaves its parent's breakoutRoomIds.
-        let ended_child = (O::TYPE_NAME == VtcCall::TYPE_NAME)
-            .then(|| VtcCall::deserialize(&current).ok())
-            .flatten()
-            .filter(|c| c.state == CallState::Ended)
-            .and_then(|c| c.parent_call_id);
-        let calls = inner.objects_mut(O::TYPE_NAME, account_id);
-        if let Some(parent_id) = &ended_child {
-            if let Some(Value::Array(rooms)) = calls
-                .get_mut(parent_id)
-                .and_then(|p| p.get_mut("breakoutRoomIds"))
-            {
-                rooms.retain(|r| r.as_str() != Some(id.as_ref()));
-                changes.push((parent_id.clone(), Change::Updated));
-            }
-        }
-        calls.insert(id.clone(), current);
-        inner.commit(O::TYPE_NAME, account_id, changes);
-        if let Some(parent_id) = ended_child {
-            inner.clear_breakout_assignments(account_id, &parent_id, id);
-        }
-        if let Some((call_id, count)) = active {
-            inner.set_active_count(account_id, &call_id, count);
-        }
-        Ok(None)
+        inner.update::<O>(account_id, id, patch).map(Ok)
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(

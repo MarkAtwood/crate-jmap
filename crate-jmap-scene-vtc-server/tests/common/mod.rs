@@ -15,7 +15,7 @@ use jmap_server::{
 };
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend as VtcMemory, MemoryError as VtcError};
-use jmap_vtc_server::{handle_vtc_call_get, handle_vtc_call_set, VtcBackend};
+use jmap_vtc_server::{handle_vtc_call_get, handle_vtc_call_set, StatefulObject, VtcBackend};
 use jmap_vtc_types::{VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
 use serde_json::{json, Value};
 
@@ -236,6 +236,33 @@ impl VtcBackend for Bound {
             }
         }
         Ok(echo)
+    }
+
+    async fn update_object_if<O: StatefulObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        id: &Id,
+        expected: &[O::State],
+        patch: O::Patch,
+    ) -> Result<Result<Option<O>, O::State>, BackendSetError<VtcError>> {
+        let applied = self
+            .vtc
+            .update_object_if::<O>(caller, account_id, id, expected, patch)
+            .await?;
+        if applied.is_ok() && O::TYPE_NAME == VtcCall::TYPE_NAME {
+            let (found, _) = self
+                .vtc
+                .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
+                .await
+                .map_err(BackendSetError::Other)?;
+            for call in &found {
+                clear_active_call_id(&self.scene, caller, account_id, call)
+                    .await
+                    .map_err(scene_set_error)?;
+            }
+        }
+        Ok(applied)
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(

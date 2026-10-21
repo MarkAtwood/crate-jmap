@@ -16,10 +16,12 @@ this crate depends on `jmap-scene-server` and `jmap-vtc-types`.
 ## What it's for
 
 A deployment that implements both `SceneBackend` and `VtcBackend` calls
-it from `VtcBackend::update_object` after a `VtcCall` write. Both
-`VTCCall/set` and `jmap_vtc_server::end_call` (the server's own timeout
-or all-participants-left end) write through that method, so one call
-site covers every way a call ends.
+it from `VtcBackend::update_object` and `VtcBackend::update_object_if`
+after a `VtcCall` write. Both `VTCCall/set` and
+`jmap_vtc_server::end_call` (the server's own timeout or
+all-participants-left end) end a call through `update_object_if`, the
+compare-and-set write every VTCCall state change uses, so the two call
+sites cover every way a call ends.
 
 ## How to use
 
@@ -36,6 +38,7 @@ async fn update_object<O: SetObject + Send + Sync>(&self, caller: &Ctx, account_
 }
 ```
 
+`update_object_if` does the same after a write that applied (`Ok(Ok(_))`).
 `tests/common/mod.rs` wires the two reference `MemoryBackend`s this way.
 
 `SceneBackend::may_see_region_avatars` loads the region and, when its

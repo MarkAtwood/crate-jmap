@@ -15,7 +15,7 @@ use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
 use jmap_vtc_server::{
     expire_ring, handle_vtc_participant_get, handle_vtc_participant_query,
-    handle_vtc_participant_set, VtcBackend, RING_TIMEOUT,
+    handle_vtc_participant_set, StatefulObject, VtcBackend, RING_TIMEOUT,
 };
 use jmap_vtc_types::{SignalDirection, VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
 use serde_json::{json, Value};
@@ -1349,7 +1349,8 @@ async fn timeout_with_malformed_created_at_names_it() {
     assert!(call_end_events(&backend).is_empty());
 }
 
-/// [`MemoryBackend`] whose `update_object::<VtcCall>` always fails, so the
+/// [`MemoryBackend`] whose `update_object::<VtcCall>` and
+/// `update_object_if::<VtcCall>` always fail, so the
 /// call-state transition that follows a stored join cannot commit.
 struct FailCallUpdate(MemoryBackend);
 
@@ -1489,6 +1490,24 @@ impl VtcBackend for FailCallUpdate {
         }
         self.0
             .update_object::<O>(caller, account_id, id, patch)
+            .await
+    }
+
+    async fn update_object_if<O: StatefulObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        id: &Id,
+        expected: &[O::State],
+        patch: O::Patch,
+    ) -> Result<Result<Option<O>, O::State>, BackendSetError<MemoryError>> {
+        if O::TYPE_NAME == VtcCall::TYPE_NAME {
+            return Err(BackendSetError::Other(MemoryError::new(
+                "injected VTCCall update failure",
+            )));
+        }
+        self.0
+            .update_object_if::<O>(caller, account_id, id, expected, patch)
             .await
     }
 

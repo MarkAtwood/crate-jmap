@@ -27,6 +27,16 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     })
 }
 
+/// The `invalidProperties` SetError naming `state` for a transition that
+/// [`VtcBackend::update_object_if`] refused: the stored state changed
+/// after the handler read it, and the draft does not list the transition
+/// from the new state.
+pub(crate) fn state_refused() -> SetError {
+    SetError::new(SetErrorType::InvalidProperties)
+        .with_properties(["state"])
+        .with_description("this state transition is not permitted from the current state")
+}
+
 /// A `forbidden` SetError.
 pub(crate) fn forbidden(description: &str) -> Value {
     set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(description))

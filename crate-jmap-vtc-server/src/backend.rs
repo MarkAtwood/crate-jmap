@@ -15,7 +15,46 @@ pub use jmap_server::{
     QueryResult, SetError, SetErrorType, SetObject,
 };
 
-use jmap_vtc_types::{VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
+use jmap_vtc_types::{
+    CallState, LivestreamState, RecordingState, VtcCall, VtcCapability, VtcEvent, VtcLivestream,
+    VtcRecording, VtcRecordingStateEvent,
+};
+
+/// A VTC record whose `state` follows a draft-atwood-jmap-vtc-00 state
+/// machine: `VTCCall` (§State Machine), `VTCRecording` (§Pausing,
+/// Resuming, and Stopping a Recording) and `VTCLivestream` (§Stopping a
+/// Livestream). [`VtcBackend::update_object_if`] compares this state.
+pub trait StatefulObject: SetObject {
+    /// The record's `state` type.
+    type State: Clone + PartialEq + Send + Sync;
+
+    /// The record's current `state`.
+    fn state(&self) -> &Self::State;
+}
+
+impl StatefulObject for VtcCall {
+    type State = CallState;
+
+    fn state(&self) -> &CallState {
+        &self.state
+    }
+}
+
+impl StatefulObject for VtcRecording {
+    type State = RecordingState;
+
+    fn state(&self) -> &RecordingState {
+        &self.state
+    }
+}
+
+impl StatefulObject for VtcLivestream {
+    type State = LivestreamState;
+
+    fn state(&self) -> &LivestreamState {
+        &self.state
+    }
+}
 
 /// The `invalidProperties` SetError that
 /// draft-atwood-jmap-vtc-00 §VTCCall/set requires for a second active call
@@ -269,6 +308,37 @@ pub trait VtcBackend: JmapBackend {
         id: &jmap_types::Id,
         patch: O::Patch,
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
+
+    /// [`Self::update_object`] with a compare-and-set precondition: apply
+    /// `patch` only if the stored object's `state` is one of `expected`,
+    /// checked in the same atomic step as the write.
+    ///
+    /// The handlers send every `state` change of a `VTCCall`,
+    /// `VTCRecording` or `VTCLivestream` through this, with `expected` the
+    /// states from which the draft lists the transition. A check against an
+    /// earlier read would let two concurrent updates both pass, and the
+    /// second would then apply a transition the draft forbids: "The server
+    /// MUST NOT transition a call out of `"ended"`" (§State Machine), "The
+    /// server MUST return `invalidProperties` naming `state` for any state
+    /// transition not listed above" (§Pausing, Resuming, and Stopping a
+    /// Recording).
+    ///
+    /// Returns `Ok(Ok(_))` with [`Self::update_object`]'s result when the
+    /// patch applied, and `Ok(Err(state))` with the stored state, changing
+    /// nothing and advancing no state, when that state is not in
+    /// `expected`. Every other outcome, and every side effect of the patch,
+    /// is [`Self::update_object`]'s.
+    #[allow(clippy::type_complexity)]
+    fn update_object_if<O: StatefulObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+        expected: &[O::State],
+        patch: O::Patch,
+    ) -> impl std::future::Future<
+        Output = Result<Result<Option<O>, O::State>, BackendSetError<Self::Error>>,
+    > + Send;
 
     /// Destroy an object by id. Unknown `id` is `notFound`; the state
     /// advances only when the destroy commits.

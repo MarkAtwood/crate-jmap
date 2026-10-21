@@ -32,11 +32,11 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 
-use crate::backend::{BackendSetError, VtcBackend};
+use crate::backend::{BackendSetError, StatefulObject, VtcBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
-    SetAccumulators,
+    set_error_value, state_refused, SetAccumulators,
 };
 use jmap_server::{
     now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
@@ -670,11 +670,14 @@ pub(crate) async fn stop_recordings<B: VtcBackend>(
 }
 
 /// Transition `recording` to `"stopped"`, set `stoppedAt` and deliver the
-/// `VTCRecordingStateEvent` naming `initiated_by`.
+/// `VTCRecordingStateEvent` naming `initiated_by`. A recording that is no
+/// longer `"recording"` or `"paused"`, stopped concurrently, is left as it
+/// is and no event is delivered.
 ///
 /// # Errors
 ///
-/// Returns the [`VtcBackend::update_object`] error; no event is delivered.
+/// Returns the [`VtcBackend::update_object_if`] error; no event is
+/// delivered.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 #[allow(clippy::result_large_err)]
 async fn stop_recording<B: VtcBackend>(
@@ -688,9 +691,14 @@ async fn stop_recording<B: VtcBackend>(
     let map = patch.as_map_mut();
     map.insert("state".to_owned(), json!(RecordingState::Stopped));
     map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
-    backend
-        .update_object::<VtcRecording>(caller, account_id, &recording.id, patch)
-        .await?;
+    let from = [RecordingState::Recording, RecordingState::Paused];
+    if backend
+        .update_object_if::<VtcRecording>(caller, account_id, &recording.id, &from, patch)
+        .await?
+        .is_err()
+    {
+        return Ok(());
+    }
     deliver(
         backend,
         caller,
@@ -739,11 +747,12 @@ pub(crate) async fn stop_livestreams<B: VtcBackend>(
 }
 
 /// Transition livestream `id` to `"stopped"` and set `stoppedAt`, as a
-/// moderator's stop does.
+/// moderator's stop does. A livestream no longer `"starting"` or
+/// `"live"` is left as it is.
 ///
 /// # Errors
 ///
-/// Returns the [`VtcBackend::update_object`] error.
+/// Returns the [`VtcBackend::update_object_if`] error.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 #[allow(clippy::result_large_err)]
 async fn stop_livestream<B: VtcBackend>(
@@ -756,8 +765,10 @@ async fn stop_livestream<B: VtcBackend>(
     let map = patch.as_map_mut();
     map.insert("state".to_owned(), json!(LivestreamState::Stopped));
     map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
-    backend
-        .update_object::<VtcLivestream>(caller, account_id, id, patch)
+    let from = [LivestreamState::Starting, LivestreamState::Live];
+    // A stream that already stopped or failed is left as it is.
+    let _ = backend
+        .update_object_if::<VtcLivestream>(caller, account_id, id, &from, patch)
         .await?;
     Ok(())
 }
@@ -876,27 +887,37 @@ fn requested_state<S: DeserializeOwned>(patch: &PatchObject) -> Option<Result<S,
 }
 
 /// Apply `patch` (plus `echo`, the server-set changes) and return the
-/// `updated` echo.
+/// `updated` echo. With `from`, the patch applies only while the stored
+/// `state` is one of `from` ([`VtcBackend::update_object_if`]); otherwise
+/// the `invalidProperties` SetError naming `state` is returned.
 async fn apply<O, B>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     id: &Id,
+    from: Option<&[O::State]>,
     mut patch: PatchObject,
     echo: Map<String, Value>,
 ) -> Result<Value, Value>
 where
-    O: SetObject<Patch = PatchObject> + Serialize + Send + Sync,
+    O: StatefulObject<Patch = PatchObject> + Serialize + Send + Sync,
     B: VtcBackend,
 {
     patch
         .as_map_mut()
         .extend(echo.iter().map(|(k, v)| (k.clone(), v.clone())));
-    match backend
-        .update_object::<O>(caller, account_id, id, patch)
-        .await
-        .map_err(backend_set_error_value)?
-    {
+    let applied = match from {
+        Some(from) => backend
+            .update_object_if::<O>(caller, account_id, id, from, patch)
+            .await
+            .map_err(backend_set_error_value)?
+            .map_err(|_| set_error_value(&state_refused()))?,
+        None => backend
+            .update_object::<O>(caller, account_id, id, patch)
+            .await
+            .map_err(backend_set_error_value)?,
+    };
+    match applied {
         Some(obj) if echo.is_empty() => Ok(to_value(&obj)),
         _ if echo.is_empty() => Ok(Value::Null),
         _ => Ok(Value::Object(echo)),
@@ -925,16 +946,20 @@ async fn update_recording<B: VtcBackend>(
         return Err(invalid(&fixed, "only state can be updated"));
     }
     let Some(requested) = requested_state::<RecordingState>(&patch) else {
-        return apply::<VtcRecording, B>(backend, caller, account_id, id, patch, Map::new()).await;
+        return apply::<VtcRecording, B>(backend, caller, account_id, id, None, patch, Map::new())
+            .await;
     };
 
     // "The server MUST return `invalidProperties` naming `state` for any
-    // state transition not listed above".
+    // state transition not listed above". `from` is the states the
+    // transition to `to` is listed from; the backend checks it atomically
+    // with the write, so a concurrent change cannot slip an unlisted
+    // transition such as `"stopped"` -> `"paused"` through.
     use RecordingState::{Paused, Recording, Stopped};
-    let to = match (&recording.state, requested) {
-        (Recording, Ok(Paused)) => Paused,
-        (Paused, Ok(Recording)) => Recording,
-        (Recording | Paused, Ok(Stopped)) => Stopped,
+    let (to, from): (_, &[RecordingState]) = match requested {
+        Ok(Paused) => (Paused, &[Recording]),
+        Ok(Recording) => (Recording, &[Paused]),
+        Ok(Stopped) => (Stopped, &[Recording, Paused]),
         _ => {
             return Err(invalid(
                 &["state"],
@@ -947,7 +972,8 @@ async fn update_recording<B: VtcBackend>(
         // "The server sets `stoppedAt`".
         echo.insert("stoppedAt".to_owned(), json!(now_utc_string()));
     }
-    let updated = apply::<VtcRecording, B>(backend, caller, account_id, id, patch, echo).await?;
+    let updated =
+        apply::<VtcRecording, B>(backend, caller, account_id, id, Some(from), patch, echo).await?;
 
     let initiator = backend
         .caller_user_id(caller, account_id)
@@ -1010,11 +1036,13 @@ async fn update_livestream<B: VtcBackend>(
     }
 
     let mut echo = Map::new();
+    let mut from = None;
     if let Some(requested) = requested_state::<LivestreamState>(&patch) {
         // "`update` with `state: "stopped"` ends the stream"; "The server
         // MUST return `invalidProperties` naming `state` if the livestream
         // is not in state `"starting"` or `"live"`." The other transitions
-        // are server-initiated.
+        // are server-initiated. The backend checks the state atomically
+        // with the write.
         if !(streaming && requested == Ok(LivestreamState::Stopped)) {
             return Err(invalid(
                 &["state"],
@@ -1023,8 +1051,12 @@ async fn update_livestream<B: VtcBackend>(
         }
         // "The server sets `stoppedAt` to the current time."
         echo.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+        from = Some([LivestreamState::Starting, LivestreamState::Live].as_slice());
     }
-    apply::<VtcLivestream, B>(backend, caller, account_id, id, patch, echo).await
+    // A configuration-only patch needs no compare-and-set: a client can
+    // only stop a stream, so a stream read as `"stopped"` or `"failed"`
+    // cannot become `"starting"` or `"live"` again before the write.
+    apply::<VtcLivestream, B>(backend, caller, account_id, id, from, patch, echo).await
 }
 
 /// §Destroying a Recording and §Destroying a Livestream: "The server MUST

@@ -71,6 +71,10 @@ rechecks `"active"` atomically with the insert. Recordings move
 is followed by `VtcBackend::deliver_recording_state_event`. A livestream
 can only be stopped, from `starting` or `live`, and its `streamUri`,
 `streamKey` and `platform` change only while `stopped` or `failed`.
+Every `state` change goes through `VtcBackend::update_object_if`, which
+checks the stored state against the transition's source states
+atomically with the write, so concurrent updates cannot slip an unlisted
+transition through.
 `VTCLivestream/get` returns `streamKey` and `streamUri` as `""` to callers
 who are not moderators on the livestream's call.
 `VTCParticipant/set` checks each update against the caller (own record

@@ -26,7 +26,7 @@ these functions from its trait methods:
 | Backend method | Call |
 |---|---|
 | `VtcBackend::create_call`, before the insert | `check_call_create` |
-| `VtcBackend::create_call` and `update_object::<VtcCall>`, after the write | `sync_active_call_id` |
+| `VtcBackend::create_call`, `update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | `sync_active_call_id` |
 | `VtcBackend::is_user_blocked` | `is_blocked_by_contact` |
 | `ChatBackend::on_chat_destroyed` | `clear_channel_references` |
 | `ChatBackend::on_space_destroyed` | `clear_space_references` |
