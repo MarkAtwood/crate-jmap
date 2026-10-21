@@ -69,9 +69,7 @@ pub async fn handle_principal_get<B: SharingBackend>(
 ///
 /// Backends backed by external read-only directories may return
 /// [`BackendChangesError::CannotCalculate`](jmap_server::BackendChangesError::CannotCalculate) (bd:JMAP-jfia.31) to
-/// signal `cannotCalculateChanges` per RFC 8620 §5.2. The
-/// `TooManyChanges { limit: 0 }` magic-zero alias maps to the same
-/// wire error via the permanent legacy-alias path (bd:JMAP-jfia.37).
+/// signal `cannotCalculateChanges` per RFC 8620 §5.2.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_changes<B: SharingBackend>(
@@ -368,9 +366,7 @@ pub async fn handle_principal_query<B: SharingBackend>(
 ///
 /// Backends that cannot calculate query changes return
 /// [`BackendChangesError::CannotCalculate`](jmap_server::BackendChangesError::CannotCalculate) (bd:JMAP-jfia.31) which
-/// maps to `cannotCalculateChanges`. The
-/// `TooManyChanges { limit: 0 }` magic-zero alias is preserved via the
-/// permanent legacy-alias path (bd:JMAP-jfia.37).
+/// maps to `cannotCalculateChanges`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_query_changes<B: SharingBackend>(

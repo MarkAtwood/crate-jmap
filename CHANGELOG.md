@@ -1951,6 +1951,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-server**: the `BackendChangesError::TooManyChanges
+  { limit: 0 }` legacy alias for `CannotCalculate`. A zero `limit` now
+  maps to `tooManyChanges` like any other value; a backend that cannot
+  calculate changes returns `CannotCalculate` (RFC 8620 §5.2, §5.6
+  `cannotCalculateChanges`).
 - **BREAKING** **jmap-scene-types**: `RETRY_AFTER`, `retry_after` and
   `RetryAfterError`. draft-atwood-jmap-scene-00 (jmap-chat-spec 6bcd9d8,
   L2690) no longer defines a `retryAfter` property on `rateLimit`: "When a
