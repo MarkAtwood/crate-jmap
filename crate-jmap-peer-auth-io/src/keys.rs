@@ -18,9 +18,11 @@ use crate::Error;
 pub const MAX_CACHE_LIFETIME: Duration = Duration::from_secs(3600);
 
 /// The shortest interval between two fetches of one peer domain's keys,
-/// whatever caused them. §Key Publication: "It MUST NOT refetch the keys
-/// of one peer domain, or repeat that query, more often than once every
-/// 60 seconds".
+/// whatever caused them, and the shortest freshness lifetime of a fetched
+/// key set. §Key Publication: "It SHOULD NOT refetch the keys of one peer
+/// domain, or repeat that query, more often than once every 60 seconds"
+/// and "For this rule the freshness lifetime of a fetched key set is at
+/// least 60 seconds".
 pub const REFETCH_INTERVAL: Duration = Duration::from_secs(60);
 
 /// The number of peer domains a new [`PeerKeys`] tracks; see
@@ -80,17 +82,21 @@ impl Cached {
 /// A fetch GETs `https://<peer-domain>/.well-known/jmap` and queries the
 /// TXT records at `_jmap-peer.<peer-domain>` together, then applies
 /// [`usable_keys`]. The result is cached for the response's HTTP
-/// freshness lifetime ([`freshness_lifetime`]), at most
-/// [`MAX_CACHE_LIFETIME`], and at most the DNS answer's TTL.
+/// freshness lifetime ([`freshness_lifetime`]), at least
+/// [`REFETCH_INTERVAL`] and at most [`MAX_CACHE_LIFETIME`], and at most
+/// the DNS answer's TTL.
 ///
 /// [`keys_for`](Self::keys_for) answers from the cache while the entry is
 /// fresh and lists the `kid`. Otherwise it fetches again, "bypassing its
 /// cache", unless the last fetch of that domain started less than
 /// [`REFETCH_INTERVAL`] ago: then the request "is rejected". The limit
-/// covers every fetch, so a response fresh for less than 60 seconds
-/// (`no-store`, or no `Cache-Control`) leaves its peer domain with no
-/// usable keys until the interval ends; keys are never served past
-/// their freshness lifetime.
+/// covers every fetch. A response fresh for less than 60 seconds
+/// (`no-store`, or no `Cache-Control`) is still used until the interval
+/// ends, so its known `kid`s keep verifying; §Key Publication: "until the
+/// 60-second interval since the last fetch ends, the receiving server MAY
+/// keep using the keys it last fetched even if their HTTP freshness
+/// lifetime is shorter". A DNS TTL shorter than 60 seconds still ends the
+/// entry early (§DNSSEC Key Binding).
 ///
 /// One fetch per domain runs at a time; concurrent callers for the same
 /// domain wait for it and then read the cache.
@@ -195,8 +201,8 @@ impl<F: Fetch, D: DnssecLookup> PeerKeys<F, D> {
             serde_json::from_slice(&response.body).map_err(|_| Error::InvalidSession)?;
         let session = session.as_object().ok_or(Error::InvalidSession)?;
         let peer_signing_keys = session.get("peerSigningKeys").unwrap_or(&Value::Null);
-        let mut lifetime =
-            freshness_lifetime(&response.headers, SystemTime::now()).min(MAX_CACHE_LIFETIME);
+        let mut lifetime = freshness_lifetime(&response.headers, SystemTime::now())
+            .clamp(REFETCH_INTERVAL, MAX_CACHE_LIFETIME);
         if let Some(ttl) = dns.ttl {
             lifetime = lifetime.min(ttl);
         }
