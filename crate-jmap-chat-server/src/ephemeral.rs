@@ -22,10 +22,24 @@
 //!
 //! - Typing: "no more than one `ChatTypingEvent` per sender per chat per 3
 //!   seconds SHOULD be delivered; events above this rate MAY be silently
-//!   dropped" (draft-atwood-jmap-chat-wss-00 §ChatTypingEvent).
+//!   dropped" (draft-atwood-jmap-chat-wss-00 §ChatTypingEvent, L251).
 //! - Presence: "no more than one `ChatPresenceEvent` per contact per 30
 //!   seconds SHOULD be delivered; events above this rate MAY be silently
-//!   dropped" (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent).
+//!   dropped, but the most recent presence state SHOULD be delivered when
+//!   the rate window reopens" (draft-atwood-jmap-chat-wss-00
+//!   §ChatPresenceEvent, L298). A presence limiter therefore keeps the
+//!   latest dropped event per contact and sends it, after passing it
+//!   through [`project_presence`] again, when that contact's 30-second
+//!   window reopens, so the recipient is not left with stale presence.
+//!
+//! # Credential expiry stops ephemeral delivery
+//!
+//! "A server that does not close the connection when credentials expire
+//! SHOULD NOT deliver further ephemeral events on that connection"
+//! (draft-atwood-jmap-chat-wss-00 §Authentication and Identity, L131).
+//! Neither predicate knows about credentials, so the transport checks
+//! expiry itself and sends no typing or presence frame on an expired
+//! connection.
 
 use jmap_chat_types::{
     Chat, ChatKind, ChatPresenceEvent, ChatStreamEnable, ChatTypingEvent, Presence,
@@ -196,8 +210,8 @@ impl EphemeralSubscription {
 ///   other than the requesting account").
 /// - The Chat exists in the recipient's account and the recipient is
 ///   still a member of it (draft-atwood-jmap-chat-wss-00
-///   §ChatTypingEvent: "Servers MUST verify at delivery time that the
-///   owner remains a current member of the identified Chat").
+///   §ChatTypingEvent, L255: "Servers SHOULD verify at delivery time that
+///   the owner remains a current member of the identified Chat").
 /// - For a direct or group Chat, its `receiveTypingIndicators` is `true`.
 ///   Other kinds ignore it.
 /// - The sender's ChatContact is not blocked on the recipient's contact
@@ -254,13 +268,13 @@ pub async fn should_deliver_typing<B: ChatBackend>(
 ///   the ChatContact").
 /// - If the contact is blocked on the recipient's contact list, per
 ///   [`ChatBackend::is_contact_blocked`], the result is `None`
-///   (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent: "Servers MUST NOT
-///   deliver `ChatPresenceEvent` for a contact whose `blocked` field is
-///   `true` on the owner's ChatContact record for that contact").
+///   (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent, L300: "a
+///   `ChatPresenceEvent` is not delivered for a contact whose `blocked`
+///   field is `true` on the owner's ChatContact record for that contact").
 /// - Otherwise the result is `event` with an `"invisible"` presence
-///   replaced by `"offline"` (same section: "The `"invisible"` value MUST
-///   NOT appear in events delivered to other users"). Every other field
-///   is unchanged.
+///   replaced by `"offline"` (same section, L275: "`"invisible"` is not a
+///   value of this field. The server reports a contact whose presence is
+///   `"invisible"` ... as `"offline"`"). Every other field is unchanged.
 ///
 /// # Errors
 ///
