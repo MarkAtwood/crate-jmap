@@ -197,9 +197,9 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
 mod tests {
     use super::*;
     use jmap_chat_types::space_set::{
-        CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
+        CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
     };
-    use jmap_chat_types::{Category, Clearable, SpaceRole};
+    use jmap_chat_types::{Clearable, SpaceRole};
     use jmap_types::Id;
 
     // Oracle for the spec-line → permission mapping: draft-atwood-jmap-chat-00
@@ -209,10 +209,10 @@ mod tests {
     // asserts the slice returned by the helper matches the table in the
     // rustdoc.
     //
-    // `SpaceRole`, `Category`, and `ChannelCreate` are `#[non_exhaustive]`
+    // `SpaceRole`, `CategoryCreate`, and `ChannelCreate` are `#[non_exhaustive]`
     // without `Default`, so they are constructed via `serde_json::from_value`
-    // from hand-written JSON shaped after draft-atwood-jmap-chat-00 §4.12,
-    // §4.14, and §Space/set respectively. This satisfies the workspace
+    // from hand-written JSON shaped after draft-atwood-jmap-chat-00 §4.12
+    // and §Space/set. This satisfies the workspace
     // independent-oracle rule: the JSON is hand-typed from the spec, not
     // derived from the code under test.
 
@@ -226,9 +226,8 @@ mod tests {
         .expect("role fixture must deserialize")
     }
 
-    fn category_fixture() -> Category {
+    fn category_fixture() -> CategoryCreate {
         serde_json::from_value(serde_json::json!({
-            "id": "cat1",
             "name": "Voice",
             "position": 0,
             "channelIds": []

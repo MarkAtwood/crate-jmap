@@ -163,8 +163,8 @@ pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig, UrgencyLevel};
 pub use rich::{RichBody, Span, SpanType};
 pub use space::{Category, ChatPermission, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 pub use space_set::{
-    CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch, RolePatch,
-    SpaceMetadataPatch, SpacePatchOp,
+    CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch,
+    RolePatch, SpaceMetadataPatch, SpacePatchOp,
 };
 pub use tasks::{
     task_chat_id, TaskMetadata, JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY,

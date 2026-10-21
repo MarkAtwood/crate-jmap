@@ -2585,11 +2585,19 @@ fn apply_category_op(
         })?;
 
     let assigned_id = match op {
-        SpacePatchOp::AddCategory(mut cat) => {
+        SpacePatchOp::AddCategory(cat) => {
             // Mint a fresh CategoryId (draft §Space/set `addCategories`:
             // "Server assigns ULIDs"); see `create_object` for the uuid v4 ceiling.
             let new_id = Id::from(uuid::Uuid::new_v4().to_string());
-            cat.id = new_id.clone();
+            // The draft leaves the default `position` open; an entry without
+            // one is appended after the highest existing category position.
+            let position = cat.position.unwrap_or_else(|| {
+                categories
+                    .iter()
+                    .filter_map(|c| c.get("position").and_then(serde_json::Value::as_u64))
+                    .max()
+                    .map_or(0, |max| max.saturating_add(1))
+            });
 
             // Validate every channel id in the entry's channel_ids refers
             // to an existing Chat with kind=channel and space_id matching
@@ -2641,10 +2649,19 @@ fn apply_category_op(
                         .with_description("internal: Space.categories not an array")
                 })?;
             remove_from_categories(cats, &owned_channel_ids);
-            cats.push(serde_json::to_value(&cat).map_err(|e| {
-                SetError::new(SetErrorType::Forbidden)
-                    .with_description(format!("internal: serialize Category: {e}"))
-            })?);
+            let channel_ids = owned_channel_ids
+                .iter()
+                .map(|id| serde_json::Value::from(id.as_ref()))
+                .collect();
+            let mut stored = cat.extra;
+            stored.insert("id".to_owned(), serde_json::Value::from(new_id.as_ref()));
+            stored.insert("name".to_owned(), serde_json::Value::String(cat.name));
+            stored.insert("position".to_owned(), serde_json::Value::from(position));
+            stored.insert(
+                "channelIds".to_owned(),
+                serde_json::Value::Array(channel_ids),
+            );
+            cats.push(serde_json::Value::Object(stored));
 
             inner
                 .objects_mut("Space", account_id)

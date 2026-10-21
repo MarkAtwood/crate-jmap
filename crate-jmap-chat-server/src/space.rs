@@ -29,12 +29,10 @@
 
 use jmap_chat_types::query::{SpaceComparator, SpaceFilter};
 use jmap_chat_types::space_set::{
-    CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
+    CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
 };
 use jmap_chat_types::vocabulary::SPEC_PERMISSION_NAMES;
-use jmap_chat_types::{
-    Category, Chat, ChatKind, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole,
-};
+use jmap_chat_types::{Chat, ChatKind, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
@@ -186,15 +184,7 @@ fn parse_structural_entries(key: StructuralKey, value: Value) -> Result<Vec<Spac
                 SpacePatchOp::UpdateChannel { id, patch }
             }
             StructuralKey::AddCategories => {
-                // Draft §Space/set addCategories entries carry no `id`
-                // ("Server assigns ULIDs"); fill the placeholder
-                // `SpacePatchOp::AddCategory` documents, which the backend
-                // replaces before storing.
-                let mut entry = entry;
-                if let Value::Object(fields) = &mut entry {
-                    fields.insert("id".to_owned(), Value::String(String::new()));
-                }
-                SpacePatchOp::AddCategory(parse_entry::<Category>(canonical, idx, entry)?)
+                SpacePatchOp::AddCategory(parse_entry::<CategoryCreate>(canonical, idx, entry)?)
             }
             StructuralKey::RemoveCategories => {
                 SpacePatchOp::RemoveCategory(parse_id_entry(canonical, idx, entry)?)

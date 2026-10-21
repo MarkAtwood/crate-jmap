@@ -1276,6 +1276,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**, **jmap-chat-server**:
+  `SpacePatchOp::AddCategory` now carries the new `CategoryCreate`
+  (`name`, optional `position`, `channelIds` defaulting to empty) instead of
+  `Category`, matching draft §Space/set `addCategories` ("optional
+  `position` (UnsignedInt) and `channelIds` (String[])"). Backends no longer
+  receive a placeholder `id`.
+
 - **BREAKING** **jmap-tasks-server**: `memory::MemoryError` is now
   `#[non_exhaustive]` and matches the canonical `jmap-mail-server` shape:
   `MemoryError::message()` is renamed `description()`, and `Display`
@@ -1897,6 +1904,13 @@ wire behaviour that a conforming peer can observe.
   contact whose own presence is `"invisible"` appears as `"offline"`."
 
 ### Fixed
+
+- **jmap-chat-server**: `Space/set` `addCategories` accepts entries that
+  omit `position` or `channelIds` instead of rejecting them with
+  `invalidProperties`. A missing `channelIds` means no channels; the draft
+  does not define a default `position`, so the memory backend appends the
+  category at one past the highest existing `position` (`0` when the Space
+  has none).
 
 - **jmap-contacts-server**: a `ContactCard/copy` whose `destroyFromIfInState`
   does not match the source state now answers the implicit `ContactCard/set`

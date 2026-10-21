@@ -1240,3 +1240,72 @@ async fn space_add_categories_moves_channel_into_new_category() {
     let chat = chats.list.first().expect("channel in list");
     assert_eq!(chat.category_id.as_ref(), Some(&cat.id), "{chat:?}");
 }
+
+/// Draft §Space/set `addCategories` (draft-atwood-jmap-chat-00.md L1373 at
+/// spec 33702a5): "Each entry: `name` (String), optional `position`
+/// (UnsignedInt) and `channelIds` (String[])." An entry carrying only
+/// `name` must be accepted with no channels. The draft leaves the default
+/// `position` open; the reference server appends after the highest existing
+/// position (bd:JMAP-yt1w.19).
+#[tokio::test]
+async fn space_add_categories_name_only_appends_empty_category() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+
+    let resp = sc
+        .space_create(&SpaceCreateInput {
+            client_id: Some("s0"),
+            name: "Layout",
+            description: None,
+            icon_blob_id: None,
+        })
+        .await
+        .expect("Space/set create");
+    let space_id = created_id(&resp, "s0");
+
+    let categories = [
+        SpaceAddCategoryInput {
+            name: "First",
+            position: None,
+            channel_ids: None,
+        },
+        SpaceAddCategoryInput {
+            name: "Pinned",
+            position: Some(4),
+            channel_ids: None,
+        },
+        SpaceAddCategoryInput {
+            name: "Last",
+            position: None,
+            channel_ids: None,
+        },
+    ];
+    let patch = SpacePatch {
+        add_categories: Some(&categories),
+        ..Default::default()
+    };
+    let resp = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("Space/set addCategories");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "addCategories entries without position or channelIds must be accepted: {resp:?}"
+    );
+
+    let got = sc
+        .space_get(Some(std::slice::from_ref(&space_id)), None)
+        .await
+        .expect("Space/get");
+    let space = got.list.first().expect("space in list");
+    let placed: Vec<(&str, u64, usize)> = space
+        .categories
+        .iter()
+        .map(|c| (c.name.as_str(), c.position, c.channel_ids.len()))
+        .collect();
+    assert_eq!(
+        placed,
+        vec![("First", 0, 0), ("Pinned", 4, 0), ("Last", 5, 0)],
+        "{space:?}"
+    );
+}
