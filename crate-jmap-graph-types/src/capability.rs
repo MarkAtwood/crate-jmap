@@ -13,6 +13,13 @@ use serde::{Deserialize, Serialize};
 /// account-level value is [`GraphCapability`].
 pub const JMAP_GRAPH_URI: &str = "urn:ietf:params:jmap:graph";
 
+/// Capability URI for the JMAP Graph projection
+/// (draft-atwood-jmap-graph-projection-00 §Capability): "A server that
+/// provides a projection for an account advertises the
+/// `urn:ietf:params:jmap:graph:projection` capability for that account."
+/// The capability objects are not modelled here.
+pub const JMAP_GRAPH_PROJECTION_URI: &str = "urn:ietf:params:jmap:graph:projection";
+
 /// JMAP Object URI type name of a [`Graph`](crate::Graph)
 /// (draft-atwood-jmap-graph-00 §JMAP Object URI Type Registrations), for
 /// comparison with [`jmap_types::JmapUri::data_type`].

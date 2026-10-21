@@ -482,3 +482,26 @@ fn sort_properties_match_draft() {
     assert!(serde_json::from_value::<GraphNodeComparator>(json!({ "property": "name" })).is_err());
     assert!(serde_json::from_value::<GraphEdgeComparator>(json!({ "property": "type" })).is_err());
 }
+
+#[test]
+fn projection_object_uri_filter_matches_example() {
+    // draft-atwood-jmap-graph-projection-00 L128: "advertises the
+    // `urn:ietf:params:jmap:graph:projection` capability".
+    assert_eq!(
+        jmap_graph_types::JMAP_GRAPH_PROJECTION_URI,
+        "urn:ietf:params:jmap:graph:projection"
+    );
+    // Projection L212-213: "`objectUri` (String[]): The node's `objectUri`
+    // is one of these values"; the filter of the L248-254 example verbatim.
+    let cond: GraphNodeFilterCondition = round_trip(&json!({
+        "graphId": "PG1",
+        "objectUri": ["jmap:email:A1:M42"]
+    }));
+    assert_eq!(cond.graph_id, Id::from("PG1"));
+    assert_eq!(cond.object_uri, Some(vec!["jmap:email:A1:M42".to_owned()]));
+    // L285: the filter still MUST include `graphId`.
+    assert!(serde_json::from_value::<GraphNodeFilterCondition>(
+        json!({ "objectUri": ["jmap:email:A1:M42"] })
+    )
+    .is_err());
+}

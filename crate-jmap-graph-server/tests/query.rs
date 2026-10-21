@@ -191,6 +191,24 @@ async fn node_query_by_graph_and_access() {
     assert_eq!(resp["ids"], json!([]), "{resp}");
 }
 
+/// draft-atwood-jmap-graph-projection-00 L206: `objectUri` is "Always
+/// `null` for nodes that are not in a projected Graph", so the L212-213
+/// filter ("The node's `objectUri` is one of these values") matches none of
+/// an ordinary Graph's nodes.
+#[tokio::test]
+async fn object_uri_filter_matches_no_unprojected_node() {
+    let backend = backend();
+    let g = graph(&backend, "g").await;
+    node(&backend, &g).await;
+    let resp = call!(
+        handle_graph_node_query,
+        &backend,
+        ALICE,
+        json!({ "filter": { "graphId": g, "objectUri": ["jmap:email:A1:M42"] } })
+    );
+    assert_eq!(resp["ids"], json!([]), "{resp}");
+}
+
 /// L262: Graph/query `isSubscribed`: "The Graph's `isSubscribed` property
 /// equals this value"; L265 sort by `name`.
 #[tokio::test]
