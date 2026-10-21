@@ -573,8 +573,9 @@ async fn fetch_accessible<B: SceneBackend>(
     }
 }
 
-/// One §Destroying a Region: "The server MUST return `forbidden` when the
-/// caller is not the region owner."
+/// One §Destroying a Region: "The server SHOULD return `forbidden` when
+/// the caller is not the region owner and does not have
+/// deployment-defined administrative privileges."
 async fn destroy_region<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -587,7 +588,9 @@ async fn destroy_region<B: SceneBackend>(
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
     {
-        return Err(forbidden("only the region owner may destroy this region"));
+        return Err(forbidden(
+            "only the region owner or an admin may destroy this region",
+        ));
     }
     backend
         .destroy_object::<SceneRegion>(caller, account_id, id)

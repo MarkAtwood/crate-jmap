@@ -13,8 +13,8 @@
 //! a region is its `ownerId`;
 //! [`SceneBackend::may_modify_asset`] and
 //! [`SceneBackend::may_update_region`] allow the owner and the users
-//! registered with `add_admin`, [`SceneBackend::may_destroy_region`] the
-//! owner only. [`SceneBackend::may_modify_object`] allows the object's
+//! registered with `add_admin`, and so does
+//! [`SceneBackend::may_destroy_region`]. [`SceneBackend::may_modify_object`] allows the object's
 //! owner, its region's owner and the admins; a created object's `ownerId`
 //! is the caller.
 //!
@@ -1047,8 +1047,8 @@ impl SceneBackend for MemoryBackend {
         _account_id: &Id,
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
-        // "Only the region owner may destroy a region."
-        Ok(region.owner_id == *caller)
+        // "Only the region owner or an admin may destroy a region."
+        Ok(region.owner_id == *caller || self.lock().admins.contains(caller))
     }
 
     async fn may_modify_object(

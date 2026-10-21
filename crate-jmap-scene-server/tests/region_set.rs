@@ -681,19 +681,29 @@ async fn destroy_removes_contained_objects_and_avatars() {
 }
 
 #[tokio::test]
-async fn destroy_by_non_owner_is_forbidden_even_for_admin() {
-    // L1117 "The server MUST return `forbidden` when the caller is not the
-    // region owner"; L1239 "Only the region owner may destroy a region."
-    // The region is `"invite"`; L1245 makes a caller without access
-    // `notFound`, so BOB is granted access to reach the `forbidden` row.
+async fn destroy_by_non_owner_non_admin_is_forbidden() {
+    // L1210 "The server SHOULD return `forbidden` when the caller is not
+    // the region owner and does not have deployment-defined administrative
+    // privileges"; L1337 "Only the region owner or an admin may destroy a
+    // region." The region is `"invite"`; L1343 makes a caller without
+    // access `notFound`, so BOB is granted access to reach the `forbidden`
+    // row.
     let backend = backend();
     let id = create(&backend, design_review_room()).await;
     backend.grant_region_access(&id, BOB);
-    for caller in [BOB, ADMIN] {
-        let resp = set(&backend, caller, json!({ "destroy": [id] })).await;
-        assert_eq!(resp["notDestroyed"][&id]["type"], "forbidden");
-    }
+    let resp = set(&backend, BOB, json!({ "destroy": [id] })).await;
+    assert_eq!(resp["notDestroyed"][&id]["type"], "forbidden");
     assert_eq!(get(&backend, &id).await["id"], json!(id));
+}
+
+#[tokio::test]
+async fn admin_may_destroy_region_it_does_not_own() {
+    // L1337 "Only the region owner or an admin may destroy a region."
+    let backend = backend();
+    let id = create(&backend, design_review_room()).await;
+    let resp = set(&backend, ADMIN, json!({ "destroy": [id] })).await;
+    assert_eq!(resp["destroyed"], json!([id]));
+    assert!(get(&backend, &id).await.is_null());
 }
 
 #[tokio::test]

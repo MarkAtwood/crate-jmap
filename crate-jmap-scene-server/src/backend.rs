@@ -293,8 +293,8 @@ pub trait SceneBackend: JmapBackend {
     }
 
     /// `true` if the caller may destroy `region`: "Only the region owner
-    /// may destroy a region" (draft-atwood-jmap-scene-00 §SceneRegion/set
-    /// Destroy Errors). Unlike update, administrators are not named.
+    /// or an admin may destroy a region" (draft-atwood-jmap-scene-00
+    /// §SceneRegion/set Destroy Errors).
     ///
     /// # Default implementation
     ///
