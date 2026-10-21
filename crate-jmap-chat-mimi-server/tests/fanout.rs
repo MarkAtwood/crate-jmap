@@ -170,6 +170,17 @@ fn splits_a_notify_body_and_derives_sender_msg_id_and_sent_at() {
     }
 }
 
+/// mimi L443: "`sentAt` is the FanoutMessage `timestamp`". RFC 8620 §1.4:
+/// "time-secfrac MUST always be omitted if zero". `T` rounded down to the
+/// whole second is 2025-10-18T17:02:11Z.
+#[test]
+fn a_whole_second_timestamp_has_no_fraction_in_sent_at() {
+    let part = fanout_message(T - 482, &hex(APPLICATION), &[0]);
+    let fanouts = parse_fanout_messages(&part).expect("parse");
+    assert_eq!(fanouts.len(), 1);
+    assert_eq!(fanouts[0].sent_at, "2025-10-18T17:02:11Z");
+}
+
 /// draft-ietf-mimi-protocol-06 §5.5: "An MLS Welcome message is sent to the
 /// providers and local users associated with the KeyPackageRef values in
 /// the secrets array of the Welcome." mimi L437: "A FanoutMessage carrying

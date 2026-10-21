@@ -221,9 +221,13 @@ fn skip_ratchet_tree_option(bytes: &[u8]) -> Result<&[u8], FanoutParseError> {
 }
 
 /// `ms` milliseconds since the Unix epoch as a millisecond-precision
-/// `UTCDate`, or `None` past year 9999.
+/// `UTCDate`, or `None` past year 9999. A zero fraction is omitted, as
+/// RFC 8620 §1.4 requires.
 fn utc_date_from_millis(ms: u64) -> Option<UTCDate> {
     let seconds = jmap_server::utc_date_from_epoch_seconds(i64::try_from(ms / 1000).ok()?)?;
+    if ms.is_multiple_of(1000) {
+        return Some(seconds);
+    }
     let seconds = seconds.as_ref().strip_suffix('Z')?;
     Some(UTCDate::from(format!("{seconds}.{:03}Z", ms % 1000)))
 }
