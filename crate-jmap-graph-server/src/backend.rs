@@ -289,18 +289,20 @@ pub trait GraphBackend: JmapBackend {
     /// `GraphNodeOp/query` answers `opsCompacted` when `compacted_through`
     /// exceeds `afterSeq`.
     ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(EditLog::default())`: an empty, uncompacted log.
+    /// Required: there is no default. A constant empty log would accept
+    /// only a `snapshotSeq` or `baseSeq` of 0 and never raise
+    /// `opsCompacted`, which the server MUST do when it "has destroyed any
+    /// op of the node whose `seq` is greater than `afterSeq`"
+    /// (draft-atwood-jmap-graph-edit-00 §GraphNodeOp/query and
+    /// GraphNodeOp/queryChanges). The edit handlers call this only when
+    /// `graph_edit_capability` is `Some`, so a backend without edit support
+    /// may return `Ok(EditLog::default())`.
     fn edit_log(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         node_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<EditLog, Self::Error>> + Send {
-        let _ = (caller, account_id, node_id);
-        async { Ok(EditLog::default()) }
-    }
+    ) -> impl std::future::Future<Output = Result<EditLog, Self::Error>> + Send;
 
     /// The id of `account_id`'s projected Graph
     /// (draft-atwood-jmap-graph-projection-00 §Account-Level Capability
