@@ -160,17 +160,18 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 );
                 continue;
             }
+            // `TaskList.id` is required, so the parse fills it with "",
+            // which is not an Id (RFC 8620 §1.2: 1 to 255 octets); `build`
+            // overwrites it with the id the backend mints.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.entry("id").or_insert_with(|| {
-                        Value::String(crate::helpers::PLACEHOLDER_ID.to_owned())
-                    });
+                    m.insert("id".to_owned(), Value::String(String::new()));
                     Value::Object(m)
                 }
                 other => other,
             };
 
-            let task_list: TaskList = match serde_json::from_value(obj_with_id) {
+            let mut task_list: TaskList = match serde_json::from_value(obj_with_id) {
                 Ok(tl) => tl,
                 Err(e) => {
                     not_created.insert(
@@ -181,8 +182,12 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 }
             };
 
+            let build = move |id: &Id| {
+                task_list.id = id.clone();
+                task_list
+            };
             match backend
-                .create_object::<TaskList>(caller, &account_id, &create_id, task_list)
+                .create_object::<TaskList, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {

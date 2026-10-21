@@ -215,17 +215,9 @@ pub async fn handle_task_set<B: TasksBackend>(
                 );
                 continue;
             }
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.entry("id").or_insert_with(|| {
-                        Value::String(crate::helpers::PLACEHOLDER_ID.to_owned())
-                    });
-                    Value::Object(m)
-                }
-                other => other,
-            };
-
-            let task: Task = match serde_json::from_value(obj_with_id) {
+            // `Task.id` is optional, so the create parses without one and
+            // `build` sets the id the backend mints.
+            let mut task: Task = match serde_json::from_value(obj_val) {
                 Ok(t) => t,
                 Err(e) => {
                     not_created.insert(
@@ -236,8 +228,12 @@ pub async fn handle_task_set<B: TasksBackend>(
                 }
             };
 
+            let build = move |id: &Id| {
+                task.id = Some(id.clone());
+                task
+            };
             match backend
-                .create_object::<Task>(caller, &account_id, &create_id, task)
+                .create_object::<Task, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -629,7 +625,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
             }
             merged.remove("id");
 
-            let task: Task = match serde_json::from_value(Value::Object(merged)) {
+            let mut task: Task = match serde_json::from_value(Value::Object(merged)) {
                 Ok(t) => t,
                 Err(e) => {
                     not_created.insert(
@@ -640,8 +636,12 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 }
             };
 
+            let build = move |id: &Id| {
+                task.id = Some(id.clone());
+                task
+            };
             match backend
-                .create_object::<Task>(caller, &to_account_id, &create_id, task)
+                .create_object::<Task, _>(caller, &to_account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_task)) => {
