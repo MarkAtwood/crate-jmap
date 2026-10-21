@@ -282,12 +282,12 @@ async fn set_on_a_hidden_object_is_not_found_never_forbidden() {
     );
 }
 
-/// SceneRegion/set Update Errors L1231: "The region exists but the caller
+/// SceneRegion/set Update Errors L1329: "The region exists but the caller
 /// lacks access | Per the access-control enumeration rule, the server
 /// returns `notFound` rather than `forbidden` to prevent probing." Destroy
-/// Errors L1245: "Same enumeration-safe rule as update." L1224 "Only the
-/// owner or an admin may modify region properties" and L1239 "Only the
-/// region owner may destroy a region" still give `forbidden` on the
+/// Errors L1343: "Same enumeration-safe rule as update." L1322 "Only the
+/// owner or an admin may modify region properties" and L1337 "Only the
+/// region owner or an admin may destroy a region" still give `forbidden` on the
 /// [`PUBLIC`] region [`BOB`] may access but does not own.
 #[tokio::test]
 async fn region_set_without_access_is_not_found_never_forbidden() {

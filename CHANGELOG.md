@@ -1062,6 +1062,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-scene-server**: `MemoryBackend::may_destroy_region` now lets the
+  users registered with `add_admin` destroy a region they do not own, as
+  `may_update_region` already did, per draft-atwood-jmap-scene-00
+  §SceneRegion/set ("SHOULD return `forbidden` when the caller is not the
+  region owner and does not have deployment-defined administrative
+  privileges"). The `forbidden` description now reads "only the region
+  owner or an admin may destroy this region".
 - **BREAKING** **jmap-scene-server**: a `SceneAvatar/set` create whose
   `regionId` names no SceneRegion, or a region the caller has no access
   to under `SceneBackend::may_access_region`, is now `invalidProperties`

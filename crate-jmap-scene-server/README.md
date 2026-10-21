@@ -93,8 +93,8 @@ with the insert. An update is validated as the region the patch leaves.
 A non-null `activeCallId` needs `urn:ietf:params:jmap:vtc`: a missing or
 ended call is `invalidProperties`, an inaccessible one `forbidden`. The
 `updated` entry echoes the new `updatedAt`. Update needs
-`may_update_region` (owner or admin), destroy `may_destroy_region`
-(owner only). On destroy the backend removes the region's SceneObjects
+`may_update_region` and destroy `may_destroy_region` (owner or admin in
+`MemoryBackend`). On destroy the backend removes the region's SceneObjects
 and SceneAvatars. `/query` defaults to `createdAt` descending, and an
 `accessPolicy` filter value outside the three is `invalidArguments`.
 
