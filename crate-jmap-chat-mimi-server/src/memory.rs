@@ -37,6 +37,15 @@
 //! §Room/create and §Chat.roomId fix (`id`, `kind`, `name`, `roomId`,
 //! `members`); `room_chat` reads it back.
 //!
+//! # FanoutMessages
+//!
+//! `store_fanout` keeps, per room Chat, its bound flag and its Messages
+//! (`id`, `chatId`, `bodyType`, `body`, `senderMsgId`, `sentAt`,
+//! `senderId`), and per account the hub ChatContacts (`id`, `identity`,
+//! `login`, `blocked`). `room_chat_id`, `room_messages` and `hub_contact`
+//! read them back; `block_contact` stands in for a `ChatContact/set` that
+//! sets `blocked`.
+//!
 //! # Concurrency
 //!
 //! The `await_holding_lock` lint is denied module-wide: no guard is held
@@ -47,7 +56,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use jmap_chat_mimi_types::{ClientKeyMaterial, KeyMaterialClientCode, KeyPackage, MimiCapability};
+use jmap_chat_mimi_types::{
+    ClientKeyMaterial, KeyMaterialClientCode, KeyPackage, MimiCapability, MIMI_FANOUT_BODY_TYPE,
+};
 use jmap_types::{Id, JmapError, State};
 use openmls::prelude::OpenMlsCrypto;
 use serde_json::json;
@@ -59,6 +70,7 @@ use crate::backend::{
     MimiBackend, NewKeyPackage, NewRoom, QueryChangesResult, QueryObject, QueryResult, SetError,
     SetErrorType,
 };
+use crate::fanout::{Fanout, FanoutRecipients};
 use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
 
 /// One stored KeyPackage record and the signature key of its client.
@@ -70,6 +82,17 @@ struct Record {
 /// A room this server hosts.
 struct Room {
     group_id: Vec<u8>,
+}
+
+/// A Chat bound, or once bound, to a room.
+struct RoomChat {
+    account: String,
+    room_id: String,
+    bound: bool,
+    chat: serde_json::Value,
+    messages: Vec<serde_json::Value>,
+    /// The FanoutMessage `message` octets of each stored Message.
+    mls_messages: Vec<Vec<u8>>,
 }
 
 /// The account a signature key is bound to, and its client's `clientUri`.
@@ -92,8 +115,10 @@ struct Inner {
     handed_out: HashMap<String, String>,
     /// Room ID → hosted room.
     rooms: HashMap<String, Room>,
-    /// Chat id → the Chat created for a room.
-    room_chats: HashMap<Id, serde_json::Value>,
+    /// Chat id → a room Chat.
+    room_chats: HashMap<Id, RoomChat>,
+    /// `(account_id, hub provider URI)` → the hub's ChatContact.
+    hub_contacts: HashMap<(String, String), serde_json::Value>,
     /// Source of record ids.
     next_id: u64,
 }
@@ -101,6 +126,65 @@ struct Inner {
 impl Inner {
     fn state(&self, account_id: &Id) -> u64 {
         self.states.get(account_id.as_ref()).copied().unwrap_or(0)
+    }
+
+    fn next(&mut self, prefix: &str) -> Id {
+        self.next_id += 1;
+        Id::from(format!("{prefix}{}", self.next_id).as_str())
+    }
+
+    /// Create a Chat in `account` bound to `room_id`, per §Chat.roomId.
+    fn create_room_chat(&mut self, account: &str, room_id: &str, name: &str) -> Id {
+        let chat_id = self.next("chat");
+        let chat = json!({
+            "id": chat_id,
+            "kind": "group",
+            "name": name,
+            "roomId": room_id,
+            "members": [],
+        });
+        self.room_chats.insert(
+            chat_id.clone(),
+            RoomChat {
+                account: account.to_owned(),
+                room_id: room_id.to_owned(),
+                bound: true,
+                chat,
+                messages: Vec::new(),
+                mls_messages: Vec::new(),
+            },
+        );
+        chat_id
+    }
+
+    fn room_chat_id(&self, account: &str, room_id: &str) -> Option<Id> {
+        self.room_chats
+            .iter()
+            .find(|(_, c)| c.account == account && c.room_id == room_id)
+            .map(|(id, _)| id.clone())
+    }
+
+    fn hub_blocked(&self, account: &str, hub_uri: &str) -> bool {
+        self.hub_contacts
+            .get(&(account.to_owned(), hub_uri.to_owned()))
+            .is_some_and(|c| c["blocked"] == true)
+    }
+
+    /// The id of `account`'s ChatContact for `hub_uri`, created if absent.
+    fn hub_contact_id(&mut self, account: &str, hub_uri: &str) -> serde_json::Value {
+        let key = (account.to_owned(), hub_uri.to_owned());
+        if let Some(contact) = self.hub_contacts.get(&key) {
+            return contact["id"].clone();
+        }
+        let id = self.next("contact");
+        let contact = json!({
+            "id": id,
+            "identity": hub_uri,
+            "login": hub_uri,
+            "blocked": false,
+        });
+        self.hub_contacts.insert(key, contact);
+        json!(id)
     }
 
     fn bump(&mut self, account_id: &Id) {
@@ -151,10 +235,49 @@ impl<C> MemoryBackend<C> {
             .insert(account_id.as_ref().to_owned(), capability);
     }
 
-    /// The Chat `create_room` created with id `chat_id`, if any.
+    /// The room Chat with id `chat_id`, if any.
     #[doc(hidden)]
     pub fn room_chat(&self, chat_id: &Id) -> Option<serde_json::Value> {
-        self.lock().room_chats.get(chat_id).cloned()
+        self.lock().room_chats.get(chat_id).map(|c| c.chat.clone())
+    }
+
+    /// The id of the Chat in `account_id` whose `roomId` is `room_id`.
+    #[doc(hidden)]
+    pub fn room_chat_id(&self, account_id: &Id, room_id: &str) -> Option<Id> {
+        self.lock().room_chat_id(account_id.as_ref(), room_id)
+    }
+
+    /// The Messages of the room Chat `chat_id`, in the order stored.
+    #[doc(hidden)]
+    pub fn room_messages(&self, chat_id: &Id) -> Vec<serde_json::Value> {
+        self.lock()
+            .room_chats
+            .get(chat_id)
+            .map(|c| c.messages.clone())
+            .unwrap_or_default()
+    }
+
+    /// `account_id`'s ChatContact for the hub `hub_uri`, if it exists.
+    #[doc(hidden)]
+    pub fn hub_contact(&self, account_id: &Id, hub_uri: &str) -> Option<serde_json::Value> {
+        self.lock()
+            .hub_contacts
+            .get(&(account_id.as_ref().to_owned(), hub_uri.to_owned()))
+            .cloned()
+    }
+
+    /// Set `blocked` on `account_id`'s ChatContact for the hub `hub_uri`,
+    /// creating the ChatContact if it does not exist.
+    #[doc(hidden)]
+    pub fn block_contact(&self, account_id: &Id, hub_uri: &str) {
+        let mut inner = self.lock();
+        inner.hub_contact_id(account_id.as_ref(), hub_uri);
+        if let Some(contact) = inner
+            .hub_contacts
+            .get_mut(&(account_id.as_ref().to_owned(), hub_uri.to_owned()))
+        {
+            contact["blocked"] = json!(true);
+        }
     }
 }
 
@@ -467,16 +590,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         if inner.rooms.values().any(|r| r.group_id == room.group_id) {
             return Ok(Err(group_id_in_use()));
         }
-        inner.next_id += 1;
-        let chat_id = Id::from(format!("chat{}", inner.next_id).as_str());
-        let chat = json!({
-            "id": chat_id,
-            "kind": "group",
-            "name": room.room_name,
-            "roomId": room.room_id,
-            "members": [],
-        });
-        inner.room_chats.insert(chat_id.clone(), chat);
+        let chat_id = inner.create_room_chat(account_id.as_ref(), &room.room_id, &room.room_name);
         inner.rooms.insert(
             room.room_id,
             Room {
@@ -484,6 +598,90 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
             },
         );
         Ok(Ok(chat_id))
+    }
+
+    async fn store_fanout(
+        &self,
+        room_id: &str,
+        hub_uri: &str,
+        fanout: &Fanout,
+    ) -> Result<(), MemoryError> {
+        let mut inner = self.lock();
+        let chats: Vec<Id> = match &fanout.recipients {
+            FanoutRecipients::Room => inner
+                .room_chats
+                .iter()
+                .filter(|(_, c)| c.room_id == room_id && c.bound)
+                .map(|(id, _)| id.clone())
+                .collect(),
+            FanoutRecipients::Welcome(refs) => {
+                let mut accounts: Vec<String> = refs
+                    .iter()
+                    .filter_map(|r| inner.handed_out.get(r.as_str()).cloned())
+                    .collect();
+                accounts.sort();
+                accounts.dedup();
+                accounts.retain(|a| !inner.hub_blocked(a, hub_uri));
+                accounts
+                    .iter()
+                    .map(|account| match inner.room_chat_id(account, room_id) {
+                        Some(id) => {
+                            if let Some(chat) = inner.room_chats.get_mut(&id) {
+                                chat.bound = true;
+                            }
+                            id
+                        }
+                        None => inner.create_room_chat(account, room_id, ""),
+                    })
+                    .collect()
+            }
+        };
+        for chat_id in chats {
+            let Some(chat) = inner.room_chats.get(&chat_id) else {
+                continue;
+            };
+            let account = chat.account.clone();
+            let duplicate = chat
+                .messages
+                .iter()
+                .any(|m| m["senderMsgId"] == fanout.sender_msg_id.as_str())
+                || chat.mls_messages.contains(&fanout.message);
+            if duplicate || inner.hub_blocked(&account, hub_uri) {
+                continue;
+            }
+            let sender_id = inner.hub_contact_id(&account, hub_uri);
+            let id = inner.next("msg");
+            let message = json!({
+                "id": id,
+                "chatId": chat_id,
+                "bodyType": MIMI_FANOUT_BODY_TYPE,
+                "body": fanout.body,
+                "senderMsgId": fanout.sender_msg_id,
+                "sentAt": fanout.sent_at,
+                "senderId": sender_id,
+            });
+            if let Some(chat) = inner.room_chats.get_mut(&chat_id) {
+                chat.messages.push(message);
+                chat.mls_messages.push(fanout.message.clone());
+            }
+        }
+        Ok(())
+    }
+
+    async fn unbind_room(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        room_id: &str,
+    ) -> Result<bool, MemoryError> {
+        let mut inner = self.lock();
+        let Some(id) = inner.room_chat_id(account_id.as_ref(), room_id) else {
+            return Ok(false);
+        };
+        if let Some(chat) = inner.room_chats.get_mut(&id) {
+            chat.bound = false;
+        }
+        Ok(true)
     }
 
     async fn destroy_key_package(

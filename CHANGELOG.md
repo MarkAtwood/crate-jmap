@@ -47,7 +47,24 @@ wire behaviour that a conforming peer can observe.
   `may_create_room_message` and `may_update_room_message` return the
   §Chat.roomId and §message/mls refusals for a `jmap-chat-server`
   `ChatBackend`'s per-Chat hooks. New dependency `openmls_memory_storage
-  =0.6.0`.
+  =0.6.0`. FanoutMessages (§application/mimi-fanout, §Chat.roomId):
+  `parse_fanout_messages` splits a `/notify` body of concatenated
+  FanoutMessages (draft-ietf-mimi-protocol-06 §5.5) into `Fanout`s with
+  the `senderMsgId` ULID (`timestamp` plus the first 10 octets of the
+  SHA-256 of the FanoutMessage octets), `sentAt`, the `message` octets and,
+  for a Welcome, the KeyPackageRefs of its secrets, and refuses a body
+  that does not parse with `FanoutParseError`.
+  `MimiBackend::store_fanout` stores a `Fanout` atomically in every bound
+  Chat of the room, or for a Welcome only in the accounts holding a named
+  KeyPackageRef, rebinding or creating their Chat. It drops a repeated
+  `senderMsgId` and a byte-identical `message`, and everything from a
+  blocked hub. It attributes each Message to the account's hub
+  ChatContact and creates that ChatContact when it is missing.
+  `MimiBackend::unbind_room` unbinds a room Chat. A SemiPrivateMessage
+  does not parse, because openmls 0.9.1 does not decode it. New
+  dependency `sha2 0.10`.
+- **jmap-chat-mimi-types**: `convert::ulid`, the ULID of a 48-bit time and
+  an 80-bit random component, which `sender_msg_id` now uses.
 - **jmap-mail-types**, **jmap-calendars-types**, **jmap-contacts-types**,
   **jmap-filenode-types**, **jmap-tasks-types**: `may_set_metadata:
   Option<bool>` on `MailboxRights`, `CalendarRights`, `AddressBookRights`,

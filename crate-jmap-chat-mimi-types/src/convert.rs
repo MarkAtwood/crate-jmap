@@ -10,7 +10,7 @@
 //! module derives the identifiers that the store keys on:
 //!
 //! - [`sender_msg_id`] derives a Message's `senderMsgId` from the hub's
-//!   acceptance time and the MIMI message ID.
+//!   acceptance time and the MIMI message ID, through [`ulid`].
 //! - [`RefKey`] is the 80-bit value that references resolve on. It is
 //!   both the `senderMsgId` random component and the form an alias is
 //!   recorded in. A MIMI `replaces` or `inReplyTo` resolves to the Message
@@ -49,6 +49,22 @@ fn random_component(id: &MimiMessageId) -> u128 {
         .fold(0, |acc, &octet| (acc << 8) | u128::from(octet))
 }
 
+/// The ULID whose 48-bit time component is `time_ms` and whose 80-bit
+/// random component is `random`, as 26 upper-case Crockford Base32
+/// characters.
+///
+/// Returns `None` when `time_ms` does not fit in 48 bits, which the ULID
+/// specification rejects.
+pub fn ulid(time_ms: u64, random: &[u8; 10]) -> Option<String> {
+    if time_ms >> 48 != 0 {
+        return None;
+    }
+    let random = random
+        .iter()
+        .fold(0, |acc, &octet| (acc << 8) | u128::from(octet));
+    Some(crockford((u128::from(time_ms) << 80) | random, 26))
+}
+
 /// The `senderMsgId` of a MIMI message (draft §Message Identifiers).
 ///
 /// The ULID's 48-bit time component is `accepted_ms`, the hub's acceptance
@@ -58,13 +74,10 @@ fn random_component(id: &MimiMessageId) -> u128 {
 /// `mimi_message_id`. Returns `None` when `accepted_ms` does not fit in 48
 /// bits, which the ULID specification rejects.
 pub fn sender_msg_id(accepted_ms: u64, mimi_message_id: &MimiMessageId) -> Option<String> {
-    if accepted_ms >> 48 != 0 {
-        return None;
-    }
-    Some(crockford(
-        (u128::from(accepted_ms) << 80) | random_component(mimi_message_id),
-        26,
-    ))
+    ulid(
+        accepted_ms,
+        &std::array::from_fn(|i| mimi_message_id[i + 1]),
+    )
 }
 
 /// The 80 bits that MIMI references resolve on (draft §Message
@@ -240,6 +253,20 @@ mod tests {
             sender_msg_id(1_644_387_225_019, &ORIGINAL).as_deref(),
             Some("01FVEHVKDVFKJMGDT09GV9DR67")
         );
+    }
+
+    #[test]
+    fn ulid_bounds_from_ulid_spec() {
+        // Oracle: ULID spec (github.com/ulid/spec) §Overflow Errors: "The
+        // largest valid ULID encoded in Base32 is
+        // 7ZZZZZZZZZZZZZZZZZZZZZZZZZ, which corresponds to an epoch time of
+        // 281474976710655 or 2 ^ 48 - 1"; larger values "should be
+        // rejected".
+        assert_eq!(
+            ulid((1 << 48) - 1, &[0xff; 10]).as_deref(),
+            Some("7ZZZZZZZZZZZZZZZZZZZZZZZZZ")
+        );
+        assert_eq!(ulid(1 << 48, &[0; 10]), None);
     }
 
     #[test]
