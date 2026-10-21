@@ -1,5 +1,6 @@
-//! `VTCCall/query`, `VTCRecording/query` and `VTCLivestream/query` filter
-//! and comparator types (draft-atwood-jmap-vtc-00 §VTCCall/query,
+//! `VTCCall/query`, `VTCParticipant/query`, `VTCRecording/query` and
+//! `VTCLivestream/query` filter and comparator types
+//! (draft-atwood-jmap-vtc-00 §VTCCall/query, §VTCParticipant/query,
 //! §VTCRecording/query, §VTCLivestream/query; RFC 8620 §5.5).
 //!
 //! # Excluded from extras preservation
@@ -26,7 +27,9 @@
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-use crate::{CallState, CallType, LivestreamState, RecordingState};
+use crate::{
+    CallRole, CallState, CallType, JoinMethod, LivestreamState, LobbyState, RecordingState,
+};
 
 pub use jmap_types::query::{Filter, FilterOperator, Operator};
 
@@ -117,6 +120,79 @@ impl VtcCallComparator {
 
 fn default_true() -> bool {
     true
+}
+
+/// Filter for `VTCParticipant/query`.
+pub type VtcParticipantFilter = Filter<VtcParticipantFilterCondition>;
+
+/// Filter condition for `VTCParticipant/query`
+/// (draft-atwood-jmap-vtc-00 §VTCParticipant/query).
+///
+/// "All filter properties are combined with logical AND." Servers "SHOULD
+/// require" `callId "on every query unless combined with `userId`".
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VtcParticipantFilterCondition {
+    /// "Filter to participants in this call."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub call_id: Option<Id>,
+    /// "Filter to a specific user across calls."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+    /// The participant's `role` must equal this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<CallRole>,
+    /// `true`: "participants with `joinedAt != null` and `leftAt ==
+    /// null`"; `false`: "participants who have left".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_active: Option<bool>,
+    /// The participant's `lobbyState` must equal this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lobby_state: Option<LobbyState>,
+    /// The participant's `joinMethod` must equal this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub join_method: Option<JoinMethod>,
+}
+
+/// Sort property for `VTCParticipant/query`: "Sort properties: `joinedAt`,
+/// `displayName`. Default sort: `joinedAt` ascending."
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VtcParticipantSortProperty {
+    /// Sort by `joinedAt`.
+    JoinedAt,
+    /// Sort by `displayName`.
+    DisplayName,
+}
+
+/// RFC 8620 §5.5 `Comparator` for `VTCParticipant/query`.
+///
+/// `is_ascending` defaults to `true` (RFC 8620 §5.5).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VtcParticipantComparator {
+    /// The property to sort by.
+    pub property: VtcParticipantSortProperty,
+    /// Sort ascending when `true`, descending when `false`.
+    #[serde(default = "default_true")]
+    pub is_ascending: bool,
+    /// Collation algorithm for string comparison (RFC 8620 §5.5).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl VtcParticipantComparator {
+    /// An ascending comparator on `property` with no collation.
+    pub fn new(property: VtcParticipantSortProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
 }
 
 /// Filter for `VTCRecording/query`.
@@ -258,6 +334,44 @@ mod tests {
         assert!(
             serde_json::from_value::<VtcCallComparator>(json!({"property": "subject"})).is_err()
         );
+    }
+
+    #[test]
+    fn participant_condition_carries_every_spec_filter_property() {
+        // Oracle: draft-atwood-jmap-vtc-00 L1074-1094 lists `callId`,
+        // `userId`, `role`, `isActive`, `lobbyState`, `joinMethod`.
+        let wire = json!({
+            "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+            "userId": "user:alice@example.com",
+            "role": "moderator",
+            "isActive": true,
+            "lobbyState": "waiting",
+            "joinMethod": "pstn"
+        });
+        let cond: VtcParticipantFilterCondition = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(cond.role, Some(CallRole::Moderator));
+        assert_eq!(cond.is_active, Some(true));
+        assert_eq!(cond.join_method, Some(JoinMethod::Pstn));
+        assert_eq!(serde_json::to_value(&cond).unwrap(), wire);
+        assert!(serde_json::from_value::<VtcParticipantFilter>(json!({"bogus": 1})).is_err());
+    }
+
+    #[test]
+    fn participant_comparator_accepts_only_spec_sort_properties() {
+        // Oracle: L1096 "Sort properties: `joinedAt`, `displayName`."
+        for (wire, want) in [
+            ("joinedAt", VtcParticipantSortProperty::JoinedAt),
+            ("displayName", VtcParticipantSortProperty::DisplayName),
+        ] {
+            let c: VtcParticipantComparator =
+                serde_json::from_value(json!({ "property": wire })).unwrap();
+            assert_eq!(c.property, want);
+            assert!(c.is_ascending);
+        }
+        assert!(serde_json::from_value::<VtcParticipantComparator>(
+            json!({"property": "speakerTimeMs"})
+        )
+        .is_err());
     }
 
     #[test]
