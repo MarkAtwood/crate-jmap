@@ -319,6 +319,83 @@ async fn filenode_copy_with_on_exists_rename() {
 }
 
 // ---------------------------------------------------------------------------
+// FileNode/copy — `destroyed` from onExists replacement
+// ---------------------------------------------------------------------------
+
+/// A FileNode/copy response carrying `destroyed` decodes into
+/// `SetResponse::destroyed`, and one without it decodes to `None`.
+///
+/// Oracle: draft-ietf-jmap-filenode-16 L677-679 ("the server MUST include
+/// the id of the replaced item in the destroyed response list"), applied to
+/// FileNode/copy by L773-775; workspace decision bd JMAP-510h.55 omits the
+/// field when empty. Response bodies are hand-written.
+#[tokio::test]
+async fn filenode_copy_decodes_destroyed() {
+    for (destroyed, expected) in [
+        (
+            Some(json!(["old-dir", "old-child"])),
+            Some(vec![Id::from("old-dir"), Id::from("old-child")]),
+        ),
+        (None, None),
+    ] {
+        let server = MockServer::start().await;
+        let mut args = json!({
+            "fromAccountId": "source-account",
+            "accountId": "A13824",
+            "oldState": "s10",
+            "newState": "s11",
+            "created": {
+                "copy1": {
+                    "@type": "Directory",
+                    "id": "copied-node-1",
+                    "parentId": null,
+                    "name": "Documents"
+                }
+            },
+            "notCreated": null
+        });
+        if let Some(d) = destroyed {
+            args["destroyed"] = d;
+        }
+        let resp_body = json!({
+            "sessionState": "s1",
+            "methodResponses": [["FileNode/copy", args, "r1"]]
+        });
+        Mock::given(method("POST"))
+            .and(path("/api/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+            .mount(&server)
+            .await;
+
+        let sc = helpers::make_client(&server);
+        let resp = sc
+            .filenode_copy(
+                FileNodeCopyParams {
+                    from_account_id: Id::from("source-account"),
+                    on_destroy_remove_children: Some(true),
+                    on_exists: Some(FileNodeOnExists::Replace),
+                    compare_case_insensitively: None,
+                    if_from_in_state: None,
+                    if_in_state: None,
+                    on_success_destroy_original: None,
+                    destroy_from_if_in_state: None,
+                    extra: serde_json::Map::new(),
+                },
+                json!({ "copy1": { "id": "original-node-x" } }),
+            )
+            .await
+            .expect("filenode_copy_decodes_destroyed: must succeed");
+
+        assert_eq!(resp.destroyed, expected);
+        assert!(
+            !resp.extra.contains_key("destroyed"),
+            "destroyed must land in the typed field: {:?}",
+            resp.extra
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // FileNode/copy — RFC 8620 §5.4 standard /copy arguments
 // ---------------------------------------------------------------------------
 //

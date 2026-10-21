@@ -1418,7 +1418,9 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 /// map of creationId → object, optional `onSuccessDestroyOriginal`,
 /// optional `destroyFromIfInState`); the returned `Value` is the §5.4
 /// `/copy` response shape (`fromAccountId`, `accountId`, `oldState`,
-/// `newState`, `created` / `notCreated` maps).
+/// `newState`, `created` / `notCreated` maps), plus `destroyed`: the ids
+/// of destination nodes that onExists replacement destroyed, cascades
+/// included, omitted when none were.
 ///
 /// `FileNode/copy` uses its own wire shape (source account + destination account),
 /// separate from `*/set`. This handler parses the wire arguments and delegates
@@ -1539,13 +1541,15 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     // Tracks (copy_id, source_id) pairs for successfully copied entries so
     // the implicit `onSuccessDestroyOriginal` Foo/set can destroy them.
     let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
-    // The onExists=replace cascade destroys 0..N nodes per entry. RFC
-    // 8620 §5.4 does not define a `destroyed` field on Foo/copy
-    // responses, so a client has no in-response wire signal for which
-    // nodes the copy destroyed. The handler still performs the
-    // destroys (the FileNode draft §3.2.4 mandates the behaviour via
-    // §3.2.3); clients learn about them via Foo/changes. Surfacing
-    // them in the response shape is a separate workspace bead.
+    // Ids destroyed by onExists "replace"/"newest", including
+    // onDestroyRemoveChildren cascades. RFC 8620 §5.4 defines no
+    // `destroyed` on Foo/copy, but §3.2.4 gives copy FileNode/set's
+    // onExists "with the same behaviour", and §3.2.3 says "the server
+    // MUST include the id of the replaced item in the destroyed response
+    // list" (draft-ietf-jmap-filenode-16 L677-679, L655-657, L773-775).
+    // Recorded as each destroy succeeds: a later failure for the same
+    // entry does not bring the node back.
+    let mut destroyed: Vec<Id> = Vec::new();
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
@@ -1777,9 +1781,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                 {
                                     Ok(()) => {
                                         mutated = true;
-                                        // No wire signal — see note on
-                                        // destroyed_list omission above.
-                                        let _ = desc_id;
+                                        destroyed.push(desc_id.clone());
                                     }
                                     Err(BackendSetError::SetError(set_err)) => {
                                         not_copied
@@ -1818,8 +1820,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             {
                                 Ok(()) => {
                                     mutated = true;
-                                    // No wire signal — see note above.
-                                    let _ = &existing_id;
+                                    destroyed.push(existing_id.clone());
                                 }
                                 Err(BackendSetError::SetError(set_err)) => {
                                     not_copied.insert(create_id, set_error_value(&set_err));
@@ -1960,6 +1961,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                 {
                                     Ok(()) => {
                                         mutated = true;
+                                        destroyed.push(desc_id.clone());
                                     }
                                     Err(BackendSetError::SetError(set_err)) => {
                                         not_copied
@@ -1997,6 +1999,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             {
                                 Ok(()) => {
                                     mutated = true;
+                                    destroyed.push(existing_id.clone());
                                 }
                                 Err(BackendSetError::SetError(set_err)) => {
                                     not_copied.insert(create_id, set_error_value(&set_err));
@@ -2075,7 +2078,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         old_state.clone()
     };
 
-    let resp = json!({
+    let mut resp = json!({
         "fromAccountId": from_account_id.as_ref(),
         "accountId": account_id.as_ref(),
         "oldState": old_state.as_ref(),
@@ -2083,6 +2086,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         "created":   if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
         "notCreated": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
     });
+    if !destroyed.is_empty() {
+        resp["destroyed"] = json!(destroyed);
+    }
 
     // RFC 8620 §5.4 onSuccessDestroyOriginal: after the Foo/copy response,
     // emit a single implicit Foo/set call to destroy each successfully copied

@@ -420,6 +420,10 @@ impl super::SessionClient {
     /// `create` is the RFC 8620 §5.4 `create` map (a JSON object mapping
     /// creation keys to copy-creation objects).
     ///
+    /// The response's [`SetResponse::destroyed`] lists destination nodes
+    /// that onExists replacement destroyed, cascades included; it is
+    /// `None` when the copy destroyed nothing.
+    ///
     /// Use [`FileNodeCopyParams::extra`] to plumb vendor / site extension
     /// fields through to the wire (workspace extras-preservation policy).
     ///
