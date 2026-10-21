@@ -36,6 +36,7 @@ members = [
     "crate-jmap-vtc-server",
     "crate-jmap-scene-server",
     "crate-jmap-graph-server",
+    "crate-jmap-graph-projection-server",
     "crate-jmap-chat-vtc-server",
     "crate-jmap-chat-scene-server",
     "crate-jmap-chat-filenode-server",
