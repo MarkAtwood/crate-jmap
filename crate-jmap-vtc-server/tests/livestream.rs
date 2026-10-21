@@ -8,7 +8,8 @@ mod common;
 use common::*;
 use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::{
-    handle_vtc_livestream_get, handle_vtc_livestream_query, handle_vtc_livestream_set,
+    handle_vtc_livestream_changes, handle_vtc_livestream_get, handle_vtc_livestream_query,
+    handle_vtc_livestream_set,
 };
 use serde_json::{json, Value};
 
@@ -283,4 +284,42 @@ async fn query_defaults_to_started_at_descending() {
         json!({ "filter": { "state": "live", "platform": "youtube" } })
     );
     assert_eq!(resp["ids"], json!(["L2"]), "{resp}");
+}
+
+#[tokio::test]
+async fn destroying_a_streaming_livestream_stops_it_first() {
+    // jmap-chat-spec 33702a5 draft-atwood-jmap-vtc-00.md L1274: "`destroy`
+    // removes the VTCLivestream metadata. If the livestream is in state
+    // `"starting"` or `"live"`, the server first stops it, so that no
+    // orphaned stream keeps running after the metadata is removed."
+    // MemoryBackend states count commits from "0", and seeding commits
+    // nothing: a stop is one commit, the destroy another.
+    for (state, commits) in [("starting", 2), ("live", 2), ("stopped", 1), ("failed", 1)] {
+        let backend = media_backend();
+        seed_as(
+            &backend,
+            "VTCLivestream",
+            stored_livestream("L1", state, Value::Null),
+        );
+        let resp = set(&backend, BOB, json!({ "destroy": ["L1"] })).await;
+        assert_eq!(resp["destroyed"], json!(["L1"]), "{state}: {resp}");
+        assert_eq!(resp["oldState"], "0", "{state}: {resp}");
+        assert_eq!(resp["newState"], commits.to_string(), "{state}: {resp}");
+        assert_eq!(
+            get_as(&backend, BOB, json!({ "ids": ["L1"] })).await,
+            Value::Null,
+            "{state}"
+        );
+        if commits == 2 {
+            // The first commit changed L1 without destroying it; the
+            // destroy came after.
+            let changes = call!(
+                handle_vtc_livestream_changes,
+                &backend,
+                BOB,
+                json!({ "sinceState": "1" })
+            );
+            assert_eq!(changes["destroyed"], json!(["L1"]), "{state}: {changes}");
+        }
+    }
 }

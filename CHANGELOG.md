@@ -823,8 +823,10 @@ wire behaviour that a conforming peer can observe.
   Recordings follow `recording` ⇄ `paused` → `stopped` (setting
   `stoppedAt`), each change followed by a `VTCRecordingStateEvent`;
   livestreams can only be stopped, and reconfigured only while stopped
-  or failed. `VTCLivestream/get` returns `streamKey` and `streamUri` as
-  `""` to non-moderators. `VtcBackend` gains the required
+  or failed. Destroying a `"recording"` or `"paused"` recording, or a
+  `"starting"` or `"live"` livestream, stops it first.
+  `VTCLivestream/get` returns `streamKey` and `streamUri` as `""` to
+  non-moderators. `VtcBackend` gains the required
   `create_object` and `deliver_recording_state_event`;
   `register_vtc_handlers` wires the ten new methods; `query` gains
   `recording_matches`, `livestream_matches`, `compare_recordings` and

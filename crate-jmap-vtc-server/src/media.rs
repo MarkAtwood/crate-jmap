@@ -385,11 +385,12 @@ where
     finalize_set_response::<B, O>(backend, caller, &account_id, old_state, mutated, acc).await
 }
 
-/// The `callId` both media types carry, and the recording itself for the
-/// destroy rule only recordings have.
+/// The `callId` both media types carry, and the object itself for its
+/// type's stop-before-destroy rule.
 trait MediaObject {
     fn call_id(&self) -> &Id;
     fn as_recording(&self) -> Option<&VtcRecording>;
+    fn as_livestream(&self) -> Option<&VtcLivestream>;
 }
 
 impl MediaObject for VtcRecording {
@@ -399,6 +400,9 @@ impl MediaObject for VtcRecording {
     fn as_recording(&self) -> Option<&VtcRecording> {
         Some(self)
     }
+    fn as_livestream(&self) -> Option<&VtcLivestream> {
+        None
+    }
 }
 
 impl MediaObject for VtcLivestream {
@@ -407,6 +411,9 @@ impl MediaObject for VtcLivestream {
     }
     fn as_recording(&self) -> Option<&VtcRecording> {
         None
+    }
+    fn as_livestream(&self) -> Option<&VtcLivestream> {
+        Some(self)
     }
 }
 
@@ -713,14 +720,32 @@ pub(crate) async fn stop_livestreams<B: VtcBackend>(
         l.call_id == *call_id
             && matches!(l.state, LivestreamState::Starting | LivestreamState::Live)
     }) {
-        let mut patch = PatchObject::new();
-        let map = patch.as_map_mut();
-        map.insert("state".to_owned(), json!(LivestreamState::Stopped));
-        map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
-        backend
-            .update_object::<VtcLivestream>(caller, account_id, &livestream.id, patch)
-            .await?;
+        stop_livestream(backend, caller, account_id, &livestream.id).await?;
     }
+    Ok(())
+}
+
+/// Transition livestream `id` to `"stopped"` and set `stoppedAt`, as a
+/// moderator's stop does.
+///
+/// # Errors
+///
+/// Returns the [`VtcBackend::update_object`] error.
+// Same error type as `VtcBackend::update_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+async fn stop_livestream<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Result<(), BackendSetError<B::Error>> {
+    let mut patch = PatchObject::new();
+    let map = patch.as_map_mut();
+    map.insert("state".to_owned(), json!(LivestreamState::Stopped));
+    map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+    backend
+        .update_object::<VtcLivestream>(caller, account_id, id, patch)
+        .await?;
     Ok(())
 }
 
@@ -993,7 +1018,9 @@ async fn update_livestream<B: VtcBackend>(
 /// return `forbidden` when the caller is not a moderator". §Destroying a
 /// Recording: "If the recording is in state `"recording"` or `"paused"`,
 /// the server first stops it and delivers the `VTCRecordingStateEvent`
-/// with `state: "stopped"`."
+/// with `state: "stopped"`." §Destroying a Livestream: "If the livestream
+/// is in state `"starting"` or `"live"`, the server first stops it, so that
+/// no orphaned stream keeps running after the metadata is removed."
 async fn destroy_media<O, B>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1014,6 +1041,14 @@ where
             .await
             .map_err(|e| server_fail_value_from_backend(&e))?;
         stop_recording(backend, caller, account_id, recording, initiator)
+            .await
+            .map_err(backend_set_error_value)?;
+    }
+    if obj
+        .as_livestream()
+        .is_some_and(|l| matches!(l.state, LivestreamState::Starting | LivestreamState::Live))
+    {
+        stop_livestream(backend, caller, account_id, id)
             .await
             .map_err(backend_set_error_value)?;
     }
