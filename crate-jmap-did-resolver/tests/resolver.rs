@@ -411,6 +411,96 @@ async fn refresh_fetches_one_did_at_most_once_per_60_seconds() {
 }
 
 #[tokio::test]
+async fn dropping_a_cached_entry_does_not_reset_the_refresh_limit() {
+    // chat-did-00 L233 (jmap-chat-spec 33702a5): "A server SHOULD NOT
+    // resolve one DID again for this reason more often than once every
+    // 60 seconds". The limit counts from alice's forced refresh at 0 s,
+    // not from the plain resolve that refills her evicted entry at 2 s:
+    // at 3 s refresh serves that entry, and at 60 s it fetches.
+    let bob = "did:web:w3c-ccg.github.io:user:bob";
+    let bob_url = "https://w3c-ccg.github.io/user/bob/did.json";
+    let mut bob_doc = alice_document("key-0");
+    bob_doc["id"] = json!(bob);
+    let stub = Stub::default();
+    stub.serve(ALICE_URL, &alice_document("key-0"));
+    stub.serve(bob_url, &bob_doc);
+    let (elapsed, now) = clock();
+    let resolver = Resolver::new(&stub, TTL)
+        .with_clock(now)
+        .with_max_entries(NonZeroUsize::MIN);
+    resolver.refresh(&did(ALICE)).await.unwrap();
+    elapsed.store(1, Ordering::SeqCst);
+    resolver.resolve(&did(bob)).await.unwrap();
+
+    stub.serve(ALICE_URL, &alice_document("key-1"));
+    elapsed.store(2, Ordering::SeqCst);
+    let doc = document(resolver.refresh(&did(ALICE)).await.unwrap());
+    assert_eq!(doc, alice_document("key-1"));
+    assert_eq!(stub.calls(), [ALICE_URL, bob_url, ALICE_URL]);
+
+    stub.serve(ALICE_URL, &alice_document("key-2"));
+    elapsed.store(3, Ordering::SeqCst);
+    let doc = document(resolver.refresh(&did(ALICE)).await.unwrap());
+    assert_eq!(doc, alice_document("key-1"));
+    assert_eq!(stub.calls().len(), 3);
+
+    elapsed.store(60, Ordering::SeqCst);
+    let doc = document(resolver.refresh(&did(ALICE)).await.unwrap());
+    assert_eq!(doc, alice_document("key-2"));
+    assert_eq!(stub.calls().len(), 4);
+}
+
+#[tokio::test]
+async fn full_refresh_record_drops_its_oldest_entry() {
+    // `with_max_entries` documents a bounded refresh record that drops
+    // its oldest entry when full. With room for two, carol's refresh at
+    // 2 s drops alice's record, so alice's refresh at 4 s fetches even
+    // though her entry, refilled by a plain resolve at 3 s, is cached;
+    // carol's own record survives and her refresh serves the cache.
+    let user = |name: &str| {
+        let id = format!("did:web:w3c-ccg.github.io:user:{name}");
+        let url = format!("https://w3c-ccg.github.io/user/{name}/did.json");
+        let mut doc = alice_document("key-0");
+        doc["id"] = json!(id);
+        (id, url, doc)
+    };
+    let (bob, bob_url, bob_doc) = user("bob");
+    let (carol, carol_url, carol_doc) = user("carol");
+    let stub = Stub::default();
+    stub.serve(ALICE_URL, &alice_document("key-0"));
+    stub.serve(&bob_url, &bob_doc);
+    stub.serve(&carol_url, &carol_doc);
+    let (elapsed, now) = clock();
+    let resolver = Resolver::new(&stub, TTL)
+        .with_clock(now)
+        .with_max_entries(NonZeroUsize::new(2).unwrap());
+    resolver.refresh(&did(ALICE)).await.unwrap();
+    elapsed.store(1, Ordering::SeqCst);
+    resolver.refresh(&did(&bob)).await.unwrap();
+    elapsed.store(2, Ordering::SeqCst);
+    resolver.refresh(&did(&carol)).await.unwrap();
+    elapsed.store(3, Ordering::SeqCst);
+    resolver.resolve(&did(ALICE)).await.unwrap();
+    assert_eq!(stub.calls().len(), 4);
+
+    stub.serve(ALICE_URL, &alice_document("key-1"));
+    elapsed.store(4, Ordering::SeqCst);
+    let doc = document(resolver.refresh(&did(ALICE)).await.unwrap());
+    assert_eq!(doc, alice_document("key-1"));
+    resolver.refresh(&did(&carol)).await.unwrap();
+    assert_eq!(
+        stub.calls(),
+        [
+            ALICE_URL,
+            bob_url.as_str(),
+            carol_url.as_str(),
+            ALICE_URL,
+            ALICE_URL
+        ]
+    );
+}
+
+#[tokio::test]
 async fn zero_refresh_interval_fetches_on_every_refresh() {
     // L233's limit is a SHOULD NOT, so the interval is configurable;
     // with none, each refresh bypasses the cache as the MUST requires.

@@ -118,6 +118,26 @@ async fn step1_host_less_did_with_did_verification_is_accepted() {
     assert_eq!(fed.messages().await.len(), 1);
 }
 
+/// fed L256 at jmap-chat-spec 33702a5: "A DID-form identity is accepted
+/// only after the DID-bound verification of {{JMAP-CHAT-DID}} succeeds;
+/// any other host-less identity MUST be rejected." A `did_verified` flag
+/// does not lift that rule for a URN (RFC 4122 §3 example) or a
+/// string that only starts like a DID.
+#[tokio::test]
+async fn step1_did_verification_does_not_accept_other_host_less_identities() {
+    for identity in ["urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6", "did:"] {
+        let mut fed = Fed::new();
+        fed.peer = Some(
+            AuthenticatedPeer::new(PeerDomain::parse(PEER_DOMAIN).expect("domain"), identity)
+                .with_did_verified(),
+        );
+        let mut args = deliver_args(LOW, "direct", message("M1"));
+        args["senderUserId"] = json!(identity);
+        assert_error(fed.deliver(args).await, "forbidden");
+        assert!(fed.messages().await.is_empty(), "{identity}");
+    }
+}
+
 /// fed L255 at jmap-chat-spec 6bcd9d8: "If the peer identity has a host,
 /// that host MUST equal the authenticated peer domain." A DID-bound
 /// verification does not lift that rule.
