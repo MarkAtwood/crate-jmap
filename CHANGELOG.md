@@ -1270,6 +1270,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-server**: new required
+  `VtcBackend::get_objects_unscoped`, a `get_objects` read without
+  §Per-call access. Ending a call reads its breakout rooms and the
+  recordings and livestreams of each ended call through it, so a room the
+  ending moderator (or the server context of `end_call`) cannot access is
+  still ended, with its recordings and livestreams stopped
+  (jmap-vtc-implementer-guide §Breakout room cleanup). Before, such a room
+  stayed active after its parent ended.
 - **BREAKING** **jmap-scene-server**: `SceneBackend::is_user_blocked`
   drops its `account_id` parameter. It now answers whether `user_id` is
   blocked on the caller's own contact list, which the implementation

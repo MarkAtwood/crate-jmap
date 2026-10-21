@@ -809,7 +809,9 @@ pub(crate) fn ring_deadline(
 /// jmap-vtc-implementer-guide §Breakout room cleanup: "Implement
 /// parent-call end as a cascade that ends all child calls first." The
 /// rooms are collected breadth-first through `breakoutRoomIds` and ended
-/// deepest first, so every call ends after the rooms under it.
+/// deepest first, so every call ends after the rooms under it. They are
+/// read with [`VtcBackend::get_objects_unscoped`], so a room `caller`
+/// cannot access still ends.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 #[allow(clippy::result_large_err)]
 async fn end_cascade<B: VtcBackend>(
@@ -823,7 +825,7 @@ async fn end_cascade<B: VtcBackend>(
     let mut pending = call.breakout_room_ids.clone();
     while !pending.is_empty() {
         let (found, _) = backend
-            .get_objects::<VtcCall>(caller, account_id, Some(&pending), None)
+            .get_objects_unscoped::<VtcCall>(caller, account_id, Some(&pending))
             .await
             .map_err(BackendSetError::Other)?;
         pending = Vec::new();

@@ -1495,6 +1495,17 @@ impl VtcBackend for FailCallUpdate {
         self.0.active_call_count(caller, account_id).await
     }
 
+    async fn get_objects_unscoped<O: GetObject + Send + Sync>(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+    ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
+        self.0
+            .get_objects_unscoped::<O>(caller, account_id, ids)
+            .await
+    }
+
     async fn is_user_blocked(
         &self,
         caller: &String,

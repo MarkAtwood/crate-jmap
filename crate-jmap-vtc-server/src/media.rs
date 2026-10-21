@@ -616,9 +616,14 @@ async fn create_recording<B: VtcBackend>(
 /// [`VtcBackend::create_object`] refuses a recording on a call that is not
 /// `"active"`. Each event names the caller as `initiatedBy`.
 ///
+/// The recordings are read with [`VtcBackend::get_objects_unscoped`], so
+/// a breakout room the caller cannot access still has its recordings
+/// stopped.
+///
 /// ponytail: loads every VTCRecording of the account to find the call's,
-/// so each call end is O(recordings). Upgrade path: find them with
-/// [`jmap_server::JmapBackend::query_objects`] filtered by `callId`.
+/// so each call end is O(recordings). Upgrade path: an unscoped read
+/// filtered by `callId`; the caller-scoped `query_objects` would skip the
+/// recordings of a room the caller cannot access.
 ///
 /// # Errors
 ///
@@ -633,7 +638,7 @@ pub(crate) async fn stop_recordings<B: VtcBackend>(
     call_id: &Id,
 ) -> Result<(), BackendSetError<B::Error>> {
     let (recordings, _) = backend
-        .get_objects::<VtcRecording>(caller, account_id, None, None)
+        .get_objects_unscoped::<VtcRecording>(caller, account_id, None)
         .await
         .map_err(BackendSetError::Other)?;
     let live: Vec<VtcRecording> = recordings
@@ -713,7 +718,7 @@ pub(crate) async fn stop_livestreams<B: VtcBackend>(
     call_id: &Id,
 ) -> Result<(), BackendSetError<B::Error>> {
     let (livestreams, _) = backend
-        .get_objects::<VtcLivestream>(caller, account_id, None, None)
+        .get_objects_unscoped::<VtcLivestream>(caller, account_id, None)
         .await
         .map_err(BackendSetError::Other)?;
     for livestream in livestreams.into_iter().filter(|l| {
