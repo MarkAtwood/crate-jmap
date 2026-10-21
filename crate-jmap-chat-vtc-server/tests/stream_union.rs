@@ -130,6 +130,7 @@ async fn delivers(chat_vtc: bool, sub: &VtcEphemeralSubscription, ev: &VtcEvent)
         &fixture(),
         &ALICE.to_owned(),
         &Id::from(ACCOUNT),
+        &Id::from(ACCOUNT),
         chat_vtc,
         sub,
         ev,

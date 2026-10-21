@@ -176,6 +176,15 @@ enum Origin<'a> {
 ///   mandatory consent signal and MUST be delivered to all participants
 ///   regardless of block status".
 ///
+/// `hosting_account_id` is the event's `accountId`: "the id of the call's
+/// hosting account, the account that contains the VTCCall and its
+/// VTCParticipant records ... This is usually not the recipient's personal
+/// account" (draft-atwood-jmap-vtc-wss-00 L296-301). The call, its
+/// participants, the recipient's userId and moderator status are read
+/// there. `recipient_account_id` is the recipient's own account, whose
+/// block list "the recipient's contact list" (L347, L360) names; every
+/// [`VtcBackend::is_user_blocked`] check uses it.
+///
 /// This function does not rate-limit; the §Rate Limiting SHOULD rules are
 /// the transport's or deployment's to apply.
 ///
@@ -186,7 +195,8 @@ enum Origin<'a> {
 pub async fn should_deliver<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    account_id: &Id,
+    hosting_account_id: &Id,
+    recipient_account_id: &Id,
     subscription: &VtcEphemeralSubscription,
     event: &VtcEvent,
 ) -> Result<bool, B::Error> {
@@ -199,7 +209,7 @@ pub async fn should_deliver<B: VtcBackend>(
     let (call_id, origin) = match event {
         VtcEvent::Ring(e) => {
             return Ok(!backend
-                .is_user_blocked(caller, account_id, &e.initiator_id)
+                .is_user_blocked(caller, recipient_account_id, &e.initiator_id)
                 .await?)
         }
         VtcEvent::CallEnd(e) => {
@@ -210,10 +220,10 @@ pub async fn should_deliver<B: VtcBackend>(
                 return Ok(true);
             }
             return Ok(
-                match fetch_call(backend, caller, account_id, &e.call_id).await? {
+                match fetch_call(backend, caller, hosting_account_id, &e.call_id).await? {
                     Some(call) => {
                         !backend
-                            .is_user_blocked(caller, account_id, &call.initiator_id)
+                            .is_user_blocked(caller, recipient_account_id, &call.initiator_id)
                             .await?
                     }
                     None => true,
@@ -233,17 +243,17 @@ pub async fn should_deliver<B: VtcBackend>(
             return Ok(false);
         }
     }
-    let Some(call) = fetch_call(backend, caller, account_id, call_id).await? else {
+    let Some(call) = fetch_call(backend, caller, hosting_account_id, call_id).await? else {
         return Ok(false);
     };
     // ponytail: reads every VTCParticipant in the account and keeps this
     // call's; O(participants) per delivery. Upgrade: a VTCParticipant/query
     // on callId once the participant methods land (bd:JMAP-8mem.3).
     let (all, _) = backend
-        .get_objects::<VtcParticipant>(caller, account_id, None, None)
+        .get_objects::<VtcParticipant>(caller, hosting_account_id, None, None)
         .await?;
     let in_call: Vec<VtcParticipant> = all.into_iter().filter(|p| p.call_id == *call_id).collect();
-    let me = backend.caller_user_id(caller, account_id).await?;
+    let me = backend.caller_user_id(caller, hosting_account_id).await?;
     let participating = in_call.iter().any(|p| {
         p.user_id.as_deref() == Some(me.as_str()) && p.joined_at.is_some() && p.left_at.is_none()
     });
@@ -251,7 +261,9 @@ pub async fn should_deliver<B: VtcBackend>(
         return Ok(false);
     }
     if matches!(event, VtcEvent::GatewaySignal(_)) {
-        return backend.is_moderator(caller, account_id, &call).await;
+        return backend
+            .is_moderator(caller, hosting_account_id, &call)
+            .await;
     }
     if matches!(event, VtcEvent::ActiveSpeaker(_)) && call.e2ee_enabled {
         return Ok(false);
@@ -265,7 +277,11 @@ pub async fn should_deliver<B: VtcBackend>(
         Origin::User(user) => Some(user),
     };
     Ok(match origin_user {
-        Some(user) => !backend.is_user_blocked(caller, account_id, user).await?,
+        Some(user) => {
+            !backend
+                .is_user_blocked(caller, recipient_account_id, user)
+                .await?
+        }
         None => true,
     })
 }

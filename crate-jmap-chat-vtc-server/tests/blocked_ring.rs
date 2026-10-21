@@ -34,7 +34,8 @@ async fn delivers(backend: &Bound, event: &VtcEvent) -> bool {
             .expect("subscription fixture");
     let mut sub = VtcEphemeralSubscription::default();
     sub.replace_with(&enable).expect("subscription");
-    should_deliver(backend, &OWNER.to_owned(), &Id::from(ACCOUNT), &sub, event)
+    let account = Id::from(ACCOUNT);
+    should_deliver(backend, &OWNER.to_owned(), &account, &account, &sub, event)
         .await
         .expect("should_deliver")
 }
