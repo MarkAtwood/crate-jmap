@@ -631,13 +631,17 @@ impl JmapBackend for MemoryBackend {
 // ---------------------------------------------------------------------------
 
 impl FileNodeBackend for MemoryBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         // Only FileNode is supported.
         if O::TYPE_NAME != "FileNode" {
             return Err(BackendSetError::SetError(SetError::new(
@@ -645,45 +649,28 @@ impl FileNodeBackend for MemoryBackend {
             )));
         }
 
-        // Serialize obj → FileNode → assign id → deserialize back to O.
+        let mut guard = self.inner.lock().unwrap();
+        let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
+            BackendSetError::SetError(SetError::new(SetErrorType::InvalidProperties))
+        })?;
+        let new_id = store.next_node_id();
+        let obj = build(&new_id);
+        // Store as a typed FileNode: serialize the built O and read it back.
         let v = serde_json::to_value(&obj).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!(
                 "create_object: serialize {}: {e}",
                 O::TYPE_NAME
             )))
         })?;
-
-        let mut node: FileNode = serde_json::from_value(v).map_err(|e| {
+        let node: FileNode = serde_json::from_value(v).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!(
                 "create_object: deserialize FileNode: {e}"
             )))
         })?;
+        store.nodes.insert(new_id.clone(), node);
+        store.bump_state(ChangeType::Created, new_id.clone());
 
-        let new_id = {
-            let mut guard = self.inner.lock().unwrap();
-            let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
-                BackendSetError::SetError(SetError::new(SetErrorType::InvalidProperties))
-            })?;
-            let new_id = store.next_node_id();
-            node.id = new_id.clone();
-            store.nodes.insert(new_id.clone(), node.clone());
-            store.bump_state(ChangeType::Created, new_id.clone());
-            new_id
-        };
-
-        let result_v = serde_json::to_value(&node).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "create_object: serialize stored FileNode: {e}"
-            )))
-        })?;
-        let result_obj: O = serde_json::from_value(result_v).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "create_object: deserialize result {}: {e}",
-                O::TYPE_NAME
-            )))
-        })?;
-
-        Ok((new_id, result_obj))
+        Ok((new_id, obj))
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
@@ -1372,7 +1359,11 @@ mod tests {
         }))
         .expect("fresh FileNode must deserialize");
         let (allocated_id, _) = backend
-            .create_object::<FileNode>(&(), &Id::from("acc1"), "c1", new_node)
+            .create_object(&(), &Id::from("acc1"), "c1", |id: &Id| {
+                let mut node = new_node;
+                node.id = id.clone();
+                node
+            })
             .await
             .expect("create_object must succeed");
         assert_eq!(
@@ -1456,7 +1447,11 @@ mod tests {
         }))
         .expect("fresh FileNode must deserialize");
         let (allocated_id, _) = backend
-            .create_object::<FileNode>(&(), &Id::from("acc1"), "c1", new_node)
+            .create_object(&(), &Id::from("acc1"), "c1", |id: &Id| {
+                let mut node = new_node;
+                node.id = id.clone();
+                node
+            })
             .await
             .expect("create_object must succeed");
         assert_eq!(

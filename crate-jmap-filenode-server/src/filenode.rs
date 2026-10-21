@@ -38,7 +38,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, FileNodeBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators, PLACEHOLDER_ID,
+    SetAccumulators,
 };
 use jmap_server::{
     now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
@@ -468,12 +468,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
         for (create_id, obj_val) in create_map {
-            // Inject a placeholder `id` — the backend replaces it with the
-            // server-assigned id on success.
+            // `FileNode.id` is required, so the parse fills it with "",
+            // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
+            // of 255 octets"); `build` overwrites it with the minted id.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.entry("id")
-                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
+                    m.insert("id".to_owned(), Value::String(String::new()));
                     // `name` is required and non-nullable; if missing, serde will
                     // produce an `invalidProperties` error below.
                     Value::Object(m)
@@ -884,8 +884,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 date.get_or_insert_with(|| now.clone());
             }
 
+            let build = move |id: &Id| {
+                node.id = id.clone();
+                node
+            };
             match backend
-                .create_object::<FileNode>(caller, &account_id, &create_id, node)
+                .create_object::<FileNode, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -1697,12 +1701,6 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     }
                 }
             }
-            // The destination assigns a new id; clear the source id so
-            // create_object cannot accidentally reuse it. The id field
-            // is non-Optional on FileNode, so use the same sentinel as
-            // FileNode/set create, which create_object overwrites.
-            source_node.id = Id::from(PLACEHOLDER_ID);
-
             // Same-account cycle check (bd:JMAP-510h.59): when
             // fromAccountId == accountId and the copy descriptor moves
             // the new node under one of the source node's own
@@ -2069,9 +2067,13 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 }
             }
 
-            // Create in the destination account.
+            // Create in the destination account, under the id it assigns.
+            let build = move |id: &Id| {
+                source_node.id = id.clone();
+                source_node
+            };
             match backend
-                .create_object::<FileNode>(caller, &account_id, &create_id, source_node)
+                .create_object::<FileNode, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -2842,13 +2844,17 @@ mod tests {
     }
 
     impl FileNodeBackend for FaultyBackend {
-        async fn create_object<O: SetObject + Send + Sync>(
+        async fn create_object<O, F>(
             &self,
             _caller: &(),
             account_id: &Id,
             create_id: &str,
-            obj: O,
-        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            build: F,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>>
+        where
+            O: SetObject + Send + Sync,
+            F: FnOnce(&Id) -> O + Send,
+        {
             // Persistent override: every create returns the same
             // overridden name field. The override is a behavior swap,
             // not a fault, so it does not consume.
@@ -2859,20 +2865,20 @@ mod tests {
                 .create_object_override_name
                 .clone();
             if let Some(name) = override_name {
-                let mut v = serde_json::to_value(&obj)
-                    .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
-                if let serde_json::Value::Object(ref mut m) = v {
-                    m.insert("name".to_owned(), serde_json::Value::String(name));
-                }
-                let reshaped: O = serde_json::from_value(v)
-                    .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+                let reshape = move |id: &Id| -> O {
+                    let mut v = serde_json::to_value(build(id)).expect("fixture serializes");
+                    if let serde_json::Value::Object(ref mut m) = v {
+                        m.insert("name".to_owned(), serde_json::Value::String(name));
+                    }
+                    serde_json::from_value(v).expect("renamed fixture deserializes")
+                };
                 return self
                     .inner
-                    .create_object::<O>(&(), account_id, create_id, reshaped)
+                    .create_object(&(), account_id, create_id, reshape)
                     .await;
             }
             self.inner
-                .create_object::<O>(&(), account_id, create_id, obj)
+                .create_object(&(), account_id, create_id, build)
                 .await
         }
 
@@ -3097,7 +3103,11 @@ mod tests {
         }))
         .expect("fixture must deserialize");
         let (_id, created) = backend
-            .create_object::<FileNode>(&(), &Id::from("acc1"), "c0", fixture.clone())
+            .create_object(&(), &Id::from("acc1"), "c0", |id: &Id| {
+                let mut node = fixture.clone();
+                node.id = id.clone();
+                node
+            })
             .await
             .expect("create must succeed");
         assert_eq!(
@@ -3106,7 +3116,11 @@ mod tests {
         );
         // Persistent: a second create also gets the override.
         let (_id2, second) = backend
-            .create_object::<FileNode>(&(), &Id::from("acc1"), "c1", fixture)
+            .create_object(&(), &Id::from("acc1"), "c1", |id: &Id| {
+                let mut node = fixture;
+                node.id = id.clone();
+                node
+            })
             .await
             .expect("second create must succeed");
         assert_eq!(
@@ -3219,15 +3233,19 @@ mod tests {
     }
 
     impl FileNodeBackend for NoFileNodeBackend {
-        async fn create_object<O: SetObject + Send + Sync>(
+        async fn create_object<O, F>(
             &self,
             _caller: &(),
             account_id: &Id,
             create_id: &str,
-            obj: O,
-        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            build: F,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>>
+        where
+            O: SetObject + Send + Sync,
+            F: FnOnce(&Id) -> O + Send,
+        {
             self.0
-                .create_object::<O>(&(), account_id, create_id, obj)
+                .create_object(&(), account_id, create_id, build)
                 .await
         }
 

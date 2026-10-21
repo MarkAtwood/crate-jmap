@@ -8,22 +8,6 @@ use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
-/// Sentinel `id` inserted into a create payload before typed deserialization.
-///
-/// The typed `FileNode` struct in `jmap-filenode-types` requires an `id`
-/// field for serde to deserialize the wire payload, but RFC 8620 §5.3 makes
-/// `id` server-set ("The id property MUST NOT be set in the create
-/// object"). The `FileNode/set` create and `FileNode/copy` handlers put this
-/// sentinel in the `id` field, then the backend's `create_object` MUST
-/// replace it with a real, unique, account-scoped Id. Clients must never see
-/// this value.
-///
-/// Defined as a constant so both write-side handler sites use the same
-/// string and a rename is caught at compile time. Mirrors the canonical
-/// `crate-jmap-mail-server/src/helpers.rs` `PLACEHOLDER_ID` pattern
-/// (bd:JMAP-q2wa.23).
-pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
-
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
 /// The six fields correspond to the six top-level result keys (`created`,
