@@ -414,7 +414,7 @@ fn member_permissions(
         .roles
         .iter()
         .filter(|r| role_ids.contains(r.id.as_ref()))
-        .flat_map(|r| r.permissions.iter().cloned())
+        .flat_map(|r| r.permissions.iter().map(|p| p.as_str().to_owned()))
         .chain(everyone.iter().cloned())
         .collect();
     match channel {

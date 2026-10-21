@@ -126,7 +126,7 @@ impl EphemeralSubscription {
         enable: &ChatStreamEnable,
         companions: CompanionStreams,
     ) -> Result<Self, JmapError> {
-        let has = |tag: &str| enable.data_types.iter().any(|t| t == tag);
+        let has = |tag: &str| enable.data_types.iter().any(|t| t.as_str() == tag);
         let subscription = Self {
             typing: has("typing").then(|| IdScope::from(enable.chat_ids.as_ref())),
             presence: has("presence").then(|| IdScope::from(enable.contact_ids.as_ref())),

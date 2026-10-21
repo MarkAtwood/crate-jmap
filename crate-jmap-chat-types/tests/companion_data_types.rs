@@ -4,7 +4,7 @@
 //! jmap-chat-spec 91672c9.
 
 use jmap_chat_types::vocabulary::{COMPANION_EPHEMERAL_DATA_TYPES, SPEC_EPHEMERAL_DATA_TYPES};
-use jmap_chat_types::ChatStreamEnable;
+use jmap_chat_types::{ChatStreamEnable, EphemeralDataType};
 use serde_json::json;
 
 /// draft-atwood-jmap-chat-wss-00 L179: "This specification defines
@@ -28,7 +28,10 @@ fn enable_with_vtc_parses() {
         "dataTypes": ["typing", "vtc"]
     }))
     .expect("frame with \"vtc\" must parse");
-    assert_eq!(frame.data_types, ["typing", "vtc"]);
+    assert_eq!(
+        frame.data_types,
+        [EphemeralDataType::Typing, EphemeralDataType::Vtc]
+    );
     assert_eq!(frame.chat_ids, None);
     assert_eq!(frame.contact_ids, None);
 }
@@ -44,7 +47,10 @@ fn enable_with_scene_parses() {
         "contactIds": ["c1"]
     }))
     .expect("frame with \"scene\" must parse");
-    assert_eq!(frame.data_types, ["presence", "scene"]);
+    assert_eq!(
+        frame.data_types,
+        [EphemeralDataType::Presence, EphemeralDataType::Scene]
+    );
     let contact_ids = frame.contact_ids.expect("contactIds present");
     assert_eq!(contact_ids.len(), 1);
     assert_eq!(contact_ids[0].as_ref(), "c1");

@@ -142,12 +142,15 @@ pub use capability::{
     JMAP_CHAT_CALENDARS_URI, JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI,
     JMAP_CHAT_TASKS_URI, JMAP_CHAT_URI, JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS,
 };
-pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember, ChatMemberRole};
+pub use chat::{
+    ChannelPermission, ChannelPermissionTargetType, Chat, ChatKind, ChatMember, ChatMemberRole,
+};
 pub use clearable::Clearable;
 pub use contact::{ChatContact, Endpoint};
 pub use emoji::CustomEmoji;
 pub use ephemeral::{
-    ChatPresenceEvent, ChatStreamDisable, ChatStreamEnable, ChatTypingEvent, EphemeralMessage,
+    ChatPresenceEvent, ChatStreamDisable, ChatStreamEnable, ChatTypingEvent, EphemeralDataType,
+    EphemeralMessage,
 };
 pub use message::{
     Attachment, AttachmentCreate, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState,
@@ -158,7 +161,7 @@ pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};
 pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig, UrgencyLevel};
 pub use rich::{RichBody, Span, SpanType};
-pub use space::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
+pub use space::{Category, ChatPermission, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 pub use space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch, RolePatch,
     SpaceMetadataPatch, SpacePatchOp,

@@ -847,6 +847,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: the stringly vocabulary fields are now
+  `impl_string_enum!` enums whose `Other(String)` arm round-trips
+  unrecognized values, so the wire format is unchanged.
+  `SpaceRole.permissions`, `ChannelPermission.allow` and `.deny` are
+  `Vec<ChatPermission>` and `RolePatch.permissions` is
+  `Option<Vec<ChatPermission>>` (the ten names of draft-atwood-jmap-chat-00
+  §SpaceRole). `ChannelPermission.target_type` is
+  `ChannelPermissionTargetType` (`"role"`, `"member"`; §ChannelPermission).
+  `ChatStreamEnable.data_types` is `Vec<EphemeralDataType>` (`"typing"`,
+  `"presence"`, `"vtc"`, `"scene"`; draft-atwood-jmap-chat-wss-00
+  §ChatStreamEnable). Each enum has `as_str()` for wire-string comparison.
+  The `vocabulary` const slices stay as the wire-string lists.
 - **jmap-chat-federation-server**: the `FederationBackend::fetch_attachment`
   and `fetch_avatar` contracts now require a GET signed per
   draft-atwood-jmap-chat-federation-00 §Request Signing that follows no

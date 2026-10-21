@@ -1,7 +1,84 @@
 //! Space (server-like container), categories, roles, members, invites, and bans.
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
+
+/// A named Space permission (draft-atwood-jmap-chat-00 §SpaceRole
+/// `permissions`).
+///
+/// Carried by [`SpaceRole::permissions`],
+/// [`ChannelPermission::allow`](crate::ChannelPermission::allow),
+/// [`ChannelPermission::deny`](crate::ChannelPermission::deny) and
+/// [`RolePatch::permissions`](crate::RolePatch::permissions). The draft
+/// defines the ten names below and adds: "Companion specifications MAY
+/// register additional permission names. Servers MUST ignore unrecognized
+/// permission names." Any other string deserializes to
+/// [`Other`](Self::Other) and serializes back unchanged.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChatPermission {
+    /// `"view"`: see the channel.
+    View,
+    /// `"send"`: send messages.
+    Send,
+    /// `"pin"`: pin messages.
+    Pin,
+    /// `"manage_channels"`: create, edit, delete, and reorder channels.
+    ManageChannels,
+    /// `"manage_members"`: kick members, edit other members' nicknames.
+    ManageMembers,
+    /// `"manage_roles"`: create and edit roles below own highest role.
+    ManageRoles,
+    /// `"manage_space"`: edit Space name, description, and icon.
+    ManageSpace,
+    /// `"ban"`: ban and unban members.
+    Ban,
+    /// `"mention_broadcast"`: use broadcast-scope @mentions.
+    MentionBroadcast,
+    /// `"start_call"`: initiate a voice or video call in a channel.
+    StartCall,
+    /// Any permission name this version does not recognize, such as one a
+    /// companion specification registers.
+    ///
+    /// **Forging caveat**: `Other("view".into())` is unequal to
+    /// [`View`](Self::View) on `PartialEq` but serializes to the same wire
+    /// string and deserializes back as `View`. Reserve `Other(s)` for
+    /// unrecognized strings; compare wire equality via
+    /// [`as_str`](Self::as_str).
+    Other(String),
+}
+
+impl ChatPermission {
+    /// The wire string for this permission.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::View => "view",
+            Self::Send => "send",
+            Self::Pin => "pin",
+            Self::ManageChannels => "manage_channels",
+            Self::ManageMembers => "manage_members",
+            Self::ManageRoles => "manage_roles",
+            Self::ManageSpace => "manage_space",
+            Self::Ban => "ban",
+            Self::MentionBroadcast => "mention_broadcast",
+            Self::StartCall => "start_call",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(ChatPermission, "a Space permission name",
+    "view" => View,
+    "send" => Send,
+    "pin" => Pin,
+    "manage_channels" => ManageChannels,
+    "manage_members" => ManageMembers,
+    "manage_roles" => ManageRoles,
+    "manage_space" => ManageSpace,
+    "ban" => Ban,
+    "mention_broadcast" => MentionBroadcast,
+    "start_call" => StartCall,
+);
 
 /// A role that can be assigned to members within a Space.
 #[non_exhaustive]
@@ -21,13 +98,10 @@ pub struct SpaceRole {
     pub color: Option<serde_json::Value>,
     /// The `permissions` property (draft-atwood-jmap-chat-00 §4.12).
     ///
-    /// Named permissions this role grants. Drawn from the
-    /// spec-enumerated permission vocabulary exported as
-    /// [`crate::vocabulary::SPEC_PERMISSION_NAMES`]. Servers MUST
-    /// ignore unrecognized names per the draft; consumers SHOULD
-    /// validate caller-supplied input against the const list to
-    /// surface typos at the boundary.
-    pub permissions: Vec<String>,
+    /// Named permissions this role grants. Unrecognized names
+    /// deserialize to [`ChatPermission::Other`]; servers MUST ignore them
+    /// per the draft.
+    pub permissions: Vec<ChatPermission>,
     /// The `position` property (draft-atwood-jmap-chat-00 §4.12).
     pub position: u64,
     /// Catch-all for vendor / site / private extension fields not covered

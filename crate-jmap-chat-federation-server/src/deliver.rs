@@ -675,7 +675,7 @@ fn channel_permissions<B: FederationBackend>(
         .roles
         .iter()
         .filter(|r| role_ids.contains(r.id.as_ref()))
-        .flat_map(|r| r.permissions.iter().cloned())
+        .flat_map(|r| r.permissions.iter().map(|p| p.as_str().to_owned()))
         .chain(backend.everyone_permissions(caller, account_id, space))
         .collect();
     let overrides = target

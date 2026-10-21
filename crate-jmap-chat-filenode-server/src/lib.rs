@@ -551,9 +551,8 @@ fn member_permissions<'a>(
             .roles
             .iter()
             .filter(|r| role_ids.contains(&r.id))
-            .flat_map(|r| r.permissions.iter())
-            .chain(everyone)
-            .map(String::as_str)
+            .flat_map(|r| r.permissions.iter().map(|p| p.as_str()))
+            .chain(everyone.iter().map(String::as_str))
             .collect(),
     )
 }

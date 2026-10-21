@@ -152,14 +152,12 @@ pub struct RolePatch {
     pub color: Option<Clearable<serde_json::Value>>,
     /// The `permissions` property (draft-atwood-jmap-chat-00 §Space/set updateRoles).
     ///
-    /// Drawn from the spec-enumerated permission vocabulary
-    /// exported as [`crate::vocabulary::SPEC_PERMISSION_NAMES`].
     /// Same forward-compat contract as
     /// [`SpaceRole::permissions`](crate::SpaceRole::permissions):
-    /// servers MUST ignore unrecognized names; consumers SHOULD
-    /// validate caller-supplied input against the const list.
+    /// unrecognized names deserialize to [`ChatPermission::Other`](crate::ChatPermission::Other)
+    /// and servers MUST ignore them.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub permissions: Option<Vec<String>>,
+    pub permissions: Option<Vec<crate::ChatPermission>>,
     /// The `position` property (draft-atwood-jmap-chat-00 §Space/set updateRoles).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub position: Option<u64>,
@@ -731,7 +729,7 @@ mod tests {
             id: Id::from("placeholder"),
             name: "Test".to_owned(),
             color: None,
-            permissions: vec!["chat:read".to_owned()],
+            permissions: vec![crate::ChatPermission::Other("chat:read".to_owned())],
             position: 1,
             extra: serde_json::Map::new(),
         };

@@ -1,31 +1,18 @@
 //! Spec-enumerated wire-vocabulary string constants.
 //!
-//! Several fields in this crate carry strings drawn from a
-//! spec-defined enumeration (permission names, chat-member roles,
-//! ephemeral data-type tags, channel-permission target types). The
-//! fields themselves are typed as `String` / `Vec<String>` because
-//! either (a) the spec mandates silent-ignore of unrecognized
-//! values rather than rejection, or (b) the consumer surface is
-//! small enough that the workspace canonical-template rule has not
-//! yet been amended to retype them as typed enums.
-//!
-//! This module hosts the canonical const list of currently
-//! spec-known values for each vocabulary, so consumers that need
-//! caller-side validation, lint checks, IDE completion, or
-//! lookup-table construction have a single source of truth instead
-//! of duplicating literal &str arrays across crates.
+//! The fields that carry these vocabularies are typed as
+//! `impl_string_enum!` enums ([`crate::ChatPermission`],
+//! [`crate::ChatMemberRole`], [`crate::ChannelPermissionTargetType`],
+//! [`crate::EphemeralDataType`]) whose `Other(String)` arm preserves
+//! unrecognized values. This module keeps the wire strings of the
+//! currently spec-known values as const slices for consumers that want
+//! a `&[&str]` shape (lookup tables, building JSON) without the enum.
 //!
 //! The lists are NOT exhaustive in the type-system sense. They
 //! reflect the values defined by the current draft revision.
 //! Future draft revisions MAY add values; servers MUST ignore
 //! unrecognized values per the spec. Consumers that build a
 //! HashSet/HashMap from these slices SHOULD plan for that.
-//!
-//! When a future revision retypes any of these fields as a typed
-//! `impl_string_enum!` enum (per workspace AGENTS.md
-//! extras-preservation policy for wire-format result enums), the
-//! corresponding const slice here MAY be removed in favour of the
-//! enum's own variant list. Track the propagation epic in `bd`.
 
 /// Spec-enumerated permission names usable in `SpaceRole.permissions`,
 /// `ChannelPermission.allow`, `ChannelPermission.deny`, and
