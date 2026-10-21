@@ -75,7 +75,7 @@ async fn mailbox_set_over_limit_returns_limit_error() {
         .await
         .expect_err("501-entry batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -100,7 +100,7 @@ async fn mailbox_set_at_limit_passes_cap_check() {
     let result = handle_mailbox_set(&backend, &(), args).await;
     if let Err(ref err) = result {
         assert_ne!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "requestTooLarge",
             "exactly {DEFAULT_CAP} entries must NOT trip the maxObjectsInSet cap; \
              got JmapError type=requestTooLarge with description={:?}",
@@ -124,7 +124,7 @@ async fn email_set_over_limit_returns_limit_error() {
         .await
         .expect_err("501-entry Email/set batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -143,7 +143,7 @@ async fn identity_set_over_limit_returns_limit_error() {
         .await
         .expect_err("501-entry Identity/set batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -162,7 +162,7 @@ async fn submission_set_over_limit_returns_limit_error() {
         .await
         .expect_err("501-entry EmailSubmission/set batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -181,7 +181,7 @@ async fn sieve_set_over_limit_returns_limit_error() {
         .await
         .expect_err("501-entry SieveScript/set batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -206,6 +206,6 @@ async fn vacation_set_over_limit_returns_limit_error() {
         .await
         .expect_err("501-entry VacationResponse/set batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }

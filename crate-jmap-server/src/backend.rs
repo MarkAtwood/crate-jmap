@@ -746,7 +746,7 @@ mod tests {
             BackendChangesError::<std::convert::Infallible>::CannotCalculate,
         );
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "cannotCalculateChanges",
             "CannotCalculate must produce cannotCalculateChanges; got: {:?}",
             err.error_type
@@ -761,7 +761,7 @@ mod tests {
             BackendChangesError::<std::convert::Infallible>::TooManyChanges { limit: 50 },
         );
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "tooManyChanges",
             "limit=50 must produce tooManyChanges; got: {:?}",
             err.error_type

@@ -827,7 +827,7 @@ mod tests {
         let err = handle_address_book_get(&backend, &(), args)
             .await
             .expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: AddressBook/changes with known account returns valid response.
@@ -911,7 +911,7 @@ mod tests {
             .await
             .expect_err("malformed onSuccessSetIsDefault must be rejected, not silently dropped");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "non-string non-null onSuccessSetIsDefault must surface as invalidArguments (argument-shape error, not §2.3 silent-ignore): {err:?}"
         );
@@ -934,7 +934,7 @@ mod tests {
                 .await
                 .expect_err("non-string-non-null onSuccessSetIsDefault must be rejected");
             assert_eq!(
-                err.error_type.as_str(),
+                err.error_type.to_string(),
                 "invalidArguments",
                 "onSuccessSetIsDefault: {bad_value} must surface as invalidArguments: {err:?}",
             );

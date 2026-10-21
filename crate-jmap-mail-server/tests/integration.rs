@@ -3679,7 +3679,7 @@ async fn email_parse_invalid_max_body_value_bytes() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "invalidArguments",
         "expected invalidArguments; got: {:?}",
         err.error_type
@@ -4859,7 +4859,7 @@ async fn mailbox_query_invalid_limit_rejected() {
         .await
         .expect_err("Mailbox/query must fail with invalidArguments");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
@@ -4883,7 +4883,7 @@ async fn submission_query_invalid_limit_rejected() {
         .await
         .expect_err("EmailSubmission/query must fail with invalidArguments");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
@@ -5315,7 +5315,7 @@ async fn submission_query_invalid_filter_json() {
         .await
         .expect_err("must fail with invalidArguments");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
@@ -5710,7 +5710,7 @@ async fn email_query_changes_non_string_up_to_id_returns_error() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "invalidArguments",
         "expected invalidArguments; got: {:?}",
         err.error_type
@@ -5737,7 +5737,7 @@ async fn mailbox_query_changes_non_string_up_to_id_returns_error() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "invalidArguments",
         "expected invalidArguments; got: {:?}",
         err.error_type
@@ -6620,7 +6620,7 @@ async fn email_query_anchor_not_found_returns_error() {
     assert!(result.is_err(), "nonexistent anchor must return an error");
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "anchorNotFound",
         "error type must be anchorNotFound; got: {:?}",
         err.error_type
@@ -6808,7 +6808,7 @@ async fn email_changes_rejects_max_changes_zero() {
     let err = handle_email_changes(&backend, &(), args)
         .await
         .expect_err("maxChanges=0 must return invalidArguments");
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 #[tokio::test]
@@ -6824,7 +6824,7 @@ async fn mailbox_changes_rejects_max_changes_zero() {
     let err = handle_mailbox_changes(&backend, &(), args)
         .await
         .expect_err("maxChanges=0 must return invalidArguments");
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 // ---------------------------------------------------------------------------
@@ -7523,7 +7523,8 @@ async fn email_get_header_from_as_date_rejected() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
 }
@@ -7582,7 +7583,8 @@ async fn email_get_header_unknown_form_rejected() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
 }
@@ -7606,7 +7608,8 @@ async fn email_get_header_empty_name_rejected() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
 }
@@ -7940,7 +7943,8 @@ async fn email_set_destroy_non_string_returns_invalid_arguments() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
 }
@@ -7962,7 +7966,8 @@ async fn submission_set_destroy_non_string_returns_invalid_arguments() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
 }
@@ -8067,7 +8072,8 @@ async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
 }
@@ -8089,7 +8095,8 @@ async fn vacation_set_destroy_non_string_returns_invalid_arguments() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
     );
 }
@@ -8170,7 +8177,8 @@ async fn email_parse_header_invalid_form_rejected() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type, "invalidArguments",
+        err.error_type.to_string(),
+        "invalidArguments",
         "expected invalidArguments; got: {:?}",
         err.error_type
     );
@@ -8264,7 +8272,7 @@ async fn mailbox_query_anchor_not_found_returns_error() {
     assert!(result.is_err(), "nonexistent anchor must return an error");
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "anchorNotFound",
         "error type must be anchorNotFound; got: {:?}",
         err.error_type
@@ -9970,7 +9978,7 @@ async fn conformance_mailbox_query_anchor_not_found() {
     assert!(result.is_err(), "nonexistent anchor must return an error");
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "anchorNotFound",
         "error type must be anchorNotFound; got: {:?}",
         err.error_type
@@ -11276,7 +11284,7 @@ async fn conformance_email_query_anchor_not_found() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "anchorNotFound",
         "error type must be anchorNotFound; got: {:?}",
         err.error_type
@@ -13594,7 +13602,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
     );
     let err = result.unwrap_err();
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "cannotCalculateChanges",
         "error must be cannotCalculateChanges; got: {:?}",
         err.error_type
@@ -13753,7 +13761,7 @@ async fn email_parse_blob_exists_err_propagates_as_server_fail() {
     let err =
         result.expect_err("blob_exists Err must surface as a JmapError, not be silently coerced");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "serverFail",
         "transient backend error MUST surface as serverFail so the client \
          retries; got: {:?}",
@@ -14155,7 +14163,8 @@ async fn email_query_unknown_filter_keys_return_unsupported_filter() {
             .await
             .expect_err("unknown filter key must be refused");
         assert_eq!(
-            err.error_type, "unsupportedFilter",
+            err.error_type.to_string(),
+            "unsupportedFilter",
             "filter {filter}: {err:?}"
         );
     }
@@ -14187,7 +14196,7 @@ async fn email_query_changes_unknown_filter_key_returns_unsupported_filter() {
     let err = handle_email_query_changes(&backend, &(), args)
         .await
         .expect_err("unknown filter key must be refused");
-    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
 /// Oracle: RFC 8620 §5.6 — /queryChanges takes "The filter argument that was
@@ -14206,7 +14215,7 @@ async fn mailbox_query_changes_unknown_filter_key_returns_unsupported_filter() {
     let err = handle_mailbox_query_changes(&backend, &(), args)
         .await
         .expect_err("unknown filter key must be refused");
-    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
 /// Oracle: RFC 8620 §5.6 — /queryChanges takes "The sort argument that was
@@ -14224,7 +14233,7 @@ async fn mailbox_query_changes_unknown_sort_property_returns_unsupported_sort() 
     let err = handle_mailbox_query_changes(&backend, &(), args)
         .await
         .expect_err("unknown sort property must be refused");
-    assert_eq!(err.error_type, "unsupportedSort", "{err:?}");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
 }
 
 /// Create the named Mailboxes in `acct1` and return their server ids in order.
@@ -14359,7 +14368,8 @@ async fn mailbox_query_operator_tree_and_unknown_key_return_unsupported_filter()
             .await
             .expect_err("filter must be refused");
         assert_eq!(
-            err.error_type, "unsupportedFilter",
+            err.error_type.to_string(),
+            "unsupportedFilter",
             "filter {filter}: {err:?}"
         );
     }
@@ -14383,7 +14393,7 @@ async fn submission_query_unknown_filter_key_returns_unsupported_filter() {
     let err = handle_submission_query(&backend, &(), args)
         .await
         .expect_err("unknown filter key must be refused");
-    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
 /// Oracle: RFC 9661 §2.5 SieveScript/query FilterCondition properties are
@@ -14399,7 +14409,7 @@ async fn sieve_query_unknown_filter_key_returns_unsupported_filter() {
     let err = jmap_mail_server::handle_sieve_query(&backend, &(), args)
         .await
         .expect_err("unknown filter key must be refused");
-    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
 /// Oracle: RFC 8621 §5.1 SearchSnippet/get — "unsupportedFilter: The
@@ -14416,5 +14426,5 @@ async fn search_snippet_get_unknown_filter_key_returns_unsupported_filter() {
     let err = handle_search_snippet_get(&backend, &(), args)
         .await
         .expect_err("unknown filter key must be refused");
-    assert_eq!(err.error_type, "unsupportedFilter", "{err:?}");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }

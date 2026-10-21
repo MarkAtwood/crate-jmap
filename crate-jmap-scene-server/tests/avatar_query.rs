@@ -210,7 +210,7 @@ async fn region_id_is_required() {
         ] } }),
     ] {
         let err = query(&backend, args.clone()).await.expect_err("must fail");
-        assert_eq!(err.error_type, "invalidArguments", "{args}");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{args}");
     }
 }
 
@@ -226,7 +226,7 @@ async fn non_positive_radius_is_invalid_arguments() {
         )
         .await
         .expect_err("must fail");
-        assert_eq!(err.error_type, "invalidArguments", "{radius}");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{radius}");
     }
 }
 
@@ -241,7 +241,7 @@ async fn sort_outside_joined_at_and_display_name_is_unsupported() {
     )
     .await
     .expect_err("must fail");
-    assert_eq!(err.error_type, "unsupportedSort");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
 }
 
 #[tokio::test]
@@ -256,5 +256,5 @@ async fn query_changes_applies_the_filter_validation() {
     )
     .await
     .expect_err("must fail");
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }

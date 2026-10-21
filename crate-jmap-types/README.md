@@ -148,6 +148,11 @@ let err = JmapError::already_exists(Id::from("existing-record-id"));
 // Serialize for the wire — key is "type", not "error_type"
 // {"type":"invalidArguments","description":"ids must not be empty"}
 let json = serde_json::to_string(&err)?;
+
+// Match the typed error type instead of comparing strings; extension
+// types such as "rateLimited" decode as MethodErrorType::Other.
+use jmap_types::MethodErrorType;
+if err.error_type == MethodErrorType::AccountNotFound { /* ... */ }
 ```
 
 ### Result references

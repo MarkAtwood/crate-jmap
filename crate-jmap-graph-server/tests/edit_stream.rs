@@ -108,7 +108,7 @@ fn enable_data_types_rules() {
             panic!("enable");
         };
         let err = sub.replace_with(&e).expect_err("must fail");
-        assert_eq!(err.error_type, "invalidArguments", "{types}");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{types}");
         assert_eq!(sub, before, "{types}");
     }
     let sub = subscribe(json!({

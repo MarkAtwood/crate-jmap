@@ -4,6 +4,7 @@ use http::{header, Response, StatusCode};
 use serde::Serialize;
 
 use crate::{Invocation, JmapError};
+use jmap_types::MethodErrorType;
 
 /// RFC 7807 Problem Details body for JMAP request-level errors.
 ///
@@ -66,13 +67,17 @@ pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
 /// `limit`, `unknownCapability`, `invalidArguments`, `requestTooLarge`,
 /// `forbidden`, `serverFail`, `serverUnavailable`.
 pub fn error_status(err: &JmapError) -> StatusCode {
-    match err.error_type.as_str() {
+    match err.error_type {
         // RFC 8620 §3.6.1 request-level errors → 400.
-        "notJSON" | "notRequest" | "limit" | "unknownCapability" | "invalidArguments"
-        | "requestTooLarge" => StatusCode::BAD_REQUEST,
-        "forbidden" => StatusCode::FORBIDDEN,
-        "serverFail" => StatusCode::INTERNAL_SERVER_ERROR,
-        "serverUnavailable" => StatusCode::SERVICE_UNAVAILABLE,
+        MethodErrorType::NotJson
+        | MethodErrorType::NotRequest
+        | MethodErrorType::Limit
+        | MethodErrorType::UnknownCapability
+        | MethodErrorType::InvalidArguments
+        | MethodErrorType::RequestTooLarge => StatusCode::BAD_REQUEST,
+        MethodErrorType::Forbidden => StatusCode::FORBIDDEN,
+        MethodErrorType::ServerFail => StatusCode::INTERNAL_SERVER_ERROR,
+        MethodErrorType::ServerUnavailable => StatusCode::SERVICE_UNAVAILABLE,
         // Any unrecognized type is an internal bug, not a client error.
         // The most common mistake is passing a method-level error (e.g. "accountNotFound",
         // "notFound") to request_error() — those must stay in methodResponses at HTTP 200
@@ -136,14 +141,10 @@ impl RequestError {
         let err = self.err;
         // RFC 8620 §3.6.1 requires RFC 7807 Problem Details format with full URN type.
         // For "limit" errors, RFC 8620 §3.6.1 REQUIRES a "limit" property naming
-        // the exceeded limit.  By convention (see JmapError::limit()), the limit
-        // name is stored in the description field.  Use JmapError::limit(name) —
-        // never set error_type = "limit" manually — to ensure this invariant holds.
-        let (limit, detail) = if err.error_type == "limit" {
-            (Some(err.description.as_deref().unwrap_or("unknown")), None)
-        } else {
-            (None, err.description.as_deref())
-        };
+        // the exceeded limit, carried in JmapError::limit_name.
+        let limit = (err.error_type == MethodErrorType::Limit)
+            .then(|| err.limit_name.as_deref().unwrap_or("unknown"));
+        let detail = err.description.as_deref();
         let details = ProblemDetails {
             type_urn: format!("urn:ietf:params:jmap:error:{}", err.error_type),
             status: status.as_u16(),

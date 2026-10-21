@@ -222,7 +222,7 @@ async fn closed_space_rejects_join_in_draft_check_order() {
                 .await
                 .unwrap_err()
                 .error_type
-                .as_str()
+                .to_string()
                 .to_owned()
         }
     };

@@ -298,7 +298,7 @@ pub fn stored_message(
 
 pub fn assert_error(result: Result<Value, JmapError>, error_type: &str) {
     match result {
-        Err(e) => assert_eq!(e.error_type, error_type, "{e:?}"),
+        Err(e) => assert_eq!(e.error_type.to_string(), error_type, "{e:?}"),
         Ok(v) => panic!("expected {error_type}, got {v}"),
     }
 }

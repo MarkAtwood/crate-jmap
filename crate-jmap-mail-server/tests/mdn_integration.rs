@@ -331,7 +331,7 @@ async fn mdn_send_unknown_account_returns_account_not_found() {
         .expect_err("unknown accountId must return Err");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "accountNotFound",
         "unknown accountId must produce accountNotFound; got: {:?}",
         err.error_type
@@ -357,7 +357,7 @@ async fn mdn_parse_unknown_account_returns_account_not_found() {
         .expect_err("unknown accountId must return Err");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "accountNotFound",
         "unknown accountId must produce accountNotFound; got: {:?}",
         err.error_type
@@ -719,7 +719,7 @@ async fn mdn_parse_blob_ids_over_default_cap_returns_request_too_large() {
         .expect_err("17 blob IDs must exceed default cap of 16");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "requestTooLarge",
         "exceeding the default cap must return requestTooLarge per RFC 8620 §5.1; got: {:?}",
         err.error_type

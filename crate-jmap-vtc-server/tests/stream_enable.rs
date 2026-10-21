@@ -105,7 +105,7 @@ fn empty_or_unrecognized_event_types_is_invalid_and_keeps_state() {
         }));
         let before = sub.clone();
         let err = sub.replace_with(&enable(bad)).unwrap_err();
-        assert_eq!(err.error_type, "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
         assert_eq!(sub, before);
     }
 }

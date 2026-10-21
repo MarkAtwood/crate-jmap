@@ -354,7 +354,7 @@ mod tests {
         let args = json!({ "accountId": "unknown", "ids": null });
         let result = handle_participant_identity_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: ParticipantIdentity/set with unknown accountId returns accountNotFound.
@@ -365,7 +365,7 @@ mod tests {
         let args = json!({ "accountId": "unknown" });
         let result = handle_participant_identity_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: ParticipantIdentity/set create with client-supplied "id" →

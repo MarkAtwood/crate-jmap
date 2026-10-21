@@ -345,7 +345,8 @@ mod tests {
         });
         let err = parse_request(body, 4).unwrap_err();
         assert_eq!(
-            err.error_type, "limit",
+            err.error_type.to_string(),
+            "limit",
             "exceeding maxCallsInRequest must return limit per RFC 8620 §3.6.1"
         );
     }
@@ -366,7 +367,8 @@ mod tests {
         let body = json!("not an object");
         let err = parse_request(body, 16).unwrap_err();
         assert_eq!(
-            err.error_type, "notRequest",
+            err.error_type.to_string(),
+            "notRequest",
             "malformed body does not match Request type — must be notRequest per RFC 8620 §3.6.1"
         );
     }
@@ -395,7 +397,7 @@ mod tests {
         });
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidResultReference");
+        assert_eq!(err.error_type.to_string(), "invalidResultReference");
         // args must be unchanged on error (atomicity).
         assert_eq!(args, original);
     }
@@ -409,7 +411,7 @@ mod tests {
         });
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidResultReference");
+        assert_eq!(err.error_type.to_string(), "invalidResultReference");
         assert_eq!(args, original);
     }
 
@@ -422,7 +424,7 @@ mod tests {
         });
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidResultReference");
+        assert_eq!(err.error_type.to_string(), "invalidResultReference");
         assert_eq!(args, original);
     }
 
@@ -437,7 +439,7 @@ mod tests {
         });
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidResultReference");
+        assert_eq!(err.error_type.to_string(), "invalidResultReference");
         assert_eq!(args, original);
     }
 
@@ -496,7 +498,8 @@ mod tests {
         });
         let err = parse_request(body, 0).unwrap_err();
         assert_eq!(
-            err.error_type, "limit",
+            err.error_type.to_string(),
+            "limit",
             "zero max_calls means any call exceeds limit — must be limit per RFC 8620 §3.6.1"
         );
     }
@@ -534,7 +537,7 @@ mod tests {
         });
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
         // args must be completely unchanged on error (atomicity).
         assert_eq!(args, original);
     }
@@ -547,7 +550,7 @@ mod tests {
         let mut args = json!({"#ids": "not-an-object"});
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
         assert_eq!(args, original);
     }
 
@@ -593,7 +596,7 @@ mod tests {
         });
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidResultReference");
+        assert_eq!(err.error_type.to_string(), "invalidResultReference");
         assert_eq!(args, original);
     }
 
@@ -607,7 +610,7 @@ mod tests {
         });
         let original = args.clone();
         let err = resolve_args(&mut args, &prior).unwrap_err();
-        assert_eq!(err.error_type, "invalidResultReference");
+        assert_eq!(err.error_type.to_string(), "invalidResultReference");
         assert_eq!(args, original, "args must be unchanged on error");
     }
 
@@ -796,7 +799,8 @@ mod tests {
         let known = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
         let err = check_known_capabilities(&req, known).unwrap_err();
         assert_eq!(
-            err.error_type, "unknownCapability",
+            err.error_type.to_string(),
+            "unknownCapability",
             "unrecognised URI must produce unknownCapability per RFC 8620 §3.3"
         );
         assert_eq!(

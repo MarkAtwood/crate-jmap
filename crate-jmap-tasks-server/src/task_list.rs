@@ -422,7 +422,7 @@ mod tests {
         let args = json!({ "accountId": "unknown", "ids": null });
         let result = handle_task_list_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: TaskList/set destroy with onDestroyRemoveTasks=false and tasks

@@ -132,7 +132,7 @@ async fn unknown_filter_property_is_unsupported_filter() {
     let err = query(&backend, json!({ "filter": { "size": 1 } }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type, "unsupportedFilter");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter");
 }
 
 #[tokio::test]
@@ -144,5 +144,5 @@ async fn unlisted_sort_property_is_unsupported_sort() {
     let err = query(&backend, json!({ "sort": [{ "property": "mediaType" }] }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type, "unsupportedSort");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
 }

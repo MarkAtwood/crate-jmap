@@ -3404,7 +3404,7 @@ mod tests {
             let err =
                 err.unwrap_or_else(|| panic!("{method} must error when FileNode is unsupported"));
             assert_eq!(
-                err.error_type.as_str(),
+                err.error_type.to_string(),
                 "accountNotSupportedByMethod",
                 "{method}: must return accountNotSupportedByMethod, got: {:?}",
                 err.error_type
@@ -3456,7 +3456,7 @@ mod tests {
             };
             let err = err.unwrap_or_else(|| panic!("{method} must error for unknown account"));
             assert_eq!(
-                err.error_type.as_str(),
+                err.error_type.to_string(),
                 "accountNotFound",
                 "{method}: got {:?}",
                 err.error_type
@@ -3481,7 +3481,7 @@ mod tests {
         let err = handle_filenode_get(&backend, &(), json!({"accountId": "acc1", "ids": null}))
             .await
             .expect_err("acc1 opts out of FileNode");
-        assert_eq!(err.error_type.as_str(), "accountNotSupportedByMethod");
+        assert_eq!(err.error_type.to_string(), "accountNotSupportedByMethod");
     }
 
     /// Oracle: RFC 8620 §5.4 — "fromAccountNotSupportedByMethod: The
@@ -3503,7 +3503,10 @@ mod tests {
         )
         .await
         .expect_err("source account opts out of FileNode");
-        assert_eq!(err.error_type.as_str(), "fromAccountNotSupportedByMethod");
+        assert_eq!(
+            err.error_type.to_string(),
+            "fromAccountNotSupportedByMethod"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -3520,7 +3523,7 @@ mod tests {
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "accountNotFound",
             "got: {:?}",
             err.error_type
@@ -3628,7 +3631,7 @@ mod tests {
         let err = result
             .expect_err("blob_exists Err must surface as a JmapError, not Ok with notCreated");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "serverFail",
             "transient backend error MUST surface as serverFail so the \
              client retries; got: {err:?}"
@@ -3650,7 +3653,7 @@ mod tests {
         let err = handle_filenode_get(&backend, &(), args)
             .await
             .expect_err("cid_advertised Err must surface as a JmapError");
-        assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
+        assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
     }
 
     /// All six draft-ietf-jmap-filenode-16 FilesRights flags, `mayRead`
@@ -3752,7 +3755,7 @@ mod tests {
         let err = handle_filenode_get(&backend, &(), args)
             .await
             .expect_err("files_rights Err must surface as a JmapError");
-        assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
+        assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
     }
 
     /// Oracle: RFC 8620 §5.3, `created` "includes all server-set
@@ -3896,7 +3899,7 @@ mod tests {
         let err = handle_filenode_set(&backend, &(), args)
             .await
             .expect_err("cid_advertised Err must surface as a JmapError");
-        assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
+        assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
 
         let get = handle_filenode_get(&backend, &(), json!({ "accountId": "acc1", "ids": null }))
             .await

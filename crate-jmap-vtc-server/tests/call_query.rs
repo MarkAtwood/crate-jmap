@@ -98,7 +98,7 @@ async fn other_sort_property_is_unsupported() {
     let err = query(&backend, json!({ "sort": [{ "property": "subject" }] }))
         .await
         .expect_err("unsupportedSort");
-    assert_eq!(err.error_type.as_str(), "unsupportedSort");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
 }
 
 #[tokio::test]
@@ -217,7 +217,7 @@ async fn chat_filters_need_the_chat_capability() {
         let err = query(&backend, json!({ "filter": filter }))
             .await
             .expect_err("unsupportedFilter");
-        assert_eq!(err.error_type.as_str(), "unsupportedFilter", "{filter}");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{filter}");
     }
 
     backend.advertise(&Id::from(ACCOUNT), CHAT_URI);
@@ -240,7 +240,7 @@ async fn unknown_filter_property_is_unsupported() {
     let err = query(&backend, json!({ "filter": { "subject": "Standup" } }))
         .await
         .expect_err("unsupportedFilter");
-    assert_eq!(err.error_type.as_str(), "unsupportedFilter");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter");
 }
 
 #[tokio::test]
@@ -296,7 +296,7 @@ async fn unknown_account_is_account_not_found() {
     )
     .await
     .expect_err("accountNotFound");
-    assert_eq!(err.error_type.as_str(), "accountNotFound");
+    assert_eq!(err.error_type.to_string(), "accountNotFound");
     let err = jmap_vtc_server::handle_vtc_call_set(
         &backend,
         &caller,
@@ -304,5 +304,5 @@ async fn unknown_account_is_account_not_found() {
     )
     .await
     .expect_err("accountNotFound");
-    assert_eq!(err.error_type.as_str(), "accountNotFound");
+    assert_eq!(err.error_type.to_string(), "accountNotFound");
 }

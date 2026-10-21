@@ -138,7 +138,7 @@ fn ops_compacted_error_matches_registration() {
     // L261 and L519: the method-level error `opsCompacted`.
     assert_eq!(OPS_COMPACTED, "opsCompacted");
     let err: JmapError = serde_json::from_value(json!({ "type": "opsCompacted" })).unwrap();
-    assert_eq!(err.error_type, OPS_COMPACTED);
+    assert_eq!(err.error_type.to_string(), OPS_COMPACTED);
 }
 
 #[test]

@@ -59,7 +59,11 @@ async fn every_method_is_unknown_when_unsupported() {
     let backend = unsupported_backend();
     for method in METHODS {
         let err = run(&backend, method, ACCOUNT).await.unwrap_err();
-        assert_eq!(err.error_type, "unknownMethod", "SceneAsset/{method}");
+        assert_eq!(
+            err.error_type.to_string(),
+            "unknownMethod",
+            "SceneAsset/{method}"
+        );
     }
 }
 
@@ -70,7 +74,11 @@ async fn unknown_account_still_account_not_found() {
     let backend = unsupported_backend();
     for method in METHODS {
         let err = run(&backend, method, "acct-missing").await.unwrap_err();
-        assert_eq!(err.error_type, "accountNotFound", "SceneAsset/{method}");
+        assert_eq!(
+            err.error_type.to_string(),
+            "accountNotFound",
+            "SceneAsset/{method}"
+        );
     }
 }
 
@@ -89,7 +97,11 @@ async fn supported_account_is_not_gated() {
     // gate is only about `unknownMethod`.
     for method in ["changes", "queryChanges"] {
         if let Err(e) = run(&backend, method, ACCOUNT).await {
-            assert_ne!(e.error_type, "unknownMethod", "SceneAsset/{method}");
+            assert_ne!(
+                e.error_type.to_string(),
+                "unknownMethod",
+                "SceneAsset/{method}"
+            );
         }
     }
 }

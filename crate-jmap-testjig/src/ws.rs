@@ -305,14 +305,12 @@ async fn send_request_error(
         "type": format!("urn:ietf:params:jmap:error:{}", err.error_type),
         "status": jmap_server::error_status(&err).as_u16(),
     });
-    if err.error_type == "limit" {
-        // RFC 8620 §3.6.1: `limit` errors MUST carry a `limit`
-        // property naming the exceeded limit. The convention in
-        // jmap-server's JmapError is to stash that in `description`.
-        if let Some(name) = err.description.as_deref() {
-            body["limit"] = Value::String(name.to_owned());
-        }
-    } else if let Some(detail) = err.description.as_deref() {
+    // RFC 8620 §3.6.1: `limit` errors MUST carry a `limit` property
+    // naming the exceeded limit.
+    if let Some(name) = err.limit_name.as_deref() {
+        body["limit"] = Value::String(name.to_owned());
+    }
+    if let Some(detail) = err.description.as_deref() {
         body["detail"] = Value::String(detail.to_owned());
     }
     if let Some(req_id) = request_id {

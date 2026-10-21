@@ -404,7 +404,7 @@ mod tests {
         });
         let result = handle_share_notification_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error for null destroy element");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
 
     /// Oracle: ShareNotification/set with unknown accountId must return
@@ -420,7 +420,7 @@ mod tests {
         let result = handle_share_notification_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error for unknown account");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "accountNotFound",
             "unknown accountId must produce accountNotFound; got: {:?}",
             err.error_type

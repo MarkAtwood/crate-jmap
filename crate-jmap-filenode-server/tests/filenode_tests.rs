@@ -748,7 +748,7 @@ async fn filenode_changes_unparseable_since_state_cannot_calculate() {
     .expect_err("unparseable sinceState must produce a JmapError");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "cannotCalculateChanges",
         "unparseable sinceState must surface as cannotCalculateChanges, not silently \
          fall back to state=0 (see bd:JMAP-510h.62); got: {err:?}"
@@ -1428,7 +1428,7 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
     .expect_err("ifFromInState mismatch must produce a JmapError");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "stateMismatch",
         "ifFromInState mismatch must surface as stateMismatch (RFC 8620 §5.4); got: {err:?}"
     );
@@ -1864,7 +1864,7 @@ async fn filenode_copy_unknown_from_account_returns_from_account_not_found() {
     .expect_err("unknown fromAccountId must produce a JmapError");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "fromAccountNotFound",
         "unknown fromAccountId must surface as fromAccountNotFound, not \
          the generic accountNotFound (RFC 8620 §5.4); got: {err:?}"
@@ -1892,7 +1892,7 @@ async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
     .expect_err("unknown accountId must produce a JmapError");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "accountNotFound",
         "unknown destination accountId must surface as accountNotFound \
          (RFC 8620 §3.6.2 inherited); got: {err:?}"
@@ -1974,7 +1974,7 @@ async fn filenode_query_body_filter_returns_server_fail() {
 
     let err = result.expect_err("body filter must surface as a JmapError, not silently match all");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "serverFail",
         "unsupported filter condition must surface as serverFail (the \
          MemoryBackend explicitly returns Err so downstream backends do not \

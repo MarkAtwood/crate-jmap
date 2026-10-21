@@ -79,7 +79,7 @@ async fn calendar_set_over_limit_create_returns_limit_error() {
         .await
         .expect_err("501-entry Calendar/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -98,7 +98,7 @@ async fn calendar_event_set_over_limit_create_returns_limit_error() {
         .await
         .expect_err("501-entry CalendarEvent/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -119,7 +119,7 @@ async fn calendar_event_notification_set_over_limit_destroy_returns_limit_error(
             "501-entry CalendarEventNotification/set destroy batch must trip maxObjectsInSet cap",
         );
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -138,7 +138,7 @@ async fn participant_identity_set_over_limit_create_returns_limit_error() {
         .await
         .expect_err("501-entry ParticipantIdentity/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
-    assert_eq!(err.error_type.as_str(), etype);
+    assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
 }
 
@@ -160,7 +160,7 @@ async fn calendar_set_at_limit_passes_cap_check() {
     let result = handle_calendar_set(&backend, &(), args).await;
     if let Err(ref err) = result {
         assert_ne!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "requestTooLarge",
             "exactly {DEFAULT_CAP} entries must NOT trip the maxObjectsInSet cap; \
              got JmapError type=requestTooLarge with description={:?}",

@@ -725,7 +725,7 @@ mod tests {
         let err = handle_contact_card_get(&backend, &(), args)
             .await
             .expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: ContactCard/changes with known account returns valid response.
@@ -774,7 +774,7 @@ mod tests {
         let err = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect_err("must return error for unknown fromAccountId");
-        assert_eq!(err.error_type.as_str(), "fromAccountNotFound");
+        assert_eq!(err.error_type.to_string(), "fromAccountNotFound");
     }
 
     /// Oracle: ContactCard/copy with unknown source id returns notCopied with
@@ -1049,7 +1049,7 @@ mod tests {
         let err = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect_err("same-account copy must error");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
 
     /// Oracle (RFC 8620 §5.4): `ifFromInState` checks the SOURCE account
@@ -1071,7 +1071,7 @@ mod tests {
         let err = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect_err("ifFromInState mismatch must error");
-        assert_eq!(err.error_type.as_str(), "stateMismatch");
+        assert_eq!(err.error_type.to_string(), "stateMismatch");
     }
 
     /// Oracle (RFC 8620 §5.4): `ifFromInState` matching the source state

@@ -836,7 +836,7 @@ mod tests {
         let args = json!({ "accountId": "unknown", "ids": null });
         let result = handle_task_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: Task/copy missing fromAccountId returns invalidArguments.
@@ -849,7 +849,7 @@ mod tests {
         });
         let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must return error when fromAccountId missing");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
 
     /// Oracle: RFC 8620 §5.4 — fromAccountId MUST be different from accountId.
@@ -866,7 +866,7 @@ mod tests {
         });
         let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject same-account Task/copy per RFC 8620 §5.4");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
 
     /// Oracle: RFC 8620 §5.4 — `fromAccountId` that does not resolve to a
@@ -882,7 +882,7 @@ mod tests {
         });
         let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject unknown fromAccountId");
-        assert_eq!(err.error_type.as_str(), "fromAccountNotFound");
+        assert_eq!(err.error_type.to_string(), "fromAccountNotFound");
     }
 
     /// Oracle: RFC 8620 §5.4 — `ifFromInState` mismatch on the source
@@ -899,7 +899,7 @@ mod tests {
         });
         let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject stale ifFromInState");
-        assert_eq!(err.error_type.as_str(), "stateMismatch");
+        assert_eq!(err.error_type.to_string(), "stateMismatch");
     }
 
     /// Oracle: RFC 8620 §5.4 — `ifInState` mismatch on the destination
@@ -916,7 +916,7 @@ mod tests {
         });
         let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject stale ifInState");
-        assert_eq!(err.error_type.as_str(), "stateMismatch");
+        assert_eq!(err.error_type.to_string(), "stateMismatch");
     }
 
     /// Oracle: RFC 8620 §5.4 — a create entry without an `id` property must

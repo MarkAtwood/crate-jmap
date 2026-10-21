@@ -533,7 +533,7 @@ mod tests {
         let args = json!({ "accountId": "unknown", "ids": null });
         let result = handle_calendar_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: Calendar/set with unknown accountId returns accountNotFound.
@@ -545,7 +545,7 @@ mod tests {
         let args = json!({ "accountId": "unknown" });
         let result = handle_calendar_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: Calendar/set with onDestroyRemoveEvents=false and a calendar that

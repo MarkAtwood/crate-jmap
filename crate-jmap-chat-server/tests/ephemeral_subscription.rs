@@ -43,7 +43,11 @@ fn invalid_frame_is_invalid_arguments_and_keeps_prior_subscription() {
         let err = sub
             .replace_with(&frame(bad.clone()), CompanionStreams::default())
             .expect_err("frame with no recognized value must be rejected");
-        assert_eq!(err.error_type, "invalidArguments", "frame {bad}");
+        assert_eq!(
+            err.error_type.to_string(),
+            "invalidArguments",
+            "frame {bad}"
+        );
         assert_eq!(sub, before, "subscription must be unchanged after {bad}");
     }
     assert_eq!(sub.typing(), Some(&ids(&["c1"])));
@@ -183,7 +187,7 @@ fn companion_value_without_its_capability_is_unrecognized() {
             advertising(false, true),
         )
         .expect_err("\"vtc\" without its capability is unrecognized");
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
     assert_eq!(sub, before);
 
     let typing = EphemeralSubscription::from_enable(
