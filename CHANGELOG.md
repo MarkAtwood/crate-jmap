@@ -1281,6 +1281,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `resolve_channel_permissions` takes
+  the Space id after `space_permissions`. A ChannelPermission with
+  `targetType: "role"` whose `targetId` is that Space id addresses the
+  implicit `@everyone` role and applies to every member in steps 2 and 3
+  (draft-atwood-jmap-chat-00 §ChannelPermission `targetId`, §Space
+  Permission Resolution step 2). Previously no record could address
+  `@everyone`.
+- **BREAKING** **jmap-chat-server**: the reference `MemoryBackend` gives
+  the implicit `@everyone` role `view` and `send` in every Space by
+  default, so a member with no SpaceRole can read and post in channels;
+  `MemoryBackend::set_everyone_permissions` changes the set. Previously
+  the floor was empty.
 - **BREAKING** **jmap-calendars-server**:
   `CalendarsBackend::query_calendar_events` takes `anchor: Option<&Id>`
   and `anchor_offset: i64` after `position`. `CalendarEvent/query` now

@@ -146,6 +146,9 @@ struct Inner {
     /// Every [`ChatBackend::on_outbound_event`] received, in call order.
     /// Drained via [`MemoryBackend::take_outbound_events_for_test`].
     outbound_events: Vec<crate::OutboundEvent>,
+    /// Permissions of the implicit `@everyone` role in every Space.
+    /// Set via [`MemoryBackend::set_everyone_permissions`].
+    everyone_permissions: HashSet<ChatPermission>,
 }
 
 /// One lifecycle callback received by the [`MemoryBackend`], as
@@ -217,15 +220,37 @@ impl Inner {
 /// Stores objects as serialized JSON; each mutation bumps a monotonic state
 /// counter and records a change log entry. Used as both the integration-test
 /// harness and the canonical example for backend implementors.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
 }
 
+impl Default for MemoryBackend {
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(Inner {
+                everyone_permissions: HashSet::from([ChatPermission::View, ChatPermission::Send]),
+                ..Inner::default()
+            })),
+        }
+    }
+}
+
 impl MemoryBackend {
     /// Create a new, empty `MemoryBackend`.
+    ///
+    /// The implicit `@everyone` role grants `"view"` and `"send"` in every
+    /// Space; change that with [`set_everyone_permissions`](Self::set_everyone_permissions).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the permissions of the implicit `@everyone` role, which every
+    /// member of every Space holds (draft-atwood-jmap-chat-00 §Space
+    /// Permission Resolution step 1). The draft does not say where they
+    /// are stored; this backend keeps one set for all Spaces.
+    pub fn set_everyone_permissions(&self, permissions: HashSet<ChatPermission>) {
+        self.inner.lock().unwrap().everyone_permissions = permissions;
     }
 
     /// Test-only entry point that registers an account as known even
@@ -1006,8 +1031,12 @@ impl ChatBackend for MemoryBackend {
                 .objects_ref("Space", account_id.as_ref())
                 .and_then(|m| m.get(id))
             {
-                let caller_perms =
-                    caller_effective_permissions(space_val, account_id).unwrap_or_default();
+                let caller_perms = caller_effective_permissions(
+                    space_val,
+                    account_id,
+                    &inner.everyone_permissions,
+                )
+                .unwrap_or_default();
                 if !caller_perms.contains(&ChatPermission::ManageSpace) {
                     return Err(BackendSetError::SetError(
                         SetError::new(SetErrorType::Forbidden).with_description(
@@ -1593,7 +1622,7 @@ impl ChatBackend for MemoryBackend {
             return Ok(Ok(()));
         };
         Ok(
-            if caller_effective_permissions(space, account_id)
+            if caller_effective_permissions(space, account_id, &inner.everyone_permissions)
                 .is_some_and(|perms| perms.contains(&ChatPermission::Ban))
             {
                 Ok(())
@@ -1629,7 +1658,7 @@ impl ChatBackend for MemoryBackend {
             return Ok(Ok(()));
         };
         Ok(
-            if caller_effective_permissions(space, account_id)
+            if caller_effective_permissions(space, account_id, &inner.everyone_permissions)
                 .is_some_and(|perms| perms.contains(&ChatPermission::ManageMembers))
             {
                 Ok(())
@@ -1664,9 +1693,10 @@ impl ChatBackend for MemoryBackend {
             return Ok(true);
         };
         Ok(
-            caller_effective_permissions(space, account_id).is_some_and(|p| {
-                p.contains(&ChatPermission::ManageMembers) || invite.created_by == *account_id
-            }),
+            caller_effective_permissions(space, account_id, &inner.everyone_permissions)
+                .is_some_and(|p| {
+                    p.contains(&ChatPermission::ManageMembers) || invite.created_by == *account_id
+                }),
         )
     }
 
@@ -1693,8 +1723,10 @@ impl ChatBackend for MemoryBackend {
         else {
             return Ok(true);
         };
-        Ok(caller_effective_permissions(space, account_id)
-            .is_some_and(|p| p.contains(&ChatPermission::Ban)))
+        Ok(
+            caller_effective_permissions(space, account_id, &inner.everyone_permissions)
+                .is_some_and(|p| p.contains(&ChatPermission::Ban)),
+        )
     }
 
     /// Reference implementation of
@@ -2205,6 +2237,7 @@ fn apply_space_patch_impl(
     // per-op outcome — those are structural, not policy.
     // ---------------------------------------------------------------
     let protect_last_admin = inner.protect_last_admin;
+    let everyone = inner.everyone_permissions.clone();
     // Snapshot the Space for pre-validation reads.
     let space_snapshot = inner
         .objects_ref("Space", account_id.as_ref())
@@ -2212,8 +2245,13 @@ fn apply_space_patch_impl(
         .cloned()
         .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
-    if let Err(e) = validate_space_patch_ops(&space_snapshot, account_id, &ops, protect_last_admin)
-    {
+    if let Err(e) = validate_space_patch_ops(
+        &space_snapshot,
+        account_id,
+        &ops,
+        protect_last_admin,
+        &everyone,
+    ) {
         return Err(BackendSetError::SetError(e));
     }
 
@@ -2243,7 +2281,7 @@ fn apply_space_patch_impl(
     let leaving_space_manager = ops
         .iter()
         .any(|op| matches!(op, SpacePatchOp::RemoveMember(id) if id == account_id))
-        && member_effective_permissions(&space_snapshot, account_id.as_ref())
+        && member_effective_permissions(&space_snapshot, account_id.as_ref(), &everyone)
             .is_some_and(|p| p.contains(&ChatPermission::ManageSpace));
 
     for (op_index, op) in ops.into_iter().enumerate() {
@@ -2325,7 +2363,7 @@ fn apply_space_patch_impl(
                 && !member_ids.is_empty()
                 && !member_ids.contains(&account_id.as_ref())
                 && member_ids.iter().all(|m| {
-                    !member_effective_permissions(space, m)
+                    !member_effective_permissions(space, m, &everyone)
                         .is_some_and(|p| p.contains(&ChatPermission::ManageSpace))
                 });
             if closes {
@@ -2465,7 +2503,9 @@ fn apply_space_metadata_patch_impl(
 
     // Permission gate: the caller's effective permissions in the
     // Space must include `manage_space`.
-    let caller_perms = caller_effective_permissions(&space_val, account_id).unwrap_or_default();
+    let caller_perms =
+        caller_effective_permissions(&space_val, account_id, &inner.everyone_permissions)
+            .unwrap_or_default();
     if !caller_perms.contains(&ChatPermission::ManageSpace) {
         return Err(BackendSetError::SetError(
             SetError::new(SetErrorType::Forbidden).with_description(
@@ -3972,6 +4012,7 @@ fn validate_space_patch_ops(
     account_id: &Id,
     ops: &[SpacePatchOp],
     protect_last_admin: bool,
+    everyone: &HashSet<ChatPermission>,
 ) -> Result<(), SetError> {
     use crate::permissions::{required_permissions_for_op, RequiredPermissions};
 
@@ -4005,7 +4046,8 @@ fn validate_space_patch_ops(
     };
 
     // Permission gating + hierarchy.
-    let caller_perms = caller_effective_permissions(space_val, account_id).unwrap_or_default();
+    let caller_perms =
+        caller_effective_permissions(space_val, account_id, everyone).unwrap_or_default();
     let caller_highest = caller_highest_position(space_val, account_id).unwrap_or(0);
 
     for op in ops {
@@ -4287,17 +4329,16 @@ fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetE
 /// `caller_id` is the caller's member entry id: the accountId, since
 /// the caller is the owner (draft §Terminology). Returns the union of
 /// `permissions` across every `SpaceRole` referenced by the caller's
-/// `members[i].role_ids`. The reference
-/// impl treats `@everyone` as having an empty (implementation-
-/// defined) permission floor; production deployments override this
-/// behavior via their own backend.
+/// `members[i].role_ids`, plus `everyone`, the implicit `@everyone`
+/// role's permissions.
 ///
 /// Returns `None` if the caller is not a member of the Space.
 fn caller_effective_permissions(
     space_val: &serde_json::Value,
     caller_id: &Id,
+    everyone: &HashSet<ChatPermission>,
 ) -> Option<HashSet<ChatPermission>> {
-    member_effective_permissions(space_val, caller_id.as_ref())
+    member_effective_permissions(space_val, caller_id.as_ref(), everyone)
 }
 
 /// Resolve `member_id`'s effective permission set within `space_val`.
@@ -4306,6 +4347,7 @@ fn caller_effective_permissions(
 fn member_effective_permissions(
     space_val: &serde_json::Value,
     member_id: &str,
+    everyone: &HashSet<ChatPermission>,
 ) -> Option<HashSet<ChatPermission>> {
     let members = space_val.get("members").and_then(|v| v.as_array())?;
     let member = members
@@ -4320,7 +4362,7 @@ fn member_effective_permissions(
                 .collect()
         })
         .unwrap_or_default();
-    let mut perms: HashSet<ChatPermission> = HashSet::new();
+    let mut perms = everyone.clone();
     if let Some(roles) = space_val.get("roles").and_then(|v| v.as_array()) {
         for role in roles {
             let Some(rid) = role.get("id").and_then(|v| v.as_str()) else {
@@ -4360,7 +4402,7 @@ fn owner_channel_permissions(
     let space = inner
         .objects_ref("Space", account_id.as_ref())?
         .get(&Id::from(space_id))?;
-    let base = caller_effective_permissions(space, account_id)?;
+    let base = caller_effective_permissions(space, account_id, &inner.everyone_permissions)?;
     let overrides: Vec<ChannelPermission> = match chat.get("permissionOverrides") {
         None | Some(serde_json::Value::Null) => Vec::new(),
         Some(v) => serde_json::from_value(v.clone()).ok()?,
@@ -4368,6 +4410,7 @@ fn owner_channel_permissions(
     let role_ids = member_role_ids(space, account_id.as_ref());
     Some(resolve_channel_permissions(
         base,
+        space_id,
         account_id.as_ref(),
         &role_ids,
         &overrides,
@@ -4516,7 +4559,9 @@ fn owner_is_chat_admin(
                     .objects_ref("Space", account_id.as_ref())?
                     .get(&Id::from(sid))
             })
-            .and_then(|space| caller_effective_permissions(space, account_id))
+            .and_then(|space| {
+                caller_effective_permissions(space, account_id, &inner.everyone_permissions)
+            })
             .is_some_and(|perms| {
                 perms.contains(&ChatPermission::ManageMembers)
                     || perms.contains(&ChatPermission::ManageSpace)
