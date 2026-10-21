@@ -1276,6 +1276,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-calendars-server**:
+  `CalendarsBackend::query_calendar_events` takes `anchor: Option<&Id>`
+  and `anchor_offset: i64` after `position`. `CalendarEvent/query` now
+  parses `anchor` / `anchorOffset` (RFC 8620 §5.5) and forwards them; the
+  default impl passes them to `query_objects`, so an anchor absent from the
+  results is `anchorNotFound`. Previously both were silently ignored.
 - **BREAKING** **jmap-chat-types**, **jmap-chat-server**:
   `SpacePatchOp::AddCategory` now carries the new `CategoryCreate`
   (`name`, optional `position`, `channelIds` defaulting to empty) instead of

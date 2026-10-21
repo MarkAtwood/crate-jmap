@@ -42,7 +42,8 @@ use crate::helpers::{
     finalize_set_response, set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
-    bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    bool_arg, filter_arg, query_anchor_args, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
 };
 
 // ---------------------------------------------------------------------------
@@ -1048,6 +1049,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
             JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
         })?,
     };
+    let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
     // This server accepts only a bare FilterCondition, which also meets
     // draft-ietf-jmap-calendars-26 §5.11 ("the filter MUST be just a
@@ -1131,6 +1133,8 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
             sort.as_deref(),
             limit,
             position,
+            anchor.as_ref(),
+            anchor_offset,
             &query_args,
         )
         .await
@@ -2019,6 +2023,8 @@ mod tests {
                 _sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
                 _limit: Option<u64>,
                 _position: i64,
+                _anchor: Option<&Id>,
+                _anchor_offset: i64,
                 _args: &CalendarEventQueryArgs,
             ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
                 *self.query_calendar_events_count.lock().unwrap() += 1;
@@ -2882,6 +2888,8 @@ mod tests {
                 _sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
                 _limit: Option<u64>,
                 _position: i64,
+                _anchor: Option<&Id>,
+                _anchor_offset: i64,
                 _args: &CalendarEventQueryArgs,
             ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
                 Err(QueryCalendarEventsError::Other(FaultyError(CANARY)))
