@@ -1054,6 +1054,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `validate_interaction` returns
+  `Option<SceneInteractionEvent>`, the event to relay with `userId` set to
+  the caller's, instead of `bool`. A frame whose `userId` names another
+  user is no longer discarded: "The server sets `userId` on the relayed
+  event to the authenticated user's userId; a `userId` supplied in the
+  frame is ignored" (draft-atwood-jmap-scene-wss-00 §Client-to-Server
+  Submission). **jmap-scene-types**: `SceneInteractionEvent` deserializes
+  without `userId` (it defaults to empty).
+
 - **BREAKING** **jmap-scene-types**, **jmap-scene-server**,
   **jmap-chat-scene-server**: `SceneAvatarEvent`, `SceneObjectEvent` and
   `SceneInteractionEvent` have a required `account_id`, the region's

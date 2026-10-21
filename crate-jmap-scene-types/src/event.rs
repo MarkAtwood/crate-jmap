@@ -132,6 +132,13 @@ pub struct SceneInteractionEvent {
     /// The SceneObject interacted with.
     pub object_id: Id,
     /// The userId of the user who performed the interaction.
+    ///
+    /// Defaults to empty when absent: on a client-sent frame "a `userId`
+    /// supplied in the frame is ignored" and the server sets it to the
+    /// authenticated user's (draft-atwood-jmap-scene-wss-00
+    /// §Client-to-Server Submission), so a frame may omit it. Always
+    /// serialized.
+    #[serde(default)]
     pub user_id: String,
     /// The interaction type: a registered short name (`"click"`,
     /// `"grab"`, `"release"`, `"activate"`) or a deployment-specific

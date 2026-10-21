@@ -25,8 +25,9 @@
 //! [`should_deliver`] whether that connection may receive it. A
 //! `SceneInteractionEvent` frame a client sends goes through
 //! [`validate_interaction`] first; the transport silently discards it on
-//! `false` and otherwise relays it to every connection for which
-//! [`should_deliver`] holds (§Client-to-Server Submission).
+//! `None` and otherwise relays the returned event, whose `userId` is the
+//! sender's, to every connection for which [`should_deliver`] holds
+//! (§Client-to-Server Submission).
 
 use jmap_scene_types::{
     ObjectEventKind, SceneAvatar, SceneEvent, SceneInteractionEvent, SceneObject,
@@ -249,18 +250,21 @@ pub async fn should_deliver<B: SceneBackend>(
     })
 }
 
-/// Whether a `SceneInteractionEvent` frame a client sent may be relayed
-/// (draft-atwood-jmap-scene-wss-00 §Client-to-Server Submission).
+/// The `SceneInteractionEvent` to relay for a frame a client sent, or
+/// `None` to discard it (draft-atwood-jmap-scene-wss-00 §Client-to-Server
+/// Submission).
 ///
 /// `caller` is the sending connection's authenticated identity and
-/// `account_id` the account the region and object are read from. The
-/// frame is relayable when its `accountId` is `account_id`, its `userId`
-/// is the caller's userId, the caller has an active avatar (`leftAt`
-/// `null`) "in the region identified by `accountId` and `regionId`", and its
-/// `objectId` is a SceneObject in that region with `interactable` `true`.
-/// On `false` the transport "MUST silently discard the frame (no error is
-/// returned to the sender)"; on `true` it relays the event, filtered per
-/// recipient by [`should_deliver`].
+/// `account_id` the account the region and object are read from. "The
+/// server sets `userId` on the relayed event to the authenticated user's
+/// userId; a `userId` supplied in the frame is ignored", so the returned
+/// event is `event` with `userId` replaced by the caller's. The frame is
+/// relayable when its `accountId` is `account_id`, the caller has an
+/// active avatar (`leftAt` `null`) "in the region identified by
+/// `accountId` and `regionId`", and its `objectId` is a SceneObject in that
+/// region with `interactable` `true`. On `None` the server "discards the
+/// frame and returns no error to the sender"; on `Some` it relays the
+/// returned event, filtered per recipient by [`should_deliver`].
 ///
 /// The opaque `data` is not inspected; size limits on it are
 /// deployment-defined, as is the §Rate Limiting SHOULD of five events per
@@ -275,19 +279,22 @@ pub async fn validate_interaction<B: SceneBackend>(
     caller: &B::CallerCtx,
     account_id: &Id,
     event: &SceneInteractionEvent,
-) -> Result<bool, B::Error> {
+) -> Result<Option<SceneInteractionEvent>, B::Error> {
     if event.account_id != *account_id {
-        return Ok(false);
+        return Ok(None);
     }
     let me = backend.caller_user_id(caller, account_id).await?;
-    if event.user_id != me
-        || !has_active_avatar(backend, caller, account_id, &me, &event.region_id).await?
-    {
-        return Ok(false);
+    if !has_active_avatar(backend, caller, account_id, &me, &event.region_id).await? {
+        return Ok(None);
     }
-    Ok(fetch_object(backend, caller, account_id, &event.object_id)
+    let interactable = fetch_object(backend, caller, account_id, &event.object_id)
         .await?
-        .is_some_and(|o| o.region_id == event.region_id && o.interactable))
+        .is_some_and(|o| o.region_id == event.region_id && o.interactable);
+    Ok(interactable.then(|| {
+        let mut relayed = event.clone();
+        relayed.user_id = me;
+        relayed
+    }))
 }
 
 /// `true` if `user_id` has an avatar in `region_id` with `leftAt` `null`.

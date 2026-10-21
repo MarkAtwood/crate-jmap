@@ -102,9 +102,9 @@ pub trait SceneWsExt: sealed::Sealed {
     /// Send a `SceneInteractionEvent` frame for the server to validate
     /// and relay.
     ///
-    /// Its `userId` "MUST match the authenticated session's user". A frame
-    /// that fails the server's checks is silently discarded: no error
-    /// reaches the sender.
+    /// The server ignores its `userId` and relays the event with the
+    /// authenticated user's. A frame that fails the server's checks is
+    /// discarded: no error reaches the sender.
     ///
     /// # Errors
     ///
