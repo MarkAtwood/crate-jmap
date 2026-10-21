@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-metadata-server**: `is_well_formed_metadata_path`, which checks
+  that a metadata filter path uses `~` only as the RFC 6901 escapes `~0`
+  and `~1`. A `/query` handler rejects a path that fails it with
+  `invalidArguments`, per draft-ietf-jmap-metadata-04 §3.6.
 - **jmap-did-resolver**: `did:webvh` resolution. `Resolver` fetches the
   DID log from the DIF did:webvh v1.0 DID-to-HTTPS URL, and the
   `did-witness.json` beside it when an entry needs witnessing, and
@@ -898,6 +902,12 @@ wire behaviour that a conforming peer can observe.
   of 1. Object values keep their depth. A non-object value therefore
   never fails `exceeds_max_depth`; the caller rejects it, since -04 §2.1
   says a namespace value "MUST be a JSON object".
+- **BREAKING** **jmap-metadata-server**: `metadata_path_exists`,
+  `metadata_text_contains` and `metadata_text_equals` resolve a path of
+  any depth, per draft-ietf-jmap-metadata-04 §3.6: `"ns/a/b"` now walks
+  `ns` -> `a` -> `b` instead of looking up the single key `"a/b"`
+  (spelt `"ns/a~1b"`). A path that would traverse an array or a scalar,
+  or that has an invalid `~` escape, matches nothing.
 - **BREAKING** **jmap-chat-types**: the stringly vocabulary fields are now
   `impl_string_enum!` enums whose `Other(String)` arm round-trips
   unrecognized values, so the wire format is unchanged.

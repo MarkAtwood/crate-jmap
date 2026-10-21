@@ -39,16 +39,23 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Path syntax
 ///
-/// The `path` field uses the form `<namespace>` or `<namespace>/<key>`,
-/// with `/` and `~` escaped per [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901)
-/// where applicable. Same syntax as the string value of `metadataExists`.
+/// draft-ietf-jmap-metadata-04 §3.6: the `path` is "a namespace
+/// identifier, optionally followed by a JSON Pointer \[RFC6901\] into the
+/// namespace value (for example, `<namespace>`, `<namespace>/<key>` or
+/// `<namespace>/<key>/<subkey>`)". `/` and `~` inside a key are escaped as
+/// `~1` and `~0` per [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901).
+/// Object members are addressed by name; a path that would traverse an
+/// array or a scalar addresses no value. A server rejects a path with an
+/// invalid `~` escape with `invalidArguments`. Same syntax as the string
+/// value of `metadataExists`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MetadataTextMatch {
     /// Path within the metadata object to match against.
     ///
-    /// Form: `<namespace>` or `<namespace>/<key>` (with `/` and `~`
-    /// escaped per RFC 6901 where applicable).
+    /// Form: `<namespace>`, optionally followed by an RFC 6901 JSON
+    /// Pointer into the namespace value, such as `<namespace>/<key>` or
+    /// `<namespace>/<key>/<subkey>`.
     pub path: String,
 
     /// The string to search for at `path`. Interpretation (substring
@@ -122,8 +129,8 @@ pub struct WithMetadata<C> {
     #[serde(flatten)]
     pub base: C,
 
-    /// Matches if a value is present at this `<namespace>` or
-    /// `<namespace>/<key>` path in the object's `metadata`.
+    /// Matches if a value is present at this path in the object's
+    /// `metadata`. The path has the [`MetadataTextMatch::path`] syntax.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_exists: Option<String>,
 
