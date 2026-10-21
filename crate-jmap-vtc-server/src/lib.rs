@@ -21,7 +21,8 @@
 //! The `VTCCall/*` methods: create with the capability gates, the state
 //! machine, ending a call, the call-level moderator actions and `/query`.
 //! Ending a call, by `VTCCall/set` or by the server through [`end_call`],
-//! also ends its breakout rooms and stops its active recordings.
+//! also ends its breakout rooms and stops its active recordings and
+//! livestreams.
 //! [`expire_ring`] applies the ring timeout when the deployment's timer
 //! fires.
 //! The `VTCParticipant/*` methods: joining, gateway dial-out, answering

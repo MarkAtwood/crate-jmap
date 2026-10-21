@@ -655,6 +655,46 @@ pub(crate) async fn stop_recordings<B: VtcBackend>(
     Ok(())
 }
 
+/// Stop every livestream of `call_id` in state `"starting"` or `"live"`,
+/// §Ending a Call: "When a call ends, the server stops ... every
+/// VTCLivestream in state `"starting"` or `"live"`, as if a moderator had
+/// set each to `"stopped"`." As for a moderator's stop, the server sets
+/// `stoppedAt`; no event is delivered.
+///
+/// ponytail: loads every VTCLivestream of the account, so each call end is
+/// O(livestreams); the upgrade path is [`stop_recordings`]'s.
+///
+/// # Errors
+///
+/// Returns the first backend error; livestreams stopped before it stay
+/// stopped.
+// Same error type as `VtcBackend::update_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+pub(crate) async fn stop_livestreams<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    call_id: &Id,
+) -> Result<(), BackendSetError<B::Error>> {
+    let (livestreams, _) = backend
+        .get_objects::<VtcLivestream>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    for livestream in livestreams.into_iter().filter(|l| {
+        l.call_id == *call_id
+            && matches!(l.state, LivestreamState::Starting | LivestreamState::Live)
+    }) {
+        let mut patch = PatchObject::new();
+        let map = patch.as_map_mut();
+        map.insert("state".to_owned(), json!(LivestreamState::Stopped));
+        map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+        backend
+            .update_object::<VtcLivestream>(caller, account_id, &livestream.id, patch)
+            .await?;
+    }
+    Ok(())
+}
+
 /// Build and deliver one `VTCRecordingStateEvent` for a recording. Runs
 /// after the change has committed, so it cannot fail the operation.
 async fn deliver<B: VtcBackend>(

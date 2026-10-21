@@ -27,7 +27,7 @@ use crate::helpers::{
     fetch_one, finalize_set_response, forbidden, invalid, reject_unsupported_sort, set_error_value,
     utc_key, SetAccumulators, PLACEHOLDER_ID,
 };
-use crate::media::stop_recordings;
+use crate::media::{stop_livestreams, stop_recordings};
 use jmap_server::{
     now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
 };
@@ -783,7 +783,8 @@ pub async fn expire_ring<B: VtcBackend>(
 }
 
 /// Apply `patch`, which ends `call`, after ending every breakout room
-/// beneath it, and stop each ended call's active recordings. Returns
+/// beneath it, and stop each ended call's active recordings and
+/// livestreams (§Ending a Call). Returns
 /// [`VtcBackend::update_object`]'s result for `call`.
 ///
 /// jmap-vtc-implementer-guide §Breakout room cleanup: "Implement
@@ -828,10 +829,12 @@ async fn end_cascade<B: VtcBackend>(
             .update_object::<VtcCall>(caller, account_id, &room.id, ended_patch(reason))
             .await?;
         stop_recordings(backend, caller, account_id, &room.id).await?;
+        stop_livestreams(backend, caller, account_id, &room.id).await?;
     }
     let result = backend
         .update_object::<VtcCall>(caller, account_id, &call.id, patch)
         .await?;
     stop_recordings(backend, caller, account_id, &call.id).await?;
+    stop_livestreams(backend, caller, account_id, &call.id).await?;
     Ok(result)
 }
