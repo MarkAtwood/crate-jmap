@@ -273,6 +273,61 @@ async fn spawn_orientation_must_be_a_unit_quaternion() {
     create(&backend, r).await;
 }
 
+/// `true` if `got` is `[0, y / n, 0, w / n]` with `n` the magnitude of
+/// `[0, y, 0, w]`, to 1e-12.
+fn is_normalized_yw(got: &Value, y: f64, w: f64) -> bool {
+    let n = (y * y + w * w).sqrt();
+    let want = [0.0, y / n, 0.0, w / n];
+    let got: Vec<f64> = got
+        .as_array()
+        .expect("quaternion")
+        .iter()
+        .map(|c| c.as_f64().expect("number"))
+        .collect();
+    got.len() == 4 && got.iter().zip(want).all(|(g, w)| (g - w).abs() < 1e-12)
+}
+
+#[tokio::test]
+async fn accepted_spawn_orientation_is_stored_normalized() {
+    // 6bcd9d8 L196 "If the server does not reject the value, it MUST
+    // normalize the quaternion to unit length before storage."
+    // `[0, 0.707, 0, 0.707]` is the draft's own three-decimal turn
+    // (magnitude 0.99985); RFC 8620 §5.3 `created` holds "any properties
+    // that were omitted or not set to the requested value by the server".
+    let backend = backend();
+    let mut r = design_review_room();
+    r["spawnOrientation"] = json!([0, 0.707, 0, 0.707]);
+    let resp = set(&backend, ALICE, json!({ "create": { "r0": r } })).await;
+    let created = &resp["created"]["r0"];
+    assert!(
+        is_normalized_yw(&created["spawnOrientation"], 0.707, 0.707),
+        "{resp}"
+    );
+    let id = created["id"].as_str().expect("id");
+    let stored = &get(&backend, id).await["spawnOrientation"];
+    assert_eq!(stored, &created["spawnOrientation"]);
+}
+
+#[tokio::test]
+async fn update_echoes_a_normalized_spawn_orientation() {
+    // 6bcd9d8 L196 "it MUST normalize the quaternion to unit length before
+    // storage"; RFC 8620 §5.3 `updated` carries "any properties that
+    // changed in a way not explicitly requested by the PatchObject".
+    let backend = backend();
+    let id = create(&backend, design_review_room()).await;
+    let resp = update(
+        &backend,
+        ALICE,
+        &id,
+        json!({ "spawnOrientation": [0, 0.924, 0, 0.383] }),
+    )
+    .await;
+    let echoed = &resp["updated"][&id]["spawnOrientation"];
+    assert!(is_normalized_yw(echoed, 0.924, 0.383), "{resp}");
+    let stored = &get(&backend, &id).await["spawnOrientation"];
+    assert_eq!(stored, echoed);
+}
+
 #[tokio::test]
 async fn every_offending_property_is_named() {
     // L1163 "`properties` lists each offending property".

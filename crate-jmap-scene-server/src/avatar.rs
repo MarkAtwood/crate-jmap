@@ -23,7 +23,7 @@ use crate::backend::SceneBackend;
 use crate::helpers::{
     backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
     extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
-    invalid, normalized_orientation, not_found, orientation_ok, reject_unsupported_sort,
+    invalid, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
     set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
@@ -401,7 +401,7 @@ async fn enter_region<B: SceneBackend>(
     // `orientation` (to the region's `spawnOrientation`)".
     m.insert("position".to_owned(), json!(region.spawn_position));
     m.insert("orientation".to_owned(), json!(region.spawn_orientation));
-    if let Some(q) = normalized_orientation(&m) {
+    if let Some(q) = normalized_quaternion(&m, "orientation") {
         m.insert("orientation".to_owned(), q);
     }
     for key in ["visualRef", "visualType", "worldState"] {
@@ -523,7 +523,7 @@ async fn update_avatar<B: SceneBackend>(
         set.insert("joinedAt".to_owned(), json!(now_utc_string()));
         set.insert("position".to_owned(), json!(region.spawn_position));
         set.insert("orientation".to_owned(), json!(region.spawn_orientation));
-        if let Some(q) = normalized_orientation(&set) {
+        if let Some(q) = normalized_quaternion(&set, "orientation") {
             set.insert("orientation".to_owned(), q);
         }
         patch.as_map_mut().extend(set.clone());
@@ -564,7 +564,7 @@ async fn update_avatar<B: SceneBackend>(
     }
 
     if touched("orientation") {
-        if let Some(q) = normalized_orientation(&result) {
+        if let Some(q) = normalized_quaternion(&result, "orientation") {
             let map = patch.as_map_mut();
             map.retain(|k, _| top(k) != "orientation");
             map.insert("orientation".to_owned(), q.clone());

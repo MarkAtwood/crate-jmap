@@ -18,8 +18,9 @@ use serde_json::{json, Map, Value};
 use crate::backend::{BindingTarget, SceneBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid, not_found, numbers,
-    reject_unsupported_sort, set_error_value, unit_quaternion, SetAccumulators, PLACEHOLDER_ID,
+    fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid,
+    normalized_quaternion, not_found, numbers, orientation_ok, reject_unsupported_sort,
+    set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -307,7 +308,7 @@ fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
     );
     check(
         "spawnOrientation",
-        optional("spawnOrientation", unit_quaternion),
+        optional("spawnOrientation", orientation_ok),
     );
     check(
         "accessPolicy",
@@ -445,7 +446,9 @@ fn server_set_in<'a>(keys: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
 /// One §Creating a Region. The `Ok` value is the `created` entry: the
 /// server-set `id`, `accountId`, `ownerId` (from
 /// [`SceneBackend::caller_user_id`]), `activeAvatarCount`, `createdAt` and
-/// `updatedAt`.
+/// `updatedAt`, plus `spawnOrientation` when normalizing changed it (RFC
+/// 8620 §5.3: "any properties that were omitted or not set to the
+/// requested value by the server").
 async fn create_region<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -489,6 +492,10 @@ async fn create_region<B: SceneBackend>(
             m.entry(*key).or_insert(Value::Null);
         }
     }
+    let normalized = normalized_quaternion(&m, "spawnOrientation");
+    if let Some(q) = &normalized {
+        m.insert("spawnOrientation".to_owned(), q.clone());
+    }
     let now = now_utc_string();
     m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
     m.insert("accountId".to_owned(), json!(account_id));
@@ -502,19 +509,24 @@ async fn create_region<B: SceneBackend>(
         .create_object(caller, account_id, create_id, region)
         .await
         .map_err(backend_set_error_value)?;
-    Ok(json!({
+    let mut created = json!({
         "id": id,
         "accountId": stored.account_id,
         "ownerId": stored.owner_id,
         "activeAvatarCount": stored.active_avatar_count,
         "createdAt": stored.created_at,
         "updatedAt": stored.updated_at,
-    }))
+    });
+    if normalized.is_some() {
+        created["spawnOrientation"] = json!(stored.spawn_orientation);
+    }
+    Ok(created)
 }
 
 /// One §Updating a Region. `Ok` is the `updated` echo: the server-set
-/// `updatedAt` (RFC 8620 §5.3: "any properties that changed in a way not
-/// explicitly requested by the PatchObject").
+/// `updatedAt` and a normalized `spawnOrientation` (RFC 8620 §5.3: "any
+/// properties that changed in a way not explicitly requested by the
+/// PatchObject").
 async fn update_region<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -557,9 +569,17 @@ async fn update_region<B: SceneBackend>(
     validate(backend, caller, account_id, &result, &touched).await?;
 
     let now = now_utc_string();
-    patch
-        .as_map_mut()
-        .insert("updatedAt".to_owned(), json!(now));
+    let mut echo = Map::new();
+    echo.insert("updatedAt".to_owned(), json!(now));
+    let map = patch.as_map_mut();
+    if touched("spawnOrientation") {
+        if let Some(q) = normalized_quaternion(&result, "spawnOrientation") {
+            map.retain(|k, _| top(k) != "spawnOrientation");
+            map.insert("spawnOrientation".to_owned(), q.clone());
+            echo.insert("spawnOrientation".to_owned(), q);
+        }
+    }
+    map.insert("updatedAt".to_owned(), json!(now));
     match backend
         .update_object::<SceneRegion>(caller, account_id, id, patch)
         .await
@@ -568,7 +588,7 @@ async fn update_region<B: SceneBackend>(
         Some(region) => Ok(
             serde_json::to_value(region).expect("derive(Serialize) on plain data is infallible")
         ),
-        None => Ok(json!({ "updatedAt": now })),
+        None => Ok(Value::Object(echo)),
     }
 }
 

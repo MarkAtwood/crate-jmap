@@ -18,32 +18,19 @@ pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 /// `crate-jmap-mail-server/src/helpers.rs` `PLACEHOLDER_ID`.
 pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
 
-/// ponytail: "magnitude within epsilon of 1.0" with a fixed epsilon of
-/// 1e-6, which accepts quaternions normalized in `f32`. A deployment that
-/// wants a different tolerance registers its own `/set` handlers.
-const UNIT_EPSILON: f64 = 1e-6;
-
 /// The values of `v` if it is an array of exactly `n` Numbers.
 pub(crate) fn numbers(v: &Value, n: usize) -> Option<Vec<f64>> {
     let a = v.as_array().filter(|a| a.len() == n)?;
     a.iter().map(Value::as_f64).collect()
 }
 
-/// "Quaternion must be `[x, y, z, w]` with magnitude within epsilon of
-/// 1.0." A NaN or infinite component fails the comparison.
-pub(crate) fn unit_quaternion(v: &Value) -> bool {
-    numbers(v, 4).is_some_and(|q| {
-        let norm = q.iter().map(|c| c * c).sum::<f64>().sqrt();
-        (norm - 1.0).abs() <= UNIT_EPSILON
-    })
-}
-
 /// ponytail: "Servers MAY reject quaternions whose magnitude deviates from
 /// 1.0 by more than a deployment-defined epsilon"; for SceneObject and
-/// SceneAvatar `orientation` this one is 1e-3, which accepts the draft's
+/// SceneAvatar `orientation` and SceneRegion `spawnOrientation` this one
+/// is 1e-3, which accepts the draft's
 /// own three-decimal examples (L1461 `[0, 0.707, 0, 0.707]`, magnitude
 /// 0.99985; L1488 `[0, 0.383, 0, 0.924]`, 1.00023). Accepted values are
-/// normalized (see [`normalized_orientation`]).
+/// normalized (see [`normalized_quaternion`]).
 const ORIENTATION_EPSILON: f64 = 1e-3;
 
 /// `v` is an array of exactly 3 finite Numbers: "Position components MUST
@@ -63,11 +50,11 @@ pub(crate) fn orientation_ok(v: &Value) -> bool {
     magnitude(v).is_some_and(|n| (n - 1.0).abs() <= ORIENTATION_EPSILON)
 }
 
-/// The unit-length form of the accepted `orientation` in `m` when it
+/// The unit-length form of the accepted quaternion `m[key]` when it
 /// differs from the stored value: "If the server does not reject the
 /// value, it MUST normalize the quaternion to unit length before storage."
-pub(crate) fn normalized_orientation(m: &Map<String, Value>) -> Option<Value> {
-    let v = m.get("orientation")?;
+pub(crate) fn normalized_quaternion(m: &Map<String, Value>, key: &str) -> Option<Value> {
+    let v = m.get(key)?;
     let n = magnitude(v)?;
     if n == 1.0 {
         return None;

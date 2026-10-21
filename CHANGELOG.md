@@ -1616,6 +1616,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-scene-server**: `SceneRegion/set` normalizes an accepted
+  `spawnOrientation` to unit length before storage and reports the
+  normalized value in `created`/`updated` (draft-atwood-jmap-scene-00
+  §Coordinate System: "If the server does not reject the value, it MUST
+  normalize the quaternion to unit length before storage"). Its
+  magnitude tolerance is now 1e-3, the one SceneObject and SceneAvatar
+  `orientation` use, so the draft's three-decimal quaternions such as
+  `[0, 0.707, 0, 0.707]` are accepted. Before, the tolerance was 1e-6
+  and accepted values were stored unnormalized.
 - **jmap-vtc-server**: `VTCRecording/set` destroy of a recording in state
   `"recording"` or `"paused"` first stops it, setting `stoppedAt`, and
   delivers a `VTCRecordingStateEvent` with `state: "stopped"`
