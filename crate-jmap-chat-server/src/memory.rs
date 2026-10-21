@@ -113,6 +113,9 @@ struct Inner {
     /// Test-only override for [`ChatBackend::retains_edit_history`].
     /// Set via [`MemoryBackend::set_retains_edit_history_for_test`].
     retains_edit_history: bool,
+    /// Test-only override for [`ChatBackend::maintains_unread_count`].
+    /// Set via [`MemoryBackend::set_maintains_unread_count_for_test`].
+    maintains_unread_count: bool,
     /// Test-only override for [`ChatBackend::protect_last_admin`].
     ///
     /// Default `false` — opposite the trait default of `true` — so
@@ -267,6 +270,20 @@ impl MemoryBackend {
     pub fn set_retains_edit_history_for_test(&self, retain: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.retains_edit_history = retain;
+    }
+
+    /// Test-only: flip the [`ChatBackend::maintains_unread_count`] flag.
+    ///
+    /// Pass `true` to make the handlers leave `Chat.unreadCount` to the
+    /// backend. The reference backend never updates the stored value,
+    /// so with `true` it stays as seeded. The default is `false`,
+    /// matching the trait default. Production callers must not use this
+    /// method; the API stability disclaimer on the `memory` feature
+    /// applies doubly here.
+    #[doc(hidden)]
+    pub fn set_maintains_unread_count_for_test(&self, value: bool) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.maintains_unread_count = value;
     }
 
     /// Test-only: flip the [`ChatBackend::protect_last_admin`] flag.
@@ -1335,6 +1352,11 @@ impl ChatBackend for MemoryBackend {
     fn retains_edit_history(&self) -> bool {
         let inner = self.inner.lock().unwrap();
         inner.retains_edit_history
+    }
+
+    fn maintains_unread_count(&self) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner.maintains_unread_count
     }
 
     /// Reference implementation of [`ChatBackend::owner_user_id`].

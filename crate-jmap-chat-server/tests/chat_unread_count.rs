@@ -1,23 +1,29 @@
-//! `Chat.unreadCount` and the ReadPosition lifecycle (bd:JMAP-y3f2.4).
+//! `Chat.unreadCount` and the ReadPosition lifecycle (bd:JMAP-y3f2.4,
+//! bd:JMAP-0x0q.56).
 //!
-//! Oracles, from jmap-chat-spec 91672c9:
+//! Oracles, from jmap-chat-spec 33702a5:
 //!
-//! - draft-atwood-jmap-chat-00.md L547-548, §Chat `unreadCount`: "Count
+//! - draft-atwood-jmap-chat-00.md L629, §Chat `unreadCount`: "The number
 //!   of Messages in this Chat whose `id` ULID is lexicographically greater
-//!   than `ReadPosition.lastReadMessageId`. Derived server-side from the
+//!   than `ReadPosition.lastReadMessageId`, derived server-side from the
 //!   owner's ReadPosition record. If `lastReadMessageId` is absent, all
-//!   messages are counted as unread."
+//!   messages are counted as unread. The value is advisory [...] Servers
+//!   SHOULD keep it accurate, but MAY update it some time after the change
+//!   that affects it [...] Whenever the server changes the value, the
+//!   Chat's state changes as for any other property ({{RFC8620}} Section
+//!   5.1)." The exact-count tests below hold for `MemoryBackend`, which
+//!   keeps the SHOULD by default.
 //! - jmap-chat-compliance-tests.md §11.1: "Send 5 messages. Set
 //!   ReadPosition to message 3. Call `Chat/get`. Verify `unreadCount` is
 //!   2 (messages 4 and 5)."
-//! - L1350-1352, §ReadPosition/set: "`update` supports:
-//!   `lastReadMessageId`. The server sets `lastReadAt` to the current
-//!   time and recomputes `Chat.unreadCount` for the affected Chat."
-//! - L909, §ReadPosition: "The server creates a ReadPosition record
+//! - L1434, §ReadPosition/set: "`update` supports: `lastReadMessageId`.
+//!   The server sets `lastReadAt` to the current time and updates
+//!   `Chat.unreadCount` for the affected Chat, possibly later ({{chat}})."
+//! - L993, §ReadPosition: "The server creates a ReadPosition record
 //!   automatically when a Chat first becomes visible to the owner, and
 //!   destroys it when the Chat is destroyed. [...] For channel Chats, a
 //!   ReadPosition is created when the owner joins the containing Space."
-//! - L920, `lastReadAt` "(UTCDate, server-set)"; RFC 8620 §5.3 rejects a
+//! - L1004, `lastReadAt` "(UTCDate, server-set)"; RFC 8620 §5.3 rejects a
 //!   client write of a server-set property with `invalidProperties`.
 //! - RFC 8620 §5.1: "If the data changes, this string MUST change", so
 //!   `ReadPosition/changes` reports the cascaded destroy, and a change
@@ -39,7 +45,7 @@ use jmap_types::Id;
 use serde_json::{json, Value};
 
 // Hand-picked ULIDs (Crockford base32, 26 chars) in ascending order:
-// "ULIDs are lexicographically ordered by time" (draft L591).
+// "ULIDs are lexicographically ordered by time" (draft L675).
 const M1: &str = "01J0000000000000000000000A";
 const M2: &str = "01J0000000000000000000000B";
 const M3: &str = "01J0000000000000000000000C";
@@ -182,7 +188,7 @@ async fn destroyed_positions_since(backend: &MemoryBackend, since: &str) -> Vec<
     resp["destroyed"].as_array().expect("destroyed").clone()
 }
 
-/// L548: "If `lastReadMessageId` is absent, all messages are counted as
+/// L629: "If `lastReadMessageId` is absent, all messages are counted as
 /// unread." Only Messages "in this Chat" count, so `h` has 1.
 #[tokio::test]
 async fn absent_last_read_counts_every_message() {
@@ -205,7 +211,7 @@ async fn compliance_11_1_unread_count_from_read_position() {
     assert_eq!(unread_of(&backend, "g").await, 2);
     assert_eq!(unread_of(&backend, "h").await, 1, "other Chat unaffected");
 
-    // L1350: the count is recomputed on each ReadPosition/set.
+    // L1434: the count is recomputed on each ReadPosition/set.
     set_last_read(&backend, "rp-g", json!({ "lastReadMessageId": M5 })).await;
     assert_eq!(unread_of(&backend, "g").await, 0);
 }
@@ -228,7 +234,7 @@ async fn unread_count_in_full_get() {
     assert_eq!(count("h"), 1);
 }
 
-/// L1350: "The server sets `lastReadAt` to the current time".
+/// L1434: "The server sets `lastReadAt` to the current time".
 #[tokio::test]
 async fn read_position_set_updates_last_read_at() {
     let backend = MemoryBackend::new();
@@ -246,7 +252,7 @@ async fn read_position_set_updates_last_read_at() {
     );
 }
 
-/// L920 `lastReadAt` is server-set: a client write is `invalidProperties`
+/// L1004 `lastReadAt` is server-set: a client write is `invalidProperties`
 /// (RFC 8620 §5.3) and the record is unchanged.
 #[tokio::test]
 async fn client_last_read_at_is_rejected() {
@@ -273,7 +279,7 @@ async fn client_last_read_at_is_rejected() {
     assert!(list[0].get("lastReadMessageId").is_none(), "{list:?}");
 }
 
-/// L909: the server "destroys it when the Chat is destroyed"; RFC 8620
+/// L993: the server "destroys it when the Chat is destroyed"; RFC 8620
 /// §5.1 makes `ReadPosition/changes` report it.
 #[tokio::test]
 async fn chat_destroy_destroys_its_read_position() {
@@ -351,7 +357,7 @@ fn seed_space_with_channels(backend: &MemoryBackend, is_public: bool, owner_memb
     );
 }
 
-/// L909: "For channel Chats, a ReadPosition is created when the owner
+/// L993: "For channel Chats, a ReadPosition is created when the owner
 /// joins the containing Space." Only that Space's channels get one.
 #[tokio::test]
 async fn space_join_creates_read_positions_for_its_channels() {
@@ -373,7 +379,7 @@ async fn space_join_creates_read_positions_for_its_channels() {
     }
 }
 
-/// L909 "destroys it when the Chat is destroyed" holds for a channel
+/// L993 "destroys it when the Chat is destroyed" holds for a channel
 /// removed by `Space/set` `removeChannels`.
 #[tokio::test]
 async fn remove_channels_destroys_their_read_positions() {
@@ -404,7 +410,7 @@ async fn remove_channels_destroys_their_read_positions() {
 }
 
 /// Destroying a Space destroys its channel Chats (§Destroying a Space),
-/// so their ReadPositions go too (L909).
+/// so their ReadPositions go too (L993).
 #[tokio::test]
 async fn space_destroy_destroys_channel_read_positions() {
     let backend = MemoryBackend::new();
@@ -457,7 +463,7 @@ async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
     resp
 }
 
-/// L1350 "recomputes `Chat.unreadCount` for the affected Chat" changes
+/// L1434 "updates `Chat.unreadCount` for the affected Chat" changes
 /// Chat data, so (RFC 8620 §5.1) the Chat state moves and (§5.2)
 /// `Chat/changes` lists only the affected Chat.
 #[tokio::test]
@@ -478,7 +484,7 @@ async fn read_position_set_advances_chat_state() {
 }
 
 /// Destroying an unread Message lowers the Chat's `unreadCount`
-/// (L547), so `Chat/changes` reports that Chat (RFC 8620 §5.2).
+/// (L629), so `Chat/changes` reports that Chat (RFC 8620 §5.2).
 #[tokio::test]
 async fn message_destroy_advances_chat_state() {
     let backend = MemoryBackend::new();
@@ -495,7 +501,7 @@ async fn message_destroy_advances_chat_state() {
     );
 }
 
-/// A new Message in a Chat raises its `unreadCount` (L547), so
+/// A new Message in a Chat raises its `unreadCount` (L629), so
 /// `Chat/changes` reports that Chat (RFC 8620 §5.2).
 #[tokio::test]
 async fn message_create_advances_chat_state() {
@@ -519,5 +525,41 @@ async fn message_create_advances_chat_state() {
     assert_eq!(
         chats_updated_since(&backend, &since).await,
         vec![json!("h")]
+    );
+}
+
+/// L629: the server "MAY update it some time after the change that
+/// affects it", and "Whenever the server changes the value, the Chat's
+/// state changes". A backend that keeps the count itself
+/// (`maintains_unread_count`) gets its stored value from `Chat/get`, and
+/// a ReadPosition update that leaves that value alone leaves the Chat
+/// state alone too (RFC 8620 §5.1).
+#[tokio::test]
+async fn backend_maintained_unread_count_is_not_recomputed() {
+    let backend = MemoryBackend::new();
+    seed_five(&backend);
+    seed_chat(
+        &backend,
+        "g",
+        json!({
+            "kind": "group",
+            "name": "G",
+            "members": [{ "id": ACCOUNT_ID, "role": "admin", "joinedAt": "2026-01-01T00:00:00Z" }],
+            "unreadCount": 7,
+        }),
+    );
+    backend.set_maintains_unread_count_for_test(true);
+    assert_eq!(unread_of(&backend, "g").await, 7, "stored value, not 5");
+    let since = chat_state(&backend).await;
+
+    let resp = set_last_read(&backend, "rp-g", json!({ "lastReadMessageId": M3 })).await;
+    assert!(resp["updated"].get("rp-g").is_some(), "{resp}");
+    message_set(&backend, json!({ "destroy": [M5] })).await;
+
+    assert_eq!(unread_of(&backend, "g").await, 7);
+    assert_eq!(chat_state(&backend).await, since);
+    assert_eq!(
+        chats_updated_since(&backend, &since).await,
+        Vec::<Value>::new()
     );
 }

@@ -309,12 +309,14 @@ fn group_update_events(
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
-/// `unreadCount` is computed on every call (§Chat): "Count of Messages in
-/// this Chat whose `id` ULID is lexicographically greater than
-/// `ReadPosition.lastReadMessageId`. Derived server-side from the owner's
-/// ReadPosition record. If `lastReadMessageId` is absent, all messages
-/// are counted as unread." A Chat with no ReadPosition counts every
-/// Message.
+/// `unreadCount` is computed on every call (§Chat, jmap-chat-spec 33702a5
+/// L629): "The number of Messages in this Chat whose `id` ULID is
+/// lexicographically greater than `ReadPosition.lastReadMessageId`,
+/// derived server-side from the owner's ReadPosition record. If
+/// `lastReadMessageId` is absent, all messages are counted as unread." A
+/// Chat with no ReadPosition counts every Message. A backend whose
+/// [`ChatBackend::maintains_unread_count`] is `true` gets its stored
+/// value back instead.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 // NOTE: properties forwarded via handle_get
@@ -330,15 +332,19 @@ pub async fn handle_chat_get<B: ChatBackend>(
 
 /// Overwrite `unreadCount` on each Chat in a `Chat/get` response `list`
 /// that carries the property (it is absent when `properties` leaves it
-/// out).
+/// out), unless the backend maintains the count itself
+/// ([`ChatBackend::maintains_unread_count`]).
 // ponytail: scans every Message and ReadPosition in the account per call
-// (O(messages) per Chat/get); a backend with many messages needs an
-// unread-count index behind a ChatBackend hook.
+// (O(messages) per Chat/get); a backend with many messages keeps its own
+// count via ChatBackend::maintains_unread_count.
 async fn fill_unread_counts<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     response: &mut Value,
 ) -> Result<(), JmapError> {
+    if backend.maintains_unread_count() {
+        return Ok(());
+    }
     let account_id = Id::from(response["accountId"].as_str().unwrap_or_default());
     let Some(list) = response["list"].as_array_mut() else {
         return Ok(());
@@ -398,11 +404,13 @@ fn unread_count(messages: &[Message], positions: &[ReadPosition], chat_id: &str)
 /// `Chat` state advances and `Chat/changes` reports the Chat as updated.
 ///
 /// RFC 8620 §5.1: "If the data changes, this string MUST change", and
-/// §ReadPosition/set "recomputes `Chat.unreadCount` for the affected
-/// Chat". `Chat/get` derives the count on every call, so a ReadPosition
-/// update or a Message create/destroy changes Chat data; this records
-/// that change through [`ChatBackend::update_object`], whose contract
-/// bumps the type state and logs the id as updated.
+/// §ReadPosition/set (jmap-chat-spec 33702a5 L1434) "updates
+/// `Chat.unreadCount` for the affected Chat, possibly later". `Chat/get`
+/// derives the count on every call, so a ReadPosition update or a Message
+/// create/destroy changes Chat data; this records that change through
+/// [`ChatBackend::update_object`], whose contract bumps the type state
+/// and logs the id as updated. Does nothing when the backend maintains
+/// the count itself ([`ChatBackend::maintains_unread_count`]).
 ///
 /// Best-effort, like [`crate::message::ensure_read_positions`]: the
 /// caller's own write already succeeded and its response must report
@@ -414,7 +422,7 @@ pub(crate) async fn record_unread_count_changes<B: ChatBackend>(
     account_id: &Id,
     mut chat_ids: Vec<Id>,
 ) {
-    if chat_ids.is_empty() {
+    if chat_ids.is_empty() || backend.maintains_unread_count() {
         return;
     }
     let Ok((messages, positions)) = messages_and_positions(backend, caller, account_id).await

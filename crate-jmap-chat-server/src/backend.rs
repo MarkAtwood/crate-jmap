@@ -1658,6 +1658,47 @@ pub trait ChatBackend: JmapBackend {
         false
     }
 
+    /// Whether the backend keeps `Chat.unreadCount` itself instead of
+    /// the kit recomputing it.
+    ///
+    /// draft-atwood-jmap-chat-00 §Chat `unreadCount` (jmap-chat-spec
+    /// 33702a5 L629): "The value is advisory, for display such as
+    /// badges. Servers SHOULD keep it accurate, but MAY update it some
+    /// time after the change that affects it, MAY combine several such
+    /// changes into one update, and MAY report a server-defined maximum
+    /// in place of any larger count. Whenever the server changes the
+    /// value, the Chat's state changes as for any other property
+    /// ({{RFC8620}} Section 5.1)."
+    ///
+    /// # When the handlers call this
+    ///
+    /// When `false`, the kit keeps the count exact: `Chat/get` recomputes
+    /// `unreadCount` from the account's Messages and ReadPositions, and
+    /// every Message create or destroy, Message expiry, read-and-burn and
+    /// ReadPosition update writes the recomputed count to each affected
+    /// Chat through [`ChatBackend::update_object`], which advances the
+    /// `Chat` state.
+    ///
+    /// When `true`, the kit does neither: `Chat/get` returns the stored
+    /// `unreadCount` and no Chat is rewritten. The backend sees every
+    /// write that moves the count (the `create_object`, `update_object`
+    /// and `destroy_object` calls for Message and ReadPosition,
+    /// [`ChatBackend::expire_message`] and
+    /// [`ChatBackend::read_and_burn_message`]), and may defer, coalesce or
+    /// cap its update. It MUST still advance the `Chat` state, and log the
+    /// Chat as updated for `Chat/changes`, whenever the stored value
+    /// changes (RFC 8620 §5.1: "If the data changes, this string MUST
+    /// change").
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `false`, the exact upkeep the spec's SHOULD asks for. A
+    /// backend for which the per-event rewrite costs too much (it scans
+    /// every Message in the account) overrides this to `true`.
+    fn maintains_unread_count(&self) -> bool {
+        false
+    }
+
     /// Whether the [`ChatContact`] `contact_id` has `blocked: true` on the
     /// contact list of `account_id`.
     ///
