@@ -1,15 +1,15 @@
-//! `ChatContact/set` create with the optional `did` (bd:JMAP-8tuq.2).
+//! `ChatContact/set` create rejects a client-supplied `did`
+//! (bd:JMAP-0x0q.12).
 //!
-//! Oracle: draft-atwood-jmap-chat-did-00 (jmap-chat-spec 3227c0f)
-//! §Optional `did` field, L160-163: "ChatContacts MAY carry an optional
-//! `did` field to accommodate the pseudonymous case, in which a stable
-//! `identity` that is not a DID is preserved" and "`did` (String,
-//! optional): A DID URI ({{DID-CORE}}) bound to this ChatContact". RFC 8620
-//! §5.3 `invalidProperties`: "The record given is invalid in some way",
-//! with "a property called `properties` with the list of invalid
-//! properties". `did:web:w3c-ccg.github.io:user:alice` is the did:web
-//! method specification's example; DID Core §3.1 ABNF: `did = "did:"
-//! method-name ":" method-specific-id`.
+//! Oracle: draft-atwood-jmap-chat-did-00 (jmap-chat-spec 6bcd9d8)
+//! §Optional `did` field, L201: "`did` (String, optional): A
+//! DID-referencing property ... It is server-set (`ChatContact/set` create
+//! accepts only `identity`); how the server learns the value is
+//! deployment-defined." RFC 8620 §5.3 `invalidProperties`: "The record
+//! given is invalid in some way", with "a property called `properties`
+//! with the list of invalid properties".
+//! `did:web:w3c-ccg.github.io:user:alice` is the did:web method
+//! specification's example.
 
 mod common;
 
@@ -36,79 +36,58 @@ async fn create(backend: &MemoryBackend, obj: Value) -> Value {
     resp
 }
 
-async fn get(backend: &MemoryBackend, id: &str) -> Value {
+async fn get_all(backend: &MemoryBackend) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_contact_get(
         backend,
         &(),
-        json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+        json!({ "accountId": ACCOUNT_ID, "ids": null }),
     )
     .await
     .expect("ChatContact/get");
-    resp["list"][0].clone()
+    resp["list"].clone()
 }
 
-/// The pseudonymous case: a non-DID `identity` with a bound `did` is
-/// created, and `/get` returns the `did`.
+/// "create accepts only `identity`" (L201): a create carrying `did`, be it
+/// a valid DID, a non-DID string, a non-string or `null`, is rejected
+/// with `invalidProperties` naming `did`, and nothing is recorded.
 #[tokio::test]
-async fn create_with_did_stores_it() {
-    let backend = backend();
-    let resp = create(
-        &backend,
-        json!({
-            "identity": "alice@example.com",
-            "did": "did:web:w3c-ccg.github.io:user:alice"
-        }),
-    )
-    .await;
-
-    assert!(resp["notCreated"].is_null(), "{resp}");
-    let id = resp["created"]["k1"]["id"]
-        .as_str()
-        .unwrap_or_else(|| panic!("created.k1.id missing: {resp}"))
-        .to_owned();
-    let contact = get(&backend, &id).await;
-    assert_eq!(contact["identity"], json!("alice@example.com"));
-    assert_eq!(
-        contact["did"],
-        json!("did:web:w3c-ccg.github.io:user:alice")
-    );
-}
-
-/// `did` is "A DID URI": `alice@example.com` lacks the ABNF's `"did:"`
-/// prefix, and `42` is not a String. Each is rejected with
-/// `invalidProperties` naming `did`, and nothing is recorded.
-#[tokio::test]
-async fn create_with_invalid_did_rejected() {
-    for bad in [json!("alice@example.com"), json!(42)] {
+async fn create_with_did_rejected() {
+    for did in [
+        json!("did:web:w3c-ccg.github.io:user:alice"),
+        json!("alice@example.com"),
+        json!(42),
+        json!(null),
+    ] {
         let backend = backend();
         let resp = create(
             &backend,
-            json!({ "identity": "alice@example.com", "did": bad }),
+            json!({ "identity": "alice@example.com", "did": did }),
         )
         .await;
 
-        assert!(resp["created"]["k1"].is_null(), "{resp}");
+        assert!(resp["created"]["k1"].is_null(), "{did}: {resp}");
         assert_eq!(
             resp["notCreated"]["k1"],
-            json!({ "type": "invalidProperties", "properties": ["did"] })
+            json!({ "type": "invalidProperties", "properties": ["did"] }),
+            "{did}"
         );
-        let retry = create(&backend, json!({ "identity": "alice@example.com" })).await;
-        assert!(retry["created"]["k1"]["id"].is_string(), "{retry}");
+        assert_eq!(get_all(&backend).await, json!([]), "{did}");
     }
 }
 
-/// "When absent, no DID is bound to this ChatContact" (L163). A `null`
-/// `did` reads as absent, as for other optional create properties.
+/// The same create without `did` succeeds, and no DID is bound: "When
+/// absent, no DID is bound to this ChatContact" (L201).
 #[tokio::test]
-async fn create_with_null_did_binds_none() {
+async fn create_without_did_binds_none() {
     let backend = backend();
-    let resp = create(
-        &backend,
-        json!({ "identity": "alice@example.com", "did": null }),
-    )
-    .await;
+    let resp = create(&backend, json!({ "identity": "alice@example.com" })).await;
 
     assert!(resp["notCreated"].is_null(), "{resp}");
-    let id = resp["created"]["k1"]["id"].as_str().expect("id").to_owned();
-    assert!(get(&backend, &id).await.get("did").is_none());
+    assert_eq!(
+        resp["created"]["k1"]["identity"],
+        json!("alice@example.com")
+    );
+    let list = get_all(&backend).await;
+    assert_eq!(list.as_array().map(Vec::len), Some(1), "{list}");
+    assert!(list[0].get("did").is_none(), "{list}");
 }

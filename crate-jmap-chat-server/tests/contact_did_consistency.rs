@@ -1,15 +1,14 @@
-//! `ChatContact/set` create enforces the identity/did consistency rule
-//! (bd:JMAP-8tuq.3).
+//! A client cannot create a ChatContact that breaks the identity/did
+//! consistency rule (bd:JMAP-8tuq.3, bd:JMAP-0x0q.12).
 //!
-//! Oracle: draft-atwood-jmap-chat-did-00 (jmap-chat-spec 3227c0f).
-//! L165: "If `did` is present AND `identity` parses as a DID URI, the two
-//! MUST refer to the same DID. A server detecting a mismatch (the parsed
-//! DID from `identity` differs from the DID in `did`) MUST treat the
-//! ChatContact record as invalid and MUST NOT use either DID for
-//! authentication." L264: "Implementations MUST enforce the consistency
-//! rule; failure to do so is a security bug." RFC 8620 §5.3
-//! `invalidProperties`: "The record given is invalid in some way", with
-//! "a property called `properties` with the list of invalid properties".
+//! Oracle: draft-atwood-jmap-chat-did-00 (jmap-chat-spec 6bcd9d8).
+//! L201: `did` "is server-set (`ChatContact/set` create accepts only
+//! `identity`)". L203: "If `did` is present AND `identity` parses as a DID
+//! URI, the two MUST refer to the same DID." L291: the rule "defends
+//! against impersonation in which an attacker submits a ChatContact with
+//! an `identity` they control and a `did` belonging to a different
+//! principal." RFC 8620 §5.3 `invalidProperties`: "a property called
+//! `properties` with the list of invalid properties".
 //! `did:example:123456789abcdefghi` is the DID Core §3.1 example DID and
 //! `did:web:w3c-ccg.github.io:user:alice` is the did:web method
 //! specification's example.
@@ -53,46 +52,46 @@ async fn get_all(backend: &MemoryBackend) -> Value {
     resp["list"].clone()
 }
 
-/// The attack L264 names: "an `identity` they control and a `did`
-/// belonging to a different principal". The record is invalid (L165), so
-/// the create is rejected with `invalidProperties` and nothing is stored.
+/// The attack L291 names: a DID-form `identity` the attacker controls and
+/// another principal's `did`. Since `did` is server-set (L201), the create
+/// is rejected naming `did` and nothing is stored.
 #[tokio::test]
 async fn create_with_mismatched_did_rejected() {
     let backend = backend();
     let resp = create(&backend, json!({ "identity": DID_A, "did": DID_B })).await;
 
     assert!(resp["created"]["k1"].is_null(), "{resp}");
-    let err = &resp["notCreated"]["k1"];
-    assert_eq!(err["type"], json!("invalidProperties"), "{resp}");
-    assert_eq!(err["properties"], json!(["identity", "did"]), "{resp}");
+    assert_eq!(
+        resp["notCreated"]["k1"],
+        json!({ "type": "invalidProperties", "properties": ["did"] }),
+        "{resp}"
+    );
     assert_eq!(get_all(&backend).await, json!([]));
 }
 
-/// "the two MUST refer to the same DID" (L165): a DID-form `identity`
-/// with the same DID in `did` is consistent and is created.
+/// A consistent pair is still a client-supplied `did`, so it is rejected
+/// too (L201).
 #[tokio::test]
-async fn create_with_matching_did_accepted() {
+async fn create_with_matching_did_rejected() {
     let backend = backend();
     let resp = create(&backend, json!({ "identity": DID_B, "did": DID_B })).await;
 
-    assert!(resp["notCreated"].is_null(), "{resp}");
-    assert_eq!(resp["created"]["k1"]["identity"], json!(DID_B), "{resp}");
-    assert_eq!(resp["created"]["k1"]["did"], json!(DID_B), "{resp}");
+    assert!(resp["created"]["k1"].is_null(), "{resp}");
+    assert_eq!(
+        resp["notCreated"]["k1"],
+        json!({ "type": "invalidProperties", "properties": ["did"] }),
+        "{resp}"
+    );
 }
 
-/// The rule applies only "If `did` is present AND `identity` parses as a
-/// DID URI" (L165). A DID-form `identity` without `did`, and the
-/// pseudonymous non-DID `identity` with `did` (L160), are both created.
+/// A DID-form `identity` alone is created with no `did` bound, so the
+/// L203 rule's precondition ("`did` is present") does not hold.
 #[tokio::test]
-async fn create_outside_rule_preconditions_accepted() {
-    for obj in [
-        json!({ "identity": DID_A }),
-        json!({ "identity": DID_A, "did": null }),
-        json!({ "identity": "alice@example.com", "did": DID_B }),
-    ] {
-        let backend = backend();
-        let resp = create(&backend, obj.clone()).await;
-        assert!(resp["notCreated"].is_null(), "{obj}: {resp}");
-        assert!(resp["created"]["k1"]["id"].is_string(), "{obj}: {resp}");
-    }
+async fn create_with_did_identity_binds_no_did() {
+    let backend = backend();
+    let resp = create(&backend, json!({ "identity": DID_A })).await;
+
+    assert!(resp["notCreated"].is_null(), "{resp}");
+    assert_eq!(resp["created"]["k1"]["identity"], json!(DID_A), "{resp}");
+    assert!(resp["created"]["k1"].get("did").is_none(), "{resp}");
 }
