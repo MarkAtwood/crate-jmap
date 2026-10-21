@@ -369,12 +369,24 @@ async fn visual_ref_and_visual_type_go_together() {
 
 #[tokio::test]
 async fn visual_ref_must_reference_an_uploaded_blob() {
-    // L1668 "`visualRef` does not reference a valid blob | The blobId must
-    // have been previously uploaded" is `notFound`.
+    // 6bcd9d8 L1769 lists "`visualRef` does not reference a valid blob |
+    // The blobId must have been previously uploaded via the JMAP upload
+    // endpoint." under create `invalidProperties`.
     let backend = setup();
     let mut c = sculpture();
     c["visualRef"] = json!("blob-never-uploaded");
-    assert_eq!(create_error(&backend, c).await["type"], "notFound");
+    assert_invalid(&create_error(&backend, c).await, &["visualRef"]);
+}
+
+#[tokio::test]
+async fn update_to_unknown_visual_ref_names_visual_ref() {
+    // L1809 "Same field-level validations as create"; L1769 lists
+    // "`visualRef` does not reference a valid blob" under create
+    // `invalidProperties`.
+    let backend = setup();
+    let id = create(&backend, sculpture()).await;
+    let err = update_error(&backend, &id, json!({ "visualRef": "blob-never-uploaded" })).await;
+    assert_invalid(&err, &["visualRef"]);
 }
 
 #[tokio::test]

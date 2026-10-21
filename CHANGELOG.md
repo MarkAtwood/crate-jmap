@@ -1077,6 +1077,13 @@ wire behaviour that a conforming peer can observe.
 ### Changed
 
 - **BREAKING** **jmap-scene-server**: `SceneObject/set` create or update
+  whose `visualRef` names no uploaded blob now fails with
+  `invalidProperties` naming `visualRef` (was `notFound`), per
+  draft-atwood-jmap-scene-00 §SceneObject/set Create Errors
+  `invalidProperties`: "`visualRef` does not reference a valid blob", and
+  Update Errors: "Same field-level validations as create".
+
+- **BREAKING** **jmap-scene-server**: `SceneObject/set` create or update
   whose `parentId` names no existing SceneObject now fails with
   `invalidProperties` naming `parentId` (was `notFound`), per
   draft-atwood-jmap-scene-00 §SceneObject/set Create Errors
