@@ -391,14 +391,15 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(Vec::new()) }
     }
 
-    /// `true` if the caller may enter `region`. `SceneAvatar/set` create,
-    /// and an update that re-enters a region (after
-    /// [`Self::may_access_region`] admitted the caller), return
-    /// `forbidden` when this is `false`: "`accessPolicy` is
-    /// `\"invite\"` and the caller has not been granted access, or
-    /// `\"space\"` and the caller is not a member of the bound Space", and
-    /// "User is banned or ejected with a cooldown period still active"
-    /// (draft-atwood-jmap-scene-00 §Create Errors).
+    /// `true` unless the caller is barred from entering `region`, which
+    /// it already has access to: "User is banned or ejected with a
+    /// cooldown period still active" (draft-atwood-jmap-scene-00
+    /// §Create Errors). `SceneAvatar/set` create and an update that
+    /// re-enters a region return `forbidden` when this is `false`, since
+    /// "The user already knows the region exists". Access under the
+    /// region's `accessPolicy` is [`Self::may_access_region`], not this
+    /// hook: a create without it is `invalidProperties` naming
+    /// `regionId`, a re-entry `notFound`.
     ///
     /// # Default implementation
     ///

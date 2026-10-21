@@ -21,12 +21,8 @@
 //! # Avatars
 //!
 //! [`SceneBackend::caller_user_id`] is the caller.
-//! [`SceneBackend::may_enter_region`] refuses an `"invite"` region to
-//! everyone but its owner, the admins, the users in its `invitedUserIds`,
-//! the users given access with `grant_region_access` (one of the "other
-//! mechanisms" an `"invite"` region MAY admit by) and the users with an
-//! active avatar in it; other policies admit everyone (there are no
-//! Spaces here). [`SceneBackend::may_eject_avatar`] allows the avatar's
+//! [`SceneBackend::may_enter_region`] refuses the users barred from a
+//! region with `ban_from_region`. [`SceneBackend::may_eject_avatar`] allows the avatar's
 //! region owner and the admins. Each region's `activeAvatarCount` is
 //! recomputed from its avatars with `leftAt` `null` whenever an avatar
 //! enters or leaves.
@@ -39,9 +35,12 @@
 //!
 //! # Visibility
 //!
-//! [`SceneBackend::may_access_region`] applies the `"invite"` rule of
-//! [`SceneBackend::may_enter_region`] and admits everyone to a region that
-//! is not stored. `hide_object` takes an object out of one user's
+//! [`SceneBackend::may_access_region`] refuses an `"invite"` region to
+//! everyone but its owner, the admins, the users in its `invitedUserIds`,
+//! the users given access with `grant_region_access` (one of the "other
+//! mechanisms" an `"invite"` region MAY admit by) and the users with an
+//! active avatar in it; other policies, and a region that is not stored,
+//! admit everyone (there are no Spaces here). `hide_object` takes an object out of one user's
 //! visibility set, for [`SceneBackend::is_object_visible`]; `block` makes
 //! one user blocked by another, for [`SceneBackend::is_user_blocked`].
 //! `reserve_display_name` adds a name to the list
@@ -148,6 +147,8 @@ struct Inner {
     bindings: HashMap<(String, String), BindingTarget>,
     /// `(region id, userId)` pairs granted access to an `"invite"` region.
     grants: HashSet<(String, String)>,
+    /// `(region id, userId)` pairs barred from entering the region.
+    bans: HashSet<(String, String)>,
     /// `(userId, object id)` pairs outside that user's visibility set.
     hidden: HashSet<(String, Id)>,
     /// UserIds whose interactions [`SceneBackend::accept_interaction`]
@@ -421,6 +422,15 @@ impl MemoryBackend {
     pub fn grant_region_access(&self, region_id: &str, user: &str) {
         self.lock()
             .grants
+            .insert((region_id.to_owned(), user.to_owned()));
+    }
+
+    /// Bar `user` from entering region `region_id`, for
+    /// [`SceneBackend::may_enter_region`].
+    #[doc(hidden)]
+    pub fn ban_from_region(&self, region_id: &str, user: &str) {
+        self.lock()
+            .bans
             .insert((region_id.to_owned(), user.to_owned()));
     }
 
@@ -1066,11 +1076,13 @@ impl SceneBackend for MemoryBackend {
     async fn may_enter_region(
         &self,
         caller: &String,
-        account_id: &Id,
+        _account_id: &Id,
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
-        // "Access covers both seeing the region ... and entering it."
-        Ok(self.lock().admits(caller, account_id, region))
+        Ok(!self
+            .lock()
+            .bans
+            .contains(&(region.id.as_ref().to_owned(), caller.clone())))
     }
 
     async fn may_access_region(
