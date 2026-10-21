@@ -11,6 +11,7 @@
 pub mod graph;
 pub mod graph_edge;
 pub mod graph_node;
+pub mod graph_node_op;
 
 use std::collections::BTreeMap;
 
@@ -49,6 +50,14 @@ pub(crate) const USING_GRAPH_PROJECTION: &[&str] = &[
     "urn:ietf:params:jmap:core",
     jmap_graph_types::JMAP_GRAPH_URI,
     jmap_graph_types::JMAP_GRAPH_PROJECTION_URI,
+];
+
+/// Capability URIs for a draft-atwood-jmap-graph-edit-00 call
+/// (`GraphNodeOp/*`, `GraphNode/cursor`).
+pub(crate) const USING_GRAPH_EDIT: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    jmap_graph_types::JMAP_GRAPH_URI,
+    jmap_graph_types::JMAP_GRAPH_EDIT_URI,
 ];
 
 // ---------------------------------------------------------------------------
@@ -229,7 +238,7 @@ impl SessionClient {
 
     /// Send `args` as a single `method` invocation under `using` and
     /// extract the typed result for [`CALL_ID`].
-    async fn invoke<T: DeserializeOwned>(
+    pub(crate) async fn invoke<T: DeserializeOwned>(
         &self,
         api_url: &str,
         method: &str,
@@ -241,10 +250,12 @@ impl SessionClient {
         jmap_base_client::extract_response(&resp, CALL_ID)
     }
 
-    /// RFC 8620 §5.1 `/get`. `ids` and `properties` are omitted when `None`.
+    /// RFC 8620 §5.1 `/get` under `using`. `ids` and `properties` are
+    /// omitted when `None`.
     pub(crate) async fn standard_get<T: DeserializeOwned>(
         &self,
         method: &str,
+        using: &[&str],
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<T>, jmap_base_client::ClientError> {
@@ -256,14 +267,15 @@ impl SessionClient {
         if let Some(props) = properties {
             args["properties"] = to_arg(method, "properties", props)?;
         }
-        self.invoke(api_url, method, args, USING_GRAPH).await
+        self.invoke(api_url, method, args, using).await
     }
 
-    /// RFC 8620 §5.2 `/changes`. An empty `since_state` is rejected before
+    /// RFC 8620 §5.2 `/changes` under `using`. An empty `since_state` is rejected before
     /// any I/O: it is never a valid state token.
     pub(crate) async fn standard_changes(
         &self,
         method: &str,
+        using: &[&str],
         since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
@@ -280,14 +292,15 @@ impl SessionClient {
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
         }
-        self.invoke(api_url, method, args, USING_GRAPH).await
+        self.invoke(api_url, method, args, using).await
     }
 
-    /// RFC 8620 §5.3 `/set`. At least one of `create`, `update`, `destroy`
+    /// RFC 8620 §5.3 `/set` under `using`. At least one of `create`, `update`, `destroy`
     /// must be `Some`.
     pub(crate) async fn standard_set(
         &self,
         method: &str,
+        using: &[&str],
         create: Option<serde_json::Value>,
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
@@ -309,7 +322,7 @@ impl SessionClient {
         if let Some(d) = destroy {
             args["destroy"] = to_arg(method, "destroy", &d)?;
         }
-        self.invoke(api_url, method, args, USING_GRAPH).await
+        self.invoke(api_url, method, args, using).await
     }
 
     /// RFC 8620 §5.5 `/query` with `filter`, `sort`, `position` and `limit`
@@ -440,6 +453,22 @@ mod tests {
                 "urn:ietf:params:jmap:core",
                 "urn:ietf:params:jmap:graph",
                 "urn:ietf:params:jmap:graph:projection"
+            ])
+        );
+    }
+
+    /// Oracle: draft-atwood-jmap-graph-edit-00 (jmap-chat-spec 6bcd9d8)
+    /// L414-L418, the `using` array of "Loading a node".
+    #[test]
+    fn using_graph_edit_adds_edit() {
+        let req = build_request("GraphNodeOp/get", json!({}), USING_GRAPH_EDIT);
+        let v = serde_json::to_value(&req).expect("serialize");
+        assert_eq!(
+            v["using"],
+            json!([
+                "urn:ietf:params:jmap:core",
+                "urn:ietf:params:jmap:graph",
+                "urn:ietf:params:jmap:graph:edit"
             ])
         );
     }

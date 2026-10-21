@@ -2069,12 +2069,14 @@ dependencies = [
 name = "jmap-graph-client"
 version = "0.3.0"
 dependencies = [
+ "futures",
  "jmap-base-client",
  "jmap-graph-types",
  "jmap-types",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
  "wiremock",
 ]
 

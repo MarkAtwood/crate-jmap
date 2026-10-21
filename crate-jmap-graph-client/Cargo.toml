@@ -7,7 +7,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = false
-description = "JMAP Graph client (draft-atwood-jmap-graph-00) — Graph, GraphNode and GraphEdge method bindings over jmap-base-client"
+description = "JMAP Graph client (draft-atwood-jmap-graph-00, -graph-edit-00) — Graph, GraphNode, GraphEdge and GraphNodeOp method bindings over jmap-base-client"
 keywords = ["jmap", "graph", "client"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
 
@@ -19,5 +19,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+futures = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
+tokio-tungstenite = { workspace = true }
 wiremock = { workspace = true }
