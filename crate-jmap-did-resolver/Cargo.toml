@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "did:key, did:web and did:plc resolution with a refresh-on-failure cache for the jmap-* crates"
+description = "did:key, did:web, did:plc and did:webvh resolution with a refresh-on-failure cache for the jmap-* crates"
 keywords = ["jmap", "did", "resolver", "identity"]
 categories = ["network-programming", "asynchronous"]
 

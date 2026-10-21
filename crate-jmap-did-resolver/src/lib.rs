@@ -6,7 +6,8 @@
 //! those pure helpers check, and caches the result.
 //!
 //! [`Resolver`] covers the three methods draft-atwood-jmap-chat-did-00
-//! §Mandatory DID Methods requires:
+//! §Mandatory DID Methods requires, and the `did:webvh` it recommends
+//! (L179 at jmap-chat-spec 6bcd9d8):
 //!
 //! - `did:key`: the document is derived from the DID
 //!   ([`DidKey::document`]). No fetch,
@@ -20,6 +21,11 @@
 //!   (draft-atwood-jmap-chat-did-00 L175 at jmap-chat-spec 6bcd9d8:
 //!   resolution "including the operation-log integrity check defined by
 //!   that protocol").
+//! - `did:webvh`: a GET of the DID log at [`webvh_log_url`], verified
+//!   by [`verify_webvh_log`] (draft-atwood-jmap-did-00 L352 at 6bcd9d8
+//!   resolves it "as defined in {{DID-WEBVH}}"). When the log needs
+//!   witnessing, the `did-witness.json` beside it is fetched too and the
+//!   log verified again with it.
 //!
 //! ## Caching
 //!
@@ -45,6 +51,24 @@
 //! proceed with stale cached state when the cache entry has been
 //! explicitly invalidated, including by the refresh requirement above."
 //!
+//! ## `did:webvh` versions
+//!
+//! A `did:webvh` resolves to the whole verified [`WebvhLog`]: take
+//! [`WebvhLog::current`] for a request being received, and
+//! [`Resolver::resolve_webvh_version`] for an object accepted earlier
+//! under a recorded `versionId` (draft-atwood-jmap-did-00 L358).
+//!
+//! Beside the TTL cache, the resolver keeps the newest verified log of
+//! each `did:webvh` DID. It is not dropped by expiry or [`Resolver::refresh`]
+//! and serves version lookups, because a verified version never changes.
+//! It is also the rollback check of DIF did:webvh v1.0 §Security
+//! Considerations: "Resolvers **SHOULD** remember the latest `versionId`
+//! previously observed for a DID and **SHOULD** warn or fail resolution
+//! when presented with a truncated log." A fetched log that lacks that
+//! `versionId` fails with [`ResolveError::WebvhRollback`]. A log with an
+//! invalid entry is returned but not cached: "resolvers **SHOULD NOT**
+//! cache a DID that fails verification."
+//!
 //! Network access goes through the [`Fetch`] trait. [`HttpFetcher`] is
 //! the reqwest implementation; tests and deployments with their own HTTP
 //! stack supply another.
@@ -55,10 +79,11 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::sync::{Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use jmap_did_types::{
-    verify_plc_audit_log, Did, DidKey, DidKeyError, PlcError, PlcState, PlcStatus,
+    verify_plc_audit_log, verify_webvh_log, webvh_log_url, Did, DidKey, DidKeyError, PlcError,
+    PlcState, PlcStatus, WebvhError, WebvhLog, WebvhVersion,
 };
 use serde_json::Value;
 
@@ -182,6 +207,10 @@ pub enum Resolved {
     Document(Value),
     /// The verified current state of an active `did:plc`.
     Plc(PlcState),
+    /// The verified DID log of a `did:webvh`. Its
+    /// [`current`](WebvhLog::current) version is `None` when an entry is
+    /// invalid or the DID is deactivated.
+    Webvh(WebvhLog),
 }
 
 /// Error from [`Resolver::resolve`] or [`Resolver::refresh`].
@@ -197,13 +226,15 @@ pub enum Resolved {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ResolveError {
-    /// The DID method is not `key`, `web` or `plc`.
+    /// The DID method is not `key`, `web`, `plc` or `webvh`, or not
+    /// `webvh` for [`Resolver::resolve_webvh_version`].
     #[error("DID method {0:?} is not supported")]
     UnsupportedMethod(String),
     /// A `did:web` with no usable domain (see
-    /// [`Did::web_domain`]), or a
-    /// `did:plc` whose identifier is not 24 base32 characters.
-    #[error("DID is not a valid did:web or did:plc identifier")]
+    /// [`Did::web_domain`]), a
+    /// `did:plc` whose identifier is not 24 base32 characters, or a
+    /// `did:webvh` with no [`webvh_log_url`].
+    #[error("DID is not a valid did:web, did:plc or did:webvh identifier")]
     InvalidDid,
     /// A `did:key` that does not decode.
     #[error("did:key does not decode")]
@@ -223,6 +254,17 @@ pub enum ResolveError {
     /// The `did:plc` is not active: its latest operation is a tombstone.
     #[error("did:plc is deactivated")]
     Deactivated,
+    /// The `did:webvh` log failed verification.
+    #[error("did:webvh log failed verification")]
+    Webvh(#[source] WebvhError),
+    /// The fetched `did:webvh` log does not contain the latest `versionId`
+    /// this resolver verified before: it is truncated or forked.
+    #[error("did:webvh log lacks a versionId seen before")]
+    WebvhRollback,
+    /// No verified version of the `did:webvh` has the requested
+    /// `versionId`.
+    #[error("did:webvh versionId not found")]
+    VersionNotFound,
 }
 
 /// A clock for cache expiry.
@@ -233,8 +275,8 @@ struct Entry {
     fetched_at: Instant,
 }
 
-/// Resolves `did:key`, `did:web` and `did:plc` DIDs and caches fetched
-/// results for a fixed TTL.
+/// Resolves `did:key`, `did:web`, `did:plc` and `did:webvh` DIDs and
+/// caches fetched results for a fixed TTL.
 ///
 /// An expired entry is fetched again on its next use; a failed fetch is
 /// an error, never a stale result.
@@ -249,6 +291,10 @@ pub struct Resolver<F> {
     /// When each DID was last force-refreshed. Kept apart from `cache` so
     /// that dropping an entry does not reset the limit.
     refreshed: Mutex<HashMap<Did, Instant>>,
+    /// The newest verified log of each `did:webvh` DID and when it was
+    /// stored: the rollback reference and the version store. Kept apart
+    /// from `cache` so that expiry and refresh do not drop it.
+    webvh: Mutex<HashMap<Did, (WebvhLog, Instant)>>,
 }
 
 impl<F: std::fmt::Debug> std::fmt::Debug for Resolver<F> {
@@ -277,6 +323,7 @@ impl<F: Fetch> Resolver<F> {
             clock: Box::new(Instant::now),
             cache: Mutex::new(HashMap::new()),
             refreshed: Mutex::new(HashMap::new()),
+            webvh: Mutex::new(HashMap::new()),
         }
     }
 
@@ -287,10 +334,11 @@ impl<F: Fetch> Resolver<F> {
         self
     }
 
-    /// Caches at most `max_entries` DIDs, and remembers the last forced
-    /// refresh of at most `max_entries` DIDs. Inserting into a full cache
+    /// Caches at most `max_entries` DIDs, remembers the last forced
+    /// refresh of at most `max_entries` DIDs, and keeps the newest log of
+    /// at most `max_entries` `did:webvh` DIDs. Inserting into a full cache
     /// drops the expired entries, then the oldest one; the refresh record
-    /// does the same.
+    /// does the same, and the log store drops the oldest.
     pub fn with_max_entries(mut self, max_entries: NonZeroUsize) -> Self {
         self.max_entries = max_entries;
         self
@@ -333,6 +381,42 @@ impl<F: Fetch> Resolver<F> {
         }
     }
 
+    /// Resolves the version of a `did:webvh` DID whose `versionId` is
+    /// `version_id`: the version in effect when an object was accepted
+    /// (draft-atwood-jmap-did-00 L358 at jmap-chat-spec 6bcd9d8: "verify
+    /// against that version").
+    ///
+    /// A version is looked up first in the newest log verified for `did`,
+    /// which neither expiry nor [`refresh`](Self::refresh) drops, then in
+    /// the result of [`resolve`](Self::resolve). A `versionId` newer than
+    /// the cached log is found only after a [`refresh`](Self::refresh).
+    ///
+    /// # Errors
+    ///
+    /// [`ResolveError::UnsupportedMethod`] when `did` is not a
+    /// `did:webvh`; [`ResolveError::VersionNotFound`] when no verified
+    /// version has `version_id`; otherwise as [`resolve`](Self::resolve).
+    pub async fn resolve_webvh_version(
+        &self,
+        did: &Did,
+        version_id: &str,
+    ) -> Result<WebvhVersion, ResolveError> {
+        if did.method() != "webvh" {
+            return Err(ResolveError::UnsupportedMethod(did.method().to_owned()));
+        }
+        let stored = relock(&self.webvh)
+            .get(did)
+            .and_then(|(log, _)| log.version(version_id).cloned());
+        if let Some(version) = stored {
+            return Ok(version);
+        }
+        match self.resolve(did).await? {
+            Resolved::Webvh(log) => log.version(version_id).cloned(),
+            _ => None,
+        }
+        .ok_or(ResolveError::VersionNotFound)
+    }
+
     /// Drops the cached entry for `did` and resolves it again, unless
     /// `did` was last refreshed this way less than the refresh interval
     /// ago ([`with_refresh_interval`](Self::with_refresh_interval)): then
@@ -372,18 +456,24 @@ impl<F: Fetch> Resolver<F> {
         if refreshed.len() >= self.max_entries.get() && !refreshed.contains_key(did) {
             refreshed.retain(|_, at| fresh(at));
         }
-        if refreshed.len() >= self.max_entries.get() && !refreshed.contains_key(did) {
-            // ponytail: O(n) scan, as for the cache below.
-            let oldest = refreshed
-                .iter()
-                .min_by_key(|(_, at)| **at)
-                .map(|(did, _)| did.clone());
-            if let Some(oldest) = oldest {
-                refreshed.remove(&oldest);
-            }
-        }
+        self.make_room(&mut refreshed, did, |at| *at);
         refreshed.insert(did.clone(), now);
         true
+    }
+
+    /// Drops the oldest value of a full `map` that lacks `did`.
+    fn make_room<V>(&self, map: &mut HashMap<Did, V>, did: &Did, at: impl Fn(&V) -> Instant) {
+        if map.len() >= self.max_entries.get() && !map.contains_key(did) {
+            // ponytail: O(n) scan for the oldest entry, only on a full
+            // map. Swap in an LRU if that gets hot.
+            let oldest = map
+                .iter()
+                .min_by_key(|(_, value)| at(value))
+                .map(|(did, _)| did.clone());
+            if let Some(oldest) = oldest {
+                map.remove(&oldest);
+            }
+        }
     }
 
     fn lock(&self) -> MutexGuard<'_, HashMap<Did, Entry>> {
@@ -392,22 +482,15 @@ impl<F: Fetch> Resolver<F> {
 
     async fn fetch_and_store(&self, did: &Did) -> Result<Resolved, ResolveError> {
         let resolved = self.fetch(did).await?;
+        if matches!(&resolved, Resolved::Webvh(log) if log.invalid_entry().is_some()) {
+            return Ok(resolved);
+        }
         let now = (self.clock)();
         let mut cache = self.lock();
         if cache.len() >= self.max_entries.get() && !cache.contains_key(did) {
             cache.retain(|_, entry| now.duration_since(entry.fetched_at) < self.ttl);
         }
-        if cache.len() >= self.max_entries.get() && !cache.contains_key(did) {
-            // ponytail: O(n) scan for the oldest entry, only on a full
-            // cache with nothing expired. Swap in an LRU if that gets hot.
-            let oldest = cache
-                .iter()
-                .min_by_key(|(_, entry)| entry.fetched_at)
-                .map(|(did, _)| did.clone());
-            if let Some(oldest) = oldest {
-                cache.remove(&oldest);
-            }
-        }
+        self.make_room(&mut cache, did, |entry| entry.fetched_at);
         cache.insert(
             did.clone(),
             Entry {
@@ -440,9 +523,49 @@ impl<F: Fetch> Resolver<F> {
                     _ => Err(ResolveError::Deactivated),
                 }
             }
+            "webvh" => {
+                let url = webvh_log_url(did).ok_or(ResolveError::InvalidDid)?;
+                let log = self.fetcher.get(&url).await?;
+                let now = SystemTime::now();
+                let mut verified = verify_webvh_log(did, &log, None, now);
+                if lacks_witnesses(&verified) {
+                    // "replacing the `/did.jsonl` at the end of the DID Log
+                    // URL with `/did-witness.json`"
+                    let dir = url.rsplit_once('/').map_or(url.as_str(), |(dir, _)| dir);
+                    let witness = self.fetcher.get(&format!("{dir}/did-witness.json")).await?;
+                    verified = verify_webvh_log(did, &log, Some(&witness), now);
+                }
+                let log = verified.map_err(ResolveError::Webvh)?;
+                self.record_webvh(did, &log)?;
+                Ok(Resolved::Webvh(log))
+            }
             method => Err(ResolveError::UnsupportedMethod(method.to_owned())),
         }
     }
+
+    /// Fails when `log` lacks the latest `versionId` of the log stored for
+    /// `did`, and otherwise stores `log` as the newest.
+    fn record_webvh(&self, did: &Did, log: &WebvhLog) -> Result<(), ResolveError> {
+        let mut stored = relock(&self.webvh);
+        if let Some((seen, _)) = stored.get(did) {
+            if log.version(&seen.latest().version_id).is_none() {
+                return Err(ResolveError::WebvhRollback);
+            }
+        }
+        self.make_room(&mut stored, did, |(_, at)| *at);
+        stored.insert(did.clone(), (log.clone(), (self.clock)()));
+        Ok(())
+    }
+}
+
+/// Whether verifying without a witness proofs file found an entry that
+/// needs one.
+fn lacks_witnesses(verified: &Result<WebvhLog, WebvhError>) -> bool {
+    let error = match verified {
+        Ok(log) => log.invalid_entry().map(|(_, e)| e),
+        Err(e) => Some(e),
+    };
+    error == Some(&WebvhError::WitnessThreshold)
 }
 
 fn relock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

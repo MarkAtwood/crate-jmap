@@ -340,6 +340,62 @@ pub fn verify_webvh_log(
     })
 }
 
+/// The HTTPS URL of a `did:webvh` DID's `did.jsonl` log, by the v1.0
+/// DID-to-HTTPS Transformation: drop the SCID, percent-decode the domain
+/// once and apply IDNA, keep the port, percent-decode each path segment
+/// once and re-encode it per RFC 3986 with uppercase hex, use
+/// `/.well-known` when there is no path, then append `/did.jsonl`.
+///
+/// The witness proofs file is beside it: "replacing the `/did.jsonl` at
+/// the end of the DID Log URL with `/did-witness.json`".
+///
+/// This only maps the DID to a URL; fetching it is the caller's job. The
+/// return value is `None` when `did` is not a valid `did:webvh` DID.
+///
+/// # Example
+///
+/// ```
+/// use jmap_did_types::{webvh_log_url, Did};
+///
+/// let did: Did = "did:webvh:QmV2V5CSzH5w9UF4rHHAdktXL93ounugmgV2LXVCx9s2i9:example.com%3A3000:dids:issuer"
+///     .parse()?;
+/// assert_eq!(
+///     webvh_log_url(&did).as_deref(),
+///     Some("https://example.com:3000/dids/issuer/did.jsonl"),
+/// );
+/// # Ok::<(), jmap_did_types::DidError>(())
+/// ```
+pub fn webvh_log_url(did: &Did) -> Option<String> {
+    webvh_scid(did.as_str())?;
+    let mut components = did.method_specific_id().split(':').skip(1);
+    let domain = components.next()?;
+    let (host, port) = match domain.to_ascii_lowercase().find("%3a") {
+        Some(i) => (&domain[..i], Some(domain[i + 3..].parse::<u16>().ok()?)),
+        None => (domain, None),
+    };
+    let host = String::from_utf8(percent_decode(host)?).ok()?;
+    let mut url = format!("https://{}", idna::domain_to_ascii_strict(&host).ok()?);
+    if let Some(port) = port {
+        url.push_str(&format!(":{port}"));
+    }
+    let mut path = components.peekable();
+    if path.peek().is_none() {
+        url.push_str("/.well-known");
+    }
+    for segment in path {
+        url.push('/');
+        for b in percent_decode(segment)? {
+            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~') {
+                url.push(char::from(b));
+            } else {
+                url.push_str(&format!("%{b:02X}"));
+            }
+        }
+    }
+    url.push_str("/did.jsonl");
+    Some(url)
+}
+
 /// State carried from one log entry to the next.
 #[derive(Default)]
 struct Walk {

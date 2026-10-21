@@ -48,7 +48,8 @@
 //! - `did:plc`: [`verify_plc_audit_log`] verifies a PLC directory audit
 //!   log and returns the current [`PlcState`], and
 //!   [`PlcState::document`] presents that state as a DID document.
-//! - `did:webvh`: [`verify_webvh_log`] verifies a DID log and its witness
+//! - `did:webvh`: [`webvh_log_url`] maps the DID to the HTTPS URL of its
+//!   DID log, and [`verify_webvh_log`] verifies a DID log and its witness
 //!   proofs by the DIF did:webvh v1.0 rules and returns a [`WebvhLog`]
 //!   whose valid versions resolve by `versionId`.
 
@@ -66,5 +67,6 @@ pub use did::{Did, DidError};
 pub use key::{DidKey, DidKeyError, KeyType};
 pub use plc::{verify_plc_audit_log, PlcError, PlcService, PlcState, PlcStatus};
 pub use webvh::{
-    verify_webvh_log, WebvhError, WebvhLog, WebvhParameters, WebvhVersion, WebvhWitness,
+    verify_webvh_log, webvh_log_url, WebvhError, WebvhLog, WebvhParameters, WebvhVersion,
+    WebvhWitness,
 };
