@@ -389,13 +389,13 @@ async fn server_set_properties_are_refused_on_create() {
 }
 
 #[tokio::test]
-async fn unknown_parent_is_not_found() {
-    // L1667 "`parentId` does not reference an existing SceneObject" is
-    // `notFound`.
+async fn unknown_parent_names_parent_id() {
+    // L1768 lists "`parentId` does not reference an existing SceneObject"
+    // under create `invalidProperties`.
     let backend = setup();
     let mut c = bare(REGION);
     c["parentId"] = json!("01J5OBJNOPE000000000000000");
-    assert_eq!(create_error(&backend, c).await["type"], "notFound");
+    assert_invalid(&create_error(&backend, c).await, &["parentId"]);
 }
 
 #[tokio::test]
@@ -520,6 +520,22 @@ async fn reparenting_counts_the_moved_subtree_depth() {
     assert_invalid(&err, &["parentId"]);
     let resp = update(&backend, ALICE, &short[0], json!({ "parentId": long[12] })).await;
     assert!(resp["notUpdated"].is_null(), "{resp}");
+}
+
+#[tokio::test]
+async fn reparenting_to_unknown_parent_names_parent_id() {
+    // L1809 "Same field-level validations as create"; L1768 lists
+    // "`parentId` does not reference an existing SceneObject" under create
+    // `invalidProperties`.
+    let backend = setup();
+    let id = create(&backend, bare(REGION)).await;
+    let err = update_error(
+        &backend,
+        &id,
+        json!({ "parentId": "01J5OBJNOPE000000000000000" }),
+    )
+    .await;
+    assert_invalid(&err, &["parentId"]);
 }
 
 #[tokio::test]
