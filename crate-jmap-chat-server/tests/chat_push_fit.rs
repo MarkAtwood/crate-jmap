@@ -1,15 +1,15 @@
-//! Fitting a `ChatMessagePush` to a platform size limit (bd:JMAP-nbk3.9).
+//! Fitting a `ChatMessagePush` to a platform size limit (bd:JMAP-0x0q.15).
 //!
-//! Oracle: jmap-chat-push-platform-guide.md §Payload truncation at
-//! jmap-chat-spec commit 3227c0f. Each test quotes the sentence it enforces.
-//! Payloads and every expected truncation stage are hand-written JSON; byte
-//! limits are the lengths of those hand-written stages.
+//! Oracle: draft-atwood-jmap-chat-push-00.md §Delivery at jmap-chat-spec
+//! commit 6bcd9d8, lines 232 and 234. Each test quotes the sentence it
+//! enforces. Payloads and every expected result are hand-written JSON; byte
+//! limits are the lengths of those hand-written results.
 
 use jmap_chat_server::fit_chat_message_push;
 use jmap_chat_types::ChatMessagePush;
 use serde_json::{json, Value};
 
-/// One full channel entry with every droppable field present.
+/// One full channel entry with every optional field present.
 fn full_entry(n: u32) -> Value {
     json!({
         "messageId": format!("msg-{n}"),
@@ -28,13 +28,18 @@ fn full_entry(n: u32) -> Value {
     })
 }
 
-/// [`full_entry`] after every droppable field is gone.
-fn minimal_entry(n: u32) -> Value {
+/// [`full_entry`] without `bodySnippet`, every other field intact.
+fn no_snippet_entry(n: u32) -> Value {
     json!({
         "messageId": format!("msg-{n}"),
         "chatId": "chat-1",
         "chatKind": "channel",
+        "chatName": "general",
+        "spaceId": "space-1",
+        "spaceName": "Acme Engineering",
         "senderId": "contact-bob",
+        "senderDisplayName": "Bob Example",
+        "sentAt": "2026-10-19T12:00:00Z",
         "hasMention": true,
         "mentionScopes": ["everyone"],
         "encrypted": false,
@@ -58,87 +63,56 @@ fn len(v: &Value) -> usize {
     serde_json::to_vec(v).expect("serializable").len()
 }
 
-/// Fit `input` to `limit`, asserting the serialized result is within it.
-fn fit(input: &Value, limit: usize) -> Option<Value> {
-    fit_chat_message_push(push(input), limit).map(|p| {
-        let bytes = serde_json::to_vec(&p).expect("serializable");
-        assert!(bytes.len() <= limit, "{} > {limit}", bytes.len());
-        serde_json::from_slice(&bytes).expect("valid JSON")
-    })
+/// Fit `input` to `limit`, asserting each serialized payload is within it.
+fn fit(input: &Value, limit: usize) -> Vec<Option<Value>> {
+    fit_chat_message_push(push(input), limit)
+        .into_iter()
+        .map(|p| {
+            p.map(|p| {
+                let bytes = serde_json::to_vec(&p).expect("serializable");
+                assert!(bytes.len() <= limit, "{} > {limit}", bytes.len());
+                serde_json::from_slice(&bytes).expect("valid JSON")
+            })
+        })
+        .collect()
 }
 
-/// Remove `fields` from every entry of the hand-written payload `v`.
-fn without(v: &Value, fields: &[&str]) -> Value {
-    let mut v = v.clone();
-    for entry in v["messages"].as_array_mut().expect("messages array") {
-        let entry = entry.as_object_mut().expect("entry object");
-        for f in fields {
-            entry.remove(*f);
-        }
-    }
-    v
-}
-
-/// "servers SHOULD drop fields from `ChatMessageEntry` objects in this
-/// order until the payload fits: 1. `bodySnippet` ... 2. `spaceId` ...
-/// 3. `sentAt` ... 4. `spaceName` 5. `chatName` 6. `senderDisplayName`"
+/// "Servers keep each `ChatMessagePush` within the push platform's payload
+/// size limit": a payload within the limit is delivered unchanged.
 #[test]
-fn drops_fields_in_guide_order_until_it_fits() {
+fn leaves_a_fitting_payload_unchanged() {
     let full = payload(vec![full_entry(1), full_entry(2)]);
-    let order = [
-        "bodySnippet",
-        "spaceId",
-        "sentAt",
-        "spaceName",
-        "chatName",
-        "senderDisplayName",
-    ];
-    let stages: Vec<Value> = (0..=order.len())
-        .map(|k| without(&full, &order[..k]))
-        .collect();
-    assert_eq!(
-        stages[order.len()],
-        payload(vec![minimal_entry(1), minimal_entry(2)])
-    );
-    for (k, stage) in stages.iter().enumerate() {
-        assert_eq!(fit(&full, len(stage)).as_ref(), Some(stage), "stage {k}");
-        if let Some(next) = stages.get(k + 1) {
-            assert_eq!(fit(&full, len(stage) - 1).as_ref(), Some(next), "below {k}");
-        }
-    }
+    assert_eq!(fit(&full, len(&full)), vec![Some(full.clone())]);
+    assert_eq!(fit(&full, 3992), vec![Some(full)]);
 }
 
-/// "If the payload still exceeds the limit after all droppable fields are
-/// removed from every entry (typically due to a large batch), servers
-/// SHOULD drop entries from the end of the `messages` array, keeping the
-/// first entry."
+/// "If a single `ChatMessageEntry` does not fit, the server SHOULD shorten
+/// or omit that entry's `bodySnippet`": only `bodySnippet` goes, and
+/// `sentAt`, `spaceId`, `chatName` and the rest stay.
 #[test]
-fn drops_entries_from_the_end_keeping_the_first() {
-    let full = payload(vec![full_entry(1), full_entry(2), full_entry(3)]);
-    let two = payload(vec![minimal_entry(1), minimal_entry(2)]);
-    let one = payload(vec![minimal_entry(1)]);
-    assert_eq!(fit(&full, len(&two)), Some(two.clone()));
-    assert_eq!(fit(&full, len(&two) - 1), Some(one.clone()));
-    assert_eq!(fit(&full, len(&one)), Some(one));
+fn omits_only_body_snippet_from_an_entry_that_does_not_fit() {
+    let full = payload(vec![full_entry(1)]);
+    let trimmed = payload(vec![no_snippet_entry(1)]);
+    assert_eq!(fit(&full, len(&full) - 1), vec![Some(trimmed.clone())]);
+    assert_eq!(fit(&full, len(&trimmed)), vec![Some(trimmed)]);
 }
 
-/// "If a single minimal entry still exceeds the platform limit, servers
-/// MUST fall back to a plain `StateChange` for that subscription rather
-/// than sending an invalid or oversized payload."
+/// "if the entry still does not fit, the server delivers a `StateChange`
+/// for the `Message` data type in place of a `ChatMessagePush` for that
+/// message": no other field is stripped to make it fit.
 #[test]
-fn returns_none_when_one_minimal_entry_is_too_large() {
-    let full = payload(vec![full_entry(1), full_entry(2)]);
-    let one = payload(vec![minimal_entry(1)]);
-    assert_eq!(fit(&full, len(&one) - 1), None);
-    assert_eq!(fit(&full, 0), None);
+fn falls_back_when_the_entry_without_snippet_does_not_fit() {
+    let full = payload(vec![full_entry(1)]);
+    let trimmed = payload(vec![no_snippet_entry(1)]);
+    assert_eq!(fit(&full, len(&trimmed) - 1), vec![None]);
+    assert_eq!(fit(&full, 0), vec![None]);
 }
 
-/// "Servers MUST NOT drop: `@type`, `accountId`, `state` (on the outer
-/// object), `messageId`, `chatId`, `chatKind`, `senderId`, `hasMention`,
-/// `mentionScopes`, `encrypted`. (For an encrypted message `hasMention`
-/// and `mentionScopes` are absent from the start ...)"
+/// The fallback applies to an encrypted entry too, which has no
+/// `bodySnippet` to omit; its `chatName`, `senderDisplayName` and `sentAt`
+/// are never removed.
 #[test]
-fn keeps_must_keep_fields_for_encrypted_entry() {
+fn falls_back_for_an_encrypted_entry_that_does_not_fit() {
     let input = payload(vec![json!({
         "messageId": "msg-1",
         "chatId": "chat-1",
@@ -149,22 +123,40 @@ fn keeps_must_keep_fields_for_encrypted_entry() {
         "sentAt": "2026-10-19T12:00:00Z",
         "encrypted": true,
     })]);
-    let minimal = payload(vec![json!({
-        "messageId": "msg-1",
+    assert_eq!(fit(&input, len(&input)), vec![Some(input.clone())]);
+    assert_eq!(fit(&input, len(&input) - 1), vec![None]);
+}
+
+/// "if more matching messages are pending than the limit allows, the
+/// server MUST deliver additional `ChatMessagePush` payloads to cover the
+/// remainder": a batch over the size limit is split into one payload per
+/// message instead of losing entries.
+#[test]
+fn splits_an_oversized_batch_without_losing_entries() {
+    let full = payload(vec![full_entry(1), full_entry(2), full_entry(3)]);
+    let one = |n| payload(vec![full_entry(n)]);
+    assert_eq!(
+        fit(&full, len(&one(1))),
+        vec![Some(one(1)), Some(one(2)), Some(one(3))]
+    );
+}
+
+/// The split and the per-entry rule combine: each message's payload drops
+/// only its own `bodySnippet` when it alone does not fit.
+#[test]
+fn splits_then_omits_snippets_per_entry() {
+    let short = json!({
+        "messageId": "msg-2",
         "chatId": "chat-1",
         "chatKind": "group",
         "senderId": "contact-bob",
-        "encrypted": true,
-    })]);
-    assert_eq!(fit(&input, len(&minimal)), Some(minimal.clone()));
-    assert_eq!(fit(&input, len(&minimal) - 1), None);
-}
-
-/// "When a `ChatMessagePush` payload exceeds the platform size limit ...
-/// servers SHOULD drop fields": a payload within the limit is unchanged.
-#[test]
-fn leaves_a_fitting_payload_unchanged() {
-    let full = payload(vec![full_entry(1)]);
-    assert_eq!(fit(&full, len(&full)), Some(full.clone()));
-    assert_eq!(fit(&full, 3992), Some(full));
+        "encrypted": false,
+        "bodySnippet": "ok",
+    });
+    let full = payload(vec![full_entry(1), short.clone()]);
+    let trimmed = payload(vec![no_snippet_entry(1)]);
+    assert_eq!(
+        fit(&full, len(&trimmed)),
+        vec![Some(trimmed), Some(payload(vec![short]))]
+    );
 }

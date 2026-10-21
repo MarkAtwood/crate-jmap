@@ -527,10 +527,11 @@ wire behaviour that a conforming peer can observe.
   max_message_bytes)`, the explicit opt-in that also accepts plaintext
   `ws://` for local test rigs and examples.
 - **jmap-chat-server**: `fit_chat_message_push(push, max_bytes)` fits a
-  `ChatMessagePush` to a platform payload limit, dropping fields and then
-  trailing entries in the order of jmap-chat-push-platform-guide §Payload
-  truncation, and returns `None` when the caller must fall back to a plain
-  `StateChange`.
+  `ChatMessagePush` to a platform payload limit per
+  draft-atwood-jmap-chat-push-00 §Delivery. It returns the payloads to
+  deliver: an oversized batch is split into one payload per message, an
+  entry that still does not fit loses only its `bodySnippet`, and a `None`
+  element marks a message that gets a `StateChange` in its place.
 
 - **jmap-chat-types**: `ChatContact.did` (`Option<jmap_did_types::Did>`),
   the optional server-set DID bound to a ChatContact for the pseudonymous
