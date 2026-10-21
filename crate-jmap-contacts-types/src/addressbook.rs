@@ -15,7 +15,13 @@ use crate::collision::{self, CollisionError};
 /// Camel-case wire-format names of every typed field on
 /// [`AddressBookRights`]. Used by
 /// [`AddressBookRights::validate_extras`]. JMAP-glx8.25.
-const ADDRESS_BOOK_RIGHTS_TYPED_FIELDS: &[&str] = &["mayRead", "mayWrite", "mayShare", "mayDelete"];
+const ADDRESS_BOOK_RIGHTS_TYPED_FIELDS: &[&str] = &[
+    "mayRead",
+    "mayWrite",
+    "mayShare",
+    "mayDelete",
+    "maySetMetadata",
+];
 
 /// Camel-case wire-format names of every typed field on [`AddressBook`].
 /// Used by [`AddressBook::validate_extras`]. JMAP-glx8.25.
@@ -48,6 +54,12 @@ pub struct AddressBookRights {
     pub may_share: bool,
     /// User may delete the AddressBook itself.
     pub may_delete: bool,
+    /// User may modify the shared metadata of this AddressBook and of the
+    /// ContactCards in it (draft-ietf-jmap-metadata-04 §4.1).
+    /// `None` when the server omits it: the right is present only when the
+    /// metadata capability lists this type or a type it contains (§4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub may_set_metadata: Option<bool>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

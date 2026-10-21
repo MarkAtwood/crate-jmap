@@ -86,6 +86,13 @@ pub struct TaskRights {
     /// User may delete this task list itself (server-set).
     pub may_delete: bool,
 
+    /// User may modify the shared metadata of this task list and of the
+    /// tasks in it (draft-ietf-jmap-metadata-04 §4.1).
+    /// `None` when the server omits it: the right is present only when the
+    /// metadata capability lists this type or a type it contains (§4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub may_set_metadata: Option<bool>,
+
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
