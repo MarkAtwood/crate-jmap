@@ -894,10 +894,32 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     // expose a filter-by-kind query; a tighter fetch (Direct only)
                     // would be preferable but requires backend support (JMAP-63k.9).
                     if let Some(contact_id_str) = direct_contact_id_str.as_deref() {
-                        let (current_chats, _) = backend
+                        let current_chats = match backend
                             .get_objects::<Chat>(caller, &account_id, None, None)
                             .await
-                            .map_err(|e| server_fail_from_backend(&e))?;
+                        {
+                            Ok((chats, _)) => chats,
+                            Err(read_err) => {
+                                // The Chat (and earlier creates in this
+                                // batch) are already committed, so a
+                                // method-level serverFail would break
+                                // RFC 8620 §3.6.2 ("The method call made
+                                // no changes to the server's state").
+                                // Without the re-check the draft's
+                                // alreadyExists rule cannot be enforced,
+                                // so roll this create back and fail it
+                                // per id; the batch continues.
+                                let value = match backend
+                                    .destroy_object::<Chat>(caller, &account_id, &new_id)
+                                    .await
+                                {
+                                    Ok(()) => server_fail_value_from_backend(&read_err),
+                                    Err(e) => server_fail_value_from_backend(&e),
+                                };
+                                not_created.insert(create_id.clone(), value);
+                                continue;
+                            }
+                        };
                         let duplicates: Vec<&Chat> = current_chats
                             .iter()
                             .filter(|c| {

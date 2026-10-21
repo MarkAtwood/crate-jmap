@@ -1218,6 +1218,13 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///   [`ChatBackend::create_object`] call for type `O`.
 /// - `(O::TYPE_NAME, "destroy")` — fails the next
 ///   [`ChatBackend::destroy_object`] call for type `O`.
+/// - `(O::TYPE_NAME, "get")` — fails the next
+///   [`JmapBackend::get_objects`] call for type `O`.
+/// - [`InjectableBackend::queue_chat_get_fault_after_create`] — arms
+///   `("Chat", "get")` after the next successful
+///   [`ChatBackend::create_object`] call for type `Chat`, so the
+///   handler's pre-create snapshot read succeeds and its post-create
+///   race-detection re-fetch fails.
 /// - `("Message", "read_and_burn")` — fails the next
 ///   [`ChatBackend::read_and_burn_message`] call.
 /// - [`InjectableBackend::queue_chat_race_phantom`] — after the next
@@ -1240,6 +1247,9 @@ pub struct InjectableBackend {
     /// backend at the supplied `(account_id, phantom_id, contact_id)`.
     /// Fire-once.
     chat_race_phantom: std::sync::Arc<std::sync::Mutex<Option<ChatRacePhantom>>>,
+    /// When set, the next successful `create_object::<Chat>` arms a
+    /// `("Chat", "get")` fault. Fire-once.
+    chat_get_fault_after_create: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 /// Pre-canned phantom-Chat seed: where to insert (`account_id`), what
@@ -1261,6 +1271,9 @@ impl InjectableBackend {
             inner: MemoryBackend::new(),
             failures: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
             chat_race_phantom: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            chat_get_fault_after_create: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+                false,
+            )),
         }
     }
 
@@ -1296,6 +1309,13 @@ impl InjectableBackend {
         });
     }
 
+    /// Fail the first `get_objects::<Chat>` call that follows the next
+    /// successful `create_object::<Chat>` call. Fire-once.
+    pub fn queue_chat_get_fault_after_create(&self) {
+        self.chat_get_fault_after_create
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
     /// Remove and return a previously-injected fault (fire-once).
     /// Returns `true` if the fault was present (and is now consumed).
     fn take_fault(&self, type_name: &'static str, op: &'static str) -> bool {
@@ -1329,6 +1349,11 @@ impl JmapBackend for InjectableBackend {
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        if self.take_fault(O::TYPE_NAME, "get") {
+            return Err(MemoryError::new(format!(
+                "injected get error {INJECTABLE_BACKEND_CANARY}"
+            )));
+        }
         self.inner
             .get_objects::<O>(caller, account_id, ids, properties)
             .await
@@ -1428,6 +1453,12 @@ impl ChatBackend for InjectableBackend {
         // dedupe / change-log machinery — exactly the harness shape
         // needed to simulate "another transaction won the race".
         if O::TYPE_NAME == "Chat" && result.is_ok() {
+            if self
+                .chat_get_fault_after_create
+                .swap(false, std::sync::atomic::Ordering::SeqCst)
+            {
+                self.inject("Chat", "get");
+            }
             if let Some(phantom) = self.take_chat_race_phantom() {
                 let phantom_val = serde_json::json!({
                     "id": &phantom.phantom_id,
