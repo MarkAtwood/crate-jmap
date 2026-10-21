@@ -2,9 +2,58 @@
 
 use crate::clearable::{some_clearable, Clearable};
 use crate::presence::Presence;
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+/// An ephemeral event category in [`ChatStreamEnable::data_types`]
+/// (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable `dataTypes`).
+///
+/// "This specification defines `"typing"` and `"presence"`. It also
+/// defines two companion values: `"vtc"` [...] recognized only when the
+/// server advertises `urn:ietf:params:jmap:vtc:websocket`, and `"scene"`
+/// [...] recognized only when the server advertises
+/// `urn:ietf:params:jmap:scene:websocket`." Any other string deserializes
+/// to [`Other`](Self::Other) and serializes back unchanged.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum EphemeralDataType {
+    /// `"typing"`: typing indicators.
+    Typing,
+    /// `"presence"`: presence changes.
+    Presence,
+    /// `"vtc"`: VTC events (draft-atwood-jmap-vtc-wss-00).
+    Vtc,
+    /// `"scene"`: spatial events (draft-atwood-jmap-scene-wss-00).
+    Scene,
+    /// Any value this version does not recognize.
+    ///
+    /// **Forging caveat**: `Other("typing".into())` is unequal to
+    /// [`Typing`](Self::Typing) on `PartialEq` but serializes to the same
+    /// wire string. Reserve `Other(s)` for unrecognized strings; compare
+    /// wire equality via [`as_str`](Self::as_str).
+    Other(String),
+}
+
+impl EphemeralDataType {
+    /// The wire string for this data type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Typing => "typing",
+            Self::Presence => "presence",
+            Self::Vtc => "vtc",
+            Self::Scene => "scene",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(EphemeralDataType, "an ephemeral data type string",
+    "typing" => Typing,
+    "presence" => Presence,
+    "vtc" => Vtc,
+    "scene" => Scene,
+);
 
 /// Client→server: subscribe to ephemeral events for selected data types.
 ///
@@ -15,16 +64,12 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub struct ChatStreamEnable {
     /// Data-type tags to stream (draft-atwood-jmap-chat-wss-00 §7.1).
     ///
-    /// Spec-enumerated values: `"typing"` and `"presence"`. Full
-    /// list exported as
-    /// [`crate::vocabulary::SPEC_EPHEMERAL_DATA_TYPES`]. Companion
-    /// specifications register `"vtc"` and `"scene"`, listed in
-    /// [`crate::vocabulary::COMPANION_EPHEMERAL_DATA_TYPES`]; each is
-    /// recognized only when the server advertises its companion WebSocket
-    /// capability. A request containing ONLY unrecognized values MUST be
-    /// rejected by the server with a `RequestError`. Unrecognized values appearing
+    /// See [`EphemeralDataType`]; `"vtc"` and `"scene"` are recognized
+    /// only when the server advertises the companion WebSocket capability.
+    /// A request containing ONLY unrecognized values MUST be rejected by
+    /// the server with a `RequestError`. Unrecognized values appearing
     /// alongside recognized values MUST be silently ignored.
-    pub data_types: Vec<String>,
+    pub data_types: Vec<EphemeralDataType>,
     /// Chats to filter on; `None` (or JSON `null`) means all chats.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat_ids: Option<Vec<Id>>,
@@ -404,7 +449,7 @@ mod tests {
         let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
         match msg {
             EphemeralMessage::Enable(e) => {
-                assert_eq!(e.data_types, vec!["typing"]);
+                assert_eq!(e.data_types, vec![EphemeralDataType::Typing]);
                 assert_eq!(e.chat_ids, None);
             }
             _ => panic!("wrong variant"),

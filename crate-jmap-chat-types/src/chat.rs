@@ -107,6 +107,43 @@ impl ChatMember {
     }
 }
 
+/// The `targetType` of a [`ChannelPermission`] (draft-atwood-jmap-chat-00
+/// §ChannelPermission: "`"role"` or `"member"`").
+///
+/// Any other string deserializes to [`Other`](Self::Other) and serializes
+/// back unchanged.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChannelPermissionTargetType {
+    /// `"role"`: `targetId` is a SpaceRole id.
+    Role,
+    /// `"member"`: `targetId` is a SpaceMember `id`.
+    Member,
+    /// Any value this version does not recognize.
+    ///
+    /// **Forging caveat**: `Other("role".into())` is unequal to
+    /// [`Role`](Self::Role) on `PartialEq` but serializes to the same wire
+    /// string. Reserve `Other(s)` for unrecognized strings; compare wire
+    /// equality via [`as_str`](Self::as_str).
+    Other(String),
+}
+
+impl ChannelPermissionTargetType {
+    /// The wire string for this target type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Role => "role",
+            Self::Member => "member",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(ChannelPermissionTargetType, "a ChannelPermission targetType string",
+    "role" => Role,
+    "member" => Member,
+);
+
 /// A per-channel permission override entry.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -116,26 +153,19 @@ pub struct ChannelPermission {
     pub target_id: Id,
     /// The `targetType` property (draft-atwood-jmap-chat-00 §4.15).
     ///
-    /// Spec-enumerated values: `"role"` or `"member"`. Full list
-    /// exported as
-    /// [`crate::vocabulary::SPEC_CHANNEL_PERMISSION_TARGET_TYPES`].
-    pub target_type: String,
+    /// Spec-enumerated values: `"role"` or `"member"`.
+    pub target_type: ChannelPermissionTargetType,
     /// The `allow` property (draft-atwood-jmap-chat-00 §4.15).
     ///
-    /// Permission names explicitly granted in this channel,
-    /// overriding the Space-level role defaults. Drawn from the
-    /// spec-enumerated permission vocabulary exported as
-    /// [`crate::vocabulary::SPEC_PERMISSION_NAMES`]. Servers MUST
-    /// ignore unrecognized names per draft §4.12; consumers
-    /// SHOULD validate caller-supplied input against the const
-    /// list to surface typos at the boundary.
-    pub allow: Vec<String>,
+    /// Permissions explicitly granted in this channel, overriding the
+    /// Space-level role defaults. Unrecognized names deserialize to
+    /// [`ChatPermission::Other`](crate::ChatPermission::Other); servers
+    /// MUST ignore them.
+    pub allow: Vec<crate::ChatPermission>,
     /// The `deny` property (draft-atwood-jmap-chat-00 §4.15).
     ///
-    /// Same vocabulary contract as
-    /// [`allow`](Self::allow): drawn from
-    /// [`crate::vocabulary::SPEC_PERMISSION_NAMES`].
-    pub deny: Vec<String>,
+    /// Same vocabulary contract as [`allow`](Self::allow).
+    pub deny: Vec<crate::ChatPermission>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -349,8 +379,11 @@ mod tests {
             .expect("permission_overrides present");
         assert_eq!(overrides.len(), 1);
         assert_eq!(overrides[0].target_id.as_ref(), "r1");
-        assert_eq!(overrides[0].target_type, "role");
-        assert_eq!(overrides[0].allow, vec!["send_message"]);
+        assert_eq!(overrides[0].target_type, ChannelPermissionTargetType::Role);
+        assert_eq!(
+            overrides[0].allow,
+            vec![crate::ChatPermission::Other("send_message".to_owned())]
+        );
         assert!(overrides[0].deny.is_empty());
     }
 

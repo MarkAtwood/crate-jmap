@@ -108,21 +108,21 @@ pub fn resolve_channel_permissions(
 ) -> HashSet<String> {
     let role_records: Vec<&ChannelPermission> = overrides
         .iter()
-        .filter(|o| o.target_type == "role" && role_ids.contains(o.target_id.as_ref()))
+        .filter(|o| o.target_type.as_str() == "role" && role_ids.contains(o.target_id.as_ref()))
         .collect();
     let member_records: Vec<&ChannelPermission> = overrides
         .iter()
-        .filter(|o| o.target_type == "member" && o.target_id.as_ref() == member_id)
+        .filter(|o| o.target_type.as_str() == "member" && o.target_id.as_ref() == member_id)
         .collect();
     let mut perms = space_permissions;
     for records in [role_records, member_records] {
         for o in &records {
             for p in &o.deny {
-                perms.remove(p);
+                perms.remove(p.as_str());
             }
         }
         for o in &records {
-            perms.extend(o.allow.iter().cloned());
+            perms.extend(o.allow.iter().map(|p| p.as_str().to_owned()));
         }
     }
     perms
