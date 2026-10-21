@@ -49,13 +49,14 @@ async fn ring_example_creates_a_ringing_call() {
     let backend = backend();
     let created = create(&backend, BOB, ring_example()).await;
 
-    // L609-620: the example `created` entry has `"state": "ringing"`,
-    // `"initiatorId": "user:bob@example.com"`, `"activeParticipantCount": 0`;
+    // jmap-chat-spec 6bcd9d8 L662-671: the example `created` entry has
+    // `"state": "ringing"`, `"initiatorId": "user:bob@example.com"`,
+    // `"activeParticipantCount": 1`;
     // L434 "`"creating"` → `"ringing"`: Server transitions automatically
     // when the call is created and ring notifications have been dispatched."
     assert_eq!(created["state"], "ringing");
     assert_eq!(created["initiatorId"], BOB);
-    assert_eq!(created["activeParticipantCount"], 0);
+    assert_eq!(created["activeParticipantCount"], 1);
     // L589 "The server sets `id`, `initiatorId`, `createdAt`, `state`, and
     // `joinUri`."
     assert!(created["createdAt"].is_string());
@@ -77,8 +78,10 @@ async fn ring_create_makes_participant_records_for_targets_and_initiator() {
     let created = create(&backend, BOB, ring_example()).await;
     let call_id = created["id"].as_str().expect("id");
 
-    // L580 "The server creates a VTCParticipant record for each target
-    // (with `joinedAt: null`) and for the initiator".
+    // jmap-chat-spec 6bcd9d8 L633 "The server creates a VTCParticipant
+    // record for each target (with `joinedAt: null` and `callResponse:
+    // "pending"`) and one for the initiator (with `joinedAt` set to the
+    // creation time, since the initiator is in the call from the start)".
     let parts = participants(&backend).await;
     assert_eq!(parts.len(), 2, "{parts:?}");
     let by_user = |u: &str| {
@@ -91,8 +94,12 @@ async fn ring_create_makes_participant_records_for_targets_and_initiator() {
     let bob = by_user(BOB);
     for p in [alice, bob] {
         assert_eq!(p.call_id.as_ref(), call_id);
-        assert_eq!(p.joined_at, None);
     }
+    assert_eq!(alice.joined_at, None);
+    assert_eq!(
+        bob.joined_at.as_ref().map(|t| json!(t)),
+        Some(created["createdAt"].clone())
+    );
     // L294 "The call initiator receives `"moderator"` by default".
     assert_eq!(bob.role, CallRole::Moderator);
     // L303 "The server sets this to `"pending"` when creating VTCParticipant
