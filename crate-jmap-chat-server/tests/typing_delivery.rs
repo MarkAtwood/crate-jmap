@@ -122,10 +122,10 @@ async fn sender_is_not_a_recipient() {
     assert!(!decide(&backend, &event(CHAT, RECIPIENT)).await);
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:252): "Servers
-/// MUST verify at delivery time that the owner remains a current member
-/// of the identified Chat. If the owner is no longer a member, the event
-/// MUST be dropped silently." A group whose `members` no longer lists the
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:255, spec
+/// 33702a5): "Servers SHOULD verify at delivery time that the owner
+/// remains a current member of the identified Chat. If the owner is no
+/// longer a member, the event SHOULD be dropped silently." A group whose `members` no longer lists the
 /// owner's accountId drops it.
 #[tokio::test]
 async fn non_member_recipient_is_dropped() {
@@ -145,8 +145,9 @@ async fn event_for_another_account_is_dropped() {
     assert!(!decide(&backend, &e).await);
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:252): "If the
-/// owner is no longer a member, the event MUST be dropped silently." A
+/// draft-atwood-jmap-chat-wss-00 §ChatTypingEvent (wss:255, spec
+/// 33702a5): "If the owner is no longer a member, the event SHOULD be
+/// dropped silently." A
 /// Chat the recipient's account does not hold has no membership to keep.
 #[tokio::test]
 async fn chat_missing_from_recipient_account_is_dropped() {

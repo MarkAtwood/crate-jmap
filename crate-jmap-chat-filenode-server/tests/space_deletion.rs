@@ -1,17 +1,15 @@
 //! `destroy_space_file_tree`: §Space Deletion.
 //!
 //! Oracle: draft-atwood-jmap-chat-filenode-00.md at jmap-chat-spec
-//! be46208 ("filenode Lnnn") and RFC 8620:
+//! 33702a5 ("filenode Lnnn") and RFC 8620:
 //!
-//! - filenode L199: "When a Space is destroyed via `Space/set` destroy,
+//! - filenode L214: "When a Space is destroyed via `Space/set` destroy,
 //!   the server SHOULD also destroy the associated file tree and all
 //!   FileNodes within it."
-//! - filenode L201: "The server MAY instead retain the file tree for an
+//! - filenode L216: "The server MAY instead retain the file tree for an
 //!   implementation-defined grace period". Decided 2026-10-20: no grace
 //!   period, so the tree is destroyed with the Space.
-//! - filenode L203: "Servers SHOULD emit a `FileNode` state change event
-//!   at the moment the file tree is destroyed".
-//! - filenode L126 (at 6bcd9d8): "A Space's file tree is rooted at a
+//! - filenode L126: "A Space's file tree is rooted at a
 //!   single FileNode identified by the well-known `role` value
 //!   `"chatspace"` and the `spaceId` extension property".
 //! - RFC 8620 §5.1 `notFound`: "the list of ids passed to the method for
@@ -80,7 +78,7 @@ async fn not_found(files: &MemoryBackend, list: &[&str]) -> HashSet<String> {
     ids(&out.primary["notFound"])
 }
 
-/// L199, L201 (no grace period): the root "and all FileNodes within it"
+/// L214, L216 (no grace period): the root "and all FileNodes within it"
 /// are gone, at every depth.
 #[tokio::test]
 async fn destroys_the_root_and_every_node_within_it() {
@@ -96,7 +94,7 @@ async fn destroys_the_root_and_every_node_within_it() {
     );
 }
 
-/// L199 destroys "the associated file tree" only (L115: the tree whose
+/// L214 destroys "the associated file tree" only (L126: the tree whose
 /// root carries that Space's `spaceId`): another Space's tree and a
 /// non-Space directory survive.
 #[tokio::test]
@@ -110,8 +108,9 @@ async fn leaves_other_trees_alone() {
         .is_empty());
 }
 
-/// L203: the destroy is a `FileNode` state change, so `FileNode/changes`
-/// from the state before it reports every node as `destroyed`.
+/// RFC 8620 §5.2: destroying the tree destroys FileNode records, so
+/// `FileNode/changes` from the state before it reports every node as
+/// `destroyed`.
 #[tokio::test]
 async fn destroy_is_a_filenode_state_change() {
     let files = fixture();
@@ -142,7 +141,7 @@ async fn destroy_is_a_filenode_state_change() {
     );
 }
 
-/// L199 applies to "the associated file tree"; a Space that never had
+/// L214 applies to "the associated file tree"; a Space that never had
 /// one destroys nothing.
 #[tokio::test]
 async fn space_without_a_tree_destroys_nothing() {

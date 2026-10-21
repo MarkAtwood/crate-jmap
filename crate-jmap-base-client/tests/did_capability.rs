@@ -87,7 +87,7 @@ fn account_did_capability_parses_draft_example() {
     );
     assert_eq!(cap.did_document_uri, None);
     assert_eq!(cap.previous_did, None);
-    // L151: "`"user"` means the server holds none of them."
+    // L195 (jmap-chat-spec 33702a5): "`"user"` means the server holds none of them."
     assert_eq!(cap.key_custody, Some(KeyCustody::User));
 }
 

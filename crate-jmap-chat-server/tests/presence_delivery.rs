@@ -68,11 +68,10 @@ async fn project(backend: &MemoryBackend, event: &ChatPresenceEvent) -> Option<V
         })
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:269): "When the
-/// owner's `PresenceStatus.presence` is `"invisible"`, the server MUST
-/// deliver `"offline"` in outbound `ChatPresenceEvent` frames. The
-/// `"invisible"` value MUST NOT appear in events delivered to other
-/// users". Only `presence` changes; the other fields are the example's.
+/// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:275, spec
+/// 33702a5): "`"invisible"` is not a value of this field. The server
+/// reports a contact whose presence is `"invisible"` ... as
+/// `"offline"`." Only `presence` changes; the other fields are the example's.
 #[tokio::test]
 async fn invisible_is_delivered_as_offline() {
     let backend = backend_with(RECIPIENT, false);
@@ -88,10 +87,10 @@ async fn invisible_is_delivered_as_offline() {
     assert_eq!(project(&backend, &event("invisible")).await, Some(expected));
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:267): `presence`
-/// is "The updated presence state: `"online"`, `"away"`, `"busy"`,
-/// `"invisible"`, or `"offline"`." Only `"invisible"` is rewritten
-/// (wss:269); the other states reach an unblocked recipient as sent.
+/// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:273, spec
+/// 33702a5): `presence` is "The updated presence state: `"online"`,
+/// `"away"`, `"busy"`, or `"offline"`." Only `"invisible"` is rewritten
+/// (wss:275); the other states reach an unblocked recipient as sent.
 #[tokio::test]
 async fn visible_states_are_delivered_unchanged() {
     let backend = backend_with(RECIPIENT, false);
@@ -104,11 +103,11 @@ async fn visible_states_are_delivered_unchanged() {
     }
 }
 
-/// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:293): "Servers
-/// MUST NOT deliver `ChatPresenceEvent` for a contact whose `blocked`
-/// field is `true` on the owner's ChatContact record for that contact."
-/// draft-atwood-jmap-chat-00 §Presence Events (chat:1557): "the server
-/// MUST silently drop it if the identified ChatContact (`contactId`) has
+/// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:300, spec
+/// 33702a5): "a `ChatPresenceEvent` is not delivered for a contact whose
+/// `blocked` field is `true` on the owner's ChatContact record for that
+/// contact." draft-atwood-jmap-chat-00 §Presence Events (chat:1641, spec
+/// 33702a5): "the server SHOULD silently drop it if the identified ChatContact (`contactId`) has
 /// `blocked: true` on the receiving owner's contact list."
 #[tokio::test]
 async fn blocked_contact_is_dropped() {
@@ -117,7 +116,7 @@ async fn blocked_contact_is_dropped() {
     assert_eq!(project(&backend, &event("invisible")).await, None);
 }
 
-/// chat:1557 reads `blocked` "on the receiving owner's contact list". A
+/// chat:1641 reads `blocked` "on the receiving owner's contact list". A
 /// block on another account's list does not drop the recipient's event.
 #[tokio::test]
 async fn block_on_another_accounts_list_does_not_drop() {
