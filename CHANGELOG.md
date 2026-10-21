@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-types**: `edit` module for draft-atwood-jmap-graph-edit-00
+  (`urn:ietf:params:jmap:graph:edit`) — `JMAP_GRAPH_EDIT_URI`,
+  `GraphEditCapability`, the `GraphNodeOp` object with its `JmapObject`
+  impls, `GraphNodeOpFilterCondition` (a single condition with a required
+  `nodeId`) and `GraphNodeOpComparator` (`seq`), `GraphNode::edit_format`
+  and `GraphNode::snapshot_seq` (read from `extra`), the `opsCompacted`
+  method error name, `GraphNode/cursor` request and response, and the
+  WebSocket frames `GraphEditStreamEnable`/`GraphEditStreamDisable`
+  (`GraphEditStreamMessage`) and `GraphNodeOpEvent`/`GraphCursorEvent`
+  (`GraphEditEvent`).
+
 - **jmap-graph-client** (new, `publish = false`): draft-atwood-jmap-graph-00
   client bindings — `JmapGraphExt::with_graph_session` and `SessionClient`
   `/get`, `/changes`, `/set`, `/query` and `/queryChanges` of `Graph`,

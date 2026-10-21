@@ -32,20 +32,27 @@
 //! - [`JMAP_URI_GRAPH_TYPE`], [`JMAP_URI_GRAPH_NODE_TYPE`],
 //!   [`JMAP_URI_GRAPH_EDGE_TYPE`] — the JMAP Object URI type names (draft
 //!   §JMAP Object URI Type Registrations).
+//! - [`edit`] — draft-atwood-jmap-graph-edit-00, the
+//!   `urn:ietf:params:jmap:graph:edit` capability: [`GraphNodeOp`], the
+//!   GraphNode `editFormat` and `snapshotSeq` accessors, `GraphNode/cursor`
+//!   and the WebSocket op and cursor stream.
 
 #![forbid(unsafe_code)]
 
 mod backend;
 pub mod capability;
 pub mod edge;
+pub mod edit;
 pub mod graph;
 pub mod node;
 pub mod query;
+mod wire;
 
 pub use capability::{
     GraphCapability, PrincipalGraphCapability, JMAP_GRAPH_PROJECTION_URI, JMAP_GRAPH_URI,
     JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE, JMAP_URI_GRAPH_TYPE,
 };
 pub use edge::GraphEdge;
+pub use edit::{GraphEditCapability, GraphNodeOp, JMAP_GRAPH_EDIT_URI};
 pub use graph::{Graph, GraphRights};
 pub use node::GraphNode;

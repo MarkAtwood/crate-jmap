@@ -4,14 +4,17 @@
 
 draft-atwood-jmap-graph-00 wire-format types: the
 `urn:ietf:params:jmap:graph` capability, the Graph, GraphNode and
-GraphEdge data types, and their `/query` filters and comparators. Pure
-data types: no method semantics, no async, no I/O.
+GraphEdge data types, and their `/query` filters and comparators; the
+`edit` module adds draft-atwood-jmap-graph-edit-00
+(`urn:ietf:params:jmap:graph:edit`). Pure data types: no method
+semantics, no async, no I/O.
 
 ## Before starting any work
 
 1. Read `PLAN.md`.
 2. Run `bd ready`.
-3. Read `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-graph-00.md`.
+3. Read `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-graph-00.md` (and
+   `draft-atwood-jmap-graph-edit-00.md` for `edit`).
 
 ## Build & Test
 
