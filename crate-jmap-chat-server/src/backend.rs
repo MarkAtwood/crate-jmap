@@ -736,6 +736,11 @@ pub trait ChatBackend: JmapBackend {
     /// destroyed, is `notFound`, and a destroy that "would violate an ACL
     /// or other permissions policy" is `forbidden`.
     ///
+    /// `destroy_object::<Space>` MUST return `forbidden` unless the caller
+    /// holds `manage_space` in that Space, checked atomically with the
+    /// destroy (draft-atwood-jmap-chat-00 §Destroying a Space: "The caller
+    /// MUST hold `"manage_space"`"). The handler does no check of its own.
+    ///
     /// # Cascades
     ///
     /// `destroy_object::<Message>` MUST also remove the id from its

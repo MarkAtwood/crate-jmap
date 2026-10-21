@@ -1876,6 +1876,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-chat-server**: `Space/set` destroy now requires
+  `manage_space`. `MemoryBackend::destroy_object::<Space>` returns a
+  `forbidden` SetError when the caller lacks it, and the
+  `ChatBackend::destroy_object` rustdoc makes that check a backend duty,
+  per draft-atwood-jmap-chat-00 §Destroying a Space: "The caller MUST
+  hold `"manage_space"`". Any caller could previously destroy a Space and
+  its channels.
 - **jmap-chat-server**: a `Message/set` update that sets `readAt` on the
   owner's own sent `burnOnRead` message no longer hard-deletes it; only a
   received copy burns, per draft-atwood-jmap-chat-00 §Message
