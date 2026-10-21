@@ -14,7 +14,7 @@
 //! | `FileNodeBackend::create_object::<FileNode>`, before the insert | [`check_root_create`] and [`check_space_create`] |
 //! | `FileNodeBackend::update_object::<FileNode>`, before the write | [`check_space_update`] |
 //! | `FileNodeBackend::destroy_object::<FileNode>`, before the removal | [`check_space_destroy`] |
-//! | `FileNodeBackend::files_rights`, which `FileNode/get` reports as `myRights` | return [`space_files_rights`] |
+//! | `FileNodeBackend::files_rights`, which `FileNode/get` and the `FileNode/set` and `FileNode/copy` `created` entries report as `myRights` | return [`space_files_rights`] |
 //! | `JmapBackend::get_objects::<FileNode>` and the other FileNode reads, to leave out nodes with no flag | [`space_files_rights`] |
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
 //! | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |

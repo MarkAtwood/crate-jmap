@@ -466,7 +466,10 @@ pub trait FileNodeBackend: JmapBackend {
     /// "server-set": "The set of rights (ACLs) the user has in relation to
     /// this node". `handle_filenode_get` calls this method for each node in
     /// its `list`, including the ancestors `fetchParents` appends, unless
-    /// `properties` excludes `myRights`. A deployment offering
+    /// `properties` excludes `myRights`. `handle_filenode_set` and
+    /// `handle_filenode_copy` call it for each node they create, after
+    /// [`Self::create_object`] stores it, since RFC 8620 §5.3 puts "all
+    /// server-set properties" in `created`. A deployment offering
     /// draft-atwood-jmap-chat-filenode-00 returns the result of
     /// `jmap_chat_filenode_server::space_files_rights` here.
     ///
@@ -480,10 +483,16 @@ pub trait FileNodeBackend: JmapBackend {
     /// # Return mapping
     ///
     /// - `Ok(Some(rights))`: `FileNode/get` reports `rights` as the node's
-    ///   `myRights`.
+    ///   `myRights`, and `FileNode/set` and `FileNode/copy` report them in
+    ///   the node's `created` entry.
     /// - `Ok(None)`: no policy applies to this node; `FileNode/get` reports
-    ///   the `myRights` that [`JmapBackend::get_objects`] returned.
-    /// - `Err(e)`: the `FileNode/get` call fails with `serverFail`.
+    ///   the `myRights` that [`JmapBackend::get_objects`] returned, and
+    ///   `created` reports the `myRights` that [`Self::create_object`]
+    ///   returned.
+    /// - `Err(e)`: the `FileNode/get` call fails with `serverFail`. After a
+    ///   `FileNode/set` or `FileNode/copy` create the node is already
+    ///   stored, so the create stands and `created` reports the `myRights`
+    ///   that [`Self::create_object`] returned, as for `Ok(None)`.
     ///
     /// # Default implementation
     ///
