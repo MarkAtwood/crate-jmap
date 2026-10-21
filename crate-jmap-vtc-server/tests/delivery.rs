@@ -189,6 +189,24 @@ async fn event_types_filter_applies() {
     assert!(!delivers(&backend, ALICE, &sub, &ring()).await);
 }
 
+/// wss L168-170 (jmap-chat-spec 6bcd9d8): "`VTCRecordingStateEvent` is
+/// the recording consent signal ({{JMAP-VTC}}), so the server delivers it
+/// for every call the subscription covers whether or not `eventTypes`
+/// lists it." The `callIds` and current-participant checks still apply.
+#[tokio::test]
+async fn recording_state_ignores_event_types() {
+    let backend = fixture(false);
+    let sub = subscribed(json!({ "eventTypes": ["VTCParticipantEvent"] }));
+    assert!(delivers(&backend, ALICE, &sub, &recording_state(BOB)).await);
+    let other_call = subscribed(json!({
+        "callIds": ["C2"],
+        "eventTypes": ["VTCParticipantEvent"]
+    }));
+    assert!(!delivers(&backend, ALICE, &other_call, &recording_state(BOB)).await);
+    let carol = "user:carol@example.com";
+    assert!(!delivers(&backend, carol, &sub, &recording_state(BOB)).await);
+}
+
 /// wss L252-256: "Per-user events (`VTCRingEvent`, `VTCCallEndEvent`) are
 /// delivered based on the authenticated user's identity and are not
 /// scoped to `callIds` in the subscription. A `VTCStreamEnable` with any
