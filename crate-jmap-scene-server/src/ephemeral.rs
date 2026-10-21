@@ -176,7 +176,7 @@ impl SceneEphemeralSubscription {
 ///   `"destroyed"` event whose object the backend no longer returns has
 ///   no record to check and needs region access only; any other event
 ///   for an object the backend does not return is dropped.
-/// - When the account has `urn:ietf:params:jmap:chat`
+/// - When the recipient's account has `urn:ietf:params:jmap:chat`
 ///   ([`SceneBackend::has_capability`]), the event is dropped if the
 ///   recipient blocked its originating user
 ///   ([`SceneBackend::is_user_blocked`]): the `userId` of a
@@ -184,11 +184,17 @@ impl SceneEphemeralSubscription {
 ///   `SceneObjectEvent`. A `SceneObjectEvent` with `updatedBy` `null` is
 ///   never suppressed. Without Chat no blocked-sender filtering applies.
 ///
-/// `account_id` is the account the region and object are read from. It
-/// must be the event's `accountId`, "the id of the region's hosting
-/// account" (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types); an
+/// `hosting_account_id` is the account the region, avatars and object are
+/// read from. It must be the event's `accountId`, "the id of the region's
+/// hosting account ... Other users reach that account as a shared
+/// account" (draft-atwood-jmap-scene-wss-00 at 33702a5, L178-181); an
 /// event whose `accountId` differs is not delivered, since "SceneRegion
 /// and SceneObject ids are unique only within an account".
+/// `recipient_account_id` is the recipient's own account: the Chat
+/// capability is checked there ("available for the receiving account",
+/// L791-792) and every [`SceneBackend::is_user_blocked`] check uses it,
+/// since suppression consults "the recipient's ChatContact records"
+/// (L793-795).
 ///
 /// This function does not rate-limit; the §Rate Limiting SHOULD rules are
 /// the transport's or deployment's to apply.
@@ -201,7 +207,8 @@ impl SceneEphemeralSubscription {
 pub async fn should_deliver<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    account_id: &Id,
+    hosting_account_id: &Id,
+    recipient_account_id: &Id,
     subscription: &SceneEphemeralSubscription,
     event: &SceneEvent,
 ) -> Result<bool, B::Error> {
@@ -227,29 +234,30 @@ pub async fn should_deliver<B: SceneBackend>(
         ),
         _ => return Ok(false),
     };
-    if event_account != account_id
+    if event_account != hosting_account_id
         || !filter.region_ids().covers(region_id)
         || !backend
-            .may_access_region(caller, account_id, region_id)
+            .may_access_region(caller, hosting_account_id, region_id)
             .await?
     {
         return Ok(false);
     }
-    let me = backend.caller_user_id(caller, account_id).await?;
-    if !has_active_avatar(backend, caller, account_id, &me, region_id).await? {
+    let me = backend.caller_user_id(caller, hosting_account_id).await?;
+    if !has_active_avatar(backend, caller, hosting_account_id, &me, region_id).await? {
         return Ok(false);
     }
     if matches!(event, SceneEvent::Avatar(_))
         && !backend
-            .may_see_region_avatars(caller, account_id, region_id)
+            .may_see_region_avatars(caller, hosting_account_id, region_id)
             .await?
     {
         return Ok(false);
     }
     if let Some((object_id, destroyed)) = object {
-        let visible = match fetch_object(backend, caller, account_id, object_id).await? {
+        let visible = match fetch_object(backend, caller, hosting_account_id, object_id).await? {
             Some(o) => {
-                o.region_id == *region_id && is_visible(backend, caller, account_id, &o).await?
+                o.region_id == *region_id
+                    && is_visible(backend, caller, hosting_account_id, &o).await?
             }
             None => destroyed,
         };
@@ -258,8 +266,10 @@ pub async fn should_deliver<B: SceneBackend>(
         }
     }
     Ok(match origin {
-        Some(user) if backend.has_capability(caller, account_id, JMAP_CHAT_URI) => {
-            !backend.is_user_blocked(caller, account_id, user).await?
+        Some(user) if backend.has_capability(caller, recipient_account_id, JMAP_CHAT_URI) => {
+            !backend
+                .is_user_blocked(caller, recipient_account_id, user)
+                .await?
         }
         _ => true,
     })

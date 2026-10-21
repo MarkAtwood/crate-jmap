@@ -547,6 +547,12 @@ pub trait SceneBackend: JmapBackend {
     /// `activeAvatarCount` the true count, which deployments "SHOULD
     /// prefer".
     ///
+    /// [`crate::should_deliver`] asks this at delivery time with the
+    /// recipient as the caller and the recipient's own account as
+    /// `account_id`, not the region's hosting account, since suppression
+    /// consults "the recipient's ChatContact records"
+    /// (draft-atwood-jmap-scene-wss-00 at 33702a5, L793-795).
+    ///
     /// The Chat lookup (`ChatContact.blocked`) lives in the binding crate:
     /// "Without `urn:ietf:params:jmap:chat`, there is no blocked-contact
     /// list and this filtering does not apply."

@@ -43,8 +43,11 @@ use jmap_types::Id;
 /// that matches both paths is still sent once ("MUST NOT deliver duplicate
 /// events").
 ///
-/// `account_id` must be the event's `accountId`, its region's hosting
-/// account; an event naming another account is not delivered.
+/// `hosting_account_id` must be the event's `accountId`, its region's
+/// hosting account; an event naming another account is not delivered.
+/// `recipient_account_id` is the recipient's own account, whose Chat
+/// capability and ChatContact records the blocked-sender check consults,
+/// as [`jmap_scene_server::should_deliver`] takes them.
 ///
 /// # Errors
 ///
@@ -52,18 +55,34 @@ use jmap_types::Id;
 pub async fn should_deliver_scene<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    account_id: &Id,
+    hosting_account_id: &Id,
+    recipient_account_id: &Id,
     chat_scene: bool,
     subscription: &SceneEphemeralSubscription,
     event: &SceneEvent,
 ) -> Result<bool, B::Error> {
     if !chat_scene {
-        return jmap_scene_server::should_deliver(backend, caller, account_id, subscription, event)
-            .await;
+        return jmap_scene_server::should_deliver(
+            backend,
+            caller,
+            hosting_account_id,
+            recipient_account_id,
+            subscription,
+            event,
+        )
+        .await;
     }
     let mut every = SceneEphemeralSubscription::default();
     every
         .replace_with(&SceneStreamEnable::default())
         .expect("a SceneStreamEnable with null eventTypes is always valid");
-    jmap_scene_server::should_deliver(backend, caller, account_id, &every, event).await
+    jmap_scene_server::should_deliver(
+        backend,
+        caller,
+        hosting_account_id,
+        recipient_account_id,
+        &every,
+        event,
+    )
+    .await
 }
