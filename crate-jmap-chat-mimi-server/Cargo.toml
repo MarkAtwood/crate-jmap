@@ -32,10 +32,12 @@ tls_codec = { version = "=0.5.0", features = ["mls", "derive"] }
 # Throwaway storage for openmls PublicGroup::from_external, which checks the
 # Room/create GroupInfo signature and tree hash (bd:JMAP-6k5d.4).
 openmls_memory_storage = { version = "=0.6.0", features = ["extensions-draft"] }
+# SHA-256 of the FanoutMessage octets for its senderMsgId (draft
+# §application/mimi-fanout).
+sha2 = "0.10"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 jmap-chat-mimi-server = { workspace = true, features = ["memory"] }
 openmls_rust_crypto = { version = "=0.6.0", features = ["extensions-draft"] }
 openmls_basic_credential = "=0.6.0"
-sha2 = "0.10"

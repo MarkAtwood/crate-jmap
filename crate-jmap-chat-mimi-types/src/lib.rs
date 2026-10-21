@@ -63,7 +63,7 @@ pub use capability::{
 };
 pub use convert::{
     check_ref_key, is_media_reaction, may_record_alias, never_sets_read, sender_msg_id, topic_id,
-    MimiMessageId, RefKey, RefKeyCollision,
+    ulid, MimiMessageId, RefKey, RefKeyCollision,
 };
 pub use groupinfo::{GroupInfoCode, GroupInfoFetchRequest, GroupInfoFetchResponse};
 pub use keymaterial::{

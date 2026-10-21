@@ -37,6 +37,12 @@
 //! `ChatBackend` returns from its `may_update_chat`, `may_create_message`
 //! and `may_update_message` hooks.
 //!
+//! FanoutMessages (draft §application/mimi-fanout, §Chat.roomId): a
+//! `/notify` handler splits the body with [`parse_fanout_messages`] and
+//! hands each [`Fanout`] to [`MimiBackend::store_fanout`], which routes
+//! Welcomes, drops duplicates and attributes Messages to the hub's
+//! ChatContact. [`MimiBackend::unbind_room`] ends a Chat's binding.
+//!
 //! `KeyMaterial/fetch`, `Room/update`, `Room/send`, `Room/unbind` and
 //! `GroupInfo/fetch` are not here yet.
 //!
@@ -54,6 +60,7 @@ use std::sync::Arc;
 use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod backend;
+mod fanout;
 mod handout;
 mod keypackage;
 /// In-memory reference implementation of [`MimiBackend`].
@@ -69,6 +76,7 @@ pub use backend::{
     room_signature_key_not_bound, signature_key_bound_elsewhere, MimiBackend, NewKeyPackage,
     NewRoom,
 };
+pub use fanout::{parse_fanout_messages, Fanout, FanoutParseError, FanoutRecipients};
 pub use handout::{KeyMaterialRequirements, KeyPackageFit};
 pub use keypackage::{check_key_package_create, handle_key_package_get, handle_key_package_set};
 pub use restrict::{may_create_room_message, may_update_room_chat, may_update_room_message};

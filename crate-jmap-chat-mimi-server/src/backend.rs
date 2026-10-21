@@ -2,8 +2,8 @@
 //!
 //! Read-side operations (`get_objects`, `get_state`) are defined on the
 //! [`jmap_server::JmapBackend`] supertrait. This module adds the MLS crypto
-//! provider, the account-level capability object, the KeyPackage writes
-//! and the KeyPackage hand-out.
+//! provider, the account-level capability object, the KeyPackage writes,
+//! the KeyPackage hand-out, rooms and FanoutMessage storage.
 //!
 //! The `pub use` block re-exports the [`jmap_server`] backend types so a
 //! downstream impl can `use jmap_chat_mimi_server::backend::*`; each
@@ -19,6 +19,7 @@ use jmap_chat_mimi_types::{Base64Url, ClientKeyMaterial, MimiCapability};
 use jmap_types::JmapError;
 use openmls::prelude::OpenMlsCrypto;
 
+use crate::fanout::Fanout;
 use crate::handout::KeyMaterialRequirements;
 
 /// A KeyPackage that passed the per-KeyPackage checks of
@@ -250,6 +251,57 @@ pub trait MimiBackend: JmapBackend {
         account_id: &jmap_types::Id,
         room: NewRoom,
     ) -> impl std::future::Future<Output = Result<Result<jmap_types::Id, JmapError>, Self::Error>> + Send;
+
+    /// Store one FanoutMessage the server received or originated for
+    /// `room_id` (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout).
+    ///
+    /// `hub_uri` is "the hub's provider URI as authenticated by the MIMI
+    /// transport". Call it once per [`Fanout`] of
+    /// [`crate::parse_fanout_messages`], in the order received. The
+    /// backend MUST, in one atomic step:
+    ///
+    /// - choose the Chats: for [`FanoutRecipients::Room`], "every Chat of
+    ///   a local account bound to that room"; for
+    ///   [`FanoutRecipients::Welcome`], one Chat in each account that
+    ///   [`MimiBackend::claim_key_packages`] handed out a named
+    ///   KeyPackageRef for, binding that account's unbound Chat for the
+    ///   room again or, "if it has none", creating a Chat bound to the
+    ///   room, as [`MimiBackend::create_room`] does, with `name` the empty
+    ///   string;
+    /// - skip an account in which the ChatContact of the hub is
+    ///   `blocked`: "blocking the hub drops every FanoutMessage of the
+    ///   rooms it hosts", so nothing is stored, bound or created there;
+    /// - skip a Chat that holds a Message with `fanout.sender_msg_id`
+    ///   ("so a repeated `/notify` yields one Message") or one whose
+    ///   FanoutMessage `message` octets equal `fanout.message`;
+    /// - otherwise store a Message in the Chat with `bodyType`
+    ///   `"application/mimi-fanout"`, `body` `fanout.body`, `senderMsgId`
+    ///   `fanout.sender_msg_id`, `sentAt` `fanout.sent_at` and `senderId`
+    ///   the id of the account's ChatContact "whose `identity` and `login`
+    ///   are" `hub_uri`, creating that ChatContact if it does not exist.
+    ///
+    /// [`FanoutRecipients::Room`]: crate::FanoutRecipients::Room
+    /// [`FanoutRecipients::Welcome`]: crate::FanoutRecipients::Welcome
+    fn store_fanout(
+        &self,
+        room_id: &str,
+        hub_uri: &str,
+        fanout: &Fanout,
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send;
+
+    /// Unbind the Chat in `account_id` whose `roomId` is `room_id`, if it
+    /// is bound (draft-atwood-jmap-chat-mimi-00 §Chat.roomId).
+    ///
+    /// "An unbound Chat keeps its `roomId` and its Messages. The server
+    /// stores no further FanoutMessage in it" until "a later Welcome for
+    /// the account binds the Chat again". Returns `false` when no Chat in
+    /// the account has that `roomId`.
+    fn unbind_room(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        room_id: &str,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Destroy a KeyPackage record by id. Unknown `id` is `notFound`; the
     /// state advances only when the destroy commits. The signature-key

@@ -19,6 +19,8 @@ trait.
 | `handle_room_create`, `check_room_create` | §Room/create: the seven checks and the bound Chat |
 | `MimiBackend::create_room`, `NewRoom`, `room_signature_key_not_bound`, `room_id_in_use`, `group_id_in_use` | §Room/create checks over server state, atomic with the insert |
 | `may_update_room_chat`, `may_create_room_message`, `may_update_room_message` | §Chat.roomId and §message/mls restrictions, for `jmap-chat-server` `ChatBackend` hooks |
+| `parse_fanout_messages`, `Fanout`, `FanoutRecipients`, `FanoutParseError` | §application/mimi-fanout: split a `/notify` body, `senderMsgId`, `sentAt`, Welcome KeyPackageRefs |
+| `MimiBackend::store_fanout`, `MimiBackend::unbind_room` | §application/mimi-fanout storage, Welcome routing, duplicate rules, hub ChatContact; §Chat.roomId bind lifecycle |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
 | `register_mimi_handlers` | wires `KeyPackage/get`, `KeyPackage/set` and `Room/create` |
 
