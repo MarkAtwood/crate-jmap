@@ -246,12 +246,14 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
     let mut enable = SceneStreamEnable::default();
     enable.region_ids = Some(vec![Id::from("01J5ABC0000000000000000001")]);
     enable.event_types = Some(vec!["SceneFooBarEvent".to_owned()]);
-    enable.extra.insert("id".to_owned(), Value::from("e1"));
+    enable.id = Some("e1".to_owned());
     ws.send_scene_stream_enable(&enable).await.unwrap();
 
     // L562-563: "the server MUST respond with a `RequestError` frame".
     match next(&mut ws).await {
         SceneWsFrame::Other(WsFrame::RequestError(e)) => {
+            // L450-452: the error "carries this value as its `requestId`".
+            assert_eq!(e.request_id.as_deref(), Some("e1"));
             assert_eq!(
                 e.problem_type,
                 "urn:ietf:params:jmap:error:invalidArguments"
