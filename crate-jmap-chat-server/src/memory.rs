@@ -53,7 +53,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::helpers::PLACEHOLDER_ID;
 use crate::{
     strip_unsupported_chat_push, validate_chat_push, AddedItem, AttachmentBlob,
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
@@ -890,20 +889,30 @@ impl JmapBackend for MemoryBackend {
 }
 
 impl ChatBackend for MemoryBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
+        // ponytail: uuid v4 like canonical jmap-mail-server. The draft wants
+        // ULIDs (time-ordered, so `unreadCount` and ordered retrieval can
+        // compare ids); uuid v4 is not ordered. A production backend mints ULIDs.
+        let server_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let stored_obj = build(&server_id);
+        let val = serde_json::to_value(&stored_obj)
+            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
+
         let mut inner = self.inner.lock().unwrap();
 
         // `ChatContact` uniqueness contract on `create_object`: at most
         // one ChatContact per `identity`, compared octet for octet.
         if O::TYPE_NAME == "ChatContact" {
-            let val = serde_json::to_value(&obj)
-                .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
             let existing = inner
                 .objects_ref(O::TYPE_NAME, account_id.as_ref())
                 .and_then(|m| {
@@ -920,31 +929,12 @@ impl ChatBackend for MemoryBackend {
 
         // `CustomEmoji` uniqueness contract on `create_object`.
         if O::TYPE_NAME == "CustomEmoji" {
-            let val = serde_json::to_value(&obj)
-                .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
             if let Some(existing) = emoji_name_holder(&inner, account_id, &val, None) {
                 return Err(BackendSetError::SetError(
                     SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
                 ));
             }
         }
-
-        // ponytail: uuid v4 like canonical jmap-mail-server. The draft wants
-        // ULIDs (time-ordered, so `unreadCount` and ordered retrieval can
-        // compare ids); uuid v4 is not ordered. A production backend mints ULIDs.
-        let server_id = Id::from(uuid::Uuid::new_v4().to_string());
-
-        // Serialize, set "id" to the server-assigned id, then deserialize back.
-        let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
-        val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
-        // `senderMsgId` sentinel contract on `create_object`.
-        if O::TYPE_NAME == "Message" && val["senderMsgId"] == PLACEHOLDER_ID {
-            val["senderMsgId"] = val["id"].clone();
-        }
-        let stored_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
-        })?;
 
         let reply_parent = if O::TYPE_NAME == "Message" {
             stored_reply_parent(&inner, account_id.as_ref(), &val)

@@ -35,10 +35,6 @@ use subtle::ConstantTimeEq;
 
 use crate::outbound::task_assignee_ids;
 
-/// The `id` [`ChatBackend::create_object`] documents as the placeholder it
-/// replaces with a server-assigned id.
-pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
-
 /// Implementation-defined maximum byte length of `subject`, the value
 /// `Message/set` applies (draft-atwood-jmap-chat-00 §Message `subject`
 /// sets no limit).
@@ -825,17 +821,20 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
         }
         // draft-atwood-jmap-chat-00 §ChatContact `login`: "A non-empty
         // human-readable identifier ... The format is deployment-specific".
-        let placeholder = ChatContact::new(
-            Id::from(PLACEHOLDER_ID),
-            identity,
-            identity,
-            self.now.clone(),
-            self.now.clone(),
-            false,
-        );
+        let now = self.now.clone();
+        let placeholder = |id: &Id| {
+            ChatContact::new(
+                id.clone(),
+                identity,
+                identity,
+                now.clone(),
+                now.clone(),
+                false,
+            )
+        };
         let created = self
             .backend
-            .create_object::<ChatContact>(self.caller, self.account_id, identity, placeholder)
+            .create_object(self.caller, self.account_id, identity, placeholder)
             .await;
         match created {
             Ok((id, _)) => {
@@ -1256,31 +1255,41 @@ async fn deliver_message<B: FederationBackend>(
     // A message this mailbox accepted from the sender's server is
     // delivered (draft-atwood-jmap-chat-00 §Message `deliveryState`:
     // "remote server accepted the message").
-    let mut msg = Message::new(
-        Id::from(PLACEHOLDER_ID),
-        m.sender_msg_id.clone(),
-        sender_id,
-        chat_id,
-        m.body.clone(),
-        m.body_type.clone(),
-        m.sent_at.clone(),
-        ctx.now.clone(),
-        DeliveryState::Delivered,
-    );
-    msg.attachments = attachments;
-    msg.mentions = mentions;
-    msg.broadcast_mentions = m.broadcast_mentions.clone().unwrap_or_default();
-    msg.actions = actions;
-    msg.reply_to = reply_to;
-    msg.thread_root_id = thread_root_id;
-    msg.topic_id = m.topic_id.clone();
-    msg.subject = m.subject.clone();
-    msg.sender_expires_at = m.sender_expires_at.clone();
-    msg.burn_on_read = m.burn_on_read;
-    msg.expires_after_read_seconds = m.expires_after_read_seconds;
-    let id = match store_server_message(ctx.backend, ctx.caller, ctx.account_id, msg)
-        .await
-        .map_err(set_failure)?
+    let build = |id: &Id| {
+        let mut msg = Message::new(
+            id.clone(),
+            m.sender_msg_id.clone(),
+            sender_id,
+            chat_id.clone(),
+            m.body.clone(),
+            m.body_type.clone(),
+            m.sent_at.clone(),
+            ctx.now.clone(),
+            DeliveryState::Delivered,
+        );
+        msg.attachments = attachments;
+        msg.mentions = mentions;
+        msg.broadcast_mentions = m.broadcast_mentions.clone().unwrap_or_default();
+        msg.actions = actions;
+        msg.reply_to = reply_to;
+        msg.thread_root_id = thread_root_id;
+        msg.topic_id = m.topic_id.clone();
+        msg.subject = m.subject.clone();
+        msg.sender_expires_at = m.sender_expires_at.clone();
+        msg.burn_on_read = m.burn_on_read;
+        msg.expires_after_read_seconds = m.expires_after_read_seconds;
+        msg
+    };
+    let id = match store_server_message(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &chat_id,
+        &m.sender_msg_id,
+        build,
+    )
+    .await
+    .map_err(set_failure)?
     {
         StoreOutcome::Stored(id) | StoreOutcome::Duplicate(id) => id,
         _ => return Err(JmapError::server_fail("unknown store outcome")),

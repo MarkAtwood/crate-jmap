@@ -104,13 +104,17 @@ impl JmapBackend for FaultyBackend {
 }
 
 impl ChatBackend for FaultyBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &(),
         _account_id: &Id,
         _create_id: &str,
-        _obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        _build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         Err(BackendSetError::Other(MemoryError::new(
             "storage unavailable",
         )))
@@ -253,8 +257,8 @@ pub struct TrackingBackend {
     /// When `Some`, [`JmapBackend::get_objects`] for this type name
     /// returns an error. Other types forward to `inner`.
     get_objects_fail: Option<&'static str>,
-    /// The `id` of every object passed to [`ChatBackend::create_object`],
-    /// in call order.
+    /// The `id` of every object the [`ChatBackend::create_object`] builder
+    /// returned, in call order.
     create_input_ids: Arc<Mutex<Vec<serde_json::Value>>>,
     /// When `Some`, [`ChatBackend::attachment_blob`] returns
     /// `Ok(Err(<this>))`.
@@ -402,8 +406,8 @@ impl TrackingBackend {
         calls.get(type_name).copied().unwrap_or(0)
     }
 
-    /// Return the `id` of every object passed to
-    /// [`ChatBackend::create_object`], in call order.
+    /// Return the `id` of every object the [`ChatBackend::create_object`]
+    /// builder returned, in call order.
     pub fn create_input_ids(&self) -> Vec<serde_json::Value> {
         self.create_input_ids.lock().expect("lock poisoned").clone()
     }
@@ -489,20 +493,25 @@ impl JmapBackend for TrackingBackend {
 }
 
 impl ChatBackend for TrackingBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &(),
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        let input = serde_json::to_value(&obj).expect("JmapObject serializes");
-        self.create_input_ids
-            .lock()
-            .expect("lock poisoned")
-            .push(input["id"].clone());
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
+        let ids = Arc::clone(&self.create_input_ids);
         self.inner
-            .create_object::<O>(caller, account_id, create_id, obj)
+            .create_object(caller, account_id, create_id, move |id: &Id| {
+                let obj = build(id);
+                let built = serde_json::to_value(&obj).expect("JmapObject serializes");
+                ids.lock().expect("lock poisoned").push(built["id"].clone());
+                obj
+            })
             .await
     }
 
@@ -896,15 +905,19 @@ impl JmapBackend for IdentityBackend {
 }
 
 impl ChatBackend for IdentityBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &Id,
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         self.inner
-            .create_object::<O>(&(), account_id, create_id, obj)
+            .create_object(&(), account_id, create_id, build)
             .await
     }
 
@@ -1334,13 +1347,17 @@ impl JmapBackend for InjectableBackend {
 }
 
 impl ChatBackend for InjectableBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &(),
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         if self.take_fault(O::TYPE_NAME, "create") {
             return Err(BackendSetError::Other(MemoryError::new(format!(
                 "injected create error {INJECTABLE_BACKEND_CANARY}"
@@ -1348,7 +1365,7 @@ impl ChatBackend for InjectableBackend {
         }
         let result = self
             .inner
-            .create_object::<O>(caller, account_id, create_id, obj)
+            .create_object(caller, account_id, create_id, build)
             .await;
         // Race-phantom seeding only applies to Chat creates and only
         // after a successful inner create. The phantom is inserted

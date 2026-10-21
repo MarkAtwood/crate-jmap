@@ -43,7 +43,7 @@ use crate::helpers::{
     filter_properties, finalize_set_response, iso8601_before, not_found_json, now_utc_string,
     optional_arg, reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
 };
-use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
+use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{
     query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
     QueryParams,
@@ -604,50 +604,70 @@ const MAX_SUBJECT_BYTES: usize = 1024;
 /// RFC 8620 §1.3 UnsignedInt upper bound, 2^53 - 1.
 const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 
-/// Copy the optional `Message/set` create properties `mentions`,
+/// Parse the optional `Message/set` create properties `mentions`,
 /// `broadcastMentions`, `actions`, `topicId`, `subject` and
-/// `expiresAfterReadSeconds` from `obj` onto `msg`, applying the
-/// draft-atwood-jmap-chat-00 §Input Validation checks. An absent or
-/// `null` property keeps the default. `broadcastMentions` must already
-/// have passed [`validate_broadcast_mentions`].
+/// `expiresAfterReadSeconds` from `obj`, applying the
+/// draft-atwood-jmap-chat-00 §Input Validation checks, and return a
+/// function that copies them onto a Message. An absent or `null`
+/// property keeps the default. `broadcastMentions` must already have
+/// passed [`validate_broadcast_mentions`].
 ///
-/// Returns the wire name of the first offending property, for an
+/// On error, returns the wire name of the first offending property, for an
 /// `invalidProperties` SetError.
-fn apply_create_optionals(obj: &Value, msg: &mut Message) -> Result<(), &'static str> {
+fn apply_create_optionals(obj: &Value) -> Result<impl FnOnce(&mut Message) + Send, &'static str> {
     let get = |key: &str| obj.get(key).filter(|v| !v.is_null());
-    if let Some(v) = get("mentions") {
-        msg.mentions = Vec::<Mention>::deserialize(v).map_err(|_| "mentions")?;
-    }
-    if let Some(v) = get("broadcastMentions") {
-        msg.broadcast_mentions =
-            Vec::<BroadcastMention>::deserialize(v).map_err(|_| "broadcastMentions")?;
-    }
-    if let Some(v) = get("actions") {
-        // §MessageAction: "Servers MUST store and forward MessageAction
-        // records without inspection or transformation."
-        msg.actions = Vec::<MessageAction>::deserialize(v).map_err(|_| "actions")?;
-    }
-    if let Some(v) = get("topicId") {
-        match v.as_str() {
-            Some(s) if !s.is_empty() && s.len() <= 255 => msg.topic_id = Some(s.to_owned()),
+    let mentions = get("mentions")
+        .map(|v| Vec::<Mention>::deserialize(v).map_err(|_| "mentions"))
+        .transpose()?;
+    let broadcast_mentions = get("broadcastMentions")
+        .map(|v| Vec::<BroadcastMention>::deserialize(v).map_err(|_| "broadcastMentions"))
+        .transpose()?;
+    // §MessageAction: "Servers MUST store and forward MessageAction
+    // records without inspection or transformation."
+    let actions = get("actions")
+        .map(|v| Vec::<MessageAction>::deserialize(v).map_err(|_| "actions"))
+        .transpose()?;
+    let topic_id = match get("topicId") {
+        None => None,
+        Some(v) => match v.as_str() {
+            Some(s) if !s.is_empty() && s.len() <= 255 => Some(s.to_owned()),
             _ => return Err("topicId"),
-        }
-    }
-    if let Some(v) = get("subject") {
-        match v.as_str() {
-            Some(s) if msg.topic_id.is_some() && s.len() <= MAX_SUBJECT_BYTES => {
-                msg.subject = Some(s.to_owned());
-            }
+        },
+    };
+    let subject = match get("subject") {
+        None => None,
+        Some(v) => match v.as_str() {
+            Some(s) if topic_id.is_some() && s.len() <= MAX_SUBJECT_BYTES => Some(s.to_owned()),
             _ => return Err("subject"),
-        }
-    }
-    if let Some(v) = get("expiresAfterReadSeconds") {
-        match v.as_u64() {
-            Some(n) if n <= MAX_UNSIGNED_INT => msg.expires_after_read_seconds = Some(n),
+        },
+    };
+    let expires_after_read_seconds = match get("expiresAfterReadSeconds") {
+        None => None,
+        Some(v) => match v.as_u64() {
+            Some(n) if n <= MAX_UNSIGNED_INT => Some(n),
             _ => return Err("expiresAfterReadSeconds"),
+        },
+    };
+    Ok(move |msg: &mut Message| {
+        if let Some(v) = mentions {
+            msg.mentions = v;
         }
-    }
-    Ok(())
+        if let Some(v) = broadcast_mentions {
+            msg.broadcast_mentions = v;
+        }
+        if let Some(v) = actions {
+            msg.actions = v;
+        }
+        if topic_id.is_some() {
+            msg.topic_id = topic_id;
+        }
+        if subject.is_some() {
+            msg.subject = subject;
+        }
+        if expires_after_read_seconds.is_some() {
+            msg.expires_after_read_seconds = expires_after_read_seconds;
+        }
+    })
 }
 
 /// Build a `Message/set` create's `attachments` from its wire value `v`
@@ -852,12 +872,9 @@ pub(crate) async fn ensure_read_positions<B: ChatBackend>(
     chat_ids.retain(|c| !existing.iter().any(|p| p.chat_id == *c));
     for chat_id in chat_ids {
         let _ = backend
-            .create_object::<ReadPosition>(
-                caller,
-                account_id,
-                chat_id.as_ref(),
-                ReadPosition::new(Id::from(PLACEHOLDER_ID), chat_id.clone()),
-            )
+            .create_object(caller, account_id, chat_id.as_ref(), |id: &Id| {
+                ReadPosition::new(id.clone(), chat_id.clone())
+            })
             .await;
     }
 }
@@ -907,14 +924,15 @@ pub enum StoreOutcome {
 /// MIMI fanout Message (draft-atwood-jmap-chat-mimi-00
 /// §application/mimi-fanout) or a federation `Peer/deliver` Message.
 ///
-/// The caller sets every field, including the server-set `senderMsgId`,
-/// `senderId`, `sentAt` and `receivedAt` and a body type that
-/// [`ChatLimits::server_reserved_body_types`] keeps out of `Message/set`.
-/// The backend assigns `id`: `msg.id` is replaced by the `"placeholder"`
-/// sentinel that [`ChatBackend::create_object`] documents. None of the
+/// `build` makes the Message for the id the backend assigns, as for
+/// [`ChatBackend::create_object`]. It sets every other field, including
+/// the server-set `senderMsgId`, `senderId`, `sentAt` and `receivedAt` and
+/// a body type that [`ChatLimits::server_reserved_body_types`] keeps out
+/// of `Message/set`; its `chatId` and `senderMsgId` MUST be `chat_id` and
+/// `sender_msg_id`. The backend stores `senderMsgId` as built. None of the
 /// `Message/set` client-input checks run.
 ///
-/// Before storing, the Chat is searched with
+/// Before storing, `chat_id` is searched for `sender_msg_id` with
 /// [`find_message_by_sender_msg_id`]. A hit returns
 /// [`StoreOutcome::Duplicate`] and writes nothing. The mimi draft
 /// requires this: "The server MUST NOT store a FanoutMessage whose
@@ -937,28 +955,27 @@ pub enum StoreOutcome {
 /// [`ChatBackend::create_object`], unchanged.
 // Same error type as `ChatBackend::create_object`, passed through unboxed.
 #[allow(clippy::result_large_err)]
-pub async fn store_server_message<B: ChatBackend>(
+pub async fn store_server_message<B, F>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
-    mut msg: Message,
-) -> Result<StoreOutcome, BackendSetError<B::Error>> {
-    if let Some(existing) = find_message_by_sender_msg_id(
-        backend,
-        caller,
-        account_id,
-        &msg.chat_id,
-        &msg.sender_msg_id,
-    )
-    .await
-    .map_err(BackendSetError::Other)?
+    chat_id: &Id,
+    sender_msg_id: &Id,
+    build: F,
+) -> Result<StoreOutcome, BackendSetError<B::Error>>
+where
+    B: ChatBackend,
+    F: FnOnce(&Id) -> Message + Send,
+{
+    if let Some(existing) =
+        find_message_by_sender_msg_id(backend, caller, account_id, chat_id, sender_msg_id)
+            .await
+            .map_err(BackendSetError::Other)?
     {
         return Ok(StoreOutcome::Duplicate(existing.id));
     }
-    let create_id = msg.sender_msg_id.as_ref().to_owned();
-    msg.id = Id::from(PLACEHOLDER_ID);
     let (id, stored) = backend
-        .create_object::<Message>(caller, account_id, &create_id, msg)
+        .create_object(caller, account_id, sender_msg_id.as_ref(), build)
         .await?;
     ensure_read_positions(backend, caller, account_id, vec![stored.chat_id.clone()]).await;
     record_unread_count_changes(backend, caller, account_id, vec![stored.chat_id]).await;
@@ -1418,46 +1435,28 @@ pub async fn handle_message_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let received_at: UTCDate = UTCDate::from(now_str.as_ref());
 
-            // draft-atwood-jmap-chat-00 §Message `senderMsgId`: "Equals
-            // `id` for messages composed by the owner." Both carry the
-            // sentinel; `create_object` replaces them with one assigned id.
-            let mut msg = Message::new(
-                Id::from(PLACEHOLDER_ID),
-                Id::from(PLACEHOLDER_ID),
-                account_id.clone(),
-                chat_id,
-                body,
-                body_type,
-                sent_at,
-                received_at,
-                DeliveryState::Pending,
-            );
-
-            msg.reply_to = reply_to;
-            msg.thread_root_id = thread_root_id;
-            if let Some(d) = sender_expires_at {
-                msg.sender_expires_at = Some(d);
-            }
-            msg.burn_on_read = burn_on_read;
-
+            let mut attachments = Vec::new();
             if let Some(v) = obj_val.get("attachments").filter(|v| !v.is_null()) {
                 match create_attachments(backend, caller, &account_id, &limits, &chat, v).await {
-                    Ok(attachments) => msg.attachments = attachments,
+                    Ok(a) => attachments = a,
                     Err(err) => {
                         not_created.insert(create_id.clone(), err);
                         continue;
                     }
                 }
             }
-            if let Err(property) = apply_create_optionals(obj_val, &mut msg) {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": [property] }),
-                );
-                continue;
-            }
+            let apply_optionals = match apply_create_optionals(obj_val) {
+                Ok(f) => f,
+                Err(property) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": [property] }),
+                    );
+                    continue;
+                }
+            };
             if let Some(err) =
-                check_attachments(backend, caller, &account_id, &limits, &msg.attachments).await
+                check_attachments(backend, caller, &account_id, &limits, &attachments).await
             {
                 not_created.insert(create_id.clone(), err);
                 continue;
@@ -1480,10 +1479,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             // for the Peer/* methods). `serverRetryAfter` is a
             // workspace extension field. The reference `MemoryBackend`
             // never returns an Err here.
-            if let Err(slow_err) = backend
-                .slow_mode_check(caller, &account_id, &msg.chat_id)
-                .await
-            {
+            if let Err(slow_err) = backend.slow_mode_check(caller, &account_id, &chat_id).await {
                 let retry_after_str: String = slow_err.retry_after.as_ref().to_owned();
                 let set_err = SetError::new(SetErrorType::RateLimit)
                     .with_description("Slow mode is active for this chat")
@@ -1492,8 +1488,30 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
+            // draft-atwood-jmap-chat-00 §Message `senderMsgId`: "Equals
+            // `id` for messages composed by the owner."
+            let build = |id: &Id| {
+                let mut msg = Message::new(
+                    id.clone(),
+                    id.clone(),
+                    account_id.clone(),
+                    chat_id,
+                    body,
+                    body_type,
+                    sent_at,
+                    received_at,
+                    DeliveryState::Pending,
+                );
+                msg.reply_to = reply_to;
+                msg.thread_root_id = thread_root_id;
+                msg.sender_expires_at = sender_expires_at;
+                msg.burn_on_read = burn_on_read;
+                msg.attachments = attachments;
+                apply_optionals(&mut msg);
+                msg
+            };
             match backend
-                .create_object::<Message>(caller, &account_id, create_id, msg)
+                .create_object::<Message, _>(caller, &account_id, create_id, build)
                 .await
             {
                 Ok((_server_id, created_obj)) => {

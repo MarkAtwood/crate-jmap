@@ -34,7 +34,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
     SetAccumulators,
 };
-use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
+use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
@@ -225,27 +225,21 @@ pub async fn handle_ban_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let created_at = UTCDate::from(now_str.as_ref());
 
-            let mut ban = SpaceBan::new(
-                Id::from(PLACEHOLDER_ID),
-                space_id,
-                user_id,
-                banned_by,
-                created_at,
-            );
-
-            if let Some(reason) = obj_val.get("reason").and_then(|v| v.as_str()) {
-                if reason.len() > 1000 {
+            let mut reason = None;
+            if let Some(r) = obj_val.get("reason").and_then(|v| v.as_str()) {
+                if r.len() > 1000 {
                     not_created.insert(
                         create_id.clone(),
                         json!({ "type": "invalidProperties", "properties": ["reason"] }),
                     );
                     continue;
                 }
-                ban.reason = Some(reason.to_owned());
+                reason = Some(r.to_owned());
             }
             // expiresAt is a UTCDate per RFC 8620 §1.4. Validate the wire
             // shape via UTCDate::new_validated; a malformed value produces
             // invalidProperties rather than storing an unparseable string.
+            let mut expires_at = None;
             if let Some(expires) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
                 let Ok(d) = UTCDate::new_validated(expires) else {
                     not_created.insert(
@@ -254,16 +248,22 @@ pub async fn handle_ban_set<B: ChatBackend>(
                     );
                     continue;
                 };
-                ban.expires_at = Some(d);
+                expires_at = Some(d);
             }
 
-            if let Some(err) = ban_denied(backend, caller, &account_id, &ban.space_id).await {
+            if let Some(err) = ban_denied(backend, caller, &account_id, &space_id).await {
                 not_created.insert(create_id.clone(), err);
                 continue;
             }
 
+            let build = move |id: &Id| {
+                let mut ban = SpaceBan::new(id.clone(), space_id, user_id, banned_by, created_at);
+                ban.reason = reason;
+                ban.expires_at = expires_at;
+                ban
+            };
             match backend
-                .create_object::<SpaceBan>(caller, &account_id, create_id, ban)
+                .create_object::<SpaceBan, _>(caller, &account_id, create_id, build)
                 .await
             {
                 Ok((_server_id, created_obj)) => {

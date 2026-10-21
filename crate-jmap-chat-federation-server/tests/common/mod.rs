@@ -368,13 +368,17 @@ impl JmapBackend for Fed {
 }
 
 impl ChatBackend for Fed {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &(),
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         if let (Some(cap), true) = (self.contact_cap, O::TYPE_NAME == ChatContact::TYPE_NAME) {
             if self.contacts().await.len() >= cap {
                 return Err(BackendSetError::SetError(SetError::new(
@@ -383,7 +387,7 @@ impl ChatBackend for Fed {
             }
         }
         self.chat
-            .create_object(caller, account_id, create_id, obj)
+            .create_object(caller, account_id, create_id, build)
             .await
     }
 
