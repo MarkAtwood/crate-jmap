@@ -1888,6 +1888,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-contacts-client**: `address_book_set` now sends
+  `AddressBookSetParams::extra` on the wire; it was silently dropped.
+  Typed fields win over a colliding `extra` key, as in `mailbox_set`.
 - **jmap-vtc-server**: a decline and a cancelled ring now deliver a
   `VTCCallEndEvent` through `VtcBackend::deliver_event`, per
   draft-atwood-jmap-vtc-00 §VTCCallEndEvent: "When a ringing call is
