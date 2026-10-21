@@ -17,7 +17,8 @@ pub const JMAP_GRAPH_URI: &str = "urn:ietf:params:jmap:graph";
 /// (draft-atwood-jmap-graph-projection-00 §Capability): "A server that
 /// provides a projection for an account advertises the
 /// `urn:ietf:params:jmap:graph:projection` capability for that account."
-/// The capability objects are not modelled here.
+/// The session-level value is an empty object `{}` and is not modelled;
+/// the account-level value is [`GraphProjectionCapability`].
 pub const JMAP_GRAPH_PROJECTION_URI: &str = "urn:ietf:params:jmap:graph:projection";
 
 /// JMAP Object URI type name of a [`Graph`](crate::Graph)
@@ -77,6 +78,39 @@ pub struct PrincipalGraphCapability {
     /// "`true` if the user may add this Principal to the `shareWith`
     /// property of a Graph."
     pub may_share_with: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Account-level capability object for
+/// `"urn:ietf:params:jmap:graph:projection"`.
+///
+/// Found at
+/// `accounts[id].accountCapabilities["urn:ietf:params:jmap:graph:projection"]`.
+///
+/// Spec: draft-atwood-jmap-graph-projection-00 §Account-Level Capability
+/// Object. "An account has at most one projected Graph. It lives in the
+/// account whose data it projects."
+///
+/// # Example
+///
+/// ```
+/// use jmap_graph_types::GraphProjectionCapability;
+///
+/// let cap: GraphProjectionCapability = serde_json::from_str(r#"{"graphId": "G1"}"#)?;
+/// assert_eq!(cap.graph_id.as_ref(), "G1");
+/// # Ok::<(), serde_json::Error>(())
+/// ```
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphProjectionCapability {
+    /// "The id of the account's projected Graph."
+    pub graph_id: Id,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation

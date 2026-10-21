@@ -573,3 +573,57 @@ async fn unreadable_graph_contributes_nothing() {
     assert_eq!(resp["ids"], json!([]));
     assert_eq!(nodes_where(&backend, &g, json!({})).await.len(), 1);
 }
+
+/// A hand-written GraphNode `id` of Graph `G1`.
+fn view_node(id: &str) -> jmap_graph_types::GraphNode {
+    serde_json::from_value(json!({
+        "id": id, "graphId": "G1", "annotations": {},
+        "blobId": null, "mediaType": null, "uri": null,
+        "created": "2026-10-21T00:00:00Z", "updated": "2026-10-21T00:00:00Z",
+        "createdBy": null, "updatedBy": null,
+    }))
+    .expect("node fixture")
+}
+
+#[test]
+fn hidden_endpoint_edge_is_not_followed() {
+    use jmap_graph_server::search::GraphView;
+    use jmap_graph_types::search::{CandidateKind, Expression};
+    // L313-315 at jmap-chat-spec 33702a5: "The nodes and edges a search
+    // considers are exactly those the user could fetch with `/get`" and
+    // "a node or edge the user cannot see has no effect on any search
+    // result, including through structural operators". Edge E runs A -> B;
+    // the user can see A but not B.
+    let edge: jmap_graph_types::GraphEdge = serde_json::from_value(json!({
+        "id": "E", "graphId": "G1", "fromId": "A", "toId": "B", "type": "cites",
+        "annotations": {},
+        "created": "2026-10-21T00:00:00Z", "updated": "2026-10-21T00:00:00Z",
+        "createdBy": null, "updatedBy": null,
+    }))
+    .expect("edge fixture");
+    let edges = [edge];
+    let has_edge = Expression::parse(
+        &json!({ "$edge": { "direction": "out" } }),
+        CandidateKind::Node,
+    )
+    .expect("well-formed");
+    let reaches = Expression::parse(
+        &json!({ "$reachable": { "direction": "out", "maxDepth": 1 } }),
+        CandidateKind::Node,
+    )
+    .expect("well-formed");
+    let a = Id::from("A");
+
+    // Control: with B visible, A has an outgoing edge and reaches B in one
+    // step (L247, L255).
+    let both = [view_node("A"), view_node("B")];
+    let view = GraphView::new(&both, &edges);
+    assert!(view.node_matches(&has_edge, &a));
+    assert!(view.node_matches(&reaches, &a));
+
+    // B hidden: the edge to it has no effect.
+    let only_a = [view_node("A")];
+    let view = GraphView::new(&only_a, &edges);
+    assert!(!view.node_matches(&has_edge, &a));
+    assert!(!view.node_matches(&reaches, &a));
+}

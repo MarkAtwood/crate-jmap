@@ -13,8 +13,9 @@ use jmap_graph_types::query::{
     GraphNodeComparator, GraphNodeFilterCondition, GraphSortProperty,
 };
 use jmap_graph_types::{
-    Graph, GraphCapability, GraphEdge, GraphNode, GraphRights, PrincipalGraphCapability,
-    JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE, JMAP_URI_GRAPH_TYPE,
+    Graph, GraphCapability, GraphEdge, GraphNode, GraphProjectionCapability, GraphRights,
+    PrincipalGraphCapability, JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE,
+    JMAP_URI_GRAPH_TYPE,
 };
 use jmap_types::{Id, JmapObject, JmapUri};
 use serde::de::DeserializeOwned;
@@ -504,4 +505,21 @@ fn projection_object_uri_filter_matches_example() {
         json!({ "objectUri": ["jmap:email:A1:M42"] })
     )
     .is_err());
+}
+
+#[test]
+fn projection_account_capability_round_trips() {
+    // draft-atwood-jmap-graph-projection-00 at jmap-chat-spec 33702a5,
+    // L136-139: the account-level value "is a JSON object with the
+    // following field: `graphId` (Id): The id of the account's projected
+    // Graph."
+    let cap: GraphProjectionCapability = round_trip(&json!({ "graphId": "G1" }));
+    assert_eq!(cap.graph_id, Id::from("G1"));
+    assert!(serde_json::from_value::<GraphProjectionCapability>(json!({})).is_err());
+    let raw = json!({ "graphId": "G1", "com.example.rebuiltAt": "2026-10-21T00:00:00Z" });
+    let cap: GraphProjectionCapability = round_trip(&raw);
+    assert_eq!(
+        cap.extra["com.example.rebuiltAt"],
+        json!("2026-10-21T00:00:00Z")
+    );
 }
