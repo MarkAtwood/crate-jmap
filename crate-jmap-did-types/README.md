@@ -60,6 +60,9 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
   the 72-hour window and be signed by a higher-authority key, and every
   `cid`, `nullified` flag and `createdAt` must agree. It returns
   `PlcStatus::Active(PlcState)` or `PlcStatus::Deactivated`.
+- `webvh_log_url` maps a `did:webvh` DID to the HTTPS URL of its
+  `did.jsonl` by the DIF DID-to-HTTPS Transformation (IDNA domain,
+  RFC 3986 path); the `did-witness.json` sits beside it.
 - `verify_webvh_log` takes the bytes of a `did:webvh` `did.jsonl` log,
   optionally its `did-witness.json`, and the current time, and applies
   the DIF did:webvh v1.0 Read rules: DID syntax, the SCID, the entry
@@ -78,8 +81,7 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
 
 - `DidAccountCapability.did` and `previousDid` are still plain
   strings; parse them with `Did::parse` to validate.
-- `verify_webvh_log` does not map the DID to its HTTPS URLs or fetch
-  anything, and it does not add the implicit `#files` and `#whois`
+- `verify_webvh_log` does not fetch anything, and it does not add the implicit `#files` and `#whois`
   services to the documents it returns.
 - A valid log can still be an old prefix of the real one. Remember
   `latest().version_id` and compare.

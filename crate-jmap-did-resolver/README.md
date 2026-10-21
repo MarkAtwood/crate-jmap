@@ -2,7 +2,7 @@
 
 DID resolution I/O and caching for the `jmap-*` crate family: `did:key`,
 `did:web` and `did:plc`, the three methods draft-atwood-jmap-chat-did-00
-requires.
+requires, and the `did:webvh` it recommends.
 
 ## What it is
 
@@ -38,6 +38,18 @@ let resolved = resolver.refresh(&did).await?;
 - `did:plc`: GET `<directory>/<did>/log/audit` (default
   `https://plc.directory`) and verify it with `verify_plc_audit_log`. The
   result is the verified `PlcState`; a tombstoned DID is an error.
+- `did:webvh`: GET the `did.jsonl` at `webvh_log_url` and verify it with
+  `verify_webvh_log`; when an entry needs witnessing, also GET the
+  `did-witness.json` beside it. The result is the verified `WebvhLog`:
+  use `current()` for a request being received. A log with an invalid
+  entry is returned but not cached.
+- `resolve_webvh_version` returns the version an object was accepted
+  under, by its recorded `versionId`. The newest verified log of each
+  `did:webvh` is kept apart from the TTL cache, so a verified version
+  stays available after expiry or a failed refresh. A fetched log that
+  lacks the latest `versionId` seen before is a `WebvhRollback` error
+  (DIF: resolvers "SHOULD warn or fail resolution when presented with a
+  truncated log").
 - Fetched results are cached for a fixed TTL, up to a fixed number of
   DIDs (default 10 000; the oldest goes first). Errors are never cached,
   and an expired entry is never served when its refetch fails.
@@ -59,6 +71,14 @@ let resolved = resolver.refresh(&did).await?;
 
 - The `didDocumentUri` hint of the account capability is not used.
 - `did:plc` returns `PlcState`, not a DID document.
+- `did:webvh` returns the whole `WebvhLog`, not a DID document, and its
+  `current()` is `None` when an entry is invalid or the DID is
+  deactivated.
+- The `did:webvh` `ttl` parameter is not used; the resolver's own TTL
+  applies. The witness file is always fetched from the method-derived
+  URL.
+- A `versionId` newer than the cached log is found only after
+  `refresh`.
 
 ## References
 
@@ -68,9 +88,11 @@ let resolved = resolver.refresh(&did).await?;
 - [did:web] — did:web Method Specification
 - [did:key] — The did:key Method v0.9
 - [did:plc] — did:plc Method Specification v0.3.0
+- [did:webvh] — The did:webvh DID Method v1.0 (DIF)
 
 [draft-atwood-jmap-chat-did-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-did-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [did:web]: https://w3c-ccg.github.io/did-method-web/
 [did:key]: https://w3c-ccg.github.io/did-key-spec/
 [did:plc]: https://web.plc.directory/spec/v0.1/did-plc
+[did:webvh]: https://identity.foundation/didwebvh/v1.0/

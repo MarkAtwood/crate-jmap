@@ -21,7 +21,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use jmap_did_types::{verify_webvh_log, Did, WebvhError, WebvhLog};
+use jmap_did_types::{verify_webvh_log, webvh_log_url, Did, WebvhError, WebvhLog};
 use serde_json::Value;
 
 /// 2026-10-20T00:00:00Z, after every fixture's `versionTime`.
@@ -761,4 +761,61 @@ fn entry_after_deactivation_is_invalid() {
         WebvhError::AfterDeactivation,
         "deactivate",
     );
+}
+
+/// The v1.0 DID-to-HTTPS Transformation examples, with the suite SCID in
+/// place of `{SCID}` ("the `{SCID}` is not part of the HTTPS URL"). The
+/// internationalized example's DID is the percent-encoded UTF-8 of
+/// `jp納豆.例.jp:用户`, since a DID holds only ASCII.
+#[test]
+fn log_url_follows_the_did_to_https_examples() {
+    let cases = [
+        ("example.com", "https://example.com/.well-known/did.jsonl"),
+        (
+            "issuer.example.com",
+            "https://issuer.example.com/.well-known/did.jsonl",
+        ),
+        (
+            "example.com:dids:issuer",
+            "https://example.com/dids/issuer/did.jsonl",
+        ),
+        (
+            "example.com%3A3000:dids:issuer",
+            "https://example.com:3000/dids/issuer/did.jsonl",
+        ),
+        (
+            "jp%E7%B4%8D%E8%B1%86.%E4%BE%8B.jp:%E7%94%A8%E6%88%B7",
+            "https://xn--jp-cd2fp15c.xn--fsq.jp/%E7%94%A8%E6%88%B7/did.jsonl",
+        ),
+    ];
+    for (rest, url) in cases {
+        let did = did(&format!("did:webvh:{SCID}:{rest}"));
+        assert_eq!(webvh_log_url(&did).as_deref(), Some(url), "{did}");
+    }
+}
+
+/// "ABNF character strings are case-insensitive by default, so `"%3A"`
+/// accepts either `%3A` or `%3a`", and step 4 re-encodes each path
+/// segment "using uppercase hexadecimal digits".
+#[test]
+fn log_url_accepts_lowercase_escapes_and_emits_uppercase() {
+    let did = did(&format!("did:webvh:{SCID}:example.com%3a3000:a%2cb"));
+    assert_eq!(
+        webvh_log_url(&did).as_deref(),
+        Some("https://example.com:3000/a%2Cb/did.jsonl"),
+    );
+}
+
+/// A DID the Method-Specific Identifier rules reject has no URL: a
+/// non-`did:webvh` DID, a domain that "MUST NOT be an IPv4 or IPv6
+/// address", and a path segment that "MUST NOT be `.` or `..`".
+#[test]
+fn log_url_is_none_for_invalid_dids() {
+    for s in [
+        "did:web:example.com".to_owned(),
+        format!("did:webvh:{SCID}:127.0.0.1"),
+        format!("did:webvh:{SCID}:example.com:%2E%2E"),
+    ] {
+        assert_eq!(webvh_log_url(&did(&s)), None, "{s}");
+    }
 }

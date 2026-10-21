@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-did-resolver**: `did:webvh` resolution. `Resolver` fetches the
+  DID log from the DIF did:webvh v1.0 DID-to-HTTPS URL, and the
+  `did-witness.json` beside it when an entry needs witnessing, and
+  returns the verified log as `Resolved::Webvh`.
+  `Resolver::resolve_webvh_version` returns the version an object was
+  accepted under (draft-atwood-jmap-did-00 §Resolving `did:webvh`). A
+  fetched log lacking the latest `versionId` seen before fails with
+  `ResolveError::WebvhRollback`, and a log with an invalid entry is not
+  cached. New `ResolveError` variants `Webvh`, `WebvhRollback` and
+  `VersionNotFound`.
+- **jmap-did-types**: `webvh_log_url`, the DIF did:webvh v1.0
+  DID-to-HTTPS Transformation of a `did:webvh` DID.
 - **jmap-did-types**: `verify_webvh_log`, a pure `did:webvh` verifier
   over supplied `did.jsonl` and `did-witness.json` bytes, following DIF
   did:webvh v1.0 as draft-atwood-jmap-did-00 §Resolving `did:webvh`
