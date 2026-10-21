@@ -420,9 +420,9 @@ pub trait SceneBackend: JmapBackend {
     /// Errors).
     ///
     /// `SceneAvatar/set` calls this only for a patch of another user's
-    /// avatar that sets `leftAt` and touches nothing but `leftAt` and
-    /// `worldState` (the §Step 4 eject example carries an `ejectReason`);
-    /// `false` is `forbidden`.
+    /// avatar that sets `leftAt` and touches nothing else ("An eject
+    /// update patches only `leftAt`", §Avatar Permissions); `false` is
+    /// `forbidden`.
     ///
     /// # Default implementation
     ///

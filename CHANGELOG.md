@@ -1062,6 +1062,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `SceneAvatar/set` stores the
+  server's current time as `leftAt` when an update sets it to a non-null
+  value, and echoes it in `updated`, instead of the client-supplied value
+  (draft-atwood-jmap-scene-00 §Leaving a Region: "The server records its
+  own current time as `leftAt`"). An eject by a region owner or
+  administrator may patch only `leftAt`; one that also patches
+  `worldState` is `forbidden` ("An eject update patches only `leftAt`").
 - **BREAKING** **jmap-scene-server**: a departed user re-enters a region
   by updating their SceneAvatar to `leftAt: null`
   (draft-atwood-jmap-scene-00 §Re-entering a Region), not by a create. A
