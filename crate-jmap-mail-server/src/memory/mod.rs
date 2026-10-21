@@ -1063,18 +1063,21 @@ impl JmapBackend for MemoryBackend {
 
         // Step 4: Build lookup sets.
         use std::collections::HashSet;
-        let current_set: HashSet<&Id> = current_result.iter().collect();
         let created_set: HashSet<&Id> = changes.created.iter().collect();
         let updated_set: HashSet<&Id> = changes.updated.iter().collect();
 
-        // Step 5: Compute removed — IDs that were destroyed or updated out of the filter.
-        // An updated ID that still passes the filter is NOT removed; it appears in added instead.
-        let mut removed: Vec<Id> = Vec::new();
-        for id in changes.destroyed.iter().chain(changes.updated.iter()) {
-            if !current_set.contains(id) {
-                removed.push(id.clone());
-            }
-        }
+        // Step 5: Compute removed — every destroyed or updated ID. RFC 8620
+        // §5.6: when the filter or sort includes a mutable property "the
+        // server MUST include all Foos in the current results for which this
+        // property may have changed", and `added` then reinserts them. Every
+        // update is treated as possibly touching a filter/sort property, so an
+        // updated ID still in the results appears in both arrays.
+        let mut removed: Vec<Id> = changes
+            .destroyed
+            .iter()
+            .chain(changes.updated.iter())
+            .cloned()
+            .collect();
         // Deduplicate removed (an id could appear in both destroyed and updated in theory).
         removed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
         removed.dedup();

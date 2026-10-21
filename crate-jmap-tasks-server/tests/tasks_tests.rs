@@ -719,7 +719,10 @@ async fn task_query_with_no_filter_or_sort_succeeds() {
 // the old state". draft-tasks-06 §4: "taskListId: Id The TaskList id this
 // task belongs to." Moving t1 out of tl1 removes it from the tl1 query,
 // moving t2 in adds it at index 0 (the only tl1 task), and a task created
-// in tl2 is not part of the tl1 results. Bead: JMAP-y3f2.14.
+// in tl2 is not part of the tl1 results. `removed` also lists t2: "If the
+// "filter" or "sort" includes a mutable property, the server MUST include
+// all Foos in the current results for which this property may have
+// changed", and `added` reinserts it. Beads: JMAP-y3f2.14, JMAP-gev1.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -777,7 +780,7 @@ async fn task_query_changes_honours_task_list_filter() {
     )
     .await
     .expect("Task/queryChanges must succeed");
-    assert_eq!(changes["removed"], json!(["t1"]), "{changes}");
+    assert_eq!(changes["removed"], json!(["t1", "t2"]), "{changes}");
     assert_eq!(
         changes["added"],
         json!([{ "id": "t2", "index": 0 }]),

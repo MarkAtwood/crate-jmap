@@ -610,6 +610,46 @@ async fn chat_query_changes_after_create() {
     assert!(added[0]["index"].is_number());
 }
 
+/// Oracle: a Chat updated while it stays in the results is reported in both
+/// `removed` and `added`. RFC 8620 §5.6 `removed`: "If the "filter" or
+/// "sort" includes a mutable property, the server MUST include all Foos in
+/// the current results for which this property may have changed."
+/// `added`: "every Foo in the current results that was included in the
+/// "removed" array". Removing then reinserting leaves one copy at index 0.
+#[tokio::test]
+async fn chat_query_changes_reports_updated_id_in_removed_and_added() {
+    let backend = MemoryBackend::new();
+    let chat_id = make_chat_group(&backend, "Original").await;
+
+    let HandlerOutput { primary: query, .. } =
+        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("handle_chat_query");
+    assert_eq!(query["ids"], json!([chat_id]), "{query}");
+
+    let HandlerOutput { primary: upd, .. } = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { &chat_id: { "name": "Renamed" } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert!(upd["notUpdated"].is_null(), "{upd}");
+
+    let HandlerOutput { primary: qc, .. } = handle_chat_query_changes(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "sinceQueryState": query["queryState"] }),
+    )
+    .await
+    .expect("queryChanges");
+    assert_eq!(qc["removed"], json!([chat_id]), "{qc}");
+    assert_eq!(qc["added"], json!([{ "id": chat_id, "index": 0 }]), "{qc}");
+}
+
 // ---------------------------------------------------------------------------
 // Chat/typing — blocked-sender suppression
 // (draft-atwood-jmap-chat-00 §Chat/typing Server Behavior)
