@@ -43,6 +43,7 @@ members = [
     "crate-jmap-scene-vtc-server",
     "crate-jmap-base-client",
     "crate-jmap-chat-client",
+    "crate-jmap-chat-mimi-client",
     "crate-jmap-mail-client",
     "crate-jmap-contacts-client",
     "crate-jmap-calendars-client",
@@ -114,6 +115,7 @@ jmap-chat-federation-server = { path = "crate-jmap-chat-federation-server", vers
 jmap-base-client       = { path = "crate-jmap-base-client",      version = "0.3" }
 jmap-mail-client       = { path = "crate-jmap-mail-client",      version = "0.3" }
 jmap-chat-client       = { path = "crate-jmap-chat-client",      version = "0.3" }
+jmap-chat-mimi-client  = { path = "crate-jmap-chat-mimi-client", version = "0.3" }
 jmap-contacts-client   = { path = "crate-jmap-contacts-client",  version = "0.3" }
 jmap-calendars-client  = { path = "crate-jmap-calendars-client", version = "0.3" }
 jmap-tasks-client      = { path = "crate-jmap-tasks-client",     version = "0.3" }

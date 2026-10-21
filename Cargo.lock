@@ -1843,6 +1843,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-chat-mimi-client"
+version = "0.3.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-chat-mimi-types",
+ "jmap-types",
+ "openmls",
+ "openmls_basic_credential",
+ "openmls_rust_crypto",
+ "serde",
+ "serde_json",
+ "tls_codec",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-chat-mimi-server"
 version = "0.3.0"
 dependencies = [
