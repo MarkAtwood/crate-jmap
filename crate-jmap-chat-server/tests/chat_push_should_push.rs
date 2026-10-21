@@ -336,13 +336,17 @@ async fn blocked_sender_is_not_pushed() {
     assert!(!decide(&backend, &caps(), &all_chats(), &inbound(), NOBODY).await);
 }
 
-/// draft-atwood-jmap-chat-push-00 §PushSubscription Extension (push:106,
-/// push:108): "When absent or null for an account, the server delivers
-/// standard `StateChange` notifications for that account without inline
-/// message content." and "Servers MUST NOT include `chatPush` entries for
-/// accounts whose `accountCapabilities` does not include
-/// `urn:ietf:params:jmap:chat:push`." A config for an account that does
-/// not advertise the capability counts as absent: no `ChatMessagePush`.
+/// draft-atwood-jmap-chat-push-00 §PushSubscription Extension (push:108,
+/// push:110): "When `chatPush` is absent or null for an account, the server
+/// delivers standard `StateChange` notifications for that account without
+/// inline message content." and "If a `PushSubscription/set` create or update includes a `chatPush`
+/// entry for an account whose `accountCapabilities` does not include
+/// `urn:ietf:params:jmap:chat:push`, the server MUST return an
+/// `invalidProperties` SetError whose `properties` names the offending
+/// entry (e.g., `chatPush/<id>`) and MUST NOT store the subscription
+/// change."
+/// A config for an account that does not advertise the capability counts
+/// as absent: no `ChatMessagePush`.
 #[tokio::test]
 async fn config_for_account_without_capability_is_not_pushed() {
     let backend = plain_backend();

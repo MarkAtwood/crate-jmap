@@ -72,9 +72,13 @@ const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
 /// - `chatPush`: the value is not an object.
 /// - `chatPush/<accountId>`: the account is not in `caps`, or the entry is
 ///   not a `ChatPushConfig`. draft-atwood-jmap-chat-push-00
-///   §PushSubscription Extension: "Servers MUST NOT include `chatPush`
-///   entries for accounts whose `accountCapabilities` does not include
-///   `urn:ietf:params:jmap:chat:push`."
+///   §PushSubscription Extension: "If a `PushSubscription/set` create or
+///   update includes a `chatPush` entry for an account whose
+///   `accountCapabilities` does not include
+///   `urn:ietf:params:jmap:chat:push`, the server MUST return an
+///   `invalidProperties` SetError whose `properties` names the offending
+///   entry (e.g., `chatPush/<id>`) and MUST NOT store the subscription
+///   change."
 /// - `chatPush/<accountId>/kinds`: a value other than `"direct"`,
 ///   `"group"` or `"channel"`.
 /// - `chatPush/<accountId>/properties`: a name that is not a
@@ -136,9 +140,13 @@ pub fn validate_chat_push(
 ///
 /// An entry stored while the account advertised
 /// `urn:ietf:params:jmap:chat:push` stops being returned once it no longer
-/// does. draft-atwood-jmap-chat-push-00 §PushSubscription Extension:
-/// "Servers MUST NOT include `chatPush` entries for accounts whose
-/// `accountCapabilities` does not include `urn:ietf:params:jmap:chat:push`."
+/// does. draft-atwood-jmap-chat-push-00 rejects such an entry only on
+/// `/set` (§PushSubscription Extension) and states no rule for one stored
+/// before the capability was withdrawn. This server strips it so that
+/// `/get` matches delivery: [`should_push`] treats the entry as absent, and
+/// the draft says "When `chatPush` is absent or null for an account, the
+/// server delivers standard `StateChange` notifications for that account
+/// without inline message content."
 pub fn strip_unsupported_chat_push(
     extra: &mut Map<String, Value>,
     caps: &HashMap<Id, ChatPushCapability>,
