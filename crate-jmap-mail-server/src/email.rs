@@ -1032,12 +1032,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         ),
     };
 
-    let max_changes: Option<u64> = match args.remove("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
+    let max_changes = jmap_server::parse_max_changes(args.remove("maxChanges").as_ref())?;
 
     let up_to_id: Option<Id> = match args.remove("upToId") {
         None | Some(Value::Null) => None,

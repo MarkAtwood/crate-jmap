@@ -387,12 +387,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
     };
 
-    let max_changes: Option<u64> = match args.get("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
+    let max_changes = jmap_server::parse_max_changes(args.get("maxChanges"))?;
 
     let up_to_id: Option<Id> = match args.get("upToId") {
         None | Some(Value::Null) => None,

@@ -143,12 +143,7 @@ pub async fn handle_identity_changes<B: MailBackend>(
         None => return Err(JmapError::invalid_arguments("sinceState is required")),
     };
 
-    let max_changes: Option<u64> = match args.get("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
+    let max_changes = jmap_server::parse_max_changes(args.get("maxChanges"))?;
 
     let result = backend
         .get_changes::<jmap_mail_types::Identity>(caller, &account_id, &since_state, max_changes)

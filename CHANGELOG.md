@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `parse_max_changes`, the shared RFC 8620 §5.2
+  `maxChanges` parser (absent/`null` -> `None`; `0`, negative or
+  non-integer -> `invalidArguments`). `handle_changes`,
+  `handle_query_changes` and the custom `/changes` and `/queryChanges`
+  handlers in jmap-mail-server and jmap-chat-server now use it instead of
+  inline copies.
 - **jmap-chat-mimi-client**: `SessionClient::key_package_get`,
   `key_package_set` (create and destroy) and `key_material_fetch`, the
   `KeyPackage/get`, `KeyPackage/set` and `KeyMaterial/fetch` bindings of
