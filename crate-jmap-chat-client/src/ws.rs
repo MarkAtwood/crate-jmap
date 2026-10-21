@@ -116,6 +116,13 @@ pub trait ChatWsExt: sealed::Sealed {
     /// the prior subscription entirely; re-send after every reconnect because
     /// subscriptions are session-scoped.
     ///
+    /// Success is silent; failure arrives later as a `RequestError` frame.
+    /// Set [`ChatStreamEnable::id`] to correlate it: the error carries that
+    /// value as its `requestId`, readable with
+    /// [`jmap_base_client::WsFrame::request_id`]. A client that sends
+    /// several control messages in succession SHOULD give each an `id`
+    /// (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable, L186 and L192).
+    ///
     /// Spec: draft-atwood-jmap-chat-wss-00
     fn send_stream_enable(
         &mut self,

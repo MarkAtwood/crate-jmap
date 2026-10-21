@@ -31,6 +31,14 @@ pub struct ChatStreamEnable {
     /// Contacts to filter on; `None` (or JSON `null`) means all contacts.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contact_ids: Option<Vec<Id>>,
+    /// Client-chosen identifier for this message; `None` omits it.
+    ///
+    /// "A `RequestError` caused by this message carries this value as its
+    /// `requestId`" (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable, L186),
+    /// so a client can match a failure to the frame that caused it with
+    /// `WsFrame::request_id`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -604,6 +612,29 @@ mod tests {
         );
         let back = serde_json::to_value(&e).unwrap();
         assert_eq!(back["acmeCorpStreamPriority"], "high");
+    }
+
+    /// wss 6bcd9d8 L185-186: "`id` (String, optional): A client-specified
+    /// identifier for this message." It is a typed field, not an extra, and
+    /// is omitted from the wire when absent.
+    #[test]
+    fn chat_stream_enable_id_is_typed_and_optional() {
+        let json = r#"{"@type":"ChatStreamEnable","dataTypes":["typing"],"id":"R1"}"#;
+        let EphemeralMessage::Enable(e) = serde_json::from_str(json).unwrap() else {
+            panic!("expected Enable");
+        };
+        assert_eq!(e.id.as_deref(), Some("R1"));
+        assert!(e.extra.is_empty());
+        let back = serde_json::to_value(EphemeralMessage::Enable(e.clone())).unwrap();
+        assert_eq!(
+            back,
+            serde_json::json!({"@type": "ChatStreamEnable", "dataTypes": ["typing"], "id": "R1"})
+        );
+
+        let mut e = e;
+        e.id = None;
+        let back = serde_json::to_value(&e).unwrap();
+        assert_eq!(back, serde_json::json!({"dataTypes": ["typing"]}));
     }
 
     /// `ChatStreamDisable.extra` captures vendor fields and preserves them.

@@ -104,7 +104,10 @@ impl EphemeralSubscription {
     /// transport sends it to the client as an RFC 8887 §4.3.4
     /// `RequestError` frame whose `type` is the full URN
     /// `"urn:ietf:params:jmap:error:invalidArguments"`; the returned
-    /// [`JmapError`] carries the short method-level name.
+    /// [`JmapError`] carries the short method-level name. When `enable.id`
+    /// is set, the transport MUST put it in the frame's `requestId`: "A
+    /// `RequestError` caused by this message carries this value as its
+    /// `requestId`" (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable, L186).
     pub fn from_enable(
         enable: &ChatStreamEnable,
         companions: CompanionStreams,
@@ -131,8 +134,9 @@ impl EphemeralSubscription {
     ///
     /// # Errors
     ///
-    /// Returns the same error as [`Self::from_enable`]. On error `self` is
-    /// unchanged, as the draft requires.
+    /// Returns the same error as [`Self::from_enable`], which the transport
+    /// sends as a `RequestError` whose `requestId` is `enable.id`. On error
+    /// `self` is unchanged, as the draft requires.
     pub fn replace_with(
         &mut self,
         enable: &ChatStreamEnable,
