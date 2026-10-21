@@ -259,6 +259,16 @@ mod tests {
         assert!(!is_namespace_supported("has space", &info));
     }
 
+    // draft-ietf-jmap-metadata-04 §2.1: "Servers MUST reject ... a domain
+    // name containing uppercase ASCII letters"; registered names are
+    // "lowercase US-ASCII letters, digits, hyphens, and underscores".
+    #[test]
+    fn supported_rejects_uppercase() {
+        let info = info_with_registered(&["photography"], true);
+        assert!(!is_namespace_supported("Photography", &info));
+        assert!(!is_namespace_supported("Acme.example.com", &info));
+    }
+
     #[test]
     fn supported_spec_example_section_6_1() {
         // Oracle: §6.1 — the FileNode entry: namespaces: ["photography"],

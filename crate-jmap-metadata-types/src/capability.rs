@@ -40,8 +40,8 @@ pub const JMAP_METADATA_URI: &str = "urn:ietf:params:jmap:metadata";
 #[serde(rename_all = "camelCase")]
 pub struct DataTypeMetadataInfo {
     /// IANA-registered metadata namespace names supported on this data type
-    /// (§1.2.1). Each value is a registered name (US-ASCII letters, digits,
-    /// hyphens, underscores — no dot). Vendor domain-name namespaces MUST
+    /// (§1.2.1). Each value is a registered name (lowercase US-ASCII letters,
+    /// digits, hyphens, underscores — no dot). Vendor domain-name namespaces MUST
     /// NOT appear in this list; their support is signalled by
     /// [`supports_vendor_namespaces`](Self::supports_vendor_namespaces).
     #[serde(default)]
