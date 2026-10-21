@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-client**: `SessionClient::key_package_get`,
+  `key_package_set` (create and destroy) and `key_material_fetch`, the
+  `KeyPackage/get`, `KeyPackage/set` and `KeyMaterial/fetch` bindings of
+  draft-atwood-jmap-chat-mimi-00.
 - **jmap-filenode-server**: `FileNodeBackend::files_rights` (default
   `Ok(None)`, fail-open). `FileNode/get` reports a `Some` result as the
   node's `myRights`, including the ancestors `fetchParents` appends; an

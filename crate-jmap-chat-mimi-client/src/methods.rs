@@ -1,16 +1,20 @@
-//! The draft-atwood-jmap-chat-mimi-00 §Rooms method bindings on
-//! [`SessionClient`].
+//! The draft-atwood-jmap-chat-mimi-00 §KeyPackages, §KeyMaterial/fetch
+//! and §Rooms method bindings on [`SessionClient`].
 //!
 //! Each method builds its arguments from the `jmap-chat-mimi-types`
 //! request type, sends a single-method request, and decodes the matching
-//! response type. None of the methods is a standard RFC 8620 method.
+//! response type. `KeyPackage/get` and `KeyPackage/set` are standard
+//! RFC 8620 methods; the others are not.
+
+use std::collections::BTreeMap;
 
 use jmap_chat_mimi_types::{
-    Base64Url, GroupInfoFetchRequest, GroupInfoFetchResponse, MimiCapability, RoomCreateRequest,
-    RoomCreateResponse, RoomSendRequest, RoomSendResponse, RoomUnbindRequest, RoomUnbindResponse,
-    RoomUpdateRequest, RoomUpdateResponse, JMAP_CHAT_MIMI_URI,
+    Base64Url, GroupInfoFetchRequest, GroupInfoFetchResponse, KeyMaterialFetchRequest,
+    KeyMaterialFetchResponse, KeyPackage, KeyPackageCreate, KeyPackageCreated, MimiCapability,
+    RoomCreateRequest, RoomCreateResponse, RoomSendRequest, RoomSendResponse, RoomUnbindRequest,
+    RoomUnbindResponse, RoomUpdateRequest, RoomUpdateResponse, JMAP_CHAT_MIMI_URI,
 };
-use jmap_types::Id;
+use jmap_types::{GetResponse, Id, SetResponse};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -105,6 +109,68 @@ impl SessionClient {
             Some(account) => account.account_extension_capability(JMAP_CHAT_MIMI_URI),
             None => Ok(None),
         }
+    }
+
+    /// `KeyPackage/get` (draft §KeyPackage/get, RFC 8620 §5.1): fetch the
+    /// account's KeyPackage records by id, or all of them when `ids` is
+    /// `None`.
+    ///
+    /// Every property is requested: [`KeyPackage`] has no optional field,
+    /// so a partial object would not decode.
+    pub async fn key_package_get(
+        &self,
+        ids: Option<&[Id]>,
+    ) -> Result<GetResponse<KeyPackage>, jmap_base_client::ClientError> {
+        let mut args = serde_json::json!({ "accountId": self.mimi_account_id()? });
+        if let Some(ids) = ids {
+            args["ids"] =
+                serde_json::to_value(ids).map_err(jmap_base_client::ClientError::from_serialize)?;
+        }
+        self.call("KeyPackage/get", args).await
+    }
+
+    /// `KeyPackage/set` (draft §KeyPackage/set, RFC 8620 §5.3): publish
+    /// the KeyPackages in `create`, keyed by creation id, and destroy the
+    /// records in `destroy`. An empty `create` or `destroy` is omitted.
+    ///
+    /// There is no `update`: the server "MUST reject every update". A
+    /// rejected create (`invalidProperties`, `overQuota`) is in the
+    /// response's `not_created`, not an error here.
+    pub async fn key_package_set(
+        &self,
+        create: &BTreeMap<String, KeyPackageCreate>,
+        destroy: &[Id],
+    ) -> Result<SetResponse<KeyPackageCreated>, jmap_base_client::ClientError> {
+        let mut args = serde_json::json!({ "accountId": self.mimi_account_id()? });
+        if !create.is_empty() {
+            args["create"] = serde_json::to_value(create)
+                .map_err(jmap_base_client::ClientError::from_serialize)?;
+        }
+        if !destroy.is_empty() {
+            args["destroy"] = serde_json::to_value(destroy)
+                .map_err(jmap_base_client::ClientError::from_serialize)?;
+        }
+        self.call("KeyPackage/set", args).await
+    }
+
+    /// `KeyMaterial/fetch` (draft §KeyMaterial/fetch): obtain KeyPackages
+    /// for another user's clients, to add that user to the room bound to a
+    /// Chat in this account.
+    ///
+    /// `request` is a KeyMaterialRequest signed by the client. The
+    /// provider's verdict is in the response's `user_status` and each
+    /// client's `client_status`.
+    pub async fn key_material_fetch(
+        &self,
+        room_id: &str,
+        request: Base64Url,
+    ) -> Result<KeyMaterialFetchResponse, jmap_base_client::ClientError> {
+        let account_id = self.account()?;
+        self.call(
+            "KeyMaterial/fetch",
+            KeyMaterialFetchRequest::new(account_id, room_id.to_owned(), request),
+        )
+        .await
     }
 
     /// `Room/create` (draft §Room/create): create a room with the server

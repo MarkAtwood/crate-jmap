@@ -2,7 +2,8 @@
 
 ## What this crate is
 
-draft-atwood-jmap-chat-mimi-00 client: the `Room/create`, `Room/update`,
+draft-atwood-jmap-chat-mimi-00 client: the `KeyPackage/get`,
+`KeyPackage/set`, `KeyMaterial/fetch`, `Room/create`, `Room/update`,
 `Room/send`, `Room/unbind` and `GroupInfo/fetch` bindings over a
 `jmap-base-client` session, the §Chat.roomId last-client rule, and the
 §GroupInfo/fetch checks on a GroupInfoResponse. No MLS state, no secrets.

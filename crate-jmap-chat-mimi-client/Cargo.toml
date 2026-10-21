@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Chat MIMI provider client (draft-atwood-jmap-chat-mimi-00 Room/* and GroupInfo/fetch bindings, GroupInfoResponse check) — extension trait over jmap-base-client"
+description = "JMAP Chat MIMI provider client (draft-atwood-jmap-chat-mimi-00 KeyPackage/*, KeyMaterial/fetch, Room/* and GroupInfo/fetch bindings, GroupInfoResponse check) — extension trait over jmap-base-client"
 keywords = ["jmap", "chat", "mimi", "mls", "client"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
 

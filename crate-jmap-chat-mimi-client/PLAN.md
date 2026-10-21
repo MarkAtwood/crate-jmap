@@ -8,6 +8,7 @@ of `jmap-chat-mimi-types` and `jmap-base-client`.
 | Bead | Content | State |
 |---|---|---|
 | JMAP-6k5d.8 | Crate scaffold, Room/* and GroupInfo/fetch bindings, `account_has_left`, GroupInfoResponse checks | landed |
+| JMAP-6k5d.12 | KeyPackage/get, KeyPackage/set and KeyMaterial/fetch bindings | landed |
 
 ## Decisions
 
@@ -15,6 +16,10 @@ of `jmap-chat-mimi-types` and `jmap-base-client`.
   account is the session's primary `urn:ietf:params:jmap:chat:mimi`
   account. `using` carries `urn:ietf:params:jmap:chat` as well, because the
   MIMI capability is meaningful only with it (draft §Capability).
+- `key_package_get` requests every property: `KeyPackage` has no
+  optional field, so a `properties` subset would not decode.
+  `key_package_set` takes `create` and `destroy` only, as the server
+  rejects every update (draft §KeyPackage/set).
 - A hub's `responseCode` or `status` refusal is a successful method call;
   only JMAP method errors (`invalidArguments`, `serverUnavailable`) are
   `ClientError::MethodError`.
