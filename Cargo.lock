@@ -2081,6 +2081,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-graph-projection-server"
+version = "0.3.0"
+dependencies = [
+ "jmap-contacts-types",
+ "jmap-graph-types",
+ "jmap-mail-server",
+ "jmap-mail-types",
+ "jmap-server",
+ "jmap-types",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "jmap-graph-server"
 version = "0.3.0"
 dependencies = [

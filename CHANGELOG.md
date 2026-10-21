@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-projection-server** (new, not published): Mail and Contacts
+  binding for draft-atwood-jmap-graph-projection-00 — `Projectable` for the
+  seven RFC 8621/9610 types with registered object URI type names,
+  `Reference` edges typed `<DataType>/<property>` from `Id`, `Id|null`,
+  `Id[]` and `Id[T]` properties, `object_uri`, `projected_node`,
+  `projected_edge`, the GraphNode `objectUri` filter (`node_matches`,
+  `node_object_uri`), `projected_graph_rights` (no writes accepted) and
+  `visible_ids` (visibility by native `/get`).
+
 - **jmap-graph-types**: `search` module for draft-atwood-jmap-graph-search-00
   (`urn:ietf:params:jmap:graph:search`) — `JMAP_GRAPH_SEARCH_URI`,
   `GraphSearchCapability` (`languages`, `maxDepth`, `supportsText`), the

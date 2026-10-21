@@ -1,0 +1,24 @@
+[package]
+name = "jmap-graph-projection-server"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Mail and Contacts binding for the JMAP Graph server (draft-atwood-jmap-graph-projection-00): projected nodes and edges, objectUri filter, visibility by native rights"
+keywords = ["jmap", "graph", "projection", "server"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-graph-types = { workspace = true }
+jmap-mail-types = { workspace = true }
+jmap-contacts-types = { workspace = true }
+jmap-server = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+jmap-mail-server = { workspace = true, features = ["memory"] }
