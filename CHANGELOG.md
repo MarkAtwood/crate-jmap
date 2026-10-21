@@ -1349,6 +1349,10 @@ wire behaviour that a conforming peer can observe.
 - **BREAKING** **jmap-scene-server**: `SceneBackend::create_object`
   takes the same builder; the `"placeholder"` id sentinel is gone. The
   SceneObject `ownerId` the backend fills is unchanged.
+- **BREAKING** **jmap-vtc-server**: `VtcBackend::create_object` and
+  `create_call` take the same builder (`build: F` in place of `call`);
+  the `"placeholder"` id sentinel is gone. The `joinUri` the backend
+  fills is unchanged.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

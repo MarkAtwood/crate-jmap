@@ -39,7 +39,7 @@ use crate::call::{deliver_call_end, end_call, ring_deadline, set_call_state};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
-    set_error_value, utc_key, SetAccumulators, PLACEHOLDER_ID,
+    set_error_value, utc_key, SetAccumulators,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -368,11 +368,17 @@ async fn create_participant<B: VtcBackend>(
     for (key, value) in fields {
         m.insert(key.to_owned(), value);
     }
-    let participant: VtcParticipant = serde_json::from_value(Value::Object(m))
+    // `id` is required by the type, so the parse uses "", which is not an
+    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // builder overwrites it with the id the backend mints.
+    let mut participant: VtcParticipant = serde_json::from_value(Value::Object(m))
         .map_err(|e| invalid(&[], &format!("invalid VTCParticipant: {e}")))?;
 
     let (_, stored) = backend
-        .create_object(caller, account_id, create_id, participant)
+        .create_object(caller, account_id, create_id, move |id: &Id| {
+            participant.id = id.clone();
+            participant
+        })
         .await
         .map_err(backend_set_error_value)?;
 
@@ -443,7 +449,7 @@ async fn join_fields<B: VtcBackend>(
         CallRole::Participant
     };
     Ok(vec![
-        ("id", json!(PLACEHOLDER_ID)),
+        ("id", json!("")),
         ("userId", json!(me)),
         ("displayName", json!(me)),
         ("role", json!(role)),
@@ -594,7 +600,7 @@ async fn dial_out_fields<B: VtcBackend>(
         ));
     }
     Ok(vec![
-        ("id", json!(PLACEHOLDER_ID)),
+        ("id", json!("")),
         ("userId", Value::Null),
         ("displayName", display_name),
         ("role", json!(CallRole::Participant)),

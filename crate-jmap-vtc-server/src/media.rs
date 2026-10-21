@@ -36,7 +36,7 @@ use crate::backend::{BackendSetError, VtcBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
-    SetAccumulators, PLACEHOLDER_ID,
+    SetAccumulators,
 };
 use jmap_server::{
     now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
@@ -529,10 +529,18 @@ where
     for (key, value) in defaults {
         m.insert(key.to_owned(), value);
     }
-    let obj: O = serde_json::from_value(Value::Object(m))
+    // `id` is required by the types, so `defaults` sets it to "", which is
+    // not an Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets").
+    // This parse validates the create; the builder parses again with the
+    // minted id, which differs only in that string.
+    serde_json::from_value::<O>(Value::Object(m.clone()))
         .map_err(|e| invalid(&[], &format!("invalid {}: {e}", O::TYPE_NAME)))?;
+    let build = move |id: &Id| -> O {
+        m.insert("id".to_owned(), json!(id));
+        serde_json::from_value(Value::Object(m)).expect("validated above with the same fields")
+    };
     backend
-        .create_object(caller, account_id, create_id, obj)
+        .create_object(caller, account_id, create_id, build)
         .await
         .map_err(backend_set_error_value)
 }
@@ -576,7 +584,7 @@ async fn create_recording<B: VtcBackend>(
         create_id,
         m,
         vec![
-            ("id", json!(PLACEHOLDER_ID)),
+            ("id", json!("")),
             ("state", json!(RecordingState::Recording)),
             ("startedAt", json!(now_utc_string())),
             ("stoppedAt", Value::Null),
@@ -830,7 +838,7 @@ async fn create_livestream<B: VtcBackend>(
         create_id,
         m,
         vec![
-            ("id", json!(PLACEHOLDER_ID)),
+            ("id", json!("")),
             ("state", json!(LivestreamState::Starting)),
             ("platform", platform),
             ("startedAt", Value::Null),

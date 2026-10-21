@@ -684,13 +684,18 @@ impl VtcBackend for MemoryBackend {
         Ok(caller.clone())
     }
 
-    async fn create_call(
+    async fn create_call<F>(
         &self,
         _caller: &String,
         account_id: &Id,
-        mut call: VtcCall,
+        build: F,
         ring_targets: &[String],
-    ) -> Result<VtcCall, BackendSetError<MemoryError>> {
+    ) -> Result<VtcCall, BackendSetError<MemoryError>>
+    where
+        F: FnOnce(&Id) -> VtcCall + Send,
+    {
+        let id = Id::from(ulid::Ulid::new().to_string());
+        let mut call = build(&id);
         let mut inner = self.lock();
         if !inner.accounts.contains_key(account_id.as_ref()) {
             return Err(BackendSetError::SetError(SetError::new(
@@ -707,8 +712,6 @@ impl VtcBackend for MemoryBackend {
             }
         }
 
-        let id = Id::from(ulid::Ulid::new().to_string());
-        call.id = id.clone();
         call.join_uri = format!("https://media.example.invalid/room/{id}");
         let mut participants = Vec::new();
         if call.state == CallState::Creating {
@@ -785,14 +788,19 @@ impl VtcBackend for MemoryBackend {
         Ok(call)
     }
 
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         _caller: &String,
         account_id: &Id,
         _create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
-        let mut value = serde_json::to_value(&obj)
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
+        let id = Id::from(ulid::Ulid::new().to_string());
+        let value = serde_json::to_value(build(&id))
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
         let mut inner = self.lock();
         // "MUST return `invalidProperties` naming `callId` when the call is
@@ -813,8 +821,6 @@ impl VtcBackend for MemoryBackend {
                 ));
             }
         }
-        let id = Id::from(ulid::Ulid::new().to_string());
-        value["id"] = json!(id);
         let stored: O = decode(&value).map_err(BackendSetError::Other)?;
         let participant = (O::TYPE_NAME == VtcParticipant::TYPE_NAME)
             .then(|| decode::<VtcParticipant>(&value))
