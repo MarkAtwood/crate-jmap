@@ -295,7 +295,7 @@ async fn create(
     )
     .await
     .map(|out| out.primary)
-    .map_err(|e| e.error_type)
+    .map_err(|e| e.error_type.to_string())
 }
 
 /// Assert that `args` is rejected with `invalidArguments`, naming `why`.
@@ -626,7 +626,7 @@ async fn unknown_account_is_account_not_found() {
     )
     .await
     .expect_err("unknown account");
-    assert_eq!(err.error_type, "accountNotFound");
+    assert_eq!(err.error_type.to_string(), "accountNotFound");
 }
 
 /// A KeyMaterialRequest (draft-ietf-mimi-protocol-06 §5.2): `mls10(1)`,
@@ -659,7 +659,7 @@ async fn key_material(backend: &MemoryBackend<RustCrypto>, target: &str) -> Resu
     )
     .await
     .map(|out| out.primary)
-    .map_err(|e| e.error_type)
+    .map_err(|e| e.error_type.to_string())
 }
 
 /// Alice's backend after a successful Room/create, so this server hosts

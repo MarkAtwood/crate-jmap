@@ -110,7 +110,7 @@
 //! assert!(check_method_access(&peer, "Peer/deliver").is_ok());
 //! assert_eq!(
 //!     check_method_access(&peer, "Chat/get").unwrap_err().error_type,
-//!     "forbidden"
+//!     jmap_types::MethodErrorType::Forbidden
 //! );
 //! ```
 

@@ -167,7 +167,7 @@ async fn chat_get_not_found() {
 async fn chat_get_missing_account_id() {
     let backend = MemoryBackend::new();
     let err = handle_chat_get(&backend, &(), json!({})).await.unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 // ---------------------------------------------------------------------------
@@ -456,7 +456,7 @@ async fn chat_set_if_in_state_mismatch() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "stateMismatch");
+    assert_eq!(err.error_type.to_string(), "stateMismatch");
 }
 
 // ---------------------------------------------------------------------------
@@ -492,7 +492,7 @@ async fn chat_changes_missing_since_state() {
     let err = handle_chat_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 /// Oracle: after creating a chat, Chat/changes from state "0" shows it in created.
@@ -580,7 +580,7 @@ async fn chat_query_changes_missing_since() {
     let err = handle_chat_query_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 /// Oracle: after creating a chat, queryChanges from "0" shows it in added.
@@ -789,7 +789,7 @@ async fn chat_typing_unknown_or_non_participant_chat_is_invalid_arguments() {
         )
         .await
         .expect_err(chat_id);
-        assert_eq!(err.error_type, "invalidArguments", "{chat_id}");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{chat_id}");
         errors.push(err);
     }
     assert_eq!(
@@ -1072,7 +1072,7 @@ async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
     .await
     .expect_err("unknown chatId");
 
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
     assert_eq!(
         backend.is_contact_blocked_call_count(),
         0,
@@ -6865,7 +6865,7 @@ async fn chat_get_backend_error_maps_to_server_fail() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "serverFail");
+    assert_eq!(err.error_type.to_string(), "serverFail");
 }
 
 /// Oracle: when backend.get_state fails at the start of set, Chat/set returns serverFail.
@@ -6879,7 +6879,7 @@ async fn chat_set_backend_error_maps_to_server_fail() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "serverFail");
+    assert_eq!(err.error_type.to_string(), "serverFail");
 }
 
 // ---------------------------------------------------------------------------
@@ -7039,7 +7039,7 @@ async fn contact_query_changes_requires_since_state() {
     let err = handle_contact_query_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 // ---------------------------------------------------------------------------
@@ -7920,7 +7920,7 @@ async fn presence_changes_requires_since_state() {
     let err = handle_presence_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 // ---------------------------------------------------------------------------
@@ -7934,7 +7934,7 @@ async fn space_join_requires_exactly_one_arg() {
     let err = handle_space_join(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 /// Oracle: Space/join with both inviteCode and spaceId returns invalidArguments.
@@ -7952,7 +7952,7 @@ async fn space_join_both_args_rejected() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 /// Oracle: Space/join with an unknown invite code returns invalidArguments.
@@ -7969,7 +7969,7 @@ async fn space_join_invalid_invite_code() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 /// Oracle: Space/join with an unknown spaceId returns notPermitted.
@@ -7989,7 +7989,7 @@ async fn space_join_public_space_not_found() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "notPermitted");
+    assert_eq!(err.error_type.to_string(), "notPermitted");
 }
 
 /// Oracle: Space/join via a valid invite code returns accountId and spaceId,
@@ -8164,7 +8164,7 @@ async fn space_join_invite_code_from_other_account_not_found() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
     assert_eq!(err.description.as_deref(), Some("invite code not found"));
 
     let HandlerOutput {
@@ -8218,7 +8218,7 @@ async fn space_join_invite_at_max_uses_rejected() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 /// Oracle: Space/join via spaceId where the space has isPublic=false returns notPermitted.
@@ -8245,7 +8245,7 @@ async fn space_join_private_space_forbidden() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "notPermitted");
+    assert_eq!(err.error_type.to_string(), "notPermitted");
 }
 
 /// Oracle: Space/join via spaceId where the space has isPublic=true returns accountId and
@@ -8339,7 +8339,7 @@ async fn space_join_public_space_banned_forbidden() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "forbidden");
+    assert_eq!(err.error_type.to_string(), "forbidden");
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
@@ -8376,7 +8376,7 @@ async fn space_join_via_invite_banned_forbidden() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "forbidden");
+    assert_eq!(err.error_type.to_string(), "forbidden");
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
@@ -8425,7 +8425,7 @@ async fn space_join_argument_check_precedes_ban_check() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
 // ---------------------------------------------------------------------------

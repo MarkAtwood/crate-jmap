@@ -200,7 +200,7 @@ mod tests {
             .await
             .expect_err("missing id must return error");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "wrong error type: {err:?}"
         );
@@ -220,7 +220,7 @@ mod tests {
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "accountNotFound",
             "wrong error type: {err:?}"
         );
@@ -250,7 +250,7 @@ mod tests {
             .await
             .expect_err("reversed window must return error");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "wrong error type: {err:?}"
         );
@@ -273,7 +273,7 @@ mod tests {
             .await
             .expect_err("zero-width window must return error");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "wrong error type: {err:?}"
         );
@@ -510,7 +510,7 @@ mod tests {
             .expect_err("backend Other error must surface as JmapError");
 
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "serverFail",
             "wrong error type: {err:?}"
         );

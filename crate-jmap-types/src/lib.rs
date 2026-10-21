@@ -49,7 +49,7 @@ pub mod wire;
 mod string_enum;
 
 pub use backend::{GetObject, JmapObject, QueryObject, SetObject};
-pub use error::JmapError;
+pub use error::{JmapError, MethodErrorType};
 pub use id::{Date, Id, State, UTCDate, ValidationError};
 pub use jmap_uri::{JmapUri, JmapUriError};
 pub use methods::{

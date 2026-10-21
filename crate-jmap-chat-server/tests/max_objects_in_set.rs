@@ -63,7 +63,7 @@ macro_rules! over_limit_test {
                     ")"
                 ));
             let (etype, edesc) = expected_limit_error_shape();
-            assert_eq!(err.error_type.as_str(), etype);
+            assert_eq!(err.error_type.to_string(), etype);
             assert_eq!(err.description.as_deref(), Some(edesc));
         }
     };

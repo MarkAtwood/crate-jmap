@@ -1238,7 +1238,7 @@ mod tests {
         let cond = filter_of(json!({ "name": "x" })).expect("known key");
         assert_eq!(cond.and_then(|c| c.name).as_deref(), Some("x"));
         let err = filter_of(json!({ "label": "x" })).expect_err("unknown key");
-        assert_eq!(err.error_type, "unsupportedFilter");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter");
         assert!(
             err.description
                 .as_deref()
@@ -1246,7 +1246,7 @@ mod tests {
             "{err:?}"
         );
         let err = filter_of(json!(42)).expect_err("scalar");
-        assert_eq!(err.error_type, "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
 
     /// Oracle (bd:JMAP-wlip.5): a malformed accountId — empty string,
@@ -1261,23 +1261,23 @@ mod tests {
         // Empty string.
         let err = extract_account_id(json!({ "accountId": "" }))
             .expect_err("empty accountId must fail validation");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
 
         // Contains a space (0x20 — outside SAFE-CHAR's 0x21+ lower bound).
         let err = extract_account_id(json!({ "accountId": "my account" }))
             .expect_err("space in accountId must fail validation");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
 
         // Contains a DQUOTE (0x22 — explicitly excluded by SAFE-CHAR).
         let err = extract_account_id(json!({ "accountId": "a\"b" }))
             .expect_err("DQUOTE in accountId must fail validation");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
 
         // 256 bytes — exceeds the 255 cap.
         let long: String = "a".repeat(256);
         let err = extract_account_id(json!({ "accountId": long }))
             .expect_err("over-long accountId must fail validation");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
 
     /// Oracle (bd:JMAP-wlip.5): a well-formed accountId passes
@@ -1996,8 +1996,8 @@ mod tests {
         // the function under test.
         let expected = jmap_types::JmapError::request_too_large();
         assert_eq!(
-            err.error_type.as_str(),
-            expected.error_type.as_str(),
+            err.error_type.to_string(),
+            expected.error_type.to_string(),
             "type must be \"requestTooLarge\""
         );
         assert_eq!(
@@ -2030,7 +2030,7 @@ mod tests {
         let err =
             enforce_max_objects_in_set(&args, 3).expect_err("4-entry args against max=3 must fail");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "requestTooLarge",
             "RFC 8620 §5.3: over-cap /set must yield method error requestTooLarge"
         );
@@ -2088,7 +2088,7 @@ mod tests {
         .clone();
         let err =
             enforce_max_objects_in_set(&args, 5).expect_err("sum-of-all-three must trip the cap");
-        assert_eq!(err.error_type.as_str(), "requestTooLarge");
+        assert_eq!(err.error_type.to_string(), "requestTooLarge");
         assert_eq!(err.description.as_deref(), Some("maxObjectsInSet"));
     }
 
@@ -2206,7 +2206,7 @@ mod tests {
         assert_eq!(start(1, None, 2), Ok(1));
         let missing = jmap_types::Id::from("z");
         assert_eq!(
-            start(0, Some(&missing), 0).map_err(|e| e.error_type),
+            start(0, Some(&missing), 0).map_err(|e| e.error_type.to_string()),
             Err("anchorNotFound".to_owned())
         );
     }
@@ -2223,7 +2223,7 @@ mod tests {
         assert_eq!(parse_max_changes(Some(&json!(50))).ok(), Some(Some(50)));
         for bad in [json!(0), json!(-1), json!(1.5), json!("5"), json!(true)] {
             assert_eq!(
-                parse_max_changes(Some(&bad)).map_err(|e| e.error_type),
+                parse_max_changes(Some(&bad)).map_err(|e| e.error_type.to_string()),
                 Err("invalidArguments".to_owned()),
                 "maxChanges = {bad} must be rejected"
             );

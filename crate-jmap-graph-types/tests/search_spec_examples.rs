@@ -82,7 +82,7 @@ fn edge(v: Value) -> Result<Expression, WhereError> {
 }
 
 fn error_type(e: WhereError) -> String {
-    JmapError::from(e).error_type
+    JmapError::from(e).error_type.to_string()
 }
 
 /// L126, L134-143: the capability URI and the account-level object.

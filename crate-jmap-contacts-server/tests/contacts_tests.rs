@@ -232,7 +232,7 @@ async fn address_book_set_unknown_account_returns_account_not_found() {
     // `src/card.rs` (e.g. addressbook.rs:817, card.rs:774). Debug-format
     // substring matching is not part of the JmapError API contract per
     // workspace AGENTS.md (bd:JMAP-qz9v.56).
-    assert_eq!(err.error_type.as_str(), "accountNotFound");
+    assert_eq!(err.error_type.to_string(), "accountNotFound");
 }
 
 // ---------------------------------------------------------------------------

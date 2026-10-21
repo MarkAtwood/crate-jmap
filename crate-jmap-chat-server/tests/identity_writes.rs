@@ -196,7 +196,7 @@ async fn space_join_identity_already_member_check_uses_principal() {
     .await
     .expect_err("second join must fail");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "invalidArguments",
         "the writer-side identity must agree with the reader-side identity, \
          or the already_member check fails to fire: {err:?}"

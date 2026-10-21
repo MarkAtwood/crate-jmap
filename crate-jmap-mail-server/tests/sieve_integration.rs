@@ -194,7 +194,7 @@ async fn sieve_get_unknown_account() {
         .expect_err("unknown accountId must return Err");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "accountNotFound",
         "unknown accountId must produce accountNotFound; got: {:?}",
         err.error_type
@@ -582,7 +582,7 @@ async fn sieve_set_unknown_account() {
         .expect_err("unknown accountId must return Err");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "accountNotFound",
         "unknown accountId must produce accountNotFound; got: {:?}",
         err.error_type
@@ -923,7 +923,7 @@ async fn sieve_validate_unknown_account() {
         .expect_err("unknown accountId must return Err");
 
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "accountNotFound",
         "unknown accountId must produce accountNotFound; got: {:?}",
         err.error_type
@@ -971,7 +971,8 @@ async fn sieve_set_create_too_large() {
         .as_str()
         .unwrap_or("(missing)");
     assert_eq!(
-        error_type, "tooLarge",
+        error_type.to_string(),
+        "tooLarge",
         "expected tooLarge SetError for oversized create; resp: {resp}"
     );
 }
@@ -1034,7 +1035,8 @@ async fn sieve_set_update_too_large() {
         .as_str()
         .unwrap_or("(missing)");
     assert_eq!(
-        error_type, "tooLarge",
+        error_type.to_string(),
+        "tooLarge",
         "expected tooLarge SetError for oversized update; resp: {resp}"
     );
 }

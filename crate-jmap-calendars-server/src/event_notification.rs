@@ -340,7 +340,7 @@ mod tests {
         let args = json!({ "accountId": "unknown" });
         let result = handle_calendar_event_notification_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: destroy of a non-existent notification → notFound in notDestroyed.

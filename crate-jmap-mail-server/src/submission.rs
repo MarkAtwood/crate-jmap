@@ -486,7 +486,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                             let mut obj = serde_json::Map::new();
                             obj.insert(
                                 "type".to_owned(),
-                                Value::String(jmap_err.error_type.clone()),
+                                Value::String(jmap_err.error_type.to_string()),
                             );
                             if let Some(desc) = &jmap_err.description {
                                 obj.insert("description".to_owned(), Value::String(desc.clone()));

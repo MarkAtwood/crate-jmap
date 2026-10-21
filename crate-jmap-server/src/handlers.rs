@@ -871,7 +871,7 @@ mod tests {
                  requestTooLarge",
                 resp["notFound"].as_array().map_or(0, Vec::len)
             ),
-            Err(e) => assert_eq!(e.error_type.as_str(), "requestTooLarge"),
+            Err(e) => assert_eq!(e.error_type.to_string(), "requestTooLarge"),
         }
     }
 

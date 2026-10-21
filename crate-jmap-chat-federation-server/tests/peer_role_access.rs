@@ -53,7 +53,7 @@ const OWNER_METHODS: [&str; 6] = [
 
 fn assert_forbidden(caller: &Caller, method: &str) {
     let err = check_method_access(caller, method).expect_err(method);
-    assert_eq!(err.error_type, "forbidden", "{method}");
+    assert_eq!(err.error_type.to_string(), "forbidden", "{method}");
 }
 
 #[test]

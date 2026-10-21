@@ -547,7 +547,7 @@ async fn calendar_event_query_unknown_anchor_is_anchor_not_found() {
         .await
         .expect_err("an anchor absent from the results must be rejected");
 
-    assert_eq!(err.error_type, "anchorNotFound");
+    assert_eq!(err.error_type.to_string(), "anchorNotFound");
 }
 
 /// RFC 8620 §5.5: "anchor: "Id" (default: null)"; any other JSON type is
@@ -562,5 +562,5 @@ async fn calendar_event_query_non_id_anchor_is_invalid_arguments() {
         .await
         .expect_err("a non-Id anchor must be rejected");
 
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }

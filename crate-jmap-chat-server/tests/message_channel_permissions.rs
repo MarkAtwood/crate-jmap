@@ -488,7 +488,7 @@ async fn query_changes_in_unviewable_chat_cannot_calculate() {
     )
     .await
     .expect_err("Message/queryChanges");
-    assert_eq!(err.error_type.as_str(), "cannotCalculateChanges");
+    assert_eq!(err.error_type.to_string(), "cannotCalculateChanges");
 }
 
 async fn create_broadcast_message(backend: &MemoryBackend) -> Value {

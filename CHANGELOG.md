@@ -1316,6 +1316,20 @@ wire behaviour that a conforming peer can observe.
   `SetErrorType::custom(s)` is replaced by `SetErrorType::from(s)`, which
   still builds the typed variant for a known wire string. The 13 RFC 8621
   mail variants stay typed in the shared enum (bd:JMAP-wlip.35).
+- **BREAKING** **jmap-types**: `JmapError::error_type` is now
+  `MethodErrorType` instead of `String`. Its known variants are the RFC
+  8620 §3.6.1 request-level, §3.6.2 method-level and §5.1-§5.6
+  method-specific error types; anything else, including extension types,
+  is `MethodErrorType::Other`. `JmapError::custom` takes
+  `impl Into<MethodErrorType>`. Constructors for types outside that set,
+  such as `not_found` and `too_large`, build `Other`.
+- **BREAKING** **jmap-types**, **jmap-server**: the request-level `limit`
+  error's limit name moved from `JmapError::description` to the new
+  `JmapError::limit_name` field (RFC 8620 §3.6.1: "the "limit" property
+  MUST contain the name of the limit being applied"). `RequestError`
+  writes it as the problem-details `limit` property and now also sends a
+  `description` as `detail`. `limit_name` is not serialized into
+  `methodResponses`.
 - **jmap-types**: `impl_string_enum!` also emits `From<&str>` and
   `From<String>`, using the same mapping as `Deserialize`, so a known wire
   string always builds its typed variant.

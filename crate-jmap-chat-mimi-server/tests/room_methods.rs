@@ -313,7 +313,7 @@ async fn update(
     )
     .await
     .map(|o| o.primary)
-    .map_err(|e| e.error_type)
+    .map_err(|e| e.error_type.to_string())
 }
 
 async fn send(
@@ -328,7 +328,7 @@ async fn send(
     )
     .await
     .map(|o| o.primary)
-    .map_err(|e| e.error_type)
+    .map_err(|e| e.error_type.to_string())
 }
 
 async fn group_info(
@@ -343,7 +343,7 @@ async fn group_info(
     )
     .await
     .map(|o| o.primary)
-    .map_err(|e| e.error_type)
+    .map_err(|e| e.error_type.to_string())
 }
 
 async fn key_material(
@@ -358,7 +358,7 @@ async fn key_material(
     )
     .await
     .map(|o| o.primary)
-    .map_err(|e| e.error_type)
+    .map_err(|e| e.error_type.to_string())
 }
 
 async fn unbind(backend: &MemoryBackend<RustCrypto>, account: &str) -> Result<Value, String> {
@@ -369,7 +369,7 @@ async fn unbind(backend: &MemoryBackend<RustCrypto>, account: &str) -> Result<Va
     )
     .await
     .map(|o| o.primary)
-    .map_err(|e| e.error_type)
+    .map_err(|e| e.error_type.to_string())
 }
 
 /// An UpdateRequest for a proposal: the HandshakeBundle's MLSMessage and an

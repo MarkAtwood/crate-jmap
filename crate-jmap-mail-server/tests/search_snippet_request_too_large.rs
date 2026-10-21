@@ -45,7 +45,7 @@ async fn search_snippet_get_over_cap_returns_request_too_large() {
     let err = handle_search_snippet_get(&backend, &(), args)
         .await
         .expect_err("501 emailIds must exceed the maxObjectsInGet cap");
-    assert_eq!(err.error_type.as_str(), "requestTooLarge");
+    assert_eq!(err.error_type.to_string(), "requestTooLarge");
 }
 
 /// RFC 8621 §5.1 (rfc8621.txt, "SearchSnippet/get"): ""requestTooLarge":

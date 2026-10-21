@@ -347,7 +347,7 @@ async fn method_level_errors() {
     let err = handle_scene_object_interact(&backend, &caller, json!({ "accountId": ACCOUNT }))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
     let err = handle_scene_object_interact(
         &backend,
         &caller,
@@ -355,7 +355,7 @@ async fn method_level_errors() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type, "accountNotFound");
+    assert_eq!(err.error_type.to_string(), "accountNotFound");
 }
 
 /// 33702a5 L2017 "The response follows the shape of `/set` ({{RFC8620}}
@@ -378,7 +378,7 @@ async fn interactions_over_max_objects_in_set_are_request_too_large() {
     let err = handle_scene_object_interact(&backend, &caller, args(cap + 1))
         .await
         .unwrap_err();
-    assert_eq!(err.error_type, "requestTooLarge");
+    assert_eq!(err.error_type.to_string(), "requestTooLarge");
     assert!(backend.accepted_interactions().is_empty());
 
     handle_scene_object_interact(&backend, &caller, args(cap))

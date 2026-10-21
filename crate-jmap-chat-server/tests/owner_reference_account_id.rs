@@ -306,7 +306,7 @@ async fn space_join_rejects_owner_banned_by_account_id() {
     )
     .await
     .expect_err("a banned owner must not join");
-    assert_eq!(err.error_type, "forbidden");
+    assert_eq!(err.error_type.to_string(), "forbidden");
 }
 
 /// draft-atwood-jmap-chat-00 §SpaceMember `id`: "The participant's

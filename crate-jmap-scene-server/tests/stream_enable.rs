@@ -176,7 +176,7 @@ fn empty_or_only_unrecognized_event_types_is_invalid_and_keeps_state() {
                 "eventTypes": event_types
             })))
             .unwrap_err();
-        assert_eq!(err.error_type, "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
         assert_eq!(sub, before);
     }
 }

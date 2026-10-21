@@ -633,7 +633,7 @@ async fn task_query_with_filter_fails_loud_on_memory_backend() {
         .await
         .expect_err("Task/query with filter must fail loud on the reference MemoryBackend");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "serverFail",
         "fail-loud should surface as serverFail (the workspace-canonical \
          approximation of RFC 8620 §5.5 unsupportedFilter when the backend \
@@ -669,7 +669,7 @@ async fn task_query_with_sort_fails_loud_on_memory_backend() {
         .await
         .expect_err("Task/query with sort must fail loud on the reference MemoryBackend");
     assert_eq!(
-        err.error_type.as_str(),
+        err.error_type.to_string(),
         "serverFail",
         "fail-loud should surface as serverFail (the workspace-canonical \
          approximation of RFC 8620 §5.5 unsupportedSort when the backend \

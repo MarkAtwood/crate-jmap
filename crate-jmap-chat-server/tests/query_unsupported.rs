@@ -102,7 +102,7 @@ async fn unknown_filter_clause_is_unsupported_filter() {
             .await
             .unwrap_or_else(|e| panic!("{method} spec filter: {e:?}"));
         let err = query(handler, bad, json!([])).await.expect_err(method);
-        assert_eq!(err.error_type.as_str(), "unsupportedFilter", "{method}");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{method}");
     }
 }
 
@@ -118,7 +118,7 @@ async fn unknown_clause_under_operator_is_unsupported_filter() {
     let err = query(handler, filter, json!([]))
         .await
         .expect_err("Space/query");
-    assert_eq!(err.error_type.as_str(), "unsupportedFilter");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter");
 }
 
 /// RFC 8620 §5.5 FilterOperator has exactly `operator` and `conditions`.
@@ -129,7 +129,7 @@ async fn misspelt_operator_is_unsupported_filter() {
     for (method, handler) in handlers() {
         let filter = json!({ "opperator": "AND", "conditions": [spec_condition(method)] });
         let err = query(handler, filter, json!([])).await.expect_err(method);
-        assert_eq!(err.error_type.as_str(), "unsupportedFilter", "{method}");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{method}");
     }
 }
 
@@ -147,7 +147,7 @@ async fn unknown_sort_property_is_unsupported_sort() {
         let err = query(handler, spec_condition(method), bad)
             .await
             .expect_err(method);
-        assert_eq!(err.error_type.as_str(), "unsupportedSort", "{method}");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort", "{method}");
     }
 }
 
@@ -163,5 +163,5 @@ async fn message_sort_by_sent_at_is_unsupported_sort() {
     )
     .await
     .expect_err("Message/query");
-    assert_eq!(err.error_type.as_str(), "unsupportedSort");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
 }

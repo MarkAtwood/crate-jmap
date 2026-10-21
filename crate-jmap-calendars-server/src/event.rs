@@ -1342,7 +1342,7 @@ mod tests {
         let args = json!({ "accountId": "unknown", "ids": null });
         let result = handle_calendar_event_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Regression for bd:JMAP-ic0j.55: a malformed `recurrenceOverridesBefore`
@@ -1366,7 +1366,7 @@ mod tests {
             .await
             .expect_err("malformed recurrenceOverridesBefore must return error");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "wrong error type: {err:?}"
         );
@@ -1387,7 +1387,7 @@ mod tests {
             .await
             .expect_err("malformed recurrenceOverridesAfter must return error");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "wrong error type: {err:?}"
         );
@@ -1401,7 +1401,7 @@ mod tests {
         let args = json!({ "accountId": "unknown" });
         let result = handle_calendar_event_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
-        assert_eq!(err.error_type.as_str(), "accountNotFound");
+        assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
 
     /// Oracle: CalendarEvent/copy with unknown destination accountId returns
@@ -1419,7 +1419,7 @@ mod tests {
         let result = handle_calendar_event_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must return error for unknown destination account");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "accountNotFound",
             "accountId check must run before fromAccountId check"
         );
@@ -1438,7 +1438,7 @@ mod tests {
         let result = handle_calendar_event_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must return error for unknown fromAccountId");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "fromAccountNotFound",
             "wrong error type: {err:?}"
         );
@@ -2508,7 +2508,7 @@ mod tests {
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "accountNotFound",
             "wrong error type: {err:?}"
         );
@@ -2534,7 +2534,7 @@ mod tests {
             .await
             .expect_err("non-string blobId entry must fail validation");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "wrong error type: {err:?}"
         );
@@ -2559,7 +2559,7 @@ mod tests {
             .await
             .expect_err("non-string properties entry must fail validation");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "invalidArguments",
             "wrong error type: {err:?}"
         );
@@ -2943,7 +2943,7 @@ mod tests {
         let err = handle_calendar_event_query(&backend, &(), args)
             .await
             .expect_err("backend Other must surface as JmapError");
-        assert_eq!(err.error_type.as_str(), "serverFail");
+        assert_eq!(err.error_type.to_string(), "serverFail");
         let desc = err.description.as_deref().unwrap_or("");
         assert!(
             !desc.contains(CANARY),
@@ -3164,7 +3164,7 @@ mod tests {
         let err = handle_calendar_event_parse(&backend, &(), args)
             .await
             .expect_err("backend Self::Error must surface as JmapError");
-        assert_eq!(err.error_type.as_str(), "serverFail");
+        assert_eq!(err.error_type.to_string(), "serverFail");
         let desc = err.description.as_deref().unwrap_or("");
         assert!(
             !desc.contains(CANARY),

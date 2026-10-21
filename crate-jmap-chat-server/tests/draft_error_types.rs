@@ -87,7 +87,7 @@ async fn message_query_text_and_thread_root_filters_are_unsupported() {
         )
         .await
         .expect_err(key);
-        assert_eq!(err.error_type.as_str(), "unsupportedFilter", "{key}");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{key}");
     }
 }
 
@@ -107,6 +107,6 @@ async fn space_join_unknown_or_private_space_is_not_permitted() {
         )
         .await
         .unwrap_err();
-        assert_eq!(err.error_type.as_str(), "notPermitted", "{space_id}");
+        assert_eq!(err.error_type.to_string(), "notPermitted", "{space_id}");
     }
 }

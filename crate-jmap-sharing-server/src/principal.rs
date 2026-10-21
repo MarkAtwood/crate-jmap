@@ -402,7 +402,7 @@ mod tests {
         let result = handle_principal_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "accountNotFound",
             "unknown accountId must produce accountNotFound; got: {:?}",
             err.error_type
@@ -447,7 +447,7 @@ mod tests {
         });
         let result = handle_principal_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error for non-string destroy element");
-        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
 
     /// Oracle: Principal/set with unknown accountId must return top-level
@@ -468,7 +468,7 @@ mod tests {
         let result = handle_principal_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error for unknown account");
         assert_eq!(
-            err.error_type.as_str(),
+            err.error_type.to_string(),
             "accountNotFound",
             "unknown accountId must produce accountNotFound; got: {:?}",
             err.error_type
