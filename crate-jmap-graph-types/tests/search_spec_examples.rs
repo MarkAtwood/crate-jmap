@@ -402,3 +402,23 @@ fn to_value_writes_operator_objects() {
         json!({ "/x": { "$eq": { "$y": 1 } } })
     );
 }
+
+/// L170: "An empty object is always true." L185-186: an operator object has
+/// "at least one" `$`-prefixed member, and "Any other value is shorthand
+/// for `{"$eq": value}`", so `{}` cannot carry an always-true field test.
+/// `to_value` drops it and the result parses back to the same meaning.
+#[test]
+fn always_true_field_test_is_omitted() {
+    let mut expr = Expression::default();
+    expr.fields.insert("/x".to_owned(), FieldTest::default());
+    expr.fields
+        .insert("/y".to_owned(), FieldTest::equal_to(json!("open")));
+    assert_eq!(expr.to_value(), json!({ "/y": { "$eq": "open" } }));
+    let back = node(expr.to_value()).unwrap();
+    assert_eq!(back, node(json!({ "/y": "open" })).unwrap());
+
+    let mut only = Expression::default();
+    only.fields.insert("/x".to_owned(), FieldTest::default());
+    assert_eq!(only.to_value(), json!({}));
+    assert_eq!(node(only.to_value()).unwrap(), Expression::default());
+}
