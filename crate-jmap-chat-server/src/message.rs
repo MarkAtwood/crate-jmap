@@ -1416,9 +1416,12 @@ pub async fn handle_message_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let received_at: UTCDate = UTCDate::from(now_str.as_ref());
 
+            // draft-atwood-jmap-chat-00 §Message `senderMsgId`: "Equals
+            // `id` for messages composed by the owner." Both carry the
+            // sentinel; `create_object` replaces them with one assigned id.
             let mut msg = Message::new(
                 Id::from(PLACEHOLDER_ID),
-                Id::from(create_id.as_str()),
+                Id::from(PLACEHOLDER_ID),
                 account_id.clone(),
                 chat_id,
                 body,

@@ -551,6 +551,13 @@ pub trait ChatBackend: JmapBackend {
     ///   `"placeholder"`. The backend MUST replace it with a real, unique,
     ///   account-scoped ID and return that ID as the first element of the
     ///   result tuple.
+    /// - **`senderMsgId`** of a `Message`: `Message/set` composes the
+    ///   owner's Messages with `senderMsgId` set to `"placeholder"`. The
+    ///   backend MUST replace it with the same id it assigns to `id`, in
+    ///   the same write (draft-atwood-jmap-chat-00 §Message: "Equals `id`
+    ///   for messages composed by the owner."). A server-originated
+    ///   Message ([`crate::store_server_message`]) carries its real
+    ///   `senderMsgId`, which the backend stores unchanged.
     ///
     /// Failing to replace this sentinel will cause the client to receive an
     /// invalid wire value (`"placeholder"`) as the assigned id of every
