@@ -183,11 +183,13 @@ async fn space_invite_create_serialises_optionals_and_omits_code() {
     let space_id = Id::from("space-eng");
     let default_channel = Id::from("chat-c1");
     let expires_at = UTCDate::from("2026-02-20T12:00:00Z");
-    let mut input = jmap_chat_client::methods::SpaceInviteCreateInput::new(&space_id)
-        .with_client_id("my-inv-1");
-    input.default_channel_id = Some(&default_channel);
-    input.expires_at = Some(&expires_at);
-    input.max_uses = Some(25);
+    let input = jmap_chat_client::methods::SpaceInviteCreateInput {
+        client_id: Some("my-inv-1"),
+        space_id: &space_id,
+        default_channel_id: Some(&default_channel),
+        expires_at: Some(&expires_at),
+        max_uses: Some(25),
+    };
     let _ = sc
         .space_invite_create(&input)
         .await
@@ -232,8 +234,13 @@ async fn space_invite_create_serialises_minimal_object() {
 
     let sc = helpers::make_client(&server);
     let space_id = Id::from("space-eng");
-    let input = jmap_chat_client::methods::SpaceInviteCreateInput::new(&space_id)
-        .with_client_id("my-inv-2");
+    let input = jmap_chat_client::methods::SpaceInviteCreateInput {
+        client_id: Some("my-inv-2"),
+        space_id: &space_id,
+        default_channel_id: None,
+        expires_at: None,
+        max_uses: None,
+    };
     let _ = sc
         .space_invite_create(&input)
         .await

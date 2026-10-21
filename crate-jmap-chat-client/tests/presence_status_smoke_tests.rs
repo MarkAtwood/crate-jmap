@@ -157,10 +157,12 @@ async fn presence_status_update_patch_serialises_fields() {
 
     let sc = helpers::make_client(&server);
     let id = Id::from("ps-1");
-    let mut patch = jmap_chat_client::methods::PresenceStatusPatch::default();
-    patch.presence = Some(jmap_chat_types::Presence::Busy);
-    patch.status_text = jmap_chat_client::methods::Patch::Set("Heads down");
-    patch.receipt_sharing = Some(true);
+    let patch = jmap_chat_client::methods::PresenceStatusPatch {
+        presence: Some(jmap_chat_types::Presence::Busy),
+        status_text: jmap_chat_client::methods::Patch::Set("Heads down"),
+        receipt_sharing: Some(true),
+        ..Default::default()
+    };
     let _ = sc
         .presence_status_update(&id, &patch)
         .await
@@ -210,8 +212,10 @@ async fn presence_status_update_expires_at_clear_emits_null() {
 
     let sc = helpers::make_client(&server);
     let id = Id::from("ps-1");
-    let mut patch = jmap_chat_client::methods::PresenceStatusPatch::default();
-    patch.expires_at = jmap_chat_client::methods::Patch::Clear;
+    let patch = jmap_chat_client::methods::PresenceStatusPatch {
+        expires_at: jmap_chat_client::methods::Patch::Clear,
+        ..Default::default()
+    };
     let _ = sc
         .presence_status_update(&id, &patch)
         .await
@@ -243,8 +247,10 @@ async fn presence_status_update_expires_at_set_emits_value() {
     let sc = helpers::make_client(&server);
     let id = Id::from("ps-1");
     let expires = UTCDate::from("2026-01-20T13:00:00Z");
-    let mut patch = jmap_chat_client::methods::PresenceStatusPatch::default();
-    patch.expires_at = jmap_chat_client::methods::Patch::Set(&expires);
+    let patch = jmap_chat_client::methods::PresenceStatusPatch {
+        expires_at: jmap_chat_client::methods::Patch::Set(&expires),
+        ..Default::default()
+    };
     let _ = sc
         .presence_status_update(&id, &patch)
         .await

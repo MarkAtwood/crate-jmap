@@ -186,9 +186,12 @@ async fn custom_emoji_create_serialises_with_and_without_space_id() {
     let sc = helpers::make_client(&server);
     let space_id = Id::from("space-eng");
     let blob_id = Id::from("blob-emoji-1");
-    let mut input = jmap_chat_client::methods::CustomEmojiCreateInput::new("catjam", &blob_id)
-        .with_client_id("my-emoji-1");
-    input.space_id = Some(&space_id);
+    let input = jmap_chat_client::methods::CustomEmojiCreateInput {
+        client_id: Some("my-emoji-1"),
+        name: "catjam",
+        blob_id: &blob_id,
+        space_id: Some(&space_id),
+    };
     let _ = sc
         .custom_emoji_create(&input)
         .await
@@ -209,7 +212,12 @@ async fn custom_emoji_create_empty_name_rejected_before_send() {
     let sc = helpers::make_client(&server);
 
     let blob_id = Id::from("blob-emoji-1");
-    let input = jmap_chat_client::methods::CustomEmojiCreateInput::new("", &blob_id);
+    let input = jmap_chat_client::methods::CustomEmojiCreateInput {
+        client_id: None,
+        name: "",
+        blob_id: &blob_id,
+        space_id: None,
+    };
     let err = sc
         .custom_emoji_create(&input)
         .await
@@ -498,9 +506,10 @@ async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
     let sc = helpers::make_client(&server);
     let id = Id::from("emoji-1");
     let blob = Id::from("blob-new");
-    let mut patch = jmap_chat_client::methods::CustomEmojiPatch::default();
-    patch.name = Some("partyparrot");
-    patch.blob_id = Some(&blob);
+    let patch = jmap_chat_client::methods::CustomEmojiPatch {
+        name: Some("partyparrot"),
+        blob_id: Some(&blob),
+    };
     let resp = sc
         .custom_emoji_update(&id, &patch)
         .await
@@ -526,8 +535,10 @@ async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
         helpers::set_update_response("CustomEmoji/set", "ce-2", "ce-3", "emoji-1"),
     )
     .await;
-    let mut name_only = jmap_chat_client::methods::CustomEmojiPatch::default();
-    name_only.name = Some("catjam");
+    let name_only = jmap_chat_client::methods::CustomEmojiPatch {
+        name: Some("catjam"),
+        ..Default::default()
+    };
     let _ = sc
         .custom_emoji_update(&id, &name_only)
         .await

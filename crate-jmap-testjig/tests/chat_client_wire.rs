@@ -75,8 +75,24 @@ async fn create_group(sc: &SessionClient, key: &str, name: &str) -> Id {
 
 async fn send(sc: &SessionClient, chat_id: &Id, key: &str, body: &str) -> Id {
     let sent_at = UTCDate::from(SENT_AT);
-    let input =
-        MessageCreateInput::new(chat_id, body, BodyType::Plain, &sent_at).with_client_id(key);
+    let input = MessageCreateInput {
+        client_id: Some(key),
+        chat_id,
+        body,
+        body_type: BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let resp = sc.message_create(&input).await.expect("Message/set create");
     created_id(&resp, key)
 }
@@ -204,9 +220,14 @@ async fn chat_update_member_patch_keys() {
     let carol = Id::from("contact-carol");
 
     // The jig's single caller is the creator, so it holds `"admin"`.
-    let add = [AddMemberInput::new(&carol)];
-    let mut patch = ChatPatch::default();
-    patch.add_members = Some(&add);
+    let add = [AddMemberInput {
+        id: &carol,
+        role: None,
+    }];
+    let patch = ChatPatch {
+        add_members: Some(&add),
+        ..Default::default()
+    };
     let resp = sc.chat_update(&group_id, &patch).await.expect("addMembers");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
@@ -223,12 +244,14 @@ async fn chat_update_member_patch_keys() {
         .expect("carol added to members");
     assert_eq!(added.role.as_str(), "member");
 
-    let bad = [UpdateMemberRoleInput::new(
-        &carol,
-        ChatMemberRole::Other("owner".to_owned()),
-    )];
-    let mut patch = ChatPatch::default();
-    patch.update_member_roles = Some(&bad);
+    let bad = [UpdateMemberRoleInput {
+        id: &carol,
+        role: ChatMemberRole::Other("owner".to_owned()),
+    }];
+    let patch = ChatPatch {
+        update_member_roles: Some(&bad),
+        ..Default::default()
+    };
     let resp = sc
         .chat_update(&group_id, &patch)
         .await
@@ -265,8 +288,10 @@ async fn last_admin_leave_closes_group() {
 
     // The jig's single caller is the creator and the only admin.
     let me = [got.account_id.clone()];
-    let mut patch = ChatPatch::default();
-    patch.remove_members = Some(&me);
+    let patch = ChatPatch {
+        remove_members: Some(&me),
+        ..Default::default()
+    };
     let resp = sc.chat_update(&group_id, &patch).await.expect("leave");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
@@ -279,8 +304,24 @@ async fn last_admin_leave_closes_group() {
     assert!(got.list[0].closed_at.is_some(), "{:?}", got.list[0]);
 
     let sent_at = UTCDate::from(SENT_AT);
-    let input =
-        MessageCreateInput::new(&group_id, "hi", BodyType::Plain, &sent_at).with_client_id("m");
+    let input = MessageCreateInput {
+        client_id: Some("m"),
+        chat_id: &group_id,
+        body: "hi",
+        body_type: BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let resp = sc.message_create(&input).await.expect("Message/set create");
     let err = resp
         .not_created
@@ -317,8 +358,10 @@ async fn chat_typing_unknown_or_left_chat_is_invalid_arguments() {
         .await
         .expect("Chat/get");
     let me = [got.account_id];
-    let mut patch = ChatPatch::default();
-    patch.remove_members = Some(&me);
+    let patch = ChatPatch {
+        remove_members: Some(&me),
+        ..Default::default()
+    };
     let resp = sc.chat_update(&group_id, &patch).await.expect("leave");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
@@ -361,11 +404,24 @@ async fn message_create_query_get_round_trip() {
 
     let sent_at = UTCDate::from(SENT_AT);
     let expires = UTCDate::from("2999-01-01T00:00:00Z");
-    let mut reply =
-        MessageCreateInput::new(&chat_id, "reply", BodyType::Plain, &sent_at).with_client_id("m3");
-    reply.reply_to = Some(&first);
-    reply.sender_expires_at = Some(&expires);
-    reply.burn_on_read = Some(true);
+    let reply = MessageCreateInput {
+        client_id: Some("m3"),
+        chat_id: &chat_id,
+        body: "reply",
+        body_type: BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: Some(&first),
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: Some(&expires),
+        burn_on_read: Some(true),
+        expires_after_read_seconds: None,
+    };
     let resp = sc.message_create(&reply).await.expect("Message/set reply");
     let third = created_id(&resp, "m3");
 
@@ -442,14 +498,24 @@ async fn message_create_keeps_optional_properties() {
     ]))
     .expect("MessageAction");
     let sent_at = UTCDate::from(SENT_AT);
-    let mut input = MessageCreateInput::new(&chat_id, "hi @bob", BodyType::Plain, &sent_at)
-        .with_client_id("m1");
-    input.attachments = Some(&attachments);
-    input.mentions = Some(&mentions);
-    input.actions = Some(&actions);
-    input.topic_id = Some("release");
-    input.subject = Some("Release 1.0");
-    input.expires_after_read_seconds = Some(30);
+    let input = MessageCreateInput {
+        client_id: Some("m1"),
+        chat_id: &chat_id,
+        body: "hi @bob",
+        body_type: BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: Some(&attachments),
+        mentions: Some(&mentions),
+        broadcast_mentions: None,
+        actions: Some(&actions),
+        thread_root_id: None,
+        topic_id: Some("release"),
+        subject: Some("Release 1.0"),
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: Some(30),
+    };
     let resp = sc.message_create(&input).await.expect("Message/set create");
     let id = created_id(&resp, "m1");
 
@@ -462,9 +528,24 @@ async fn message_create_keeps_optional_properties() {
     assert_eq!(msg.subject.as_deref(), Some("Release 1.0"));
     assert_eq!(msg.expires_after_read_seconds, Some(30));
 
-    let mut empty_topic =
-        MessageCreateInput::new(&chat_id, "hi", BodyType::Plain, &sent_at).with_client_id("m2");
-    empty_topic.topic_id = Some("");
+    let empty_topic = MessageCreateInput {
+        client_id: Some("m2"),
+        chat_id: &chat_id,
+        body: "hi",
+        body_type: BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: Some(""),
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
     let resp = sc
         .message_create(&empty_topic)
         .await
@@ -492,9 +573,24 @@ async fn message_create_rejects_fields_forbidden_by_body_type() {
     let sent_at = UTCDate::from(SENT_AT);
 
     let encrypted = BodyType::Other("application/mls-ciphertext".to_owned());
-    let mut e2ee =
-        MessageCreateInput::new(&chat_id, "Y2lwaGVy", encrypted, &sent_at).with_client_id("m1");
-    e2ee.topic_id = Some("release");
+    let e2ee = MessageCreateInput {
+        client_id: Some("m1"),
+        chat_id: &chat_id,
+        body: "Y2lwaGVy",
+        body_type: encrypted,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: Some("release"),
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
 
     let resp = sc.message_create(&e2ee).await.expect("Message/set create");
     let err = resp
@@ -522,8 +618,24 @@ async fn message_create_rejects_body_over_max_body_bytes() {
     let chat_id = create_group(&sc, "g1", "Team").await;
     let sent_at = UTCDate::from(SENT_AT);
     let body = "a".repeat(usize::try_from(max).expect("usize") + 1);
-    let input =
-        MessageCreateInput::new(&chat_id, &body, BodyType::Plain, &sent_at).with_client_id("m1");
+    let input = MessageCreateInput {
+        client_id: Some("m1"),
+        chat_id: &chat_id,
+        body: &body,
+        body_type: BodyType::Plain,
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
 
     let resp = sc.message_create(&input).await.expect("Message/set create");
     let err = resp
@@ -558,8 +670,24 @@ async fn message_unsupported_body_type_is_invalid_properties() {
     let sc = client.with_chat_session(session);
     let chat_id = create_group(&sc, "g1", "Team").await;
     let sent_at = UTCDate::from(SENT_AT);
-    let input =
-        MessageCreateInput::new(&chat_id, "hi", html.clone(), &sent_at).with_client_id("bad");
+    let input = MessageCreateInput {
+        client_id: Some("bad"),
+        chat_id: &chat_id,
+        body: "hi",
+        body_type: html.clone(),
+        sent_at: &sent_at,
+        reply_to: None,
+        attachments: None,
+        mentions: None,
+        broadcast_mentions: None,
+        actions: None,
+        thread_root_id: None,
+        topic_id: None,
+        subject: None,
+        sender_expires_at: None,
+        burn_on_read: None,
+        expires_after_read_seconds: None,
+    };
 
     let resp = sc.message_create(&input).await.expect("Message/set create");
     let err = resp
@@ -574,8 +702,10 @@ async fn message_unsupported_body_type_is_invalid_properties() {
     );
 
     let msg_id = send(&sc, &chat_id, "m1", "hello").await;
-    let mut patch = MessagePatch::default();
-    patch.body_type = Some(html);
+    let patch = MessagePatch {
+        body_type: Some(html),
+        ..Default::default()
+    };
     let resp = sc.message_update(&msg_id, &patch).await.expect("edit");
     let err = resp
         .not_updated
@@ -682,8 +812,10 @@ async fn reactions_add_then_remove() {
         emoji: "\u{1F44D}",
         sent_at: &sent_at,
     }];
-    let mut patch = MessagePatch::default();
-    patch.reaction_changes = Some(&add);
+    let patch = MessagePatch {
+        reaction_changes: Some(&add),
+        ..Default::default()
+    };
     let resp = sc
         .message_update(&msg_id, &patch)
         .await
@@ -710,8 +842,10 @@ async fn reactions_add_then_remove() {
     let remove = [ReactionChange::Remove {
         sender_reaction_id: reaction_id,
     }];
-    let mut patch = MessagePatch::default();
-    patch.reaction_changes = Some(&remove);
+    let patch = MessagePatch {
+        reaction_changes: Some(&remove),
+        ..Default::default()
+    };
     let resp = sc
         .message_update(&msg_id, &patch)
         .await
@@ -745,16 +879,20 @@ async fn message_edit_after_delete_is_forbidden() {
     let msg_id = send(&sc, &chat_id, "m1", "hello").await;
 
     let deleted_at = UTCDate::from("2026-01-02T00:00:00Z");
-    let mut patch = MessagePatch::default();
-    patch.deleted_at = Some(&deleted_at);
+    let patch = MessagePatch {
+        deleted_at: Some(&deleted_at),
+        ..Default::default()
+    };
     let resp = sc.message_update(&msg_id, &patch).await.expect("delete");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
         "{resp:?}"
     );
 
-    let mut patch = MessagePatch::default();
-    patch.body = Some("rewritten");
+    let patch = MessagePatch {
+        body: Some("rewritten"),
+        ..Default::default()
+    };
     let resp = sc.message_update(&msg_id, &patch).await.expect("edit");
     let err = resp
         .not_updated
@@ -836,12 +974,19 @@ async fn space_join_rejects_banned_caller() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput::new("Lobby").with_client_id("s0"))
+        .space_create(&SpaceCreateInput {
+            client_id: Some("s0"),
+            name: "Lobby",
+            description: None,
+            icon_blob_id: None,
+        })
         .await
         .expect("Space/set create");
     let space_id = created_id(&resp, "s0");
-    let mut patch = SpacePatch::default();
-    patch.is_public = Some(true);
+    let patch = SpacePatch {
+        is_public: Some(true),
+        ..Default::default()
+    };
     let resp = sc
         .space_update(&space_id, &patch)
         .await
@@ -851,8 +996,13 @@ async fn space_join_rejects_banned_caller() {
         "{resp:?}"
     );
 
-    let mut ban = SpaceBanCreateInput::new(&space_id, &account_id);
-    ban.client_id = Some("b0");
+    let ban = SpaceBanCreateInput {
+        client_id: Some("b0"),
+        space_id: &space_id,
+        user_id: &account_id,
+        reason: None,
+        expires_at: None,
+    };
     let resp = sc
         .space_ban_create(&ban)
         .await
@@ -874,12 +1024,19 @@ async fn space_join_unknown_or_private_space_is_not_permitted() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput::new("Private").with_client_id("s0"))
+        .space_create(&SpaceCreateInput {
+            client_id: Some("s0"),
+            name: "Private",
+            description: None,
+            icon_blob_id: None,
+        })
         .await
         .expect("Space/set create");
     let private_id = created_id(&resp, "s0");
-    let mut patch = SpacePatch::default();
-    patch.is_public = Some(false);
+    let patch = SpacePatch {
+        is_public: Some(false),
+        ..Default::default()
+    };
     let resp = sc
         .space_update(&private_id, &patch)
         .await
@@ -915,7 +1072,12 @@ async fn space_add_roles_round_trips_each_color_representation() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput::new("Palette").with_client_id("s0"))
+        .space_create(&SpaceCreateInput {
+            client_id: Some("s0"),
+            name: "Palette",
+            description: None,
+            icon_blob_id: None,
+        })
         .await
         .expect("Space/set create");
     let space_id = created_id(&resp, "s0");
@@ -924,12 +1086,29 @@ async fn space_add_roles_round_trips_each_color_representation() {
     let tokens = serde_json::json!({ "$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"} });
     let cam16 = serde_json::json!([62.5, -12.25, 30.75]);
     let roles = [
-        SpaceAddRoleInput::new("Hex", &[], 3).with_color(hex.clone()),
-        SpaceAddRoleInput::new("Tokens", &[], 2).with_color(tokens.clone()),
-        SpaceAddRoleInput::new("Cam16", &[], 1).with_color(cam16.clone()),
+        SpaceAddRoleInput {
+            name: "Hex",
+            permissions: &[],
+            position: 3,
+            color: Some(hex.clone()),
+        },
+        SpaceAddRoleInput {
+            name: "Tokens",
+            permissions: &[],
+            position: 2,
+            color: Some(tokens.clone()),
+        },
+        SpaceAddRoleInput {
+            name: "Cam16",
+            permissions: &[],
+            position: 1,
+            color: Some(cam16.clone()),
+        },
     ];
-    let mut patch = SpacePatch::default();
-    patch.add_roles = Some(&roles);
+    let patch = SpacePatch {
+        add_roles: Some(&roles),
+        ..Default::default()
+    };
     let resp = sc
         .space_update(&space_id, &patch)
         .await
@@ -980,14 +1159,26 @@ async fn space_add_categories_moves_channel_into_new_category() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput::new("Layout").with_client_id("s0"))
+        .space_create(&SpaceCreateInput {
+            client_id: Some("s0"),
+            name: "Layout",
+            description: None,
+            icon_blob_id: None,
+        })
         .await
         .expect("Space/set create");
     let space_id = created_id(&resp, "s0");
 
-    let channels = [SpaceAddChannelInput::new("general")];
-    let mut patch = SpacePatch::default();
-    patch.add_channels = Some(&channels);
+    let channels = [SpaceAddChannelInput {
+        name: "general",
+        category_id: None,
+        position: None,
+        topic: None,
+    }];
+    let patch = SpacePatch {
+        add_channels: Some(&channels),
+        ..Default::default()
+    };
     let resp = sc
         .space_update(&space_id, &patch)
         .await
@@ -1009,12 +1200,16 @@ async fn space_add_categories_moves_channel_into_new_category() {
     let channel_id = space.uncategorized_channel_ids[0].clone();
 
     let channel_ids = [channel_id.clone()];
-    let mut category = SpaceAddCategoryInput::new("Text");
-    category.position = Some(0);
-    category.channel_ids = Some(&channel_ids);
+    let category = SpaceAddCategoryInput {
+        name: "Text",
+        position: Some(0),
+        channel_ids: Some(&channel_ids),
+    };
     let categories = [category];
-    let mut patch = SpacePatch::default();
-    patch.add_categories = Some(&categories);
+    let patch = SpacePatch {
+        add_categories: Some(&categories),
+        ..Default::default()
+    };
     let resp = sc
         .space_update(&space_id, &patch)
         .await

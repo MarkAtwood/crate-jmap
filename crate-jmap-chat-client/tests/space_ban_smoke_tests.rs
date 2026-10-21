@@ -174,9 +174,13 @@ async fn space_ban_create_serialises_full_object() {
     let space_id = Id::from("space-eng");
     let user_id = Id::from("u-malice");
     let expires_at = UTCDate::from("2026-02-20T12:00:00Z");
-    let mut input = jmap_chat_client::methods::SpaceBanCreateInput::new(&space_id, &user_id)
-        .with_client_id("my-ban-1");
-    input.expires_at = Some(&expires_at);
+    let input = jmap_chat_client::methods::SpaceBanCreateInput {
+        client_id: Some("my-ban-1"),
+        space_id: &space_id,
+        user_id: &user_id,
+        reason: None,
+        expires_at: Some(&expires_at),
+    };
     let _ = sc
         .space_ban_create(&input)
         .await
@@ -249,9 +253,10 @@ async fn space_ban_update_patch_serialises_reason_and_expires_at() {
     let sc = helpers::make_client(&server);
     let id = Id::from("ban-1");
     let expires_at = UTCDate::from("2026-03-01T00:00:00Z");
-    let mut patch = jmap_chat_client::methods::SpaceBanPatch::default();
-    patch.reason = jmap_chat_client::methods::Patch::Set("repeat spam");
-    patch.expires_at = jmap_chat_client::methods::Patch::Set(&expires_at);
+    let patch = jmap_chat_client::methods::SpaceBanPatch {
+        reason: jmap_chat_client::methods::Patch::Set("repeat spam"),
+        expires_at: jmap_chat_client::methods::Patch::Set(&expires_at),
+    };
     let _ = sc
         .space_ban_update(&id, &patch)
         .await
@@ -274,8 +279,10 @@ async fn space_ban_update_patch_serialises_reason_and_expires_at() {
         helpers::set_update_response("SpaceBan/set", "sb-2", "sb-3", "ban-1"),
     )
     .await;
-    let mut clear = jmap_chat_client::methods::SpaceBanPatch::default();
-    clear.expires_at = jmap_chat_client::methods::Patch::Clear;
+    let clear = jmap_chat_client::methods::SpaceBanPatch {
+        expires_at: jmap_chat_client::methods::Patch::Clear,
+        ..Default::default()
+    };
     let _ = sc
         .space_ban_update(&id, &clear)
         .await

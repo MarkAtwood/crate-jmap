@@ -610,7 +610,6 @@ fn _assert_session_client_send_sync() {
 // ---------------------------------------------------------------------------
 
 /// Input parameters for `Message/set` create.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct MessageCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -679,107 +678,6 @@ pub struct MessageCreateInput<'a> {
     pub expires_after_read_seconds: Option<u64>,
 }
 
-impl<'a> MessageCreateInput<'a> {
-    /// Create a `MessageCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(
-        chat_id: &'a Id,
-        body: &'a str,
-        body_type: jmap_chat_types::BodyType,
-        sent_at: &'a jmap_types::UTCDate,
-    ) -> Self {
-        Self {
-            client_id: None,
-            chat_id,
-            body,
-            body_type,
-            sent_at,
-            reply_to: None,
-            attachments: None,
-            mentions: None,
-            broadcast_mentions: None,
-            actions: None,
-            thread_root_id: None,
-            topic_id: None,
-            subject: None,
-            sender_expires_at: None,
-            burn_on_read: None,
-            expires_after_read_seconds: None,
-        }
-    }
-
-    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
-    pub fn with_client_id(mut self, id: &'a str) -> Self {
-        self.client_id = Some(id);
-        self
-    }
-
-    /// Set the message this one replies to.
-    pub fn with_reply_to(mut self, id: &'a Id) -> Self {
-        self.reply_to = Some(id);
-        self
-    }
-
-    /// Set the file attachments.
-    pub fn with_attachments(mut self, v: &'a [jmap_chat_types::AttachmentCreate]) -> Self {
-        self.attachments = Some(v);
-        self
-    }
-
-    /// Set the per-user mentions.
-    pub fn with_mentions(mut self, v: &'a [jmap_chat_types::Mention]) -> Self {
-        self.mentions = Some(v);
-        self
-    }
-
-    /// Set the broadcast-scope mentions.
-    pub fn with_broadcast_mentions(mut self, v: &'a [jmap_chat_types::BroadcastMention]) -> Self {
-        self.broadcast_mentions = Some(v);
-        self
-    }
-
-    /// Set the out-of-band action invitations.
-    pub fn with_actions(mut self, v: &'a [jmap_chat_types::MessageAction]) -> Self {
-        self.actions = Some(v);
-        self
-    }
-
-    /// Set the thread root message id.
-    pub fn with_thread_root_id(mut self, id: &'a Id) -> Self {
-        self.thread_root_id = Some(id);
-        self
-    }
-
-    /// Set the topic identifier.
-    pub fn with_topic_id(mut self, v: &'a str) -> Self {
-        self.topic_id = Some(v);
-        self
-    }
-
-    /// Set the topic name. Only valid together with a topic id.
-    pub fn with_subject(mut self, v: &'a str) -> Self {
-        self.subject = Some(v);
-        self
-    }
-
-    /// Set the sender hard-deletion deadline.
-    pub fn with_sender_expires_at(mut self, v: &'a jmap_types::UTCDate) -> Self {
-        self.sender_expires_at = Some(v);
-        self
-    }
-
-    /// Set the burn-on-read flag.
-    pub fn with_burn_on_read(mut self, v: bool) -> Self {
-        self.burn_on_read = Some(v);
-        self
-    }
-
-    /// Set the expire-after-read delay in seconds.
-    pub fn with_expires_after_read_seconds(mut self, v: u64) -> Self {
-        self.expires_after_read_seconds = Some(v);
-        self
-    }
-}
-
 /// A single reaction change in a `Message/set` patch (JMAP Chat §4.5).
 ///
 /// The patch key is `reactions/<senderReactionId>` (JSON Pointer).
@@ -829,7 +727,6 @@ pub enum ReactionChange<'a> {
 /// the patch (the server leaves them unchanged).
 ///
 /// Use `..Default::default()` to fill in unused fields.
-#[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct MessagePatch<'a> {
     /// New message body text (author-only edit).
@@ -872,7 +769,6 @@ pub struct MessagePatch<'a> {
 /// set a value and `Patch::Clear` to null-clear a nullable field.
 ///
 /// Use `..Default::default()` to fill in unused fields.
-#[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct PresenceStatusPatch<'a> {
     /// New presence state. `None` = no change.
@@ -888,7 +784,6 @@ pub struct PresenceStatusPatch<'a> {
 }
 
 /// Parameters for creating one CustomEmoji via `CustomEmoji/set`.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct CustomEmojiCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -904,24 +799,6 @@ pub struct CustomEmojiCreateInput<'a> {
     pub space_id: Option<&'a Id>,
 }
 
-impl<'a> CustomEmojiCreateInput<'a> {
-    /// Create a `CustomEmojiCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(name: &'a str, blob_id: &'a Id) -> Self {
-        Self {
-            client_id: None,
-            name,
-            blob_id,
-            space_id: None,
-        }
-    }
-
-    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
-    pub fn with_client_id(mut self, id: &'a str) -> Self {
-        self.client_id = Some(id);
-        self
-    }
-}
-
 /// Patch parameters for `CustomEmoji/set` update
 /// (draft-atwood-jmap-chat-00 §CustomEmoji/set: "`update` supports:
 /// `name`, `blobId`").
@@ -930,7 +807,6 @@ impl<'a> CustomEmojiCreateInput<'a> {
 /// `None` (default) omits the key and the server leaves it unchanged.
 ///
 /// Use `..Default::default()` to fill in unused fields.
-#[non_exhaustive]
 #[derive(Debug, Default, Clone)]
 pub struct CustomEmojiPatch<'a> {
     /// New shortcode name without colons. `None` = no change.
@@ -940,7 +816,6 @@ pub struct CustomEmojiPatch<'a> {
 }
 
 /// Parameters for creating one SpaceInvite via `SpaceInvite/set`.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceInviteCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -958,33 +833,7 @@ pub struct SpaceInviteCreateInput<'a> {
     pub max_uses: Option<u64>,
 }
 
-impl<'a> SpaceInviteCreateInput<'a> {
-    /// Create a `SpaceInviteCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(space_id: &'a Id) -> Self {
-        Self {
-            client_id: None,
-            space_id,
-            default_channel_id: None,
-            expires_at: None,
-            max_uses: None,
-        }
-    }
-
-    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
-    pub fn with_client_id(mut self, id: &'a str) -> Self {
-        self.client_id = Some(id);
-        self
-    }
-
-    /// Set the maximum number of times this invite may be used.
-    pub fn with_max_uses(mut self, max: u64) -> Self {
-        self.max_uses = Some(max);
-        self
-    }
-}
-
 /// Parameters for creating one SpaceBan via `SpaceBan/set`.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceBanCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -1002,25 +851,6 @@ pub struct SpaceBanCreateInput<'a> {
     pub expires_at: Option<&'a jmap_types::UTCDate>,
 }
 
-impl<'a> SpaceBanCreateInput<'a> {
-    /// Create a `SpaceBanCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(space_id: &'a Id, user_id: &'a Id) -> Self {
-        Self {
-            client_id: None,
-            space_id,
-            user_id,
-            reason: None,
-            expires_at: None,
-        }
-    }
-
-    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
-    pub fn with_client_id(mut self, id: &'a str) -> Self {
-        self.client_id = Some(id);
-        self
-    }
-}
-
 /// Patch parameters for `SpaceBan/set` update
 /// (draft-atwood-jmap-chat-00 §SpaceBan/set: "`update` supports:
 /// `reason`, `expiresAt`").
@@ -1029,7 +859,6 @@ impl<'a> SpaceBanCreateInput<'a> {
 /// [`Patch::Clear`] sends `null`: no reason, or a ban that never expires.
 ///
 /// Use `..Default::default()` to fill in unused fields.
-#[non_exhaustive]
 #[derive(Debug, Default, Clone)]
 pub struct SpaceBanPatch<'a> {
     /// Set or clear the human-readable reason for the ban.
@@ -1043,7 +872,6 @@ pub struct SpaceBanPatch<'a> {
 /// All fields are optional; absent fields are omitted from the patch. For the
 /// nullable `display_name` field, use `Patch::Set(s)` to set and `Patch::Clear`
 /// to clear. Use `..Default::default()` to fill in unused fields.
-#[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct ChatContactPatch<'a> {
     /// Set or unset the blocked flag on this contact. `None` = no change.
@@ -1053,7 +881,6 @@ pub struct ChatContactPatch<'a> {
 }
 
 /// Input parameters for `Space/set` create.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -1067,24 +894,6 @@ pub struct SpaceCreateInput<'a> {
     pub description: Option<&'a str>,
     /// Optional blob id of an already-uploaded icon image.
     pub icon_blob_id: Option<&'a Id>,
-}
-
-impl<'a> SpaceCreateInput<'a> {
-    /// Create a `SpaceCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(name: &'a str) -> Self {
-        Self {
-            client_id: None,
-            name,
-            description: None,
-            icon_blob_id: None,
-        }
-    }
-
-    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
-    pub fn with_client_id(mut self, id: &'a str) -> Self {
-        self.client_id = Some(id);
-        self
-    }
 }
 
 /// How to join a Space — passed to `Space/join`.
@@ -1132,7 +941,6 @@ impl<'a> std::fmt::Debug for SpaceJoinInput<'a> {
 }
 
 /// One entry in the `addMembers` patch key for `Chat/set` update.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct AddMemberInput<'a> {
     /// ChatContact.id of the member to add.
@@ -1141,34 +949,13 @@ pub struct AddMemberInput<'a> {
     pub role: Option<crate::types::ChatMemberRole>,
 }
 
-impl<'a> AddMemberInput<'a> {
-    /// Create an `AddMemberInput`; `role` defaults to `None` (server assigns default).
-    pub fn new(id: &'a Id) -> Self {
-        Self { id, role: None }
-    }
-
-    /// Set the role for this member.
-    pub fn with_role(mut self, role: crate::types::ChatMemberRole) -> Self {
-        self.role = Some(role);
-        self
-    }
-}
-
 /// One entry in the `updateMemberRoles` patch key for `Chat/set` update.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct UpdateMemberRoleInput<'a> {
     /// ChatContact.id of the member to update.
     pub id: &'a Id,
     /// New role for this member.
     pub role: crate::types::ChatMemberRole,
-}
-
-impl<'a> UpdateMemberRoleInput<'a> {
-    /// Create an `UpdateMemberRoleInput` with the target member and their new role.
-    pub fn new(id: &'a Id, role: crate::types::ChatMemberRole) -> Self {
-        Self { id, role }
-    }
 }
 
 /// Input parameters for `Chat/set` create.
@@ -1223,7 +1010,6 @@ pub enum ChatCreateInput<'a> {
 /// `Patch::Clear` to null-clear. Slice fields default to `None` (no change).
 ///
 /// Use `..Default::default()` to fill in unused fields.
-#[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct ChatPatch<'a> {
     /// Mute or unmute this chat. `None` = no change.
@@ -1257,7 +1043,6 @@ pub struct ChatPatch<'a> {
 }
 
 /// One member to add in the `addMembers` patch key of `Space/set` update.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceAddMemberInput<'a> {
     /// ChatContact.id of the member to add.
@@ -1266,15 +1051,7 @@ pub struct SpaceAddMemberInput<'a> {
     pub role_ids: Option<&'a [Id]>,
 }
 
-impl<'a> SpaceAddMemberInput<'a> {
-    /// Create a `SpaceAddMemberInput`; `role_ids` defaults to `None`.
-    pub fn new(id: &'a Id) -> Self {
-        Self { id, role_ids: None }
-    }
-}
-
 /// One member update in the `updateMembers` patch key of `Space/set` update.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceUpdateMemberInput<'a> {
     /// ChatContact.id of the member to update.
@@ -1285,19 +1062,7 @@ pub struct SpaceUpdateMemberInput<'a> {
     pub nick: Patch<&'a str>,
 }
 
-impl<'a> SpaceUpdateMemberInput<'a> {
-    /// Create a `SpaceUpdateMemberInput`; optional fields default to `None`/`Keep`.
-    pub fn new(id: &'a Id) -> Self {
-        Self {
-            id,
-            role_ids: None,
-            nick: Patch::Keep,
-        }
-    }
-}
-
 /// One channel to add in the `addChannels` patch key of `Space/set` update.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceAddChannelInput<'a> {
     /// Channel display name.
@@ -1310,25 +1075,12 @@ pub struct SpaceAddChannelInput<'a> {
     pub topic: Option<&'a str>,
 }
 
-impl<'a> SpaceAddChannelInput<'a> {
-    /// Create a `SpaceAddChannelInput`; optional fields default to `None`.
-    pub fn new(name: &'a str) -> Self {
-        Self {
-            name,
-            category_id: None,
-            position: None,
-            topic: None,
-        }
-    }
-}
-
 /// One role to add in the `addRoles` patch key of `Space/set` update
 /// (JMAP Chat §Space/set update / `manage_roles` permission).
 ///
 /// The server assigns the role's ULID; the request never specifies an `id`.
 /// Hierarchy enforcement: a member may only add roles whose `position` is
 /// strictly less than their own highest-position role (server-enforced).
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceAddRoleInput<'a> {
     /// Human-readable role name.
@@ -1347,25 +1099,6 @@ pub struct SpaceAddRoleInput<'a> {
     pub color: Option<serde_json::Value>,
 }
 
-impl<'a> SpaceAddRoleInput<'a> {
-    /// Create a `SpaceAddRoleInput` with required fields; optional `color` defaults to `None`.
-    pub fn new(name: &'a str, permissions: &'a [&'a str], position: u64) -> Self {
-        Self {
-            name,
-            permissions,
-            position,
-            color: None,
-        }
-    }
-
-    /// Attach a color to the role in any representation listed on
-    /// [`Self::color`], e.g. `"#5865f2"` or a `serde_json::json!` object.
-    pub fn with_color(mut self, color: impl Into<serde_json::Value>) -> Self {
-        self.color = Some(color.into());
-        self
-    }
-}
-
 /// One role update in the `updateRoles` patch key of `Space/set` update
 /// (JMAP Chat §Space/set update / `manage_roles` permission).
 ///
@@ -1373,7 +1106,6 @@ impl<'a> SpaceAddRoleInput<'a> {
 /// the wire patch and the server leaves the corresponding property unchanged.
 /// Hierarchy enforcement: a member may only modify roles whose `position` is
 /// strictly less than their own highest-position role (server-enforced).
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceUpdateRoleInput<'a> {
     /// SpaceRole.id to update.
@@ -1390,25 +1122,11 @@ pub struct SpaceUpdateRoleInput<'a> {
     pub position: Option<u64>,
 }
 
-impl<'a> SpaceUpdateRoleInput<'a> {
-    /// Create a `SpaceUpdateRoleInput`; optional fields default to `None`/`Keep`.
-    pub fn new(id: &'a Id) -> Self {
-        Self {
-            id,
-            name: None,
-            color: Patch::Keep,
-            permissions: None,
-            position: None,
-        }
-    }
-}
-
 /// One channel update in the `updateChannels` patch key of `Space/set` update
 /// (JMAP Chat §Space/set update / `manage_channels` permission).
 ///
 /// Fields left at their default (`None` / [`Patch::Keep`]) are omitted from
 /// the wire patch and the server leaves the corresponding property unchanged.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceUpdateChannelInput<'a> {
     /// Channel Chat id (kind `"channel"`, `spaceId` is this Space).
@@ -1428,26 +1146,10 @@ pub struct SpaceUpdateChannelInput<'a> {
     pub permission_overrides: Option<&'a [jmap_chat_types::ChannelPermission]>,
 }
 
-impl<'a> SpaceUpdateChannelInput<'a> {
-    /// Create a `SpaceUpdateChannelInput`; optional fields default to `None`/`Keep`.
-    pub fn new(id: &'a Id) -> Self {
-        Self {
-            id,
-            name: None,
-            topic: Patch::Keep,
-            category_id: Patch::Keep,
-            position: None,
-            slow_mode_seconds: None,
-            permission_overrides: None,
-        }
-    }
-}
-
 /// One category to add in the `addCategories` patch key of `Space/set` update
 /// (JMAP Chat §Space/set update / `manage_channels` permission).
 ///
 /// The server assigns the category's ULID; the request never specifies an `id`.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceAddCategoryInput<'a> {
     /// Category display name.
@@ -1458,23 +1160,11 @@ pub struct SpaceAddCategoryInput<'a> {
     pub channel_ids: Option<&'a [Id]>,
 }
 
-impl<'a> SpaceAddCategoryInput<'a> {
-    /// Create a `SpaceAddCategoryInput`; optional fields default to `None`.
-    pub fn new(name: &'a str) -> Self {
-        Self {
-            name,
-            position: None,
-            channel_ids: None,
-        }
-    }
-}
-
 /// One category update in the `updateCategories` patch key of `Space/set` update
 /// (JMAP Chat §Space/set update / `manage_channels` permission).
 ///
 /// Fields left at their default (`None`) are omitted from the wire patch and
 /// the server leaves the corresponding property unchanged.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceUpdateCategoryInput<'a> {
     /// Category id to update.
@@ -1487,18 +1177,6 @@ pub struct SpaceUpdateCategoryInput<'a> {
     pub channel_ids: Option<&'a [Id]>,
 }
 
-impl<'a> SpaceUpdateCategoryInput<'a> {
-    /// Create a `SpaceUpdateCategoryInput`; optional fields default to `None`.
-    pub fn new(id: &'a Id) -> Self {
-        Self {
-            id,
-            name: None,
-            position: None,
-            channel_ids: None,
-        }
-    }
-}
-
 /// Patch parameters for `Space/set` update.
 ///
 /// All fields are optional. Absent fields are omitted from the patch.
@@ -1506,7 +1184,6 @@ impl<'a> SpaceUpdateCategoryInput<'a> {
 /// and `Patch::Clear` to null-clear. Slice fields default to `None` (no change).
 ///
 /// Use `..Default::default()` to fill in unused fields.
-#[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct SpacePatch<'a> {
     /// New display name (`manage_space` permission required).
@@ -1551,7 +1228,6 @@ pub struct SpacePatch<'a> {
 /// (draft-atwood-jmap-chat-push-00 §3.1).
 ///
 /// `device_client_id` and `url` have no safe defaults and must always be supplied.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct PushSubscriptionCreateInput<'a> {
     /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
@@ -1603,41 +1279,6 @@ pub struct PushSubscriptionCreateInput<'a> {
     pub chat_push: Option<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>,
 }
 
-impl<'a> PushSubscriptionCreateInput<'a> {
-    /// Create a `PushSubscriptionCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(device_client_id: &'a str, url: &'a str) -> Self {
-        Self {
-            client_id: None,
-            device_client_id,
-            url,
-            expires: None,
-            types: None,
-            chat_push: None,
-        }
-    }
-
-    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
-    pub fn with_client_id(mut self, id: &'a str) -> Self {
-        self.client_id = Some(id);
-        self
-    }
-
-    /// Restrict StateChange notifications to these data type names.
-    pub fn with_types(mut self, types: &'a [&'a str]) -> Self {
-        self.types = Some(types);
-        self
-    }
-
-    /// Attach per-account ChatPushConfig entries for inline push.
-    pub fn with_chat_push(
-        mut self,
-        chat_push: &'a [(&'a Id, jmap_chat_types::ChatPushConfig)],
-    ) -> Self {
-        self.chat_push = Some(chat_push);
-        self
-    }
-}
-
 /// Patch shape for `PushSubscription/set` update sub-operations (RFC 8620 §7.2.2).
 ///
 /// Only the patchable properties are exposed. RFC 8620 §7.2 declares `url`
@@ -1671,7 +1312,6 @@ impl<'a> PushSubscriptionCreateInput<'a> {
 /// `Some("[REDACTED]")` / `None` so an accidental `{:?}`-format in an
 /// application log, tracing span, or test fixture cannot leak it. Other
 /// fields are not secrets and are rendered verbatim.
-#[non_exhaustive]
 #[derive(Default)]
 pub struct PushSubscriptionPatch<'a> {
     /// Replace the verification code (set after receiving a PushVerification
