@@ -2213,6 +2213,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-tungstenite",
  "url",
+ "wiremock",
 ]
 
 [[package]]

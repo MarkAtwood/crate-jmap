@@ -1,5 +1,20 @@
 //! JMAP Scene client support (draft-atwood-jmap-scene-00).
 //!
+//! [`JmapSceneExt`] binds the `/get`, `/changes`, `/set`, `/query` and
+//! `/queryChanges` methods of `SceneAsset`, `SceneRegion`, `SceneObject`
+//! and `SceneAvatar` (draft-atwood-jmap-scene-00 §Methods) on top of
+//! `jmap-base-client`. Wire types come from `jmap-scene-types`.
+//!
+//! ```rust,no_run
+//! # use jmap_scene_client::JmapSceneExt;
+//! # async fn example(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
+//! let session = client.fetch_session().await?;
+//! let sc = client.with_scene_session(session);
+//! let regions = sc.scene_region_get(None, None).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! [`AssetFetcher`] fetches a peer-supplied `assetUri` (SceneAsset or
 //! SceneObject) under the draft's §assetUri Is Untrusted rules:
 //!
@@ -43,9 +58,54 @@ use sha2::Digest;
 
 pub use reqwest;
 
+pub mod methods;
 pub mod ws;
 
+pub use jmap_base_client::ClientError;
+pub use methods::{
+    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
+    SetError, SetResponse,
+};
 pub use ws::{parse_scene_ws_frame, SceneWsExt, SceneWsFrame};
+
+/// Extension trait adding JMAP Scene methods to [`jmap_base_client::JmapClient`].
+///
+/// Import this trait to use: `use jmap_scene_client::JmapSceneExt;`
+/// This trait is **sealed**: the crate adds an `impl` only for
+/// [`jmap_base_client::JmapClient`], which keeps adding methods to the
+/// trait a non-breaking change.
+pub trait JmapSceneExt: sealed::Sealed {
+    /// Bind this client to a JMAP session for use with Scene methods.
+    ///
+    /// The returned [`SessionClient`] captures the session at construction
+    /// time. After re-fetching the session, construct a new `SessionClient`.
+    ///
+    /// # Deferred session-capability validation
+    ///
+    /// This constructor accepts any [`jmap_base_client::Session`] and never
+    /// fails. Each method call on the returned [`SessionClient`] returns
+    /// [`ClientError::InvalidSession`] when the session has no primary
+    /// account for `urn:ietf:params:jmap:scene`. Pre-check with
+    /// [`session.primary_account_id("urn:ietf:params:jmap:scene")`](jmap_base_client::Session::primary_account_id)
+    /// to guard at the binding site.
+    fn with_scene_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;
+}
+
+impl JmapSceneExt for jmap_base_client::JmapClient {
+    fn with_scene_session(&self, session: jmap_base_client::Session) -> methods::SessionClient {
+        methods::SessionClient {
+            client: self.clone(),
+            session,
+            account_id: None,
+        }
+    }
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::JmapSceneExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::JmapClient {}
+}
 
 /// The most redirects [`AssetFetcher`] follows (reqwest's default).
 pub const MAX_REDIRECTS: usize = 10;

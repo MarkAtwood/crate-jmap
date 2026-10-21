@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-client**: `JmapSceneExt::with_scene_session` and a
+  `SessionClient` binding the `/get`, `/changes`, `/set`, `/query` and
+  `/queryChanges` methods of `SceneAsset`, `SceneRegion`, `SceneObject`
+  and `SceneAvatar` (draft-atwood-jmap-scene-00 §Methods), typed with the
+  `jmap-scene-types` objects, filters and comparators.
+  `SessionClient::for_account` targets a region's hosting account
+  (§Accounts: "Every `accountId` in a Scene method call ... is the id of
+  the hosting account"). `jmap-types` is now a normal dependency.
+
 - **jmap-scene-server**: `SceneBackend::may_see_region_avatars` hook
   (draft-atwood-jmap-scene-00 §Security Considerations: for a region
   bound to an E2EE VTCCall the server "SHOULD return `notFound` for
