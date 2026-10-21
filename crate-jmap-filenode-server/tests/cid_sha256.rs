@@ -1,4 +1,4 @@
-//! `FileNode/set` fills `sha256` when `urn:ietf:params:jmap:cid` is
+//! `FileNode/set` and `FileNode/copy` fill `sha256` when `urn:ietf:params:jmap:cid` is
 //! advertised (draft-atwood-jmap-cid-00 §FileNode Extension).
 //!
 //! Oracle: the draft text at jmap-chat-spec/draft-atwood-jmap-cid-00.md,
@@ -13,7 +13,9 @@ mod common;
 
 use common::MemoryBackend;
 use jmap_cid_types::Sha256;
-use jmap_filenode_server::filenode::{handle_filenode_get, handle_filenode_set};
+use jmap_filenode_server::filenode::{
+    handle_filenode_copy, handle_filenode_get, handle_filenode_set,
+};
 use jmap_filenode_types::FileNode;
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
@@ -400,4 +402,79 @@ async fn get_with_cid_properties_null() {
     .expect("get must not return a top-level error");
     let node = &primary["list"][0];
     assert_eq!(node.get("sha256"), Some(&Value::Null), "{primary}");
+}
+
+/// Copies source node `id` from account `src` into account `dst` with the
+/// given RFC 8620 §5.4 per-copy overrides.
+async fn copy(backend: &MemoryBackend, id: &str, overrides: Value) -> Value {
+    let mut entry = json!({ "id": id });
+    if let (Value::Object(m), Value::Object(o)) = (&mut entry, overrides) {
+        m.extend(o);
+    }
+    let HandlerOutput { primary, .. } = handle_filenode_copy(
+        backend,
+        &(),
+        json!({ "fromAccountId": "src", "accountId": "dst", "create": { "c1": entry } }),
+        "c0",
+    )
+    .await
+    .expect("copy must not return a top-level error");
+    primary
+}
+
+/// Spec 33702a5 L208-214: "For file FileNodes, the server MUST set this to
+/// the SHA-256 digest of the stored blob content ... MUST NOT return `null`
+/// for any file FileNode created ... while this capability is active." A
+/// copy is a create in the destination (RFC 8620 §5.4), so a source node
+/// with no digest gets the destination blob's.
+#[tokio::test]
+async fn copy_file_with_cid_sets_sha256_of_blob() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    backend.seed_node("src", seeded_file("blob-abc", None));
+    backend.seed_blob_sha256("dst", "blob-abc", digest(SHA256_ABC));
+
+    let resp = copy(&backend, "f1", json!({})).await;
+    let created = &resp["created"]["c1"];
+    assert_eq!(created["sha256"], SHA256_ABC, "{resp}");
+}
+
+/// Spec 33702a5 L208-210 (as above): the value is the digest of the stored
+/// blob, so an override's `sha256` does not survive the copy.
+#[tokio::test]
+async fn copy_file_with_cid_replaces_override_sha256() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    backend.seed_node("src", seeded_file("blob-abc", Some(SHA256_ABC)));
+    backend.seed_blob_sha256("dst", "blob-abc", digest(SHA256_ABC));
+
+    let resp = copy(&backend, "f1", json!({ "sha256": SHA256_TWO_BLOCK })).await;
+    assert_eq!(resp["created"]["c1"]["sha256"], SHA256_ABC, "{resp}");
+}
+
+/// Spec 33702a5 L200-202: `sha256` exists only "When a server advertises
+/// both `urn:ietf:params:jmap:cid` and the {{JMAP-FILENODE}} capability",
+/// so a copy into an account without it carries none, even when the source
+/// had one.
+#[tokio::test]
+async fn copy_file_without_cid_has_no_sha256() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    backend.seed_node("src", seeded_file("blob-abc", Some(SHA256_ABC)));
+
+    let resp = copy(&backend, "f1", json!({})).await;
+    let created = &resp["created"]["c1"];
+    assert!(created.get("id").is_some(), "{resp}");
+    assert!(created.get("sha256").is_none(), "{resp}");
+}
+
+/// Spec 33702a5 L200-207: with the capability, FileNode objects "MUST
+/// include" `sha256`, which "MUST be `null` for directory FileNodes", and
+/// RFC 8620 §5.4: `created` is as for /set, holding server-set properties.
+#[tokio::test]
+async fn copy_directory_with_cid_created_has_null_sha256() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    backend.seed_node("src", seeded_directory());
+    backend.seed_blob_sha256("dst", "blob-abc", digest(SHA256_ABC));
+
+    let resp = copy(&backend, "d1", json!({})).await;
+    let created = &resp["created"]["c1"];
+    assert_eq!(created.get("sha256"), Some(&Value::Null), "{resp}");
 }
