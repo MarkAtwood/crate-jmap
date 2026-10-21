@@ -214,14 +214,17 @@ pub trait VtcBackend: JmapBackend {
 
     /// Deliver `event` to every participant in `event.call_id`
     /// (draft-atwood-jmap-vtc-00 §VTCRecordingStateEvent: "Delivered to all
-    /// participants when recording state changes. This is a mandatory
-    /// consent signal.").
+    /// participants when recording state changes. This is the consent
+    /// signal").
     ///
     /// `VTCRecording/set` calls this after each create, pause, resume and
-    /// stop has committed. There is no default: §Recording Consent says
-    /// "the signaling mechanism MUST be present regardless of
-    /// jurisdiction". Delivery failures are the backend's to log or retry;
-    /// the recording change has already committed.
+    /// stop has committed. §Recording Consent says "The server SHOULD
+    /// notify all participants when recording state changes" and
+    /// "deployments subject to all-party consent laws rely on this signal".
+    /// There is no default, so that a backend skips the consent signal only
+    /// by choosing to, never by inheriting a silent no-op. Delivery
+    /// failures are the backend's to log or retry; the recording change has
+    /// already committed.
     fn deliver_recording_state_event(
         &self,
         caller: &Self::CallerCtx,
