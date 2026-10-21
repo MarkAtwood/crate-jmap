@@ -93,20 +93,18 @@ pub trait TasksBackend: JmapBackend {
         &self, caller: &Self::CallerCtx, account_id: &Id, task_list_id: &Id,
     ) -> impl Future<Output = bool> + Send;
 
-    // --- Optional overrides (have default implementations) ---
-
     /// Apply a patch containing only per-user Task properties (§4.5.1).
     ///
     /// When only per-user properties are patched, the shared `updated` timestamp
-    /// MUST NOT change (§4.5.1). The default implementation delegates to
-    /// update_object, which is correct for single-user scenarios. Backends
-    /// serving multiple users SHOULD override this to route to a user-scoped
-    /// patch path.
+    /// MUST NOT change (§4.5.1). No default: delegating to update_object is
+    /// correct only for a single-user backend whose update_object leaves
+    /// `updated` alone. Backends serving multiple users store the patch in a
+    /// user-scoped path.
     fn update_task_per_user(
         &self, caller: &Self::CallerCtx, account_id: &Id, id: &Id, patch: PatchObject,
-    ) -> impl Future<Output = Result<Option<Task>, BackendSetError<Self::Error>>> + Send {
-        self.update_object::<Task>(caller, account_id, id, patch)
-    }
+    ) -> impl Future<Output = Result<Option<Task>, BackendSetError<Self::Error>>> + Send;
+
+    // --- Optional overrides (have default implementations) ---
 
     /// Returns `true` if the backend enforces the `isDraft` immutability
     /// invariant atomically inside `update_object`. When `true`, the

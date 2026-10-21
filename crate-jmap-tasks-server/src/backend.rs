@@ -336,10 +336,11 @@ pub trait TasksBackend: JmapBackend {
     /// classification is fixed by the spec and is not a backend hook.
     ///
     /// When only per-user properties are patched, the shared `updated`
-    /// timestamp MUST NOT change (§4.5.1 (per-user updated paragraph)).  The default
-    /// implementation delegates to [`Self::update_object`], which is correct
-    /// for single-user scenarios but backends serving multiple users SHOULD
-    /// override this method to route to a user-scoped patch path.
+    /// timestamp MUST NOT change (§4.5.1 (per-user updated paragraph)).
+    /// There is no default: delegating to [`Self::update_object`] is correct
+    /// only for a single-user backend whose `update_object` leaves `updated`
+    /// alone. A backend serving multiple users stores the patch in a
+    /// user-scoped path.
     ///
     /// # Authorisation contract
     ///
@@ -359,10 +360,7 @@ pub trait TasksBackend: JmapBackend {
         patch: PatchObject,
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>>,
-    > + Send {
-        // Task::Patch = PatchObject (see jmap_tasks_types backend.rs).
-        self.update_object::<jmap_tasks_types::Task>(caller, account_id, id, patch)
-    }
+    > + Send;
 
     /// Declares which side of the draft-tasks-06 §4 (`isDraft` paragraph)
     /// immutability invariant enforcement contract this backend honours.

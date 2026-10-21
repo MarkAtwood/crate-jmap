@@ -1,6 +1,7 @@
 //! `CalendarEvent/set` update applies PatchObjects per RFC 8620 §5.3.
 //!
-//! Oracle: RFC 8620 §5.3 (`update` argument). Each test quotes the
+//! Oracle: RFC 8620 §5.3 (`update` argument) and, for the per-user
+//! route, draft-ietf-jmap-calendars-26 §5.4. Each test quotes the
 //! sentence it checks; expected values are hand-written from that text,
 //! using real JSCalendar properties of `CalendarEvent`.
 
@@ -196,4 +197,38 @@ async fn wrong_typed_sequence_is_invalid_properties() {
         "{resp}"
     );
     assert_eq!(get_ev1(&backend).await, before, "ev1 must be unchanged");
+}
+
+/// draft-ietf-jmap-calendars-26 §5.4: "When writing only per-user
+/// properties, the "updated" property MUST also be stored just for that
+/// user if set.  When fetching the "updated" property, the value to
+/// return is whichever is later of the per-user updated time or the
+/// updated time of the base event." A `keywords`-only patch that does
+/// not set `updated` therefore reads back the base event's `updated`.
+#[tokio::test]
+async fn per_user_only_patch_keeps_base_updated() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "CalendarEvent",
+        "ev1",
+        json!({
+            "id": "ev1",
+            "@type": "Event",
+            "uid": "u1",
+            "title": "Standup",
+            "start": "2026-01-05T09:00:00",
+            "calendarIds": { "cal1": true },
+            "updated": "2026-01-01T00:00:00Z"
+        }),
+    );
+    let resp = update_ev1(&backend, json!({ "keywords": { "work": true } })).await;
+    assert!(
+        resp["updated"].get("ev1").is_some(),
+        "update must succeed: {resp}"
+    );
+
+    let ev = get_ev1(&backend).await;
+    assert_eq!(ev["keywords"], json!({ "work": true }), "{ev}");
+    assert_eq!(ev["updated"], "2026-01-01T00:00:00Z", "{ev}");
 }

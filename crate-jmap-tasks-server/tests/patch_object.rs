@@ -1,6 +1,7 @@
 //! Task/set update PatchObject semantics against `MemoryBackend`.
 //!
-//! Oracle: RFC 8620 §5.3 PatchObject definition (quoted per test).
+//! Oracle: RFC 8620 §5.3 PatchObject definition and, for the per-user
+//! route, draft-ietf-jmap-tasks-06 §4.5.1 (quoted per test).
 //!
 //! Bead: JMAP-cr0z.
 
@@ -139,4 +140,33 @@ async fn prefix_conflict_is_invalid_patch() {
     .await;
     assert_eq!(resp["notUpdated"]["t1"]["type"], "invalidPatch", "{resp}");
     assert_eq!(get_t1(&backend).await, before, "stored task unchanged");
+}
+
+/// draft-ietf-jmap-tasks-06 §4.5.1: "When writing only per-user
+/// properties, the "updated" property MUST also be stored just for that
+/// user, if set.  When fetching the "updated" property, the value to
+/// return is whichever is later of the per-user updated time or the
+/// updated time of the base task." A `keywords`-only patch that does not
+/// set `updated` therefore reads back the base task's `updated`.
+#[tokio::test]
+async fn per_user_only_patch_keeps_base_updated() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "Task",
+        "t1",
+        json!({
+            "id": "t1",
+            "@type": "Task",
+            "uid": "t1-uid",
+            "title": "Review",
+            "updated": "2026-01-01T00:00:00Z"
+        }),
+    );
+    let resp = set_update(&backend, json!({ "keywords": { "urgent": true } })).await;
+    assert!(resp["updated"].get("t1").is_some(), "t1 updated: {resp}");
+
+    let task = get_t1(&backend).await;
+    assert_eq!(task["keywords"], json!({ "urgent": true }), "{task}");
+    assert_eq!(task["updated"], "2026-01-01T00:00:00Z", "{task}");
 }

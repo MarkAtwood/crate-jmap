@@ -781,6 +781,18 @@ pub(crate) mod test_support {
             Ok(None)
         }
 
+        async fn update_per_user_properties(
+            &self,
+            caller: &(),
+            account_id: &Id,
+            id: &Id,
+            patch: jmap_types::PatchObject,
+        ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
+        {
+            self.update_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id, patch)
+                .await
+        }
+
         async fn destroy_object<O: SetObject + Send + Sync>(
             &self,
             _caller: &(),

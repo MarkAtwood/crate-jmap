@@ -1288,6 +1288,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-tasks-server**, **jmap-calendars-server**:
+  `TasksBackend::update_task_per_user` and
+  `CalendarsBackend::update_per_user_properties` no longer have default
+  bodies. The old default delegated to `update_object`, which is wrong
+  for a multi-user backend: draft-ietf-jmap-tasks-06 §4.5.1 and
+  draft-ietf-jmap-calendars-26 §5.4 store `updated` per user on a
+  per-user-only write. A single-user backend can still delegate to
+  `update_object` explicitly, as `MemoryBackend` does.
+- **jmap-chat-server**: `ChatBackend::expire_message` keeps its no-op
+  default; its rustdoc now says backends whose messages can expire MUST
+  override it.
 - **jmap-peer-auth-io**: `PeerKeys` treats a fetched key set as fresh
   for at least 60 seconds (`REFETCH_INTERVAL`), so a known `kid` keeps
   verifying until the refetch interval ends even when the peer's
