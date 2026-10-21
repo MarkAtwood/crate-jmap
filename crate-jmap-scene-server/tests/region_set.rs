@@ -259,8 +259,9 @@ async fn spawn_position_must_be_three_numbers() {
 
 #[tokio::test]
 async fn spawn_orientation_must_be_a_unit_quaternion() {
-    // L1174 "Quaternion must be `[x, y, z, w]` with magnitude within
-    // epsilon of 1.0."
+    // L1270 "Quaternion must be `[x, y, z, w]` with finite components and
+    // non-zero magnitude; a server that rejects non-unit values also
+    // rejects a magnitude outside its epsilon"; this server rejects them.
     let backend = backend();
     let mut r = design_review_room();
     r["spawnOrientation"] = json!([0, 0, 0, 2]);
@@ -675,7 +676,7 @@ async fn server_set_properties_cannot_be_patched() {
 
 #[tokio::test]
 async fn update_of_unknown_region_is_not_found() {
-    // L1230 "The region id does not exist": `notFound`.
+    // L1328 "The region id does not exist": `notFound`.
     let backend = backend();
     let resp = update(&backend, ALICE, "01J5NOPE000000000000000000", spec_patch()).await;
     assert_eq!(
@@ -756,8 +757,8 @@ fn avatar_in(id: &str, region: &str) -> Value {
 
 #[tokio::test]
 async fn destroy_removes_contained_objects_and_avatars() {
-    // L1210 (jmap-chat-spec 6bcd9d8) "`destroy` removes the SceneRegion
-    // and all SceneObject and SceneAvatar records in it"; L1240-1242 the
+    // L1210 (jmap-chat-spec 33702a5) "`destroy` removes the SceneRegion
+    // and all SceneObject and SceneAvatar records in it"; L1244-1246 the
     // region id is in `destroyed`.
     let backend = backend();
     let id = create(&backend, design_review_room()).await;
@@ -866,7 +867,8 @@ async fn admin_may_destroy_region_it_does_not_own() {
 
 #[tokio::test]
 async fn destroy_of_unknown_region_is_not_found() {
-    // L1245 "The region id does not exist": `notFound`.
+    // L1343 "The region id does not exist or the caller lacks access":
+    // `notFound`.
     let backend = backend();
     let resp = set(
         &backend,

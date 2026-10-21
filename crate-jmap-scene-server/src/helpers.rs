@@ -44,8 +44,9 @@ fn magnitude(v: &Value) -> Option<f64> {
     numbers(v, 4).map(|q| q.iter().map(|c| c * c).sum::<f64>().sqrt())
 }
 
-/// "`orientation` is not a unit quaternion | Magnitude must be within
-/// epsilon of 1.0. NaN or Infinity components are rejected."
+/// L1759 "Components must be finite and the magnitude non-zero; a server
+/// that rejects non-unit values also rejects a magnitude outside its
+/// epsilon"; this server rejects them.
 pub(crate) fn orientation_ok(v: &Value) -> bool {
     magnitude(v).is_some_and(|n| (n - 1.0).abs() <= ORIENTATION_EPSILON)
 }

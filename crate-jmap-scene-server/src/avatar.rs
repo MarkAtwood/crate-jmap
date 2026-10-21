@@ -424,8 +424,8 @@ async fn enter_region<B: SceneBackend>(
 /// `Ok` is the `updated` echo of the properties the server set (RFC 8620
 /// §5.3: "any properties that changed in a way not explicitly requested by
 /// the PatchObject"): `joinedAt`, `position` and `orientation` on
-/// re-entry, a normalized `orientation` when the patch set one, else
-/// `null`.
+/// re-entry, the server-set `leftAt` on leave or eject, a normalized
+/// `orientation` when the patch set one, else `null`.
 async fn update_avatar<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
