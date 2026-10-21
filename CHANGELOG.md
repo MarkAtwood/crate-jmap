@@ -1000,8 +1000,15 @@ wire behaviour that a conforming peer can observe.
 ### Changed
 
 - **BREAKING** **jmap-vtc-server**: `VTCCall/set` rejects an update of
-  `e2eeEnabled` from `true` to `false` with `invalidProperties` naming
+  `e2eeEnabled` from `true` to `false`, including a `null` patch that
+  resets it to its default `false`, with `invalidProperties` naming
   `e2eeEnabled` (draft-atwood-jmap-vtc-00 §VTCCall `e2eeEnabled`).
+- **BREAKING** **jmap-vtc-server**: `VtcBackend` has a new required
+  method, `active_call_count`, the account's number of `"active"` calls
+  regardless of the caller's access. `VTCParticipant/set` uses it for
+  `maxConcurrentCalls` instead of the caller-scoped `get_objects`, which
+  under §Per-call access left out calls the caller cannot access and let
+  the account exceed the limit.
 - **BREAKING** **jmap-vtc-server**: the `VtcBackend` contract gains
   §Per-call access. `get_objects`, `query_objects` and `query_changes`
   MUST treat a call the caller cannot access, and that call's

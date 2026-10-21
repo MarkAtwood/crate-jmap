@@ -329,6 +329,21 @@ pub trait VtcBackend: JmapBackend {
         async { Ok(true) }
     }
 
+    /// The number of calls in `account_id` in state `"active"`, for
+    /// `maxConcurrentCalls`: "If the account already has
+    /// `maxConcurrentCalls` active calls, the server MUST return
+    /// `overQuota`" (draft-atwood-jmap-vtc-00 §Joining a Room or Scheduled
+    /// Call).
+    ///
+    /// The quota is the account's, so §Per-call access does not apply:
+    /// the count MUST include the calls the caller cannot access, or a
+    /// caller denied an active call could activate one beyond the limit.
+    fn active_call_count(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<u64, Self::Error>> + Send;
+
     /// `true` if `user_id` is blocked by the caller: the caller's
     /// ChatContact for `user_id` has `blocked` set to `true` (when
     /// `urn:ietf:params:jmap:chat` is present), or the user is on an

@@ -275,6 +275,25 @@ async fn joining_activates_no_call_beyond_max_concurrent_calls() {
     assert_error(&err, "overQuota", None);
 }
 
+#[tokio::test]
+async fn max_concurrent_calls_counts_calls_the_caller_cannot_access() {
+    let mut cap = capability();
+    cap["maxConcurrentCalls"] = json!(1);
+    let backend = room_backend(cap, json!({}));
+    seed(
+        &backend,
+        stored_call("S1", "scheduled", "pending", "2026-06-05T14:30:00Z"),
+    );
+    backend.deny_call_access(ALICE, "C1");
+    // L926 "If the account already has `maxConcurrentCalls` active calls,
+    // the server MUST return `overQuota`." The limit is the account's:
+    // C1 is active in the account whether or not ALICE may see it.
+    let err = join_with(&backend, ALICE, "S1", json!({}))
+        .await
+        .unwrap_err();
+    assert_error(&err, "overQuota", None);
+}
+
 // ---- Media policy ----
 
 #[tokio::test]
