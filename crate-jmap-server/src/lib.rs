@@ -52,8 +52,8 @@ pub use helpers::{
     apply_jmap_patch, apply_patch_object, bool_arg, enforce_max_objects_in_get,
     enforce_max_objects_in_set, extract_account_id, filter_arg, json_merge_patch, not_found_json,
     now_utc_string, now_utc_string_checked, optional_arg, parse_max_changes, query_anchor_args,
-    reject_did_bearing_properties, resolve_query_offset, resolve_query_start, serialize_value,
-    take_bool_arg, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
+    reject_did_bearing_properties, resolve_creation_ref, resolve_query_offset, resolve_query_start,
+    serialize_value, take_bool_arg, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
 };
 
 mod parse;
@@ -146,6 +146,13 @@ pub struct CallContext<CallerCtx> {
     /// Whatever the auth layer produced, passed to
     /// [`Dispatcher::dispatch`] and cloned for each call.
     pub caller: CallerCtx,
+    /// Creation id to server-assigned id for every record created
+    /// earlier in this request, plus the client's initial `createdIds`
+    /// (RFC 8620 §3.3, §5.3). A `/set` handler resolves `#`-prefixed
+    /// Id-typed values against it with [`resolve_creation_ref`]; the
+    /// dispatcher cannot, because only the handler knows which
+    /// properties are Id-typed (bd:JMAP-8ypy).
+    pub created_ids: BTreeMap<Id, Id>,
 }
 
 impl<CallerCtx> CallContext<CallerCtx> {
@@ -161,7 +168,15 @@ impl<CallerCtx> CallContext<CallerCtx> {
             call_id: call_id.into(),
             args,
             caller,
+            created_ids: BTreeMap::new(),
         }
+    }
+
+    /// Set [`CallContext::created_ids`]; [`CallContext::new`] leaves it
+    /// empty.
+    pub fn with_created_ids(mut self, created_ids: BTreeMap<Id, Id>) -> Self {
+        self.created_ids = created_ids;
+        self
     }
 }
 
@@ -452,17 +467,18 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             let caller_clone = caller.clone();
             let method_clone = method.clone();
             let call_id_clone = call_id.clone();
+            // ponytail: clones the map per call; it is bounded by
+            // maxCallsInRequest x maxObjectsInSet. Arc it if that grows.
+            let created_ids_snapshot = created_ids.clone();
 
             // Run in a spawned task for panic isolation.
             let result: Result<Result<HandlerOutput, JmapError>, tokio::task::JoinError> =
                 task::spawn(async move {
                     handler
-                        .call(CallContext::new(
-                            method_clone,
-                            call_id_clone,
-                            args,
-                            caller_clone,
-                        ))
+                        .call(
+                            CallContext::new(method_clone, call_id_clone, args, caller_clone)
+                                .with_created_ids(created_ids_snapshot),
+                        )
                         .await
                 })
                 .await;
@@ -472,9 +488,12 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     primary: primary_value,
                     extra_invocations,
                 })) => {
-                    // Accumulate createdIds from /set responses (RFC 8620 §3.4).
-                    // Only when the client sent createdIds; otherwise the field
-                    // is omitted from the response.
+                    // Accumulate createdIds from every /set response: RFC 8620
+                    // §5.3 says the server "MUST keep a simple map for the
+                    // duration of the request" so later calls can resolve
+                    // "#" references (bd:JMAP-8ypy). The map is echoed in
+                    // the response only when the client sent createdIds
+                    // (RFC 8620 §3.4).
                     //
                     // Duplicate-creationId behaviour (bd:JMAP-wlip.7,
                     // bd:JMAP-jfia.3): BTreeMap::insert silently overwrites
@@ -520,9 +539,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     // [`tests::created_ids_pre_populated_collision_last_write_wins`]
                     // so a future refactor that flips the order is
                     // caught.
-                    if client_sent_created_ids {
-                        extract_created_ids_into(&primary_value, &mut created_ids);
-                    }
+                    extract_created_ids_into(&primary_value, &mut created_ids);
                     // Push the primary response first, then any extra invocations
                     // appended by the handler (e.g. onSuccessUpdateEmail from
                     // EmailSubmission/set, RFC 8621 §7.5).  Order is preserved.
@@ -1165,6 +1182,81 @@ mod tests {
             Some(&Id::from("server-abc")),
             "client-1 must map to server-abc"
         );
+    }
+
+    /// Captures the `created_ids` it was called with.
+    struct CaptureCreatedIdsHandler(Arc<Mutex<Option<BTreeMap<Id, Id>>>>);
+
+    impl JmapHandler<String> for CaptureCreatedIdsHandler {
+        fn call(&self, cx: CallContext<String>) -> HandlerFuture {
+            *self.0.lock().expect("test: mutex poisoned") = Some(cx.created_ids);
+            Box::pin(async move { Ok(HandlerOutput::new(json!({}))) })
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "the server MUST keep a simple map for
+    /// the duration of the request of creation id to record id for each
+    /// newly created record, so it can substitute in the correct value
+    /// if necessary in later method calls". The map exists whether or
+    /// not the client sent createdIds; only the response echo depends on
+    /// that (RFC 8620 §3.4).
+    #[tokio::test]
+    async fn created_ids_reach_later_call_without_client_created_ids() {
+        let slot = Arc::new(Mutex::new(None));
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register(
+            "Graph/set",
+            Arc::new(EchoHandler(json!({"created": {"g": {"id": "G1"}}}))),
+        );
+        d.register(
+            "GraphNode/set",
+            Arc::new(CaptureCreatedIdsHandler(Arc::clone(&slot))),
+        );
+        let req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![
+                Invocation::new("Graph/set", json!({}), "c0"),
+                Invocation::new("GraphNode/set", json!({}), "c1"),
+            ],
+            None,
+        );
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        let seen = slot
+            .lock()
+            .expect("test: mutex poisoned")
+            .take()
+            .expect("GraphNode/set handler must run");
+        assert_eq!(
+            seen,
+            BTreeMap::from([(Id::from("g"), Id::from("G1"))]),
+            "later call must see the earlier creation"
+        );
+        assert!(
+            resp.created_ids.is_none(),
+            "response omits createdIds when the client did not send it"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "an initial set of creation id to real id
+    /// values may be passed with a request"; the first call must already
+    /// see them.
+    #[tokio::test]
+    async fn created_ids_initial_map_reaches_first_call() {
+        let slot = Arc::new(Mutex::new(None));
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register(
+            "Email/set",
+            Arc::new(CaptureCreatedIdsHandler(Arc::clone(&slot))),
+        );
+        let initial = BTreeMap::from([(Id::from("m"), Id::from("M1"))]);
+        let req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![Invocation::new("Email/set", json!({}), "c0")],
+            Some(initial.clone()),
+        );
+        d.dispatch(req, "alice".into(), "s0".into()).await;
+        let seen = slot.lock().expect("test: mutex poisoned").take();
+        assert_eq!(seen, Some(initial));
     }
 
     /// Oracle: RFC 8620 §3.4 — createdIds omitted when no objects were created.

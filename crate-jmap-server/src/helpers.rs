@@ -1097,15 +1097,56 @@ pub fn reject_did_bearing_properties(
         .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
 }
 
+/// Resolve an Id-typed value that may be a creation-id reference
+/// (RFC 8620 §5.3).
+///
+/// A value starting with `#` names a record created earlier in the same
+/// request; it resolves to that record's server-assigned id from
+/// `created_ids` (pass [`crate::CallContext::created_ids`]). Any other
+/// value is a literal id and is returned as is. `None` means a `#`
+/// reference with no matching creation; the caller rejects the
+/// create/update, typically with an `invalidProperties` SetError naming
+/// the property.
+///
+/// References to creates in the *same* `/set` call are not in
+/// `created_ids` yet; the handler orders and resolves those itself
+/// (RFC 8620 §5.3).
+pub fn resolve_creation_ref(
+    raw: &str,
+    created_ids: &std::collections::BTreeMap<Id, Id>,
+) -> Option<Id> {
+    match raw.strip_prefix('#') {
+        Some(creation_id) => created_ids.get(&Id::from(creation_id)).cloned(),
+        None => Some(Id::from(raw)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
         extract_account_id, filter_arg, json_merge_patch, now_utc_string, parse_max_changes,
-        reject_did_bearing_properties, resolve_query_offset, resolve_query_start,
-        utc_date_from_epoch_seconds, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
+        reject_did_bearing_properties, resolve_creation_ref, resolve_query_offset,
+        resolve_query_start, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
+        MAX_MERGE_PATCH_DEPTH,
     };
+    use jmap_types::Id;
     use serde_json::json;
+
+    /// Oracle: RFC 8620 §5.3 — "the client refers to the new record
+    /// using its creation id prefixed with a '#'"; the RFC 8620 §5.3
+    /// example request sets `"subTodoIds": [ "#k15" ]` after creating
+    /// `k15`. A bare value is an ordinary id.
+    #[test]
+    fn resolve_creation_ref_maps_hash_refs_and_passes_literals() {
+        let created = std::collections::BTreeMap::from([(Id::from("k15"), Id::from("T15"))]);
+        assert_eq!(
+            resolve_creation_ref("#k15", &created),
+            Some(Id::from("T15"))
+        );
+        assert_eq!(resolve_creation_ref("k15", &created), Some(Id::from("k15")));
+        assert_eq!(resolve_creation_ref("#k16", &created), None);
+    }
 
     #[derive(Debug, serde::Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]

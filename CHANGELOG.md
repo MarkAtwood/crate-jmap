@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `CallContext::created_ids` carries the request's
+  creation id -> server id map (client `createdIds` plus every earlier
+  `/set` creation) into each call, and `resolve_creation_ref` resolves a
+  `#creationId` Id-typed value against it (RFC 8620 §3.3, §5.3).
+  `CallContext::with_created_ids` sets it. Extension `/set` handlers
+  must call it on their Id-typed properties to honour `#` references.
 - **jmap-chat-mimi-server**: `notify_from_hub(room_id, sender_uri)`
   accepts a `/notify` only when the transport-authenticated sender's
   authority is the room ID's authority, the room's hub; `store_fanout`
@@ -2082,6 +2088,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-server**: the dispatcher keeps the creation id map for every
+  request, not only when the client sent `createdIds`; RFC 8620 §5.3
+  says the server "MUST keep a simple map for the duration of the
+  request". The response still echoes `createdIds` only when the client
+  sent it (RFC 8620 §3.4).
 - **jmap-chat-server**: `MemoryBackend` `Space/query` reveals non-member
   public, previewable Spaces for an `isPublic: true` condition nested in a
   FilterOperator, not only a top-level one (draft-atwood-jmap-chat-00
