@@ -53,7 +53,10 @@
 //! `advertise_capability` records a capability URI for an account, for
 //! [`SceneBackend::has_capability`]. `set_region_binding` records what a
 //! binding id references; [`SceneBackend::region_binding`] answers
-//! [`BindingTarget::Missing`] for any id not recorded.
+//! [`BindingTarget::Missing`] for any id not recorded. `set_channel_space`
+//! records that a channel belongs to a Space;
+//! [`SceneBackend::channel_in_space`] answers `false` for any pair not
+//! recorded.
 //!
 //! # Quota
 //!
@@ -145,6 +148,7 @@ struct Inner {
     capabilities: HashMap<String, HashSet<String>>,
     /// `(binding property, id)` → what the id references.
     bindings: HashMap<(String, String), BindingTarget>,
+    channel_spaces: HashSet<(String, String)>,
     /// `(region id, userId)` pairs granted access to an `"invite"` region.
     grants: HashSet<(String, String)>,
     /// `(region id, userId)` pairs barred from entering the region.
@@ -415,6 +419,14 @@ impl MemoryBackend {
         self.lock()
             .bindings
             .insert((property.to_owned(), id.to_owned()), target);
+    }
+
+    /// Record that channel `channel_id` is a channel of Space `space_id`.
+    #[doc(hidden)]
+    pub fn set_channel_space(&self, channel_id: &str, space_id: &str) {
+        self.lock()
+            .channel_spaces
+            .insert((channel_id.to_owned(), space_id.to_owned()));
     }
 
     /// Give `user` access to the `"invite"` region `region_id`.
@@ -1029,6 +1041,19 @@ impl SceneBackend for MemoryBackend {
             .get(&(property.to_owned(), id.as_ref().to_owned()))
             .copied()
             .unwrap_or(BindingTarget::Missing))
+    }
+
+    async fn channel_in_space(
+        &self,
+        _caller: &String,
+        _account_id: &Id,
+        channel_id: &Id,
+        space_id: &Id,
+    ) -> Result<bool, MemoryError> {
+        Ok(self
+            .lock()
+            .channel_spaces
+            .contains(&(channel_id.as_ref().to_owned(), space_id.as_ref().to_owned())))
     }
 
     async fn may_update_region(

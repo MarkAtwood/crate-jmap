@@ -274,6 +274,31 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(BindingTarget::Usable) }
     }
 
+    /// `true` if `channel_id` "is a channel of the Space named by
+    /// `spaceId`" (draft-atwood-jmap-scene-00 §Updating a Region, the
+    /// binding checks).
+    ///
+    /// `SceneRegion/set` calls this when a create or an update sets
+    /// `channelId` or `spaceId` and the region as it would be after the
+    /// write has both non-null, after [`Self::region_binding`] accepted
+    /// each. `false` fails the write with `invalidProperties` naming
+    /// `channelId`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); a backend that
+    /// advertises Chat overrides it.
+    fn channel_in_space(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        channel_id: &jmap_types::Id,
+        space_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, channel_id, space_id);
+        async { Ok(true) }
+    }
+
     /// `true` if the caller may update `region`: "Only the owner or an
     /// admin may modify region properties" (draft-atwood-jmap-scene-00
     /// §SceneRegion/set Update Errors).

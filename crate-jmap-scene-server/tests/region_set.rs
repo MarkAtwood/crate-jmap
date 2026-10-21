@@ -326,19 +326,73 @@ async fn space_policy_needs_the_chat_capability() {
 
 #[tokio::test]
 async fn space_policy_needs_a_space_id() {
-    // L1177 "`accessPolicy` is `\"space\"` but `spaceId` is null".
+    // 6bcd9d8 L1273 "`accessPolicy` is `\"space\"` but `spaceId` is
+    // null"; L1085 names the property: such a region "fails with
+    // `invalidProperties` naming `spaceId`".
     let backend = backend();
     backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
     let mut r = design_review_room();
     r["accessPolicy"] = json!("space");
     r["spaceId"] = Value::Null;
-    assert_invalid(&create_error(&backend, r).await, &["accessPolicy"]);
+    assert_invalid(&create_error(&backend, r).await, &["spaceId"]);
 
     backend.set_region_binding("spaceId", "space-1", BindingTarget::Usable);
     let mut r = design_review_room();
     r["accessPolicy"] = json!("space");
     r["spaceId"] = json!("space-1");
     create(&backend, r).await;
+}
+
+#[tokio::test]
+async fn clearing_space_id_under_space_policy_names_space_id() {
+    // 6bcd9d8 L1085 "an update that sets `spaceId` to `null` while
+    // `accessPolicy` is `\"space\"` fails with `invalidProperties` naming
+    // `spaceId`."
+    let backend = backend();
+    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.set_region_binding("spaceId", "space-1", BindingTarget::Usable);
+    let mut r = design_review_room();
+    r["accessPolicy"] = json!("space");
+    r["spaceId"] = json!("space-1");
+    let id = create(&backend, r).await;
+    let resp = update(&backend, ALICE, &id, json!({ "spaceId": null })).await;
+    assert_invalid(&resp["notUpdated"][&id], &["spaceId"]);
+    assert_eq!(get(&backend, &id).await["spaceId"], "space-1");
+}
+
+/// A region bound to Space `space` and channel `channel`.
+fn bound_room(space: &str, channel: &str) -> Value {
+    let mut r = design_review_room();
+    r["spaceId"] = json!(space);
+    r["channelId"] = json!(channel);
+    r
+}
+
+#[tokio::test]
+async fn channel_must_be_a_channel_of_the_space() {
+    // 6bcd9d8 L1085 "the server SHOULD verify ... that a non-null
+    // `channelId` is a channel of the Space named by `spaceId`. The server
+    // SHOULD return `invalidProperties` naming the binding property
+    // (`chatId`, `spaceId`, or `channelId`) if a check fails."
+    let backend = backend();
+    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    for (property, id) in [
+        ("spaceId", "space-1"),
+        ("spaceId", "space-2"),
+        ("channelId", "channel-1"),
+    ] {
+        backend.set_region_binding(property, id, BindingTarget::Usable);
+    }
+    backend.set_channel_space("channel-1", "space-1");
+
+    let err = create_error(&backend, bound_room("space-2", "channel-1")).await;
+    assert_invalid(&err, &["channelId"]);
+
+    let id = create(&backend, bound_room("space-1", "channel-1")).await;
+    // Moving the region to another Space leaves channel-1 outside it.
+    let resp = update(&backend, ALICE, &id, json!({ "spaceId": "space-2" })).await;
+    assert_invalid(&resp["notUpdated"][&id], &["channelId"]);
+    assert_eq!(get(&backend, &id).await["spaceId"], "space-1");
 }
 
 #[tokio::test]
