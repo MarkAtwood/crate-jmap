@@ -19,8 +19,16 @@
 //!
 //! # Handed-out KeyPackages
 //!
-//! This backend never hands a KeyPackage out, so the KeyPackageRef reuse
-//! check covers the stored records only.
+//! `claim_key_packages` keeps the KeyPackageRef of every KeyPackage it
+//! returns, and the KeyPackageRef reuse check covers those refs too.
+//! ponytail: the refs are kept forever, which the draft allows ("until a
+//! Welcome naming it has been delivered or its leaf node lifetime has
+//! passed" is a lower bound); a long-running backend drops them once the
+//! Welcome is delivered or the lifetime passes.
+//!
+//! The `clientUri` of a client is `{userUri}/client/{n}`, numbered in the
+//! order its signature key was bound and stored with the binding, so it
+//! stays the same for that signature key.
 //!
 //! # Concurrency
 //!
@@ -32,7 +40,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use jmap_chat_mimi_types::{KeyPackage, MimiCapability};
+use jmap_chat_mimi_types::{ClientKeyMaterial, KeyMaterialClientCode, KeyPackage, MimiCapability};
 use jmap_types::{Id, JmapError, State};
 use openmls::prelude::OpenMlsCrypto;
 use serde_json::json;
@@ -43,11 +51,18 @@ use crate::backend::{
     JmapObject, MimiBackend, NewKeyPackage, QueryChangesResult, QueryObject, QueryResult, SetError,
     SetErrorType,
 };
+use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
 
 /// One stored KeyPackage record and the signature key of its client.
 struct Record {
     key_package: KeyPackage,
     signature_key: Vec<u8>,
+}
+
+/// The account a signature key is bound to, and its client's `clientUri`.
+struct Binding {
+    account: String,
+    client_uri: String,
 }
 
 #[derive(Default)]
@@ -59,7 +74,9 @@ struct Inner {
     /// `account_id` → KeyPackage state counter.
     states: HashMap<String, u64>,
     /// Signature key → the account it is bound to.
-    bindings: HashMap<Vec<u8>, String>,
+    bindings: HashMap<Vec<u8>, Binding>,
+    /// KeyPackageRef of every KeyPackage handed out → its account.
+    handed_out: HashMap<String, String>,
     /// Source of record ids.
     next_id: u64,
 }
@@ -274,7 +291,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         if inner
             .bindings
             .get(&key_package.signature_key)
-            .is_some_and(|bound| bound != account)
+            .is_some_and(|bound| bound.account != account)
         {
             return Err(signature_key_bound_elsewhere().into());
         }
@@ -283,6 +300,9 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
             .values()
             .flat_map(HashMap::values)
             .any(|r| r.key_package.key_package_ref == key_package.key_package_ref)
+            || inner
+                .handed_out
+                .contains_key(key_package.key_package_ref.as_str())
         {
             return Err(key_package_ref_in_use().into());
         }
@@ -311,9 +331,21 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
             "lastResort": key_package.last_resort,
         }))
         .map_err(|e| BackendSetError::Other(MemoryError::new(format!("encode KeyPackage: {e}"))))?;
-        inner
-            .bindings
-            .insert(key_package.signature_key.clone(), account.to_owned());
+        if !inner.bindings.contains_key(&key_package.signature_key) {
+            let user_uri = inner
+                .accounts
+                .get(account)
+                .map(|c| c.user_uri.clone())
+                .ok_or_else(|| BackendSetError::Other(MemoryError::new("unknown account")))?;
+            let client_uri = format!("{user_uri}/client/{}", inner.bindings.len() + 1);
+            inner.bindings.insert(
+                key_package.signature_key.clone(),
+                Binding {
+                    account: account.to_owned(),
+                    client_uri,
+                },
+            );
+        }
         let records = inner.records.entry(account.to_owned()).or_default();
         if let Some(old) = replaced {
             records.remove(&old);
@@ -327,6 +359,69 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         );
         inner.bump(account_id);
         Ok(id)
+    }
+
+    async fn claim_key_packages(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        requirements: &KeyMaterialRequirements,
+    ) -> Result<Vec<ClientKeyMaterial>, MemoryError> {
+        let mut guard = self.lock();
+        let inner = &mut *guard;
+        let account = account_id.as_ref();
+        let mut clients: Vec<(&Vec<u8>, &Binding)> = inner
+            .bindings
+            .iter()
+            .filter(|(_, b)| b.account == account)
+            .collect();
+        clients.sort_by(|a, b| a.1.client_uri.cmp(&b.1.client_uri));
+        let records = inner.records.entry(account.to_owned()).or_default();
+        let mut out = Vec::with_capacity(clients.len());
+        let mut destroyed = false;
+        for (signature_key, binding) in clients {
+            let mut status = KeyMaterialClientCode::KeyMaterialExhausted;
+            let mut last_resort = None;
+            let mut fresh = None;
+            for (id, r) in records
+                .iter()
+                .filter(|(_, r)| &r.signature_key == signature_key)
+            {
+                match requirements.fit(&*self.crypto, &r.key_package.key_package) {
+                    KeyPackageFit::Compatible if r.key_package.last_resort => {
+                        last_resort = Some(r.key_package.clone());
+                    }
+                    KeyPackageFit::Compatible => {
+                        fresh = Some(id.clone());
+                        break;
+                    }
+                    KeyPackageFit::Incompatible => {
+                        status = KeyMaterialClientCode::NothingCompatible
+                    }
+                    KeyPackageFit::Unavailable => {}
+                }
+            }
+            let handed = match fresh {
+                Some(id) => {
+                    destroyed = true;
+                    records.remove(&id).map(|r| r.key_package)
+                }
+                None => last_resort,
+            };
+            let mut entry = ClientKeyMaterial::new(status, binding.client_uri.clone());
+            if let Some(kp) = handed {
+                inner
+                    .handed_out
+                    .insert(kp.key_package_ref.as_str().to_owned(), account.to_owned());
+                entry.client_status = KeyMaterialClientCode::Success;
+                entry.key_package = Some(kp.key_package);
+            }
+            out.push(entry);
+        }
+        if destroyed {
+            inner.bump(account_id);
+        }
+        Ok(out)
     }
 
     async fn destroy_key_package(

@@ -15,6 +15,7 @@ trait.
 | `check_key_package_create` | §KeyPackage/set create checks, §KeyPackage Object Fields `lastResort` |
 | `signature_key_bound_elsewhere`, `key_package_ref_in_use`, `key_package_over_quota` | §KeyPackage/set account-wide rules |
 | `MimiBackend`, `NewKeyPackage` | crypto provider, capability object, atomic KeyPackage create and destroy |
+| `MimiBackend::claim_key_packages`, `KeyMaterialRequirements`, `KeyPackageFit` | §Handing Out KeyPackages: atomic claim, `clientUri`, KeyPackageRef retention |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
 | `register_mimi_handlers` | wires `KeyPackage/get` and `KeyPackage/set` |
 
@@ -23,8 +24,8 @@ trait.
 A MIMI provider (mimid, or any JMAP Chat server that routes MLS messages
 for its clients) wires these handlers next to `jmap-chat-server`. The crate
 parses and verifies KeyPackages with `openmls`; it never holds MLS secrets
-and never decrypts. KeyPackage hand-out, `KeyMaterial/fetch`, `Room/*` and
-`GroupInfo/fetch` are not here yet.
+and never decrypts. `KeyMaterial/fetch`, `Room/*` and `GroupInfo/fetch` are
+not here yet.
 
 ## How to use
 
@@ -61,6 +62,15 @@ replacement of the client's previous last-resort KeyPackage, and
 state, so they belong in the backend's transaction, not in a handler-side
 read that a concurrent create could race.
 
+`MimiBackend::claim_key_packages` answers a key material request for the
+owner the same way: in one atomic step it picks, for each client
+(signature key bound to the account), a KeyPackage that
+`KeyMaterialRequirements::fit` calls compatible, destroys it unless it is
+the client's last-resort KeyPackage, and records its KeyPackageRef so a
+later create of the same octets is refused. A client with only
+incompatible KeyPackages is `nothingCompatible`; one with none left, or
+only expired ones, is `keyMaterialExhausted`.
+
 ## Gotchas
 
 - MSRV 1.91, set by `openmls` 0.9.1.
@@ -80,6 +90,12 @@ read that a concurrent create could race.
   type, is not consulted.
 - A KeyPackage refused by the per-KeyPackage checks never reaches the
   backend, so it binds no signature key.
+- `KeyMaterialRequirements::fit` verifies the stored KeyPackage again, so
+  a claim costs one signature verification per stored KeyPackage of the
+  client examined.
+- The `memory` backend keeps handed-out KeyPackageRefs forever; the draft
+  lets a backend drop one once a Welcome naming it is delivered or its
+  lifetime passes.
 
 ## References
 
