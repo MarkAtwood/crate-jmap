@@ -61,9 +61,9 @@ The email body.\r\n";
 ///
 /// Panics on any backend error — this is test fixture setup code.
 async fn setup_identity(backend: &MemoryBackend, account_id: &Id) -> Id {
-    let identity = Identity::new(Id::from("placeholder"), "Jane_Sender@example.org", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "Jane_Sender@example.org", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), account_id, "ident-mdn", identity)
+        .create_object::<Identity, _>(&(), account_id, "ident-mdn", identity)
         .await
         .expect("setup_identity: create_object must succeed");
     identity_id

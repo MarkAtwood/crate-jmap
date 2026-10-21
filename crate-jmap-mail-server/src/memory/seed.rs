@@ -123,6 +123,31 @@ fn forwarded() -> Keyword {
     kw(keyword::FORWARDED)
 }
 
+/// Builder for a seed [`Mailbox`] with zero counts and default rights.
+fn seed_mailbox(
+    name: &'static str,
+    sort_order: u32,
+    role: Option<MailboxRole>,
+    parent_id: Option<Id>,
+) -> impl FnOnce(&Id) -> Mailbox + Send {
+    move |id| {
+        let mut mb = Mailbox::new(
+            id.clone(),
+            name,
+            sort_order,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            true,
+        );
+        mb.role = role;
+        mb.parent_id = parent_id;
+        mb
+    }
+}
+
 // ---------------------------------------------------------------------------
 // RFC 5322 message builders
 // ---------------------------------------------------------------------------
@@ -235,94 +260,61 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
     // -----------------------------------------------------------------------
 
     // inbox — role=inbox
-    let mut inbox_mb = Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox",
-        10,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
-    inbox_mb.role = Some(MailboxRole::Inbox);
     let (inbox_id, _) = backend
-        .create_object::<Mailbox>(&(), account_id, "c-inbox", inbox_mb)
+        .create_object(
+            &(),
+            account_id,
+            "c-inbox",
+            seed_mailbox("Inbox", 10, Some(MailboxRole::Inbox), None),
+        )
         .await
         .expect("setup: create inbox");
     mailboxes.insert("inbox", inbox_id.clone());
 
     // folderA
-    let folder_a_mb = Mailbox::new(
-        Id::from("placeholder"),
-        "Test Folder A",
-        20,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
     let (folder_a_id, _) = backend
-        .create_object::<Mailbox>(&(), account_id, "c-folderA", folder_a_mb)
+        .create_object(
+            &(),
+            account_id,
+            "c-folderA",
+            seed_mailbox("Test Folder A", 20, None, None),
+        )
         .await
         .expect("setup: create folderA");
     mailboxes.insert("folderA", folder_a_id.clone());
 
     // folderB
-    let folder_b_mb = Mailbox::new(
-        Id::from("placeholder"),
-        "Test Folder B",
-        30,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
     let (folder_b_id, _) = backend
-        .create_object::<Mailbox>(&(), account_id, "c-folderB", folder_b_mb)
+        .create_object(
+            &(),
+            account_id,
+            "c-folderB",
+            seed_mailbox("Test Folder B", 30, None, None),
+        )
         .await
         .expect("setup: create folderB");
     mailboxes.insert("folderB", folder_b_id.clone());
 
     // child1 — parent=folderA
-    let mut child1_mb = Mailbox::new(
-        Id::from("placeholder"),
-        "Child 1",
-        10,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
-    child1_mb.parent_id = Some(folder_a_id.clone());
     let (child1_id, _) = backend
-        .create_object::<Mailbox>(&(), account_id, "c-child1", child1_mb)
+        .create_object(
+            &(),
+            account_id,
+            "c-child1",
+            seed_mailbox("Child 1", 10, None, Some(folder_a_id.clone())),
+        )
         .await
         .expect("setup: create child1");
     mailboxes.insert("child1", child1_id.clone());
 
     // child2 — parent=folderA
-    let mut child2_mb = Mailbox::new(
-        Id::from("placeholder"),
-        "Child 2",
-        20,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
-    child2_mb.parent_id = Some(folder_a_id.clone());
     let (child2_id, _) = backend
-        .create_object::<Mailbox>(&(), account_id, "c-child2", child2_mb)
+        .create_object(
+            &(),
+            account_id,
+            "c-child2",
+            seed_mailbox("Child 2", 20, None, Some(folder_a_id.clone())),
+        )
         .await
         .expect("setup: create child2");
     mailboxes.insert("child2", child2_id.clone());

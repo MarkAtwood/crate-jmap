@@ -1180,8 +1180,8 @@ pub async fn handle_email_set<B: MailBackend>(
             }
 
             // Build the Email object from the creation payload.
-            let email = match build_email_from_create(obj_val, &account_id, backend, caller).await {
-                Ok(e) => e,
+            let build = match build_email_from_create(obj_val, &account_id, backend, caller).await {
+                Ok(b) => b,
                 Err(desc) => {
                     not_created.insert(
                         create_id.clone(),
@@ -1195,7 +1195,7 @@ pub async fn handle_email_set<B: MailBackend>(
             };
 
             match backend
-                .create_object::<Email>(caller, &account_id, create_id, email)
+                .create_object::<Email, _>(caller, &account_id, create_id, build)
                 .await
             {
                 Ok((server_id, created_obj)) => {
@@ -1686,7 +1686,8 @@ fn validate_body_part(
     Ok(())
 }
 
-/// Build an [`Email`] from a creation payload (`obj_val`).
+/// Validate a creation payload (`obj_val`) and return a builder that makes
+/// the [`Email`] for the id the backend assigns.
 ///
 /// Extracts `mailboxIds`, `keywords`, and optional header fields from the
 /// creation object. Sets `blobId` to [`crate::helpers::PLACEHOLDER_BLOB_ID`];
@@ -1698,7 +1699,7 @@ async fn build_email_from_create<B: MailBackend>(
     account_id: &Id,
     backend: &B,
     caller: &B::CallerCtx,
-) -> Result<Email, String> {
+) -> Result<impl FnOnce(&Id) -> Email + Send, String> {
     // NOTE: The following fields are validated (body structure / envelope
     // rules are checked) but are NOT yet stored in the returned Email object:
     //   Envelope: from, to, cc, bcc, sender, replyTo, messageId
@@ -1707,8 +1708,8 @@ async fn build_email_from_create<B: MailBackend>(
     // (tracked in JMAP-wgbh). Until then, clients that read back a created
     // Email will not see these fields even if they were supplied on create.
     //
-    // Sentinel values: id="placeholder" and blob_id="placeholder-blob" are
-    // set below. The backend MUST replace them — see MailBackend::create_object.
+    // Sentinel value: blob_id="placeholder-blob" is set below. The backend
+    // MUST replace it — see MailBackend::create_object.
 
     // mailboxIds: required (already validated non-empty by caller).
     // RFC 8621 §5.5.3: values MUST be true; false means absent — filter out false entries,
@@ -1788,23 +1789,23 @@ async fn build_email_from_create<B: MailBackend>(
     // assigns the real blobId in create_object.
     let blob_id: Id = Id::from(crate::helpers::PLACEHOLDER_BLOB_ID);
 
-    // Use a placeholder id; create_object assigns the real one.
-    let mut email = Email::new(
-        Id::from(crate::helpers::PLACEHOLDER_ID),
-        blob_id,
-        thread_id,
-        mailbox_ids,
-        size,
-        received_at,
-    );
-    email.keywords = keywords;
-    email.subject = subject;
-    email.in_reply_to = in_reply_to;
-    email.references = references;
-
     validate_email_body(obj_val)?;
 
-    Ok(email)
+    Ok(move |id: &Id| {
+        let mut email = Email::new(
+            id.clone(),
+            blob_id,
+            thread_id,
+            mailbox_ids,
+            size,
+            received_at,
+        );
+        email.keywords = keywords;
+        email.subject = subject;
+        email.in_reply_to = in_reply_to;
+        email.references = references;
+        email
+    })
 }
 
 /// Validate the body-related fields of an Email creation payload (RFC 8621 §4.6).

@@ -1303,6 +1303,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-mail-server**: `MailBackend::create_object` takes
+  a builder `build: F` with `F: FnOnce(&Id) -> O + Send` in place of a
+  prebuilt object whose `id` was the sentinel `"placeholder"`. The
+  backend mints the id, calls `build(&id)` and stores the result in the
+  same atomic write; it no longer rewrites `id`. `MemoryBackend` mints
+  `"singleton"` for `VacationResponse` (RFC 8621 §8) and a fresh UUID
+  otherwise, and no longer keeps a caller-supplied id. Email `blobId`
+  and `size` remain backend-assigned on `Email/set` create.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

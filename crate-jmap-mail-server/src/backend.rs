@@ -62,30 +62,28 @@ pub trait MailBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
-    /// # Sentinel fields the backend MUST replace
+    /// # Id assignment
     ///
-    /// The method handlers in this crate pass partially-constructed objects
-    /// with sentinel values that the backend MUST replace with real values
-    /// before storing:
+    /// The backend mints the new object's id, calls `build(&id)` exactly
+    /// once to obtain the complete object, and stores that object under
+    /// `id` in the same atomic write. `build` sets the object's `id` field
+    /// to the id it is given; the backend stores the built object as is
+    /// and does not rewrite any of its fields except the Email ones below.
+    /// RFC 8620 §5.3 lists `id` among the "server-set properties".
     ///
-    /// - **`id`**: The `id` field in the input object is always set to
-    ///   `"placeholder"`. The backend MUST replace it with a real, unique,
-    ///   account-scoped ID and return that ID as the first element of the
-    ///   result tuple.
+    /// For `VacationResponse` the backend mints `"singleton"`: RFC 8621
+    /// §8 says the one VacationResponse in an account "MUST have the id
+    /// \"singleton\"".
     ///
-    /// - **`blob_id`** (Email only): The `blob_id` field is set to
-    ///   `"placeholder-blob"`. The backend MUST replace it with the real
-    ///   blob ID that corresponds to the stored message bytes. For backends
-    ///   that do not store raw bytes on the `Email/set` create path (e.g.,
-    ///   `MemoryBackend`), any stable unique ID derived from the stored object
-    ///   is acceptable.
+    /// # Email server-set fields
     ///
-    /// - **`size`** (Email only): Set to `0`. The backend MUST update this
-    ///   to the actual byte size of the stored blob (or the serialized object
-    ///   size as a proxy) before returning.
-    ///
-    /// Failing to replace these sentinels will cause the client to receive
-    /// invalid wire values (`"placeholder"` / `"placeholder-blob"` / `0`).
+    /// The `Email/set` create handler has no message bytes, so it builds
+    /// an Email whose `blob_id` is `"placeholder-blob"` and whose `size`
+    /// is `0`. The backend MUST replace `blob_id` with the blob id of the
+    /// stored message and `size` with its byte size (RFC 8621 §4.1.1).
+    /// Backends that do not store raw bytes on this path (e.g.
+    /// `MemoryBackend`) may use any stable unique blob id and the
+    /// serialized object size.
     ///
     /// # Singleton types
     ///
@@ -133,14 +131,17 @@ pub trait MailBackend: JmapBackend {
     /// all three under one mutex acquisition, and a database backend uses
     /// one transaction. A call that returns `Err` MUST leave the stored
     /// data, the state and the change log unchanged.
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing object.
     ///
@@ -311,11 +312,9 @@ pub trait MailBackend: JmapBackend {
     /// they use from `create_object::<Email>` so that the two entry
     /// points produce identical thread graphs for the same input.
     ///
-    /// ## Sentinel-replacement contract
+    /// ## Server-set fields
     ///
-    /// Unlike [`create_object`](MailBackend::create_object), this
-    /// method does NOT receive a partially-constructed `Email` with
-    /// placeholder values. The backend builds the full `Email` from
+    /// The backend builds the full `Email` from
     /// the raw blob and the four argument fields, and returns
     /// `(assigned_id, email)` directly. The returned `Email` MUST
     /// have correct `id`, `blob_id`, `thread_id`, and `size` —

@@ -54,19 +54,21 @@ async fn memory_backend_state_advances_after_create() {
         .await
         .expect("get_state");
 
-    let mailbox = Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox",
-        10,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
+    let mailbox = |id: &Id| {
+        Mailbox::new(
+            id.clone(),
+            "Inbox",
+            10,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            true,
+        )
+    };
     backend
-        .create_object::<Mailbox>(&(), &account_id, "c0", mailbox)
+        .create_object::<Mailbox, _>(&(), &account_id, "c0", mailbox)
         .await
         .expect("create_object");
 
@@ -89,19 +91,21 @@ async fn memory_backend_create_then_get() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
-    let mailbox = Mailbox::new(
-        Id::from("placeholder"),
-        "Sent",
-        20,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        false,
-    );
+    let mailbox = |id: &Id| {
+        Mailbox::new(
+            id.clone(),
+            "Sent",
+            20,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            false,
+        )
+    };
     let (server_id, _) = backend
-        .create_object::<Mailbox>(&(), &account_id, "c0", mailbox)
+        .create_object::<Mailbox, _>(&(), &account_id, "c0", mailbox)
         .await
         .expect("create_object");
 
@@ -129,19 +133,21 @@ async fn memory_backend_destroy_removes_object() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
-    let mailbox = Mailbox::new(
-        Id::from("placeholder"),
-        "Trash",
-        30,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
+    let mailbox = |id: &Id| {
+        Mailbox::new(
+            id.clone(),
+            "Trash",
+            30,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            true,
+        )
+    };
     let (server_id, _) = backend
-        .create_object::<Mailbox>(&(), &account_id, "c0", mailbox)
+        .create_object::<Mailbox, _>(&(), &account_id, "c0", mailbox)
         .await
         .expect("create_object");
 
@@ -177,35 +183,39 @@ async fn memory_backend_get_changes_from_zero() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
-    let m1 = Mailbox::new(
-        Id::from("p"),
-        "A",
-        0,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
-    let m2 = Mailbox::new(
-        Id::from("p"),
-        "B",
-        0,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
+    let m1 = |id: &Id| {
+        Mailbox::new(
+            id.clone(),
+            "A",
+            0,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            true,
+        )
+    };
+    let m2 = |id: &Id| {
+        Mailbox::new(
+            id.clone(),
+            "B",
+            0,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            true,
+        )
+    };
 
     let (id1, _) = backend
-        .create_object::<Mailbox>(&(), &account_id, "c0", m1)
+        .create_object::<Mailbox, _>(&(), &account_id, "c0", m1)
         .await
         .unwrap();
     let (id2, _) = backend
-        .create_object::<Mailbox>(&(), &account_id, "c1", m2)
+        .create_object::<Mailbox, _>(&(), &account_id, "c1", m2)
         .await
         .unwrap();
 
@@ -568,14 +578,20 @@ async fn search_snippet_get_capability_gated() {
     }
 
     impl MailBackend for NoSnippetBackend {
-        async fn create_object<O: jmap_mail_server::SetObject + Send + Sync>(
+        async fn create_object<O, F>(
             &self,
             _caller: &(),
             account_id: &Id,
             create_id: &str,
-            obj: O,
-        ) -> Result<(Id, O), jmap_mail_server::BackendSetError<Self::Error>> {
-            self.0.create_object(&(), account_id, create_id, obj).await
+            build: F,
+        ) -> Result<(Id, O), jmap_mail_server::BackendSetError<Self::Error>>
+        where
+            O: jmap_mail_server::SetObject + Send + Sync,
+            F: FnOnce(&Id) -> O + Send,
+        {
+            self.0
+                .create_object(&(), account_id, create_id, build)
+                .await
         }
 
         async fn update_object<O: jmap_mail_server::SetObject + Send + Sync>(
@@ -1019,12 +1035,9 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
 
     // Create a mailbox.
     let (mb_id, _) = backend
-        .create_object::<Mailbox>(
-            &(),
-            &account_id,
-            "c0",
+        .create_object::<Mailbox, _>(&(), &account_id, "c0", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                Id::from("p"),
+                id.clone(),
                 "Letters",
                 0,
                 0,
@@ -1033,8 +1046,8 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 false,
-            ),
-        )
+            )
+        })
         .await
         .expect("create mailbox");
 
@@ -1084,12 +1097,9 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
 
     // Create mailbox.
     let (mb_id, _) = backend
-        .create_object::<Mailbox>(
-            &(),
-            &account_id,
-            "c0",
+        .create_object::<Mailbox, _>(&(), &account_id, "c0", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                Id::from("p"),
+                id.clone(),
                 "Temp",
                 0,
                 0,
@@ -1098,8 +1108,8 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 false,
-            ),
-        )
+            )
+        })
         .await
         .expect("create mailbox");
 
@@ -2499,9 +2509,9 @@ async fn submission_set_create_and_get() {
     let account_id = Id::from("account1");
 
     // Create an Identity to send from.
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .create_object::<Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -2598,9 +2608,9 @@ async fn submission_set_on_success_update_email() {
     let account_id = Id::from("account1");
 
     // Create Identity.
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .create_object::<Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -2723,9 +2733,9 @@ async fn dispatch_submission_set_on_success_update_email_orders_responses() {
 
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .create_object::<Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
     let blob_id = Id::from("blob-dispatch-order");
@@ -2796,9 +2806,9 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
     let account_id = Id::from("account-imm-sub");
 
     // Create Identity.
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .create_object::<Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -3047,16 +3057,12 @@ async fn email_set_create_and_get() {
 async fn email_set_create_keyword_false_value_not_stored() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
-    let mailbox_id = Id::from("mb1");
 
     // Pre-create a mailbox so the email create succeeds.
-    backend
-        .create_object::<jmap_mail_types::Mailbox>(
-            &(),
-            &account_id,
-            "mb1",
+    let (mailbox_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "mb1", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                mailbox_id.clone(),
+                id.clone(),
                 "Inbox".to_owned(),
                 0,
                 0,
@@ -3065,8 +3071,8 @@ async fn email_set_create_keyword_false_value_not_stored() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 true,
-            ),
-        )
+            )
+        })
         .await
         .expect("mailbox create must succeed");
 
@@ -4372,9 +4378,9 @@ async fn submission_set_update_only_undo_status_allowed() {
     let account_id = Id::from("account1");
 
     // Create an Identity and email, then a submission.
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .create_object::<Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -4453,12 +4459,9 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
 
     // First create the parent mailbox.
     let (parent_id, _) = backend
-        .create_object::<jmap_mail_types::Mailbox>(
-            &(),
-            &account_id,
-            "p0",
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "p0", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                Id::from("placeholder"),
+                id.clone(),
                 "Parent",
                 0,
                 0,
@@ -4467,8 +4470,8 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 false,
-            ),
-        )
+            )
+        })
         .await
         .expect("create parent mailbox");
 
@@ -4872,9 +4875,9 @@ async fn make_identity_and_email(
     mailbox_id: &str,
 ) -> (Id, Id) {
     use jmap_mail_types::Identity;
-    let identity = Identity::new(Id::from("placeholder"), addr, true);
+    let identity = |id: &Id| Identity::new(id.clone(), addr, true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), account_id, "i", identity)
+        .create_object::<Identity, _>(&(), account_id, "i", identity)
         .await
         .expect("create Identity");
 
@@ -5191,16 +5194,18 @@ async fn submission_query_filter_by_undo_status() {
 
     // Create submission B directly via backend with undoStatus = "pending".
     use jmap_mail_types::{submission::UndoStatus, EmailSubmission};
-    let sub_b = EmailSubmission::new(
-        Id::from("placeholder"),
-        identity_b.clone(),
-        email_b.clone(),
-        Id::from("thread-b"),
-        jmap_types::UTCDate::from("2025-01-01T00:00:00Z"),
-        UndoStatus::Pending,
-    );
+    let sub_b = |id: &Id| {
+        EmailSubmission::new(
+            id.clone(),
+            identity_b.clone(),
+            email_b.clone(),
+            Id::from("thread-b"),
+            jmap_types::UTCDate::from("2025-01-01T00:00:00Z"),
+            UndoStatus::Pending,
+        )
+    };
     let (sub_b_id, _) = backend
-        .create_object::<EmailSubmission>(&(), &account_id, "sB", sub_b)
+        .create_object::<EmailSubmission, _>(&(), &account_id, "sB", sub_b)
         .await
         .expect("create submission B");
 
@@ -5299,9 +5304,9 @@ async fn submission_set_create_no_recipients_fails() {
     let account_id = Id::from("account1");
 
     // Create an Identity.
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .create_object::<Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -5361,19 +5366,21 @@ async fn mailbox_set_role_uniqueness_create_then_update() {
     let account_id = Id::from("account1");
 
     // Create a mailbox with no role that we will try to assign a role to via update.
-    let mbox = Mailbox::new(
-        Id::from("placeholder"),
-        "Updates".to_string(),
-        0,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        false,
-    );
+    let mbox = |id: &Id| {
+        Mailbox::new(
+            id.clone(),
+            "Updates".to_string(),
+            0,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            false,
+        )
+    };
     let (existing_id, _) = backend
-        .create_object::<Mailbox>(&(), &account_id, "pre0", mbox)
+        .create_object::<Mailbox, _>(&(), &account_id, "pre0", mbox)
         .await
         .expect("create mailbox");
 
@@ -5435,37 +5442,42 @@ async fn mailbox_set_role_swap_succeeds_in_single_request() {
     let account_id = Id::from("account1");
 
     // Create mailbox A with role "inbox".
-    let mut mbox_a = Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox".to_string(),
-        0,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        false,
-    );
-    mbox_a.role = Some(jmap_mail_types::MailboxRole::Inbox);
+    let mbox_a = |id: &Id| {
+        let mut mbox_a = Mailbox::new(
+            id.clone(),
+            "Inbox".to_string(),
+            0,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            false,
+        );
+        mbox_a.role = Some(jmap_mail_types::MailboxRole::Inbox);
+        mbox_a
+    };
     let (id_a, _) = backend
-        .create_object::<Mailbox>(&(), &account_id, "pre0", mbox_a)
+        .create_object::<Mailbox, _>(&(), &account_id, "pre0", mbox_a)
         .await
         .expect("create mailbox A");
 
     // Create mailbox B with no role.
-    let mbox_b = Mailbox::new(
-        Id::from("placeholder"),
-        "New Inbox".to_string(),
-        0,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        false,
-    );
+    let mbox_b = |id: &Id| {
+        Mailbox::new(
+            id.clone(),
+            "New Inbox".to_string(),
+            0,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            false,
+        )
+    };
     let (id_b, _) = backend
-        .create_object::<Mailbox>(&(), &account_id, "pre1", mbox_b)
+        .create_object::<Mailbox, _>(&(), &account_id, "pre1", mbox_b)
         .await
         .expect("create mailbox B");
 
@@ -5810,20 +5822,22 @@ async fn mailbox_set_update_backend_other_goes_to_not_updated() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
     // Pre-create a mailbox via the inner backend so the update has a target.
-    let mailbox = jmap_mail_types::Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox",
-        0,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        true,
-    );
+    let mailbox = |id: &Id| {
+        jmap_mail_types::Mailbox::new(
+            id.clone(),
+            "Inbox",
+            0,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            true,
+        )
+    };
     let (mbox_id, _) = backend
         .inner
-        .create_object::<Mailbox>(&(), &account, "c0", mailbox)
+        .create_object::<Mailbox, _>(&(), &account, "c0", mailbox)
         .await
         .unwrap();
 
@@ -5850,20 +5864,22 @@ async fn mailbox_set_update_backend_other_goes_to_not_updated() {
 async fn mailbox_set_destroy_backend_other_goes_to_not_destroyed() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
-    let mailbox = jmap_mail_types::Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox",
-        0,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        true,
-    );
+    let mailbox = |id: &Id| {
+        jmap_mail_types::Mailbox::new(
+            id.clone(),
+            "Inbox",
+            0,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            true,
+        )
+    };
     let (mbox_id, _) = backend
         .inner
-        .create_object::<Mailbox>(&(), &account, "c0", mailbox)
+        .create_object::<Mailbox, _>(&(), &account, "c0", mailbox)
         .await
         .unwrap();
 
@@ -5915,17 +5931,19 @@ async fn email_set_update_backend_other_goes_to_not_updated() {
     use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
-    let email = jmap_mail_types::Email::new(
-        Id::from("placeholder"),
-        Id::from("blob1"),
-        Id::from("t1"),
-        BTreeMap::from([(Id::from("mbox1"), true)]),
-        0,
-        jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
-    );
+    let email = |id: &Id| {
+        jmap_mail_types::Email::new(
+            id.clone(),
+            Id::from("blob1"),
+            Id::from("t1"),
+            BTreeMap::from([(Id::from("mbox1"), true)]),
+            0,
+            jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
+        )
+    };
     let (email_id, _) = backend
         .inner
-        .create_object::<jmap_mail_types::Email>(&(), &account, "e0", email)
+        .create_object::<jmap_mail_types::Email, _>(&(), &account, "e0", email)
         .await
         .unwrap();
 
@@ -5952,17 +5970,19 @@ async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
     use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
-    let email = jmap_mail_types::Email::new(
-        Id::from("placeholder"),
-        Id::from("blob1"),
-        Id::from("t1"),
-        BTreeMap::from([(Id::from("mbox1"), true)]),
-        0,
-        jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
-    );
+    let email = |id: &Id| {
+        jmap_mail_types::Email::new(
+            id.clone(),
+            Id::from("blob1"),
+            Id::from("t1"),
+            BTreeMap::from([(Id::from("mbox1"), true)]),
+            0,
+            jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
+        )
+    };
     let (email_id, _) = backend
         .inner
-        .create_object::<jmap_mail_types::Email>(&(), &account, "e0", email)
+        .create_object::<jmap_mail_types::Email, _>(&(), &account, "e0", email)
         .await
         .unwrap();
 
@@ -6021,29 +6041,28 @@ async fn submission_set_create_backend_other_goes_to_not_created() {
     let account = Id::from("acct1");
 
     // Create an Identity so identityId validation passes.
-    let identity = jmap_mail_types::Identity::new(
-        Id::from("placeholder"),
-        "from@example.com".to_owned(),
-        true,
-    );
+    let identity =
+        |id: &Id| jmap_mail_types::Identity::new(id.clone(), "from@example.com".to_owned(), true);
     let (identity_id, _) = backend
         .inner
-        .create_object::<Identity>(&(), &account, "id1", identity)
+        .create_object::<Identity, _>(&(), &account, "id1", identity)
         .await
         .unwrap();
 
     // Create an Email so emailId validation passes.
-    let email = jmap_mail_types::Email::new(
-        Id::from("placeholder"),
-        Id::from("blob1"),
-        Id::from("t1"),
-        BTreeMap::from([(Id::from("mbox1"), true)]),
-        0,
-        jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
-    );
+    let email = |id: &Id| {
+        jmap_mail_types::Email::new(
+            id.clone(),
+            Id::from("blob1"),
+            Id::from("t1"),
+            BTreeMap::from([(Id::from("mbox1"), true)]),
+            0,
+            jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
+        )
+    };
     let (email_id, _) = backend
         .inner
-        .create_object::<jmap_mail_types::Email>(&(), &account, "e1", email)
+        .create_object::<jmap_mail_types::Email, _>(&(), &account, "e1", email)
         .await
         .unwrap();
 
@@ -6104,10 +6123,10 @@ async fn identity_set_create_backend_other_goes_to_not_created() {
 async fn identity_set_update_backend_other_goes_to_not_updated() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
-    let identity = Identity::new(Id::from("placeholder"), "user@example.com".to_owned(), true);
+    let identity = |id: &Id| Identity::new(id.clone(), "user@example.com".to_owned(), true);
     let (id, _) = backend
         .inner
-        .create_object::<Identity>(&(), &account, "id1", identity)
+        .create_object::<Identity, _>(&(), &account, "id1", identity)
         .await
         .unwrap();
 
@@ -6139,10 +6158,10 @@ async fn identity_set_destroy_backend_other_goes_to_not_destroyed() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
     // mayDelete = true so the handler proceeds to call destroy_object.
-    let identity = Identity::new(Id::from("placeholder"), "user@example.com".to_owned(), true);
+    let identity = |id: &Id| Identity::new(id.clone(), "user@example.com".to_owned(), true);
     let (id, _) = backend
         .inner
-        .create_object::<Identity>(&(), &account, "id1", identity)
+        .create_object::<Identity, _>(&(), &account, "id1", identity)
         .await
         .unwrap();
 
@@ -6273,20 +6292,22 @@ async fn set_per_id_server_fail_redacts_backend_display_create() {
 async fn set_per_id_server_fail_redacts_backend_display_update() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
-    let mailbox = jmap_mail_types::Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox",
-        0,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        true,
-    );
+    let mailbox = |id: &Id| {
+        jmap_mail_types::Mailbox::new(
+            id.clone(),
+            "Inbox",
+            0,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            true,
+        )
+    };
     let (mbox_id, _) = backend
         .inner
-        .create_object::<Mailbox>(&(), &account, "c0", mailbox)
+        .create_object::<Mailbox, _>(&(), &account, "c0", mailbox)
         .await
         .unwrap();
 
@@ -6316,20 +6337,22 @@ async fn set_per_id_server_fail_redacts_backend_display_update() {
 async fn set_per_id_server_fail_redacts_backend_display_destroy() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
-    let mailbox = jmap_mail_types::Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox",
-        0,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        true,
-    );
+    let mailbox = |id: &Id| {
+        jmap_mail_types::Mailbox::new(
+            id.clone(),
+            "Inbox",
+            0,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            true,
+        )
+    };
     let (mbox_id, _) = backend
         .inner
-        .create_object::<Mailbox>(&(), &account, "c0", mailbox)
+        .create_object::<Mailbox, _>(&(), &account, "c0", mailbox)
         .await
         .unwrap();
 
@@ -7030,9 +7053,9 @@ async fn submission_set_create_send_at_ignored_from_client() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<jmap_mail_types::Identity>(&(), &account_id, "i0", identity)
+        .create_object::<jmap_mail_types::Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -7338,9 +7361,9 @@ async fn submission_set_create_send_at_null_accepted() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<jmap_mail_types::Identity>(&(), &account_id, "i0", identity)
+        .create_object::<jmap_mail_types::Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -7951,9 +7974,9 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
     let account_id = Id::from("acct-onsuccess-no-apply");
 
     // Create an Identity so the submission handler can validate it.
-    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .create_object::<Identity, _>(&(), &account_id, "i0", identity)
         .await
         .expect("create Identity");
 
@@ -8332,12 +8355,9 @@ async fn mailbox_set_destroy_with_children() {
 
     // Create the parent mailbox directly via the backend.
     let (parent_id, _) = backend
-        .create_object::<jmap_mail_types::Mailbox>(
-            &(),
-            &account_id,
-            "p0",
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "p0", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                Id::from("placeholder"),
+                id.clone(),
                 "Parent",
                 0,
                 0,
@@ -8346,8 +8366,8 @@ async fn mailbox_set_destroy_with_children() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 false,
-            ),
-        )
+            )
+        })
         .await
         .expect("create parent mailbox");
 
@@ -8415,12 +8435,9 @@ async fn mailbox_set_create_duplicate_name() {
 
     // Create a parent mailbox to hold the duplicates.
     let (parent_id, _) = backend
-        .create_object::<jmap_mail_types::Mailbox>(
-            &(),
-            &account_id,
-            "p0",
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "p0", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                Id::from("placeholder"),
+                id.clone(),
                 "Parent",
                 0,
                 0,
@@ -8429,8 +8446,8 @@ async fn mailbox_set_create_duplicate_name() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 false,
-            ),
-        )
+            )
+        })
         .await
         .expect("create parent mailbox");
 
@@ -8542,15 +8559,11 @@ async fn mailbox_set_create_duplicate_name() {
 async fn email_get_properties_filtering_restricts_fields() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("acct1");
-    let mailbox_id = Id::from("mb1");
 
-    backend
-        .create_object::<jmap_mail_types::Mailbox>(
-            &(),
-            &account_id,
-            "mb1",
+    let (mailbox_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "mb1", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                mailbox_id.clone(),
+                id.clone(),
                 "Inbox".to_owned(),
                 0,
                 0,
@@ -8559,8 +8572,8 @@ async fn email_get_properties_filtering_restricts_fields() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 true,
-            ),
-        )
+            )
+        })
         .await
         .expect("create mailbox");
 
@@ -8629,15 +8642,11 @@ async fn email_get_properties_filtering_restricts_fields() {
 async fn email_get_no_properties_returns_default_fields() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("acct1");
-    let mailbox_id = Id::from("mb1");
 
-    backend
-        .create_object::<jmap_mail_types::Mailbox>(
-            &(),
-            &account_id,
-            "mb1",
+    let (mailbox_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "mb1", |id: &Id| {
             jmap_mail_types::Mailbox::new(
-                mailbox_id.clone(),
+                id.clone(),
                 "Inbox".to_owned(),
                 0,
                 0,
@@ -8646,8 +8655,8 @@ async fn email_get_no_properties_returns_default_fields() {
                 0,
                 jmap_mail_types::MailboxRights::default(),
                 true,
-            ),
-        )
+            )
+        })
         .await
         .expect("create mailbox");
 
@@ -12971,19 +12980,21 @@ async fn email_set_create_size_is_nonzero() {
 
     // Create a mailbox first (required so mailboxIds is valid).
     use jmap_mail_types::MailboxRights;
-    let mbox = jmap_mail_types::Mailbox::new(
-        Id::from("placeholder"),
-        "Inbox",
-        0,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        true,
-    );
+    let mbox = |id: &Id| {
+        jmap_mail_types::Mailbox::new(
+            id.clone(),
+            "Inbox",
+            0,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            true,
+        )
+    };
     let (mbox_id, _) = backend
-        .create_object::<jmap_mail_types::Mailbox>(&(), &account_id, "c0", mbox)
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "c0", mbox)
         .await
         .expect("create mailbox");
 
@@ -13027,19 +13038,21 @@ async fn mailbox_set_destroy_child_then_parent_in_one_request() {
     let account_id = Id::from("acct1");
 
     // Create parent.
-    let parent_mbox = jmap_mail_types::Mailbox::new(
-        Id::from("placeholder"),
-        "Parent".to_owned(),
-        0,
-        0,
-        0,
-        0,
-        0,
-        MailboxRights::default(),
-        false,
-    );
+    let parent_mbox = |id: &Id| {
+        jmap_mail_types::Mailbox::new(
+            id.clone(),
+            "Parent".to_owned(),
+            0,
+            0,
+            0,
+            0,
+            0,
+            MailboxRights::default(),
+            false,
+        )
+    };
     let (parent_id, _) = backend
-        .create_object::<jmap_mail_types::Mailbox>(&(), &account_id, "p0", parent_mbox)
+        .create_object::<jmap_mail_types::Mailbox, _>(&(), &account_id, "p0", parent_mbox)
         .await
         .expect("create parent");
 
@@ -14002,16 +14015,18 @@ async fn submission_set_update_null_undo_status_is_invalid_properties() {
     let account_id = Id::from("account1");
     let (identity_id, email_id) =
         make_identity_and_email(&backend, &account_id, "alice@example.com", "sent").await;
-    let pending = EmailSubmission::new(
-        Id::from("placeholder"),
-        identity_id,
-        email_id,
-        Id::from("thread-p"),
-        jmap_types::UTCDate::from("2025-01-01T00:00:00Z"),
-        UndoStatus::Pending,
-    );
+    let pending = |id: &Id| {
+        EmailSubmission::new(
+            id.clone(),
+            identity_id,
+            email_id,
+            Id::from("thread-p"),
+            jmap_types::UTCDate::from("2025-01-01T00:00:00Z"),
+            UndoStatus::Pending,
+        )
+    };
     let (sub_id, _) = backend
-        .create_object::<EmailSubmission>(&(), &account_id, "s0", pending)
+        .create_object::<EmailSubmission, _>(&(), &account_id, "s0", pending)
         .await
         .expect("create pending submission");
 

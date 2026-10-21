@@ -639,9 +639,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 Err(err_val) => {
                     not_created.insert(create_id.clone(), err_val);
                 }
-                Ok(mailbox) => {
+                Ok(build) => {
                     match backend
-                        .create_object::<Mailbox>(caller, &account_id, create_id, mailbox)
+                        .create_object::<Mailbox, _>(caller, &account_id, create_id, build)
                         .await
                     {
                         Ok((_id, obj)) => {
@@ -1157,10 +1157,11 @@ fn role_already_held(
     })
 }
 
-/// Build a [`Mailbox`] from a JSON create-properties object.
+/// Validate a JSON create-properties object and return a builder that
+/// makes the [`Mailbox`] for the id the backend assigns.
 ///
 /// Returns an error value suitable for `notCreated` on failure.
-fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
+fn build_mailbox_from_props(props: &Value) -> Result<impl FnOnce(&Id) -> Mailbox + Send, Value> {
     let name = match props.get("name").and_then(|v| v.as_str()) {
         Some(s) => s.to_owned(),
         None => {
@@ -1189,25 +1190,12 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    // Use a placeholder id; the backend will assign the real one.
-    let mut mailbox = Mailbox::new(
-        Id::from(crate::helpers::PLACEHOLDER_ID),
-        name,
-        sort_order,
-        0,
-        0,
-        0,
-        0,
-        jmap_mail_types::MailboxRights::default(),
-        is_subscribed,
-    );
-
     // RFC 8621 §2: parentId is Id|null. Per RFC 8620 §5.3, a malformed
     // value (e.g. integer, boolean, object) MUST produce invalidProperties
     // rather than be silently dropped.
-    match props.get("parentId") {
-        None | Some(Value::Null) => {}
-        Some(Value::String(s)) => mailbox.parent_id = Some(Id::from(s.as_str())),
+    let parent_id = match props.get("parentId") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(Id::from(s.as_str())),
         Some(_) => {
             return Err(set_error_value(
                 &SetError::new(SetErrorType::InvalidProperties)
@@ -1215,13 +1203,13 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                     .with_description("parentId must be a String (Id) or null"),
             ));
         }
-    }
+    };
 
     // RFC 8621 §2: role is String|null. Per RFC 8620 §5.3, a malformed
     // value (e.g. integer, boolean, object) MUST produce invalidProperties
     // rather than be silently dropped.
-    match props.get("role") {
-        None | Some(Value::Null) => {}
+    let role = match props.get("role") {
+        None | Some(Value::Null) => None,
         Some(Value::String(s)) => {
             let role: jmap_mail_types::MailboxRole =
                 serde_json::from_value(Value::String(s.to_owned())).map_err(|_| {
@@ -1229,7 +1217,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                         &SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
                     )
                 })?;
-            mailbox.role = Some(role);
+            Some(role)
         }
         Some(_) => {
             return Err(set_error_value(
@@ -1238,7 +1226,22 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                     .with_description("role must be a String or null"),
             ));
         }
-    }
+    };
 
-    Ok(mailbox)
+    Ok(move |id: &Id| {
+        let mut mailbox = Mailbox::new(
+            id.clone(),
+            name,
+            sort_order,
+            0,
+            0,
+            0,
+            0,
+            jmap_mail_types::MailboxRights::default(),
+            is_subscribed,
+        );
+        mailbox.parent_id = parent_id;
+        mailbox.role = role;
+        mailbox
+    })
 }
