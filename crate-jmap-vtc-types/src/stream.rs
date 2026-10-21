@@ -42,6 +42,11 @@ pub const VTC_EVENT_TYPES: &[&str] = &[
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcStreamEnable {
+    /// Client-specified identifier for this frame. A `RequestError` this
+    /// frame causes carries it as its `requestId` (RFC 8887 §4.3.4).
+    /// Absent unless the client sent one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     /// VTCCall ids to receive events for; `None` means every call in which
     /// the user is a current participant.
     #[serde(default)]
@@ -214,6 +219,22 @@ mod tests {
         }));
         assert!(matches!(msg, VtcStreamMessage::Enable(ref e)
             if e.event_types.as_deref() == Some(&["VTCRingEvent".to_owned(), "VTCCaptionEvent".to_owned()][..])));
+    }
+
+    #[test]
+    fn enable_id_typed_and_absent_when_unset() {
+        // Oracle: draft-atwood-jmap-vtc-wss-00 L172-174 "`id` (String,
+        // optional): A client-specified identifier for this message. A
+        // `RequestError` caused by this message carries this value as its
+        // `requestId`".
+        let msg = round_trip(json!({
+            "@type": "VTCStreamEnable",
+            "id": "c1",
+            "callIds": null,
+            "eventTypes": null
+        }));
+        assert!(matches!(msg, VtcStreamMessage::Enable(ref e)
+            if e.id.as_deref() == Some("c1") && !e.extra.contains_key("id")));
     }
 
     #[test]

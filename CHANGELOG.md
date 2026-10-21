@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-types**: `VtcStreamEnable::id`, the optional client-specified
+  frame identifier of draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable. The
+  transport echoes it as the `requestId` of a `RequestError` the frame
+  causes (RFC 8887 §4.3.4). It was previously kept only in `extra`.
+
 - **jmap-vtc-server**: ring fork and ring timeout of
   draft-atwood-jmap-vtc-00 §Multi-Device Forking and §Ring Timeout.
   Answering a ring delivers a `VTCCallEndEvent` with `endReason`

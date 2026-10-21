@@ -87,8 +87,9 @@ impl VtcEphemeralSubscription {
     /// error `self` is unchanged, as the draft requires. The transport
     /// sends the error as an RFC 8887 §4.3.4 `RequestError` frame whose
     /// `type` is the full URN
-    /// `"urn:ietf:params:jmap:error:invalidArguments"`; the returned
-    /// [`JmapError`] carries the short method-level name.
+    /// `"urn:ietf:params:jmap:error:invalidArguments"` and whose
+    /// `requestId` is [`VtcStreamEnable::id`] when the client sent one;
+    /// the returned [`JmapError`] carries the short method-level name.
     pub fn replace_with(&mut self, enable: &VtcStreamEnable) -> Result<(), JmapError> {
         let event_types = match &enable.event_types {
             None => None,
