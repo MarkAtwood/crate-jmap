@@ -16,11 +16,6 @@ use jmap_server::{
     HandlerOutput,
 };
 
-/// Sentinel `id` the handler puts on an object before
-/// [`GraphBackend::create_object`] replaces it. Mirrors the canonical
-/// `crate-jmap-mail-server/src/helpers.rs` `PLACEHOLDER_ID`.
-pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
-
 /// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
 /// `notDestroyed` map.
 ///

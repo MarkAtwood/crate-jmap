@@ -1342,6 +1342,10 @@ wire behaviour that a conforming peer can observe.
   **jmap-chat-filenode-server** `create_space_file_tree` builds the root
   for the minted id (it previously passed the Space id for the backend
   to replace).
+- **BREAKING** **jmap-graph-server**: `GraphBackend::create_object`
+  takes the same builder; the `"placeholder"` id sentinel is gone. The
+  GraphNodeOp `seq` and Graph `myRights` the backend fills are
+  unchanged.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

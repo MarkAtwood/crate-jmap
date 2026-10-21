@@ -197,10 +197,13 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             .filter(|k| !m.contains_key(*k))
             .collect();
         fill_server_set::<B>(caller, &mut m);
-        let edge: GraphEdge = serde_json::from_value(Value::Object(m))
+        let mut edge: GraphEdge = serde_json::from_value(Value::Object(m))
             .map_err(|e| invalid(&[], &format!("invalid GraphEdge: {e}")))?;
         let (id, stored) = backend
-            .create_object(caller, account_id, create_id, edge)
+            .create_object(caller, account_id, create_id, move |id: &Id| {
+                edge.id = id.clone();
+                edge
+            })
             .await
             .map_err(backend_set_error_value)?;
         Ok(created_entry(&id, &stored, &omitted))
