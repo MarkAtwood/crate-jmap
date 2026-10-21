@@ -1876,6 +1876,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-filenode-server**: the Space file tree gates compare
+  Space permissions by `ChatPermission` variant, as `jmap-chat-server`,
+  `jmap-chat-vtc-server` and `jmap-chat-federation-server` do. A
+  hand-built `ChatPermission::Other("manage_space")` (or another `Other`
+  spelling of a known name) in a SpaceRole or the `everyone` set used to
+  grant that permission's file tree rights; it now grants nothing, per
+  draft-atwood-jmap-chat-00 §SpaceRole: "Servers MUST ignore
+  unrecognized permission names."
 - **jmap-filenode-server**: `FileNode/copy` sets `sha256` as
   `FileNode/set` create does, per draft-atwood-jmap-cid-00 §FileNode
   Extension: a copied file gets the digest of its blob in the destination

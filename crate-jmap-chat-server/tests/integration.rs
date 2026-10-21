@@ -2715,6 +2715,111 @@ async fn chat_set_direct_recheck_and_rollback_failure_advances_state() {
     );
 }
 
+/// Oracle: RFC 8620 §5.3 defines `newState` as "The state string that will
+/// now be returned by Foo/get" (§5.1: `state` is "A (preferably short)
+/// string representing the state on the server for all the data of this
+/// type in the account"). When a Direct create loses the duplicate race,
+/// the handler creates and then destroys its copy; both writes move the
+/// Chat state, so `newState` must be the state `Chat/get` now returns
+/// (bd:JMAP-0x0q.75). The per-id error is `alreadyExists` naming the
+/// canonical (lex-smaller) Chat.
+#[tokio::test]
+async fn chat_set_direct_lost_race_new_state_matches_get() {
+    use common::InjectableBackend;
+
+    let backend = InjectableBackend::new();
+    let account_id = Id::from(ACCOUNT_ID);
+    backend.inner.register_account(&account_id);
+    backend.queue_chat_race_phantom(ACCOUNT_ID, "0", "contact-1");
+
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
+        }),
+    )
+    .await
+    .expect("chat_set");
+
+    assert_eq!(
+        resp["notCreated"]["c0"]["type"].as_str(),
+        Some("alreadyExists"),
+        "resp: {resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c0"]["existingId"].as_str(),
+        Some("0"),
+        "resp: {resp}"
+    );
+    let (chats, _) = backend
+        .inner
+        .get_objects::<Chat>(&(), &account_id, None, None)
+        .await
+        .expect("get_objects");
+    let state = backend
+        .inner
+        .get_state::<Chat>(&(), &account_id)
+        .await
+        .expect("get_state");
+    assert_eq!(chats.len(), 1, "only the canonical Chat remains");
+    assert_eq!(
+        resp["newState"],
+        json!(state),
+        "newState must be what Chat/get now returns; resp: {resp}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.3 (`newState` is "The state string that will now be
+/// returned by Foo/get"). When a Direct create loses the duplicate race and
+/// the cleanup destroy fails, the losing Chat stays live, so `newState`
+/// must be the state `Chat/get` now returns or a client syncing from it
+/// never sees that Chat via `Chat/changes` (bd:JMAP-0x0q.75).
+#[tokio::test]
+async fn chat_set_direct_lost_race_cleanup_failure_new_state_matches_get() {
+    use common::InjectableBackend;
+
+    let backend = InjectableBackend::new();
+    let account_id = Id::from(ACCOUNT_ID);
+    backend.inner.register_account(&account_id);
+    backend.queue_chat_race_phantom(ACCOUNT_ID, "0", "contact-1");
+    backend.inject("Chat", "destroy");
+
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
+        }),
+    )
+    .await
+    .expect("chat_set");
+
+    assert_eq!(
+        resp["notCreated"]["c0"]["type"].as_str(),
+        Some("serverFail"),
+        "resp: {resp}"
+    );
+    let (chats, _) = backend
+        .inner
+        .get_objects::<Chat>(&(), &account_id, None, None)
+        .await
+        .expect("get_objects");
+    let state = backend
+        .inner
+        .get_state::<Chat>(&(), &account_id)
+        .await
+        .expect("get_state");
+    assert_eq!(chats.len(), 2, "the failed cleanup leaves both Chats live");
+    assert_eq!(
+        resp["newState"],
+        json!(state),
+        "newState must be what Chat/get now returns; resp: {resp}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Edit-history retention gate
 // (draft-atwood-jmap-chat-00 commit 0783fc4 + §Message editHistory)

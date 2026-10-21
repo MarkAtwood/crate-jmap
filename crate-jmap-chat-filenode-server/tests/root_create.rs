@@ -238,3 +238,17 @@ async fn everyone_floor_with_manage_space_may_create() {
     f.seed_space(SPACE, &[], &[(ACCOUNT, &[])]);
     assert_eq!(f.check(root(Some(SPACE))).await, None);
 }
+
+/// chat L809: "Servers MUST ignore unrecognized permission names." A
+/// hand-built `Other` spelling of `"manage_space"` is not the recognized
+/// permission, so it grants nothing.
+#[tokio::test]
+async fn other_spelling_of_manage_space_grants_nothing() {
+    let mut f = Fixture::new();
+    f.everyone.insert(jmap_chat_types::ChatPermission::Other(
+        "manage_space".to_owned(),
+    ));
+    f.seed_space(SPACE, &[], &[(ACCOUNT, &[])]);
+    let err = f.check(root(Some(SPACE))).await.expect("refused");
+    assert_eq!(err["type"], "forbidden");
+}

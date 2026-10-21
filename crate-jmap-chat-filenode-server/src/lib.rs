@@ -168,15 +168,13 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
             .with_description("the Space already has a file tree root")));
     }
 
-    Ok(
-        if permissions.contains(ChatPermission::ManageSpace.as_str()) {
-            Ok(())
-        } else {
-            Err(forbidden(
-                "creating a Space file tree root requires the manage_space permission",
-            ))
-        },
-    )
+    Ok(if permissions.contains(&ChatPermission::ManageSpace) {
+        Ok(())
+    } else {
+        Err(forbidden(
+            "creating a Space file tree root requires the manage_space permission",
+        ))
+    })
 }
 
 /// Check draft-atwood-jmap-chat-filenode-00 `maxSpaceStorageBytes` for a
@@ -490,7 +488,7 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
         .iter()
         .find(|s| &s.id == space_id)
         .and_then(|s| member_permissions(s, account_id, everyone))
-        .is_some_and(|p| TIERS.iter().any(|r| p.contains(r.as_str())));
+        .is_some_and(|p| TIERS.iter().any(|r| p.contains(r)));
     if !may_read {
         return Ok(Err(forbidden(
             "the sender has no read access to the Space file tree",
@@ -612,7 +610,7 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
         .iter()
         .find(|s| s.id == space_id)
         .and_then(|s| member_permissions(s, account_id, everyone))
-        .and_then(|p| TIERS.iter().rposition(|t| p.contains(t.as_str())))
+        .and_then(|p| TIERS.iter().rposition(|t| p.contains(t)))
         .map_or(0, |i| i + 1);
 
     let is_root = is_tree_root(node);
@@ -868,12 +866,14 @@ const TIERS: [ChatPermission; 4] = [
 /// Permission Resolution step 1). `None` if `account_id` is not a member.
 /// ChannelPermission overrides are not applied: they "do not restrict
 /// file-tree access" (draft-atwood-jmap-chat-filenode-00 §Permission
-/// Mapping).
+/// Mapping). Permissions compare by variant, so a `ChatPermission::Other`
+/// spelling of a known name grants nothing, as in
+/// `resolve_channel_permissions`.
 fn member_permissions<'a>(
     space: &'a Space,
     account_id: &Id,
     everyone: &'a HashSet<ChatPermission>,
-) -> Option<HashSet<&'a str>> {
+) -> Option<HashSet<&'a ChatPermission>> {
     let member = space.members.iter().find(|m| &m.id == account_id)?;
     let role_ids: HashSet<&Id> = member.role_ids.iter().collect();
     Some(
@@ -881,8 +881,8 @@ fn member_permissions<'a>(
             .roles
             .iter()
             .filter(|r| role_ids.contains(&r.id))
-            .flat_map(|r| r.permissions.iter().map(|p| p.as_str()))
-            .chain(everyone.iter().map(ChatPermission::as_str))
+            .flat_map(|r| r.permissions.iter())
+            .chain(everyone)
             .collect(),
     )
 }

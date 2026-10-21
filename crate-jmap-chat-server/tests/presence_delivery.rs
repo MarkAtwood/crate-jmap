@@ -1,10 +1,10 @@
 //! Per-recipient `ChatPresenceEvent` projection, `project_presence`
 //! (bd:JMAP-yuut.3).
 //!
-//! Oracle: draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:269,
-//! wss:293) and draft-atwood-jmap-chat-00 §Presence Events (chat:1557),
-//! at jmap-chat-spec commit 91672c9. Each test quotes the sentence it
-//! enforces. Input frames are the wss:281-289 example; expected frames
+//! Oracle: draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:275,
+//! wss:300) and draft-atwood-jmap-chat-00 §Presence Events (chat:1641),
+//! at jmap-chat-spec commit 33702a5. Each test quotes the sentence it
+//! enforces. Input frames are the wss:286-296 example; expected frames
 //! are hand-written JSON derived only from the draft text.
 
 use jmap_chat_server::memory::MemoryBackend;
@@ -39,7 +39,7 @@ fn backend_with(account: &str, blocked: bool) -> MemoryBackend {
     backend
 }
 
-/// The wss:286-296 example frame (spec 6bcd9d8), addressed to the
+/// The wss:286-296 example frame (spec 33702a5), addressed to the
 /// recipient's account, with `presence` set.
 fn frame(presence: &str) -> Value {
     json!({
@@ -125,7 +125,7 @@ async fn block_on_another_accounts_list_does_not_drop() {
 }
 
 /// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:266-267, spec
-/// 6bcd9d8): "`accountId` (String): The id of the account that contains
+/// 33702a5): "`accountId` (String): The id of the account that contains
 /// the ChatContact." An event about another account's contact of the same
 /// id is not the recipient's to receive.
 #[tokio::test]
