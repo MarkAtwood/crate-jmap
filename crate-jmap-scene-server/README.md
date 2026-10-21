@@ -24,6 +24,7 @@ trait.
 | `handle_scene_object_get`, `handle_scene_object_changes` | §SceneObject/get, §SceneObject/changes (RFC 8620 §5.1, §5.2) |
 | `handle_scene_object_set` | §SceneObject/set: create, update, recursive destroy and §SetError Conditions |
 | `handle_scene_object_query`, `handle_scene_object_query_changes` | §SceneObject/query, §Spatial Filters, §SceneObject/queryChanges |
+| `handle_scene_object_interact` | §SceneObject/interact: `notFound`, `forbidden`, `rateLimit` and `invalidProperties`; accepted interactions go to `SceneBackend::accept_interaction` |
 | `handle_scene_avatar_get`, `handle_scene_avatar_changes` | §SceneAvatar/get, §SceneAvatar/changes (RFC 8620 §5.1, §5.2) |
 | `handle_scene_avatar_set` | §SceneAvatar/set: enter, update, leave, eject, reconnect and §SetError Conditions |
 | `handle_scene_avatar_query`, `handle_scene_avatar_query_changes` | §SceneAvatar/query, §SceneAvatar/queryChanges |
@@ -34,7 +35,7 @@ trait.
 | `SceneBackend` | storage, capability objects, blob sizes, permission and binding hooks |
 | `BindingTarget` | what a `chatId`/`spaceId`/`channelId`/`activeCallId` references |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` and `SceneAvatar/*` methods |
+| `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` (including `SceneObject/interact`) and `SceneAvatar/*` methods |
 
 ## What it's for
 

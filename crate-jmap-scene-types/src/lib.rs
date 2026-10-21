@@ -32,6 +32,9 @@
 //! - [`SceneRegion`], [`GeoAnchor`], [`ViewHint`], [`AccessPolicy`].
 //! - [`SceneObject`], [`PhysicsMode`].
 //! - [`SceneAvatar`].
+//! - [`SceneInteraction`], [`SceneObjectInteractRequest`],
+//!   [`SceneObjectInteractResponse`] — the `SceneObject/interact` method
+//!   (draft §SceneObject/interact).
 //! - [`query`] — the `/query` filters, including the `withinRadius` and
 //!   `withinBounds` spatial filters, and comparators of the four types.
 //! - [`set_error`] — the `contentPolicy` SetError type and the
@@ -54,6 +57,7 @@ mod backend;
 pub mod capability;
 pub mod coordinates;
 pub mod event;
+pub mod interact;
 pub mod object;
 pub mod query;
 pub mod region;
@@ -71,6 +75,7 @@ pub use event::{
     AvatarEventKind, ObjectEventKind, SceneAvatarEvent, SceneEvent, SceneInteractionEvent,
     SceneObjectEvent,
 };
+pub use interact::{SceneInteraction, SceneObjectInteractRequest, SceneObjectInteractResponse};
 pub use object::{PhysicsMode, SceneObject};
 pub use region::{AccessPolicy, GeoAnchor, SceneRegion, ViewHint};
 pub use set_error::{retry_after, RetryAfterError, CONTENT_POLICY, RETRY_AFTER};

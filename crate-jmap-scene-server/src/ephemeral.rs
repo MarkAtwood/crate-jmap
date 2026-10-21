@@ -281,7 +281,7 @@ pub async fn validate_interaction<B: SceneBackend>(
 /// ponytail: reads every SceneAvatar in the account; O(avatars) per
 /// check. Upgrade: a backend hook for the user's active avatar once a
 /// deployment needs it.
-async fn has_active_avatar<B: SceneBackend>(
+pub(crate) async fn has_active_avatar<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
