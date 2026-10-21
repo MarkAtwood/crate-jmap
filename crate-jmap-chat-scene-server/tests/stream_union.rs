@@ -102,10 +102,12 @@ fn subscribed(enable: Value) -> SceneEphemeralSubscription {
     sub
 }
 
-/// The wss L189-197 `SceneAvatarEvent` example, for [`BOB`] in `region`.
+/// The wss L214-222 `SceneAvatarEvent` example at jmap-chat-spec 6bcd9d8,
+/// for [`BOB`] in `region` of [`ACCOUNT`].
 fn bob_entered(region: &str) -> SceneEvent {
     serde_json::from_value(json!({
         "@type": "SceneAvatarEvent",
+        "accountId": ACCOUNT,
         "regionId": region,
         "avatarId": "AV-BOB",
         "event": "entered",

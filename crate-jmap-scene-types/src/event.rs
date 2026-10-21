@@ -57,6 +57,11 @@ impl_string_enum!(ObjectEventKind, "a Scene object event string",
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneAvatarEvent {
+    /// The region's hosting account: "the account in which the SceneRegion
+    /// was created and which holds its SceneObject and SceneAvatar records"
+    /// (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types). Region and
+    /// object ids are unique only within it.
+    pub account_id: Id,
     /// The SceneRegion.
     pub region_id: Id,
     /// The SceneAvatar.
@@ -82,6 +87,11 @@ pub struct SceneAvatarEvent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneObjectEvent {
+    /// The region's hosting account: "the account in which the SceneRegion
+    /// was created and which holds its SceneObject and SceneAvatar records"
+    /// (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types). Region and
+    /// object ids are unique only within it.
+    pub account_id: Id,
     /// The SceneRegion.
     pub region_id: Id,
     /// The SceneObject.
@@ -112,6 +122,11 @@ pub struct SceneObjectEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneInteractionEvent {
+    /// The region's hosting account: "the account in which the SceneRegion
+    /// was created and which holds its SceneObject and SceneAvatar records"
+    /// (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types). Region and
+    /// object ids are unique only within it.
+    pub account_id: Id,
     /// The SceneRegion.
     pub region_id: Id,
     /// The SceneObject interacted with.
@@ -138,8 +153,15 @@ impl SceneInteractionEvent {
     /// Construct a [`SceneInteractionEvent`] from its required fields.
     ///
     /// `data` defaults to `None` (`null`).
-    pub fn new(region_id: Id, object_id: Id, user_id: String, action: String) -> Self {
+    pub fn new(
+        account_id: Id,
+        region_id: Id,
+        object_id: Id,
+        user_id: String,
+        action: String,
+    ) -> Self {
         Self {
+            account_id,
             region_id,
             object_id,
             user_id,
@@ -234,7 +256,8 @@ mod tests {
 
     #[test]
     fn avatar_event_kinds_match_draft() {
-        // Oracle: draft-atwood-jmap-scene-wss-00 L178-179 `event` (String):
+        // Oracle: draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 6bcd9d8)
+        // L202-203 `event` (String):
         // "`\"entered\"`, `\"left\"`, or `\"ejected\"`."
         for (wire, kind) in [
             ("entered", AvatarEventKind::Entered),
@@ -251,7 +274,7 @@ mod tests {
 
     #[test]
     fn object_event_kinds_match_draft() {
-        // Oracle: L216-217 `event` (String): "`\"created\"`,
+        // Oracle: L241-242 `event` (String): "`\"created\"`,
         // `\"updated\"`, or `\"destroyed\"`."
         for (wire, kind) in [
             ("created", ObjectEventKind::Created),
@@ -268,11 +291,12 @@ mod tests {
 
     #[test]
     fn server_initiated_change_has_null_updated_by() {
-        // Oracle: L219-222 `updatedBy` (String|null): "`null` for
+        // Oracle: L244-247 `updatedBy` (String|null): "`null` for
         // server-initiated changes (e.g., physics simulation, scripted
         // behavior)." Hand-written frame.
         let raw = json!({
             "@type": "SceneObjectEvent",
+            "accountId": "A",
             "regionId": "R1",
             "objectId": "O1",
             "event": "updated",
@@ -290,11 +314,12 @@ mod tests {
 
     #[test]
     fn unrecognized_action_kept_verbatim() {
-        // Oracle: L276-278 "Deployment-specific actions SHOULD use
+        // Oracle: L303-305 "Deployment-specific actions SHOULD use
         // reverse-domain notation ... Clients MUST ignore unrecognized
         // values", so an unregistered action must still decode.
         let SceneEvent::Interaction(e) = parse(json!({
             "@type": "SceneInteractionEvent",
+            "accountId": "A",
             "regionId": "R1",
             "objectId": "O1",
             "userId": "user:alice@example.com",
@@ -309,9 +334,10 @@ mod tests {
 
     #[test]
     fn position_must_be_three_numbers() {
-        // Oracle: L224 `position` (Number[3]|null).
+        // Oracle: L249 `position` (Number[3]|null).
         let raw = json!({
             "@type": "SceneObjectEvent",
+            "accountId": "A",
             "regionId": "R1",
             "objectId": "O1",
             "event": "updated",
@@ -330,6 +356,7 @@ mod tests {
 
         let raw = json!({
             "@type": "SceneAvatarEvent",
+            "accountId": "A",
             "regionId": "R1",
             "avatarId": "A1",
             "event": "left",
@@ -345,11 +372,12 @@ mod tests {
 
     #[test]
     fn missing_type_and_malformed_known_type_rejected() {
-        // Oracle: L169-170 `@type` (String): `"SceneAvatarEvent"`; L178
+        // Oracle: L193-194 `@type` (String): `"SceneAvatarEvent"`; L202
         // `event` (String).
         assert!(serde_json::from_value::<SceneEvent>(json!({"regionId": "R1"})).is_err());
         assert!(serde_json::from_value::<SceneEvent>(json!({
             "@type": "SceneAvatarEvent",
+            "accountId": "A",
             "regionId": "R1",
             "avatarId": "A1",
             "event": 1,
@@ -360,13 +388,49 @@ mod tests {
     }
 
     #[test]
+    fn known_type_without_account_id_rejected() {
+        // Oracle: draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 6bcd9d8)
+        // L178 "Every event carries an `accountId` (String) property".
+        for raw in [
+            json!({
+                "@type": "SceneAvatarEvent",
+                "regionId": "R1",
+                "avatarId": "A1",
+                "event": "left",
+                "userId": "u",
+                "displayName": "U"
+            }),
+            json!({
+                "@type": "SceneObjectEvent",
+                "regionId": "R1",
+                "objectId": "O1",
+                "event": "destroyed",
+                "updatedBy": null,
+                "position": null
+            }),
+            json!({
+                "@type": "SceneInteractionEvent",
+                "regionId": "R1",
+                "objectId": "O1",
+                "userId": "u",
+                "action": "click",
+                "data": null
+            }),
+        ] {
+            assert!(serde_json::from_value::<SceneEvent>(raw).is_err());
+        }
+    }
+
+    #[test]
     fn interaction_new_builds_draft_click_example() {
-        // Oracle: draft-atwood-jmap-scene-wss-00 L1026-1037 "Alice clicks
-        // an interactable object", and L280-284 "`data` (Object|null): ...
-        // `null` when no additional data is needed."
+        // Oracle: draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 6bcd9d8)
+        // L1106-1114, the click event of the example session, and L307-311
+        // "`data` (Object|null): ... `null` when no additional data is
+        // needed."
         let event = SceneInteractionEvent::new(
+            Id::from("account-xyz"),
             Id::from("01J5ABC0000000000000000001"),
-            Id::from("01J5OBJ0000000000000000001"),
+            Id::from("01J5QBJ0000000000000000001"),
             "user:alice@example.com".to_owned(),
             "click".to_owned(),
         );
@@ -374,8 +438,9 @@ mod tests {
             serde_json::to_value(SceneEvent::Interaction(event)).unwrap(),
             json!({
                 "@type": "SceneInteractionEvent",
+                "accountId": "account-xyz",
                 "regionId": "01J5ABC0000000000000000001",
-                "objectId": "01J5OBJ0000000000000000001",
+                "objectId": "01J5QBJ0000000000000000001",
                 "userId": "user:alice@example.com",
                 "action": "click",
                 "data": null

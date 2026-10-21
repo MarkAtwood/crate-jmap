@@ -1054,6 +1054,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-types**, **jmap-scene-server**,
+  **jmap-chat-scene-server**: `SceneAvatarEvent`, `SceneObjectEvent` and
+  `SceneInteractionEvent` have a required `account_id`, the region's
+  hosting account (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types:
+  "Every event carries an `accountId` (String) property"), and
+  `SceneInteractionEvent::new` takes it as its first argument. Frames
+  without `accountId` no longer decode. `should_deliver`,
+  `should_deliver_scene` and `validate_interaction` return `false` for an
+  event whose `accountId` is not the account they are given, and
+  `SceneObject/interact` sets it on the events it hands to
+  `SceneBackend::accept_interaction`.
 - **BREAKING** **jmap-chat-vtc-server**: `check_call_create` returns the
   `invalidProperties` SetError naming `chatId` when the owner is not a
   member of the bound Chat, the same error as for a Chat that does not

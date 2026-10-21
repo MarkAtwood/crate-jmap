@@ -43,6 +43,9 @@ use jmap_types::Id;
 /// that matches both paths is still sent once ("MUST NOT deliver duplicate
 /// events").
 ///
+/// `account_id` must be the event's `accountId`, its region's hosting
+/// account; an event naming another account is not delivered.
+///
 /// # Errors
 ///
 /// Returns the backend's error from [`jmap_scene_server::should_deliver`].
