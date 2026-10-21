@@ -328,8 +328,8 @@ async fn check_visual_ref<B: SceneBackend>(
 /// Check `parent_id` as the parent of an object in `region_id` whose own
 /// subtree is `height` levels tall, walking the parent chain to the root.
 ///
-/// "`parentId` does not reference an existing SceneObject" is `notFound`.
-/// `invalidProperties` naming `parentId` for a parent "in a different
+/// `invalidProperties` naming `parentId` when "`parentId` does not
+/// reference an existing SceneObject", for a parent "in a different
 /// region", for a chain that reaches `self_id` ("the object is its own
 /// ancestor (directly or transitively)") and for a chain that would put
 /// any object deeper than [`MAX_DEPTH`].
@@ -362,9 +362,9 @@ async fn check_parent<B: SceneBackend>(
             fetch_one(backend, caller, account_id, &id).await?
         else {
             if depth == 1 {
-                return Err(set_error_value(
-                    &SetError::new(SetErrorType::NotFound)
-                        .with_description("parentId does not reference an existing SceneObject"),
+                return Err(invalid(
+                    &["parentId"],
+                    "parentId does not reference an existing SceneObject",
                 ));
             }
             break;

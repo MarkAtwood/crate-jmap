@@ -1076,6 +1076,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `SceneObject/set` create or update
+  whose `parentId` names no existing SceneObject now fails with
+  `invalidProperties` naming `parentId` (was `notFound`), per
+  draft-atwood-jmap-scene-00 §SceneObject/set Create Errors
+  `invalidProperties`: "`parentId` does not reference an existing
+  SceneObject", and Update Errors: "Same field-level validations as
+  create".
+
 - **BREAKING** **jmap-scene-server**: `SceneObject/set` create naming a
   missing region, or one the caller cannot access, now fails with
   `invalidProperties` naming `regionId` (was `notFound`), per
