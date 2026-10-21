@@ -576,6 +576,46 @@ async fn last_departure_ends_a_scheduled_call() {
 }
 
 #[tokio::test]
+async fn leaving_a_call_a_moderator_ended_succeeds() {
+    let backend = backend();
+    seed(
+        &backend,
+        stored_call("S1", "scheduled", "pending", "2026-06-05T14:30:00Z"),
+    );
+    let alice = id_of(&join(&backend, ALICE, "S1").await);
+    // L488 "`"active"` → `"ended"`: ... a moderator ends the call."
+    update(&backend, BOB, "S1", json!({"state": "ended"}))
+        .await
+        .expect("end");
+    let ended = get(&backend, "S1").await;
+
+    // L964 "A participant calls `VTCParticipant/set` with an `update`
+    // setting their own `leftAt`."
+    let resp = pset(
+        &backend,
+        ALICE,
+        json!({"update": {&alice: {"leftAt": "2026-06-05T15:00:00Z"}}}),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"], json!(null), "{resp}");
+    assert!(resp["updated"].get(&alice).is_some(), "{resp}");
+    // RFC 8620 §5.3 `newState`: "The state string that will now be
+    // returned by Foo/get" — it differs once `leftAt` is stored.
+    assert_ne!(resp["newState"], resp["oldState"], "{resp}");
+    assert!(
+        participant(&backend, &alice).await["leftAt"].is_string(),
+        "leftAt stored"
+    );
+    // L761 "invalidProperties naming `state` if the call is already in
+    // state `"ended"`": the leave starts no second end, and the
+    // moderator's end stands.
+    let after = get(&backend, "S1").await;
+    for key in ["state", "endReason", "endedAt"] {
+        assert_eq!(after[key], ended[key], "{key}");
+    }
+}
+
+#[tokio::test]
 async fn last_moderator_leaving_promotes_the_earliest_authenticated_joiner() {
     let backend = room();
     seed_participant(
