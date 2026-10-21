@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: `FileNodeBackend::cid_advertised` (default
+  `false`). When it returns `true`, `FileNode/get` emits `"sha256": null`
+  for directories and for files without a stored digest, since with
+  `urn:ietf:params:jmap:cid` advertised FileNode objects "MUST include"
+  `sha256` (draft-atwood-jmap-cid-00 §FileNode Extension).
+  `MemoryBackend` returns `true` once a digest is seeded for the account.
 - **jmap-chat-filenode-server**: `space_files_rights` maps a member's Space
   permissions to the `FilesRights` of a node in the Space file tree, and
   `check_space_create`, `check_space_update` and `check_space_destroy`

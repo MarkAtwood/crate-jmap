@@ -425,6 +425,36 @@ pub trait FileNodeBackend: JmapBackend {
         async { Ok(None) }
     }
 
+    /// Whether the server advertises `urn:ietf:params:jmap:cid` for this
+    /// account, so that every FileNode carries the `sha256` property.
+    ///
+    /// draft-atwood-jmap-cid-00 §FileNode Extension: when both capabilities
+    /// are advertised, "FileNode objects MUST include" `sha256`, which "MUST
+    /// be `null` for directory FileNodes". A stored node without a digest
+    /// (a directory, or a file created before the capability was enabled)
+    /// has no `sha256` field, so `handle_filenode_get` asks this method
+    /// whether to emit `"sha256": null` for it.
+    ///
+    /// # Return mapping
+    ///
+    /// - `Ok(true)`: `FileNode/get` emits `"sha256": null` for every node
+    ///   without a digest (unless `properties` excludes `sha256`).
+    /// - `Ok(false)`: nodes without a digest have no `sha256` property.
+    /// - `Err(e)`: the `FileNode/get` call fails with `serverFail`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(false)`, matching the default [`Self::blob_sha256`].
+    /// A backend that overrides `blob_sha256` to advertise the capability
+    /// MUST override this method too.
+    fn cid_advertised(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(false) }
+    }
+
     /// Returns the id of any sibling node that already has the given name, or
     /// `None` if the name is unique within that parent.
     ///

@@ -241,3 +241,71 @@ async fn create_directory_drops_client_sha256() {
         "{resp}"
     );
 }
+
+fn seeded_directory() -> FileNode {
+    serde_json::from_value(json!({
+        "id": "d1",
+        "parentId": null,
+        "@type": "Directory",
+        "name": "docs",
+    }))
+    .expect("hand-written Directory node deserializes")
+}
+
+/// Spec 6bcd9d8 L200-207: "When a server advertises both
+/// `urn:ietf:params:jmap:cid` and the {{JMAP-FILENODE}} capability,
+/// FileNode objects MUST include" `sha256`, which "MUST be `null` for
+/// directory FileNodes (FileNodes with no associated blob)".
+#[tokio::test]
+async fn get_directory_with_cid_has_null_sha256() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_directory());
+
+    let node = get_one(&backend, "d1").await;
+    assert_eq!(node.get("sha256"), Some(&Value::Null), "{node}");
+}
+
+/// Spec 6bcd9d8 L210-212: "A server MAY return `null` for a file FileNode
+/// whose digest was not computed at the time of creation"; the property is
+/// still one the FileNode "MUST include" (L201).
+#[tokio::test]
+async fn get_legacy_file_with_cid_has_null_sha256() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_file("blob-legacy", None));
+
+    let node = get_one(&backend, "f1").await;
+    assert_eq!(node.get("sha256"), Some(&Value::Null), "{node}");
+}
+
+/// Spec 6bcd9d8 L200: the property exists only "When a server advertises"
+/// the capability, so without it a directory has no `sha256`.
+#[tokio::test]
+async fn get_directory_without_cid_has_no_sha256() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_node("acc1", seeded_directory());
+
+    let node = get_one(&backend, "d1").await;
+    assert!(node.get("sha256").is_none(), "{node}");
+}
+
+/// RFC 8620 §5.1 `properties`: "If supplied, only the properties listed in
+/// the array are returned for each object."
+#[tokio::test]
+async fn get_with_cid_respects_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
+    backend.seed_node("acc1", seeded_directory());
+
+    let HandlerOutput { primary, .. } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["d1"], "properties": ["name"] }),
+    )
+    .await
+    .expect("get must not return a top-level error");
+    let node = &primary["list"][0];
+    assert_eq!(node["name"], "docs", "{primary}");
+    assert!(node.get("sha256").is_none(), "{primary}");
+}
