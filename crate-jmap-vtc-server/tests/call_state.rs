@@ -82,6 +82,46 @@ async fn initiator_ending_a_ringing_call_cancels_it() {
     assert_eq!(call["endReason"], "cancelled");
 }
 
+/// The `VTCCallEndEvent`s delivered so far, as wire JSON.
+fn call_end_events(backend: &jmap_vtc_server::memory::MemoryBackend) -> Vec<Value> {
+    backend
+        .events_for_test()
+        .into_iter()
+        .filter_map(|e| match e {
+            jmap_vtc_types::VtcEvent::CallEnd(e) => {
+                Some(serde_json::to_value(e).expect("serialize"))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn cancelling_a_ringing_call_stops_the_ring() {
+    let backend = backend();
+    let id = create_id(&backend, ring()).await;
+    // jmap-chat-spec 33702a5 L1422 "When a ringing call is answered,
+    // declined, cancelled, or times out, the server delivers a
+    // `VTCCallEndEvent` to all devices that received the ring."; L1431
+    // "`"cancelled"` (initiator withdrew the ring)".
+    update(&backend, BOB, &id, end()).await.expect("cancel");
+    assert_eq!(
+        call_end_events(&backend),
+        [json!({"accountId": ACCOUNT, "callId": id, "endReason": "cancelled"})]
+    );
+}
+
+#[tokio::test]
+async fn cancelling_a_pending_scheduled_call_rings_no_device() {
+    let backend = backend();
+    let id = create_id(&backend, scheduled()).await;
+    // jmap-chat-spec 33702a5 L1422: the event is for "a ringing call" and
+    // "devices that received the ring"; a scheduled call never rang.
+    update(&backend, BOB, &id, end()).await.expect("cancel");
+    assert_eq!(get(&backend, &id).await["endReason"], "cancelled");
+    assert!(call_end_events(&backend).is_empty());
+}
+
 #[tokio::test]
 async fn ring_target_cannot_end_the_call() {
     let backend = backend();

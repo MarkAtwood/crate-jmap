@@ -26,8 +26,8 @@
 //! [`expire_ring`] applies the ring timeout when the deployment's timer
 //! fires.
 //! The `VTCParticipant/*` methods: joining, gateway dial-out, answering
-//! and declining a ring (with the `answered_elsewhere` fork to the
-//! answering user's other devices), media state under the call policy, leaving and
+//! and declining a ring (with the `answered_elsewhere` or `declined` fork
+//! to that user's other devices), media state under the call policy, leaving and
 //! reconnecting, the participant-level moderator actions (mute, ask to
 //! unmute, kick, lobby admission, role, breakout assignment), the outbound
 //! `gatewayData/pendingSignal` relay, the call transitions they cause, and
