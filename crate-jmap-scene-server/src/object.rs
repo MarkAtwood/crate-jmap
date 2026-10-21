@@ -24,7 +24,7 @@ use crate::helpers::{
     backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
     extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
     invalid, is_visible, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
-    set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    set_error_value, SetAccumulators,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -509,14 +509,20 @@ async fn create_scene_object<B: SceneBackend>(
         m.insert("orientation".to_owned(), q);
     }
     let now = now_utc_string();
-    m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
+    // `id` is required by the type, so the parse uses "", which is not an
+    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `create_object` builder overwrites it with the minted id.
+    m.insert("id".to_owned(), json!(""));
     m.insert("ownerId".to_owned(), Value::Null);
     m.insert("createdAt".to_owned(), json!(now));
     m.insert("updatedAt".to_owned(), json!(now));
-    let object: SceneObject = serde_json::from_value(Value::Object(m))
+    let mut object: SceneObject = serde_json::from_value(Value::Object(m))
         .map_err(|e| invalid(&[], &format!("invalid SceneObject: {e}")))?;
     let (id, stored) = backend
-        .create_object(caller, account_id, create_id, object)
+        .create_object(caller, account_id, create_id, move |id: &Id| {
+            object.id = id.clone();
+            object
+        })
         .await
         .map_err(backend_set_error_value)?;
     Ok(json!({

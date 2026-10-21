@@ -103,10 +103,11 @@ pub trait SceneBackend: JmapBackend {
 
     /// Create an object.
     ///
-    /// The handler has validated `obj` against draft-atwood-jmap-scene-00
-    /// §SceneAsset/set and filled the server-set properties; its `id` is a
-    /// placeholder. The backend MUST, in one atomic step, assign a ULID
-    /// `id` ("A ULID assigned at creation") and store the object.
+    /// The handler has validated the create against
+    /// draft-atwood-jmap-scene-00 §SceneAsset/set and filled the server-set
+    /// properties other than `id`. The backend MUST, in one atomic step,
+    /// mint a ULID `id` ("A ULID assigned at creation"), call `build(&id)`
+    /// once for the object carrying it, and store that object.
     ///
     /// For a `SceneAsset` the backend also enforces the deployment-defined
     /// rules of §SetError Conditions atomically with the insert: refuse
@@ -149,14 +150,17 @@ pub trait SceneBackend: JmapBackend {
     /// client's creation id. Error mapping, state-counter and change-log
     /// rules are those of the canonical `jmap-mail-server` `create_object`:
     /// the state advances only when the create commits.
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Apply an RFC 8620 §5.3 PatchObject to an existing object.
     ///

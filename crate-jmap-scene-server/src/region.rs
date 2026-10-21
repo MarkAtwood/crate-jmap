@@ -20,7 +20,7 @@ use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid,
     normalized_quaternion, not_found, numbers, orientation_ok, reject_unsupported_sort,
-    set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    set_error_value, SetAccumulators,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -497,16 +497,22 @@ async fn create_region<B: SceneBackend>(
         m.insert("spawnOrientation".to_owned(), q.clone());
     }
     let now = now_utc_string();
-    m.insert("id".to_owned(), json!(PLACEHOLDER_ID));
+    // `id` is required by the type, so the parse uses "", which is not an
+    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `create_object` builder overwrites it with the minted id.
+    m.insert("id".to_owned(), json!(""));
     m.insert("accountId".to_owned(), json!(account_id));
     m.insert("ownerId".to_owned(), json!(owner_id));
     m.insert("activeAvatarCount".to_owned(), json!(0));
     m.insert("createdAt".to_owned(), json!(now));
     m.insert("updatedAt".to_owned(), json!(now));
-    let region: SceneRegion = serde_json::from_value(Value::Object(m))
+    let mut region: SceneRegion = serde_json::from_value(Value::Object(m))
         .map_err(|e| invalid(&[], &format!("invalid SceneRegion: {e}")))?;
     let (id, stored) = backend
-        .create_object(caller, account_id, create_id, region)
+        .create_object(caller, account_id, create_id, move |id: &Id| {
+            region.id = id.clone();
+            region
+        })
         .await
         .map_err(backend_set_error_value)?;
     let mut created = json!({

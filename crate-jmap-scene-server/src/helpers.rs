@@ -13,11 +13,6 @@ use jmap_server::{
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
-/// Sentinel `id` the handler puts on an object before
-/// [`SceneBackend::create_object`] replaces it. Mirrors the canonical
-/// `crate-jmap-mail-server/src/helpers.rs` `PLACEHOLDER_ID`.
-pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
-
 /// The values of `v` if it is an array of exactly `n` Numbers.
 pub(crate) fn numbers(v: &Value, n: usize) -> Option<Vec<f64>> {
     let a = v.as_array().filter(|a| a.len() == n)?;
