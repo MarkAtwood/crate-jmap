@@ -8,7 +8,7 @@ of `jmap-chat-mimi-types`.
 | Bead | Content | State |
 |---|---|---|
 | JMAP-6k5d.2 | Crate scaffold, `MimiBackend`, KeyPackage/get and /set, `memory` backend | landed |
-| JMAP-6k5d.3 | KeyPackage hand-out: atomic claim, `clientUri`, ref retention | open |
+| JMAP-6k5d.3 | KeyPackage hand-out: atomic claim, `clientUri`, ref retention | landed |
 | JMAP-6k5d.4 | Room/create checks and bound Chat restrictions | open |
 | JMAP-6k5d.5 | Room/update, send, unbind, GroupInfo and KeyMaterial fetch | open |
 | JMAP-6k5d.6 | Fanout storage | open |
@@ -26,3 +26,7 @@ of `jmap-chat-mimi-types`.
   `maxKeyPackages` are backend rules applied atomically with the insert.
 - The draft defines no `KeyPackage/changes` or `/query`; only `/get` and
   `/set` are registered.
+- KeyPackage hand-out is the backend's atomic `claim_key_packages`; the
+  `clientUri` scheme is the backend's choice. Releasing a handed-out
+  KeyPackageRef when its Welcome is delivered belongs with fanout
+  (JMAP-6k5d.6).

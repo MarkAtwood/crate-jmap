@@ -27,7 +27,14 @@ wire behaviour that a conforming peer can observe.
   binds the signature key to the account, refuses a KeyPackageRef already
   stored or handed out, replaces the client's previous last-resort
   KeyPackage, and returns `overQuota` beyond `maxKeyPackages`. Every
-  update is `forbidden`.
+  update is `forbidden`. KeyPackage hand-out (§Handing Out KeyPackages):
+  `MimiBackend::claim_key_packages` returns one `ClientKeyMaterial` per
+  client, atomically destroying the compatible non-last-resort record it
+  hands out or else keeping the last-resort one, with a `clientUri` stable
+  per signature key, and keeps every handed-out KeyPackageRef so it cannot
+  be uploaded again. `KeyMaterialRequirements::fit` judges a stored
+  KeyPackage against a request's acceptable cipher suites and
+  `RequiredCapabilities` and treats an expired one as unavailable.
 - **jmap-mail-types**, **jmap-calendars-types**, **jmap-contacts-types**,
   **jmap-filenode-types**, **jmap-tasks-types**: `may_set_metadata:
   Option<bool>` on `MailboxRights`, `CalendarRights`, `AddressBookRights`,

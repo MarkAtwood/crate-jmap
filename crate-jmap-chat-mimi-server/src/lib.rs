@@ -21,8 +21,12 @@
 //! `KeyPackage/get` and `KeyPackage/set` (draft §KeyPackages): the
 //! per-KeyPackage create checks in [`check_key_package_create`], parsed and
 //! verified with openmls, and the account-wide rules the backend applies
-//! atomically in [`MimiBackend::create_key_package`]. KeyPackage hand-out,
-//! `KeyMaterial/fetch`, `Room/*` and `GroupInfo/fetch` are not here yet.
+//! atomically in [`MimiBackend::create_key_package`].
+//!
+//! KeyPackage hand-out (draft §Handing Out KeyPackages):
+//! [`MimiBackend::claim_key_packages`] claims KeyPackages atomically,
+//! judged by [`KeyMaterialRequirements::fit`]. `KeyMaterial/fetch`,
+//! `Room/*` and `GroupInfo/fetch` are not here yet.
 //!
 //! # `memory` feature (reference implementation)
 //!
@@ -38,6 +42,7 @@ use std::sync::Arc;
 use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod backend;
+mod handout;
 mod keypackage;
 /// In-memory reference implementation of [`MimiBackend`].
 ///
@@ -49,6 +54,7 @@ pub use backend::{
     key_package_over_quota, key_package_ref_in_use, signature_key_bound_elsewhere, MimiBackend,
     NewKeyPackage,
 };
+pub use handout::{KeyMaterialRequirements, KeyPackageFit};
 pub use keypackage::{check_key_package_create, handle_key_package_get, handle_key_package_set};
 
 /// Capability URI for `urn:ietf:params:jmap:chat:mimi`.

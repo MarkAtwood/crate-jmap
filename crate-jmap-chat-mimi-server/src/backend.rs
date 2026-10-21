@@ -2,8 +2,8 @@
 //!
 //! Read-side operations (`get_objects`, `get_state`) are defined on the
 //! [`jmap_server::JmapBackend`] supertrait. This module adds the MLS crypto
-//! provider, the account-level capability object and the KeyPackage
-//! writes.
+//! provider, the account-level capability object, the KeyPackage writes
+//! and the KeyPackage hand-out.
 //!
 //! The `pub use` block re-exports the [`jmap_server`] backend types so a
 //! downstream impl can `use jmap_chat_mimi_server::backend::*`; each
@@ -15,8 +15,10 @@ pub use jmap_server::{
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 
-use jmap_chat_mimi_types::{Base64Url, MimiCapability};
+use jmap_chat_mimi_types::{Base64Url, ClientKeyMaterial, MimiCapability};
 use openmls::prelude::OpenMlsCrypto;
+
+use crate::handout::KeyMaterialRequirements;
 
 /// A KeyPackage that passed the per-KeyPackage checks of
 /// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set, ready for
@@ -134,6 +136,43 @@ pub trait MimiBackend: JmapBackend {
         key_package: NewKeyPackage,
         max_key_packages: u64,
     ) -> impl std::future::Future<Output = Result<jmap_types::Id, BackendSetError<Self::Error>>> + Send;
+
+    /// Hand out the owner's KeyPackages for one key material request
+    /// (draft-atwood-jmap-chat-mimi-00 §Handing Out KeyPackages).
+    ///
+    /// The backend MUST, in one atomic step, return one
+    /// [`ClientKeyMaterial`] for each signature key bound to `account_id`
+    /// (each of the owner's clients), judging each stored record with
+    /// [`KeyMaterialRequirements::fit`] over [`MimiBackend::mls_crypto`]:
+    ///
+    /// - `success` with a compatible record that is not last-resort,
+    ///   destroying that record so that "no KeyPackage is handed out
+    ///   twice", recording a `destroyed` change and advancing the state
+    ///   ("A destroyed record appears in a new state for the KeyPackage
+    ///   type");
+    /// - otherwise `success` with the client's compatible last-resort
+    ///   record, which it keeps;
+    /// - otherwise `nothingCompatible` when the client has a record that
+    ///   is [`KeyPackageFit::Incompatible`](crate::KeyPackageFit), and
+    ///   `keyMaterialExhausted` when it has none.
+    ///
+    /// Concurrent calls never return the same non-last-resort KeyPackage.
+    ///
+    /// `clientUri` is the backend's choice but "MUST be stable and unique
+    /// per leaf": the same in every response for a given signature key and
+    /// different for different signature keys.
+    ///
+    /// The backend MUST keep the KeyPackageRef of every KeyPackage it
+    /// returns, with `account_id`, "until a Welcome naming it has been
+    /// delivered or its leaf node lifetime has passed", and
+    /// [`MimiBackend::create_key_package`] refuses that KeyPackageRef
+    /// while it is kept.
+    fn claim_key_packages(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        requirements: &KeyMaterialRequirements,
+    ) -> impl std::future::Future<Output = Result<Vec<ClientKeyMaterial>, Self::Error>> + Send;
 
     /// Destroy a KeyPackage record by id. Unknown `id` is `notFound`; the
     /// state advances only when the destroy commits. The signature-key
