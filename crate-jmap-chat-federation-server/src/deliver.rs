@@ -55,15 +55,34 @@ pub struct AuthenticatedPeer {
     /// `peer_domain`, from the fetch that supplied the signing keys
     /// (§Identity Binding rule 1).
     pub peer_identity: String,
+    /// Whether the DID-bound verification of draft-atwood-jmap-chat-did-00
+    /// §DID-Bound Verification succeeded for `peer_identity`. Only a
+    /// host-less DID identity needs it: §Identity Binding rule 3 accepts
+    /// one "only after the DID-bound verification of {{JMAP-CHAT-DID}}
+    /// succeeds". It has no effect on any other identity.
+    pub did_verified: bool,
 }
 
 impl AuthenticatedPeer {
-    /// The peer at `peer_domain` whose identity is `peer_identity`.
+    /// The peer at `peer_domain` whose identity is `peer_identity`, with
+    /// no DID-bound verification.
     pub fn new(peer_domain: PeerDomain, peer_identity: impl Into<String>) -> Self {
         Self {
             peer_domain,
             peer_identity: peer_identity.into(),
+            did_verified: false,
         }
+    }
+
+    /// Mark the peer identity as DID-verified.
+    ///
+    /// Call this only after `jmap_chat_server::verify_did_binding`
+    /// returned `Ok` for the DID `peer_identity` and the key that
+    /// verified the request signature.
+    #[must_use]
+    pub fn with_did_verified(mut self) -> Self {
+        self.did_verified = true;
+        self
     }
 }
 
@@ -100,7 +119,9 @@ pub trait FederationBackend: ChatBackend {
     ///
     /// Return `Some` only after the request passed §Request Signing
     /// checks 1 to 6 (for example through `jmap_peer_auth_io::authenticate`)
-    /// and the peer domain published an `ownerUserId`. `None` makes every
+    /// and the peer domain published an `ownerUserId`. When that identity
+    /// is a DID without a host, the handlers accept it only if
+    /// [`AuthenticatedPeer::did_verified`] is set. `None` makes every
     /// `Peer/*` handler return `forbidden` (§Server-to-Server Methods:
     /// "Callers without the `"peer"` role MUST receive `forbidden`").
     fn authenticated_peer(&self, caller: &Self::CallerCtx) -> Option<AuthenticatedPeer>;
@@ -192,7 +213,8 @@ pub trait FederationBackend: ChatBackend {
 /// applies to its caller-identity field: "Servers MUST validate all such
 /// fields identically against the peer identity" (§Server-to-Server
 /// Methods). The peer identity must be bound to the authenticated peer
-/// domain (§Identity Binding) and equal `claimed` octet for octet.
+/// domain (§Identity Binding), or be a host-less DID whose DID-bound
+/// verification succeeded (rule 3), and equal `claimed` octet for octet.
 pub(crate) fn authenticate<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -201,9 +223,12 @@ pub(crate) fn authenticate<B: FederationBackend>(
     let peer = backend
         .authenticated_peer(caller)
         .ok_or_else(JmapError::forbidden)?;
-    if bind_identity(&peer.peer_identity, &peer.peer_domain) != IdentityBinding::Bound
-        || claimed != peer.peer_identity
-    {
+    let bound = match bind_identity(&peer.peer_identity, &peer.peer_domain) {
+        IdentityBinding::Bound => true,
+        IdentityBinding::NeedsDidVerification => peer.did_verified,
+        IdentityBinding::HostMismatch | IdentityBinding::NoHost => false,
+    };
+    if !bound || claimed != peer.peer_identity {
         return Err(JmapError::forbidden());
     }
     Ok(())
