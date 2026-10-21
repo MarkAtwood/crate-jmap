@@ -81,24 +81,14 @@ pub trait ContactsBackend: JmapBackend {
     /// `register_contacts_handlers` closures forward unchanged from
     /// [`jmap_server::Dispatcher::dispatch`].
     ///
-    /// # Sentinel fields the backend MUST replace
+    /// # Id assignment
     ///
-    /// The method handlers in this crate pass partially-constructed objects
-    /// with a sentinel value that the backend MUST replace with a real value
-    /// before storing:
-    ///
-    /// - **`id`**: The `id` field in the input object is always set to
-    ///   `"placeholder"` so the typed `Deserialize` on `O` (AddressBook /
-    ///   ContactCard) succeeds. The backend MUST replace it with a real,
-    ///   unique, account-scoped id, and return that id as the first element
-    ///   of the result tuple AND on the returned `O` (the handler stores the
-    ///   returned `O` verbatim in the `/set` `created` response per RFC 8620
-    ///   §5.3).
-    ///
-    /// Failing to replace the sentinel produces a record reachable by the
-    /// real id but carrying `id == "placeholder"` in its serialized form;
-    /// every subsequent `/get` / `/set` lookup against the real id will
-    /// return data that, when re-serialized, fails to round-trip.
+    /// The backend mints the new object's id, calls `build(&id)` exactly
+    /// once to obtain the complete object, and stores that object under
+    /// `id` in the same atomic write. `build` sets the object's `id` field
+    /// to the id it is given. The handler stores the returned `O` verbatim
+    /// in the `/set` `created` response (RFC 8620 §5.3), so the returned
+    /// `O` MUST be the object as stored.
     ///
     /// # Server-set fields beyond `id`
     ///
@@ -110,9 +100,8 @@ pub trait ContactsBackend: JmapBackend {
     /// new `AddressBook` reflecting any server-set computed fields beyond
     /// what the client requested.
     ///
-    /// Mirrors the canonical jmap-mail-server sentinel-fields contract
-    /// (bd:JMAP-qz9v.29). Contacts has no `blob_id` / `size` sentinels —
-    /// only `id`.
+    /// Mirrors the canonical jmap-mail-server `create_object` contract
+    /// (bd:JMAP-qz9v.29).
     ///
     /// # Errors
     ///
@@ -151,14 +140,17 @@ pub trait ContactsBackend: JmapBackend {
     /// all three under one mutex acquisition, and a database backend uses
     /// one transaction. A call that returns `Err` MUST leave the stored
     /// data, the state and the change log unchanged.
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
-        obj: O,
+        build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+           + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&jmap_types::Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing AddressBook or ContactCard.
     ///

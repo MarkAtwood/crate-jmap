@@ -36,7 +36,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ContactsBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators, PLACEHOLDER_ID,
+    SetAccumulators,
 };
 use jmap_server::{
     apply_patch_object, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
@@ -152,16 +152,9 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 );
                 continue;
             }
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.entry("id")
-                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
-                    Value::Object(m)
-                }
-                other => other,
-            };
-
-            let card: ContactCard = match serde_json::from_value(obj_with_id) {
+            // `ContactCard.id` is optional, so the create parses without
+            // one and `build` sets the id the backend mints.
+            let mut card: ContactCard = match serde_json::from_value(obj_val) {
                 Ok(c) => c,
                 Err(e) => {
                     not_created.insert(
@@ -172,8 +165,12 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 }
             };
 
+            let build = move |id: &Id| {
+                card.id = Some(id.clone());
+                card
+            };
             match backend
-                .create_object::<ContactCard>(caller, &account_id, &create_id, card)
+                .create_object::<ContactCard, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
