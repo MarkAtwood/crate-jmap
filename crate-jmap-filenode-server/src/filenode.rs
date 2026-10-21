@@ -290,6 +290,31 @@ async fn report_files_rights<B: FileNodeBackend>(
     Ok(())
 }
 
+/// Replace the `myRights` of a `FileNode/set` or `FileNode/copy`
+/// `created` entry with the [`FileNodeBackend::files_rights`] result for
+/// the created `node`, where it is `Some`.
+///
+/// RFC 8620 §5.3 puts "all server-set properties" in `created`, and
+/// draft-ietf-jmap-filenode-16 makes `myRights` server-set. The node is
+/// already stored when the hook is asked, so an `Err` leaves the create
+/// standing and the entry reports the stored `myRights`.
+async fn report_created_files_rights<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    node: &FileNode,
+    entry: &mut Value,
+) {
+    if let (Ok(Some(rights)), Value::Object(m)) =
+        (backend.files_rights(caller, account_id, node).await, entry)
+    {
+        m.insert(
+            "myRights".to_owned(),
+            serde_json::to_value(rights).expect("FilesRights serializes to JSON"),
+        );
+    }
+}
+
 // ---------------------------------------------------------------------------
 // FileNode/changes
 // ---------------------------------------------------------------------------
@@ -354,6 +379,11 @@ enum OnExists {
 /// [`FileNodeBackend::get_descendant_ids`] on the node being moved.  If the
 /// proposed new parent is in the descendant set, a cycle would result and the
 /// update is placed in `notUpdated` with `invalidProperties`.
+///
+/// ## Rights in `created`
+///
+/// Each `created` entry whose node has a `Some`
+/// [`FileNodeBackend::files_rights`] reports that value as its `myRights`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_set<B: FileNodeBackend>(
@@ -875,6 +905,14 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                             m.entry("sha256").or_insert(Value::Null);
                         }
                     }
+                    report_created_files_rights(
+                        backend,
+                        caller,
+                        &account_id,
+                        &created_obj,
+                        &mut value,
+                    )
+                    .await;
                     created.insert(create_id, value);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -1428,6 +1466,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 /// account, using the source node's properties.
 ///
 /// The source nodes are fetched with `get_objects` before copying.
+///
+/// Each `created` entry whose node has a `Some`
+/// [`FileNodeBackend::files_rights`] in the destination account reports
+/// that value as its `myRights`.
 ///
 /// Returns `(response_args, extra_invocations)`. When
 /// `onSuccessDestroyOriginal` is true the extra list holds the implicit
@@ -2047,6 +2089,14 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             m.entry("sha256").or_insert(Value::Null);
                         }
                     }
+                    report_created_files_rights(
+                        backend,
+                        caller,
+                        &account_id,
+                        &created_obj,
+                        &mut value,
+                    )
+                    .await;
                     copied_source_ids.push((create_id.clone(), source_id));
                     copied.insert(create_id, value);
                 }
@@ -3703,6 +3753,131 @@ mod tests {
             .await
             .expect_err("files_rights Err must surface as a JmapError");
         assert_eq!(err.error_type.as_str(), "serverFail", "{err:?}");
+    }
+
+    /// Oracle: RFC 8620 §5.3, `created` "includes all server-set
+    /// properties", and draft-ietf-jmap-filenode-16 L431-434 makes
+    /// `myRights` "server-set"; the FileNodeBackend::files_rights contract
+    /// reports `Some(rights)` in the `created` entry.
+    #[tokio::test]
+    async fn set_create_reports_files_rights_as_my_rights() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        // MemoryBackend names the first node it creates `node-1`.
+        backend.set_files_rights("node-1", read_only_rights());
+
+        let args = json!({
+            "accountId": "acc1",
+            "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
+        });
+        let resp = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("set")
+            .primary;
+        assert_eq!(resp["created"]["d1"]["id"], "node-1", "{resp}");
+        assert_eq!(
+            resp["created"]["d1"]["myRights"],
+            read_only_rights(),
+            "{resp}"
+        );
+    }
+
+    /// Oracle: FileNodeBackend::files_rights contract, "After a
+    /// `FileNode/set` or `FileNode/copy` create the node is already stored,
+    /// so the create stands and `created` reports the `myRights` that
+    /// [`Self::create_object`] returned"; the stored value is read back
+    /// with `FileNode/get`.
+    #[tokio::test]
+    async fn set_create_files_rights_err_keeps_create() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.inject_files_rights_err("simulated policy store timeout");
+
+        let args = json!({
+            "accountId": "acc1",
+            "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
+        });
+        let resp = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("files_rights Err after the insert must not fail the call")
+            .primary;
+        let created = &resp["created"]["d1"];
+        assert!(created.is_object(), "the create must stand: {resp}");
+
+        let get = handle_filenode_get(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": [created["id"]] }),
+        )
+        .await
+        .expect("get")
+        .primary;
+        assert_eq!(
+            created["myRights"], get["list"][0]["myRights"],
+            "{resp} {get}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.4, `/copy` `created` is "as for the
+    /// `created` argument" of `/set`, which "includes all server-set
+    /// properties" (§5.3); draft-ietf-jmap-filenode-16 L431-434 makes
+    /// `myRights` "server-set".
+    #[tokio::test]
+    async fn copy_reports_files_rights_as_my_rights() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("p", None, "p"));
+        backend.seed_node("acc1", make_filenode("n1", None, "n1"));
+        // Seeded ids are not `node-N`, so the copy is the first `node-1`.
+        backend.set_files_rights("node-1", read_only_rights());
+
+        let args = json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc1",
+            "create": { "c1": { "id": "n1", "parentId": "p" } }
+        });
+        let resp = handle_filenode_copy(&backend, &(), args, "c0")
+            .await
+            .expect("copy")
+            .primary;
+        assert_eq!(resp["created"]["c1"]["id"], "node-1", "{resp}");
+        assert_eq!(
+            resp["created"]["c1"]["myRights"],
+            read_only_rights(),
+            "{resp}"
+        );
+    }
+
+    /// Oracle: FileNodeBackend::files_rights contract (as for
+    /// `set_create_files_rights_err_keeps_create`), for `FileNode/copy`.
+    #[tokio::test]
+    async fn copy_files_rights_err_keeps_create() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("p", None, "p"));
+        backend.seed_node("acc1", make_filenode("n1", None, "n1"));
+        backend.inject_files_rights_err("simulated policy store timeout");
+
+        let args = json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc1",
+            "create": { "c1": { "id": "n1", "parentId": "p" } }
+        });
+        let resp = handle_filenode_copy(&backend, &(), args, "c0")
+            .await
+            .expect("files_rights Err after the insert must not fail the call")
+            .primary;
+        let created = &resp["created"]["c1"];
+        assert!(created.is_object(), "the copy must stand: {resp}");
+
+        let get = handle_filenode_get(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": [created["id"]] }),
+        )
+        .await
+        .expect("get")
+        .primary;
+        assert_eq!(
+            created["myRights"], get["list"][0]["myRights"],
+            "{resp} {get}"
+        );
     }
 
     /// Oracle: FileNodeBackend::cid_advertised contract, "`Err(e)`: ... a

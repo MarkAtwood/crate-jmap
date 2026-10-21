@@ -46,10 +46,14 @@ wire behaviour that a conforming peer can observe.
   `Ok(None)`, fail-open). `FileNode/get` reports a `Some` result as the
   node's `myRights`, including the ancestors `fetchParents` appends; an
   `Err` is `serverFail`. Unless `properties` excludes `myRights`, each
-  `FileNode/get` now makes one extra `get_objects` read.
+  `FileNode/get` now makes one extra `get_objects` read. `FileNode/set`
+  and `FileNode/copy` report a `Some` result in each `created` entry
+  (RFC 8620 §5.3); there an `Err` leaves the create standing and the
+  entry reports the stored `myRights`.
 - **jmap-chat-filenode-server**: a deployment returns `space_files_rights`
-  from `FileNodeBackend::files_rights`, so `FileNode/get` reports the
-  §Permission Mapping rights without patching its reads.
+  from `FileNodeBackend::files_rights`, so `FileNode/get`, `FileNode/set`
+  and `FileNode/copy` report the §Permission Mapping rights without
+  patching their reads.
 - **jmap-graph-types**: `GraphProjectionCapability`, the account-level
   `urn:ietf:params:jmap:graph:projection` object (`graphId`) of
   draft-atwood-jmap-graph-projection-00 §Account-Level Capability Object.
