@@ -1,8 +1,5 @@
 # jmap-graph-server
 
-> **Draft, not published.** Tracks draft-atwood-jmap-graph-00, which is
-> still changing; `publish = false` until Mark reviews it (JMAP-ef3q).
-
 Method handlers for draft-atwood-jmap-graph-00, the
 `urn:ietf:params:jmap:graph` capability: the standard RFC 8620 `/get`,
 `/changes`, `/set`, `/query` and `/queryChanges` of Graph, GraphNode and

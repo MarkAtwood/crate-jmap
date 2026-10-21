@@ -1,8 +1,5 @@
 # jmap-graph-client
 
-> **Draft, not published.** Tracks draft-atwood-jmap-graph-00, which is
-> still changing; `publish = false` until Mark reviews it (JMAP-ef3q).
-
 ## What it is
 
 Client bindings for the JMAP Graph extension (draft-atwood-jmap-graph-00).

@@ -1,8 +1,5 @@
 # jmap-graph-types
 
-> **Draft, not published.** Tracks draft-atwood-jmap-graph-00, which is
-> still changing; `publish = false` until Mark reviews it (JMAP-ef3q).
-
 Wire-format types for draft-atwood-jmap-graph-00, the
 `urn:ietf:params:jmap:graph` capability for storing and synchronizing
 general-purpose directed graphs over JMAP. Types only: no method handlers,

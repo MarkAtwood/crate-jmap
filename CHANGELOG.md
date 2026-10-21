@@ -23,7 +23,7 @@ wire behaviour that a conforming peer can observe.
   advance the `Chat` state whenever the stored value changes (RFC 8620
   §5.1).
 
-- **jmap-graph-projection-server** (new, not published): Mail and Contacts
+- **jmap-graph-projection-server** (new): Mail and Contacts
   binding for draft-atwood-jmap-graph-projection-00 — `Projectable` for the
   seven RFC 8621/9610 types with registered object URI type names,
   `Reference` edges typed `<DataType>/<property>` from `Id`, `Id|null`,
@@ -89,7 +89,7 @@ wire behaviour that a conforming peer can observe.
   (`GraphEditStreamMessage`) and `GraphNodeOpEvent`/`GraphCursorEvent`
   (`GraphEditEvent`).
 
-- **jmap-graph-client** (new, `publish = false`): draft-atwood-jmap-graph-00
+- **jmap-graph-client** (new): draft-atwood-jmap-graph-00
   client bindings — `JmapGraphExt::with_graph_session` and `SessionClient`
   `/get`, `/changes`, `/set`, `/query` and `/queryChanges` of `Graph`,
   `GraphNode` and `GraphEdge`, typed with the `jmap-graph-types` filters and
@@ -105,7 +105,7 @@ wire behaviour that a conforming peer can observe.
   **jmap-graph-server** a condition with `objectUri` matches no node: its
   nodes are never projected, so their `objectUri` is `null`.
 
-- **jmap-graph-server** (new, `publish = false`): draft-atwood-jmap-graph-00
+- **jmap-graph-server** (new): draft-atwood-jmap-graph-00
   method handlers — `register_graph_handlers` and the standard `/get`,
   `/changes`, `/set`, `/query` and `/queryChanges` of `Graph`, `GraphNode`
   and `GraphEdge` over a `GraphBackend` trait, with a `memory` reference
@@ -120,7 +120,7 @@ wire behaviour that a conforming peer can observe.
   GraphEdge `/query` need a single `graphId` condition
   (`unsupportedFilter`).
 
-- **jmap-graph-types** (new, `publish = false`): draft-atwood-jmap-graph-00
+- **jmap-graph-types** (new): draft-atwood-jmap-graph-00
   wire types — `JMAP_GRAPH_URI` (`urn:ietf:params:jmap:graph`),
   `GraphCapability` (`maxAnnotationSize`), `PrincipalGraphCapability`,
   `Graph` and `GraphRights` (RFC 9670 `shareWith`/`myRights`), `GraphNode`
@@ -258,7 +258,7 @@ wire behaviour that a conforming peer can observe.
   (`events_for_test`).
 - **jmap-vtc-types**: `VtcParticipant` implements `SetObject` and
   `QueryObject`.
-- **jmap-vtc-client** (new crate, `publish = false`): binds every
+- **jmap-vtc-client** (new crate): binds every
   draft-atwood-jmap-vtc-00 method — `/get`, `/changes`, `/set`, `/query`
   and `/queryChanges` for VTCCall, VTCParticipant, VTCRecording and
   VTCLivestream — on `SessionClient` via `JmapVtcExt::with_vtc_session`.
@@ -1237,6 +1237,14 @@ wire behaviour that a conforming peer can observe.
   (§Attachment), comparing the digest in constant time.
 
 ### Changed
+
+- **jmap-scene-types**, **jmap-scene-server**, **jmap-scene-client**,
+  **jmap-chat-scene-server**, **jmap-scene-vtc-server**, **jmap-vtc-types**,
+  **jmap-vtc-server**, **jmap-vtc-client**, **jmap-chat-vtc-server**,
+  **jmap-graph-types**, **jmap-graph-server**, **jmap-graph-client** and
+  **jmap-graph-projection-server** are publishable: `publish = false` and
+  the README draft notes are gone, and `RELEASING.md` places them in
+  layers 2a, 6, 7 and 8 of the publish order.
 
 - **BREAKING** **jmap-chat-types**: broadcast scopes are typed as the new
   `BroadcastScope` enum (`Everyone`, `Here`, `Admins`, `Other(String)`):

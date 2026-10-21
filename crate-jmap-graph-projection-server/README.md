@@ -5,7 +5,7 @@ draft-atwood-jmap-graph-projection-00 for presenting an account's RFC 8621
 and RFC 9610 objects as one projected Graph under
 `urn:ietf:params:jmap:graph:projection`. Each source object is a GraphNode
 whose `objectUri` names it, and each id reference between objects is a
-GraphEdge typed `<DataType>/<property>`. Not published (draft).
+GraphEdge typed `<DataType>/<property>`.
 
 ## What it is
 

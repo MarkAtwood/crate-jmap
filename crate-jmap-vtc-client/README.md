@@ -1,9 +1,5 @@
 # jmap-vtc-client
 
-> **Draft, not published.** Tracks a draft spec that is still changing
-> (jmap-chat-spec 6bcd9d8 revised it); `publish = false` until the crate
-> matches it (JMAP-0x0q, JMAP-38uq.14).
-
 ## What it is
 
 Typed client methods for the JMAP VTC extension ([draft-atwood-jmap-vtc-00]). Wraps

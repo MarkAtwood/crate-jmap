@@ -13,8 +13,7 @@ AGENTS.md "Canonical Templates").
 draft-atwood-jmap-graph-00 `Graph/*`, `GraphNode/*` and `GraphEdge/*`
 method handlers, the draft-atwood-jmap-graph-edit-00 `GraphNodeOp/*` and
 `GraphNode/cursor` handlers and WebSocket stream check, the `GraphBackend`
-trait and a `memory` reference backend. Depends on RFC 8620 crates and `jmap-graph-types` only. Not
-published (`publish = false`).
+trait and a `memory` reference backend. Depends on RFC 8620 crates and `jmap-graph-types` only.
 
 ## Before starting any work
 
