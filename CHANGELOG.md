@@ -825,6 +825,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-peer-auth**, **jmap-peer-auth-io**: `Accepted` and
+  `Authenticated` gain a `key: PeerSigningKey` field, the key whose `kid`
+  the signature's `keyid` names and that verified the signature, and are
+  now `#[non_exhaustive]`, so downstream code can no longer build them
+  with a struct literal or match them exhaustively. A caller needs the key
+  for draft-atwood-jmap-chat-did-00 §Federation Authentication step 2.
 - **BREAKING** **jmap-chat-server**: `EphemeralSubscription::from_enable`
   and `replace_with` take a new `CompanionStreams` argument naming the
   companion WebSocket capabilities the server advertises. `"vtc"` and
