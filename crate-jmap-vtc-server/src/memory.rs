@@ -36,7 +36,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_server::{apply_patch_object, resolve_query_start};
-use jmap_types::{Id, State};
+use jmap_types::{Id, State, UTCDate};
 use jmap_vtc_types::query::{
     VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator,
     VtcParticipantComparator, VtcParticipantFilter, VtcRecordingFilter,
@@ -327,8 +327,13 @@ fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
     O::deserialize(v).map_err(|e| MemoryError::new(format!("decode {}: {e}", O::TYPE_NAME)))
 }
 
-/// A VTCParticipant record for a ring call, which nobody has joined yet.
-fn ring_participant(call_id: &Id, user_id: &str, role: CallRole) -> Value {
+/// A VTCParticipant record for a ring call, joined at `joined_at`.
+fn ring_participant(
+    call_id: &Id,
+    user_id: &str,
+    role: CallRole,
+    joined_at: Option<&UTCDate>,
+) -> Value {
     let response = (role == CallRole::Participant).then_some("pending");
     json!({
         "id": ulid::Ulid::new().to_string(),
@@ -336,7 +341,7 @@ fn ring_participant(call_id: &Id, user_id: &str, role: CallRole) -> Value {
         "userId": user_id,
         "displayName": user_id,
         "role": role,
-        "joinedAt": null,
+        "joinedAt": joined_at,
         "leftAt": null,
         "callResponse": response,
         "joinMethod": "webrtc",
@@ -638,13 +643,15 @@ impl VtcBackend for MemoryBackend {
                 &id,
                 &call.initiator_id,
                 CallRole::Moderator,
+                Some(&call.created_at),
             ));
             participants.extend(
                 ring_targets
                     .iter()
-                    .map(|t| ring_participant(&id, t, CallRole::Participant)),
+                    .map(|t| ring_participant(&id, t, CallRole::Participant, None)),
             );
             call.state = CallState::Ringing;
+            call.active_participant_count = 1;
         }
 
         let parent = match call.parent_call_id.as_ref() {

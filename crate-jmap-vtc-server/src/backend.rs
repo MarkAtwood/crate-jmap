@@ -107,7 +107,11 @@ pub trait VtcBackend: JmapBackend {
     ///   VTCParticipant record for each of `ring_targets` (`joinedAt`
     ///   `null`, `callResponse` `"pending"`) and one for the initiator
     ///   with `role` `"moderator"` ("The call initiator receives
-    ///   `"moderator"` by default"), dispatch the ring notifications, and
+    ///   `"moderator"` by default") and `joinedAt` equal to
+    ///   `call.created_at` ("with `joinedAt` set to the creation time,
+    ///   since the initiator is in the call from the start"), set the
+    ///   call's `activeParticipantCount` to 1, dispatch the ring
+    ///   notifications, and
     ///   store the call in state `"ringing"` ("Server transitions
     ///   automatically when the call is created and ring notifications
     ///   have been dispatched"). `ring_targets` is empty for other call

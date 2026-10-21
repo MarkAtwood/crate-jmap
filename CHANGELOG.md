@@ -1350,6 +1350,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-vtc-server**: a ring `VTCCall/set` create now joins
+  the initiator: its VTCParticipant record has `joinedAt` equal to the
+  call's `createdAt` and the call's `activeParticipantCount` is 1
+  (draft-atwood-jmap-vtc-00 §Creating a Ring Call, "with `joinedAt` set
+  to the creation time, since the initiator is in the call from the
+  start"). `VtcBackend::create_call` implementations must follow the
+  revised contract; `MemoryBackend` does.
 - **jmap-chat-server**: when the duplicate re-check read after a direct
   `Chat/set` create fails, the handler destroys the new Chat and reports
   that create in `notCreated` as `serverFail`, and the rest of the batch
