@@ -117,6 +117,7 @@ fn subscribed(enable: Value) -> VtcEphemeralSubscription {
 fn media_state(call_id: &str, participant_id: &str) -> VtcEvent {
     serde_json::from_value(json!({
         "@type": "VTCMediaStateEvent",
+        "accountId": ACCOUNT,
         "callId": call_id,
         "participantId": participant_id,
         "mediaState": { "audio": false, "video": false, "screen": false, "raisedHand": true }

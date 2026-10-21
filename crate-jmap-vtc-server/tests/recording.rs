@@ -84,11 +84,13 @@ async fn moderator_starts_a_recording_and_every_participant_is_told() {
 
     // L1076 "On success, the server MUST deliver a `VTCRecordingStateEvent`
     // ... with `state: "recording"` to all participants in the call."
-    // Shape: the L1851-1857 example event.
+    // Shape: the L1851-1857 example event, plus the hosting account's
+    // `accountId` (draft-atwood-jmap-vtc-wss-00 L296-303).
     assert_eq!(
         events(&backend),
         [json!({
             "@type": "VTCRecordingStateEvent",
+            "accountId": ACCOUNT,
             "callId": "C1",
             "recordingId": id,
             "state": "recording",

@@ -107,12 +107,15 @@ fn assert_ended(call: &Value, reason: &str) {
 }
 
 /// L1534-1537 `state` "The new recording state" and `initiatedBy` "The
-/// userId of the participant who initiated the state change".
+/// userId of the participant who initiated the state change";
+/// draft-atwood-jmap-vtc-wss-00 L296-303: `accountId` is "the id of the
+/// call's hosting account".
 fn assert_stopped_event(event: &Value, call_id: &str, recording_id: &str, by: &str) {
     assert_eq!(
         *event,
         json!({
             "@type": "VTCRecordingStateEvent",
+            "accountId": ACCOUNT,
             "callId": call_id,
             "recordingId": recording_id,
             "state": "stopped",

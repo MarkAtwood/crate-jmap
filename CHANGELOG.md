@@ -999,6 +999,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-types**: all eight VTC ephemeral event structs
+  (`VtcRingEvent`, `VtcCallEndEvent`, `VtcGatewaySignal`,
+  `VtcParticipantEvent`, `VtcMediaStateEvent`, `VtcActiveSpeakerEvent`,
+  `VtcUnmuteRequestEvent`, `VtcRecordingStateEvent`) have a required
+  `account_id: Id`, the call's hosting account
+  (draft-atwood-jmap-vtc-wss-00 §Event Types). A frame without
+  `accountId` no longer decodes. **jmap-vtc-server** fills it with the
+  hosting account on every event it builds.
 - **BREAKING** **jmap-vtc-server**: `VtcBackend` has a new required
   method, `deliver_event`, for the `VTCUnmuteRequestEvent` and outbound
   `VTCGatewaySignal` that `VTCParticipant/set` produces. The

@@ -854,7 +854,7 @@ async fn update_participant<B: VtcBackend>(
 
     if let Some(pending) = signal {
         moderator_only("send a gateway signal")?;
-        effects.signal = Some(gateway_signal(&old, pending)?);
+        effects.signal = Some(gateway_signal(account_id, &old, pending)?);
         // The server "removes the key": report the stored value.
         echo.insert("gatewayData".to_owned(), to_value(&old.gateway_data));
     }
@@ -897,8 +897,12 @@ fn preview(old: &VtcParticipant, patch: &PatchObject) -> Result<VtcParticipant, 
 
 /// The outbound `VTCGatewaySignal` a moderator's `gatewayData/pendingSignal`
 /// carries (§VTCGatewaySignal): its `signal` and `data`, for the gateway
-/// participant `target`.
-fn gateway_signal(target: &VtcParticipant, pending: Value) -> Result<VtcGatewaySignal, Value> {
+/// participant `target` of a call hosted in `account_id`.
+fn gateway_signal(
+    account_id: &Id,
+    target: &VtcParticipant,
+    pending: Value,
+) -> Result<VtcGatewaySignal, Value> {
     if target.join_method == JoinMethod::Webrtc {
         return Err(invalid(
             &["gatewayData"],
@@ -915,6 +919,7 @@ fn gateway_signal(target: &VtcParticipant, pending: Value) -> Result<VtcGatewayS
         ));
     };
     Ok(build(json!({
+        "accountId": account_id,
         "callId": target.call_id,
         "participantId": target.id,
         "protocol": target.join_method,
@@ -972,6 +977,7 @@ async fn run_effects<B: VtcBackend>(
     }
     if effects.unmute_request {
         let event: VtcUnmuteRequestEvent = build(json!({
+            "accountId": account_id,
             "callId": old.call_id,
             "participantId": old.id,
             "requestedBy": me,

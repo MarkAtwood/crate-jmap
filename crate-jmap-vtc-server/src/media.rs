@@ -669,6 +669,7 @@ async fn deliver<B: VtcBackend>(
     // `VtcRecordingStateEvent` is `#[non_exhaustive]`; every field below is
     // one of its typed fields, so the decode cannot fail.
     let event: VtcRecordingStateEvent = serde_json::from_value(json!({
+        "accountId": account_id,
         "callId": call_id,
         "recordingId": recording_id,
         "state": state,
