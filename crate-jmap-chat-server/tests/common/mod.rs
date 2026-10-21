@@ -104,6 +104,18 @@ impl JmapBackend for FaultyBackend {
 }
 
 impl ChatBackend for FaultyBackend {
+    async fn attachment_blob(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _blob_id: &Id,
+    ) -> Result<
+        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
+        MemoryError,
+    > {
+        Ok(Ok(None))
+    }
+
     async fn create_object<O, F>(
         &self,
         _caller: &(),
@@ -905,6 +917,18 @@ impl JmapBackend for IdentityBackend {
 }
 
 impl ChatBackend for IdentityBackend {
+    async fn attachment_blob(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<
+        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
+        MemoryError,
+    > {
+        self.inner.attachment_blob(&(), account_id, blob_id).await
+    }
+
     async fn create_object<O, F>(
         &self,
         _caller: &Id,
@@ -1347,6 +1371,20 @@ impl JmapBackend for InjectableBackend {
 }
 
 impl ChatBackend for InjectableBackend {
+    async fn attachment_blob(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<
+        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
+        MemoryError,
+    > {
+        self.inner
+            .attachment_blob(caller, account_id, blob_id)
+            .await
+    }
+
     async fn create_object<O, F>(
         &self,
         caller: &(),

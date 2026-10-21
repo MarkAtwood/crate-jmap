@@ -368,6 +368,18 @@ impl JmapBackend for Fed {
 }
 
 impl ChatBackend for Fed {
+    async fn attachment_blob(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<
+        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
+        MemoryError,
+    > {
+        self.chat.attachment_blob(caller, account_id, blob_id).await
+    }
+
     async fn create_object<O, F>(
         &self,
         caller: &(),

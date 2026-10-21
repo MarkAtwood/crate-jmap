@@ -36,6 +36,29 @@ fn seed_chat(backend: &IdentityBackend, kind: &str, extra: Value) {
     backend
         .inner()
         .insert_object_for_test("Chat", ACCOUNT_ID, CHAT_ID, chat);
+    // §Chat `pinnedMessageIds`: "Each id MUST be the id of a Message in
+    // this Chat", so the ids these tests pin are stored Messages.
+    for id in ["m1", "m2"] {
+        let msg = json!({
+            "id": id,
+            "senderMsgId": format!("smsg-{id}"),
+            "senderId": "peer",
+            "chatId": CHAT_ID,
+            "body": "b",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "broadcastMentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:01Z",
+            "deliveryState": "delivered"
+        });
+        backend
+            .inner()
+            .insert_object_for_test("Message", ACCOUNT_ID, id, msg);
+    }
 }
 
 /// Seed a group Chat where the owner, whose member entry is the

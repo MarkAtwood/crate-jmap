@@ -1727,16 +1727,29 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// # Default implementation
     ///
-    /// Returns `Ok(false)` — no one is blocked. This is appropriate
-    /// for backends that have not yet implemented contact lists, and
-    /// matches the workspace's fail-open policy-hook posture.
+    /// Fetches `contact_id` from `account_id` with
+    /// [`JmapBackend::get_objects`] and returns its `blocked` field, or
+    /// `Ok(false)` when `account_id` holds no such ChatContact. The
+    /// callers pass the recipient's `caller`, the same one they use to
+    /// read the recipient's Chat. Override this only when ChatContacts are
+    /// not stored behind `get_objects` or a cheaper lookup exists.
     fn is_contact_blocked(
         &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _contact_id: &jmap_types::Id,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        contact_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        async { Ok(false) }
+        async move {
+            let (contacts, _) = self
+                .get_objects::<jmap_chat_types::ChatContact>(
+                    caller,
+                    account_id,
+                    Some(std::slice::from_ref(contact_id)),
+                    None,
+                )
+                .await?;
+            Ok(contacts.iter().any(|c| c.id == *contact_id && c.blocked))
+        }
     }
 
     /// The owner's identity for `account_id`: the value of the
@@ -2235,21 +2248,16 @@ pub trait ChatBackend: JmapBackend {
     ///   (RFC 8620 §5.3 defines `blobNotFound` only for upload paths).
     /// - `Err(e)`: `serverFail`.
     ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(Ok(None))`: no blob store, nothing verified, matching
-    /// the fail-open hooks above. Backends with a blob store SHOULD
-    /// override this method.
+    /// Required: the `size` check is a MUST, so a backend that cannot
+    /// verify blobs says so explicitly by returning `Ok(Ok(None))`.
     fn attachment_blob(
         &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _blob_id: &jmap_types::Id,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<
         Output = Result<Result<Option<AttachmentBlob>, SetError>, Self::Error>,
-    > + Send {
-        async { Ok(Ok(None)) }
-    }
+    > + Send;
 
     /// FileNode resolution consulted by `handle_message_set` for each
     /// create Attachment that carries `filenodeId`.
@@ -2358,16 +2366,35 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// # Default implementation
     ///
-    /// Returns `Ok(Ok(()))`, matching the parallel hooks above. Backends
-    /// that store Messages SHOULD override it; the spec rule is a MUST.
+    /// Fetches `added` with [`JmapBackend::get_objects`] and accepts only
+    /// when every id comes back as a Message whose `chatId` is `chat_id`.
+    /// Override this only when Messages are not stored behind
+    /// `get_objects` or a cheaper lookup exists.
     fn validate_pinned_message_ids(
         &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _chat_id: &jmap_types::Id,
-        _added: &[jmap_types::Id],
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        chat_id: &jmap_types::Id,
+        added: &[jmap_types::Id],
     ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
-        async { Ok(Ok(())) }
+        async move {
+            let (messages, _) = self
+                .get_objects::<jmap_chat_types::Message>(caller, account_id, Some(added), None)
+                .await?;
+            let in_chat = |id: &jmap_types::Id| {
+                messages
+                    .iter()
+                    .any(|m| m.id == *id && m.chat_id == *chat_id)
+            };
+            if added.iter().all(in_chat) {
+                return Ok(Ok(()));
+            }
+            Ok(Err(SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["pinnedMessageIds"])
+                .with_description(
+                    "pinned id is not a Message in this Chat",
+                )))
+        }
     }
 
     /// Throttle gate consulted before a `Message/set` create lands on
