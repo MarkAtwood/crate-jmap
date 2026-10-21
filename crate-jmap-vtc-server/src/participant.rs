@@ -17,7 +17,8 @@
 //!
 //! Not here: the `answered_elsewhere` fork to the answering user's other
 //! devices (bd:JMAP-8mem.7), and the per-call access and E2EE visibility
-//! rules (bd:JMAP-8mem.5), which the backend applies.
+//! rules, which the backend's reads apply ([`VtcBackend`] §Per-call
+//! access).
 
 use jmap_types::{Id, JmapError, PatchObject};
 use jmap_vtc_types::query::{Filter, Operator, VtcParticipantComparator, VtcParticipantFilter};

@@ -45,6 +45,39 @@ pub fn call_already_active_on_chat() -> SetError {
 /// handlers apply the draft's call-level gates (capability flags, the
 /// moderator rule via [`Self::is_moderator`]) as defense in depth.
 ///
+/// # Per-call access
+///
+/// The handlers read every VTC record through `get_objects`, so the
+/// backend's read path is the access check. For each caller,
+/// `get_objects`, `query_objects` and `query_changes` MUST treat a
+/// `VTCCall` the caller has no access to, and the `VTCParticipant`,
+/// `VTCRecording` and `VTCLivestream` records of that call, as absent: a
+/// requested id goes to the not-found list and a full fetch or query
+/// leaves it out. Every method then answers `notFound`, as
+/// draft-atwood-jmap-vtc-00 requires: "Non-members SHOULD receive
+/// `notFound` for `VTCCall/get` and `VTCParticipant/get` requests on the
+/// call" (§Chat-Bound Calls), "Non-participants receive `notFound` for
+/// calls they cannot access" (§Standalone Calls), "The server SHOULD
+/// return `notFound` if the `callId` does not exist or the caller does
+/// not have access to it" (§Joining a Room or Scheduled Call), and "The
+/// query SHOULD return only calls the authenticated user has access to"
+/// (§VTCCall/query). Who has access is the deployment's: a Chat binding
+/// applies the bound Chat's membership, `"view"` permission and the
+/// initiator's blocks; a standalone call admits its participants and
+/// initiator. A backend with no rule grants access (bd:JMAP-bghk).
+///
+/// For a call with `e2eeEnabled: true` the same reads MUST also hide its
+/// `VTCParticipant` records from a user with no record in it: "For such
+/// users the server SHOULD return `notFound` for `VTCParticipant/get` and
+/// exclude the records from `VTCParticipant/query`" (§Participant
+/// Visibility). `get_changes` is unaffected: "`VTCParticipant/changes`
+/// keeps reporting changes for the account as a whole".
+///
+/// The backend is also the only writer of `speakerTimeMs` after a join.
+/// For an E2EE call it SHOULD NOT map media streams to participants and
+/// then keeps the value at `0`: "it sets `speakerTimeMs` to `0` as that
+/// field's definition requires" (§Active Speaker and Speaker Time).
+///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl VtcBackend>` when sharing across tasks.
 pub trait VtcBackend: JmapBackend {

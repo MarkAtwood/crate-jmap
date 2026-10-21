@@ -509,6 +509,16 @@ async fn update_call<B: VtcBackend>(
         }
     }
 
+    // §VTCCall `e2eeEnabled`: "The server SHOULD reject an update from
+    // `true` to `false` with `invalidProperties` naming `e2eeEnabled`, so
+    // that participants never have to detect a downgrade."
+    if call.e2ee_enabled && patch.as_map().get("e2eeEnabled") == Some(&Value::Bool(false)) {
+        return Err(invalid(
+            &["e2eeEnabled"],
+            "e2eeEnabled cannot change from true to false",
+        ));
+    }
+
     let mut echo = Value::Null;
     if let Some(requested) = patch.as_map().get("state") {
         if call.state == CallState::Ended {

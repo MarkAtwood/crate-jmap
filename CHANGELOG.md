@@ -999,6 +999,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-server**: `VTCCall/set` rejects an update of
+  `e2eeEnabled` from `true` to `false` with `invalidProperties` naming
+  `e2eeEnabled` (draft-atwood-jmap-vtc-00 §VTCCall `e2eeEnabled`).
+- **BREAKING** **jmap-vtc-server**: the `VtcBackend` contract gains
+  §Per-call access. `get_objects`, `query_objects` and `query_changes`
+  MUST treat a call the caller cannot access, and that call's
+  participants, recordings and livestreams, as absent. For a call with
+  `e2eeEnabled: true` they MUST also hide its participants from a user
+  with no record in it, so every VTC method answers `notFound`
+  (§Access Control, §Participant Visibility). `MemoryBackend` implements
+  this, and its `deny_call_access` makes a call inaccessible to a user.
 - **BREAKING** **jmap-vtc-types**: all eight VTC ephemeral event structs
   (`VtcRingEvent`, `VtcCallEndEvent`, `VtcGatewaySignal`,
   `VtcParticipantEvent`, `VtcMediaStateEvent`, `VtcActiveSpeakerEvent`,
