@@ -875,7 +875,7 @@ async fn update_participant<B: VtcBackend>(
         }
     }
 
-    run_effects(backend, caller, account_id, &call, &old, &me, effects).await?;
+    run_effects(backend, caller, account_id, &old, &me, effects).await;
     Ok(match echo {
         Value::Object(m) if m.is_empty() => Value::Null,
         other => other,
@@ -945,14 +945,57 @@ async fn call_participants<B: VtcBackend>(
 
 /// Apply the call transitions and deliveries of an update that has
 /// committed. `old` is the participant before it.
+///
+/// Best-effort: the update is already stored, so a failed transition is
+/// not the update's failure and is not reported as its SetError (RFC 8620
+/// §5.3: `newState` must reflect the committed change). The call is
+/// reloaded first, and a call that has ended since the request began (for
+/// example a moderator's `VTCCall/set` `"ended"`) takes no transition: a
+/// leave after the end only records `leftAt`.
 async fn run_effects<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    old: &VtcParticipant,
+    me: &str,
+    effects: Effects,
+) {
+    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, &old.call_id)
+        .await
+        .ok()
+        .flatten()
+        .filter(|c| c.state != CallState::Ended);
+    if let Some(call) = &call {
+        // ponytail: transition failures are dropped, as the crate has no
+        // logging. Upgrade path: a `VtcBackend` hook that reports them.
+        let _ = call_transitions(backend, caller, account_id, call, old, &effects).await;
+    }
+    if effects.unmute_request {
+        let event: VtcUnmuteRequestEvent = build(json!({
+            "callId": old.call_id,
+            "participantId": old.id,
+            "requestedBy": me,
+        }));
+        backend
+            .deliver_event(caller, account_id, VtcEvent::UnmuteRequest(event))
+            .await;
+    }
+    if let Some(signal) = effects.signal {
+        backend
+            .deliver_event(caller, account_id, VtcEvent::GatewaySignal(signal))
+            .await;
+    }
+}
+
+/// The call transitions of [`run_effects`] on `call`, which has not
+/// ended. The `Err` value is the first failure's SetError JSON.
+async fn call_transitions<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     call: &VtcCall,
     old: &VtcParticipant,
-    me: &str,
-    effects: Effects,
+    effects: &Effects,
 ) -> Result<(), Value> {
     if effects.activate {
         // "if the call is `"ringing"`, the server transitions it to
@@ -978,21 +1021,6 @@ async fn run_effects<B: VtcBackend>(
     }
     if effects.left {
         after_leave(backend, caller, account_id, call, old).await?;
-    }
-    if effects.unmute_request {
-        let event: VtcUnmuteRequestEvent = build(json!({
-            "callId": call.id,
-            "participantId": old.id,
-            "requestedBy": me,
-        }));
-        backend
-            .deliver_event(caller, account_id, VtcEvent::UnmuteRequest(event))
-            .await;
-    }
-    if let Some(signal) = effects.signal {
-        backend
-            .deliver_event(caller, account_id, VtcEvent::GatewaySignal(signal))
-            .await;
     }
     Ok(())
 }
