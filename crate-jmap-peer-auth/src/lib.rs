@@ -26,8 +26,9 @@
 //!   the `Content-Digest`, `Signature-Input` and `Signature` header values.
 //! - [`SignedRequest`] — parses a received request ([`SignedRequest::parse`],
 //!   check 1 and the `keyid` part of check 2) and verifies it
-//!   ([`SignedRequest::verify`], checks 2 to 6). Every [`Rejection`] maps
-//!   to HTTP 403.
+//!   ([`SignedRequest::verify`], checks 2, 3, 4 and 6). Check 5 (replay)
+//!   is the caller's atomic test-and-insert of the [`Accepted`] pair.
+//!   Every [`Rejection`] maps to HTTP 403.
 //! - [`PeerSigningKey`] — a usable `peerSigningKeys` entry (§Key
 //!   Publication): Ed25519 OKP JWK whose `kid` is its RFC 7638 thumbprint.
 //! - [`usable_keys`] and [`DnssecAnswer`] — the DNSSEC precedence rule
@@ -64,7 +65,7 @@
 //! let keys = [PeerSigningKey::from(key.verifying_key())];
 //! let request = Request { method: &Method::POST, target_uri: uri, headers: &headers, content: body };
 //! let signed = SignedRequest::parse(request)?;
-//! let accepted = signed.verify(&keys, now, |_domain, _nonce| false)?;
+//! let accepted = signed.verify(&keys, now)?;
 //! assert_eq!(accepted.peer_domain, alice);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

@@ -3,7 +3,6 @@
 //! `Signature-Input` text and the RFC 9421 §2.5 signature base are
 //! written out in the test and signed with ed25519-dalek directly.
 
-use std::cell::RefCell;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
@@ -126,23 +125,18 @@ impl Case {
         headers
     }
 
-    fn verify_with(
-        &self,
-        headers: &HeaderMap,
-        now: i64,
-        seen: bool,
-    ) -> Result<Accepted, Rejection> {
+    fn verify_with(&self, headers: &HeaderMap, now: i64) -> Result<Accepted, Rejection> {
         let request = Request {
             method: &self.method,
             target_uri: self.target,
             headers,
             content: self.body,
         };
-        SignedRequest::parse(request)?.verify(&alice_keys(), at(now), |_, _| seen)
+        SignedRequest::parse(request)?.verify(&alice_keys(), at(now))
     }
 
     fn verify(&self, now: i64) -> Result<Accepted, Rejection> {
-        self.verify_with(&self.headers(), now, false)
+        self.verify_with(&self.headers(), now)
     }
 }
 
@@ -157,7 +151,7 @@ fn valid_requests_are_accepted() {
             PeerDomain::parse("alice.example").unwrap()
         );
         assert_eq!(accepted.nonce, NONCE);
-        // "MUST remember each accepted (peer domain, `nonce`) pair at least
+        // "SHOULD remember each accepted (peer domain, `nonce`) pair at least
         // until 60 seconds after that signature's `expires`."
         assert_eq!(accepted.forget_after, at(CREATED + 300 + 60));
         assert_eq!(accepted.created, at(CREATED));
@@ -189,7 +183,7 @@ fn accepted_carries_the_key_the_keyid_names() {
     };
     let accepted = SignedRequest::parse(request)
         .unwrap()
-        .verify(&keys, at(CREATED), |_, _| false)
+        .verify(&keys, at(CREATED))
         .unwrap();
     assert_eq!(
         accepted.key.kid(),
@@ -344,7 +338,7 @@ fn check2_kid_must_name_usable_key() {
     };
     let result = SignedRequest::parse(request)
         .unwrap()
-        .verify(&[], at(CREATED), |_, _| false);
+        .verify(&[], at(CREATED));
     assert_eq!(result, Err(Rejection::UnknownKey));
 }
 
@@ -369,14 +363,14 @@ fn check3_signature_must_verify() {
         .replace("created=1760000000", "created=1760000001");
     headers.insert("signature-input", HeaderValue::from_str(&tampered).unwrap());
     assert_eq!(
-        case.verify_with(&headers, CREATED, false),
+        case.verify_with(&headers, CREATED),
         Err(Rejection::BadSignature)
     );
 
     let mut headers = case.headers();
     headers.insert("signature", HeaderValue::from_static("sig1=:AAAA:"));
     assert_eq!(
-        case.verify_with(&headers, CREATED, false),
+        case.verify_with(&headers, CREATED),
         Err(Rejection::BadSignature)
     );
 }
@@ -398,34 +392,17 @@ fn check4_clock_window() {
 }
 
 /// Check 5: "The receiver has not accepted a request carrying the same
-/// peer domain and `nonce` before."
+/// peer domain and `nonce` before." `verify` holds no replay state, so
+/// the same request verifies again; the caller's atomic insert of the
+/// returned (alice.example, nonce) pair is what rejects the replay.
 #[test]
-fn check5_replay() {
+fn check5_replay_is_the_callers() {
     let case = Case::post();
-    let headers = case.headers();
-    assert_eq!(
-        case.verify_with(&headers, CREATED, true),
-        Err(Rejection::Replayed)
-    );
-
-    let asked = RefCell::new(None);
-    let request = Request {
-        method: &case.method,
-        target_uri: TARGET,
-        headers: &headers,
-        content: BODY,
-    };
-    SignedRequest::parse(request)
-        .unwrap()
-        .verify(&alice_keys(), at(CREATED), |domain, nonce| {
-            asked.replace(Some((domain.to_string(), nonce.to_owned())));
-            false
-        })
-        .unwrap();
-    assert_eq!(
-        asked.into_inner(),
-        Some(("alice.example".to_owned(), NONCE.to_owned()))
-    );
+    for _ in 0..2 {
+        let accepted = case.verify(CREATED).unwrap();
+        assert_eq!(accepted.peer_domain.to_string(), "alice.example");
+        assert_eq!(accepted.nonce, NONCE);
+    }
 }
 
 /// Check 6: "For a request with content, the `content-digest` field
@@ -484,7 +461,7 @@ fn malformed_signature_fields() {
     let mut headers = case.headers();
     headers.remove("signature");
     assert!(matches!(
-        case.verify_with(&headers, CREATED, false),
+        case.verify_with(&headers, CREATED),
         Err(Rejection::Malformed(_))
     ));
     headers.insert(
@@ -492,7 +469,7 @@ fn malformed_signature_fields() {
         HeaderValue::from_static("sig1=(\"@method\""),
     );
     assert!(matches!(
-        case.verify_with(&headers, CREATED, false),
+        case.verify_with(&headers, CREATED),
         Err(Rejection::Malformed(_))
     ));
 
@@ -519,11 +496,11 @@ fn extra_components() {
     );
     let mut headers = case.headers();
     headers.insert("content-type", HeaderValue::from_static("application/json"));
-    assert!(case.verify_with(&headers, CREATED, false).is_ok());
+    assert!(case.verify_with(&headers, CREATED).is_ok());
 
     headers.remove("content-type");
     assert_eq!(
-        case.verify_with(&headers, CREATED, false),
+        case.verify_with(&headers, CREATED),
         Err(Rejection::UnderivableComponent("content-type".to_owned()))
     );
 
