@@ -176,6 +176,12 @@ impl SceneEphemeralSubscription {
 ///   `SceneObjectEvent`. A `SceneObjectEvent` with `updatedBy` `null` is
 ///   never suppressed. Without Chat no blocked-sender filtering applies.
 ///
+/// `account_id` is the account the region and object are read from. It
+/// must be the event's `accountId`, "the id of the region's hosting
+/// account" (draft-atwood-jmap-scene-wss-00 §Ephemeral Event Types); an
+/// event whose `accountId` differs is not delivered, since "SceneRegion
+/// and SceneObject ids are unique only within an account".
+///
 /// This function does not rate-limit; the §Rate Limiting SHOULD rules are
 /// the transport's or deployment's to apply.
 ///
@@ -196,21 +202,24 @@ pub async fn should_deliver<B: SceneBackend>(
     if !filter.includes(event.type_name()) {
         return Ok(false);
     }
-    let (region_id, object, origin) = match event {
-        SceneEvent::Avatar(e) => (&e.region_id, None, Some(e.user_id.as_str())),
+    let (event_account, region_id, object, origin) = match event {
+        SceneEvent::Avatar(e) => (&e.account_id, &e.region_id, None, Some(e.user_id.as_str())),
         SceneEvent::Object(e) => (
+            &e.account_id,
             &e.region_id,
             Some((&e.object_id, e.event == ObjectEventKind::Destroyed)),
             e.updated_by.as_deref(),
         ),
         SceneEvent::Interaction(e) => (
+            &e.account_id,
             &e.region_id,
             Some((&e.object_id, false)),
             Some(e.user_id.as_str()),
         ),
         _ => return Ok(false),
     };
-    if !filter.region_ids().covers(region_id)
+    if event_account != account_id
+        || !filter.region_ids().covers(region_id)
         || !backend
             .may_access_region(caller, account_id, region_id)
             .await?
@@ -243,9 +252,11 @@ pub async fn should_deliver<B: SceneBackend>(
 /// Whether a `SceneInteractionEvent` frame a client sent may be relayed
 /// (draft-atwood-jmap-scene-wss-00 §Client-to-Server Submission).
 ///
-/// `caller` is the sending connection's authenticated identity. The frame
-/// is relayable when its `userId` is the caller's userId, the caller has
-/// an active avatar (`leftAt` `null`) in its `regionId`, and its
+/// `caller` is the sending connection's authenticated identity and
+/// `account_id` the account the region and object are read from. The
+/// frame is relayable when its `accountId` is `account_id`, its `userId`
+/// is the caller's userId, the caller has an active avatar (`leftAt`
+/// `null`) "in the region identified by `accountId` and `regionId`", and its
 /// `objectId` is a SceneObject in that region with `interactable` `true`.
 /// On `false` the transport "MUST silently discard the frame (no error is
 /// returned to the sender)"; on `true` it relays the event, filtered per
@@ -265,6 +276,9 @@ pub async fn validate_interaction<B: SceneBackend>(
     account_id: &Id,
     event: &SceneInteractionEvent,
 ) -> Result<bool, B::Error> {
+    if event.account_id != *account_id {
+        return Ok(false);
+    }
     let me = backend.caller_user_id(caller, account_id).await?;
     if event.user_id != me
         || !has_active_avatar(backend, caller, account_id, &me, &event.region_id).await?

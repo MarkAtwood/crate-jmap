@@ -121,10 +121,12 @@ fn event(raw: Value) -> SceneEvent {
     serde_json::from_value(raw).unwrap()
 }
 
-/// The L189-197 example, for `user` and `kind`.
+/// The jmap-chat-spec 6bcd9d8 L214-222 example, for `user` and `kind`,
+/// with [`ACCOUNT`] as its `accountId`.
 fn avatar_event(user: &str, kind: &str) -> SceneEvent {
     event(json!({
         "@type": "SceneAvatarEvent",
+        "accountId": ACCOUNT,
         "regionId": R1,
         "avatarId": "01J5AVT0000000000000000001",
         "event": kind,
@@ -133,10 +135,12 @@ fn avatar_event(user: &str, kind: &str) -> SceneEvent {
     }))
 }
 
-/// The L230-239 example with `objectId` and `updatedBy` replaced.
+/// The jmap-chat-spec 6bcd9d8 L256-264 example with `accountId`,
+/// `objectId` and `updatedBy` replaced.
 fn object_event(object_id: &str, kind: &str, updated_by: Value) -> SceneEvent {
     event(json!({
         "@type": "SceneObjectEvent",
+        "accountId": ACCOUNT,
         "regionId": R1,
         "objectId": object_id,
         "event": kind,
@@ -145,11 +149,12 @@ fn object_event(object_id: &str, kind: &str, updated_by: Value) -> SceneEvent {
     }))
 }
 
-/// The L288-297 example with `regionId`, `objectId` and `userId`
-/// replaced.
+/// The jmap-chat-spec 6bcd9d8 L316-324 example with `accountId`,
+/// `regionId`, `objectId` and `userId` replaced.
 fn interaction(region: &str, object_id: &str, user: &str) -> SceneInteractionEvent {
     serde_json::from_value(json!({
         "@type": "SceneInteractionEvent",
+        "accountId": ACCOUNT,
         "regionId": region,
         "objectId": object_id,
         "userId": user,
@@ -252,6 +257,7 @@ async fn no_events_for_a_region_without_access() {
     let backend = scene();
     let e = event(json!({
         "@type": "SceneObjectEvent",
+        "accountId": ACCOUNT,
         "regionId": VAULT,
         "objectId": VAULT_OBJ,
         "event": "updated",
@@ -288,6 +294,7 @@ async fn destroyed_event_for_a_gone_object_is_delivered() {
     let backend = scene();
     let e = event(json!({
         "@type": "SceneObjectEvent",
+        "accountId": ACCOUNT,
         "regionId": R1,
         "objectId": "01J5OBJ0000000000000000099",
         "event": "destroyed",
@@ -421,4 +428,29 @@ async fn interaction_needs_an_interactable_object_in_the_region() {
         )
         .await
     );
+}
+
+/// jmap-chat-spec 6bcd9d8 wss L178-179: "Every event carries an
+/// `accountId` (String) property: the id of the region's hosting
+/// account"; L184-185: "SceneRegion and SceneObject ids are unique only
+/// within an account, so `regionId` alone does not identify a region."
+/// An event naming another account is not about [`ACCOUNT`]'s R1.
+#[tokio::test]
+async fn event_for_another_hosting_account_is_not_delivered() {
+    let backend = scene();
+    let mut e = interaction(R1, SCULPTURE, ALICE);
+    assert!(delivers(&backend, CAROL, &all(), &SceneEvent::Interaction(e.clone())).await);
+    e.account_id = Id::from("acct-002");
+    assert!(!delivers(&backend, CAROL, &all(), &SceneEvent::Interaction(e)).await);
+}
+
+/// jmap-chat-spec 6bcd9d8 wss L413-414: the server verifies that "The
+/// user has an active avatar ... in the region identified by `accountId`
+/// and `regionId`."
+#[tokio::test]
+async fn interaction_for_another_hosting_account_is_discarded() {
+    let backend = scene();
+    let mut e = interaction(R1, SCULPTURE, ALICE);
+    e.account_id = Id::from("acct-002");
+    assert!(!relayable(&backend, ALICE, &e).await);
 }

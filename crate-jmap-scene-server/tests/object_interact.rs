@@ -179,7 +179,9 @@ async fn draft_example_through_the_dispatcher() {
 
 /// L2061: "For each accepted interaction ... the server delivers a
 /// `SceneInteractionEvent` carrying the interaction and the caller's
-/// userId".
+/// userId"; draft-atwood-jmap-scene-wss-00 L178-179: "Every event carries
+/// an `accountId` (String) property: the id of the region's hosting
+/// account".
 #[tokio::test]
 async fn accepted_interaction_reaches_the_backend_as_an_event() {
     let backend = scene();
@@ -203,6 +205,7 @@ async fn accepted_interaction_reaches_the_backend_as_an_event() {
     assert_eq!(
         serde_json::to_value(&events[0]).unwrap(),
         json!({
+            "accountId": ACCOUNT,
             "regionId": R1,
             "objectId": OBJ2,
             "userId": BOB,

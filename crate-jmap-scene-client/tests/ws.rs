@@ -1,5 +1,5 @@
 //! `SceneWsExt` over a real WebSocket, driven by the frame examples of
-//! draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 0cd3af0; line numbers
+//! draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 6bcd9d8; line numbers
 //! cite that revision). Every JSON constant is copied from the draft; the
 //! oracle is the draft text, never the code under test.
 //!
@@ -20,44 +20,47 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tokio_tungstenite::tungstenite::Message;
 
-/// L977-983 §Complete Example "Enable Scene Event Stream".
+/// L1049-1053 §Complete Example "Enable Scene Event Stream".
 const ENABLE: &str = r#"{
   "@type": "SceneStreamEnable",
   "regionIds": ["01J5ABC0000000000000000001"],
   "eventTypes": null
 }"#;
 
-/// L989-998 "Another Avatar Enters".
+/// L1061-1069 "Another Avatar Enters".
 const AVATAR_ENTERED: &str = r#"{
   "@type": "SceneAvatarEvent",
+  "accountId": "account-xyz",
   "regionId": "01J5ABC0000000000000000001",
-  "avatarId": "user:bob@example.com",
+  "avatarId": "01J5AV00000000000000000002",
   "event": "entered",
   "userId": "user:bob@example.com",
   "displayName": "Bob Martinez"
 }"#;
 
-/// L1004-1013 "Object Placed".
+/// L1077-1085 "Object Placed".
 const OBJECT_CREATED: &str = r#"{
   "@type": "SceneObjectEvent",
+  "accountId": "account-xyz",
   "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5OBJ0000000000000000042",
+  "objectId": "01J5QBJ0000000000000000042",
   "event": "created",
   "updatedBy": "user:bob@example.com",
   "position": [8.0, 1.2, -3.5]
 }"#;
 
-/// L1028-1037 "User Interaction".
+/// L1106-1114 "User Interaction".
 const INTERACTION: &str = r#"{
   "@type": "SceneInteractionEvent",
+  "accountId": "account-xyz",
   "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5OBJ0000000000000000001",
+  "objectId": "01J5QBJ0000000000000000001",
   "userId": "user:alice@example.com",
   "action": "click",
   "data": null
 }"#;
 
-/// L1043-1052 "State Change (Interleaved)".
+/// L1122-1129 "State Change (Interleaved)".
 const STATE_CHANGE: &str = r#"{
   "@type": "StateChange",
   "changed": {
@@ -67,31 +70,34 @@ const STATE_CHANGE: &str = r#"{
   }
 }"#;
 
-/// L1058-1067 "Bob Leaves".
+/// L1137-1145 "Bob Leaves".
 const AVATAR_LEFT: &str = r#"{
   "@type": "SceneAvatarEvent",
+  "accountId": "account-xyz",
   "regionId": "01J5ABC0000000000000000001",
-  "avatarId": "user:bob@example.com",
+  "avatarId": "01J5AV00000000000000000002",
   "event": "left",
   "userId": "user:bob@example.com",
   "displayName": "Bob Martinez"
 }"#;
 
-/// L1073-1077 "Disable Scene Stream".
+/// L1153-1155 "Disable Scene Stream".
 const DISABLE: &str = r#"{
   "@type": "SceneStreamDisable"
 }"#;
 
-/// L528-534 "Client sends" an `eventTypes` of only an unrecognized value.
+/// L587-592 "Client sends" an `eventTypes` of only an unrecognized value.
 const ENABLE_UNRECOGNIZED_ONLY: &str = r#"{
   "@type": "SceneStreamEnable",
+  "id": "e1",
   "regionIds": ["01J5ABC0000000000000000001"],
   "eventTypes": ["SceneFooBarEvent"]
 }"#;
 
-/// L544-550 "Server responds".
+/// L604-609 "Server responds".
 const REQUEST_ERROR: &str = r#"{
   "@type": "RequestError",
+  "requestId": "e1",
   "type": "urn:ietf:params:jmap:error:invalidArguments",
   "detail": "eventTypes contains no recognized values"
 }"#;
@@ -158,10 +164,10 @@ async fn complete_example_session() {
 
     match next(&mut ws).await {
         SceneWsFrame::Avatar(e) => {
-            // L178-179 `event`: "`\"entered\"`, `\"left\"`, or `\"ejected\"`".
+            // L202-203 `event`: "`\"entered\"`, `\"left\"`, or `\"ejected\"`".
             assert_eq!(e.event, AvatarEventKind::Entered);
             assert_eq!(e.region_id, Id::from("01J5ABC0000000000000000001"));
-            assert_eq!(e.avatar_id, Id::from("user:bob@example.com"));
+            assert_eq!(e.avatar_id, Id::from("01J5AV00000000000000000002"));
             assert_eq!(e.user_id, "user:bob@example.com");
             assert_eq!(e.display_name, "Bob Martinez");
         }
@@ -170,34 +176,36 @@ async fn complete_example_session() {
     match next(&mut ws).await {
         SceneWsFrame::Object(e) => {
             assert_eq!(e.event, ObjectEventKind::Created);
-            assert_eq!(e.object_id, Id::from("01J5OBJ0000000000000000042"));
+            assert_eq!(e.object_id, Id::from("01J5QBJ0000000000000000042"));
             assert_eq!(e.updated_by.as_deref(), Some("user:bob@example.com"));
             assert_eq!(e.position, Some([8.0, 1.2, -3.5]));
         }
         other => panic!("expected SceneObjectEvent, got {other:?}"),
     }
 
-    // L158-159: "clients submit interactions by sending a
+    // L171-173: "a client can submit an interaction by sending a
     // `SceneInteractionEvent` frame to the server".
     let click = SceneInteractionEvent::new(
+        Id::from("account-xyz"),
         Id::from("01J5ABC0000000000000000001"),
-        Id::from("01J5OBJ0000000000000000001"),
+        Id::from("01J5QBJ0000000000000000001"),
         "user:alice@example.com".to_owned(),
         "click".to_owned(),
     );
     ws.send_scene_interaction(&click).await.unwrap();
 
-    // "the server validates and relays it to subscribers" (L160).
+    // "the server delivers each accepted interaction to subscribers as a
+    // `SceneInteractionEvent`" (L173-174).
     match next(&mut ws).await {
         SceneWsFrame::Interaction(e) => {
-            assert_eq!(e.object_id, Id::from("01J5OBJ0000000000000000001"));
+            assert_eq!(e.object_id, Id::from("01J5QBJ0000000000000000001"));
             assert_eq!(e.user_id, "user:alice@example.com");
             assert_eq!(e.action, "click");
             assert_eq!(e.data, None);
         }
         other => panic!("expected SceneInteractionEvent, got {other:?}"),
     }
-    // L609-611: Scene frames "are interleaved with `StateChange`,
+    // L669-671: Scene frames "are interleaved with `StateChange`,
     // `Response`, and other ephemeral event frames ... on the same
     // WebSocket connection".
     match next(&mut ws).await {
@@ -224,12 +232,12 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
     let (mut ws, server) = serve(vec![
         Step::Recv,
         Step::Send(REQUEST_ERROR),
-        // L921-923: an unrecognized `@type` "SHOULD silently ignore the
+        // L987-989: an unrecognized `@type` "SHOULD silently ignore the
         // message and SHOULD NOT close the WebSocket connection".
         Step::Send(r#"{"@type":"SceneWeatherEvent","regionId":"01J5ABC0000000000000000001"}"#),
-        // L178 `event` (String): a number is not a SceneAvatarEvent.
+        // L202 `event` (String): a number is not a SceneAvatarEvent.
         Step::Send(
-            r#"{"@type":"SceneAvatarEvent","regionId":"01J5ABC0000000000000000001","avatarId":"user:bob@example.com","event":1,"userId":"user:bob@example.com","displayName":"Bob Martinez"}"#,
+            r#"{"@type":"SceneAvatarEvent","accountId":"account-xyz","regionId":"01J5ABC0000000000000000001","avatarId":"user:bob@example.com","event":1,"userId":"user:bob@example.com","displayName":"Bob Martinez"}"#,
         ),
         Step::Send(AVATAR_LEFT),
     ])
@@ -238,9 +246,10 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
     let mut enable = SceneStreamEnable::default();
     enable.region_ids = Some(vec![Id::from("01J5ABC0000000000000000001")]);
     enable.event_types = Some(vec!["SceneFooBarEvent".to_owned()]);
+    enable.extra.insert("id".to_owned(), Value::from("e1"));
     ws.send_scene_stream_enable(&enable).await.unwrap();
 
-    // L539-540: "the server MUST respond with a `RequestError` frame".
+    // L562-563: "the server MUST respond with a `RequestError` frame".
     match next(&mut ws).await {
         SceneWsFrame::Other(WsFrame::RequestError(e)) => {
             assert_eq!(
@@ -267,7 +276,7 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
         }
         other => panic!("expected the malformed frame unparsed, got {other:?}"),
     }
-    // L552-553: "This error does not close the WebSocket connection".
+    // L612-613: "This error does not close the WebSocket connection".
     match next(&mut ws).await {
         SceneWsFrame::Avatar(e) => assert_eq!(e.event, AvatarEventKind::Left),
         other => panic!("expected SceneAvatarEvent, got {other:?}"),

@@ -125,6 +125,7 @@ async fn interact<B: SceneBackend>(
     // The interaction's extension properties stay out of the event: a
     // flattened `userId` among them would contradict the server-set one.
     let mut event = SceneInteractionEvent::new(
+        account_id.clone(),
         interaction.region_id,
         interaction.object_id,
         me,
