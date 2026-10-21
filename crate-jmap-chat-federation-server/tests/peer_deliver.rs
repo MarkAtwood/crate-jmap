@@ -83,6 +83,57 @@ async fn step1_identity_not_bound_to_peer_domain_is_forbidden() {
     assert!(fed.messages().await.is_empty());
 }
 
+/// The did:key example of the W3C did:key Method specification §Format.
+const DID_KEY: &str = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+
+fn did_key_peer() -> AuthenticatedPeer {
+    AuthenticatedPeer::new(PeerDomain::parse(PEER_DOMAIN).expect("domain"), DID_KEY)
+}
+
+/// fed L256 at jmap-chat-spec 6bcd9d8: "If the peer identity has no host
+/// (for example, a `did:key` DID), the peer domain does not vouch for it.
+/// The local server MUST NOT accept such an identity on the strength of
+/// peer authentication alone."
+#[tokio::test]
+async fn step1_host_less_did_without_did_verification_is_forbidden() {
+    let mut fed = Fed::new();
+    fed.peer = Some(did_key_peer());
+    let mut args = deliver_args(LOW, "direct", message("M1"));
+    args["senderUserId"] = json!(DID_KEY);
+    assert_error(fed.deliver(args).await, "forbidden");
+    assert!(fed.messages().await.is_empty());
+}
+
+/// fed L256 at jmap-chat-spec 6bcd9d8: "A DID-form identity is accepted
+/// only after the DID-bound verification of {{JMAP-CHAT-DID}} succeeds";
+/// did L211: "{{JMAP-CHAT-FED}} accepts it only after the DID-bound
+/// verification defined here succeeds."
+#[tokio::test]
+async fn step1_host_less_did_with_did_verification_is_accepted() {
+    let mut fed = Fed::new();
+    fed.peer = Some(did_key_peer().with_did_verified());
+    let mut args = deliver_args(LOW, "direct", message("M1"));
+    args["senderUserId"] = json!(DID_KEY);
+    fed.deliver(args).await.expect("accepted");
+    assert_eq!(fed.messages().await.len(), 1);
+}
+
+/// fed L255 at jmap-chat-spec 6bcd9d8: "If the peer identity has a host,
+/// that host MUST equal the authenticated peer domain." A DID-bound
+/// verification does not lift that rule.
+#[tokio::test]
+async fn step1_did_verification_does_not_bind_another_host() {
+    let mut fed = Fed::new();
+    fed.peer = Some(
+        AuthenticatedPeer::new(PeerDomain::parse(PEER_DOMAIN).expect("domain"), CAROL)
+            .with_did_verified(),
+    );
+    let mut args = deliver_args(LOW, "direct", message("M1"));
+    args["senderUserId"] = json!(CAROL);
+    assert_error(fed.deliver(args).await, "forbidden");
+    assert!(fed.messages().await.is_empty());
+}
+
 // ---------------------------------------------------------------------------
 // Step 2 and identity mapping
 // ---------------------------------------------------------------------------

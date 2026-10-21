@@ -43,6 +43,14 @@ wire behaviour that a conforming peer can observe.
   verified a request signature is not in the `authentication`
   verification relationship of the cached DID Document ..., the server
   MUST resolve the DID again").
+- **jmap-chat-federation-server**: `AuthenticatedPeer::did_verified` and
+  `AuthenticatedPeer::with_did_verified`. The `Peer/*` handlers now accept
+  a peer identity that is a DID without a host (`did:key`, `did:plc`)
+  when the backend sets the marker after `verify_did_binding` succeeds
+  (draft-atwood-jmap-chat-federation-00 §Identity Binding rule 3:
+  "A DID-form identity is accepted only after the DID-bound verification
+  of {{JMAP-CHAT-DID}} succeeds"). Without the marker such an identity is
+  `forbidden` as before; the marker does not affect any other identity.
 - **jmap-chat-federation-server**: `assigneeIds` in the metadata of a
   `urn:jmap:chat:cap:task` MessageAction is mapped as a user reference
   (draft-atwood-jmap-chat-tasks-00 §Federation). `Peer/deliver` resolves
