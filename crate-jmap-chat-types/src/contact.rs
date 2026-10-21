@@ -140,12 +140,16 @@ pub struct ChatContact {
     /// The `did` property (draft-atwood-jmap-chat-did-00 §Optional `did`
     /// field).
     ///
-    /// A DID URI bound to this ChatContact for cryptographic purposes,
-    /// for the pseudonymous case where [`identity`](Self::identity) is
-    /// not a DID. When present, the DID's verification methods are the
-    /// authoritative source of public-key material for verifying
-    /// signatures attributed to this ChatContact; when absent, no DID is
-    /// bound. A JSON value that is not a valid DID fails to deserialize.
+    /// A DID-referencing property: a DID URI bound to this ChatContact
+    /// for cryptographic purposes, for the pseudonymous case where
+    /// [`identity`](Self::identity) is not a DID. It is server-set:
+    /// `ChatContact/set` create accepts only `identity`, and how the
+    /// server learns the value is deployment-defined. A server that sets
+    /// it checks [`has_consistent_did`](Self::has_consistent_did). When
+    /// present, the DID's verification methods are the authoritative
+    /// source of public-key material for verifying signatures attributed
+    /// to this ChatContact; when absent, no DID is bound. A JSON value
+    /// that is not a valid DID fails to deserialize.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did: Option<Did>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -185,11 +189,58 @@ impl ChatContact {
             extra: serde_json::Map::new(),
         }
     }
+
+    /// Whether [`did`](Self::did) and [`identity`](Self::identity) obey
+    /// the consistency rule of draft-atwood-jmap-chat-did-00 §Optional
+    /// `did` field: "If `did` is present AND `identity` parses as a DID
+    /// URI, the two MUST refer to the same DID."
+    ///
+    /// Returns `false` only when `did` is present and `identity` parses
+    /// as a different DID (byte-exact comparison). The draft says a
+    /// server detecting that mismatch "SHOULD treat the ChatContact
+    /// record as invalid and SHOULD NOT use either DID for
+    /// authentication".
+    pub fn has_consistent_did(&self) -> bool {
+        self.did
+            .as_ref()
+            .is_none_or(|d| !Did::parse(&self.identity).is_ok_and(|i| i != *d))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Oracle: draft-atwood-jmap-chat-did-00 (jmap-chat-spec 6bcd9d8) L203:
+    // "If `did` is present AND `identity` parses as a DID URI, the two MUST
+    // refer to the same DID." `did:example:123456789abcdefghi` is the DID
+    // Core §3.1 example DID; `did:web:w3c-ccg.github.io:user:alice` is the
+    // did:web method specification's example.
+    #[test]
+    fn has_consistent_did_follows_draft_rule() {
+        const DID_A: &str = "did:example:123456789abcdefghi";
+        const DID_B: &str = "did:web:w3c-ccg.github.io:user:alice";
+        let contact = |identity: &str, did: Option<&str>| {
+            let raw = serde_json::json!({
+                "id": "u1",
+                "identity": identity,
+                "login": identity,
+                "firstSeenAt": "2026-01-01T00:00:00Z",
+                "lastSeenAt": "2026-01-01T00:00:00Z",
+                "blocked": false,
+                "did": did,
+            });
+            serde_json::from_value::<ChatContact>(raw).expect("deserialize ChatContact")
+        };
+        // Mismatch: a DID-form identity naming a different DID.
+        assert!(!contact(DID_A, Some(DID_B)).has_consistent_did());
+        // Same DID in both.
+        assert!(contact(DID_B, Some(DID_B)).has_consistent_did());
+        // Outside the rule's preconditions: `did` absent, or `identity`
+        // not a DID (the pseudonymous case).
+        assert!(contact(DID_A, None).has_consistent_did());
+        assert!(contact("alice@example.com", Some(DID_B)).has_consistent_did());
+    }
 
     // Oracle: minimal JSON — only required fields present; all optional fields absent.
     #[test]
