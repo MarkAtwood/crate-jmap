@@ -844,6 +844,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: `unread_count` moves from
+  `ChatMessageEntry` to `ChatMessagePush`, which the spec defines it on
+  (draft-atwood-jmap-chat-push-00 §ChatMessagePush: "It is a property of
+  the push as a whole, not of any one entry"). A top-level wire
+  `unreadCount` used to land in `ChatMessagePush.extra`; an entry-level one
+  now lands in `ChatMessageEntry.extra`.
 - **BREAKING** **jmap-peer-auth**, **jmap-peer-auth-io**: `Accepted` and
   `Authenticated` gain a `key: PeerSigningKey` field, the key whose `kid`
   the signature's `keyid` names and that verified the signature, and are
