@@ -1208,6 +1208,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: Space/set last-administrator
+  protection now covers `updateMembers` role changes, `removeRoles` and
+  `updateRoles` permission changes as well as `removeMembers`, and the
+  `invalidProperties` refusal names the patch key(s) concerned (was always
+  `removeMembers`), per draft-atwood-jmap-chat-00 §Space/set
+  `removeMembers`: "a refusal names the patch key concerned". It fires only
+  when the patch takes the Space from at least one `manage_members` or
+  `manage_space` holder to none. The `ChatBackend::apply_space_patch`
+  contract table now records the role-position hierarchy (a SHOULD in the
+  draft) for `addMembers` and `updateMembers` as well as `addRoles` and
+  `updateRoles`; `MemoryBackend` enforces it for all four.
+
 - **BREAKING** **jmap-scene-server**: `SceneAsset/set` create whose
   `blobId` names no uploaded blob now fails with `invalidProperties`
   naming `blobId` (was `notFound`), per draft-atwood-jmap-scene-00

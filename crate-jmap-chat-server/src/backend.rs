@@ -1327,8 +1327,8 @@ pub trait ChatBackend: JmapBackend {
     /// | Op + failure mode | `SetErrorType` | `description` MUST contain |
     /// |---|---|---|
     /// | Any op, caller lacks the spec-mandated permission | `Forbidden` | the permission identifier as a substring (`"manage_space"`, `"manage_channels"`, `"manage_members"`, `"manage_roles"`, or a deployment-specific permission name) |
-    /// | `AddRole` / `UpdateRole` at or above caller's highest role `position` | `Forbidden` | `"hierarchy"` or `"position"` |
-    /// | Any op or combination of ops whose post-patch projection leaves the Space with zero `manage_members`-holding members (when [`Self::protect_last_admin`] returns `true`), other than self-removal | `InvalidProperties` (`properties: ["removeMembers"]`) | `"last-admin"` or `"manage_members"` |
+    /// | `AddRole` / `UpdateRole` naming a role (or new `position`) at or above caller's highest role `position`; `AddMember` assigning, or `UpdateMember` adding or removing, such a role (draft §Space/set: "servers SHOULD enforce this"; a backend that enforces it uses this row) | `Forbidden` | `"hierarchy"` or `"position"` |
+    /// | Any op or combination of ops that takes the Space from at least one member holding `manage_members` or `manage_space` to none (when [`Self::protect_last_admin`] returns `true`), other than self-removal | `InvalidProperties` (`properties`: the patch key(s) concerned, among `removeRoles`, `updateRoles`, `removeMembers`, `updateMembers`) | `"last-admin"` or `"manage_members"` |
     /// | `AddMember` with `userId` already a member | `InvalidProperties` (`properties: ["userId"]`) | implementation-defined; the reference impl names the duplicate userId |
     /// | `AddMember` with a `roleId` that does not name a role on this Space | `InvalidProperties` (`properties: ["roleIds"]`) | implementation-defined; the reference impl names the unknown roleId |
     /// | `RemoveRole` / `RemoveChannel` / `RemoveCategory` with an id that does not exist on this Space | `NotFound` | implementation-defined; the reference impl names the missing id |
@@ -1544,8 +1544,8 @@ pub trait ChatBackend: JmapBackend {
     /// The protection is invariant on the *post-patch* state of the
     /// (member, role, permission) graph, not on any single op variant.
     /// A backend that returns `true` from this method MUST reject every
-    /// patch whose post-application projection has zero members holding
-    /// `manage_members` or `manage_space`, including (non-exhaustively)
+    /// patch that takes the Space from at least one member holding
+    /// `manage_members` or `manage_space` to none, including (non-exhaustively)
     /// the cases below. Self-removal (a `removeMembers` holding only the
     /// accountId, which references the owner per draft §Terminology) is
     /// exempt: draft §Space/set says
@@ -1593,20 +1593,16 @@ pub trait ChatBackend: JmapBackend {
     /// unchanged. Tests that exercise the protection path opt in via
     /// `MemoryBackend::set_protect_last_admin_for_test(true)`.
     ///
-    /// The reference impl's projection is intentionally narrow: it
-    /// covers `RemoveMember` only, and does NOT model `UpdateMember`
-    /// role-strip, `UpdateRole` permission-strip, or `RemoveRole`
-    /// paths to zero-admin state. Production backends with the full
-    /// invariant requirement MUST extend the projection.
-    ///
     /// # Atomicity
     ///
     /// The check fires inside [`Self::apply_space_patch`] atomically
     /// with the candidate mutation: the backend snapshots the Space's
     /// member/role state, projects the post-patch admin count across
     /// all ops in the patch (member adds/removes, role-id changes,
-    /// permission edits), and rejects the whole update target with a
-    /// `Forbidden` SetError if zero admins would remain.
+    /// permission edits), and rejects the whole update target with an
+    /// `invalidProperties` SetError naming the patch key(s) concerned
+    /// if zero admins would remain (draft §Space/set `removeMembers`:
+    /// "a refusal names the patch key concerned").
     ///
     /// # Why sync, not async
     ///

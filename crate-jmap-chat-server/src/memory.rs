@@ -271,8 +271,8 @@ impl MemoryBackend {
 
     /// Test-only: flip the [`ChatBackend::protect_last_admin`] flag.
     ///
-    /// Pass `true` to enable last-admin protection on `RemoveMember`
-    /// ops, or `false` to disable. The default is `false`, opposite
+    /// Pass `true` to enable last-admin protection on Space patches,
+    /// or `false` to disable. The default is `false`, opposite
     /// the trait default of `true` — this is intentional: production
     /// deployments inherit the trait default; the reference backend
     /// opts out so existing demo tests don't have to seed admin
@@ -3910,10 +3910,11 @@ fn check_count_caps(
 ///   caller).
 ///   Channel and Category ops have no hierarchy check.
 /// - **Last-admin protection** (criterion 3 replacement): when
-///   `protect_last_admin` is true, the patch's `RemoveMember` ops in
-///   aggregate must not leave the Space with zero members holding
-///   either `manage_members` or `manage_space`; refused with
-///   `invalidProperties` naming `removeMembers`. Self-removal (only
+///   `protect_last_admin` is true, the patch's ops in aggregate must
+///   not take the Space from at least one member holding either
+///   `manage_members` or `manage_space` to none; refused with
+///   `invalidProperties` naming the patch key(s) concerned (see
+///   [`last_admin_patch_keys`]). Self-removal (only
 ///   `account_id` in `removeMembers`) skips this check and the
 ///   `manage_members` gate, per draft §Space/set `removeMembers`.
 ///   Likewise a single `updateMembers` entry for `account_id` holding
@@ -3948,9 +3949,7 @@ fn validate_space_patch_ops(
     ops: &[SpacePatchOp],
     protect_last_admin: bool,
 ) -> Result<(), SetError> {
-    use crate::permissions::{
-        required_permissions_for_op, RequiredPermissions, MANAGE_MEMBERS, MANAGE_SPACE,
-    };
+    use crate::permissions::{required_permissions_for_op, RequiredPermissions};
 
     // Draft §Space/set `removeMembers`: a patch whose `removeMembers`
     // holds only the accountId is self-removal, which "the server
@@ -4111,61 +4110,141 @@ fn validate_space_patch_ops(
         }
     }
 
-    // Last-admin protection (criterion 3 replacement). Fires when the
-    // config flag is on.
-    if protect_last_admin && !self_removal {
-        // Set of user_ids the patch will remove.
-        let mut to_remove: HashSet<String> = HashSet::new();
-        for op in ops {
-            if let SpacePatchOp::RemoveMember(id) = op {
-                to_remove.insert(id.as_ref().to_owned());
-            }
-        }
-        if !to_remove.is_empty() {
-            // Project the post-patch admin count. An admin is a
-            // member whose effective permissions include
-            // `manage_members` or `manage_space`.
-            //
-            // Limitation: this projection does NOT model UpdateMember
-            // ops that strip admin role_ids, nor RemoveRole ops that
-            // remove a role granting admin perms. Those are valid
-            // ways to demote admins. Modeling them would require a
-            // more elaborate simulation. For bd:JMAP-g7wu.2.4.3 the
-            // RemoveMember-only projection is the scoped behavior;
-            // production backends with stricter requirements can
-            // override [`ChatBackend::apply_space_patch`].
-            let members = space_val
-                .get("members")
-                .and_then(|v| v.as_array())
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
-            let mut admin_remaining: usize = 0;
-            for m in members {
-                let Some(mid) = m.get("id").and_then(|v| v.as_str()) else {
-                    continue;
-                };
-                if to_remove.contains(mid) {
-                    continue;
-                }
-                // Resolve this member's effective permissions.
-                let perms = member_effective_permissions(space_val, mid).unwrap_or_default();
-                if perms.contains(MANAGE_MEMBERS) || perms.contains(MANAGE_SPACE) {
-                    admin_remaining += 1;
-                    break; // one is enough
-                }
-            }
-            if admin_remaining == 0 {
-                return Err(SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(["removeMembers"])
-                    .with_description(
-                        "removing these members would leave the Space with no \
-                         `manage_members`/`manage_space` holder (last-admin protection)",
-                    ));
-            }
+    // Last-admin protection. Draft §Space/set `removeMembers`: "The
+    // same protection applies to an `updateMembers` role change, a
+    // `removeRoles` entry, or an `updateRoles` permission change ...; a
+    // refusal names the patch key concerned."
+    if protect_last_admin {
+        if let Some(keys) = last_admin_patch_keys(space_val, ops, self_removal) {
+            return Err(SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(keys)
+                .with_description(
+                    "this patch would leave the Space with no \
+                     `manage_members`/`manage_space` holder (last-admin protection)",
+                ));
         }
     }
 
     Ok(())
+}
+
+/// The patch keys to name when `ops` would take the Space from at
+/// least one member holding `manage_members` or `manage_space` to none;
+/// `None` when an admin remains or the Space had none to begin with.
+///
+/// Projects the post-patch member/role graph across `removeMembers`,
+/// `updateMembers` roleIds, `addMembers`, `removeRoles` and
+/// `updateRoles` permissions. A self-removal entry is left out of the
+/// projection: draft §Space/set says "Last-administrator protection
+/// does not apply to self-removal." A key is named when one of its
+/// entries, applied to the pre-patch graph, demotes an admin member or
+/// an admin-granting role; the keys are listed in draft §Space/set
+/// order.
+fn last_admin_patch_keys(
+    space_val: &serde_json::Value,
+    ops: &[SpacePatchOp],
+    self_removal: bool,
+) -> Option<Vec<&'static str>> {
+    use crate::permissions::{MANAGE_MEMBERS, MANAGE_SPACE};
+    let grants_admin = |p: &str| p == MANAGE_MEMBERS || p == MANAGE_SPACE;
+
+    // Role id -> whether the role grants an admin permission.
+    let pre_roles: HashMap<&str, bool> = space_val
+        .get("roles")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|r| {
+            let id = r.get("id")?.as_str()?;
+            let admin = r
+                .get("permissions")
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|p| p.as_str())
+                .any(grants_admin);
+            Some((id, admin))
+        })
+        .collect();
+    // Member id -> roleIds.
+    let pre_members: HashMap<&str, HashSet<&str>> = space_val
+        .get("members")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|m| {
+            let id = m.get("id")?.as_str()?;
+            Some((id, member_role_ids(space_val, id)))
+        })
+        .collect();
+
+    let is_admin = |roles: &HashMap<&str, bool>, role_ids: &HashSet<&str>| {
+        role_ids
+            .iter()
+            .any(|r| roles.get(r).copied().unwrap_or(false))
+    };
+    if !pre_members.values().any(|ids| is_admin(&pre_roles, ids)) {
+        return None;
+    }
+
+    let mut roles = pre_roles.clone();
+    let mut members = pre_members.clone();
+    // Flags in draft §Space/set key order.
+    let mut flagged = [false; 4];
+    const KEYS: [&str; 4] = [
+        "removeRoles",
+        "updateRoles",
+        "removeMembers",
+        "updateMembers",
+    ];
+    for op in ops {
+        match op {
+            SpacePatchOp::RemoveRole(id) => {
+                flagged[0] |= pre_roles.get(id.as_ref()).copied().unwrap_or(false);
+                roles.remove(id.as_ref());
+            }
+            SpacePatchOp::UpdateRole { id, patch } => {
+                if let (Some(perms), Some(admin)) = (&patch.permissions, roles.get_mut(id.as_ref()))
+                {
+                    *admin = perms.iter().any(|p| grants_admin(p.as_str()));
+                    flagged[1] |= pre_roles[id.as_ref()] && !*admin;
+                }
+            }
+            SpacePatchOp::RemoveMember(id) if !self_removal => {
+                if let Some(ids) = pre_members.get(id.as_ref()) {
+                    flagged[2] |= is_admin(&pre_roles, ids);
+                }
+                members.remove(id.as_ref());
+            }
+            SpacePatchOp::UpdateMember { user_id, patch } => {
+                if let (Some(new), Some(cur)) = (&patch.role_ids, members.get_mut(user_id.as_ref()))
+                {
+                    *cur = new.iter().map(|r| r.as_ref()).collect();
+                    flagged[3] |= pre_members
+                        .get(user_id.as_ref())
+                        .is_some_and(|pre| is_admin(&pre_roles, pre))
+                        && !is_admin(&pre_roles, cur);
+                }
+            }
+            SpacePatchOp::AddMember(create) => {
+                members.insert(
+                    create.user_id.as_ref(),
+                    create.role_ids.iter().map(|r| r.as_ref()).collect(),
+                );
+            }
+            _ => {}
+        }
+    }
+
+    if members.values().any(|ids| is_admin(&roles, ids)) {
+        return None;
+    }
+    Some(
+        KEYS.iter()
+            .zip(flagged)
+            .filter_map(|(k, f)| f.then_some(*k))
+            .collect(),
+    )
 }
 
 /// Construct the standard "role position not strictly less than
