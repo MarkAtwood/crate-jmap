@@ -1,0 +1,17 @@
+[package]
+name = "jmap-graph-types"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "JMAP Graph extension data types (draft-atwood-jmap-graph-00)"
+keywords = ["jmap", "graph", "types", "rfc8620"]
+categories = ["encoding", "network-programming"]
+
+[dependencies]
+jmap-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

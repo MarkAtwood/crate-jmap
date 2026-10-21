@@ -2066,6 +2066,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-graph-types"
+version = "0.3.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-jscalendar-types"
 version = "0.3.0"
 dependencies = [

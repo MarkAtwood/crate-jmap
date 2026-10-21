@@ -23,6 +23,7 @@ members = [
     "crate-jmap-chat-federation-types",
     "crate-jmap-vtc-types",
     "crate-jmap-scene-types",
+    "crate-jmap-graph-types",
     "crate-jmap-server",
     "crate-jmap-mail-server",
     "crate-jmap-chat-server",
@@ -100,6 +101,7 @@ jmap-chat-mimi-server  = { path = "crate-jmap-chat-mimi-server", version = "0.3"
 jmap-chat-federation-types = { path = "crate-jmap-chat-federation-types", version = "0.3" }
 jmap-vtc-types         = { path = "crate-jmap-vtc-types",        version = "0.3" }
 jmap-scene-types       = { path = "crate-jmap-scene-types",      version = "0.3" }
+jmap-graph-types       = { path = "crate-jmap-graph-types",      version = "0.3" }
 jmap-mime              = { path = "crate-jmap-mime",             version = "0.3" }
 jmap-server            = { path = "crate-jmap-server",           version = "0.3" }
 jmap-mail-server       = { path = "crate-jmap-mail-server",      version = "0.3" }

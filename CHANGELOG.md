@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-types** (new, `publish = false`): draft-atwood-jmap-graph-00
+  wire types — `JMAP_GRAPH_URI` (`urn:ietf:params:jmap:graph`),
+  `GraphCapability` (`maxAnnotationSize`), `PrincipalGraphCapability`,
+  `Graph` and `GraphRights` (RFC 9670 `shareWith`/`myRights`), `GraphNode`
+  (annotations, optional blob content, optional `uri`), `GraphEdge`
+  (`fromId`/`toId`, `type`), the `query` filters and comparators and the
+  `JmapObject` impls. The GraphNode and GraphEdge filters are single
+  conditions with a required `graphId`, so a FilterOperator or a filter
+  without `graphId` fails to decode (`unsupportedFilter`, draft §GraphNode/query).
+  `JMAP_URI_GRAPH_TYPE`, `JMAP_URI_GRAPH_NODE_TYPE` and
+  `JMAP_URI_GRAPH_EDGE_TYPE` name the registered JMAP Object URI types.
+
 - **jmap-scene-client**: `JmapSceneExt::with_scene_session` and a
   `SessionClient` binding the `/get`, `/changes`, `/set`, `/query` and
   `/queryChanges` methods of `SceneAsset`, `SceneRegion`, `SceneObject`
