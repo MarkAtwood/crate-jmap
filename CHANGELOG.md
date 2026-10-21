@@ -1968,6 +1968,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: `MemoryBackend` `Space/query` reveals non-member
+  public, previewable Spaces for an `isPublic: true` condition nested in a
+  FilterOperator, not only a top-level one (draft-atwood-jmap-chat-00
+  §Space/query, jmap-chat-spec 29e9a41 L1394).
 - **jmap-contacts-server**: `AddressBook/set` with
   `onDestroyRemoveContents` no longer copies backend error text into the
   `serverFail` description when the contents cascade fails; the
