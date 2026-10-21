@@ -23,8 +23,8 @@ use crate::backend::SceneBackend;
 use crate::helpers::{
     backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
     extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
-    invalid, is_visible, normalized_orientation, not_found, orientation_ok,
-    reject_unsupported_sort, set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    invalid, is_visible, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
+    set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
@@ -505,7 +505,7 @@ async fn create_scene_object<B: SceneBackend>(
     // absent one is "the identity orientation (no rotation)".
     m.entry("orientation")
         .or_insert_with(|| json!(IDENTITY_ORIENTATION));
-    if let Some(q) = normalized_orientation(&m) {
+    if let Some(q) = normalized_quaternion(&m, "orientation") {
         m.insert("orientation".to_owned(), q);
     }
     let now = now_utc_string();
@@ -630,7 +630,7 @@ async fn update_scene_object<B: SceneBackend>(
     echo.insert("updatedAt".to_owned(), json!(now));
     let map = patch.as_map_mut();
     if touched("orientation") {
-        if let Some(q) = normalized_orientation(&result) {
+        if let Some(q) = normalized_quaternion(&result, "orientation") {
             map.retain(|k, _| top(k) != "orientation");
             map.insert("orientation".to_owned(), q.clone());
             echo.insert("orientation".to_owned(), q);
