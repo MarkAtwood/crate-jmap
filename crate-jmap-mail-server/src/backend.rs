@@ -469,18 +469,8 @@ pub trait MailBackend: JmapBackend {
         filter: Option<&jmap_mail_types::EmailFilterCondition>,
     ) -> impl std::future::Future<Output = Result<Vec<jmap_mail_types::SearchSnippet>, Self::Error>> + Send;
 
-    /// Returns `true` if this backend implementation supports the given
-    /// JMAP object type.
-    ///
-    /// # Contract
-    ///
-    /// This is a **global, stateless backend-capability check** — it asks
-    /// "did this implementation wire up the methods needed for type
-    /// `O`?", not "does this user's account have this type enabled?".
-    /// That is why the method is synchronous and takes no `caller` or
-    /// `account_id` arguments. Per-account capability variation belongs
-    /// in the consumer's session-capability builder (workspace AGENTS.md
-    /// library-kit posture), NOT here.
+    /// Returns `true` if this backend supports JMAP object type `O` for
+    /// `account_id`, as seen by `caller`.
     ///
     /// # Types in scope
     ///
