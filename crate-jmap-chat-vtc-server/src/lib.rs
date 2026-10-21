@@ -42,17 +42,18 @@ pub const START_CALL: &str = "start_call";
 /// and §Creating a Room Call for a `VTCCall/set` create.
 ///
 /// - `chatId` must name a Chat in `account_id` that
-///   [`ChatBackend::may_view_chat`] allows: "When `chatId` is supplied but
-///   does not resolve to a Chat object the caller has access to, the
-///   server MUST return `invalidProperties` naming `chatId`."
-/// - The owner must be a member of that Chat: "The server MUST return
-///   `forbidden` if the caller is not a member." A direct Chat always
-///   includes the owner. A group Chat must list the owner (by accountId)
-///   in `members`. For a channel, the owner must be a member of its Space.
+///   [`ChatBackend::may_view_chat`] allows, and the owner must be a member
+///   of that Chat: "When `chatId` does not resolve to a Chat object, the
+///   server MUST return `invalidProperties` naming `chatId`. The server
+///   SHOULD return the same error when the caller is not a member of that
+///   Chat, so that the response does not reveal that the Chat exists."
+///   Both cases return the same SetError. A direct Chat always includes
+///   the owner. A group Chat must list the owner (by accountId) in
+///   `members`. For a channel, the owner must be a member of its Space.
 /// - A call with a `spaceId` or `channelId` needs the [`START_CALL`]
-///   permission: "the server MUST verify the caller has the
-///   `"start_call"` permission in the bound Space or channel; if not, the
-///   server MUST return `forbidden`." The Space is `spaceId`, or else the
+///   permission: "the server SHOULD return `forbidden` if the caller lacks
+///   the `"start_call"` permission in the bound Space or channel." The
+///   Space is `spaceId`, or else the
 ///   channel's `spaceId`. The permissions are resolved as in
 ///   draft-atwood-jmap-chat-00 §Space Permission Resolution, with
 ///   `everyone` as the implicit `@everyone` role's permissions. The draft
@@ -79,18 +80,18 @@ pub async fn check_call_create<C: ChatBackend>(
     everyone: &HashSet<String>,
 ) -> Result<Result<(), SetError>, C::Error> {
     if let Some(chat_id) = bound(&call.chat_id) {
-        let found = match get_one::<Chat, _>(chat, caller, account_id, chat_id).await? {
-            Some(c) if chat.may_view_chat(caller, account_id, chat_id).await? => c,
-            _ => {
-                return Ok(Err(SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(["chatId"])
-                    .with_description(
-                        "chatId does not name a Chat the caller has access to",
-                    )))
+        let visible = match get_one::<Chat, _>(chat, caller, account_id, chat_id).await? {
+            Some(c) if chat.may_view_chat(caller, account_id, chat_id).await? => {
+                is_member(chat, caller, account_id, &c).await?
             }
+            _ => false,
         };
-        if !is_member(chat, caller, account_id, &found).await? {
-            return Ok(Err(forbidden("the caller is not a member of the Chat")));
+        if !visible {
+            return Ok(Err(SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["chatId"])
+                .with_description(
+                    "chatId does not name a Chat the caller has access to",
+                )));
         }
     }
 

@@ -1,15 +1,14 @@
 //! The Chat rules of `VTCCall/set` create: `chatId` access and
 //! membership, and the `start_call` gate.
 //!
-//! Oracle: vtc L652 (§Creating a Room Call): "When the call carries a
-//! `spaceId` or `channelId` binding and {{JMAP-CHAT}} is present, the
-//! server MUST verify the caller has the `"start_call"` permission in the
-//! target Space or channel; if not, the server MUST return `forbidden`.
-//! ... When `chatId` is supplied but does not resolve to a Chat object the
-//! caller has access to, the server MUST return `invalidProperties` naming
-//! `chatId`. The caller MUST be a member of the Chat referenced by
-//! `chatId`. The server MUST return `forbidden` if the caller is not a
-//! member." Permission resolution: chat L1621-1625.
+//! Oracle: vtc L626 (§VTCCall/set): "When `chatId` does not resolve to a
+//! Chat object, the server MUST return `invalidProperties` naming
+//! `chatId`. The server SHOULD return the same error when the caller is
+//! not a member of that Chat, so that the response does not reveal that
+//! the Chat exists. When the call carries a `spaceId` or `channelId`
+//! binding and {{JMAP-CHAT}} is present, the server SHOULD return
+//! `forbidden` if the caller lacks the `"start_call"` permission in the
+//! bound Space or channel." Permission resolution: chat L1621-1625.
 
 mod common;
 
@@ -36,7 +35,7 @@ async fn unresolved_chat_id_is_invalid_properties() {
 }
 
 #[tokio::test]
-async fn non_member_of_the_chat_is_forbidden() {
+async fn non_member_of_the_chat_gets_the_unresolved_error() {
     let backend = Bound::new();
     backend.seed_chat_object("Chat", group_chat("chat1", &["c-bob", "c-alice"]));
     let err = create_call_error(
@@ -44,7 +43,14 @@ async fn non_member_of_the_chat_is_forbidden() {
         json!({ "callType": "room", "mediaTypes": ["audio"], "chatId": "chat1" }),
     )
     .await;
-    assert_eq!(err["type"], "forbidden");
+    assert_eq!(err["type"], "invalidProperties");
+    assert_eq!(err["properties"], json!(["chatId"]));
+    let unresolved = create_call_error(
+        &backend,
+        json!({ "callType": "room", "mediaTypes": ["audio"], "chatId": "no-such-chat" }),
+    )
+    .await;
+    assert_eq!(err, unresolved);
 }
 
 /// chat L1621: "Compute the union of `permissions` across all SpaceRoles
