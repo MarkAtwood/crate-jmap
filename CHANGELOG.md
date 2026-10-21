@@ -1838,6 +1838,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-graph-types**: `Expression::to_value` leaves out a field test
+  with no operators (`FieldTest::default()`, always true) instead of
+  writing `{}`, which draft-atwood-jmap-graph-search-00 §Field Tests reads
+  as `{"$eq": {}}`, a narrower filter than the one built.
 - **jmap-chat-server**: a Direct `Chat/set` create whose duplicate
   re-check read fails, or that loses the duplicate race, now counts the
   committed create as a mutation, so `newState` is re-read (RFC 8620 §5.3)

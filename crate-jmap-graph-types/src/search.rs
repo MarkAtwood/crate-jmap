@@ -352,11 +352,16 @@ impl Expression {
     ///
     /// Field tests are always written as operator objects, never as the
     /// plain-value shorthand, so an `$eq` operand that is itself an object
-    /// with `$`-prefixed names keeps its meaning.
+    /// with `$`-prefixed names keeps its meaning. A field test with no
+    /// operators is always true but has no wire form (§Field Tests: `{}`
+    /// is shorthand for `{"$eq": {}}`), so it is left out, which keeps the
+    /// expression's meaning because every member must be true.
     pub fn to_value(&self) -> Value {
         let mut m = Map::new();
         for (pointer, test) in &self.fields {
-            m.insert(pointer.clone(), test.to_value());
+            if *test != FieldTest::default() {
+                m.insert(pointer.clone(), test.to_value());
+            }
         }
         let list = |v: &[Expression]| Value::Array(v.iter().map(Self::to_value).collect());
         if let Some(v) = &self.and {
