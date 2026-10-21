@@ -1,0 +1,49 @@
+# Agent Instructions — jmap-graph-server
+
+## Sibling of the canonical jmap-mail-server — mirror its shape
+
+Module layout, backend-trait shape, handler registration, `/set`
+boilerplate and test layout mirror `jmap-mail-server` (via its sibling
+`jmap-scene-server`); the differences are the draft-atwood-jmap-graph-00
+rules. Diverging shape changes go to `jmap-mail-server` first (workspace
+AGENTS.md "Canonical Templates").
+
+## What this crate is
+
+draft-atwood-jmap-graph-00 `Graph/*`, `GraphNode/*` and `GraphEdge/*`
+method handlers, the `GraphBackend` trait and a `memory` reference
+backend. Depends on RFC 8620 crates and `jmap-graph-types` only. Not
+published (`publish = false`).
+
+## Before starting any work
+
+1. Run `bd ready`.
+2. Read `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-graph-00.md` for the
+   method you are changing.
+
+## Build & Test
+
+```bash
+cargo fmt --all
+cargo clippy -p jmap-graph-server --all-targets --all-features -- -D warnings
+cargo test -p jmap-graph-server
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-graph-server
+```
+
+## Design constraints (settled)
+
+| Decision | Choice |
+|---|---|
+| Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
+| Rights | from the per-caller `Graph.myRights` the backend's `/get` returns; no extra hook; backend re-verifies atomically |
+| Unreadable Graph | `notFound` on `/get` and `/set` update/destroy, `invalidProperties` `graphId` on create, omitted from `/query` (backend) |
+| `/set` loop | one `helpers::handle_set` over a per-type `SetOps` impl |
+| `createdBy` / `updatedBy` | `JmapBackend::principal_id` |
+| Graph `updated` | bumped by every Graph patch except one touching only the caller's `isSubscribed` |
+| Destroy cascades | `GraphBackend::destroy_object`, atomically |
+| Edge endpoints | handler check plus backend re-check, `invalidProperties` naming the property |
+| `uri` | RFC 3986 scheme + character set |
+| `maxAnnotationSize` | compact JSON length, `tooLarge` |
+| Sharing | RFC 9670 via `jmap-sharing-server`; ShareNotification `name` is the Graph's `name` (backend duty) |
+| Cross-call `#creationId` | not resolved: dispatcher gap, bd:JMAP-8ypy |
+| Tests | Each assertion quotes its draft line; never the code under test |

@@ -14,6 +14,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-server** (new, `publish = false`): draft-atwood-jmap-graph-00
+  method handlers — `register_graph_handlers` and the standard `/get`,
+  `/changes`, `/set`, `/query` and `/queryChanges` of `Graph`, `GraphNode`
+  and `GraphEdge` over a `GraphBackend` trait, with a `memory` reference
+  backend. Rights come from the caller's `Graph.myRights` (§Graph/set:
+  own `isSubscribed` with `mayRead`, `name`/`annotations` with `mayWrite`,
+  `shareWith` and destroy with `mayAdmin`; GraphNode/GraphEdge `/set` with
+  `mayWrite`); a Graph the caller may not read is `notFound`, with its
+  nodes and edges (§Access Control). Destroying a Graph destroys its nodes
+  and edges, destroying a node its edges; edge `fromId`/`toId` must name
+  nodes of the edge's Graph; annotation keys are non-empty and
+  `maxAnnotationSize` is `tooLarge`; `uri` must be a URI; GraphNode and
+  GraphEdge `/query` need a single `graphId` condition
+  (`unsupportedFilter`).
+
 - **jmap-graph-types** (new, `publish = false`): draft-atwood-jmap-graph-00
   wire types — `JMAP_GRAPH_URI` (`urn:ietf:params:jmap:graph`),
   `GraphCapability` (`maxAnnotationSize`), `PrincipalGraphCapability`,
