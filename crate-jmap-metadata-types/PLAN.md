@@ -1,6 +1,6 @@
 # jmap-metadata-types — Implementation Plan
 
-JMAP Object Metadata extension (draft-ietf-jmap-metadata-02) data types.
+JMAP Object Metadata extension (draft-ietf-jmap-metadata-04) data types.
 Types only — no method handlers, no async, no network I/O.
 
 ## Crate Family Position
@@ -15,14 +15,14 @@ jmap-metadata-types  ← this crate
 
 The base JMAP spec has no metaprotocol mechanism for a server to declare
 what vendor extras it supports or whether they can be filtered.
-`draft-ietf-jmap-metadata-02` is the IETF-track answer:
+`draft-ietf-jmap-metadata-04` is the IETF-track answer:
 
 - A capability URI `urn:ietf:params:jmap:metadata` whose account value
-  maps each opted-in data type to a `DataTypeMetadataInfo` (§1.2.1).
-- Two properties on each opted-in data type, `metadata` (shared) and
+  maps each listed data type to a `DataTypeMetadataInfo` (§1.2.1).
+- Two properties on each listed data type, `metadata` (shared) and
   `privateMetadata` (per-user), keyed by namespace identifier (§2, §2.1).
 - Extensions to the data type's own `/get` (§3.1), `/set` (§3.2),
-  `/changes` (§3.3), `/queryChanges` (§3.4), and `/query` (§3.5).
+  `/changes` (§3.3), `/copy` (§3.4), `/queryChanges` (§3.5), and `/query` (§3.6).
 
 draft-02 removed the -01 standalone `Metadata` object
 (`Annotation` / `ImapMetadata` / `WebDavMetadata`) and its `Metadata/*`
@@ -33,7 +33,7 @@ methods. The -02 rewrite of this crate is bd JMAP-ua37.1.
 | Module | Item(s) | Draft section |
 |---|---|---|
 | `capability.rs` | `DataTypeMetadataInfo`, `JMAP_METADATA_URI` | §1.2.1 |
-| `filter.rs` | `MetadataTextMatch` | §3.5 |
+| `filter.rs` | `MetadataTextMatch` | §3.6 |
 | `namespace.rs` | `is_registered_namespace`, `is_vendor_namespace`, `is_valid_namespace` | §2.1 |
 
 ## What Is Out of Scope
@@ -59,7 +59,7 @@ methods. The -02 rewrite of this crate is bd JMAP-ua37.1.
 | `supportsPrivate` | `supports_private: bool` | `false` |
 | `maxDepth` | `max_depth: Option<u64>` | `null` (no server-enforced limit) |
 
-### MetadataTextMatch (§3.5)
+### MetadataTextMatch (§3.6)
 
 | Wire field | Rust field | Notes |
 |---|---|---|
@@ -73,16 +73,17 @@ from the code under test. Acceptable sources:
 
 1. Literal JSON copied from the §6 examples (e.g. §6.1 capability,
    §6.7 query).
-2. Hand-written JSON constructed directly from the §1.2.1 and §3.5
+2. Hand-written JSON constructed directly from the §1.2.1 and §3.6
    field descriptions.
 3. Namespace accept/reject cases taken from the §2.1 grammar.
 
-Tests pinned to a draft example are named `*_draft_02_*`; when the
+Tests pinned to a draft example are named `*_draft_02_*`, after the
+-02 example they were written from; -04 keeps those examples. When the
 draft revs, update or replace them rather than mutating them silently.
 
 ## Spec References
 
-- https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02 — normative
+- https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04 — normative
 - `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol
 
 ## Dependencies
@@ -107,8 +108,8 @@ Neither public struct carries an `extra` field:
 
 ### Draft-version risk
 
-`draft-ietf-jmap-metadata-02` is an active IETF Working Group draft
-(expires 28 November 2026). All structs are `#[non_exhaustive]` so
+`draft-ietf-jmap-metadata-04` is an active IETF Working Group draft
+(expires 22 April 2027). All structs are `#[non_exhaustive]` so
 adding fields when the draft revs is non-breaking. The -01 → -02
 rewrite was a breaking change at every level (types, methods, wire
 format); a future rev of similar scope will need the same

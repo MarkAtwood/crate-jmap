@@ -897,6 +897,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- Docs: metadata citations across the workspace, including the
+  `jmap-metadata-server` and `jmap-metadata-client` package
+  descriptions, now name draft-ietf-jmap-metadata-04 and its renumbered
+  sections (`/query` §3.6, `/queryChanges` §3.5). No API change.
 - **BREAKING** **jmap-types**: `ChangesResponse::updated_properties` is
   now `Option<Option<Vec<String>>>`: `None` when absent, `Some(None)` for
   `null`, `Some(Some(names))` for a list. An explicit `null` used to

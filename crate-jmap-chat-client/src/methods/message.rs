@@ -102,7 +102,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`MessageFilterCondition`](jmap_chat_types::query::MessageFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<MessageFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions. Per spec
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions. Per spec
     /// the filter must include a `chatId` condition unless it includes
     /// `hasMention: true`; servers return `unsupportedFilter` otherwise.
     ///
@@ -502,7 +502,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`MessageFilterCondition`](jmap_chat_types::query::MessageFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<MessageFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&MessageFilter>`).
     ///
     /// # Errors

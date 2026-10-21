@@ -4,13 +4,13 @@
 
 Pure, stateless server-side helpers for the JMAP Object Metadata
 extension
-([draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02)).
+([draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04)).
 No method handlers, no backend trait, no dispatcher registration, no
 `memory` feature.
 
 ## What it's for
 
-draft-02 has no standalone `Metadata` object and no `Metadata/*`
+draft-04 has no standalone `Metadata` object and no `Metadata/*`
 methods. Each data type a server lists in the capability's `dataTypes`
 gains `metadata` and `privateMetadata` properties, served by that
 type's own `Foo/get`, `Foo/set`, `Foo/changes`, `Foo/queryChanges`,
@@ -22,11 +22,11 @@ workspace's extension servers is tracked by bd JMAP-s4kp.
 | Module | Item | Draft § |
 |---|---|---|
 | `validate` | `value_depth`, `exceeds_max_depth` | §2.1 (depth), §3.2 rule 4 |
-| `validate` | `is_namespace_supported` | §3.1, §3.2 rule 3, §3.5 |
+| `validate` | `is_namespace_supported` | §3.1, §3.2 rule 3, §3.6 |
 | `changes` | `METADATA_PROPERTY`, `PRIVATE_METADATA_PROPERTY`, `is_metadata_property`, `is_metadata_only_change` | §3.3 (`ignoreMetadataOnlyChanges`, `updatedProperties`) |
-| `filter` | `metadata_path_exists` | §3.5 `metadataExists` / `privateMetadataExists` |
-| `filter` | `metadata_text_contains` | §3.5 `metadataTextContains` / `privateMetadataTextContains` |
-| `filter` | `metadata_text_equals` | §3.5 `metadataTextEquals` / `privateMetadataTextEquals` |
+| `filter` | `metadata_path_exists` | §3.6 `metadataExists` / `privateMetadataExists` |
+| `filter` | `metadata_text_contains` | §3.6 `metadataTextContains` / `privateMetadataTextContains` |
+| `filter` | `metadata_text_equals` | §3.6 `metadataTextEquals` / `privateMetadataTextEquals` |
 
 `JMAP_METADATA_URI` is re-exported from `jmap-metadata-types`.
 
@@ -41,7 +41,7 @@ use serde_json::json;
 assert!(exceeds_max_depth(&json!({"a": {"b": "c"}}), 1));
 
 // /query: evaluate a metadataExists condition against an object's
-// metadata map (§3.5).
+// metadata map (§3.6).
 let metadata = json!({"photography": {"album": "sunset"}});
 assert!(metadata_path_exists(metadata.as_object().unwrap(), "photography/album"));
 
@@ -77,7 +77,7 @@ for everything that needs state or identity:
 
 The 0.1 crate exposed `MetadataBackend`, `register_metadata_handlers`,
 `memory::MemoryBackend`, and five `Metadata/*` handlers. All are
-removed in 0.2. Integrate the helpers into each opted-in type's own
+removed in 0.2. Integrate the helpers into each listed data type's own
 handlers instead.
 
 ## Crate family
@@ -90,11 +90,11 @@ jmap-metadata-types      DataTypeMetadataInfo, MetadataTextMatch,
 
 ## References
 
-- **[draft-ietf-jmap-metadata-02]** — JMAP Object Metadata (normative
+- **[draft-ietf-jmap-metadata-04]** — JMAP Object Metadata (normative
   for depth counting, namespace support, filter semantics, and
   `/changes` extensions)
 - **[RFC 8620]** — JMAP Core (`/get`, `/set`, `/changes`, `/query`,
   SetError)
 
-[draft-ietf-jmap-metadata-02]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02
+[draft-ietf-jmap-metadata-04]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

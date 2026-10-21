@@ -898,10 +898,10 @@ async fn calendar_event_copy_omits_unset_copy_args() {
     );
 }
 
-/// `CalendarEvent/query` carries draft-ietf-jmap-metadata-02 §3.5
+/// `CalendarEvent/query` carries draft-ietf-jmap-metadata-04 §3.6
 /// conditions in a `WithMetadata<CalendarEventFilterCondition>` leaf.
 ///
-/// Oracle: §3.5 — "the FilterCondition object for Foo/query is extended
+/// Oracle: §3.6 — "the FilterCondition object for Foo/query is extended
 /// with" `metadataExists: String` and `metadataTextEquals:
 /// MetadataTextMatch` (`path`, `value`), composed "through the usual
 /// AND/OR/NOT operators"; draft-ietf-jmap-calendars-26 §5.11 —
@@ -952,6 +952,6 @@ async fn calendar_event_query_metadata_condition_wire_shape() {
                 }
             ]
         }),
-        "metadata-02 §3.5 condition wire shape mismatch"
+        "metadata-04 §3.6 condition wire shape mismatch"
     );
 }

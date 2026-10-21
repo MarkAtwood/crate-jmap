@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-02 §1.2.1 — capability registration and
+//! draft-ietf-jmap-metadata-04 §1.2.1 — capability registration and
 //! per-data-type metadata info.
 //!
 //! Provides [`DataTypeMetadataInfo`] and the capability URI constant
@@ -7,18 +7,18 @@
 use serde::{Deserialize, Serialize};
 
 /// The JMAP capability URI for the Metadata extension
-/// (draft-ietf-jmap-metadata-02 §1.2.1).
+/// (draft-ietf-jmap-metadata-04 §1.2.1).
 ///
 /// Present as a key in both the session-level `capabilities` object (value:
 /// empty object `{}`) and in each account's `accountCapabilities` object
 /// (value: an object with a `dataTypes` field mapping type names to
 /// [`DataTypeMetadataInfo`]).
 ///
-/// The URI is unchanged between -01 and -02.
+/// The URI is unchanged from -01 through -04.
 pub const JMAP_METADATA_URI: &str = "urn:ietf:params:jmap:metadata";
 
 /// Per-data-type metadata capability advertisement
-/// (draft-ietf-jmap-metadata-02 §1.2.1).
+/// (draft-ietf-jmap-metadata-04 §1.2.1).
 ///
 /// Appears as the value in the `dataTypes` map within the account-level
 /// `urn:ietf:params:jmap:metadata` capability object. A type that does not

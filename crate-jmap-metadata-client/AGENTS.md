@@ -5,8 +5,8 @@
 This crate is a **sibling under the canonical `jmap-mail-client`
 extension-client template**. Doc-comment style, lint settings, and
 test layout must mirror `jmap-mail-client`. Differences are *only*
-the spec content (draft-ietf-jmap-metadata-02 here; RFC 8621 in
-mail-client). draft-02 defines no methods of its own, so this crate
+the spec content (draft-ietf-jmap-metadata-04 here; RFC 8621 in
+mail-client). draft-04 defines no methods of its own, so this crate
 has no `Jmap*Ext` trait, `SessionClient`, `with_*_session` accessor,
 or method bindings; that is a spec-mandated difference, not drift.
 
@@ -24,10 +24,10 @@ or method bindings; that is a spec-mandated difference, not drift.
 
 ## What This Is
 
-Pure client-side helpers for draft-ietf-jmap-metadata-02: property
+Pure client-side helpers for draft-ietf-jmap-metadata-04: property
 name constants (§2, §3.1), the `ignoreMetadataOnlyChanges` argument
 name and `updatedProperties` classifiers (§3.3), and builders for the
-six `metadata*` / `privateMetadata*` filter conditions (§3.5). Used
+six `metadata*` / `privateMetadata*` filter conditions (§3.6). Used
 alongside the typed extension clients' own `Foo/get`, `Foo/changes`,
 and `Foo/query` calls.
 
@@ -51,7 +51,7 @@ Run all four before considering any work done.
 
 ## Source Material
 
-- https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02
+- https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
   — normative for property names, the `/changes` argument, and filter
   condition shapes
 - `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base
@@ -63,7 +63,7 @@ Run all four before considering any work done.
   AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add features not in PLAN.md or not explicitly directed
-- Do not add method bindings or transport (draft-02 has no
+- Do not add method bindings or transport (draft-04 has no
   `Metadata/*` methods)
 - Any change to this crate that diverges from the canonical
   `jmap-mail-client` shape requires landing the canonical change

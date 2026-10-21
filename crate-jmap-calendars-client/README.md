@@ -119,7 +119,7 @@ validation at construction time via `UTCDate::new_validated`.
 `filter` is a `jmap_types::query::Filter<C>` (RFC 8620 §5.5 `AND` / `OR` /
 `NOT` over conditions of type `C: Serialize`). `C` is normally the crate's
 `*FilterCondition`; use `jmap_metadata_types::WithMetadata<C>` to add
-draft-ietf-jmap-metadata-02 §3.5 conditions. When passing `None`, name the
+draft-ietf-jmap-metadata-04 §3.6 conditions. When passing `None`, name the
 type (`None::<&CalendarEventFilter>`). `sort` uses typed comparators where
 defined, falling back to `serde_json::Value` for spec extensions not yet bound.
 `create` parameters are typed as `Option<BTreeMap<String, T>>` for the relevant

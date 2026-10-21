@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Object Metadata extension client helpers (draft-ietf-jmap-metadata-02) — property constants, filter-condition builders, and /changes helpers for metadata-augmented requests"
+description = "JMAP Object Metadata extension client helpers (draft-ietf-jmap-metadata-04) — property constants, filter-condition builders, and /changes helpers for metadata-augmented requests"
 keywords = ["jmap", "draft-jmap-metadata", "client", "metadata"]
 categories = ["network-programming", "api-bindings"]
 

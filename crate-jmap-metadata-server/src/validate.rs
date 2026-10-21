@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-02 §1.2.1 / §2.1 — validation helpers.
+//! draft-ietf-jmap-metadata-04 §1.2.1 / §2.1 — validation helpers.
 //!
 //! Provides:
 //!
@@ -70,7 +70,7 @@ pub fn exceeds_max_depth(value: &Value, max_depth: u32) -> bool {
 }
 
 /// Returns `true` if `namespace` is supported by the given
-/// [`DataTypeMetadataInfo`] capability (draft-ietf-jmap-metadata-02
+/// [`DataTypeMetadataInfo`] capability (draft-ietf-jmap-metadata-04
 /// §1.2.1).
 ///
 /// A namespace is supported if:

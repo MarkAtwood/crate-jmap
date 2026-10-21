@@ -31,11 +31,11 @@
 //! values themselves.
 
 /// Wire name of the shared metadata property added by
-/// draft-ietf-jmap-metadata-02.
+/// draft-ietf-jmap-metadata-04.
 pub const METADATA_PROPERTY: &str = "metadata";
 
 /// Wire name of the per-user private metadata property added by
-/// draft-ietf-jmap-metadata-02.
+/// draft-ietf-jmap-metadata-04.
 pub const PRIVATE_METADATA_PROPERTY: &str = "privateMetadata";
 
 /// Returns `true` if `property` is a metadata extension property
