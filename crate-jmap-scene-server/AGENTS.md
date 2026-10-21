@@ -53,7 +53,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-scene-serv
 | `SceneObject/query` `regionId` | required in every filter condition |
 | Spatial filters | region-local position through the parent chain; boundaries inclusive |
 | SceneAvatar ownership | required `caller_user_id`; the handler compares it with `userId` |
-| One avatar per region, reconnect, auto-eject, `maxAvatarsPerRegion`, `activeAvatarCount` | `SceneBackend::create_object` / `update_object`, atomically |
+| One avatar record per region, re-entry by `leftAt: null` update, auto-eject, `maxAvatarsPerRegion`, `activeAvatarCount` | `SceneBackend::create_object` / `update_object`, atomically |
 | Region entry, eject permission | fail-open `may_enter_region`, `may_eject_avatar` |
 | Eject patch | `leftAt` plus optional `worldState` (§Step 4 example) |
 | SceneAvatar `id` | backend-assigned, not the userId: a user has one record per region |

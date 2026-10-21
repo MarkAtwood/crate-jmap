@@ -26,7 +26,7 @@ trait.
 | `handle_scene_object_query`, `handle_scene_object_query_changes` | §SceneObject/query, §Spatial Filters, §SceneObject/queryChanges |
 | `handle_scene_object_interact` | §SceneObject/interact: `notFound`, `forbidden`, `rateLimit` and `invalidProperties`; accepted interactions go to `SceneBackend::accept_interaction` |
 | `handle_scene_avatar_get`, `handle_scene_avatar_changes` | §SceneAvatar/get, §SceneAvatar/changes (RFC 8620 §5.1, §5.2) |
-| `handle_scene_avatar_set` | §SceneAvatar/set: enter, update, leave, eject, reconnect and §SetError Conditions |
+| `handle_scene_avatar_set` | §SceneAvatar/set: enter, update, leave, re-enter, eject and §SetError Conditions |
 | `handle_scene_avatar_query`, `handle_scene_avatar_query_changes` | §SceneAvatar/query, §SceneAvatar/queryChanges |
 | `query::asset_matches`, `query::compare_assets` | §SceneAsset/query filter and sort |
 | `query::region_matches`, `query::compare_regions` | §SceneRegion/query filter and sort |
@@ -127,15 +127,22 @@ user's `userId` (`forbidden`). The handler sets `userId` from
 and `position` and `orientation` from the region's spawn values when
 absent. A supplied `position` must be finite, an `orientation` within
 1e-3 of unit length (stored normalized), and `visualRef` and
-`visualType` come together. In one atomic step `create_object` refuses a
-second active avatar of the user in the region with `alreadyExists` and
-`existingId`, applies `maxAvatarsPerRegion` to active avatars, sets
-`leftAt` on the user's active avatar in any other region, reuses a
-departed avatar's record in the region (reconnect), and keeps every
-affected region's `activeAvatarCount`. The `created` entry is the stored
-avatar. An update of the caller's own avatar may change anything but
-`id`, `regionId`, `userId` and `joinedAt`; setting `leftAt` leaves the
-region and a second leave is `invalidProperties` naming `leftAt`. On
+`visualType` come together. In one atomic step `create_object` refuses
+the create with `alreadyExists` and `existingId` when the user already
+has an avatar in the region, present or departed, applies
+`maxAvatarsPerRegion` to active avatars, sets `leftAt` on the user's
+active avatar in any other region, and keeps every affected region's
+`activeAvatarCount`. The `created` entry is the stored avatar. An update
+of the caller's own avatar may change anything but `id`, `regionId`,
+`userId` and `joinedAt`; setting `leftAt` leaves the region and a second
+leave is `invalidProperties` naming `leftAt`. Setting `leftAt` to `null`
+on a departed avatar re-enters the region (§Re-entering a Region): lost
+region access is `notFound`, `may_enter_region` `false` is `forbidden`,
+and a `position` or `orientation` in the same patch is
+`invalidProperties`. The handler sets `joinedAt` to now and `position`
+and `orientation` to the region's spawn point, and `update_object`
+applies `maxAvatarsPerRegion` (`overQuota`), the auto-eject from other
+regions and the `activeAvatarCount` update in the same atomic step. On
 another user's avatar only an eject (`leftAt`, optionally `worldState`)
 is allowed, and only when `may_eject_avatar` agrees; anything else is
 `forbidden`. Destroy is always `forbidden`. `/query` defaults to
@@ -162,8 +169,6 @@ every condition, for a `withinRadius.radius` <= 0 or a `withinBounds`
   ("SHOULD use the userId as the id within a given region"): one user
   can have avatar records in several regions of an account, and JMAP ids
   are unique per type per account.
-- An entry `position` supplied on reconnect is kept rather than reset to
-  `spawnPosition`, as on a first entry.
 - Re-parenting an object reads every SceneObject of the account to find
   the moved subtree's height. A backend with a `parentId` index can
   register a faster `SceneObject/set`.

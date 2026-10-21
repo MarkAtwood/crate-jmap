@@ -46,11 +46,12 @@
 //! `rateLimit` and otherwise delivers the `SceneInteractionEvent`.
 //!
 //! The `SceneAvatar/*` methods (draft §SceneAvatar Methods): `/set` create
-//! enters a region (one active avatar per user and region, `alreadyExists`
-//! with `existingId` for a duplicate, reconnect to a departed record,
+//! enters a region (one avatar record per user and region, `alreadyExists`
+//! with `existingId` when the user has a present or departed record there,
 //! auto-eject from another region, `maxAvatarsPerRegion` and
 //! [`SceneBackend::may_enter_region`]), an update that sets `leftAt` leaves
 //! it or, through [`SceneBackend::may_eject_avatar`], ejects another user,
+//! an update that sets `leftAt` to `null` re-enters it at the spawn point,
 //! destroy is `forbidden`, a `displayName` from
 //! [`SceneBackend::reserved_display_names`] is `forbidden`, and the
 //! backend keeps `activeAvatarCount`; and
