@@ -315,7 +315,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///   result. Backends doing `SELECT ... WHERE id IN (parents)` must
     ///   add a DISTINCT/dedup step.
     /// - **Ordering is unspecified.** Callers MUST NOT depend on the order
-    ///   of results. The reference [`MemoryBackend`] returns BFS order
+    ///   of results. The reference `MemoryBackend` returns BFS order
     ///   (all immediate parents, then all grandparents, ...) but that is
     ///   not a contract; production backends may use any order. If a
     ///   caller needs the per-id chain (the path from a specific input id
@@ -333,8 +333,6 @@ pub trait FileNodeBackend: JmapBackend {
     /// - `fetchParents` expansion in `FileNode/get`: the result is dumped
     ///   into the flat `list` alongside the requested ids; ordering does
     ///   not matter to RFC 8620 §5.1.
-    ///
-    /// [`MemoryBackend`]: crate::memory::MemoryBackend
     fn get_ancestors(
         &self,
         caller: &Self::CallerCtx,
