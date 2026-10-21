@@ -34,7 +34,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ContactsBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators, PLACEHOLDER_ID,
+    SetAccumulators,
 };
 use jmap_server::{
     server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
@@ -224,10 +224,12 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 );
                 continue;
             }
+            // `AddressBook.id` is required, so the parse fills it with "",
+            // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
+            // of 255 octets"); `build` overwrites it with the minted id.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.entry("id")
-                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
+                    m.insert("id".to_owned(), Value::String(String::new()));
                     // AddressBook requires myRights — inject a default if absent.
                     m.entry("myRights").or_insert_with(|| {
                         json!({
@@ -242,7 +244,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 other => other,
             };
 
-            let ab: AddressBook = match serde_json::from_value(obj_with_id) {
+            let mut ab: AddressBook = match serde_json::from_value(obj_with_id) {
                 Ok(a) => a,
                 Err(e) => {
                     not_created.insert(
@@ -253,8 +255,12 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 }
             };
 
+            let build = move |id: &Id| {
+                ab.id = id.clone();
+                ab
+            };
             match backend
-                .create_object::<AddressBook>(caller, &account_id, &create_id, ab)
+                .create_object::<AddressBook, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {

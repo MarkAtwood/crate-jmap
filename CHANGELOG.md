@@ -1326,6 +1326,8 @@ wire behaviour that a conforming peer can observe.
   `Task/set` and `Task/copy` parse the create without an id and the
   builder sets it. **jmap-chat-tasks-server** `create_space_task_list`
   builds its TaskList in the builder.
+- **BREAKING** **jmap-contacts-server**: `ContactsBackend::create_object`
+  takes the same builder; the `"placeholder"` id sentinel is gone.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

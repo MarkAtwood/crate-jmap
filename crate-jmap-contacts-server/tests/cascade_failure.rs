@@ -138,15 +138,19 @@ impl JmapBackend for FailingBackend {
 }
 
 impl ContactsBackend for FailingBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &(),
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         self.inner
-            .create_object(caller, account_id, create_id, obj)
+            .create_object(caller, account_id, create_id, build)
             .await
     }
 
