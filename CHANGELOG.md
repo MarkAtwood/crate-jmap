@@ -1309,6 +1309,23 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-server**: `VtcBackend` gains the required
+  `update_object_if`, a compare-and-set `update_object` that applies a
+  patch only while the stored `state` is one of `expected`, checked
+  atomically with the write, and returns `Ok(Err(state))` otherwise. The
+  new `StatefulObject` trait (`VtcCall`, `VtcRecording`,
+  `VtcLivestream`) gives the compared state. Every handler `state` change
+  now goes through it. The VTCCall end and the participant-driven
+  activations are covered, and so are the recording pause, resume and
+  stop and the livestream stop. Before this, a check against an earlier
+  read let two concurrent updates both pass (draft-atwood-jmap-vtc-00,
+  jmap-chat-spec 29e9a41: L506 "The server MUST NOT transition a call
+  out of `"ended"`", L1165, L1266). Implement it in each backend; the
+  `MemoryBackend` one is the reference.
+- **BREAKING** **jmap-scene-vtc-server**, **jmap-chat-vtc-server**:
+  `clear_active_call_id` and `sync_active_call_id` must also run after a
+  `VtcBackend::update_object_if::<VtcCall>` write that applied, since
+  every VTCCall end now arrives there.
 - **BREAKING** **jmap-peer-auth**: `SignedRequest::verify` drops its
   `seen` replay closure and runs checks 2, 3, 4 and 6 only. A sync lookup
   followed by a separate record let two concurrent requests with the same
@@ -2118,6 +2135,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-vtc-server**: a participant join or answer no longer moves a
+  call that a moderator ended concurrently back to `"active"`. A failed
+  activation in `VTCParticipant/set` no longer skips the decline and
+  leave transitions that follow it. A breakout room whose state changed
+  during a parent end gets the `endReason` for its new state.
 - **jmap-server**: the dispatcher keeps the creation id map for every
   request, not only when the client sent `createdIds`; RFC 8620 §5.3
   says the server "MUST keep a simple map for the duration of the

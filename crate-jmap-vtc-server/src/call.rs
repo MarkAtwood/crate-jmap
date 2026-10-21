@@ -25,7 +25,7 @@ use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, reject_unsupported_sort, set_error_value,
-    utc_key, SetAccumulators,
+    state_refused, utc_key, SetAccumulators,
 };
 use crate::media::{stop_livestreams, stop_recordings};
 use jmap_server::{
@@ -608,20 +608,23 @@ fn end_reason_for(state: &CallState) -> Option<CallEndReason> {
     }
 }
 
-/// Move call `id` to `state`, a transition a participant's join, answer
-/// or departure causes (§State Machine). The `Err` value is the SetError
-/// JSON.
+/// Move call `id` from one of `from` to `state`, a transition a
+/// participant's join or answer causes (§State Machine). A call no longer
+/// in one of `from`, for example one a moderator ended since the caller
+/// read it, is left as it is: "The server MUST NOT transition a call out
+/// of `"ended"`". The `Err` value is the SetError JSON.
 pub(crate) async fn set_call_state<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     id: &Id,
+    from: &[CallState],
     state: CallState,
 ) -> Result<(), Value> {
     let mut patch = PatchObject::new();
     patch.as_map_mut().insert("state".to_owned(), json!(state));
     backend
-        .update_object::<VtcCall>(caller, account_id, id, patch)
+        .update_object_if::<VtcCall>(caller, account_id, id, from, patch)
         .await
         .map(|_| ())
         .map_err(backend_set_error_value)
@@ -676,7 +679,8 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 /// # Errors
 ///
 /// `notFound` for an unknown `id`, and `invalidProperties` naming `state`
-/// when the call has already ended. Otherwise the first backend error;
+/// when the call has already ended, or left the state this function read
+/// before the end reached the store. Otherwise the first backend error;
 /// calls ended and recordings stopped before it stay so.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 #[allow(clippy::result_large_err)]
@@ -845,7 +849,9 @@ pub(crate) fn ring_deadline(
 /// Apply `patch`, which ends `call`, after ending every breakout room
 /// beneath it, and stop each ended call's active recordings and
 /// livestreams (§Ending a Call). Returns
-/// [`VtcBackend::update_object`]'s result for `call`.
+/// [`VtcBackend::update_object_if`]'s result for `call`, and the
+/// `invalidProperties` SetError naming `state` when `call` is no longer in
+/// the state it was read in.
 ///
 /// jmap-vtc-implementer-guide §Breakout room cleanup: "Implement
 /// parent-call end as a cascade that ends all child calls first." The
@@ -884,18 +890,39 @@ async fn end_cascade<B: VtcBackend>(
     }
 
     for room in rooms.iter().rev() {
-        // Only a `"creating"` room, which nobody answered, or an
-        // unrecognized state lacks a §Ending a Call reason.
-        let reason = end_reason_for(&room.state).unwrap_or(CallEndReason::Cancelled);
-        backend
-            .update_object::<VtcCall>(caller, account_id, &room.id, ended_patch(reason))
-            .await?;
+        let mut state = room.state.clone();
+        // A room whose state changed since the read ends with the reason
+        // for its new state, or is skipped once it has ended. The loop ends
+        // because §State Machine has no cycle back from a later state.
+        loop {
+            // Only a `"creating"` room, which nobody answered, or an
+            // unrecognized state lacks a §Ending a Call reason.
+            let reason = end_reason_for(&state).unwrap_or(CallEndReason::Cancelled);
+            let patch = ended_patch(reason);
+            match backend
+                .update_object_if::<VtcCall>(caller, account_id, &room.id, &[state], patch)
+                .await?
+            {
+                Ok(_) => break,
+                Err(CallState::Ended) => break,
+                Err(now) => state = now,
+            }
+        }
         stop_recordings(backend, caller, account_id, &room.id).await?;
         stop_livestreams(backend, caller, account_id, &room.id).await?;
     }
+    // `patch` carries the `endReason` for `call.state`, so it applies only
+    // from that state.
     let result = backend
-        .update_object::<VtcCall>(caller, account_id, &call.id, patch)
-        .await?;
+        .update_object_if::<VtcCall>(
+            caller,
+            account_id,
+            &call.id,
+            std::slice::from_ref(&call.state),
+            patch,
+        )
+        .await?
+        .map_err(|_| BackendSetError::SetError(state_refused()))?;
     stop_recordings(backend, caller, account_id, &call.id).await?;
     stop_livestreams(backend, caller, account_id, &call.id).await?;
     Ok(result)

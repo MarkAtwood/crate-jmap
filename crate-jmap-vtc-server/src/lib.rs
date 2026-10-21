@@ -71,7 +71,7 @@ pub use backend::{
     call_already_active_on_chat, AddedItem, BackendChangesError, BackendQueryError,
     BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams,
     QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-    VtcBackend,
+    StatefulObject, VtcBackend,
 };
 pub use call::{
     end_call, expire_ring, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,

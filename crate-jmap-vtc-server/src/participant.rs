@@ -389,8 +389,20 @@ async fn create_participant<B: VtcBackend>(
     // committed join).
     // ponytail: the failure is dropped, as the crate has no logging.
     // Upgrade path: a `VtcBackend` hook that reports it.
+    // The backend applies it only while the call is still `"pending"`, so a
+    // moderator's end since `call` was read stands (§State Machine: "The
+    // server MUST NOT transition a call out of `"ended"`").
     if !dial_out && call.state == CallState::Pending {
-        let _ = set_call_state(backend, caller, account_id, &call.id, CallState::Active).await;
+        let from = [CallState::Pending];
+        let _ = set_call_state(
+            backend,
+            caller,
+            account_id,
+            &call.id,
+            &from,
+            CallState::Active,
+        )
+        .await;
     }
     Ok(to_value(&stored))
 }
@@ -1037,7 +1049,9 @@ async fn run_effects<B: VtcBackend>(
 }
 
 /// The call transitions of [`run_effects`] on `call`, which has not
-/// ended. The `Err` value is the first failure's SetError JSON.
+/// ended. A failed activation does not stop the decline and leave
+/// transitions; the `Err` value is the SetError JSON of the decline or
+/// leave failure, else of the activation failure.
 async fn call_transitions<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1046,11 +1060,25 @@ async fn call_transitions<B: VtcBackend>(
     old: &VtcParticipant,
     effects: &Effects,
 ) -> Result<(), Value> {
-    if effects.activate {
-        // "if the call is `"ringing"`, the server transitions it to
-        // `"active"`"; a joined `"pending"` call likewise.
-        set_call_state(backend, caller, account_id, &call.id, CallState::Active).await?;
-    }
+    // "if the call is `"ringing"`, the server transitions it to
+    // `"active"`"; a joined `"pending"` call likewise. `effects.activate`
+    // was decided from the call before the update, so the backend applies
+    // it only from those states: a call already active or ended is left as
+    // it is.
+    let activated = if effects.activate {
+        let from = [CallState::Ringing, CallState::Pending];
+        set_call_state(
+            backend,
+            caller,
+            account_id,
+            &call.id,
+            &from,
+            CallState::Active,
+        )
+        .await
+    } else {
+        Ok(())
+    };
     if effects.declined && call.state == CallState::Ringing {
         // "When all target participants have declined and the call is
         // still `"ringing"`, the server transitions the call to `"ended"`
@@ -1073,7 +1101,7 @@ async fn call_transitions<B: VtcBackend>(
             .await
             .map_err(backend_set_error_value)?;
     }
-    Ok(())
+    activated
 }
 
 /// Apply the call side effects of participants leaving `call`, after

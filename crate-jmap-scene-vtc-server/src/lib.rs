@@ -9,7 +9,7 @@
 //!
 //! | Backend method | Call |
 //! |---|---|
-//! | `VtcBackend::update_object::<VtcCall>`, after the write | [`clear_active_call_id`] |
+//! | `VtcBackend::update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | [`clear_active_call_id`] |
 //! | `SceneBackend::may_see_region_avatars`, for a region with an `activeCallId` | [`may_see_region_avatars`] |
 
 #![forbid(unsafe_code)]
@@ -32,8 +32,10 @@ use serde_json::Value;
 /// A call in any state other than `"ended"` changes nothing, so this is
 /// safe to call after every VTCCall update. Both `VTCCall/set` and
 /// `jmap_vtc_server::end_call` (the server's own inactivity or
-/// all-participants-left end) write through `VtcBackend::update_object`,
-/// so calling it there covers both. Each write goes through
+/// all-participants-left end) end a call through
+/// `VtcBackend::update_object_if`, and other VTCCall patches go through
+/// `VtcBackend::update_object`, so calling it from both covers every
+/// end. Each write goes through
 /// [`SceneBackend::update_object`], which advances the SceneRegion state,
 /// so the SceneRegion `StateChange` follows. Call it in the same atomic
 /// step as the VTCCall write.
