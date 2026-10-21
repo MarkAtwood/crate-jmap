@@ -1,14 +1,15 @@
-//! draft-ietf-jmap-metadata-02 §2.1 — namespace identifier validation.
+//! draft-ietf-jmap-metadata-04 §2.1 — namespace identifier validation.
 //!
 //! Namespace identifiers are the keys of the `metadata` and
 //! `privateMetadata` objects. Each identifier is either a *registered name*
 //! (no dot) or a *domain name* (contains at least one dot).
 
 /// Returns `true` if `name` is a valid registered namespace identifier
-/// (draft-ietf-jmap-metadata-02 §2.1).
+/// (draft-ietf-jmap-metadata-04 §2.1).
 ///
-/// A registered name is a non-empty sequence of US-ASCII letters, digits,
-/// hyphens (`-`), and underscores (`_`), with **no dot** (`.`).
+/// A registered name is a non-empty sequence of lowercase US-ASCII letters,
+/// digits, hyphens (`-`), and underscores (`_`), with **no dot** (`.`).
+/// Uppercase letters are rejected.
 ///
 /// ```
 /// use jmap_metadata_types::is_registered_namespace;
@@ -18,22 +19,25 @@
 /// assert!(!is_registered_namespace("acme.example.com")); // domain name
 /// assert!(!is_registered_namespace("")); // empty
 /// assert!(!is_registered_namespace("has space")); // space
+/// assert!(!is_registered_namespace("Photography")); // uppercase
 /// ```
 pub fn is_registered_namespace(name: &str) -> bool {
     !name.is_empty()
         && !name.contains('.')
         && name
             .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
 }
 
 /// Returns `true` if `name` is a valid vendor (domain-name) namespace
-/// identifier (draft-ietf-jmap-metadata-02 §2.1).
+/// identifier (draft-ietf-jmap-metadata-04 §2.1).
 ///
 /// A domain-name namespace contains at least one dot (`.`) and is in DNS
 /// form (e.g. `example.com`, `acme.example.org`). This function validates
 /// the structural requirement (contains a dot, non-empty labels, printable
-/// ASCII) but does **not** perform DNS resolution or full RFC 5321 validation.
+/// ASCII, no uppercase letters) but does **not** perform DNS resolution or
+/// full RFC 5321 validation. Internationalized labels must be in A-label
+/// form, which is ASCII, so non-ASCII input is rejected.
 ///
 /// ```
 /// use jmap_metadata_types::is_vendor_namespace;
@@ -44,15 +48,20 @@ pub fn is_registered_namespace(name: &str) -> bool {
 /// assert!(!is_vendor_namespace(".leading.dot")); // empty label
 /// assert!(!is_vendor_namespace("trailing.dot.")); // empty label
 /// assert!(!is_vendor_namespace("")); // empty
+/// assert!(!is_vendor_namespace("Acme.example.com")); // uppercase
 /// ```
 pub fn is_vendor_namespace(name: &str) -> bool {
     if name.is_empty() || !name.contains('.') {
         return false;
     }
     // Every label must be non-empty and contain only printable ASCII
-    // (no whitespace, no control chars).
-    name.split('.')
-        .all(|label| !label.is_empty() && label.bytes().all(|b| b.is_ascii_graphic()))
+    // (no whitespace, no control chars) with no uppercase letters.
+    name.split('.').all(|label| {
+        !label.is_empty()
+            && label
+                .bytes()
+                .all(|b| b.is_ascii_graphic() && !b.is_ascii_uppercase())
+    })
 }
 
 /// Returns `true` if `name` is a valid namespace identifier of either kind
@@ -87,7 +96,16 @@ mod tests {
     fn registered_with_hyphens_underscores_digits() {
         assert!(is_registered_namespace("my-namespace_v2"));
         assert!(is_registered_namespace("a"));
-        assert!(is_registered_namespace("A1-b2_c3"));
+        assert!(is_registered_namespace("a1-b2_c3"));
+    }
+
+    // -04 §2.1: "a sequence of lowercase US-ASCII letters, digits, hyphens,
+    // and underscores, with no dot".
+    #[test]
+    fn registered_rejects_uppercase() {
+        assert!(!is_registered_namespace("A1-b2_c3"));
+        assert!(!is_registered_namespace("Photography"));
+        assert!(!is_registered_namespace("photographY"));
     }
 
     #[test]
@@ -155,6 +173,22 @@ mod tests {
         assert!(!is_vendor_namespace("a. b"));
     }
 
+    // -04 §2.1: "Servers MUST reject ... a domain name containing uppercase
+    // ASCII letters."
+    #[test]
+    fn vendor_rejects_uppercase() {
+        assert!(!is_vendor_namespace("Acme.example.com"));
+        assert!(!is_vendor_namespace("acme.EXAMPLE.com"));
+        assert!(!is_vendor_namespace("acme.example.coM"));
+    }
+
+    // -04 §2.1: internationalized labels "in A-label form" (ASCII).
+    #[test]
+    fn vendor_accepts_a_label_rejects_u_label() {
+        assert!(is_vendor_namespace("xn--mnchen-3ya.example"));
+        assert!(!is_vendor_namespace("münchen.example"));
+    }
+
     // -- is_valid_namespace --------------------------------------------------
 
     #[test]
@@ -168,5 +202,7 @@ mod tests {
         assert!(!is_valid_namespace(""));
         assert!(!is_valid_namespace("has space"));
         assert!(!is_valid_namespace(".leading"));
+        assert!(!is_valid_namespace("Photography"));
+        assert!(!is_valid_namespace("Acme.example.com"));
     }
 }

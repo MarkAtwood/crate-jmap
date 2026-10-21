@@ -145,7 +145,7 @@ fn registered_namespace_accepts_valid() {
     assert!(is_registered_namespace("photography"));
     assert!(is_registered_namespace("my-namespace_v2"));
     assert!(is_registered_namespace("a"));
-    assert!(is_registered_namespace("A1-b2_c3"));
+    assert!(is_registered_namespace("a1-b2_c3"));
 }
 
 #[test]
@@ -154,6 +154,7 @@ fn registered_namespace_rejects_invalid() {
     assert!(!is_registered_namespace("has.dot"));
     assert!(!is_registered_namespace("has space"));
     assert!(!is_registered_namespace("foo@bar"));
+    assert!(!is_registered_namespace("A1-b2_c3"));
 }
 
 #[test]
@@ -170,6 +171,7 @@ fn vendor_namespace_rejects_invalid() {
     assert!(!is_vendor_namespace("trailing."));
     assert!(!is_vendor_namespace("a..b"));
     assert!(!is_vendor_namespace("a. b"));
+    assert!(!is_vendor_namespace("Acme.example.com"));
 }
 
 #[test]
