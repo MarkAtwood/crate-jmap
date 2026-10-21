@@ -1270,6 +1270,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-tasks-server**: `memory::MemoryError` is now
+  `#[non_exhaustive]` and matches the canonical `jmap-mail-server` shape:
+  `MemoryError::message()` is renamed `description()`, and `Display`
+  prints `MemoryBackend error: <description>` like its siblings.
 - **BREAKING** **jmap-vtc-server**: new required
   `VtcBackend::get_objects_unscoped`, a `get_objects` read without
   §Per-call access. Ending a call reads its breakout rooms and the

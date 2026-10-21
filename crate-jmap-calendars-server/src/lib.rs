@@ -299,12 +299,35 @@ pub(crate) mod test_support {
         QueryCalendarEventsError,
     };
 
+    /// Minimal error type for the mock backend.
+    ///
+    /// `#[non_exhaustive]` with a named field, mirroring the canonical
+    /// `jmap-mail-server` `MemoryError`: construction goes through
+    /// [`MockError::new`] and reads through [`MockError::description`], so
+    /// structured context can be added later without a breaking change.
+    #[non_exhaustive]
     #[derive(Debug)]
-    pub struct MockError(pub String);
+    pub struct MockError {
+        description: String,
+    }
+
+    impl MockError {
+        /// Construct a [`MockError`] from a human-readable description.
+        pub fn new(description: impl Into<String>) -> Self {
+            Self {
+                description: description.into(),
+            }
+        }
+
+        /// Human-readable description of the underlying failure.
+        pub fn description(&self) -> &str {
+            &self.description
+        }
+    }
 
     impl std::fmt::Display for MockError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "mock error: {}", self.0)
+            write!(f, "mock error: {}", self.description())
         }
     }
 
@@ -679,7 +702,7 @@ pub(crate) mod test_support {
             // 3. The onSuccessSetIsDefault creation-ref path can resolve
             //    "#createId" → assigned id via the response's "id" field.
             let mut as_json = serde_json::to_value(&obj).map_err(|e| {
-                BackendSetError::Other(MockError(format!("create serialize failed: {e}")))
+                BackendSetError::Other(MockError::new(format!("create serialize failed: {e}")))
             })?;
             if let Some(map) = as_json.as_object_mut() {
                 map.insert(
@@ -716,7 +739,7 @@ pub(crate) mod test_support {
             // Apply a JMAP PatchObject (RFC 8620 §5.3) all-or-nothing via the
             // shared `apply_patch_object`: keys are JSON Pointer paths.
             let patch_val: serde_json::Value = serde_json::to_value(&patch).map_err(|e| {
-                BackendSetError::Other(MockError(format!("patch serialize failed: {e}")))
+                BackendSetError::Other(MockError::new(format!("patch serialize failed: {e}")))
             })?;
             let mut guard = self.state.lock().unwrap();
             let Some(acct) = guard.get_mut(account_id.as_ref()) else {
