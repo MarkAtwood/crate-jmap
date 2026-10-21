@@ -429,8 +429,8 @@ pub trait SharingBackend: JmapBackend {
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
-    /// Per-**backend** capability probe: `true` if this backend supports
-    /// the given JMAP object type `O` at all.
+    /// Capability probe: `true` if this backend supports JMAP object type
+    /// `O` for `account_id`, as seen by `caller`.
     ///
     /// This is NOT called internally by the handler library — the handler
     /// always forwards `create_object` / `update_object` / `destroy_object`

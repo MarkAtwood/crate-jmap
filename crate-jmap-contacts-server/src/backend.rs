@@ -249,20 +249,8 @@ pub trait ContactsBackend: JmapBackend {
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
-    /// Returns `true` if this backend implementation supports the given
-    /// JMAP object type.
-    ///
-    /// The answer is **global per backend instance** — the signature has
-    /// no `caller` or `account_id` parameter, so a backend cannot make
-    /// the answer depend on the calling principal or target account.
-    ///
-    /// Consumers needing per-account or per-caller feature gating
-    /// (multi-tenant SaaS with paid contacts tiers, etc.) must implement
-    /// the gating at the session-capability-builder layer outside this
-    /// trait, or wrap the backend in per-tenant instances and dispatch
-    /// per request — neither is supported by the current trait surface.
-    /// The workspace-design discussion for adding `caller` / `account_id`
-    /// parameters is tracked at bd:JMAP-qz9v.30 follow-up.
+    /// Returns `true` if this backend supports JMAP object type `O` for
+    /// `account_id`, as seen by `caller`.
     ///
     /// # Types in scope
     ///
