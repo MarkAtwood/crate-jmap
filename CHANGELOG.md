@@ -1905,6 +1905,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: `MemoryBackend` `Message/query` `hasMention` no
+  longer treats every `"admins"` broadcast mention as targeting the
+  owner. The owner is an admin when its group ChatMember `role` is
+  `"admin"`, or when its Space permissions in a channel's Space include
+  `manage_members` or `manage_space`; direct Chats have no admins
+  (draft-atwood-jmap-chat-00 §BroadcastMention).
 - **jmap-chat-server**: `Space/set` `addCategories` accepts entries that
   omit `position` or `channelIds` instead of rejecting them with
   `invalidProperties`. A missing `channelIds` means no channels; the draft

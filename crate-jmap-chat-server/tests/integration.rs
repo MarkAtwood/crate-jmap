@@ -9241,7 +9241,11 @@ async fn query_has_mention_matches_broadcast_here() {
 }
 
 /// Oracle: hasMention matches a message with
-/// broadcastMentions=[{scope:"admins"}] and empty direct mentions.
+/// broadcastMentions=[{scope:"admins"}] and empty direct mentions when
+/// the owner is an admin of the Chat: draft-atwood-jmap-chat-00
+/// (jmap-chat-spec 33702a5) L446 `"admins"` is "members holding
+/// administrative authority in the Space or Chat", and L554 a group
+/// ChatMember `role` of `"admin"` is that authority.
 #[tokio::test]
 async fn query_has_mention_matches_broadcast_admins() {
     let backend = MemoryBackend::new();
@@ -9250,6 +9254,18 @@ async fn query_has_mention_matches_broadcast_admins() {
         "m-admins",
         json!([]),
         json!([{"scope": "admins"}]),
+    );
+    backend.insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        "c-mention",
+        json!({
+            "id": "c-mention",
+            "kind": "group",
+            "name": "mention-test",
+            "members": [{ "id": ACCOUNT_ID, "role": "admin", "joinedAt": "2024-01-01T00:00:00Z" }],
+            "receivedAt": "2024-01-01T00:00:00Z"
+        }),
     );
 
     let HandlerOutput { primary: resp, .. } = handle_message_query(

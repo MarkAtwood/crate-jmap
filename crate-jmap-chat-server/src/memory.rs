@@ -693,7 +693,7 @@ impl JmapBackend for MemoryBackend {
                 // RFC 8620 §5.5 `filter`, applied in-process; production
                 // backends would push it into a database query.
                 if let Some(ref fv) = filter_val {
-                    keys.retain(|id| filter_matches(O::TYPE_NAME, &m[id], fv, account_id));
+                    keys.retain(|id| filter_matches(&inner, O::TYPE_NAME, &m[id], fv, account_id));
                 }
 
                 if O::TYPE_NAME == "Message" {
@@ -1558,16 +1558,8 @@ impl ChatBackend for MemoryBackend {
         };
         let denied = match chat.get("kind").and_then(|v| v.as_str()) {
             Some("direct") => None,
-            Some("group") => {
-                let members = chat.get("members").and_then(|v| v.as_array());
-                let is_admin = members.is_some_and(|members| {
-                    members.iter().any(|m| {
-                        m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
-                            && m.get("role").and_then(|v| v.as_str()) == Some("admin")
-                    })
-                });
-                (!is_admin).then_some("only group chat admins may modify pinnedMessageIds")
-            }
+            Some("group") => (!is_group_admin(chat, account_id))
+                .then_some("only group chat admins may modify pinnedMessageIds"),
             Some("channel") => {
                 let has_pin = owner_channel_permissions(&inner, account_id, chat)
                     .is_some_and(|perms| perms.contains(&ChatPermission::Pin));
@@ -4475,15 +4467,75 @@ fn role_position(space_val: &serde_json::Value, role_id: &str) -> Option<u64> {
 /// satisfies hasMention. The MemoryBackend reference impl resolves:
 ///   "everyone" -> true (owner is always a member)
 ///   "here"     -> true (reference impl: all accounts active)
-///   "admins"   -> true (reference impl: single-user = always admin)
+///   "admins"   -> `owner_is_admin()` (see [`owner_is_chat_admin`])
 /// Unknown scopes -> false (defensive: do not match on unrecognized scope)
-fn broadcast_mention_matches_owner(bm: &serde_json::Value) -> bool {
+fn broadcast_mention_matches_owner(
+    bm: &serde_json::Value,
+    owner_is_admin: impl FnOnce() -> bool,
+) -> bool {
     match bm.get("scope").and_then(|v| v.as_str()) {
         Some("everyone") => true,
         Some("here") => true,
-        Some("admins") => true,
+        Some("admins") => owner_is_admin(),
         _ => false, // unknown scope: conservative no-match
     }
+}
+
+/// Whether the owner holds administrative authority in the Chat
+/// `chat_id`, the reference impl's predicate for the `"admins"`
+/// broadcast scope.
+///
+/// draft-atwood-jmap-chat-00 §BroadcastMention: `"admins"` is "members
+/// holding administrative authority in the Space or Chat; the predicate
+/// that defines "admin" ... is deployment-defined". The predicate here
+/// is evaluated against the owner's member entry (accountId):
+/// - group: the owner's ChatMember `role` is `"admin"` (§ChatMember);
+/// - channel: the owner's Space permissions include `"manage_members"`
+///   or `"manage_space"`, the holders §Space/set last-administrator
+///   protection keeps;
+/// - direct, or a Chat that is not stored: no admins.
+fn owner_is_chat_admin(
+    inner: &Inner,
+    account_id: &Id,
+    chat_id: Option<&serde_json::Value>,
+) -> bool {
+    let Some(chat) = chat_id.and_then(|v| v.as_str()).and_then(|id| {
+        inner
+            .objects_ref("Chat", account_id.as_ref())?
+            .get(&Id::from(id))
+    }) else {
+        return false;
+    };
+    match chat.get("kind").and_then(|v| v.as_str()) {
+        Some("group") => is_group_admin(chat, account_id),
+        Some("channel") => chat
+            .get("spaceId")
+            .and_then(|v| v.as_str())
+            .and_then(|sid| {
+                inner
+                    .objects_ref("Space", account_id.as_ref())?
+                    .get(&Id::from(sid))
+            })
+            .and_then(|space| caller_effective_permissions(space, account_id))
+            .is_some_and(|perms| {
+                perms.contains(&ChatPermission::ManageMembers)
+                    || perms.contains(&ChatPermission::ManageSpace)
+            }),
+        _ => false,
+    }
+}
+
+/// Whether `member_id`'s entry in group `chat`'s `members` has
+/// `role: "admin"` (draft-atwood-jmap-chat-00 §ChatMember).
+fn is_group_admin(chat: &serde_json::Value, member_id: &Id) -> bool {
+    chat.get("members")
+        .and_then(|v| v.as_array())
+        .is_some_and(|members| {
+            members.iter().any(|m| {
+                m.get("id").and_then(|v| v.as_str()) == Some(member_id.as_ref())
+                    && m.get("role").and_then(|v| v.as_str()) == Some("admin")
+            })
+        })
 }
 
 /// The id of a stored CustomEmoji other than `except` with the same
@@ -4564,6 +4616,7 @@ fn compare_by_sort(
 /// §5.5 filter: a FilterOperator (`AND` / `OR` / `NOT` over `conditions`)
 /// or a type-specific FilterCondition (see [`condition_matches`]).
 fn filter_matches(
+    inner: &Inner,
     type_name: &str,
     obj: &serde_json::Value,
     filter: &serde_json::Value,
@@ -4574,7 +4627,7 @@ fn filter_matches(
         .and_then(serde_json::Value::as_array)
         .into_iter()
         .flatten();
-    let sub = |f: &serde_json::Value| filter_matches(type_name, obj, f, account_id);
+    let sub = |f: &serde_json::Value| filter_matches(inner, type_name, obj, f, account_id);
     // RFC 8620 §5.5: "AND: All of the conditions must match", "OR: At
     // least one of the conditions must match", "NOT: None of the
     // conditions must match".
@@ -4582,7 +4635,7 @@ fn filter_matches(
         Some("AND") => conditions.all(sub),
         Some("OR") => conditions.any(sub),
         Some("NOT") => !conditions.any(sub),
-        _ => condition_matches(type_name, obj, filter, account_id),
+        _ => condition_matches(inner, type_name, obj, filter, account_id),
     }
 }
 
@@ -4600,6 +4653,7 @@ fn filter_matches(
 /// A Boolean property absent from the stored object takes its `false`
 /// default.
 fn condition_matches(
+    inner: &Inner,
     type_name: &str,
     obj: &serde_json::Value,
     cond: &serde_json::Value,
@@ -4619,7 +4673,7 @@ fn condition_matches(
     match type_name {
         "Chat" => eq("kind") && flag_eq("muted"),
         "ChatContact" => flag_eq("blocked") && eq("presence") && eq("identity"),
-        "Message" => message_matches_filter(obj, cond, account_id),
+        "Message" => message_matches_filter(inner, obj, cond, account_id),
         "Space" => {
             flag_eq("isPublic")
                 && cond
@@ -4650,6 +4704,7 @@ fn condition_matches(
 ///
 /// All supplied filter keys must match (AND semantics).
 fn message_matches_filter(
+    inner: &Inner,
     obj: &serde_json::Value,
     filter: &serde_json::Value,
     account_id: &Id,
@@ -4690,7 +4745,13 @@ fn message_matches_filter(
             || obj
                 .get("broadcastMentions")
                 .and_then(|v| v.as_array())
-                .is_some_and(|arr| arr.iter().any(broadcast_mention_matches_owner));
+                .is_some_and(|arr| {
+                    arr.iter().any(|bm| {
+                        broadcast_mention_matches_owner(bm, || {
+                            owner_is_chat_admin(inner, account_id, obj.get("chatId"))
+                        })
+                    })
+                });
         if has != want {
             return false;
         }
