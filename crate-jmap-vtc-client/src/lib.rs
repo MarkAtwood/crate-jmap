@@ -16,16 +16,23 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! [`VtcWsExt`] adds draft-atwood-jmap-vtc-wss-00 ephemeral VTC events to
+//! a `jmap_base_client::WsSession`: send `VTCStreamEnable` and
+//! `VTCStreamDisable` frames, and receive [`VtcWsFrame`]s, with every
+//! non-VTC frame passed through unchanged.
 
 #![forbid(unsafe_code)]
 
 pub mod methods;
+pub mod ws;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
     SetError, SetResponse,
 };
+pub use ws::{parse_vtc_ws_frame, VtcWsExt, VtcWsFrame};
 
 // ---------------------------------------------------------------------------
 // JmapVtcExt — the extension trait

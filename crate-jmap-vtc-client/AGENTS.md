@@ -23,6 +23,11 @@ JMAP VTC extension client methods (draft-atwood-jmap-vtc-00 §Methods) on
 top of `jmap-base-client`: `VTCCall/*`, `VTCParticipant/*`,
 `VTCRecording/*`, `VTCLivestream/*`.
 
+`src/ws.rs` adds draft-atwood-jmap-vtc-wss-00 ephemeral events to
+`WsSession` (`VtcWsExt`, `VtcWsFrame`, `parse_vtc_ws_frame`). It mirrors
+`jmap-scene-client`'s `ws.rs`, not `jmap-mail-client`, which has no
+WebSocket extension.
+
 ## Build & Test
 
 ```bash
@@ -37,6 +42,9 @@ RUSTDOCFLAGS="-D warnings" cargo doc -p jmap-vtc-client --no-deps --all-features
 - `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-vtc-00.md` — normative for
   method names, arguments and examples (§Methods, §Complete Lifecycle
   Examples)
+- `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-vtc-wss-00.md` — normative
+  for the `VTCStreamEnable`/`VTCStreamDisable` frames and event delivery
+  (§VTC Stream Control Messages, §Complete Example)
 - RFC 8620 §5 — standard get/changes/set/query/queryChanges shapes
 
 ## Restrictions
