@@ -19,6 +19,7 @@ use serde_json::json;
 fn ring_from(initiator: &str) -> VtcEvent {
     serde_json::from_value(json!({
         "@type": "VTCRingEvent",
+        "accountId": ACCOUNT,
         "callId": "C1",
         "initiatorId": initiator,
         "mediaTypes": ["audio"],

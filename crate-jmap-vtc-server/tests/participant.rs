@@ -331,6 +331,9 @@ async fn participants_can_unmute_false_needs_an_unmute_request() {
     assert_eq!(e.participant_id, Id::from(id.as_str()));
     assert_eq!(e.call_id, Id::from("C1"));
     assert_eq!(e.requested_by, BOB);
+    // draft-atwood-jmap-vtc-wss-00 L296-303: every event carries "the id
+    // of the call's hosting account".
+    assert_eq!(e.account_id, Id::from(ACCOUNT));
 
     // L378 unmuteRequested: "Cleared to `false` when the participant
     // unmutes".
@@ -936,6 +939,8 @@ async fn pending_signal_is_relayed_to_the_gateway_and_not_stored() {
     };
     assert_eq!(s.call_id, Id::from("C1"));
     assert_eq!(s.participant_id, Id::from("PG"));
+    // draft-atwood-jmap-vtc-wss-00 L296-303: the hosting account's id.
+    assert_eq!(s.account_id, Id::from(ACCOUNT));
     assert_eq!(s.signal, "refer");
     assert_eq!(s.data["referTo"], "sip:bob@example.com");
     // L1474 "`"outbound"` (from a moderator toward the external party)".

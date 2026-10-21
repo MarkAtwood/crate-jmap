@@ -118,16 +118,22 @@ const VTC_CALL_PUSH_CONTENT_FREE: &str = r#"{
   "callType": "ring"
 }"#;
 
-/// VTCCallEndEvent example: call answered on another device (draft-atwood-jmap-vtc-00 L1368-L1372).
+/// VTCCallEndEvent example: call answered on another device (draft-atwood-jmap-vtc-00 L1368-L1372),
+/// plus the `accountId` that WebSocket delivery adds to every VTC event
+/// (draft-atwood-jmap-vtc-wss-00 L296-303 at jmap-chat-spec 6bcd9d8).
 const VTC_CALL_END_EVENT: &str = r#"{
   "@type": "VTCCallEndEvent",
+  "accountId": "bob-account",
   "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
   "endReason": "answered_elsewhere"
 }"#;
 
-/// VTCGatewaySignal example: inbound DTMF from a PSTN participant (draft-atwood-jmap-vtc-00 L1416-L1425).
+/// VTCGatewaySignal example: inbound DTMF from a PSTN participant (draft-atwood-jmap-vtc-00 L1416-L1425),
+/// plus the WebSocket `accountId` (draft-atwood-jmap-vtc-wss-00 L296-303 at
+/// jmap-chat-spec 6bcd9d8).
 const VTC_GATEWAY_SIGNAL: &str = r#"{
   "@type": "VTCGatewaySignal",
+  "accountId": "bob-account",
   "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
   "participantId": "gw-pstn-14155559876",
   "protocol": "pstn",
@@ -194,4 +200,74 @@ fn vtc_gateway_signal_example() {
     assert_eq!(s.signal, "dtmf");
     assert_eq!(s.direction, SignalDirection::Inbound);
     assert_eq!(s.data["digit"], Value::from("5"));
+}
+
+/// VTCParticipantEvent example: participant joins (draft-atwood-jmap-vtc-wss-00
+/// L501-511 at jmap-chat-spec 6bcd9d8).
+const WSS_PARTICIPANT_EVENT: &str = r#"{
+  "@type": "VTCParticipantEvent",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
+  "participantId": "01J4XMVQK7NRYS9PPCEHTK4CD0",
+  "event": "joined",
+  "displayName": "Alice Chen",
+  "role": "participant"
+}"#;
+
+/// VTCMediaStateEvent example: participant mutes (draft-atwood-jmap-vtc-wss-00
+/// L517-530 at jmap-chat-spec 6bcd9d8).
+const WSS_MEDIA_STATE_EVENT: &str = r#"{
+  "@type": "VTCMediaStateEvent",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
+  "participantId": "01J4XMVQK7NRYS9PPCEHTK4CD0",
+  "mediaState": {
+    "audio": false,
+    "video": true,
+    "screen": false,
+    "raisedHand": false
+  }
+}"#;
+
+/// VTCActiveSpeakerEvent example (draft-atwood-jmap-vtc-wss-00 L536-543 at
+/// jmap-chat-spec 6bcd9d8).
+const WSS_ACTIVE_SPEAKER_EVENT: &str = r#"{
+  "@type": "VTCActiveSpeakerEvent",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
+  "participantId": "01J4XNZRM8QWVT0RRDFJVS5EF0"
+}"#;
+
+/// VTCRecordingStateEvent example: recording starts
+/// (draft-atwood-jmap-vtc-wss-00 L549-558 at jmap-chat-spec 6bcd9d8).
+const WSS_RECORDING_STATE_EVENT: &str = r#"{
+  "@type": "VTCRecordingStateEvent",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
+  "recordingId": "01J4XP2SN9RXVV1SSEGJVT6GH0",
+  "state": "recording",
+  "initiatedBy": "user:bob@example.com"
+}"#;
+
+/// draft-atwood-jmap-vtc-wss-00 L296-303: over the WebSocket every VTC
+/// event "carries an `accountId` (String) property ... the id of the
+/// call's hosting account". Each WSS example round-trips verbatim and
+/// exposes that account.
+#[test]
+fn wss_examples_carry_hosting_account() {
+    for text in [
+        WSS_PARTICIPANT_EVENT,
+        WSS_MEDIA_STATE_EVENT,
+        WSS_ACTIVE_SPEAKER_EVENT,
+        WSS_RECORDING_STATE_EVENT,
+    ] {
+        let account = match round_trip::<VtcEvent>(&parse(text)) {
+            VtcEvent::Participant(e) => e.account_id,
+            VtcEvent::MediaState(e) => e.account_id,
+            VtcEvent::ActiveSpeaker(e) => e.account_id,
+            VtcEvent::RecordingState(e) => e.account_id,
+            other => panic!("wrong variant: {other:?}"),
+        };
+        assert_eq!(account, "bob-account", "{text}");
+    }
 }

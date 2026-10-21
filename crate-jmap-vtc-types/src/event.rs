@@ -86,6 +86,10 @@ impl_string_enum!(ParticipantEventKind, "a VTC participant event string",
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcRingEvent {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The ringing call.
     pub call_id: Id,
     /// The userId of the caller.
@@ -108,6 +112,10 @@ pub struct VtcRingEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcCallEndEvent {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The call.
     pub call_id: Id,
     /// Why ringing stopped for this device.
@@ -127,6 +135,10 @@ pub struct VtcCallEndEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcGatewaySignal {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The call.
     pub call_id: Id,
     /// The gateway participant.
@@ -155,6 +167,10 @@ pub struct VtcGatewaySignal {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcParticipantEvent {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The call.
     pub call_id: Id,
     /// The participant.
@@ -179,6 +195,10 @@ pub struct VtcParticipantEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcMediaStateEvent {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The call.
     pub call_id: Id,
     /// The participant.
@@ -199,6 +219,10 @@ pub struct VtcMediaStateEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcActiveSpeakerEvent {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The call.
     pub call_id: Id,
     /// The current active speaker.
@@ -217,6 +241,10 @@ pub struct VtcActiveSpeakerEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcUnmuteRequestEvent {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The call.
     pub call_id: Id,
     /// The participant asked to unmute.
@@ -240,6 +268,10 @@ pub struct VtcUnmuteRequestEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VtcRecordingStateEvent {
+    /// The id of the call's hosting account, "the account that contains
+    /// the VTCCall and its VTCParticipant records" (draft-atwood-jmap-vtc-wss-00
+    /// §Event Types); usually not the recipient's personal account.
+    pub account_id: Id,
     /// The call.
     pub call_id: Id,
     /// The recording; absent when the event reports a livestream bridge.
@@ -382,6 +414,8 @@ mod tests {
         // example at L1279-1291.
         let ev = round_trip(json!({
             "@type": "VTCRingEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "initiatorId": "user:bob@example.com",
             "mediaTypes": ["audio", "video"],
@@ -445,6 +479,8 @@ mod tests {
         // L951-962 example.
         let ev = round_trip(json!({
             "@type": "VTCParticipantEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:charlie@example.com",
             "event": "joined",
@@ -457,6 +493,8 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCMediaStateEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:dave@example.com",
             "mediaState": {"audio": false, "video": true, "screen": false, "raisedHand": false}
@@ -465,6 +503,8 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCActiveSpeakerEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:alice@example.com"
         }));
@@ -472,6 +512,8 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCUnmuteRequestEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "participantId": "user:dave@example.com",
             "requestedBy": "user:bob@example.com"
@@ -488,6 +530,8 @@ mod tests {
         // `recordingId` and `livestreamId` is present."
         let ev = round_trip(json!({
             "@type": "VTCRecordingStateEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "recordingId": "01J4XP2SN9RXVU1SSEGIUT6GH",
             "state": "recording",
@@ -501,6 +545,8 @@ mod tests {
 
         let ev = round_trip(json!({
             "@type": "VTCRecordingStateEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
             "livestreamId": "01J4XQ7VN0SYWV2TTFHJVW7IJ",
             "state": "stopped",
@@ -537,10 +583,24 @@ mod tests {
     }
 
     #[test]
+    fn known_type_without_account_id_rejected() {
+        // Oracle: draft-atwood-jmap-vtc-wss-00 L296-298 "every event in
+        // this table carries an `accountId` (String) property".
+        assert!(serde_json::from_value::<VtcEvent>(json!({
+            "@type": "VTCActiveSpeakerEvent",
+            "callId": "C1",
+            "participantId": "P1"
+        }))
+        .is_err());
+    }
+
+    #[test]
     fn type_name_is_the_wire_type() {
         // Oracle: the `@type` written in each hand-written frame.
         let ev: VtcEvent = serde_json::from_value(json!({
             "@type": "VTCActiveSpeakerEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "C1",
             "participantId": "P1"
         }))
@@ -555,6 +615,8 @@ mod tests {
     fn vendor_extras_preserved_without_type_tag() {
         let ev = round_trip(json!({
             "@type": "VTCActiveSpeakerEvent",
+        "accountId": "A1",
+            "accountId": "A1",
             "callId": "C1",
             "participantId": "P1",
             "vendor.example:level": 0.8

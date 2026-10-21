@@ -75,7 +75,11 @@ fn all_events() -> VtcEphemeralSubscription {
     subscribed(json!({ "callIds": null, "eventTypes": null }))
 }
 
-fn event(raw: Value) -> VtcEvent {
+/// Decode `raw` as delivered over the WebSocket, which adds the hosting
+/// account's `accountId` to every VTC event (draft-atwood-jmap-vtc-wss-00
+/// L296-303).
+fn event(mut raw: Value) -> VtcEvent {
+    raw["accountId"] = json!(ACCOUNT);
     serde_json::from_value(raw).unwrap()
 }
 
