@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-types**: `SceneCapability::supports_scene_asset`
+  (`supportsSceneAsset`, draft-atwood-jmap-scene-00 §Account-Level
+  Capability Object). A capability object without it deserializes as
+  `true`.
+- **jmap-scene-server**: every `SceneAsset/*` handler returns
+  `unknownMethod` when `SceneBackend::scene_capability` reports
+  `supportsSceneAsset: false` for an existing account ("When `false`, a
+  call to any SceneAsset method returns an `unknownMethod` error").
 - **jmap-scene-server**: `SceneObject/interact`
   (draft-atwood-jmap-scene-00 §SceneObject/interact), registered by
   `register_scene_handlers` as `handle_scene_object_interact`. Each

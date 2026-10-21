@@ -206,7 +206,7 @@ fn session_capability_example() {
     // Oracle: L156 "an empty JSON object `{}`".
     assert_eq!(v["capabilities"][JMAP_SCENE_URI], json!({}));
     let cap: SceneCapability =
-        round_trip(&v["accounts"]["alice-account"]["accountCapabilities"][JMAP_SCENE_URI]);
+        round_trip(&v["accounts"]["gallery-account"]["accountCapabilities"][JMAP_SCENE_URI]);
     assert!(!cap.may_create_region);
     assert!(cap.may_create_object);
     assert_eq!(
@@ -215,6 +215,7 @@ fn session_capability_example() {
     );
     assert_eq!(cap.max_avatars_per_region, Some(100));
     assert_eq!(cap.max_asset_size_bytes, Some(52_428_800));
+    assert!(cap.supports_scene_asset);
 }
 
 #[test]
@@ -658,7 +659,8 @@ const AVATAR_QUERY_RADIUS: &str = r##"{
   ]
 }"##;
 
-/// Session object, lifecycle Step 1 (draft-atwood-jmap-scene-00 L2732-L2759).
+/// Session object, lifecycle Step 1 (draft-atwood-jmap-scene-00 L3011-L3047 at
+/// jmap-chat-spec 6bcd9d8).
 const SESSION: &str = r##"{
   "capabilities": {
     "urn:ietf:params:jmap:core": {},
@@ -667,6 +669,14 @@ const SESSION: &str = r##"{
   "accounts": {
     "alice-account": {
       "name": "alice@example.com",
+      "isPersonal": true,
+      "isReadOnly": false,
+      "accountCapabilities": {}
+    },
+    "gallery-account": {
+      "name": "Example Gallery",
+      "isPersonal": false,
+      "isReadOnly": false,
       "accountCapabilities": {
         "urn:ietf:params:jmap:scene": {
           "mayCreateRegion": false,
@@ -678,7 +688,8 @@ const SESSION: &str = r##"{
           "maxRegionsPerAccount": 10,
           "maxObjectsPerRegion": 5000,
           "maxAvatarsPerRegion": 100,
-          "maxAssetSizeBytes": 52428800
+          "maxAssetSizeBytes": 52428800,
+          "supportsSceneAsset": true
         }
       }
     }

@@ -61,8 +61,9 @@ pub trait SceneBackend: JmapBackend {
     /// (draft-atwood-jmap-scene-00 §Account-Level Capability Object) the
     /// consumer advertises for `account_id` to this caller.
     ///
-    /// `SceneAsset/set` reads `supportedVisualTypes` and
-    /// `maxAssetSizeBytes` from it. Return the value the Session object
+    /// Every `SceneAsset/*` handler reads `supportsSceneAsset` from it and
+    /// returns `unknownMethod` when it is `false`; `SceneAsset/set` also
+    /// reads `supportedVisualTypes` and `maxAssetSizeBytes`. Return the value the Session object
     /// carries; a different value makes the handler contradict the
     /// advertised capability. `supportedVisualTypes` "MUST include at least
     /// `\"model/gltf-binary\"`"; the handler accepts that type whether or
