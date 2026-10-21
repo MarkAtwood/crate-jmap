@@ -33,7 +33,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, SharingBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators, PLACEHOLDER_ID,
+    SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
@@ -147,20 +147,18 @@ pub async fn handle_principal_set<B: SharingBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
             // Deserialize the Principal from the client-provided object.
-            // Missing required fields (id is server-assigned; supply a placeholder)
-            // are injected before forwarding to the backend.
+            // `Principal.id` is required, so the parse fills it with "",
+            // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
+            // of 255 octets"); `build` overwrites it with the minted id.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    // Inject a placeholder id — the backend replaces it with the
-                    // server-assigned id on success.
-                    m.entry("id")
-                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
+                    m.insert("id".to_owned(), Value::String(String::new()));
                     Value::Object(m)
                 }
                 other => other,
             };
 
-            let principal: Principal = match serde_json::from_value(obj_with_id) {
+            let mut principal: Principal = match serde_json::from_value(obj_with_id) {
                 Ok(p) => p,
                 Err(e) => {
                     not_created.insert(
@@ -171,8 +169,12 @@ pub async fn handle_principal_set<B: SharingBackend>(
                 }
             };
 
+            let build = move |id: &Id| {
+                principal.id = id.clone();
+                principal
+            };
             match backend
-                .create_object::<Principal>(caller, &account_id, &create_id, principal)
+                .create_object::<Principal, _>(caller, &account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {

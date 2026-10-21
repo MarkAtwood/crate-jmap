@@ -441,39 +441,19 @@ pub(crate) mod test_support {
     }
 
     impl SharingBackend for MockBackend {
-        async fn create_object<O: SetObject + Send + Sync>(
+        async fn create_object<O, F>(
             &self,
             _caller: &(),
             _account_id: &Id,
             _create_id: &str,
-            obj: O,
-        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-            // Mint a fixed test id ("mock-id-1") AND patch it into the
-            // returned object, per the SharingBackend::create_object
-            // invariant. Done via JSON round-trip because `SetObject` does
-            // not expose a typed `set_id` API — every concrete impl is
-            // `Deserialize`/`Serialize` so this is well-defined.
-            // Previously this fixture intentionally retained the caller's
-            // placeholder id and admitted the violation in a comment; the
-            // gap is closed per bd:JMAP-3t94.17 so the in-tree fixture
-            // matches the contract every downstream backend is expected
-            // to honor.
+            build: F,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>>
+        where
+            O: SetObject + Send + Sync,
+            F: FnOnce(&Id) -> O + Send,
+        {
             let server_id = Id::from("mock-id-1");
-            let mut val = serde_json::to_value(&obj)
-                .map_err(|e| BackendSetError::Other(MockError::new(format!("serialize: {e}"))))?;
-            // Direct IndexMut form matches the canonical MemoryBackend
-            // shape (memory.rs::create_object). The previous defensive
-            // `if let Value::Object` shape silently skipped the id
-            // insertion when `val` was not an Object, which would
-            // violate the SharingBackend::create_object id-on-O
-            // invariant (bd:JMAP-3t94.17) without surfacing the
-            // contract break. The IndexMut form panics loudly on a
-            // non-object — the right failure mode for a fixture that
-            // exists to teach the contract.
-            val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
-            let stored_obj: O = O::deserialize(&val).map_err(|e| {
-                BackendSetError::Other(MockError::new(format!("deserialize after create: {e}")))
-            })?;
+            let stored_obj = build(&server_id);
             Ok((server_id, stored_obj))
         }
 
@@ -668,20 +648,22 @@ mod tests {
         use jmap_sharing_types::Principal;
 
         let backend = MockBackend::new_with_account("acc1");
-        let principal: Principal = serde_json::from_value(json!({
-            "type": "individual",
-            "name": "Probe",
-            "id": "client-placeholder",
-            "description": null,
-            "email": null,
-            "timeZone": null,
-            "capabilities": {},
-            "accounts": null
-        }))
-        .expect("must deserialize");
+        let principal = |id: &jmap_types::Id| -> Principal {
+            serde_json::from_value(json!({
+                "type": "individual",
+                "name": "Probe",
+                "id": id,
+                "description": null,
+                "email": null,
+                "timeZone": null,
+                "capabilities": {},
+                "accounts": null
+            }))
+            .expect("must deserialize")
+        };
 
         let (new_id, stored_obj) =
-            <MockBackend as crate::SharingBackend>::create_object::<Principal>(
+            <MockBackend as crate::SharingBackend>::create_object::<Principal, _>(
                 &backend,
                 &(),
                 &jmap_types::Id::from("acc1"),

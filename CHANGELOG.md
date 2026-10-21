@@ -1333,6 +1333,9 @@ wire behaviour that a conforming peer can observe.
   of `event`); the `"placeholder"` id sentinel is gone.
   **jmap-chat-calendars-server** `create_space_calendar` sets the id in
   the builder.
+- **BREAKING** **jmap-sharing-server**: `SharingBackend::create_object`
+  takes the same builder; the `"placeholder"` id sentinel is gone, and
+  the returned object carrying the minted id holds by construction.
 - **BREAKING** **jmap-server** and every extension server backend:
   `JmapBackend::query_objects` takes `params: QueryParams<'_, O>` in place
   of its six positional `/query` arguments (`filter`, `sort`, `limit`,

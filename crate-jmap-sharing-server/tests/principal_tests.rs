@@ -46,14 +46,13 @@ fn alice_json() -> serde_json::Value {
 ///
 /// Returns the server-assigned [`Id`].
 async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json::Value) -> Id {
-    // Attach a placeholder id so the Principal deserializes; MemoryBackend
-    // will overwrite it with the server-assigned id.
-    let mut with_id = p;
-    with_id["id"] = json!("placeholder");
-    let principal: Principal =
-        serde_json::from_value(with_id).expect("test fixture must deserialize");
+    let principal = move |id: &Id| -> Principal {
+        let mut with_id = p;
+        with_id["id"] = json!(id);
+        serde_json::from_value(with_id).expect("test fixture must deserialize")
+    };
     let (server_id, _) = backend
-        .create_object::<Principal>(&(), &Id::from(account_id), "seed", principal)
+        .create_object(&(), &Id::from(account_id), "seed", principal)
         .await
         .expect("seed must succeed");
     server_id

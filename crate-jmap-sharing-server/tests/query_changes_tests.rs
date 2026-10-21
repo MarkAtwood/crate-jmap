@@ -38,12 +38,13 @@ fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequ
 
 /// Seed a Principal into `backend` for `account_id` and return the server id.
 async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json::Value) -> Id {
-    let mut with_id = p;
-    with_id["id"] = json!("placeholder");
-    let principal: Principal =
-        serde_json::from_value(with_id).expect("test fixture must deserialize");
+    let principal = move |id: &Id| -> Principal {
+        let mut with_id = p;
+        with_id["id"] = json!(id);
+        serde_json::from_value(with_id).expect("test fixture must deserialize")
+    };
     let (server_id, _) = backend
-        .create_object::<Principal>(&(), &Id::from(account_id), "seed", principal)
+        .create_object(&(), &Id::from(account_id), "seed", principal)
         .await
         .expect("seed must succeed");
     server_id
@@ -51,10 +52,13 @@ async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json
 
 /// Seed a ShareNotification into `backend` for `account_id` and return the server id.
 async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_json::Value) -> Id {
-    let notif: ShareNotification =
-        serde_json::from_value(v).expect("test fixture must deserialize");
+    let notif = move |id: &Id| -> ShareNotification {
+        let mut v = v;
+        v["id"] = json!(id);
+        serde_json::from_value(v).expect("test fixture must deserialize")
+    };
     let (server_id, _) = backend
-        .create_object::<ShareNotification>(&(), &Id::from(account_id), "seed", notif)
+        .create_object(&(), &Id::from(account_id), "seed", notif)
         .await
         .expect("seed must succeed");
     server_id
@@ -222,15 +226,19 @@ impl JmapBackend for FilteringBackend {
 
 #[allow(async_fn_in_trait)]
 impl SharingBackend for FilteringBackend {
-    async fn create_object<O: SetObject + Send + Sync>(
+    async fn create_object<O, F>(
         &self,
         caller: &(),
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
         self.0
-            .create_object(caller, account_id, create_id, obj)
+            .create_object(caller, account_id, create_id, build)
             .await
     }
 
