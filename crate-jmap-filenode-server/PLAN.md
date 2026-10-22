@@ -201,7 +201,8 @@ pub trait FileNodeBackend: JmapBackend {
         name: &str,
     ) -> impl Future<Output = Result<(Id, FileNode), BackendSetError<Self::Error>>> + Send;
 
-    /// Return true if this backend supports the given JMAP object type.
+    /// Returns `true` if this backend supports JMAP object type `O` for
+    /// `account_id`, as seen by `caller`.
     ///
     /// FileNodeBackend only handles FileNode, so this is primarily a hook for
     /// the session capability builder to confirm support. Backends that support

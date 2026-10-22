@@ -1248,6 +1248,122 @@ async fn filenode_copy_without_collision_omits_destroyed() {
     );
 }
 
+// Oracle: draft-ietf-jmap-filenode-16 L692-697: "If "newest", the server
+// compares the modified timestamp of the incoming item with that of the
+// existing FileNode.  If the incoming item has a strictly later modified
+// value, the existing node is destroyed and the operation proceeds as with
+// "replace".  Otherwise the operation is rejected as with null, returning
+// an "alreadyExists" error with the existingId of the surviving node."
+// Expected ids are the seeded node ids.
+
+#[tokio::test]
+async fn filenode_copy_newest_cascade_lists_all_destroyed_ids() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    backend.seed_node(
+        "src",
+        make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
+    );
+    backend.seed_node(
+        "dst",
+        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
+    );
+    backend.seed_node(
+        "dst",
+        make_dir_with_modified("dst-2", "child", Some("dst-1"), "2020-01-01T00:00:00Z"),
+    );
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "newest",
+            "onDestroyRemoveChildren": true,
+            "create": { "c": { "id": "src-1", "role": null } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(
+        resp["created"]["c"].is_object(),
+        "copy must succeed: {resp}"
+    );
+    assert_eq!(
+        destroyed_ids(&resp),
+        vec!["dst-1".to_owned(), "dst-2".to_owned()],
+        "{resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_newest_not_later_omits_destroyed() {
+    // Equal timestamps: the incoming item is not "strictly later".
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    backend.seed_node(
+        "src",
+        make_dir_with_modified("src-1", "doc", None, "2020-01-01T00:00:00Z"),
+    );
+    backend.seed_node(
+        "dst",
+        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
+    );
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "newest",
+            "create": { "c": { "id": "src-1", "role": null } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert_eq!(resp["notCreated"]["c"]["type"], "alreadyExists", "{resp}");
+    assert_eq!(resp["notCreated"]["c"]["existingId"], "dst-1", "{resp}");
+    assert!(
+        resp.get("destroyed").is_none(),
+        "a rejected collision destroys nothing: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_replace_with_children_without_flag_omits_destroyed() {
+    // L677-682: "if the replaced item is a Directory which has children,
+    // then the server MUST respond with a nodeHasChildren error to this
+    // action unless onDestroyRemoveChildren is true."
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    let parent = create_node(&backend, "dst", "doc", None, "ep").await;
+    create_node(&backend, "dst", "child", Some(&parent), "ec").await;
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "replace",
+            "create": { "c": { "id": &src_id, "role": null } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert_eq!(resp["notCreated"]["c"]["type"], "nodeHasChildren", "{resp}");
+    assert!(
+        resp.get("destroyed").is_none(),
+        "a rejected collision destroys nothing: {resp}"
+    );
+}
+
 #[tokio::test]
 async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
     let backend = MemoryBackend::new().with_account("src").with_account("dst");

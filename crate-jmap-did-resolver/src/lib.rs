@@ -49,11 +49,14 @@
 //!   derived from the DID, and a `did:plc` audit log comes from the PLC
 //!   directory.
 //!
-//! When the hint is used and its fetch fails, the method-derived URL is
-//! fetched instead ("When `didDocumentUri` is non-null but unreachable
-//! (network error, HTTP 4xx/5xx), clients SHOULD fall back to standard
-//! method-specific resolution"). A document or log from the hint that
-//! fails its check is an error, not a fallback.
+//! When the hint is used and its fetch fails with
+//! [`FetchError::Status`] or [`FetchError::Transport`], the
+//! method-derived URL is fetched instead ("When `didDocumentUri` is
+//! non-null but unreachable (network error, HTTP 4xx/5xx), clients SHOULD
+//! fall back to standard method-specific resolution"). A
+//! [`FetchError::TooLarge`] body from the hint is not "unreachable", so
+//! it is an error, not a fallback, as is a document or log from the hint
+//! that fails its check.
 //!
 //! ## Caching
 //!
@@ -599,12 +602,13 @@ impl<F: Fetch> Resolver<F> {
         }
     }
 
-    /// GETs `hint` when there is one, and `url` when there is none or its
-    /// fetch fails.
+    /// GETs `hint` when there is one, and `url` when there is none or the
+    /// hint is unreachable (a status or transport error).
     async fn get_hinted(&self, hint: Option<&str>, url: &str) -> Result<Vec<u8>, FetchError> {
         if let Some(hint) = hint {
-            if let Ok(body) = self.fetcher.get(hint).await {
-                return Ok(body);
+            match self.fetcher.get(hint).await {
+                Err(FetchError::Status(_) | FetchError::Transport(_)) => {}
+                fetched => return fetched,
             }
         }
         self.fetcher.get(url).await

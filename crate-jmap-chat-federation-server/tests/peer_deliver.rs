@@ -484,6 +484,28 @@ async fn step5_member_override_denies_send() {
     );
 }
 
+/// chat L1706 at jmap-chat-spec 29e9a41: "Apply `deny` entries from any
+/// ChannelPermission records matching the member's roles (`targetType:
+/// "role"`, including the record for `@everyone`, whose `targetId` is the
+/// Space id)". Every member holds `@everyone`, so the deny reaches Bob.
+#[tokio::test]
+async fn step5_everyone_override_denies_send() {
+    let fed = Fed::new();
+    fed.seed(
+        "Chat",
+        channel(
+            0,
+            json!([{"targetId": SPACE, "targetType": "role", "allow": [], "deny": ["send"]}]),
+        ),
+    );
+    fed.seed("Space", space(&["send"], false));
+    assert_error(
+        fed.deliver(deliver_args(CHANNEL, "channel", message("M1")))
+            .await,
+        "forbidden",
+    );
+}
+
 /// fed L407: "If the sender's last accepted message in this channel was
 /// received within `slowModeSeconds` seconds and the sender does not hold
 /// `"manage_channels"` permission, reject with `rateLimited`."

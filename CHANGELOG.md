@@ -37,7 +37,9 @@ wire behaviour that a conforming peer can observe.
   comes from the method-derived URL (draft-atwood-jmap-did-00 L194 at
   jmap-chat-spec 29e9a41). For `did:web` the hint is used only when its
   origin is the method-derived URL's origin. `did:key` and `did:plc`
-  ignore it. An unreachable hint falls back to the method-derived URL.
+  ignore it. An unreachable hint (`FetchError::Status` or `Transport`)
+  falls back to the method-derived URL; an oversized body
+  (`FetchError::TooLarge`) is an error, not a fallback.
 - **jmap-server**: `parse_max_changes`, the shared RFC 8620 §5.2
   `maxChanges` parser (absent/`null` -> `None`; `0`, negative or
   non-integer -> `invalidArguments`). `handle_changes`,

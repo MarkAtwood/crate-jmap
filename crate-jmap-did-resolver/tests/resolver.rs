@@ -55,11 +55,13 @@ const EWVI: &str = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
 /// found at: `https://plc.directory/:did/log/audit`".
 const EWVI_URL: &str = "https://plc.directory/did:plc:ewvi7nxzyoun6zhxrhs64oiz/log/audit";
 
-/// An in-process `Fetch`: serves canned bodies or statuses by URL (404
-/// for anything else) and records every URL requested.
+/// An in-process `Fetch`: serves canned bodies, statuses or
+/// [`FetchError::TooLarge`] by URL (404 for anything else) and records
+/// every URL requested.
 #[derive(Default)]
 struct Stub {
     responses: Mutex<HashMap<String, Result<Vec<u8>, u16>>>,
+    too_large: Mutex<Vec<String>>,
     calls: Mutex<Vec<String>>,
 }
 
@@ -86,6 +88,10 @@ impl Stub {
             .insert(url.to_owned(), Err(status));
     }
 
+    fn too_large(&self, url: &str) {
+        self.too_large.lock().unwrap().push(url.to_owned());
+    }
+
     fn calls(&self) -> Vec<String> {
         self.calls.lock().unwrap().clone()
     }
@@ -94,6 +100,9 @@ impl Stub {
 impl Fetch for &Stub {
     async fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         self.calls.lock().unwrap().push(url.to_owned());
+        if self.too_large.lock().unwrap().iter().any(|u| u == url) {
+            return Err(FetchError::TooLarge);
+        }
         match self.responses.lock().unwrap().get(url) {
             Some(Ok(body)) => Ok(body.clone()),
             Some(Err(status)) => Err(FetchError::Status(*status)),
@@ -283,6 +292,45 @@ async fn did_plc_hint_is_ignored() {
         Ok(Resolved::Plc(_))
     ));
     assert_eq!(stub.calls(), [EWVI_URL]);
+}
+
+#[tokio::test]
+async fn did_key_hint_is_ignored() {
+    // JMAP-6itf.11 decision: "did:key/did:plc: ignore the hint."
+    // draft-atwood-jmap-did-00 L194 at jmap-chat-spec 29e9a41: "For
+    // did:key ({{DID-KEY}}) the document is constructed from the DID."
+    // The hint serves a document for another key, which must not be used.
+    let stub = Stub::default();
+    let hint = "https://jmap.example.net/did.json";
+    stub.serve(hint, &alice_document("key-hint"));
+    let resolver = Resolver::new(&stub, TTL);
+    let d = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+    let doc = document(resolver.resolve_with_hint(&did(d), hint).await.unwrap());
+    assert_eq!(doc["id"], d);
+    assert_eq!(
+        doc["verificationMethod"][0]["publicKeyMultibase"],
+        "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+    );
+    assert!(stub.calls().is_empty());
+}
+
+#[tokio::test]
+async fn did_web_oversized_hint_is_not_a_fallback() {
+    // draft-atwood-jmap-did-00 L194 at jmap-chat-spec 29e9a41 defines
+    // unreachable as "(network error, HTTP 4xx/5xx)"; an oversized body
+    // is neither, and the JMAP-wf92.17 decision makes it a hard failure.
+    let stub = Stub::default();
+    stub.too_large(ALICE_SAME_ORIGIN_HINT);
+    stub.serve(ALICE_URL, &alice_document("key-0"));
+    let resolver = Resolver::new(&stub, TTL);
+    let resolved = resolver
+        .resolve_with_hint(&did(ALICE), ALICE_SAME_ORIGIN_HINT)
+        .await;
+    assert!(matches!(
+        resolved,
+        Err(ResolveError::Fetch(FetchError::TooLarge))
+    ));
+    assert_eq!(stub.calls(), [ALICE_SAME_ORIGIN_HINT]);
 }
 
 #[tokio::test]
