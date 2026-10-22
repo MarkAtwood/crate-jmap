@@ -13,7 +13,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_calendars_types::{NotificationFilter, NotificationFilterCondition};
+use jmap_calendars_types::{NotificationFilter, NotificationFilterCondition, NotificationType};
 use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
@@ -271,7 +271,7 @@ async fn calendar_event_notification_query_filter_passthrough() {
     let sc = helpers::make_client(&server);
     let mut filter = NotificationFilterCondition::default();
     filter.after = Some(UTCDate::from("2024-06-01T00:00:00Z"));
-    filter.notification_type = Some("invitation".to_owned());
+    filter.notification_type = Some("invitation".into());
     filter.calendar_event_ids = Some(vec![Id::from("ev-1")]);
     let mut created_desc = jmap_calendars_types::CalendarEventNotificationComparator::new(
         jmap_calendars_types::CalendarEventNotificationComparatorProperty::Created,
@@ -577,7 +577,7 @@ async fn sent_notification_filter(
 #[tokio::test]
 async fn calendar_event_notification_query_not_filter_wire_shape() {
     let mut destroyed = NotificationFilterCondition::default();
-    destroyed.notification_type = Some("destroyed".to_owned());
+    destroyed.notification_type = Some(NotificationType::Destroyed);
     let filter = Filter::Operator(FilterOperator::new(
         Operator::Not,
         vec![Filter::Condition(destroyed)],
@@ -622,9 +622,9 @@ async fn calendar_event_notification_query_not_filter_wire_shape() {
 #[tokio::test]
 async fn calendar_event_notification_query_changes_or_filter_wire_shape() {
     let mut created = NotificationFilterCondition::default();
-    created.notification_type = Some("created".to_owned());
+    created.notification_type = Some(NotificationType::Created);
     let mut updated = NotificationFilterCondition::default();
-    updated.notification_type = Some("updated".to_owned());
+    updated.notification_type = Some(NotificationType::Updated);
     let filter = Filter::Operator(FilterOperator::new(
         Operator::Or,
         vec![Filter::Condition(created), Filter::Condition(updated)],

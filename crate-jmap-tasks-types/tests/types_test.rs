@@ -366,7 +366,7 @@ fn task_filter_condition_populated() {
         Some("list001")
     );
     assert_eq!(cond.is_draft, Some(false));
-    assert_eq!(cond.progress.as_deref(), Some("needs-action"));
+    assert_eq!(cond.progress, Some(TaskProgress::NeedsAction));
     assert_eq!(
         cond.after.as_ref().map(AsRef::as_ref),
         Some("2024-01-01T00:00:00")
@@ -1669,4 +1669,29 @@ fn task_notification_comparator_sort_properties() {
     let c: TaskNotificationComparator = serde_json::from_value(wire.clone()).unwrap();
     assert_eq!(c.property, P::Other("taskId".to_owned()));
     assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+}
+
+/// The `type` and `progress` filter conditions carry the same value sets
+/// as the object properties they match.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §5.5.1 (line 1197):
+/// "*type*: String The type property must be the same to match the
+/// condition."; draft-ietf-calext-jscalendarbis-22 §4.2.5 lists
+/// "needs-action" as a progress value. Expected values are hand-written.
+#[test]
+fn filter_conditions_use_object_enums() {
+    let notif: TaskNotificationFilterCondition =
+        serde_json::from_str(r#"{"type":"destroyed"}"#).expect("notification filter");
+    assert_eq!(notif.notification_type, Some(NotificationType::Destroyed));
+
+    let task: TaskFilterCondition =
+        serde_json::from_str(r#"{"progress":"needs-action"}"#).expect("task filter");
+    assert_eq!(task.progress, Some(TaskProgress::NeedsAction));
+
+    let vendor: TaskFilterCondition =
+        serde_json::from_str(r#"{"progress":"x-blocked"}"#).expect("vendor progress");
+    assert_eq!(
+        serde_json::to_value(&vendor).expect("serialize"),
+        serde_json::json!({"progress": "x-blocked"})
+    );
 }

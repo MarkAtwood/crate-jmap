@@ -1343,6 +1343,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** Filter conditions use the object's enum instead of
+  `String`, as `MailboxFilterCondition.role` does (bd JMAP-skk9.1).
+  **jmap-filenode-types**: `FileNodeFilterCondition.node_type` is
+  `Option<NodeType>` and `.role` is `Option<NodeRole>`
+  (draft-ietf-jmap-filenode-16 §3.2.5). **jmap-calendars-types**:
+  `NotificationFilterCondition.notification_type` is
+  `Option<NotificationType>` (draft-ietf-jmap-calendars-33 §7.4.1).
+  **jmap-tasks-types**: `TaskNotificationFilterCondition.notification_type`
+  is `Option<NotificationType>` (draft-ietf-jmap-tasks-06 §5.5.1) and
+  `TaskFilterCondition.progress` is `Option<TaskProgress>`. Unknown
+  values still round-trip through each enum's `Other(String)`; the wire
+  format is unchanged.
 - **BREAKING** Typed `/query` comparators for the remaining types whose
   spec names sort properties, each with an `Other(String)` catch-all
   property enum (bd JMAP-wf92.25). **jmap-mail-types**:

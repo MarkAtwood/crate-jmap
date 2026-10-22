@@ -747,6 +747,28 @@ fn notification_type_other_roundtrip() {
     assert_eq!(back, r#""rescheduled""#);
 }
 
+/// The `type` filter condition carries the same value set as the
+/// notification's `type` property.
+///
+/// Oracle: draft-ietf-jmap-calendars-33 §7.4.1 (line 2709):
+/// "*type*: String / The "type" property must be the same to match the
+/// condition." Expected values are hand-written.
+#[test]
+fn notification_filter_type_is_notification_type() {
+    use jmap_calendars_types::{NotificationFilterCondition, NotificationType};
+
+    let known: NotificationFilterCondition =
+        serde_json::from_str(r#"{"type":"updated"}"#).expect("known type");
+    assert_eq!(known.notification_type, Some(NotificationType::Updated));
+
+    let unknown: NotificationFilterCondition =
+        serde_json::from_str(r#"{"type":"rescheduled"}"#).expect("unknown type");
+    assert_eq!(
+        serde_json::to_value(&unknown).expect("serialize"),
+        serde_json::json!({"type": "rescheduled"})
+    );
+}
+
 // ─── ParticipantIdentity ──────────────────────────────────────────────────────
 
 /// ParticipantIdentity round-trip with isDefault true.

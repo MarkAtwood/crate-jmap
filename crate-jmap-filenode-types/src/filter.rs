@@ -5,6 +5,8 @@
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
+use crate::filenode::{NodeRole, NodeType};
+
 /// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-16 §3.2.5).
 ///
 /// All fields are optional; a condition with no fields set matches every FileNode.
@@ -56,14 +58,14 @@ pub struct FileNodeFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub descendant_id: Option<Id>,
 
-    /// Exact match on the node's `@type` string.  Named `nodeType` on the wire
+    /// Exact match on the node's `@type`.  Named `nodeType` on the wire
     /// rather than `@type` (§3.2.5).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub node_type: Option<String>,
+    pub node_type: Option<NodeType>,
 
-    /// Exact match on the node's `role` string.
+    /// Exact match on the node's `role`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<String>,
+    pub role: Option<NodeRole>,
 
     /// Exact match on the node's `spaceId` extension property
     /// (draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
