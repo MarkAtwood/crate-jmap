@@ -193,7 +193,9 @@ impl super::SessionClient {
     /// Query Principal IDs with optional filter and sort (RFC 9670 §2.4).
     ///
     /// Pass `filter: None` and `sort: None` to return all Principals with
-    /// server-default ordering. Use `position` and `limit` for pagination.
+    /// server-default ordering. Use `params`
+    /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5) for
+    /// pagination.
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -222,13 +224,10 @@ impl super::SessionClient {
         &self,
         filter: Option<&Filter<C>>,
         sort: Option<serde_json::Value>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-        });
+        let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
             args["filter"] = serde_json::to_value(f).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
@@ -238,12 +237,6 @@ impl super::SessionClient {
         }
         if let Some(s) = sort {
             args["sort"] = s;
-        }
-        if let Some(p) = position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = limit {
-            args["limit"] = l.into();
         }
         let req = super::build_request("Principal/query", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;

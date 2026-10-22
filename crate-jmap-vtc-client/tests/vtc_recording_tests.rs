@@ -204,9 +204,16 @@ async fn vtc_recording_query_sends_filter_and_sort() {
     let mut sort = VtcMediaComparator::new(VtcMediaSortProperty::StartedAt);
     sort.is_ascending = false;
     let sc = helpers::make_client(&server, "bob-account");
-    sc.vtc_recording_query(Some(&Filter::Condition(cond)), Some(&[sort]), None, Some(1))
-        .await
-        .expect("VTCRecording/query must succeed");
+    sc.vtc_recording_query(
+        Some(&Filter::Condition(cond)),
+        Some(&[sort]),
+        &jmap_base_client::QueryParams {
+            limit: Some(1),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("VTCRecording/query must succeed");
     assert_eq!(
         helpers::sent_invocation(&server).await,
         json!(["VTCRecording/query", {

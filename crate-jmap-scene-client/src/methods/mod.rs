@@ -307,28 +307,21 @@ impl SessionClient {
         self.invoke(api_url, method, args).await
     }
 
-    /// RFC 8620 §5.5 `/query` with `filter`, `sort`, `position` and `limit`.
+    /// RFC 8620 §5.5 `/query` with `filter`, `sort` and the window [`QueryParams`](jmap_base_client::QueryParams).
     pub(crate) async fn standard_query<C: Serialize, S: Serialize>(
         &self,
         method: &str,
         filter: Option<&Filter<C>>,
         sort: Option<&[S]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({ "accountId": account_id });
+        let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
             args["filter"] = to_arg(method, "filter", f)?;
         }
         if let Some(s) = sort {
             args["sort"] = to_arg(method, "sort", s)?;
-        }
-        if let Some(p) = position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = limit {
-            args["limit"] = l.into();
         }
         self.invoke(api_url, method, args).await
     }

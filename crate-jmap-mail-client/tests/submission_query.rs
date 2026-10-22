@@ -45,7 +45,11 @@ async fn email_submission_query_with_filter() {
     let mut cond = EmailSubmissionFilterCondition::default();
     cond.identity_ids = Some(vec![jmap_types::Id::from("I1")]);
     let resp = sc
-        .email_submission_query(Some(&Filter::Condition(cond)), None, None, None)
+        .email_submission_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("email_submission_query_with_filter: must succeed");
 
@@ -96,7 +100,11 @@ async fn email_submission_query_no_filter() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .email_submission_query(None::<&EmailSubmissionFilter>, None, None, None)
+        .email_submission_query(
+            None::<&EmailSubmissionFilter>,
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("email_submission_query_no_filter: must succeed");
 

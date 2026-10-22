@@ -28,7 +28,14 @@ let mut cond = SceneObjectFilterCondition::default();
 cond.region_id = Some("01J5ABC0000000000000000001".into());
 cond.within_radius = Some(WithinRadius::new([5.0, 0.0, -2.0], 20.0));
 let nearby = sc
-    .scene_object_query(Some(&Filter::Condition(cond)), None, None, Some(25))
+    .scene_object_query(
+        Some(&Filter::Condition(cond)),
+        None,
+        &jmap_base_client::QueryParams {
+            limit: Some(25),
+            ..Default::default()
+        },
+    )
     .await?;
 # Ok(()) }
 ```

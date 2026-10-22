@@ -113,10 +113,9 @@ impl super::SessionClient {
         &self,
         filter: Option<&SceneAssetFilter>,
         sort: Option<&[SceneAssetComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
-        self.standard_query("SceneAsset/query", filter, sort, position, limit)
+        self.standard_query("SceneAsset/query", filter, sort, params)
             .await
     }
 

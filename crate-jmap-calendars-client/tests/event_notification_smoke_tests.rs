@@ -281,7 +281,14 @@ async fn calendar_event_notification_query_filter_passthrough() {
     let filter = Filter::Condition(filter);
 
     let _ = sc
-        .calendar_event_notification_query(Some(&filter), Some(&sort), None, Some(20))
+        .calendar_event_notification_query(
+            Some(&filter),
+            Some(&sort),
+            &jmap_base_client::QueryParams {
+                limit: Some(20),
+                ..Default::default()
+            },
+        )
         .await
         .expect("calendar_event_notification_query: must succeed");
 
@@ -584,9 +591,13 @@ async fn calendar_event_notification_query_not_filter_wire_shape() {
             "limit": null
         }),
         async |sc| {
-            sc.calendar_event_notification_query(Some(&filter), None, None, None)
-                .await
-                .expect("calendar_event_notification_query: must succeed");
+            sc.calendar_event_notification_query(
+                Some(&filter),
+                None,
+                &jmap_base_client::QueryParams::default(),
+            )
+            .await
+            .expect("calendar_event_notification_query: must succeed");
         },
     )
     .await;

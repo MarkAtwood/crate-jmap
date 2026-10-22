@@ -47,7 +47,7 @@ let session = client.fetch_session().await?;
 let gc = client.with_graph_session(session);
 let mut cond = GraphEdgeFilterCondition::new(Id::from("G1"));
 cond.from_id = Some(vec![Id::from("N1")]);
-let edges = gc.graph_edge_query(&cond, None, None, None).await?;
+let edges = gc.graph_edge_query(&cond, None, &jmap_base_client::QueryParams::default()).await?;
 let edges = gc.graph_edge_get(Some(&edges.ids), None).await?;
 # Ok(()) }
 ```

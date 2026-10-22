@@ -344,7 +344,15 @@ async fn space_query_empty_filter_sends_null() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .space_query(None::<&query::SpaceFilter>, None, Some(0), Some(20))
+        .space_query(
+            None::<&query::SpaceFilter>,
+            None,
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(20),
+                ..Default::default()
+            },
+        )
         .await
         .expect("space_query: must succeed");
 
@@ -378,8 +386,7 @@ async fn space_query_filter_is_public_serializes() {
         .space_query(
             Some(&jmap_types::query::Filter::Condition(cond)),
             None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
         )
         .await
         .expect("space_query: must succeed");

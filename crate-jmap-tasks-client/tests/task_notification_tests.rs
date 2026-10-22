@@ -341,7 +341,11 @@ async fn task_notification_query_with_filter() {
     cmp.property = "created".into();
     cmp.is_ascending = true;
     let resp = sc
-        .task_notification_query(Some(&Filter::Condition(cond)), Some(&[cmp]), None, None)
+        .task_notification_query(
+            Some(&Filter::Condition(cond)),
+            Some(&[cmp]),
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("task_notification_query_with_filter: must succeed");
 

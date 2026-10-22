@@ -47,7 +47,11 @@ async fn share_notification_query_with_filter() {
     let mut cond = ShareNotificationFilterCondition::default();
     cond.object_type = Some("Mailbox".into());
     let resp = sc
-        .share_notification_query(Some(&Filter::Condition(cond)), None, None, None)
+        .share_notification_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("share_notification_query_with_filter: must succeed");
 

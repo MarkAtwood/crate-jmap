@@ -112,10 +112,9 @@ impl super::SessionClient {
         &self,
         filter: Option<&VtcCallFilter>,
         sort: Option<&[VtcCallComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
-        self.standard_query("VTCCall/query", filter, sort, position, limit)
+        self.standard_query("VTCCall/query", filter, sort, params)
             .await
     }
 

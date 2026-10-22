@@ -81,9 +81,9 @@ impl super::SessionClient {
     /// Pass `None` to send `"filter": null`; name the type when you do
     /// (`None::<&ChatFilter>`).
     ///
-    /// `anchor`, `anchor_offset` and `calculate_total` are the RFC 8620
-    /// §5.5 arguments of the same names; when `anchor` is set the server
-    /// ignores `position`. `None` omits each from the request.
+    /// `params` selects the result window
+    /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5);
+    /// when `params.anchor` is set the server ignores `params.position`.
     ///
     /// # Errors
     ///
@@ -105,23 +105,10 @@ impl super::SessionClient {
         &self,
         filter: Option<&Filter<C>>,
         sort: Option<&[jmap_chat_types::query::ChatComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
-        anchor: Option<&Id>,
-        anchor_offset: Option<i64>,
-        calculate_total: Option<bool>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = chat_query_args(
-            account_id,
-            filter,
-            sort,
-            position,
-            limit,
-            anchor,
-            anchor_offset,
-            calculate_total,
-        )?;
+        let args = chat_query_args(account_id, filter, sort, params)?;
         let req = super::build_request("Chat/query", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -554,39 +541,18 @@ impl super::SessionClient {
 
 /// Build `Chat/query` arguments for `account_id` (shared with
 /// [`super::batch::Batch::chat_query_get`]).
-#[allow(clippy::too_many_arguments)] // RFC 8620 §5.5 /query args
 pub(super) fn chat_query_args<C: Serialize>(
     account_id: &str,
     filter: Option<&Filter<C>>,
     sort: Option<&[jmap_chat_types::query::ChatComparator]>,
-    position: Option<u64>,
-    limit: Option<u64>,
-    anchor: Option<&Id>,
-    anchor_offset: Option<i64>,
-    calculate_total: Option<bool>,
+    params: &jmap_base_client::QueryParams,
 ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
-    let mut args = serde_json::json!({
-        "accountId": account_id,
-        "filter": serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?,
-    });
+    let mut args = params.to_arguments(account_id);
+    args["filter"] =
+        serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?;
     if let Some(s) = sort {
         args["sort"] =
             serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
-    }
-    if let Some(p) = position {
-        args["position"] = p.into();
-    }
-    if let Some(a) = anchor {
-        args["anchor"] = a.as_ref().into();
-    }
-    if let Some(o) = anchor_offset {
-        args["anchorOffset"] = o.into();
-    }
-    if let Some(l) = limit {
-        args["limit"] = l.into();
-    }
-    if let Some(c) = calculate_total {
-        args["calculateTotal"] = c.into();
     }
     Ok(args)
 }

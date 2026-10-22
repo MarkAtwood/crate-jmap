@@ -138,16 +138,14 @@ impl super::SessionClient {
         &self,
         filter: &GraphNodeOpFilterCondition,
         sort: Option<&[GraphNodeOpComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         self.standard_query(
             "GraphNodeOp/query",
             USING_GRAPH_EDIT,
             Some(filter),
             sort,
-            position,
-            limit,
+            params,
         )
         .await
     }

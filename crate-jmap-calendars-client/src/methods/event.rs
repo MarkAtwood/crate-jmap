@@ -252,14 +252,11 @@ impl super::SessionClient {
         &self,
         filter: Option<&Filter<C>>,
         sort: Option<&[CalendarEventComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
         expand_recurrences: Option<bool>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-        });
+        let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
             args["filter"] = serde_json::to_value(f).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
@@ -273,12 +270,6 @@ impl super::SessionClient {
                     "calendar_event_query: serializing sort failed: {e}"
                 ))
             })?;
-        }
-        if let Some(p) = position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = limit {
-            args["limit"] = l.into();
         }
         if let Some(er) = expand_recurrences {
             args["expandRecurrences"] = er.into();

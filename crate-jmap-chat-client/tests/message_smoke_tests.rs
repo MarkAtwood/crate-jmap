@@ -277,11 +277,7 @@ async fn message_query_requires_chat_id_or_has_mention() {
         .message_query(
             None::<&query::MessageFilter>,
             None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
         )
         .await
         .expect_err("message_query must reject empty filter");
@@ -321,7 +317,11 @@ async fn message_query_chat_id_and_default_sort() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .message_query(Some(&chat_filter()), None, None, None, None, None, None)
+        .message_query(
+            Some(&chat_filter()),
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("message_query: must succeed");
 
@@ -366,11 +366,7 @@ async fn message_query_sort_ascending() {
         .message_query(
             Some(&chat_filter()),
             Some(&sort),
-            None,
-            None,
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
         )
         .await
         .expect("message_query: must succeed");
@@ -410,11 +406,7 @@ async fn message_query_topic_id_filter_serializes() {
         .message_query(
             Some(&Filter::Condition(cond)),
             None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
         )
         .await
         .expect("message_query: must succeed");
@@ -455,11 +447,12 @@ async fn message_query_anchor_offset_calculate_total_serialize() {
         .message_query(
             Some(&chat_filter()),
             None,
-            None,
-            None,
-            Some(&anchor),
-            Some(-5),
-            Some(true),
+            &jmap_base_client::QueryParams {
+                anchor: Some(anchor.clone()),
+                anchor_offset: Some(-5),
+                calculate_total: Some(true),
+                ..Default::default()
+            },
         )
         .await
         .expect("message_query: must succeed");
@@ -515,9 +508,13 @@ async fn message_query_sends_not_operator() {
     ));
 
     let sc = helpers::make_client(&server);
-    sc.message_query(Some(&filter), None, None, None, None, None, None)
-        .await
-        .expect("message_query: must succeed");
+    sc.message_query(
+        Some(&filter),
+        None,
+        &jmap_base_client::QueryParams::default(),
+    )
+    .await
+    .expect("message_query: must succeed");
 
     let args = recorded_args(&server).await;
     assert_eq!(

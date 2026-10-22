@@ -200,7 +200,15 @@ async fn mailbox_query_filter_passthrough() {
         { "property": "name", "isAscending": true }
     ]);
     let _ = sc
-        .mailbox_query(Some(&typed), Some(sort.clone()), Some(0), Some(50))
+        .mailbox_query(
+            Some(&typed),
+            Some(sort.clone()),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(50),
+                ..Default::default()
+            },
+        )
         .await
         .expect("mailbox_query: must succeed");
 
@@ -249,7 +257,11 @@ async fn mailbox_query_no_args_omits_optional_keys() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .mailbox_query(None::<&MailboxFilter>, None, None, None)
+        .mailbox_query(
+            None::<&MailboxFilter>,
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("mailbox_query: must succeed");
 

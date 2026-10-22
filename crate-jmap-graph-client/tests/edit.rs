@@ -172,7 +172,7 @@ async fn graph_node_op_query_matches_loading_example() {
     let mut cond = GraphNodeOpFilterCondition::new(Id::from("N1"));
     cond.after_seq = Some(40);
     let resp = make_client(&server)
-        .graph_node_op_query(&cond, None, None, None)
+        .graph_node_op_query(&cond, None, &jmap_base_client::QueryParams::default())
         .await
         .expect("GraphNodeOp/query must succeed");
 
@@ -196,7 +196,7 @@ async fn graph_node_op_query_surfaces_ops_compacted() {
     respond(&server, "error", json!({ "type": "opsCompacted" })).await;
     let cond = GraphNodeOpFilterCondition::new(Id::from("N1"));
     let err = make_client(&server)
-        .graph_node_op_query(&cond, None, None, None)
+        .graph_node_op_query(&cond, None, &jmap_base_client::QueryParams::default())
         .await
         .expect_err("opsCompacted must be an error");
     match err {

@@ -46,7 +46,11 @@ async fn contact_card_query_with_filter() {
     let mut cond = ContactCardFilterCondition::default();
     cond.in_address_book = Some(jmap_types::Id::from("ab1"));
     let resp = sc
-        .contact_card_query(Some(&Filter::Condition(cond)), None, None, None)
+        .contact_card_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("contact_card_query_with_filter: must succeed");
 

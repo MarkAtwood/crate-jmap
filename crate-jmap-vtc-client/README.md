@@ -49,7 +49,11 @@ let mut cond = VtcParticipantFilterCondition::default();
 cond.call_id = Some(Id::from("01J4XKZQN4MWVT8PPBEHTJ3AB0"));
 cond.is_active = Some(true);
 let ids = hosted
-    .vtc_participant_query(Some(&VtcParticipantFilter::Condition(cond)), None, None, None)
+    .vtc_participant_query(
+        Some(&VtcParticipantFilter::Condition(cond)),
+        None,
+        &jmap_base_client::QueryParams::default(),
+    )
     .await?;
 # Ok(())
 # }
