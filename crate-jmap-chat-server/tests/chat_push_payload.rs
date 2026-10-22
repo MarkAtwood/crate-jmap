@@ -13,9 +13,9 @@
 use jmap_chat_server::{build_chat_message_push, BuiltPush, OwnerFlags, PushItem};
 use jmap_chat_types::{
     Chat, ChatContact, ChatMessagePush, ChatPushCapability, ChatPushConfig, Message, Space,
-    SpaceMember, UrgencyLevel,
+    SpaceMember,
 };
-use jmap_types::{Id, State};
+use jmap_types::{Id, State, Urgency};
 use serde_json::{json, Value};
 
 const ACCOUNT: &str = "acct-owner";
@@ -554,17 +554,30 @@ fn urgency_selection() {
 
     let urgency =
         |cfg: &ChatPushConfig, msg: &Message| build(cfg, NOBODY, msg, &chat, &bob(), None).urgency;
-    assert_eq!(urgency(&both, &plain_msg), UrgencyLevel::Low);
-    assert_eq!(urgency(&both, &direct), UrgencyLevel::High);
-    assert_eq!(urgency(&both, &broadcast), UrgencyLevel::High);
-    assert_eq!(urgency(&both, &encrypted), UrgencyLevel::Low);
+    assert_eq!(urgency(&both, &plain_msg), Urgency::Low);
+    assert_eq!(urgency(&both, &direct), Urgency::High);
+    assert_eq!(urgency(&both, &broadcast), Urgency::High);
+    assert_eq!(urgency(&both, &encrypted), Urgency::Low);
 
     let only_urgency = config(json!({ "urgency": "low" }));
-    assert_eq!(urgency(&only_urgency, &direct), UrgencyLevel::Low);
+    assert_eq!(urgency(&only_urgency, &direct), Urgency::Low);
 
     let empty = config(json!({}));
-    assert_eq!(urgency(&empty, &plain_msg), UrgencyLevel::Normal);
+    assert_eq!(urgency(&empty, &plain_msg), Urgency::Normal);
     let only_mention = config(json!({ "mentionUrgency": "high" }));
-    assert_eq!(urgency(&only_mention, &plain_msg), UrgencyLevel::Normal);
-    assert_eq!(urgency(&only_mention, &direct), UrgencyLevel::High);
+    assert_eq!(urgency(&only_mention, &plain_msg), Urgency::Normal);
+    assert_eq!(urgency(&only_mention, &direct), Urgency::High);
+}
+
+/// RFC 8030 §5.3: "A push message without the Urgency header field
+/// defaults to a value of "normal"." A config value outside the
+/// `urgency-option` grammar has no header value, so it is sent as
+/// `normal` (`validate_chat_push` rejects such a config before storage).
+#[test]
+fn urgency_outside_rfc8030_is_sent_as_normal() {
+    let chat = group_chat();
+    let cfg = config(json!({ "urgency": "urgent", "mentionUrgency": "urgent" }));
+    let direct = message("hi", "text/plain", json!([{ "id": ACCOUNT }]), json!([]));
+    let built = build(&cfg, NOBODY, &direct, &chat, &bob(), None);
+    assert_eq!(built.urgency, Urgency::Normal);
 }

@@ -53,6 +53,28 @@ impl Urgency {
     }
 }
 
+impl Serialize for Urgency {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+/// Accepts only the four `urgency-option` strings: RFC 8030 §5.3 closes
+/// the set, so any other string is an error rather than an `Other` value.
+impl<'de> Deserialize<'de> for Urgency {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        const VARIANTS: &[&str] = &["very-low", "low", "normal", "high"];
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "very-low" => Ok(Self::VeryLow),
+            "low" => Ok(Self::Low),
+            "normal" => Ok(Self::Normal),
+            "high" => Ok(Self::High),
+            other => Err(serde::de::Error::unknown_variant(other, VARIANTS)),
+        }
+    }
+}
+
 /// `@type` value of a [`StateChange`] (RFC 8620 §7.1).
 const STATE_CHANGE_TYPE: &str = "StateChange";
 
@@ -370,5 +392,28 @@ mod tests {
         let wire: Vec<&str> = ordered.iter().map(|u| u.as_str()).collect();
         assert_eq!(wire, ["very-low", "low", "normal", "high"]);
         assert!(ordered.windows(2).all(|w| w[0] < w[1]));
+    }
+
+    /// Oracle: RFC 8030 §5.3 `urgency-option = ("very-low" / "low" /
+    /// "normal" / "high")`. Each string round-trips as a JSON string; a
+    /// string outside the grammar, or another case, is rejected.
+    #[test]
+    fn urgency_serde_accepts_only_rfc8030_values() {
+        for (wire, urgency) in [
+            ("very-low", Urgency::VeryLow),
+            ("low", Urgency::Low),
+            ("normal", Urgency::Normal),
+            ("high", Urgency::High),
+        ] {
+            let parsed: Urgency = serde_json::from_value(json!(wire)).expect(wire);
+            assert_eq!(parsed, urgency);
+            assert_eq!(serde_json::to_value(urgency).expect(wire), json!(wire));
+        }
+        for bad in ["urgent", "High", "very_low", ""] {
+            assert!(
+                serde_json::from_value::<Urgency>(json!(bad)).is_err(),
+                "{bad:?}"
+            );
+        }
     }
 }

@@ -18,7 +18,7 @@ use jmap_chat_types::{
     ChatPushCapability, ChatPushConfig, Message, Space, SpaceMember, UrgencyLevel,
 };
 use jmap_server::state_change_for;
-use jmap_types::{Id, PushSubscription, State, StateChange, UTCDate};
+use jmap_types::{Id, PushSubscription, State, StateChange, UTCDate, Urgency};
 use serde_json::{Map, Value};
 
 use crate::{ChatBackend, SetError, SetErrorType};
@@ -85,7 +85,8 @@ const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
 /// - `chatPush/<accountId>/properties`: a name that is not a
 ///   `ChatMessageEntry` field the server supports.
 /// - `chatPush/<accountId>/urgency` and `.../mentionUrgency`: a value not
-///   in the account's `supportedUrgencyValues`. draft-atwood-jmap-chat-push-00
+///   in the account's `supportedUrgencyValues`, including any value outside
+///   RFC 8030 §5.3, which no capability can list. draft-atwood-jmap-chat-push-00
 ///   §ChatPushConfig: "the server MUST return an `invalidProperties`
 ///   SetError on `PushSubscription/set` whose `properties` names the
 ///   offending path (e.g., `chatPush/<id>/urgency`)".
@@ -123,8 +124,10 @@ pub fn validate_chat_push(
             return Err(invalid(format!("{path}/properties")));
         }
         let unsupported = |u: &Option<UrgencyLevel>| {
-            u.as_ref()
-                .is_some_and(|u| !cap.supported_urgency_values.contains(u))
+            u.as_ref().is_some_and(|u| {
+                u.to_urgency()
+                    .is_none_or(|u| !cap.supported_urgency_values.contains(&u))
+            })
         };
         if unsupported(&cfg.urgency) {
             return Err(invalid(format!("{path}/urgency")));
@@ -264,7 +267,7 @@ pub struct BuiltPush {
     /// The payload to deliver to the push endpoint.
     pub payload: ChatMessagePush,
     /// The Web Push urgency for this delivery.
-    pub urgency: UrgencyLevel,
+    pub urgency: Urgency,
 }
 
 /// Build the `ChatMessagePush` for one new inbound message under one
@@ -296,7 +299,10 @@ pub struct BuiltPush {
 /// mentioned directly or by a targeting broadcast scope, otherwise
 /// `cfg.urgency`, otherwise `"normal"` (§Urgency). The mention test uses
 /// the computed mention, whether or not `properties` asks for
-/// `hasMention` or `mentionScopes`.
+/// `hasMention` or `mentionScopes`. A chosen value outside RFC 8030
+/// (`UrgencyLevel::Other`, which [`validate_chat_push`] rejects before a
+/// config is stored) is also sent as `"normal"`, the urgency of a push
+/// without the header (RFC 8030 §5.3).
 pub fn build_chat_message_push(
     account_id: &Id,
     state: State,
@@ -371,10 +377,11 @@ pub fn build_chat_message_push(
 
     let urgency = cfg
         .mention_urgency
-        .clone()
+        .as_ref()
         .filter(|_| mentioned)
-        .or_else(|| cfg.urgency.clone())
-        .unwrap_or(UrgencyLevel::Normal);
+        .or(cfg.urgency.as_ref())
+        .and_then(UrgencyLevel::to_urgency)
+        .unwrap_or(Urgency::Normal);
     // ponytail: one message per payload, which §Delivery allows ("Contains
     // exactly one entry for a single new message") and §Batching and Retry
     // prefers ("at most one `ChatMessagePush` per message"). The upgrade

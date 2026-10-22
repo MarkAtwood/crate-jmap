@@ -693,10 +693,7 @@ mod tests {
         assert_eq!(cap.max_snippet_bytes, 256);
         assert_eq!(
             cap.supported_urgency_values,
-            vec![
-                jmap_chat_types::UrgencyLevel::Normal,
-                jmap_chat_types::UrgencyLevel::High,
-            ]
+            vec![jmap_types::Urgency::Normal, jmap_types::Urgency::High,]
         );
         assert!(
             cap.max_messages_per_push.is_none(),
