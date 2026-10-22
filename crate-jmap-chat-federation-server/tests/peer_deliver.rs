@@ -464,6 +464,49 @@ async fn step5_sender_needs_send_permission() {
         .expect("send from @everyone");
 }
 
+/// The `@everyone` floor is per Space (chat L812 at jmap-chat-spec
+/// 29e9a41: "the implicit `@everyone` role, which every member of a Space
+/// holds"): only the floor of the channel's Space counts.
+#[tokio::test]
+async fn step5_floor_is_the_channels_space() {
+    let send = HashSet::from([jmap_chat_types::ChatPermission::Send]);
+    let mut fed = Fed::new();
+    fed.space_everyone
+        .insert("space-other".to_owned(), send.clone());
+    fed.seed("Chat", channel(0, json!([])));
+    fed.seed("Space", space(&["view"], false));
+    assert_error(
+        fed.deliver(deliver_args(CHANNEL, "channel", message("M1")))
+            .await,
+        "forbidden",
+    );
+
+    let mut fed = Fed::new();
+    fed.space_everyone.insert(SPACE.to_owned(), send);
+    fed.seed("Chat", channel(0, json!([])));
+    fed.seed("Space", space(&["view"], false));
+    fed.deliver(deliver_args(CHANNEL, "channel", message("M1")))
+        .await
+        .expect("send from the Space's @everyone");
+}
+
+/// A failed `@everyone` read in step 5 is `serverFail` (CHANGELOG
+/// JMAP-wf92.8; RFC 8620 §3.6.2 "An unexpected error occurred during the
+/// processing of the call"), not a permission decision, and stores nothing.
+#[tokio::test]
+async fn step5_everyone_read_failure_is_server_fail() {
+    let mut fed = Fed::new();
+    fed.everyone_fails = true;
+    fed.seed("Chat", channel(0, json!([])));
+    fed.seed("Space", space(&["send"], false));
+    assert_error(
+        fed.deliver(deliver_args(CHANNEL, "channel", message("M1")))
+            .await,
+        "serverFail",
+    );
+    assert!(fed.messages().await.is_empty());
+}
+
 /// chat §Space Permission Resolution step 4: "Apply `deny` entries from
 /// any ChannelPermission record matching the member directly".
 #[tokio::test]

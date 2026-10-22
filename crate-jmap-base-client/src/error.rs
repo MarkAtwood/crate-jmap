@@ -692,7 +692,9 @@ pub enum ClientError {
     /// (`type`, `description`, `existingId`, `limit`), so for example a
     /// `tooManyChanges` error's `limit` reaches the caller.
     /// [`method_error_details`](crate::method_error_details) returns any
-    /// other properties. An error object without a `type` is
+    /// other properties. An error object whose `type` is missing, or whose
+    /// `type`, `description`, `existingId` or `limit` is not of its RFC 8620
+    /// type (for example a string or negative `limit`), is
     /// [`ClientError::Parse`]: RFC 8620 §3.6.2 says it "MUST have a type
     /// property".
     #[error("JMAP method error: {0}")]

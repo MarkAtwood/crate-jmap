@@ -141,8 +141,8 @@ struct AccountAux {
     ///
     /// Maintained incrementally by `apply_contact_card_index_delta`,
     /// called from each ContactCard `create_object` / `update_object` /
-    /// `destroy_object` / `copy_contact_card` (which already have the
-    /// old + new JSON in hand). `seed_object` falls back to
+    /// `destroy_object`, and from `copy_object` when `O::TYPE_NAME` is
+    /// `"ContactCard"` (each already has the old + new JSON in hand). `seed_object` falls back to
     /// `recompute_address_book_card_counts` since it bypasses the
     /// trait-impl mutators and the old state is unknown. Entries reach
     /// `0` only briefly during a multi-step update; the delta helper

@@ -94,6 +94,46 @@ async fn everyone_floor_granting_start_call_permits_the_create() {
     .await;
 }
 
+/// The `@everyone` floor is per Space: chat L812 at jmap-chat-spec
+/// 29e9a41 "the implicit `@everyone` role, which every member of a Space
+/// holds", and vtc L626 checks "the `"start_call"` permission in the bound
+/// Space or channel". Two Spaces with different floors: the bound Space's
+/// floor decides, whether it is bound by `spaceId` or through the channel.
+#[tokio::test]
+async fn the_bound_spaces_everyone_floor_decides() {
+    let backend = Bound::new();
+    backend.chat.set_space_everyone_permissions(
+        &jmap_types::Id::from("S-GRANT"),
+        HashSet::from([jmap_chat_types::ChatPermission::StartCall]),
+    );
+    backend.seed_chat_object("Space", space("S-GRANT", &[], &[(ACCOUNT, &[])]));
+    backend.seed_chat_object("Space", space("S-DENY", &[], &[(ACCOUNT, &[])]));
+    backend.seed_chat_object("Chat", channel_chat("CH-GRANT", "S-GRANT", json!([])));
+    backend.seed_chat_object("Chat", channel_chat("CH-DENY", "S-DENY", json!([])));
+
+    create_call(
+        &backend,
+        json!({ "callType": "room", "mediaTypes": ["audio"], "spaceId": "S-GRANT" }),
+    )
+    .await;
+    create_call(
+        &backend,
+        json!({ "callType": "room", "mediaTypes": ["audio"], "channelId": "CH-GRANT" }),
+    )
+    .await;
+    for binding in [
+        json!({ "spaceId": "S-DENY" }),
+        json!({ "channelId": "CH-DENY" }),
+    ] {
+        let mut call = json!({ "callType": "room", "mediaTypes": ["audio"] });
+        call.as_object_mut()
+            .expect("object")
+            .extend(binding.as_object().expect("object").clone());
+        let err = create_call_error(&backend, call).await;
+        assert_eq!(err["type"], "forbidden", "{binding}");
+    }
+}
+
 /// chat L1624: "Apply `deny` entries from any ChannelPermission record
 /// matching the member directly (`targetType: "member"`)."
 #[tokio::test]
@@ -157,4 +197,21 @@ async fn non_member_of_the_space_is_forbidden() {
     )
     .await;
     assert_eq!(err["type"], "forbidden");
+}
+
+/// A Chat backend that fails reading the bound Space makes
+/// `check_call_create` return the backend error, which the deployment
+/// reports as `serverFail`, not a permission answer: the gate neither
+/// refuses with `forbidden` nor lets the create through. The stored Space
+/// lacks every required property, so the Chat MemoryBackend's read fails.
+#[tokio::test]
+async fn chat_backend_error_is_not_a_permission_answer() {
+    let backend = Bound::new();
+    backend.seed_chat_object("Space", json!({ "id": SPACE }));
+    let err = create_call_error(
+        &backend,
+        json!({ "callType": "room", "mediaTypes": ["audio"], "spaceId": SPACE }),
+    )
+    .await;
+    assert_eq!(err["type"], "serverFail", "{err}");
 }

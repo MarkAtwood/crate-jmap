@@ -118,6 +118,39 @@ async fn store(
     .expect("store_server_message")
 }
 
+/// The duplicate check keys on the `chat_id`/`sender_msg_id` arguments, so
+/// the stored Message carries those keys even when `build` sets others
+/// (mimi L443 at jmap-chat-spec 29e9a41):
+/// "The server MUST NOT store a FanoutMessage whose `senderMsgId` it has
+/// already stored in the Chat" holds only if the stored key is the checked
+/// one. Expected values are the literal arguments.
+#[tokio::test]
+async fn stored_keys_are_the_checked_keys() {
+    let backend = setup();
+    let StoreOutcome::Stored(_) = store_server_message(
+        &backend,
+        &(),
+        &Id::from(ACCOUNT_ID),
+        &Id::from("g"),
+        &Id::from(SMID),
+        fanout("other-chat", "other-smid", "AAEC"),
+    )
+    .await
+    .expect("store_server_message") else {
+        panic!("first store must not be a duplicate");
+    };
+    let list = messages(&backend).await["list"].clone();
+    assert_eq!(list[0]["chatId"], json!("g"), "{list}");
+    assert_eq!(list[0]["senderMsgId"], json!(SMID), "{list}");
+    assert!(
+        matches!(
+            store(&backend, "g", SMID, "AAEC").await,
+            StoreOutcome::Duplicate(_)
+        ),
+        "a second store under the checked keys must be a duplicate"
+    );
+}
+
 /// mimi L430 "Only servers create such Messages": the helper stores a
 /// Message with the server-reserved body type and the server-chosen
 /// `senderMsgId` and `senderId`, under a server-assigned `id`.

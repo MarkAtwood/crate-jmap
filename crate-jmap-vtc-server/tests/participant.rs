@@ -1044,6 +1044,21 @@ async fn query_needs_a_call_or_user_scope_and_sorts_by_joined_at() {
 }
 
 #[tokio::test]
+async fn query_other_sort_property_is_unsupported() {
+    let backend = room();
+    // L1096 "Sort properties: `joinedAt`, `displayName`."; RFC 8620 §5.5
+    // "unsupportedSort: The sort is syntactically valid, but includes a
+    // property the server does not support sorting on".
+    let err = pquery(
+        &backend,
+        json!({"filter": {"callId": "C1"}, "sort": [{"property": "userId"}]}),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+}
+
+#[tokio::test]
 async fn records_are_not_destroyed() {
     let backend = room();
     let alice = id_of(&join(&backend, ALICE, "C1").await);

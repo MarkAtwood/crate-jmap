@@ -18,7 +18,7 @@ on `jmap-filenode-types` for the wire types.
 
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
-use jmap_filenode_client::{JmapFileNodeExt, FileNodeSetParams, FileNodeOnExists};
+use jmap_filenode_client::{JmapFilenodeExt, FileNodeSetParams, FileNodeOnExists};
 
 # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 // 1. Build a JmapClient (auth, base URL — see jmap-base-client docs).
@@ -32,13 +32,14 @@ let session = client.fetch_session().await?;
 let sc = client.with_filenode_session(session);
 
 // 4. List all FileNodes (directories and files).
-let nodes = sc.file_node_get(None, None, None).await?;
+let nodes = sc.filenode_get(None, None, None).await?;
 
 // 5. Create a directory.
-sc.file_node_set(
+sc.filenode_set(
     Some(serde_json::json!({
         "new1": { "name": "Projects", "parentId": null }
     })),
+    None,
     None,
     None,
     None,
@@ -46,14 +47,15 @@ sc.file_node_set(
 
 // 6. Create a file node with collision handling.
 let params = FileNodeSetParams {
-    on_destroy_remove_children: None,
     on_exists: Some(FileNodeOnExists::Rename),
     compare_case_insensitively: Some(true),
+    ..Default::default()
 };
-sc.file_node_set(
+sc.filenode_set(
     Some(serde_json::json!({
         "new2": { "name": "report.pdf", "parentId": "dir1", "blobId": "blob-xyz" }
     })),
+    None,
     None,
     None,
     Some(params),
@@ -74,44 +76,45 @@ All `pub async fn` on `SessionClient`:
 
 | Method | Parameters | JMAP method | Returns |
 |---|---|---|---|
-| `file_node_get` | `ids, properties, fetch_parents` | `FileNode/get` | `GetResponse<FileNode>` |
-| `file_node_changes` | `since_state, max_changes` | `FileNode/changes` | `ChangesResponse` |
-| `file_node_set` | `create, update, destroy, params` | `FileNode/set` | `SetResponse<PartialObject>` |
-| `file_node_copy` | `from_account_id, create, on_destroy_remove_children, on_exists, compare_case_insensitively` | `FileNode/copy` | `SetResponse<PartialObject>` |
-| `file_node_query` | `filter, sort, position, limit, depth` | `FileNode/query` | `QueryResponse` |
-| `file_node_query_changes` | `since_query_state, max_changes` | `FileNode/queryChanges` | `QueryChangesResponse` |
+| `filenode_get` | `ids, properties, params` | `FileNode/get` | `GetResponse<FileNode>` |
+| `filenode_changes` | `since_state, max_changes` | `FileNode/changes` | `ChangesResponse` |
+| `filenode_set` | `create, update, destroy, if_in_state, params` | `FileNode/set` | `SetResponse<PartialObject>` |
+| `filenode_copy` | `params, create` | `FileNode/copy` | `SetResponse<PartialObject>` |
+| `filenode_query` | `filter, sort, &QueryParams, depth` | `FileNode/query` | `QueryResponse` |
+| `filenode_query_changes` | `since_query_state, max_changes, filter, sort, up_to_id, calculate_total` | `FileNode/queryChanges` | `QueryChangesResponse` |
 
-**`file_node_get`** — `fetch_parents: Some(true)` asks the server to include all ancestor
+**`filenode_get`** — `FileNodeGetParams { fetch_parents: Some(true), .. }` asks the server to include all ancestor
 nodes of the requested IDs in the response list (§3.2.1).
 
-**`file_node_copy`** — `on_destroy_remove_children: Option<bool>` is the first optional
-parameter (added per §3.2.4). The `from_account_id` is a required positional parameter;
-all collision-handling options (`on_exists`, `compare_case_insensitively`) follow.
+**`filenode_copy`** — `FileNodeCopyParams` carries the required `from_account_id` and the
+optional `on_destroy_remove_children`, `on_exists`, `compare_case_insensitively` and
+`if_from_in_state` (§3.2.4).
 
-**`file_node_query`** — `depth: Option<u64>` controls recursive descent: `None` or
+**`filenode_query`** — `depth: Option<u64>` controls recursive descent: `None` or
 `Some(0)` means no recursion; `Some(n)` recurses `n` levels into subdirectories.
 
 ## Response types
 
 | Type | Used for |
 |---|---|
-| `GetResponse<FileNode>` | `file_node_get` — typed list of FileNode objects |
-| `SetResponse<PartialObject>` | `file_node_set`, `file_node_copy` — created/updated/destroyed maps; RFC 8620 §5.3 `created` values hold only the properties the client did not send. `file_node_copy` keeps this shape, not `CopyResponse`, for the `destroyed` list draft-16 §3.2.3 requires |
-| `ChangesResponse` | `file_node_changes` — added, updated, and destroyed ID lists |
-| `QueryResponse` | `file_node_query` — ordered list of matching IDs |
-| `QueryChangesResponse` | `file_node_query_changes` — added and removed ID lists |
+| `GetResponse<FileNode>` | `filenode_get` — typed list of FileNode objects |
+| `SetResponse<PartialObject>` | `filenode_set`, `filenode_copy` — created/updated/destroyed maps; RFC 8620 §5.3 `created` values hold only the properties the client did not send. `filenode_copy` keeps this shape, not `CopyResponse`, for the `destroyed` list draft-16 §3.2.3 requires |
+| `ChangesResponse` | `filenode_changes` — added, updated, and destroyed ID lists |
+| `QueryResponse` | `filenode_query` — ordered list of matching IDs |
+| `QueryChangesResponse` | `filenode_query_changes` — added and removed ID lists |
 
 ## FileNodeSetParams
 
-Passed as the `params` argument to `file_node_set` to set top-level `/set` arguments:
+Passed as the `params` argument to `filenode_set` to set top-level `/set` arguments:
 
 | Field | Type | Wire name | Description |
 |---|---|---|---|
 | `on_destroy_remove_children` | `Option<bool>` | `onDestroyRemoveChildren` | Cascade destroy to descendants (default: false) |
 | `on_exists` | `Option<FileNodeOnExists>` | `onExists` | Collision policy for name conflicts |
 | `compare_case_insensitively` | `Option<bool>` | `compareCaseInsensitively` | Case-fold name comparisons (default: false) |
+| `extra` | `serde_json::Map<String, Value>` | (flattened) | Vendor extension arguments; keys must not collide with the names above |
 
-All fields are `#[serde(skip_serializing_if = "Option::is_none")]` so `None` values are
+All `Option` fields are `#[serde(skip_serializing_if = "Option::is_none")]` so `None` values are
 omitted from the wire request.
 
 ## FileNodeOnExists
@@ -140,14 +143,14 @@ Each method on `SessionClient` runs the same pipeline:
 5. POST it via `jmap_base_client::JmapClient::call`.
 6. `extract_response::<T>` finds the typed result for call ID `"r1"`.
 
-The `Jmap*Ext` extension trait (`JmapFileNodeExt`) adds the
+The `Jmap*Ext` extension trait (`JmapFilenodeExt`) adds the
 `with_filenode_session(session)` accessor to `JmapClient`. The returned
 `SessionClient` carries the session and exposes every FileNode method as a
 typed `async fn`.
 
 ## Gotchas
 
-- `file_node_query` with `depth > 0` sends exactly **one** HTTP request to the JMAP server with the `depth` integer as a JSON field. The O(depth) backend calls are made by the server handler internally as it calls `query_objects` per level against its storage backend — the client has no visibility into this and does not issue multiple HTTP round-trips. Backends can override `FileNodeBackend::query_subtree` to reduce server-side backend calls to a single recursive query.
+- `filenode_query` with `depth > 0` sends exactly **one** HTTP request to the JMAP server with the `depth` integer as a JSON field. The O(depth) backend calls are made by the server handler internally as it calls `query_objects` per level against its storage backend — the client has no visibility into this and does not issue multiple HTTP round-trips. Backends can override `FileNodeBackend::query_subtree` to reduce server-side backend calls to a single recursive query.
 - No integration tests against a real JMAP server; tests use request-shape oracles and
   serialization checks only.
 

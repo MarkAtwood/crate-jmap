@@ -10,7 +10,7 @@ use jmap_types::MethodErrorType;
 ///
 /// `type` and `status` are always present.  `limit` is present for `limit`
 /// errors (RFC 8620 §3.6.1 requires naming the exceeded limit).  `detail` is
-/// present for other errors that carry a description.
+/// present for any error, `limit` included, that carries a description.
 #[derive(Serialize)]
 struct ProblemDetails<'a> {
     #[serde(rename = "type")]
@@ -360,6 +360,26 @@ mod tests {
             "limit property must name the exceeded limit"
         );
         assert_eq!(body["type"], "urn:ietf:params:jmap:error:limit");
+    }
+
+    /// Oracle: RFC 8620 §3.6.1 ("limit" property naming the limit) and
+    /// RFC 7807 §3.1 ("detail"). A limit error with a description carries
+    /// both. Expected object is hand-written.
+    #[test]
+    fn request_error_limit_with_description_includes_limit_and_detail() {
+        let mut err = JmapError::limit("maxCallsInRequest");
+        err.description = Some("17 calls exceed 16".to_owned());
+        let body: serde_json::Value =
+            serde_json::from_str(&request_error(err).into_response().into_body()).unwrap();
+        assert_eq!(
+            body,
+            serde_json::json!({
+                "type": "urn:ietf:params:jmap:error:limit",
+                "status": 400,
+                "limit": "maxCallsInRequest",
+                "detail": "17 calls exceed 16",
+            })
+        );
     }
 
     // -----------------------------------------------------------------------

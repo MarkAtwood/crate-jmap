@@ -9,7 +9,7 @@ rule and the identity-host binding rule.
 ## What it is
 
 The parts of peer authentication that need no I/O. You pass in the
-clock, the peer domain's fetched `peerSigningKeys`, your DNSSEC
+clock, the peer domain's fetched `peerSigningKeys` and your DNSSEC
 validation result. Fetching keys over HTTPS,
 the `_jmap-peer` TXT lookup, the key cache, the 60-second refetch limit
 and the replay store are yours (or a support crate's). Server crates may

@@ -242,6 +242,49 @@ mod tests {
         }
     }
 
+    /// Oracle: a `ChatPresenceEvent` whose body does not parse keeps its
+    /// `@type` and raw JSON in `Other(Unknown)`; draft-atwood-jmap-chat-wss-00
+    /// L304: a client "SHOULD NOT close the WebSocket connection" over it.
+    #[test]
+    fn parse_chat_presence_malformed_keeps_raw() {
+        let raw = serde_json::json!({"@type": "ChatPresenceEvent", "missing": "required fields"});
+        let frame = WsFrame::Unknown {
+            type_name: "ChatPresenceEvent".to_owned(),
+            raw: raw.clone(),
+        };
+        match parse_chat_ws_frame(frame) {
+            ChatWsFrame::Other(WsFrame::Unknown {
+                type_name,
+                raw: got,
+            }) => {
+                assert_eq!(type_name, "ChatPresenceEvent");
+                assert_eq!(got, raw);
+            }
+            other => panic!("expected Other(Unknown), got {other:?}"),
+        }
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-wss-00 L165 "Ephemeral event frames
+    /// are interleaved with `StateChange` and `Response` frames", so a
+    /// `Response` passes through unchanged. Fixture hand-written from the
+    /// RFC 8620 §3.4 Response shape.
+    #[test]
+    fn parse_response_forwarded() {
+        let resp: jmap_types::JmapResponse = serde_json::from_str(
+            r#"{"methodResponses":[["Core/echo",{"hello":true},"c1"]],
+                "sessionState":"75128aab4b1b"}"#,
+        )
+        .expect("test fixture must deserialize");
+        match parse_chat_ws_frame(WsFrame::Response(resp)) {
+            ChatWsFrame::Other(WsFrame::Response(got)) => {
+                assert_eq!(got.session_state.as_ref(), "75128aab4b1b");
+                assert_eq!(got.method_responses.len(), 1);
+                assert_eq!(got.method_responses[0].call_id, "c1");
+            }
+            other => panic!("expected Other(Response), got {other:?}"),
+        }
+    }
+
     /// Oracle: Unknown with unrecognized type_name is forwarded unchanged.
     /// draft-atwood-jmap-chat-wss-00 L304: a client "SHOULD silently ignore"
     /// an unrecognized `@type`, so the caller gets the frame to drop.

@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `MemoryBackend::set_space_everyone_permissions`
+  sets the implicit `@everyone` role's permissions of one Space,
+  replacing the `set_everyone_permissions` set there, in
+  `ChatBackend::everyone_permissions` and in the backend's own
+  permission checks (draft-atwood-jmap-chat-00 §SpaceRole: the role
+  "which every member of a Space holds"; bd JMAP-wf92.22).
 - **jmap-calendars-server**: `CalendarsBackend::privacy_conflicts`
   receives every valid create, update and destroy of one
   `CalendarEvent/set` before any is applied and returns the
@@ -1565,9 +1571,13 @@ wire behaviour that a conforming peer can observe.
   `requestId` and Problem Details, instead of `Unknown { type_name:
   "<unknown>" }`, and a malformed Chat event keeps its raw JSON in
   `Other(WsFrame::Unknown)` (bd JMAP-wf92.12, JMAP-yt1w.44).
-- **BREAKING** Every `/query` comparator `property` is a typed enum with
-  an `Other(String)` catch-all, the `jmap-mail-types`
-  `ComparatorProperty` shape (bd JMAP-wf92.11). **jmap-calendars-types**:
+- **BREAKING** Every typed `/query` comparator `property` is a typed enum
+  with an `Other(String)` catch-all, the `jmap-mail-types`
+  `ComparatorProperty` shape (bd JMAP-wf92.11). Comparators that are
+  still untyped `serde_json::Value` are out of scope: Calendar, CalendarEventNotification and ParticipantIdentity
+  (jmap-calendars-types), Mailbox and EmailSubmission (jmap-mail-types),
+  Principal and ShareNotification (jmap-sharing-types), TaskList
+  (jmap-tasks-types) and FileNode (jmap-filenode-types). **jmap-calendars-types**:
   `CalendarEventComparatorProperty` (draft-ietf-jmap-calendars-26
   §5.11.2). **jmap-tasks-types**: `TaskComparatorProperty`
   (draft-ietf-jmap-tasks-06 §4.13) and `TaskNotificationComparatorProperty`
@@ -1623,7 +1633,8 @@ wire behaviour that a conforming peer can observe.
   a `tooManyChanges` limit) are no longer dropped. An `"error"` response
   without a string `type` is now `ClientError::Parse` instead of an
   invented `"serverError"` type (RFC 8620 §3.6.2: it "MUST have a type
-  property"). Migrate `MethodError { error_type, .. }` matches to
+  property"), and so is one whose `type`, `description`, `existingId` or
+  `limit` is malformed (such as a string or negative `limit`). Migrate `MethodError { error_type, .. }` matches to
   `MethodError(e)` and read `e.error_type`.
 - **BREAKING** **jmap-vtc-server**: `VtcBackend` gains the required
   `update_object_if`, a compare-and-set `update_object` that applies a
@@ -2529,6 +2540,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-vtc-server**: a `VTCCall/set` `state: "ended"` on a call that
+  changed state after the handler read it (a ring answered, a scheduled
+  call joined) now ends the call with the `endReason` of its new state
+  (draft-atwood-jmap-vtc-00 §State Machine "`"active"` → `"ended"`: ...
+  a moderator ends the call") instead of failing with
+  `invalidProperties` after its breakout rooms had already ended
+  (bd JMAP-ace5, JMAP-wf92.22).
+- **jmap-chat-server**: `store_server_message` stores the Message with
+  `chatId` and `senderMsgId` set to its `chat_id` and `sender_msg_id`
+  arguments, so the stored keys are always the ones the duplicate check
+  searched (draft-atwood-jmap-chat-mimi-00: "The server MUST NOT store a
+  FanoutMessage whose `senderMsgId` it has already stored in the Chat";
+  bd JMAP-dpbp, JMAP-wf92.22).
 - **jmap-calendars-server**: `CalendarEvent/set` rejects a `destroy`
   array with a non-string element (`invalidArguments`) before applying
   any create or update; it used to apply them first.

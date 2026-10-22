@@ -485,7 +485,7 @@ async fn update_call<B: VtcBackend>(
     id: &Id,
     patch: Value,
 ) -> Result<Value, Value> {
-    let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
+    let patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
         set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
     })?;
 
@@ -541,19 +541,35 @@ async fn update_call<B: VtcBackend>(
         ));
     }
 
-    let mut echo = Value::Null;
-    if let Some(requested) = patch.as_map().get("state") {
+    let Some(requested) = patch.as_map().get("state") else {
+        return match backend
+            .update_object::<VtcCall>(caller, account_id, id, patch)
+            .await
+        {
+            Ok(Some(obj)) => {
+                Ok(serde_json::to_value(&obj)
+                    .expect("derive(Serialize) on plain data is infallible"))
+            }
+            Ok(None) => Ok(Value::Null),
+            Err(e) => Err(backend_set_error_value(e)),
+        };
+    };
+    let wants_end = matches!(CallState::deserialize(requested), Ok(CallState::Ended));
+    let mut call = call;
+    // A call whose state changed since the read (a ring answered, a
+    // scheduled call joined) ends with the reason for its new state, as
+    // `end_cascade` does for rooms: "`"active"` → `"ended"`: ... a
+    // moderator ends the call" (§State Machine). The loop ends because
+    // §State Machine has no cycle back from a later state.
+    loop {
         if call.state == CallState::Ended {
             return Err(invalid(
                 &["state"],
                 "the call is already in state \"ended\"",
             ));
         }
-        let end_reason = match (
-            CallState::deserialize(requested),
-            end_reason_for(&call.state),
-        ) {
-            (Ok(CallState::Ended), Some(reason)) => reason,
+        let end_reason = match end_reason_for(&call.state) {
+            Some(reason) if wants_end => reason,
             _ => {
                 return Err(invalid(
                     &["state"],
@@ -565,33 +581,34 @@ async fn update_call<B: VtcBackend>(
         // `endReason` based on context".
         let ended_at = json!(now_utc_string());
         let end_reason = json!(end_reason);
-        let map = patch.as_map_mut();
+        let mut attempt = patch.clone();
+        let map = attempt.as_map_mut();
         map.insert("endedAt".to_owned(), ended_at.clone());
         map.insert("endReason".to_owned(), end_reason.clone());
-        echo = json!({ "endedAt": ended_at, "endReason": end_reason });
-    }
-
-    let result = if echo.is_null() {
-        backend
-            .update_object::<VtcCall>(caller, account_id, id, patch)
-            .await
-    } else {
         let from = std::slice::from_ref(&call.state);
-        let ended = end_cascade(backend, caller, account_id, &call, from, patch).await;
-        if ended.is_ok() && call.state == CallState::Ringing {
-            // §VTCCallEndEvent: "When a ringing call is answered, declined,
-            // cancelled, or times out, the server delivers a
-            // `VTCCallEndEvent` to all devices that received the ring."
-            deliver_call_end(backend, caller, account_id, id, RingEndReason::Cancelled).await;
+        match end_cascade(backend, caller, account_id, &call, from, attempt).await {
+            Ok(_) => {
+                if call.state == CallState::Ringing {
+                    // §VTCCallEndEvent: "When a ringing call is answered,
+                    // declined, cancelled, or times out, the server
+                    // delivers a `VTCCallEndEvent` to all devices that
+                    // received the ring."
+                    deliver_call_end(backend, caller, account_id, id, RingEndReason::Cancelled)
+                        .await;
+                }
+                return Ok(json!({ "endedAt": ended_at, "endReason": end_reason }));
+            }
+            Err(BackendSetError::SetError(e)) if is_state_refusal(&e) => {
+                let now = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
+                    .await?
+                    .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
+                if now.state == call.state {
+                    return Err(set_error_value(&e));
+                }
+                call = now;
+            }
+            Err(e) => return Err(backend_set_error_value(e)),
         }
-        ended
-    };
-    match result {
-        Ok(Some(obj)) if echo.is_null() => {
-            Ok(serde_json::to_value(&obj).expect("derive(Serialize) on plain data is infallible"))
-        }
-        Ok(_) => Ok(echo),
-        Err(e) => Err(backend_set_error_value(e)),
     }
 }
 

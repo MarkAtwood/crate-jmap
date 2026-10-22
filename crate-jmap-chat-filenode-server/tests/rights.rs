@@ -39,7 +39,7 @@
 use std::collections::HashSet;
 
 use jmap_chat_filenode_server::{
-    check_space_create, check_space_destroy, check_space_update, space_files_rights,
+    check_space_create, check_space_destroy, check_space_update, space_files_rights, RootCheckError,
 };
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_filenode_server::memory::MemoryBackend as FilesMemory;
@@ -263,6 +263,60 @@ async fn everyone_permissions_count() {
         f.rights("docs").await,
         Some(rights(&["mayRead", "mayAddChildren"]))
     );
+}
+
+/// The `@everyone` floor is per Space (chat L812 at jmap-chat-spec
+/// 29e9a41: "the implicit `@everyone` role, which every member of a Space
+/// holds"): a node takes the floor of the Space whose tree holds it. A1 is
+/// a role-less member of both S1 and S2, whose floors differ.
+#[tokio::test]
+async fn each_trees_own_space_floor_applies() {
+    let f = Fixture::new(&[]);
+    f.chat.insert_object_for_test(
+        "Space",
+        ACCOUNT,
+        "S2",
+        json!({
+            "id": "S2",
+            "name": "Space 2",
+            "roles": [],
+            "members": [{ "id": ACCOUNT, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }],
+            "categories": [],
+            "uncategorizedChannelIds": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "isPublic": false,
+            "isPubliclyPreviewable": false,
+            "memberCount": 1
+        }),
+    );
+    f.chat.set_space_everyone_permissions(
+        &Id::from(SPACE),
+        HashSet::from([jmap_chat_types::ChatPermission::Send]),
+    );
+    f.chat.set_space_everyone_permissions(
+        &Id::from("S2"),
+        HashSet::from([jmap_chat_types::ChatPermission::View]),
+    );
+    // L165-166: `"send"` is `mayRead` "plus `mayAddChildren`"; `"view"` is
+    // `mayRead`.
+    assert_eq!(
+        f.rights("docs").await,
+        Some(rights(&["mayRead", "mayAddChildren"]))
+    );
+    assert_eq!(f.rights("other").await, Some(rights(&["mayRead"])));
+}
+
+/// A Chat backend that fails reading the Space is
+/// `RootCheckError::Chat`, not a rights answer. The stored Space lacks
+/// every required property, so the Chat MemoryBackend's read fails.
+#[tokio::test]
+async fn chat_backend_error_is_root_check_error_chat() {
+    let f = Fixture::new(&["manage_space"]);
+    f.chat
+        .insert_object_for_test("Space", ACCOUNT, SPACE, json!({ "id": SPACE }));
+    let node = f.node("docs").await;
+    let result = space_files_rights(&f.chat, &(), &f.files, &(), &Id::from(ACCOUNT), &node).await;
+    assert!(matches!(result, Err(RootCheckError::Chat(_))), "{result:?}");
 }
 
 /// L161: "A flag no applicable row grants is `false`": a member whose

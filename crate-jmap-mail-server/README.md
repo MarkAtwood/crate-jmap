@@ -138,7 +138,8 @@ pub trait MailBackend: JmapBackend {
         filter: Option<&EmailFilterCondition>)
         -> impl Future<Output = Result<Vec<SearchSnippet>, Self::Error>> + Send;
 
-    /// Return true if this account supports the given JMAP object type.
+    /// Returns `true` if this backend supports JMAP object type `O` for
+    /// `account_id`, as seen by `caller`.
     /// Used by the session capability builder and by SearchSnippet/get.
     fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx,
         account_id: &Id) -> bool;

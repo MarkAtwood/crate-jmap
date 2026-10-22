@@ -61,6 +61,11 @@ pub struct Fed {
     pub chat: MemoryBackend,
     pub peer: Option<AuthenticatedPeer>,
     pub everyone: HashSet<jmap_chat_types::ChatPermission>,
+    /// Space id → that Space's `@everyone` permissions, in place of
+    /// `everyone`.
+    pub space_everyone: HashMap<String, HashSet<jmap_chat_types::ChatPermission>>,
+    /// When set, `everyone_permissions` fails.
+    pub everyone_fails: bool,
     pub blobs: HashMap<String, FetchedBlob>,
     pub fetched: Mutex<Vec<String>>,
     pub next_id: AtomicU64,
@@ -90,6 +95,8 @@ impl Fed {
                 BOB,
             )),
             everyone: HashSet::new(),
+            space_everyone: HashMap::new(),
+            everyone_fails: false,
             blobs: HashMap::from([(
                 FETCH_URL.to_owned(),
                 FetchedBlob::new(Id::from("local-blob-1"), 3, hex32(ABC_SHA256)),
@@ -440,9 +447,16 @@ impl ChatBackend for Fed {
         &self,
         _caller: &(),
         _account_id: &Id,
-        _space: &Space,
+        space: &Space,
     ) -> Result<HashSet<jmap_chat_types::ChatPermission>, MemoryError> {
-        Ok(self.everyone.clone())
+        if self.everyone_fails {
+            return Err(MemoryError::new("everyone_permissions failed"));
+        }
+        Ok(self
+            .space_everyone
+            .get(space.id.as_ref())
+            .unwrap_or(&self.everyone)
+            .clone())
     }
 
     async fn join_space_with_invite(

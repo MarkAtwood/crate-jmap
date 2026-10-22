@@ -136,6 +136,13 @@ async fn unsupported_sort() {
     );
     assert_eq!(t, "unsupportedSort");
     let t = call_err!(
+        handle_graph_edge_query,
+        &backend,
+        ALICE,
+        json!({ "filter": { "graphId": g }, "sort": [{ "property": "type" }] })
+    );
+    assert_eq!(t, "unsupportedSort");
+    let t = call_err!(
         handle_graph_query,
         &backend,
         ALICE,

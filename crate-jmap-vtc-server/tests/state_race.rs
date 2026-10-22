@@ -18,8 +18,9 @@ use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
 use jmap_vtc_server::{
     after_leave, end_call, expire_ring, handle_vtc_call_get, handle_vtc_call_set,
-    handle_vtc_livestream_get, handle_vtc_livestream_set, handle_vtc_participant_set,
-    handle_vtc_recording_get, handle_vtc_recording_set, StatefulObject, VtcBackend,
+    handle_vtc_livestream_get, handle_vtc_livestream_set, handle_vtc_participant_query,
+    handle_vtc_participant_set, handle_vtc_recording_get, handle_vtc_recording_set, StatefulObject,
+    VtcBackend,
 };
 use jmap_vtc_types::{
     CallEndReason, CallRole, CallState, VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent,
@@ -27,14 +28,19 @@ use jmap_vtc_types::{
 use serde_json::{json, Value};
 
 /// [`MemoryBackend`] that stores one record, as a concurrent request
-/// would, right after the first `get_objects` of that record's type: the
-/// handler holds the earlier read while the store already has the new
-/// state.
-struct Racing(MemoryBackend, Mutex<Option<(&'static str, Value)>>);
+/// would, right after the first `get_objects` of that record's type (or a
+/// later one, [`Racing::after`]): the handler holds the earlier read while
+/// the store already has the new state.
+struct Racing(MemoryBackend, Mutex<Option<(&'static str, Value, usize)>>);
 
 impl Racing {
     fn new(backend: MemoryBackend, type_name: &'static str, obj: Value) -> Self {
-        Self(backend, Mutex::new(Some((type_name, obj))))
+        Self::after(backend, type_name, obj, 0)
+    }
+
+    /// Store `obj` right after read number `skip + 1` of its type.
+    fn after(backend: MemoryBackend, type_name: &'static str, obj: Value, skip: usize) -> Self {
+        Self(backend, Mutex::new(Some((type_name, obj, skip))))
     }
 }
 
@@ -57,12 +63,17 @@ impl jmap_server::JmapBackend for Racing {
             .0
             .get_objects::<O>(caller, account_id, ids, properties)
             .await;
-        let race = self
-            .1
-            .lock()
-            .expect("race lock")
-            .take_if(|(t, _)| *t == O::TYPE_NAME);
-        if let Some((type_name, obj)) = race {
+        let race = {
+            let mut slot = self.1.lock().expect("race lock");
+            match slot.as_mut() {
+                Some((t, _, skip)) if *t == O::TYPE_NAME && *skip > 0 => {
+                    *skip -= 1;
+                    None
+                }
+                _ => slot.take_if(|(t, _, _)| *t == O::TYPE_NAME),
+            }
+        };
+        if let Some((type_name, obj, _)) = race {
             seed_as(&self.0, type_name, obj);
         }
         read
@@ -510,6 +521,85 @@ async fn decline_end_of_an_answered_call_is_refused() {
         other => panic!("expected invalidProperties, got {other:?}"),
     }
     let call = stored(&backend, "R1").await;
+    assert_eq!(call["state"], "active");
+    assert_eq!(call["endReason"], Value::Null);
+}
+
+#[tokio::test]
+async fn moderator_end_of_a_concurrently_answered_call_completes() {
+    let backend = backend();
+    seed(
+        &backend,
+        stored_call("R1", "ring", "ringing", "2026-06-05T14:30:00Z"),
+    );
+    let backend = Racing::new(
+        backend,
+        "VTCCall",
+        stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
+    );
+
+    let resp = call!(
+        handle_vtc_call_set,
+        &backend,
+        BOB,
+        json!({ "update": { "R1": { "state": "ended" } } }),
+    );
+
+    // L488 "`"active"` → `"ended"`: All participants leave or a moderator
+    // ends the call." and L744 "`"completed"`: The call was in state
+    // `"active"` when ended." The call was answered before the end reached
+    // the store, so the end applies with the reason for `"active"`.
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(resp["updated"]["R1"]["endReason"], "completed", "{resp}");
+    let call = stored(&backend.0, "R1").await;
+    assert_eq!(call["state"], "ended");
+    assert_eq!(call["endReason"], "completed");
+    // L1422 "When a ringing call is ... cancelled ... the server delivers a
+    // `VTCCallEndEvent`" does not apply: the call was no longer ringing.
+    assert!(backend.0.events_for_test().is_empty());
+}
+
+#[tokio::test]
+async fn decline_of_a_call_answered_after_the_reload_leaves_it_active() {
+    let backend = backend();
+    let call_id = create(
+        &backend,
+        BOB,
+        json!({"callType": "ring", "targetParticipantIds": [ALICE], "mediaTypes": ["audio"]}),
+    )
+    .await["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+    let alice = call!(
+        handle_vtc_participant_query,
+        &backend,
+        BOB,
+        json!({ "filter": { "callId": call_id, "userId": ALICE } }),
+    )["ids"][0]
+        .as_str()
+        .expect("ring record")
+        .to_owned();
+    let mut answered = stored(&backend, &call_id).await;
+    assert_eq!(answered["state"], "ringing");
+    answered["state"] = json!("active");
+    // The decline reads the call twice (to validate, then to reload it for
+    // the transitions); the answer lands after the reload.
+    let backend = Racing::after(backend, "VTCCall", answered, 1);
+
+    let resp = call!(
+        handle_vtc_participant_set,
+        &backend,
+        ALICE,
+        json!({ "update": { alice.as_str(): { "callResponse": "declined" } } }),
+    );
+
+    // L930 "When all target participants have declined and the call is
+    // still `"ringing"`, the server transitions the call to `"ended"` with
+    // `endReason: "declined"`." The call was active when the end reached
+    // the store, so it stays active.
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    let call = stored(&backend.0, &call_id).await;
     assert_eq!(call["state"], "active");
     assert_eq!(call["endReason"], Value::Null);
 }

@@ -984,6 +984,20 @@ mod tests {
         );
     }
 
+    /// Oracle (CHANGELOG, fc81085f): "A zero limit now maps to
+    /// tooManyChanges like any other value", so `limit: 0` is not an alias
+    /// for `cannotCalculateChanges`. Expected wire object is hand-written.
+    #[test]
+    fn backend_changes_error_zero_limit_maps_to_too_many_changes() {
+        let err = jmap_types::JmapError::from(
+            BackendChangesError::<std::convert::Infallible>::TooManyChanges { limit: 0 },
+        );
+        assert_eq!(
+            serde_json::to_value(&err).unwrap(),
+            serde_json::json!({"type": "tooManyChanges", "limit": 0})
+        );
+    }
+
     /// Oracle (bd:JMAP-jfia.1 / bd:JMAP-wlip.2): the
     /// `From<BackendChangesError<E>> for JmapError` impl MUST NOT echo
     /// the wrapped backend error's `Display` text into the resulting

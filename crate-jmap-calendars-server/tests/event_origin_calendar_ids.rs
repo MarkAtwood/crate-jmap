@@ -216,3 +216,39 @@ async fn copy_recomputes_is_origin_in_target_account() {
         .unwrap_or_else(|| panic!("copy failed: {resp}"));
     assert_eq!(get(&backend, "acc2", new_id).await["isOrigin"], false);
 }
+
+/// draft-ietf-jmap-calendars-33 §5.9: "If omitted on create, the server
+/// MUST set the following properties: * @type MUST be set to "Event" *
+/// version MUST be set to the JSCalendar version the event conforms to,
+/// e.g., "2.0"". A `/copy` creates the event in the target account
+/// (§5.10, RFC 8620 §5.4), so a stored source that lacks both gets them.
+#[tokio::test]
+async fn copy_fills_omitted_type_and_version() {
+    let backend = backend();
+    backend.seed_object(
+        "acc1",
+        "CalendarEvent",
+        "src",
+        json!({
+            "id": "src",
+            "uid": "u-bare",
+            "title": "Standup",
+            "start": "2026-01-05T09:00:00",
+            "calendarIds": { "cal1": true }
+        }),
+    );
+    let args = json!({
+        "fromAccountId": "acc1",
+        "accountId": "acc2",
+        "create": { "k1": { "id": "src" } }
+    });
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_copy(&backend, &(), args, "c0")
+        .await
+        .expect("/copy must not return a top-level error");
+    let new_id = resp["created"]["k1"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("copy failed: {resp}"));
+    let copied = get(&backend, "acc2", new_id).await;
+    assert_eq!(copied["@type"], "Event", "{copied}");
+    assert_eq!(copied["version"], "2.0", "{copied}");
+}
