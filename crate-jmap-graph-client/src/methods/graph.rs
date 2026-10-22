@@ -7,7 +7,9 @@ use jmap_graph_types::query::{GraphComparator, GraphFilter};
 use jmap_graph_types::Graph;
 use jmap_types::{Id, PatchObject, State};
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 
 impl super::SessionClient {
     /// `Graph/get` (draft-atwood-jmap-graph-00 L242-L244; RFC 8620 §5.1).
@@ -101,7 +103,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set(
             "Graph/set",
             super::USING_GRAPH,

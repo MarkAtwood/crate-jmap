@@ -1319,6 +1319,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-graph-client**: **BREAKING** `graph_set`, `graph_node_set`,
+  `graph_edge_set` and `graph_node_op_set` return
+  `SetResponse<PartialObject>` instead of the hidden default
+  `SetResponse<serde_json::Value>` (RFC 8620 §5.3).
 - **jmap-chat-client**: **BREAKING** every `/set` wrapper (`chat_*`,
   `message_*`, `space_*`, `space_ban_*`, `space_invite_*`,
   `custom_emoji_*`, `chat_contact_*`, `read_position_update`,
