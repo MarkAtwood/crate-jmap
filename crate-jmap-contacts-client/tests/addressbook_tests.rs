@@ -191,11 +191,11 @@ async fn addressbook_set_create_round_trip() {
         "created must contain 'newAb' key"
     );
     assert_eq!(
-        created["newAb"].id.as_ref(),
-        "server-ab-id",
+        created["newAb"].id.as_ref().map(|i| i.as_ref()),
+        Some("server-ab-id"),
         "server-assigned id mismatch"
     );
-    assert_eq!(created["newAb"].name, "Work", "name mismatch");
+    assert_eq!(created["newAb"].extra["name"], "Work", "name mismatch");
 }
 
 /// Test JMAP-kh21.1 #4 — AddressBook/set with onDestroyRemoveContents sends the wire key.
@@ -331,4 +331,55 @@ async fn addressbook_set_routes_extra_and_typed_wins() {
     assert_eq!(args["acmeCorpHint"], json!("performance-mode"));
     assert_eq!(args["onDestroyRemoveContents"], json!(true));
     assert_eq!(raw.matches("\"onDestroyRemoveContents\"").count(), 1);
+}
+
+/// RFC 8620 §5.3: each `created` value holds only "properties of the
+/// created Foo object that were not sent by the client". Oracle: the
+/// hand-written response echoes only the server-set `id` and `myRights`;
+/// the client-sent `name` is absent, which a full `AddressBook` (with
+/// its required `name`) could not hold.
+#[tokio::test]
+async fn address_book_set_created_omits_client_sent_properties() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "AddressBook/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": {
+                    "k1": {
+                        "id": "ab-9",
+                        "myRights": {
+                            "mayRead": true, "mayWrite": true,
+                            "mayShare": false, "mayDelete": true
+                        }
+                    }
+                }
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = helpers::make_client(&server);
+    let resp = sc
+        .address_book_set(
+            Some(json!({ "k1": { "name": "Work" } })),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("a partial created object must parse");
+    let k1 = &resp.created.expect("created")["k1"];
+    assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("ab-9"));
+    assert_eq!(k1.extra["myRights"]["mayShare"], false);
+    assert!(!k1.extra.contains_key("name"));
 }

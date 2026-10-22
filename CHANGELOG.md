@@ -1319,6 +1319,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-contacts-client**: **BREAKING** `address_book_set` and
+  `contact_card_set` return `SetResponse<PartialObject>` (was
+  `SetResponse<AddressBook>` / `SetResponse<ContactCard>`, which
+  rejected RFC 8620 §5.3 `created` values lacking client-sent required
+  properties such as `name`); `contact_card_copy` returns
+  `CopyResponse<PartialObject>`.
 - **jmap-calendars-client**: **BREAKING** `calendar_set`,
   `calendar_event_set` and `participant_identity_set` take
   `create: Option<serde_json::Value>` (was a typed

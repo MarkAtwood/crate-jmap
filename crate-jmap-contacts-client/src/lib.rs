@@ -23,8 +23,9 @@ pub mod methods;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
-    AddedItem, AddressBookSetParams, ChangesResponse, ContactCardCopyParams, GetResponse,
-    QueryChangesResponse, QueryResponse, SessionClient, SetError, SetResponse,
+    AddedItem, AddressBookSetParams, ChangesResponse, ContactCardCopyParams, CopyResponse,
+    GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SessionClient, SetError,
+    SetResponse,
 };
 
 /// Extension trait adding JMAP Contacts methods to [`jmap_base_client::JmapClient`].

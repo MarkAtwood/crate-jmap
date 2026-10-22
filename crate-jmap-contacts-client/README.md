@@ -115,11 +115,11 @@ All method implementations live on `SessionClient` in the `methods/` submodules.
 |---|---|---|
 | `AddressBook/get` | `address_book_get` | `GetResponse<AddressBook>` |
 | `AddressBook/changes` | `address_book_changes` | `ChangesResponse` |
-| `AddressBook/set` | `address_book_set` | `SetResponse<AddressBook>` |
+| `AddressBook/set` | `address_book_set` | `SetResponse<PartialObject>` |
 | `ContactCard/get` | `contact_card_get` | `GetResponse<ContactCard>` |
 | `ContactCard/changes` | `contact_card_changes` | `ChangesResponse` |
-| `ContactCard/set` | `contact_card_set` | `SetResponse<ContactCard>` |
-| `ContactCard/copy` | `contact_card_copy` | `SetResponse<ContactCard>` |
+| `ContactCard/set` | `contact_card_set` | `SetResponse<PartialObject>` |
+| `ContactCard/copy` | `contact_card_copy` | `CopyResponse<PartialObject>` |
 | `ContactCard/query` | `contact_card_query` | `QueryResponse` |
 | `ContactCard/queryChanges` | `contact_card_query_changes` | `QueryChangesResponse` |
 

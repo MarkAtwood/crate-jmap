@@ -187,6 +187,7 @@ async fn contact_card_copy_round_trip() {
         "methodResponses": [[
             "ContactCard/copy",
             {
+                "fromAccountId": "src-account-1",
                 "accountId": "A13824",
                 "oldState": null,
                 "newState": "s3",
