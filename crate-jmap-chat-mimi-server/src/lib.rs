@@ -66,6 +66,24 @@
 //! `serverUnavailable`. `Room/update` and `Room/send` store the accepted
 //! FanoutMessage with [`MimiBackend::store_fanout`].
 //!
+//! # Public dependency on openmls
+//!
+//! `openmls` 0.x types appear in this crate's public API
+//! ([`MimiBackend::Crypto`] is an `OpenMlsCrypto`), so the crate re-exports
+//! [`openmls`] and [`openmls_rust_crypto`]. Name them through this crate to
+//! get the versions it was built with, and expect a major release of this
+//! crate whenever it moves to a new `openmls` minor version:
+//!
+//! ```rust
+//! use jmap_chat_mimi_server::openmls::prelude::OpenMlsCrypto;
+//! use jmap_chat_mimi_server::openmls_rust_crypto::RustCrypto;
+//!
+//! fn provider<C: OpenMlsCrypto>(crypto: C) -> C {
+//!     crypto
+//! }
+//! let _crypto = provider(RustCrypto::default());
+//! ```
+//!
 //! # `memory` feature (reference implementation)
 //!
 //! Enable the `memory` feature to expose `memory::MemoryBackend`, the
@@ -117,6 +135,8 @@ pub use room::{check_room_create, handle_room_create};
 
 /// Capability URI for `urn:ietf:params:jmap:chat:mimi`.
 pub use jmap_chat_mimi_types::JMAP_CHAT_MIMI_URI;
+pub use openmls;
+pub use openmls_rust_crypto;
 
 /// Register the `KeyPackage/get`, `KeyPackage/set`, `KeyMaterial/fetch`,
 /// `Room/create`, `Room/update`, `Room/send`, `Room/unbind` and

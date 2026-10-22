@@ -23,6 +23,19 @@
 //! MLS structures are parsed and verified with crates.io `openmls`; the
 //! caller supplies the `OpenMlsCrypto` provider.
 //!
+//! `openmls` 0.x types appear in this crate's public API, so the crate
+//! re-exports [`openmls`]. Name it through this crate to get the version it
+//! was built with, and expect a major release of this crate whenever it
+//! moves to a new `openmls` minor version:
+//!
+//! ```rust
+//! use jmap_chat_mimi_client::openmls::prelude::Ciphersuite;
+//!
+//! // RFC 9420 §17.1: MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519 is 0x0001.
+//! let suite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
+//! assert_eq!(u16::from(suite), 0x0001);
+//! ```
+//!
 //! # Usage
 //!
 //! ```rust,no_run
@@ -49,6 +62,7 @@ pub use jmap_base_client::ClientError;
 pub use jmap_chat_mimi_types::MimiCapability;
 pub use membership::account_has_left;
 pub use methods::SessionClient;
+pub use openmls;
 
 /// Extension trait adding the MIMI provider methods to
 /// [`jmap_base_client::JmapClient`].
