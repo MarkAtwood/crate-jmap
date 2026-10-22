@@ -25,7 +25,7 @@ use std::collections::HashSet;
 
 use jmap_mail_types::{
     Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxComparator,
-    MailboxComparatorProperty, MailboxFilterCondition,
+    MailboxComparatorProperty, MailboxFilter,
 };
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{json, Value};
@@ -251,12 +251,12 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         return Err(JmapError::unsupported_filter());
     }
 
-    // Mailbox's filter is a bare FilterCondition (RFC 8621 §2.3), so an
-    // operator tree, like an unknown or misspelt property, fails the
-    // `deny_unknown_fields` decode and yields unsupportedFilter (RFC 8620
-    // §5.5). `parent_id: Option<Value>` keeps the three-way absent / null /
-    // string distinction.
-    let filter: Option<MailboxFilterCondition> = filter_arg(&mut args)?;
+    // The filter is "FilterOperator|FilterCondition|null" (RFC 8620 §5.5).
+    // An unknown or misspelt property anywhere in the tree fails the
+    // `deny_unknown_fields` decode and yields unsupportedFilter.
+    // `parent_id: Option<Value>` keeps the three-way absent / null / string
+    // distinction.
+    let filter: Option<MailboxFilter> = filter_arg(&mut args)?;
 
     let sort_slice = if sort_values.is_empty() {
         None
@@ -391,7 +391,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
     // given in the original /query call", so they decode and validate exactly
     // as in handle_mailbox_query.
     let sort_values = mailbox_sort_arg(&args)?;
-    let filter: Option<MailboxFilterCondition> = filter_arg(&mut args)?;
+    let filter: Option<MailboxFilter> = filter_arg(&mut args)?;
 
     let result = backend
         .query_changes::<Mailbox>(

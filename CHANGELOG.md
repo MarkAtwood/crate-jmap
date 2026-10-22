@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: `Filter::matches` evaluates an RFC 8620 §5.5
+  `FilterOperator` tree (`AND`/`OR`/`NOT`) over a caller's
+  per-condition predicate (bd JMAP-skk9.2).
 - **jmap-chat-types**, **jmap-graph-types**, **jmap-mail-types**,
   **jmap-scene-types**, **jmap-vtc-types**: crate-root re-exports for
   the items that had only a module path (bd JMAP-wf92.23): the chat
@@ -1370,6 +1373,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `/query` and `/queryChanges` take the full RFC 8620 §5.5
+  filter tree ("FilterOperator|FilterCondition|null") for every object
+  whose `QueryObject::Filter` was a bare condition, as Email already
+  did (bd JMAP-skk9.2). **jmap-mail-types**: `Mailbox` uses
+  `MailboxFilter`. Backends' `query_objects::<O>` and
+  `query_changes::<O>` receive `Filter<…FilterCondition>`; wrap a single
+  condition in `Filter::Condition`. The reference `MemoryBackend`s
+  evaluate `AND`/`OR`/`NOT`; an operator tree is no longer
+  `unsupportedFilter`.
 - **BREAKING** Filter conditions use the object's enum instead of
   `String`, as `MailboxFilterCondition.role` does (bd JMAP-skk9.1).
   **jmap-filenode-types**: `FileNodeFilterCondition.node_type` is

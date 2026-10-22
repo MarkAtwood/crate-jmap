@@ -82,8 +82,8 @@ use crate::{
 use jmap_mail_types::{
     ComparatorProperty, Email, EmailAddress, EmailComparator, EmailFilter, EmailFilterCondition,
     EmailHeader, EmailSubmission, EmailSubmissionFilter, EmailSubmissionFilterCondition, Filter,
-    Keyword, Mailbox, MailboxComparator, MailboxComparatorProperty, MailboxFilterCondition,
-    MailboxRole, Operator, SearchSnippet,
+    Keyword, Mailbox, MailboxComparator, MailboxComparatorProperty, MailboxFilter,
+    MailboxFilterCondition, MailboxRole, Operator, SearchSnippet,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
@@ -351,19 +351,13 @@ impl MemoryBackend {
     async fn query_mailboxes(
         &self,
         account_id: &Id,
-        filter: Option<&MailboxFilterCondition>,
+        filter: Option<&MailboxFilter>,
         sort: &[MailboxComparator],
         limit: Option<u64>,
         position: i64,
         anchor: Option<&Id>,
         anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
-        // Pre-extract the wire-format role string from the filter to avoid
-        // repeated `to_wire_str()` calls inside the per-mailbox loop.
-        let filter_role_wire: Option<Option<&str>> = filter
-            .and_then(|f| f.role.as_ref())
-            .map(|r| r.as_ref().map(MailboxRole::to_wire_str));
-
         let (mut matching, state_n): (Vec<Mailbox>, u64) = {
             let inner = self.inner.lock().unwrap();
             let mailboxes: Vec<Mailbox> = inner
@@ -371,7 +365,9 @@ impl MemoryBackend {
                 .map(|map| {
                     map.values()
                         .filter_map(|val| Mailbox::deserialize(val).ok())
-                        .filter(|m| mailbox_matches_filter(m, filter, filter_role_wire))
+                        .filter(|m| {
+                            filter.is_none_or(|f| f.matches(&|c| mailbox_matches_condition(m, c)))
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
@@ -423,22 +419,12 @@ impl MemoryBackend {
     }
 }
 
-/// Apply a `MailboxFilterCondition` (RFC 8621 §2.3) to a single Mailbox.
+/// Apply one `MailboxFilterCondition` (RFC 8621 §2.3) to a single Mailbox.
 ///
-/// Returns `true` if the mailbox passes the filter. A `None` filter passes
-/// everything.
-///
-/// `filter_role_wire` is the wire-format role extracted from `filter.role`
-/// once by the caller, so this hot loop does not re-call `to_wire_str()`
-/// for every mailbox. Roles compare by wire string so that
-/// `MailboxRole::Other("inbox")` still matches `MailboxRole::Inbox`.
-fn mailbox_matches_filter(
-    m: &Mailbox,
-    filter: Option<&MailboxFilterCondition>,
-    filter_role_wire: Option<Option<&str>>,
-) -> bool {
-    let Some(f) = filter else { return true };
-
+/// Returns `true` if the mailbox passes every property of the condition.
+/// Roles compare by wire string so that `MailboxRole::Other("inbox")` still
+/// matches `MailboxRole::Inbox`.
+fn mailbox_matches_condition(m: &Mailbox, f: &MailboxFilterCondition) -> bool {
     // parentId and role are three-way: absent (None) = no filter;
     // explicit null (Some(None)) = the mailbox's value must be null;
     // a value (Some(Some(v))) = the mailbox's value must equal v.
@@ -454,8 +440,10 @@ fn mailbox_matches_filter(
         }
     }
 
-    if let Some(want) = filter_role_wire {
-        if m.role.as_ref().map(MailboxRole::to_wire_str) != want {
+    if let Some(want) = &f.role {
+        if m.role.as_ref().map(MailboxRole::to_wire_str)
+            != want.as_ref().map(MailboxRole::to_wire_str)
+        {
             return false;
         }
     }
@@ -738,22 +726,22 @@ impl JmapBackend for MemoryBackend {
         // pipeline below.
         if O::TYPE_NAME == "Mailbox" {
             // Type-identity roundtrip: when O::TYPE_NAME == "Mailbox" the
-            // generic O::Filter is necessarily MailboxFilterCondition (see
+            // generic O::Filter is necessarily MailboxFilter (see
             // the QueryObject impl in jmap-mail-types src/backend.rs), so both halves
             // of this serde roundtrip are infallible:
             //   - to_value(&f) cannot fail: derive(Serialize) on plain data.
-            //   - from_value::<MailboxFilterCondition>(v) cannot fail: v was
+            //   - from_value::<MailboxFilter>(v) cannot fail: v was
             //     just produced by Serialize on the same concrete type.
             // Pattern G policy (bc79c70) requires .expect() rather than
             // silent .ok() fallback, so a future custom-serde change here
             // surfaces as a panic instead of silently dropping the filter
             // (which would return ALL mailboxes when the client expected
             // a filtered subset).
-            let mailbox_filter: Option<MailboxFilterCondition> = filter.map(|f| {
+            let mailbox_filter: Option<MailboxFilter> = filter.map(|f| {
                 let v =
                     serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
                 serde_json::from_value(v).expect(
-                    "type-identity roundtrip on MailboxFilterCondition is infallible: \
+                    "type-identity roundtrip on MailboxFilter is infallible: \
                      the JSON came from Serialize on the same concrete type",
                 )
             });

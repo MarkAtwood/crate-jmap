@@ -217,7 +217,7 @@ impl SetObject for crate::Mailbox {
 }
 
 impl QueryObject for crate::Mailbox {
-    type Filter = crate::MailboxFilterCondition;
+    type Filter = crate::MailboxFilter;
     type Comparator = crate::MailboxComparator;
 }
 
