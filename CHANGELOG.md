@@ -2418,6 +2418,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** Second public paths to server handler items. Where the
+  crate root re-exports every public item of a handler module, the module
+  is private: jmap-mail-server `email`, `identity`, `mailbox`, `snippet`,
+  `submission`, `thread`, `vacation` and `sieve`, so name
+  `jmap_mail_server::handle_email_get`, not
+  `jmap_mail_server::email::handle_email_get`. Where the module has items
+  the root does not re-export, the root re-export goes instead:
+  jmap-mail-server's `MdnBackend`, `handle_mdn_send` and
+  `handle_mdn_parse` are reached only as `jmap_mail_server::mdn::*`.
 - **BREAKING** The jmap-jscalendar-types constructors (`new` on `NDay`,
   `RecurrenceRule`, `Location`, `VirtualLocation`, `Link`, `Relation`,
   `Participant`, `OffsetTrigger`, `AbsoluteTrigger`, `Alert`,

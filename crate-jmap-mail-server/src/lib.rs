@@ -46,7 +46,7 @@ use std::sync::Arc;
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 mod backend;
-pub mod email;
+mod email;
 #[cfg(feature = "mdn")]
 pub mod mdn;
 /// In-memory reference implementation of [`MailBackend`].
@@ -56,26 +56,22 @@ pub mod mdn;
 #[cfg(feature = "memory")]
 pub mod memory;
 #[cfg(feature = "sieve")]
-pub mod sieve;
+mod sieve;
 #[cfg(feature = "mdn")]
 pub use jmap_mail_types::mdn::JMAP_MDN_URI;
 #[cfg(feature = "sieve")]
 pub use jmap_mail_types::sieve::JMAP_SIEVE_SCRIPTS_URI;
-#[cfg(feature = "mdn")]
-pub use mdn::MdnBackend;
-#[cfg(feature = "mdn")]
-pub use mdn::{handle_mdn_parse, handle_mdn_send};
 #[cfg(feature = "sieve")]
 pub use sieve::SieveBackend;
 #[cfg(feature = "sieve")]
 pub use sieve::{handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate};
 mod helpers;
-pub mod identity;
-pub mod mailbox;
-pub mod snippet;
-pub mod submission;
-pub mod thread;
-pub mod vacation;
+mod identity;
+mod mailbox;
+mod snippet;
+mod submission;
+mod thread;
+mod vacation;
 
 pub use backend::MailBackend;
 pub use email::{
@@ -359,7 +355,6 @@ where
 /// (double-call, custom overrides, no collision diagnostic).
 ///
 /// [`Dispatcher::register`]: jmap_server::Dispatcher::register
-/// [`SieveBackend`]: sieve::SieveBackend
 #[cfg(feature = "sieve")]
 pub fn register_sieve_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where

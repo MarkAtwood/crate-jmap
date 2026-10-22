@@ -2823,7 +2823,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
         }
     });
 
-    use jmap_mail_server::submission::handle_submission_set;
+    use jmap_mail_server::handle_submission_set;
     let HandlerOutput {
         primary: resp,
         extra_invocations: extra,
