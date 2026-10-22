@@ -12,7 +12,7 @@ use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BY
 use jmap_base_client::{WsFrame, WsSession};
 use jmap_scene_client::{SceneWsExt, SceneWsFrame};
 use jmap_scene_types::{
-    AvatarEventKind, ObjectEventKind, SceneInteractionEvent, SceneStreamEnable,
+    AvatarEventKind, ObjectEventKind, SceneEventType, SceneInteractionEvent, SceneStreamEnable,
 };
 use jmap_types::Id;
 use serde_json::Value;
@@ -245,7 +245,7 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
 
     let mut enable = SceneStreamEnable::default();
     enable.region_ids = Some(vec![Id::from("01J5ABC0000000000000000001")]);
-    enable.event_types = Some(vec!["SceneFooBarEvent".to_owned()]);
+    enable.event_types = Some(vec![SceneEventType::Other("SceneFooBarEvent".to_owned())]);
     enable.id = Some("e1".to_owned());
     ws.send_scene_stream_enable(&enable).await.unwrap();
 

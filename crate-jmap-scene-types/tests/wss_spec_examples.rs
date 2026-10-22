@@ -15,8 +15,8 @@
 //! instances of these types.
 
 use jmap_scene_types::{
-    AvatarEventKind, ObjectEventKind, SceneEvent, SceneStreamMessage, JMAP_SCENE_URI,
-    JMAP_SCENE_WEBSOCKET_URI,
+    AvatarEventKind, ObjectEventKind, SceneEvent, SceneEventType, SceneStreamMessage,
+    JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -390,7 +390,7 @@ fn stream_enable_examples_fields() {
     );
     assert_eq!(
         e.event_types.unwrap(),
-        ["SceneAvatarEvent", "SceneObjectEvent"]
+        [SceneEventType::Avatar, SceneEventType::Object]
     );
 
     // L506 `"eventTypes": null`: "all three event types ... are
@@ -406,7 +406,10 @@ fn stream_enable_examples_fields() {
     let SceneStreamMessage::Enable(bad) = round_trip(STREAM_L587) else {
         panic!("wrong variant")
     };
-    assert_eq!(bad.event_types.unwrap(), ["SceneFooBarEvent"]);
+    assert_eq!(
+        bad.event_types.unwrap(),
+        [SceneEventType::Other("SceneFooBarEvent".to_owned())]
+    );
     // L589 `"id": "e1"` is the value the L606 `RequestError` echoes.
     assert_eq!(bad.id.as_deref(), Some("e1"));
 }

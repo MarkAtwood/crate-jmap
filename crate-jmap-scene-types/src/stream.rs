@@ -6,7 +6,7 @@
 //! dispatches on it, as [`SceneEvent`](crate::SceneEvent) does for the
 //! events.
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::event::{AVATAR, INTERACTION, OBJECT};
@@ -18,6 +18,50 @@ use crate::event::{AVATAR, INTERACTION, OBJECT};
 /// values MUST be silently ignored"; an `eventTypes` that is empty or holds
 /// only unrecognized values is an `invalidArguments` `RequestError`.
 pub const SCENE_EVENT_TYPES: &[&str] = &[AVATAR, OBJECT, INTERACTION];
+
+/// One [`SceneStreamEnable::event_types`] value
+/// (draft-atwood-jmap-scene-wss-00 §SceneStreamEnable); the recognized
+/// values are [`SCENE_EVENT_TYPES`].
+///
+/// "Unrecognized values in `eventTypes` that appear alongside recognized
+/// values MUST be silently ignored", so any other string deserializes to
+/// [`Other`](Self::Other) and serializes back unchanged rather than failing
+/// the frame.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SceneEventType {
+    /// `"SceneAvatarEvent"`.
+    Avatar,
+    /// `"SceneObjectEvent"`.
+    Object,
+    /// `"SceneInteractionEvent"`.
+    Interaction,
+    /// Any value this version does not recognize.
+    ///
+    /// **Forging caveat**: `Other("SceneAvatarEvent".into())` is unequal to
+    /// [`Avatar`](Self::Avatar) on `PartialEq` but serializes to the same
+    /// wire string. Reserve `Other(s)` for unrecognized strings; compare
+    /// wire equality via [`as_str`](Self::as_str).
+    Other(String),
+}
+
+impl SceneEventType {
+    /// The wire string for this event type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Avatar => AVATAR,
+            Self::Object => OBJECT,
+            Self::Interaction => INTERACTION,
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(SceneEventType, "a SceneStreamEnable eventTypes string",
+    "SceneAvatarEvent" => Avatar,
+    "SceneObjectEvent" => Object,
+    "SceneInteractionEvent" => Interaction,
+);
 
 /// Client→server: start or replace the ephemeral Scene event subscription
 /// on this WebSocket connection (draft-atwood-jmap-scene-wss-00
@@ -41,9 +85,10 @@ pub struct SceneStreamEnable {
     #[serde(default)]
     pub region_ids: Option<Vec<Id>>,
     /// Event type names to receive; `None` means all. Recognized values
-    /// are [`SCENE_EVENT_TYPES`]; other values are kept verbatim.
+    /// are [`SCENE_EVENT_TYPES`]; other values are kept verbatim in
+    /// [`SceneEventType::Other`].
     #[serde(default)]
-    pub event_types: Option<Vec<String>>,
+    pub event_types: Option<Vec<SceneEventType>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -206,7 +251,28 @@ mod tests {
         }));
         assert!(matches!(msg, SceneStreamMessage::Enable(ref e)
             if e.event_types.as_deref()
-                == Some(&["SceneFooBarEvent".to_owned(), "SceneAvatarEvent".to_owned()][..])));
+                == Some(&[
+                    SceneEventType::Other("SceneFooBarEvent".to_owned()),
+                    SceneEventType::Avatar,
+                ][..])));
+    }
+
+    #[test]
+    fn draft_event_types_decode_to_recognized_variants() {
+        // Oracle: draft-atwood-jmap-scene-wss-00 (jmap-chat-spec 29e9a41)
+        // L446-447 "Recognized values are: `\"SceneAvatarEvent\"`,
+        // `\"SceneObjectEvent\"`, and `\"SceneInteractionEvent\"`."; none
+        // may land in `Other`.
+        for wire in [
+            "SceneAvatarEvent",
+            "SceneObjectEvent",
+            "SceneInteractionEvent",
+        ] {
+            let t: SceneEventType = serde_json::from_value(json!(wire)).unwrap();
+            assert!(!matches!(t, SceneEventType::Other(_)), "{wire}");
+            assert_eq!(t.as_str(), wire);
+            assert_eq!(serde_json::to_value(&t).unwrap(), json!(wire));
+        }
     }
 
     #[test]

@@ -45,7 +45,7 @@
 //!   [`SceneInteractionEvent`] — the ephemeral events (scene-wss draft
 //!   §Ephemeral Event Types).
 //! - [`SceneStreamMessage`], [`SceneStreamEnable`], [`SceneStreamDisable`],
-//!   [`SCENE_EVENT_TYPES`] — the stream control frames (scene-wss draft
+//!   [`SceneEventType`], [`SCENE_EVENT_TYPES`] — the stream control frames (scene-wss draft
 //!   §Scene Stream Control Messages).
 
 #![forbid(unsafe_code)]
@@ -78,4 +78,6 @@ pub use interact::{SceneInteraction, SceneObjectInteractRequest, SceneObjectInte
 pub use object::{PhysicsMode, SceneObject};
 pub use region::{AccessPolicy, GeoAnchor, SceneRegion, ViewHint};
 pub use set_error::CONTENT_POLICY;
-pub use stream::{SceneStreamDisable, SceneStreamEnable, SceneStreamMessage, SCENE_EVENT_TYPES};
+pub use stream::{
+    SceneEventType, SceneStreamDisable, SceneStreamEnable, SceneStreamMessage, SCENE_EVENT_TYPES,
+};
