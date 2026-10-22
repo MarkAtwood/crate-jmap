@@ -1,7 +1,7 @@
 //! `/query` honours `anchor` and `anchorOffset` (bd:JMAP-yt1w.22).
 //!
 //! Exercised through `Chat/query`, which delegates to the generic
-//! `jmap_server::handlers::handle_query`, against the reference
+//! `jmap_server::handle_query`, against the reference
 //! `MemoryBackend`. With no `sort` the results are in id order, so five
 //! Chats `c1`..`c5` sit at indexes 0..4.
 //!

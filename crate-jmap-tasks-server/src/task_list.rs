@@ -55,7 +55,7 @@ pub async fn handle_task_list_get<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<TaskList, B>(backend, caller, args).await
+    jmap_server::handle_get::<TaskList, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<TaskList, B>(backend, caller, args).await
+    jmap_server::handle_changes::<TaskList, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

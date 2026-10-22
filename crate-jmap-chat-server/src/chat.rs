@@ -325,7 +325,7 @@ pub async fn handle_chat_get<B: ChatBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let mut out = jmap_server::handlers::handle_get::<Chat, B>(backend, caller, args).await?;
+    let mut out = jmap_server::handle_get::<Chat, B>(backend, caller, args).await?;
     fill_unread_counts(backend, caller, &mut out.primary).await?;
     Ok(out)
 }
@@ -460,7 +460,7 @@ pub async fn handle_chat_changes<B: ChatBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<Chat, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Chat, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -494,7 +494,7 @@ pub async fn handle_chat_query<B: ChatBackend>(
         );
     }
     reject_unsupported_sort::<ChatComparator>(args.get("sort"))?;
-    jmap_server::handlers::handle_query::<Chat, B>(backend, caller, args).await
+    jmap_server::handle_query::<Chat, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -525,7 +525,7 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
         );
     }
     reject_unsupported_sort::<ChatComparator>(args.get("sort"))?;
-    jmap_server::handlers::handle_query_changes::<Chat, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<Chat, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

@@ -763,7 +763,7 @@ fn decode_pointer_token(token: &str) -> Result<Cow<'_, str>, PatchPathError> {
 /// list (bd:JMAP-qz9v.48).
 ///
 /// `position` is the signed offset from the `/query` request. The
-/// foundation handler at [`crate::handlers::handle_query`] parses it
+/// foundation handler at [`handle_query`](crate::handle_query) parses it
 /// via [`serde_json::Value::as_i64`], so the value reaching the
 /// backend is any `i64` (including `i64::MIN`). Non-negative values
 /// are absolute offsets from the start of the result list; negative

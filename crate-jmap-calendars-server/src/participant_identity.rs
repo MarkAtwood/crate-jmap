@@ -54,7 +54,7 @@ pub async fn handle_participant_identity_get<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<ParticipantIdentity, B>(backend, caller, args).await
+    jmap_server::handle_get::<ParticipantIdentity, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<ParticipantIdentity, B>(backend, caller, args).await
+    jmap_server::handle_changes::<ParticipantIdentity, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

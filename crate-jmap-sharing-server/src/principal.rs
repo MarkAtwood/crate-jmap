@@ -53,7 +53,7 @@ pub async fn handle_principal_get<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<Principal, B>(backend, caller, args).await
+    jmap_server::handle_get::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ pub async fn handle_principal_changes<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<Principal, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: an unknown accountId MUST surface as `accountNotFound`.
-    // The /get-family handlers in `jmap_server::handlers` perform this check
+    // The /get-family handlers in `jmap-server` perform this check
     // internally; the hand-rolled /set handler must reproduce it explicitly.
     // Mirrors the canonical pattern at
     // `crate-jmap-mail-server/src/mailbox.rs:441-447`.
@@ -350,7 +350,7 @@ pub async fn handle_principal_query<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<Principal, B>(backend, caller, args).await
+    jmap_server::handle_query::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -376,7 +376,7 @@ pub async fn handle_principal_query_changes<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<Principal, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

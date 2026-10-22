@@ -58,7 +58,7 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<ContactCard, B>(backend, caller, args).await
+    jmap_server::handle_get::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<ContactCard, B>(backend, caller, args).await
+    jmap_server::handle_changes::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -678,7 +678,7 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<ContactCard, B>(backend, caller, args).await
+    jmap_server::handle_query::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -700,7 +700,7 @@ pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<ContactCard, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

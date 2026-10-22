@@ -57,7 +57,7 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<Calendar, B>(backend, caller, args).await
+    jmap_server::handle_get::<Calendar, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<Calendar, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Calendar, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

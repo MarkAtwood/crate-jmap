@@ -932,7 +932,7 @@ pub trait JmapBackend: Send + Sync + 'static {
     ///
     /// Handlers MUST enforce this at the top of every `/get` handler via
     /// [`crate::helpers::enforce_max_objects_in_get`]; the generic
-    /// [`crate::handlers::handle_get`] already does. A null `ids` (fetch
+    /// [`handle_get`](crate::handle_get) already does. A null `ids` (fetch
     /// all) is not counted.
     ///
     /// The default value `500` is the RFC 8620 §2 suggested minimum and

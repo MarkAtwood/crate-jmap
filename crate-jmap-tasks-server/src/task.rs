@@ -89,7 +89,7 @@ pub async fn handle_task_get<B: TasksBackend>(
         primary: mut response,
         extra_invocations: tail,
         ..
-    } = jmap_server::handlers::handle_get::<Task, B>(backend, caller, args).await?;
+    } = jmap_server::handle_get::<Task, B>(backend, caller, args).await?;
 
     // If utcStart or utcDue were requested, augment each returned task.
     if want_utc {
@@ -130,7 +130,7 @@ pub async fn handle_task_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<Task, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Task, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -754,7 +754,7 @@ pub async fn handle_task_query<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<Task, B>(backend, caller, args).await
+    jmap_server::handle_query::<Task, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -776,7 +776,7 @@ pub async fn handle_task_query_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<Task, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<Task, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

@@ -750,7 +750,7 @@ pub async fn handle_email_changes<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<Email, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Email, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

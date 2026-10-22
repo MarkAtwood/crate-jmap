@@ -32,8 +32,8 @@ pub use jmap_types::{
     ResultReference, State, UTCDate,
 };
 
-pub mod backend;
-pub mod handlers;
+mod backend;
+mod handlers;
 mod helpers;
 
 pub use backend::{

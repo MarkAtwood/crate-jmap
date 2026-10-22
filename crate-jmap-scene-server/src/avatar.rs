@@ -70,7 +70,7 @@ pub async fn handle_scene_avatar_changes<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<SceneAvatar, B>(backend, caller, args).await
+    jmap_server::handle_changes::<SceneAvatar, B>(backend, caller, args).await
 }
 
 /// Handle `SceneAvatar/query` (draft-atwood-jmap-scene-00
@@ -88,8 +88,7 @@ pub async fn handle_scene_avatar_query<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<SceneAvatar, B>(backend, caller, prepare_query(args)?)
-        .await
+    jmap_server::handle_query::<SceneAvatar, B>(backend, caller, prepare_query(args)?).await
 }
 
 /// Handle `SceneAvatar/queryChanges` (draft-atwood-jmap-scene-00
@@ -100,12 +99,7 @@ pub async fn handle_scene_avatar_query_changes<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<SceneAvatar, B>(
-        backend,
-        caller,
-        prepare_query(args)?,
-    )
-    .await
+    jmap_server::handle_query_changes::<SceneAvatar, B>(backend, caller, prepare_query(args)?).await
 }
 
 fn prepare_query(mut args: Value) -> Result<Value, JmapError> {

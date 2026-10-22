@@ -96,7 +96,7 @@ pub async fn handle_graph_node_op_changes<B: GraphBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     require_edit(backend, caller, &args).await?;
-    jmap_server::handlers::handle_changes::<GraphNodeOp, B>(backend, caller, args).await
+    jmap_server::handle_changes::<GraphNodeOp, B>(backend, caller, args).await
 }
 
 /// The `/query` and `/queryChanges` filter and sort checks: "The `filter`
@@ -141,7 +141,7 @@ pub async fn handle_graph_node_op_query<B: GraphBackend>(
     require_edit(backend, caller, &args).await?;
     let filter = op_filter(&args)?;
     let account_id = Id::from(args["accountId"].as_str().unwrap_or_default());
-    let out = jmap_server::handlers::handle_query::<GraphNodeOp, B>(backend, caller, args).await?;
+    let out = jmap_server::handle_query::<GraphNodeOp, B>(backend, caller, args).await?;
     let readable = match fetch_one::<GraphNode, B>(backend, caller, &account_id, &filter.node_id)
         .await
         .map_err(|_| JmapError::server_fail("backend error"))?
@@ -177,7 +177,7 @@ pub async fn handle_graph_node_op_query_changes<B: GraphBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     require_edit(backend, caller, &args).await?;
     op_filter(&args)?;
-    jmap_server::handlers::handle_query_changes::<GraphNodeOp, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<GraphNodeOp, B>(backend, caller, args).await
 }
 
 /// Handle `GraphNodeOp/set` (draft-atwood-jmap-graph-edit-00

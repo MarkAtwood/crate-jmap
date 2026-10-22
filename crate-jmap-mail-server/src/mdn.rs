@@ -245,7 +245,7 @@ pub trait MdnBackend: jmap_server::JmapBackend {
         identity_id: &jmap_types::Id,
         send: BTreeMap<String, (Mdn, Email)>,
     ) -> impl std::future::Future<
-        Output = Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>>,
+        Output = Result<MdnSendResult, jmap_server::BackendSetError<Self::Error>>,
     > + Send;
 
     /// Parse one or more raw RFC 5322 blobs as MDN messages.

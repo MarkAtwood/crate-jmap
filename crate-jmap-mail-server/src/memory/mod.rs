@@ -2479,7 +2479,7 @@ impl MdnBackend for MemoryBackend {
         _account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
         send: BTreeMap<String, (jmap_mail_types::Mdn, jmap_mail_types::Email)>,
-    ) -> Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>> {
+    ) -> Result<MdnSendResult, jmap_server::BackendSetError<Self::Error>> {
         let mut sent: BTreeMap<String, Mdn> = BTreeMap::new();
         let mut not_sent: BTreeMap<String, SetError> = BTreeMap::new();
 
@@ -2574,9 +2574,7 @@ impl MdnBackend for MemoryBackend {
             // Mdn is #[non_exhaustive] and defined outside this crate, so we
             // round-trip through JSON to construct a modified copy.
             let mut sent_val = serde_json::to_value(&mdn).map_err(|e| {
-                jmap_server::backend::BackendSetError::Other(MemoryError::new(format!(
-                    "serialize mdn: {e}"
-                )))
+                jmap_server::BackendSetError::Other(MemoryError::new(format!("serialize mdn: {e}")))
             })?;
             if let serde_json::Value::Object(ref mut m) = sent_val {
                 m.insert("mdnGateway".to_owned(), serde_json::Value::Null);
@@ -2616,7 +2614,7 @@ impl MdnBackend for MemoryBackend {
                 }
             }
             let sent_mdn: Mdn = serde_json::from_value(sent_val).map_err(|e| {
-                jmap_server::backend::BackendSetError::Other(MemoryError::new(format!(
+                jmap_server::BackendSetError::Other(MemoryError::new(format!(
                     "deserialize sent mdn: {e}"
                 )))
             })?;

@@ -95,7 +95,7 @@ pub async fn handle_graph_edge_changes<B: GraphBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<GraphEdge, B>(backend, caller, args).await
+    jmap_server::handle_changes::<GraphEdge, B>(backend, caller, args).await
 }
 
 /// Handle `GraphEdge/query` (draft-atwood-jmap-graph-00 §GraphEdge/query):

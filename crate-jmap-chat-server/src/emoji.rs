@@ -250,7 +250,7 @@ pub async fn handle_emoji_query_changes<B: ChatBackend>(
         default_sort(map, json!([{ "property": "name" }]));
     }
     reject_unsupported_sort::<CustomEmojiComparator>(args.get("sort"))?;
-    jmap_server::handlers::handle_query_changes::<CustomEmoji, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<CustomEmoji, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

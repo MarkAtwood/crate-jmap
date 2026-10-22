@@ -81,7 +81,7 @@ pub async fn handle_vtc_recording_get<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<VtcRecording, B>(backend, caller, args).await
+    jmap_server::handle_get::<VtcRecording, B>(backend, caller, args).await
 }
 
 /// Handle `VTCRecording/changes` (draft-atwood-jmap-vtc-00
@@ -91,7 +91,7 @@ pub async fn handle_vtc_recording_changes<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<VtcRecording, B>(backend, caller, args).await
+    jmap_server::handle_changes::<VtcRecording, B>(backend, caller, args).await
 }
 
 /// Handle `VTCRecording/set` (draft-atwood-jmap-vtc-00 §VTCRecording/set).
@@ -121,8 +121,7 @@ pub async fn handle_vtc_recording_query<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<VtcRecording, B>(backend, caller, prepare_query(args)?)
-        .await
+    jmap_server::handle_query::<VtcRecording, B>(backend, caller, prepare_query(args)?).await
 }
 
 /// Handle `VTCRecording/queryChanges` (draft-atwood-jmap-vtc-00
@@ -133,12 +132,8 @@ pub async fn handle_vtc_recording_query_changes<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<VtcRecording, B>(
-        backend,
-        caller,
-        prepare_query(args)?,
-    )
-    .await
+    jmap_server::handle_query_changes::<VtcRecording, B>(backend, caller, prepare_query(args)?)
+        .await
 }
 
 /// Handle `VTCLivestream/get` (draft-atwood-jmap-vtc-00
@@ -166,8 +161,7 @@ pub async fn handle_vtc_livestream_get<B: VtcBackend>(
         }
     }
 
-    let mut out =
-        jmap_server::handlers::handle_get::<VtcLivestream, B>(backend, caller, args).await?;
+    let mut out = jmap_server::handle_get::<VtcLivestream, B>(backend, caller, args).await?;
     let account_id = out
         .primary
         .get("accountId")
@@ -216,7 +210,7 @@ pub async fn handle_vtc_livestream_changes<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<VtcLivestream, B>(backend, caller, args).await
+    jmap_server::handle_changes::<VtcLivestream, B>(backend, caller, args).await
 }
 
 /// Handle `VTCLivestream/set` (draft-atwood-jmap-vtc-00
@@ -246,8 +240,7 @@ pub async fn handle_vtc_livestream_query<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<VtcLivestream, B>(backend, caller, prepare_query(args)?)
-        .await
+    jmap_server::handle_query::<VtcLivestream, B>(backend, caller, prepare_query(args)?).await
 }
 
 /// Handle `VTCLivestream/queryChanges` (draft-atwood-jmap-vtc-00
@@ -257,12 +250,8 @@ pub async fn handle_vtc_livestream_query_changes<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<VtcLivestream, B>(
-        backend,
-        caller,
-        prepare_query(args)?,
-    )
-    .await
+    jmap_server::handle_query_changes::<VtcLivestream, B>(backend, caller, prepare_query(args)?)
+        .await
 }
 
 fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
