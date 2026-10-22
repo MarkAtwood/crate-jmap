@@ -7,7 +7,9 @@ use jmap_scene_types::query::{SceneAvatarComparator, SceneAvatarFilter};
 use jmap_scene_types::SceneAvatar;
 use jmap_types::{Id, PatchObject, State};
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 
 impl super::SessionClient {
     /// `SceneAvatar/get` (draft-atwood-jmap-scene-00 L2114-L2118; RFC 8620 §5.1).
@@ -93,7 +95,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set("SceneAvatar/set", create, update, destroy, if_in_state)
             .await
     }

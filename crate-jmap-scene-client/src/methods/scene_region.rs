@@ -7,7 +7,9 @@ use jmap_scene_types::query::{SceneRegionComparator, SceneRegionFilter};
 use jmap_scene_types::SceneRegion;
 use jmap_types::{Id, PatchObject, State};
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 
 impl super::SessionClient {
     /// `SceneRegion/get` (draft-atwood-jmap-scene-00 L921-L1037; RFC 8620 §5.1).
@@ -93,7 +95,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set("SceneRegion/set", create, update, destroy, if_in_state)
             .await
     }
