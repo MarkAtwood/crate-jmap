@@ -242,6 +242,52 @@ async fn scene_asset_query_matches_example() {
     assert_eq!(resp.ids, vec![Id::from("01J5AST0000000000000000001")]);
 }
 
+/// `filter` is generic over its condition type, so a caller can send a
+/// condition the draft does not define. RFC 8620 §5.5: FilterCondition
+/// properties are type-specific; the `mediaType` key is the
+/// SceneAsset/query condition used above. The vendor key and the expected
+/// JSON are hand-written.
+#[tokio::test]
+async fn scene_asset_query_sends_caller_condition_type() {
+    let server = MockServer::start().await;
+    respond(
+        &server,
+        "SceneAsset/query",
+        json!({
+            "accountId": "account-xyz",
+            "queryState": "q1",
+            "canCalculateChanges": false,
+            "position": 0,
+            "ids": []
+        }),
+    )
+    .await;
+
+    let filter = Filter::Condition(json!({
+        "mediaType": "model/gltf-binary",
+        "example.com:license": "cc-by"
+    }));
+    let sc = make_client(&server, "account-xyz");
+    sc.scene_asset_query(
+        Some(&filter),
+        None::<&[SceneAssetComparator]>,
+        &jmap_base_client::QueryParams::default(),
+    )
+    .await
+    .expect("SceneAsset/query must succeed");
+
+    assert_eq!(
+        sent_invocation(&server).await,
+        json!(["SceneAsset/query", {
+            "accountId": "account-xyz",
+            "filter": {
+                "mediaType": "model/gltf-binary",
+                "example.com:license": "cc-by"
+            }
+        }])
+    );
+}
+
 /// draft-atwood-jmap-scene-00 L943-L1037, the `SceneRegion/get` request
 /// and response.
 #[tokio::test]
@@ -576,7 +622,7 @@ async fn scene_region_query_changes_sends_rfc8620_shape() {
         .scene_region_query_changes(
             &State::from("q1"),
             None,
-            None,
+            None::<&jmap_scene_types::SceneRegionFilter>,
             Some(&sort),
             None,
             Some(true),
@@ -703,8 +749,15 @@ async fn empty_state_tokens_are_rejected_without_io() {
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(matches!(
-        sc.scene_asset_query_changes(&empty, None, None, None, None, None)
-            .await,
+        sc.scene_asset_query_changes(
+            &empty,
+            None,
+            None::<&jmap_scene_types::SceneAssetFilter>,
+            None,
+            None,
+            None
+        )
+        .await,
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(matches!(

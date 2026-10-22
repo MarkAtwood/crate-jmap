@@ -242,9 +242,16 @@ async fn vtc_recording_query_changes_sends_since_query_state() {
     )
     .await;
     let sc = helpers::make_client(&server, "bob-account");
-    sc.vtc_recording_query_changes(&State::from("q3"), None, None, None, None, None)
-        .await
-        .expect("VTCRecording/queryChanges must succeed");
+    sc.vtc_recording_query_changes(
+        &State::from("q3"),
+        None,
+        None::<&jmap_vtc_types::VtcRecordingFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("VTCRecording/queryChanges must succeed");
     assert_eq!(
         helpers::sent_invocation(&server).await,
         json!(["VTCRecording/queryChanges", {

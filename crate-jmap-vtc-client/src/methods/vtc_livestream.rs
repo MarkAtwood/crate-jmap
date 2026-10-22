@@ -3,9 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use jmap_vtc_types::VtcLivestream;
-use jmap_vtc_types::{VtcLivestreamFilter, VtcMediaComparator};
+use jmap_vtc_types::VtcMediaComparator;
+use serde::Serialize;
 
 use super::{
     ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
@@ -106,6 +107,10 @@ impl super::SessionClient {
     /// Pass `None` to omit `filter` or `sort`; the server then applies the
     /// draft's default sort.
     ///
+    /// `filter`'s condition type `C` is normally
+    /// [`VtcLivestreamFilterCondition`](jmap_vtc_types::VtcLivestreamFilterCondition);
+    /// name the type when passing `None` (`None::<&VtcLivestreamFilter>`).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -117,9 +122,9 @@ impl super::SessionClient {
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
     ///   RFC 8620 §3.6.2 method-level errors.
-    pub async fn vtc_livestream_query(
+    pub async fn vtc_livestream_query<C: Serialize>(
         &self,
-        filter: Option<&VtcLivestreamFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[VtcMediaComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
@@ -132,6 +137,10 @@ impl super::SessionClient {
     /// `filter` and `sort` must match the `VTCLivestream/query` call that returned
     /// `since_query_state`.
     ///
+    /// `filter`'s condition type `C` is normally
+    /// [`VtcLivestreamFilterCondition`](jmap_vtc_types::VtcLivestreamFilterCondition);
+    /// name the type when passing `None` (`None::<&VtcLivestreamFilter>`).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -143,11 +152,11 @@ impl super::SessionClient {
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
     ///   RFC 8620 §3.6.2 method-level errors.
-    pub async fn vtc_livestream_query_changes(
+    pub async fn vtc_livestream_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<&VtcLivestreamFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[VtcMediaComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,

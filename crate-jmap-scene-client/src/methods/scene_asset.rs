@@ -4,8 +4,9 @@
 use std::collections::BTreeMap;
 
 use jmap_scene_types::SceneAsset;
-use jmap_scene_types::{SceneAssetComparator, SceneAssetFilter};
-use jmap_types::{Id, PatchObject, State};
+use jmap_scene_types::SceneAssetComparator;
+use jmap_types::{Filter, Id, PatchObject, State};
+use serde::Serialize;
 
 use super::{
     ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
@@ -105,6 +106,10 @@ impl super::SessionClient {
     /// Pass `None` to omit `filter` or `sort`; the default sort is
     /// `createdAt` descending (L896).
     ///
+    /// `filter`'s condition type `C` is normally
+    /// [`SceneAssetFilterCondition`](jmap_scene_types::SceneAssetFilterCondition);
+    /// name the type when passing `None` (`None::<&SceneAssetFilter>`).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -116,9 +121,9 @@ impl super::SessionClient {
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
     ///   RFC 8620 §3.6.2 method-level errors.
-    pub async fn scene_asset_query(
+    pub async fn scene_asset_query<C: Serialize>(
         &self,
-        filter: Option<&SceneAssetFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[SceneAssetComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
@@ -131,6 +136,10 @@ impl super::SessionClient {
     /// `filter` and `sort` must match the `SceneAsset/query` call that returned
     /// `since_query_state`.
     ///
+    /// `filter`'s condition type `C` is normally
+    /// [`SceneAssetFilterCondition`](jmap_scene_types::SceneAssetFilterCondition);
+    /// name the type when passing `None` (`None::<&SceneAssetFilter>`).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -142,11 +151,11 @@ impl super::SessionClient {
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
     ///   RFC 8620 §3.6.2 method-level errors.
-    pub async fn scene_asset_query_changes(
+    pub async fn scene_asset_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<&SceneAssetFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[SceneAssetComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
