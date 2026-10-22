@@ -39,12 +39,12 @@ JSCalendar ([RFC 8984]).
 | `CalendarAlert` | `notification` | draft §7 |
 | `ParticipantIdentity` | `participant_identity` | draft §3 |
 | `BusyPeriod` | `availability` | draft §2.2 |
-| `CalendarsCapability` | `capability` | draft §1.5 |
-| `CalendarsAccountCapability` | `capability` | draft §1.5 |
-| `CalendarsParseCapability` | `capability` | draft §5.13 |
-| `PrincipalCalendarsCapability` | `capability` | draft §1.5 |
-| `PrincipalsAvailabilityCapability` | `capability` | draft §2.2 |
-| `PrincipalsAvailabilityAccountCapability` | `capability` | draft §2.2 |
+| `CalendarsCapability` | crate root | draft §1.5 |
+| `CalendarsAccountCapability` | crate root | draft §1.5 |
+| `CalendarsParseCapability` | crate root | draft §5.13 |
+| `PrincipalCalendarsCapability` | crate root | draft §1.5 |
+| `PrincipalsAvailabilityCapability` | crate root | draft §2.2 |
+| `PrincipalsAvailabilityAccountCapability` | crate root | draft §2.2 |
 
 The types in the `jscalendar` module (rows above with module = `jscalendar`) live in
 the [`jmap-jscalendar-types`] crate and are re-exported here for backward-compatible

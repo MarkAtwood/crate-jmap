@@ -21,12 +21,12 @@
 //! | [`task`] | [`Task`], [`TaskProgress`], [`Checklist`], [`CheckItem`], [`Comment`], [`Person`], [`TaskFilterCondition`] |
 //! | [`notification`] | [`TaskNotification`], [`NotificationType`], [`TaskNotificationFilterCondition`] |
 //! | [`filter`] | [`TaskComparator`], [`TaskComparatorProperty`], [`TaskNotificationComparator`], [`TaskNotificationComparatorProperty`] |
-//! | [`capability`] | [`TasksCapability`], [`TasksAccountCapability`], URI constants, extension capabilities |
+//! | Crate root | [`TasksCapability`], [`TasksAccountCapability`], URI constants, extension capabilities |
 
 #![forbid(unsafe_code)]
 
 pub mod backend;
-pub mod capability;
+mod capability;
 pub mod filter;
 pub mod notification;
 pub mod task;

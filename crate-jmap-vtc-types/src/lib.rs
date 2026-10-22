@@ -47,7 +47,7 @@
 
 mod backend;
 pub mod call;
-pub mod capability;
+mod capability;
 pub mod event;
 pub mod participant;
 pub mod push;

@@ -14,9 +14,9 @@ JSContact ([RFC 9553]). Types only — no method handlers, no async, no network 
 | `ContactCardComparator` | `card` | RFC 9610 §3.3 |
 | `AddressBookProperty` | `backend` | RFC 9610 §2 |
 | `ContactCardProperty` | `backend` | RFC 9610 §3, RFC 9553 §2 |
-| `ContactsCapability` | `capability` | RFC 9610 §1.4.1 |
-| `ContactsAccountCapability` | `capability` | RFC 9610 §1.4.1 |
-| `JMAP_CONTACTS_URI` const | `capability` | RFC 9610 §1.4.1 |
+| `ContactsCapability` | crate root | RFC 9610 §1.4.1 |
+| `ContactsAccountCapability` | crate root | RFC 9610 §1.4.1 |
+| `JMAP_CONTACTS_URI` const | crate root | RFC 9610 §1.4.1 |
 
 JSContact sub-objects (`Name`, `EmailAddress`, `Phone`, `Address`, etc.)
 live in the sibling [`jmap-jscontact-types`] crate and are re-exported

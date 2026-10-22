@@ -13,7 +13,7 @@
 //!
 //! This crate provides the helper types that consumers need:
 //!
-//! - [`capability`] — [`DataTypeMetadataInfo`], [`JMAP_METADATA_URI`] (§1.2.1)
+//! - Crate root — [`DataTypeMetadataInfo`], [`JMAP_METADATA_URI`] (§1.2.1)
 //! - [`filter`] — [`MetadataTextMatch`], [`WithMetadata`] (§3.6)
 //! - [`namespace`] — namespace identifier validation (§2.1)
 //!
@@ -43,7 +43,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod capability;
+mod capability;
 pub mod filter;
 pub mod namespace;
 

@@ -2418,9 +2418,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
-- **BREAKING** The `capability` module path in jmap-mail-types. The
-  module is private; its items (`JMAP_MAIL_URI`, `MailCapability` and
-  the rest) keep their crate-root path, so name
+- **BREAKING** The `capability` module path in jmap-mail-types,
+  -calendars-types, -chat-types, -chat-mimi-types, -cid-types,
+  -contacts-types, -did-types, -filenode-types, -graph-types,
+  -metadata-types, -scene-types, -sharing-types, -tasks-types and
+  -vtc-types. The module is private; its items (capability URI constants
+  and capability objects) keep their crate-root path, so name
   `jmap_mail_types::JMAP_MAIL_URI`, not
   `jmap_mail_types::capability::JMAP_MAIL_URI`.
 - **BREAKING** Second public paths to server handler items. Where the

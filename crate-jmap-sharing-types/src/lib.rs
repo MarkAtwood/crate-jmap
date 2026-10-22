@@ -34,7 +34,7 @@
 #![forbid(unsafe_code)]
 
 pub mod backend;
-pub mod capability;
+mod capability;
 pub mod notification;
 pub mod principal;
 

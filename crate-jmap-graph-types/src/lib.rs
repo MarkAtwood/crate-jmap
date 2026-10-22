@@ -46,7 +46,7 @@
 #![forbid(unsafe_code)]
 
 mod backend;
-pub mod capability;
+mod capability;
 pub mod edge;
 pub mod edit;
 pub mod graph;

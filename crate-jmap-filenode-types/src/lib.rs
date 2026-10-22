@@ -6,7 +6,7 @@
 //! ## Module layout
 //!
 //! - [`filenode`] — [`FileNode`], [`NodeType`], [`NodeRole`], [`FilesRights`]
-//! - [`capability`] — [`FileNodeCapability`], [`JMAP_FILENODE_URI`]
+//! - Crate root — [`FileNodeCapability`], [`JMAP_FILENODE_URI`]
 //! - [`filter`] — [`FileNodeFilterCondition`]
 //!
 //! All public types are re-exported at the crate root.
@@ -14,7 +14,7 @@
 #![forbid(unsafe_code)]
 
 pub mod backend;
-pub mod capability;
+mod capability;
 pub mod filenode;
 pub mod filter;
 
