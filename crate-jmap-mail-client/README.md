@@ -71,31 +71,31 @@ All 26 RFC 8621 method names are available as typed async methods on
 |---|---|---|
 | `email_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<EmailGetParams>` | `GetResponse<Email>` |
 | `email_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `email_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>` | `SetResponse<Email>` |
+| `email_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>` | `SetResponse<PartialObject>` |
 | `email_query` | `filter: Option<Value>, sort: Option<Value>, params: &QueryParams, collapse_threads: Option<bool>` | `QueryResponse` |
 | `email_query_changes` | `since_query_state: &State, max_changes: Option<u64>, collapse_threads: Option<bool>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `email_copy` | `params: EmailCopyParams, create: Value` | `SetResponse<Email>` |
+| `email_copy` | `params: EmailCopyParams, create: Value` | `CopyResponse<PartialObject>` |
 | `email_import` | `emails: &BTreeMap<String, EmailImportInput>, if_in_state: Option<&State>` | `EmailImportResponse` |
 | `email_parse` | `blob_ids: &[Id], params: Option<EmailParseParams>` | `EmailParseResponse` |
 | `mailbox_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Mailbox>` |
 | `mailbox_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `mailbox_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, params: Option<MailboxSetParams>` | `SetResponse<Mailbox>` |
+| `mailbox_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, params: Option<MailboxSetParams>` | `SetResponse<PartialObject>` |
 | `mailbox_query` | `filter: Option<Value>, sort: Option<Value>, params: &QueryParams` | `QueryResponse` |
 | `mailbox_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `thread_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Thread>` |
 | `thread_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `identity_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Identity>` |
 | `identity_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `identity_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>` | `SetResponse<Identity>` |
-| `search_snippet_get` | `filter: Value, email_ids: Option<&[Id]>` | `Value` |
+| `identity_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>` | `SetResponse<PartialObject>` |
+| `search_snippet_get` | `filter: &Filter<C>, email_ids: Option<&[Id]>` | `SearchSnippetGetResponse` |
 | `email_submission_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<EmailSubmission>` |
 | `email_submission_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `email_submission_query` | `filter: Option<Value>, sort: Option<Value>, params: &QueryParams` | `QueryResponse` |
 | `email_submission_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `email_submission_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<EmailSubmissionSetParams>` | `SetResponse<EmailSubmission>` |
+| `email_submission_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<EmailSubmissionSetParams>` | `SetResponse<PartialObject>` |
 | `vacation_response_get` | _(none)_ | `VacationResponse` (unwraps the spec-mandated singleton from the /get envelope) |
 | `vacation_response_get_envelope` | _(none)_ | `GetResponse<VacationResponse>` (envelope including `state` token for `ifInState` guards) |
-| `vacation_response_set` | `update: Option<BTreeMap<Id, PatchObject>>` | `SetResponse<VacationResponse>` |
+| `vacation_response_set` | `update: Option<BTreeMap<Id, PatchObject>>` | `SetResponse<PartialObject>` |
 
 `Id` and `State` here are `jmap_types::Id` and `jmap_types::State`.
 
@@ -168,12 +168,16 @@ defaults for omitted fields.
 | `GetResponse<T>` | RFC 8620 §5.1 | `/get` response: `account_id`, `state`, `list`, `not_found` |
 | `ChangesResponse` | RFC 8620 §5.2 | `/changes` response: `old_state`, `new_state`, `has_more_changes`, `created`, `updated`, `destroyed` |
 | `SetResponse<T>` | RFC 8620 §5.3 | `/set` response: `created`, `updated`, `destroyed`, `not_created`, `not_updated`, `not_destroyed` |
+| `CopyResponse<T>` | RFC 8620 §5.4 | `/copy` response: `from_account_id`, `created`, `not_created` |
+| `PartialObject` | RFC 8620 §5.3, §5.4 | A `created` / `updated` value: `id: Option<Id>` plus every other returned property in `extra` |
 | `QueryResponse` | RFC 8620 §5.5 | `/query` response: `query_state`, `can_calculate_changes`, `position`, `ids`, `total`, `limit` |
 | `QueryChangesResponse` | RFC 8620 §5.6 | `/queryChanges` response: `old_query_state`, `new_query_state`, `removed`, `added` |
 | `AddedItem` | RFC 8620 §5.6 | Entry in `QueryChangesResponse::added`: `id` and `index` |
 
-`SetResponse<T>` defaults to `SetResponse<serde_json::Value>` when no type
-parameter is given. Use `SetResponse<Email>` to get typed created/updated maps.
+Every `/set` and `/copy` method returns `PartialObject` values: RFC 8620
+§5.3 `created` holds only the properties the client did not send (for an
+Email, `id`, `blobId`, `threadId` and `size`, RFC 8621 §4.6), so a full
+`Email` cannot hold it. Fetch the full object with the matching `/get`.
 
 ## How it works
 
