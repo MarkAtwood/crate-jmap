@@ -9,14 +9,14 @@
 //! This crate provides **pure helper functions** that extension-server
 //! backends call to implement the metadata augmentation:
 //!
-//! - [`validate`] — depth validation ([`value_depth`],
+//! - Depth validation ([`value_depth`],
 //!   [`exceeds_max_depth`]) and namespace support checking
 //!   ([`is_namespace_supported`]).
-//! - [`changes`] — property-name classification for the
+//! - Property-name classification for the
 //!   `ignoreMetadataOnlyChanges` request arg and the
 //!   `updatedProperties` response field ([`is_metadata_property`],
 //!   [`is_metadata_only_change`]).
-//! - [`filter`] — filter predicate helpers for the six
+//! - Filter predicate helpers for the six
 //!   `metadata{Exists,TextContains,TextEquals}` /
 //!   `privateMetadata{Exists,TextContains,TextEquals}` filter
 //!   conditions ([`metadata_path_exists`], [`metadata_text_contains`],
@@ -38,9 +38,9 @@
 
 #![forbid(unsafe_code)]
 
-pub mod changes;
-pub mod filter;
-pub mod validate;
+mod changes;
+mod filter;
+mod validate;
 
 pub use changes::{
     is_metadata_only_change, is_metadata_property, METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY,

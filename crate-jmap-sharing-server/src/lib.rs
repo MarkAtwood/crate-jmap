@@ -78,8 +78,8 @@ mod helpers;
 /// the full module documentation.
 #[cfg(feature = "memory")]
 pub mod memory;
-pub mod notification;
-pub mod principal;
+mod notification;
+mod principal;
 
 pub use backend::SharingBackend;
 pub use jmap_server::{

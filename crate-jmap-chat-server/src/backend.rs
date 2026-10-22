@@ -548,7 +548,7 @@ pub trait ChatBackend: JmapBackend {
     /// `Message/set` builds an owner-composed Message with `senderMsgId`
     /// equal to that id (draft-atwood-jmap-chat-00 §Message `senderMsgId`:
     /// "Equals `id` for messages composed by the owner."). A
-    /// server-originated Message ([`crate::store_server_message`]) carries
+    /// server-originated Message ([`crate::message::store_server_message`]) carries
     /// the `senderMsgId` its originator chose. In both cases the backend
     /// stores `senderMsgId` unchanged.
     ///

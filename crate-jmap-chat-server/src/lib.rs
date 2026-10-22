@@ -33,7 +33,7 @@
 //! under the `memory` feature for the reference impl). The handler
 //! [`handle_space_set`] does NOT permission-check.
 //!
-//! The pure helper [`required_permissions_for_op`] in [`permissions`]
+//! The pure helper [`required_permissions_for_op`]
 //! maps each [`SpacePatchOp`] variant to its required
 //! [`ChatPermission`](jmap_chat_types::ChatPermission)s per draft-atwood-jmap-chat-00 §Space/set. Backends consume this
 //! helper inside `apply_space_patch` after resolving the caller's
@@ -57,15 +57,15 @@ use std::sync::Arc;
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 mod backend;
-pub mod ban;
-pub mod chat;
-pub mod contact;
-pub mod did_auth;
-pub mod emoji;
-pub mod ephemeral;
-pub mod expiry;
+mod ban;
+mod chat;
+mod contact;
+mod did_auth;
+mod emoji;
+mod ephemeral;
+mod expiry;
 mod helpers;
-pub mod invite;
+mod invite;
 /// In-memory reference implementation of [`ChatBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production. See [`memory`] for
@@ -73,12 +73,12 @@ pub mod invite;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod message;
-pub mod outbound;
-pub mod permissions;
-pub mod position;
-pub mod presence;
-pub mod push;
-pub mod space;
+mod outbound;
+mod permissions;
+mod position;
+mod presence;
+mod push;
+mod space;
 
 pub use backend::{
     AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError,
@@ -110,11 +110,6 @@ pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
     QueryResult, SetError, SetErrorType, SetObject,
-};
-pub use message::{
-    find_message_by_sender_msg_id, handle_message_changes, handle_message_get,
-    handle_message_query, handle_message_query_changes, handle_message_set, store_server_message,
-    StoreOutcome,
 };
 pub use outbound::{GroupUpdateAction, OutboundEvent, ReactionAction};
 pub use permissions::{
@@ -224,19 +219,19 @@ where
 
     // Message
     reg!("Message/get", backend, |b, _ci, a, ctx| {
-        handle_message_get(&*b, &ctx, a).await
+        message::handle_message_get(&*b, &ctx, a).await
     });
     reg!("Message/changes", backend, |b, _ci, a, ctx| {
-        handle_message_changes(&*b, &ctx, a).await
+        message::handle_message_changes(&*b, &ctx, a).await
     });
     reg!("Message/query", backend, |b, _ci, a, ctx| {
-        handle_message_query(&*b, &ctx, a).await
+        message::handle_message_query(&*b, &ctx, a).await
     });
     reg!("Message/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_message_query_changes(&*b, &ctx, a).await
+        message::handle_message_query_changes(&*b, &ctx, a).await
     });
     reg!("Message/set", backend, |b, _ci, a, ctx| {
-        handle_message_set(&*b, &ctx, a).await
+        message::handle_message_set(&*b, &ctx, a).await
     });
 
     // Space

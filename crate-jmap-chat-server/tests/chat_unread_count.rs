@@ -35,10 +35,10 @@
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
+use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
-    handle_chat_changes, handle_chat_get, handle_chat_set, handle_message_set,
-    handle_position_changes, handle_position_get, handle_position_set, handle_space_join,
-    handle_space_set,
+    handle_chat_changes, handle_chat_get, handle_chat_set, handle_position_changes,
+    handle_position_get, handle_position_set, handle_space_join, handle_space_set,
 };
 use jmap_server::HandlerOutput;
 use jmap_types::Id;

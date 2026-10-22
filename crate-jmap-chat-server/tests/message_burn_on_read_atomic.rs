@@ -10,7 +10,7 @@
 mod common;
 
 use common::{seed_group_chat, InjectableBackend};
-use jmap_chat_server::{handle_message_changes, handle_message_get, handle_message_set};
+use jmap_chat_server::message::{handle_message_changes, handle_message_get, handle_message_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};

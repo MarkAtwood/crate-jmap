@@ -35,7 +35,7 @@
 //! The `VTCRecording/*` and `VTCLivestream/*` methods: moderator-only
 //! `/set` with each type's state machine, the `VTCRecordingStateEvent`
 //! consent signal, and `streamKey` redaction in `VTCLivestream/get`.
-//! The [`ephemeral`] module holds the per-connection `VTCStreamEnable`
+//! [`VtcEphemeralSubscription`] holds the per-connection `VTCStreamEnable`
 //! subscription state of draft-atwood-jmap-vtc-wss-00 and the
 //! [`should_deliver`] delivery-time check for its events.
 //! The crate depends on RFC 8620 only; the Chat binding (membership,
@@ -55,8 +55,8 @@ use std::sync::Arc;
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 mod backend;
-pub mod call;
-pub mod ephemeral;
+mod call;
+mod ephemeral;
 mod helpers;
 mod media;
 /// In-memory reference implementation of [`VtcBackend`].
@@ -64,7 +64,7 @@ mod media;
 /// Gated behind `feature = "memory"`. Not production.
 #[cfg(feature = "memory")]
 pub mod memory;
-pub mod participant;
+mod participant;
 pub mod query;
 
 pub use backend::{call_already_active_on_chat, StatefulObject, VtcBackend};

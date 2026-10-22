@@ -10,9 +10,10 @@
 mod common;
 
 use common::{make_chat_group, seed_group_chat, MemoryBackend, ACCOUNT_ID};
+use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_server::{
-    handle_chat_get, handle_chat_set, handle_contact_get, handle_contact_set, handle_message_get,
-    handle_message_set, handle_presence_get, handle_presence_set, ChatBackend,
+    handle_chat_get, handle_chat_set, handle_contact_get, handle_contact_set, handle_presence_get,
+    handle_presence_set, ChatBackend,
 };
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;

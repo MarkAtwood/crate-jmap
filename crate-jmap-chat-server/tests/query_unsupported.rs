@@ -11,9 +11,9 @@
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
+use jmap_chat_server::message::handle_message_query;
 use jmap_chat_server::{
-    handle_chat_query, handle_contact_query, handle_emoji_query, handle_message_query,
-    handle_space_query,
+    handle_chat_query, handle_contact_query, handle_emoji_query, handle_space_query,
 };
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, JmapError};

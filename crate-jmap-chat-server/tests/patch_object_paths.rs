@@ -13,9 +13,8 @@
 mod common;
 
 use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{
-    handle_message_get, handle_message_set, BackendSetError, ChatBackend, SetErrorType,
-};
+use jmap_chat_server::message::{handle_message_get, handle_message_set};
+use jmap_chat_server::{BackendSetError, ChatBackend, SetErrorType};
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, PatchObject};

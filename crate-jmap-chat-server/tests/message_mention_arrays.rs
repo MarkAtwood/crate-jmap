@@ -10,9 +10,8 @@
 mod common;
 
 use common::{make_chat_group, MemoryBackend, TrackingBackend, ACCOUNT_ID};
-use jmap_chat_server::{
-    handle_message_get, handle_message_set, handle_space_get, handle_space_set,
-};
+use jmap_chat_server::message::{handle_message_get, handle_message_set};
+use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 

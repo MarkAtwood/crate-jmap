@@ -4,9 +4,8 @@
 mod common;
 
 use common::{make_chat_group, make_space, make_space_with_props, MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{
-    handle_chat_set, handle_message_query, handle_message_set, handle_space_join,
-};
+use jmap_chat_server::message::{handle_message_query, handle_message_set};
+use jmap_chat_server::{handle_chat_set, handle_space_join};
 use jmap_server::HandlerOutput;
 use serde_json::json;
 

@@ -21,7 +21,8 @@
 mod common;
 
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_chat_set, handle_message_set, store_server_message, StoreOutcome};
+use jmap_chat_server::handle_chat_set;
+use jmap_chat_server::message::{handle_message_set, store_server_message, StoreOutcome};
 use jmap_chat_types::{DeliveryState, Message};
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, UTCDate};

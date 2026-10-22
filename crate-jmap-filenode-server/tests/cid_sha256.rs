@@ -13,9 +13,7 @@ mod common;
 
 use common::MemoryBackend;
 use jmap_cid_types::Sha256;
-use jmap_filenode_server::filenode::{
-    handle_filenode_copy, handle_filenode_get, handle_filenode_set,
-};
+use jmap_filenode_server::{handle_filenode_copy, handle_filenode_get, handle_filenode_set};
 use jmap_filenode_types::FileNode;
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};

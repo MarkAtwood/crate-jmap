@@ -7,7 +7,8 @@
 mod common;
 
 use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_message_get, handle_message_set, ChatLimits};
+use jmap_chat_server::message::{handle_message_get, handle_message_set};
+use jmap_chat_server::ChatLimits;
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 

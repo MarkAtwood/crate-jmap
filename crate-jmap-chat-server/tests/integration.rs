@@ -10,12 +10,14 @@ use common::{
     make_chat_group, make_space, make_space_with_props, FaultyBackend, MemoryBackend,
     TrackingBackend, ACCOUNT_ID, ACCOUNT_ID_B,
 };
+use jmap_chat_server::message::{
+    handle_message_changes, handle_message_get, handle_message_query, handle_message_set,
+};
 use jmap_chat_server::{
     handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get, handle_chat_query,
     handle_chat_query_changes, handle_chat_set, handle_contact_changes, handle_contact_get,
     handle_contact_query, handle_contact_query_changes, handle_contact_set, handle_invite_get,
-    handle_invite_set, handle_message_changes, handle_message_get, handle_message_query,
-    handle_message_set, handle_position_get, handle_position_set, handle_presence_changes,
+    handle_invite_set, handle_position_get, handle_position_set, handle_presence_changes,
     handle_presence_get, handle_presence_set, handle_space_get, handle_space_join,
     handle_space_set, ChatBackend, JmapBackend,
 };

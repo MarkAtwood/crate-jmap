@@ -32,9 +32,9 @@ use std::sync::Arc;
 
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod addressbook;
+mod addressbook;
 mod backend;
-pub mod card;
+mod card;
 mod helpers;
 /// In-memory reference implementation of [`ContactsBackend`].
 ///

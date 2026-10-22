@@ -12,10 +12,8 @@
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{
-    handle_chat_changes, handle_chat_get, handle_chat_set, handle_message_get, handle_message_set,
-    ChatBackend,
-};
+use jmap_chat_server::message::{handle_message_get, handle_message_set};
+use jmap_chat_server::{handle_chat_changes, handle_chat_get, handle_chat_set, ChatBackend};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};

@@ -9,9 +9,9 @@
 mod common;
 
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
+use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
-    handle_chat_set, handle_message_set, AttachmentBlob, ChatBackend, ChatLimits, SetError,
-    SetErrorType,
+    handle_chat_set, AttachmentBlob, ChatBackend, ChatLimits, SetError, SetErrorType,
 };
 use jmap_server::HandlerOutput;
 use serde_json::{json, Map, Value};

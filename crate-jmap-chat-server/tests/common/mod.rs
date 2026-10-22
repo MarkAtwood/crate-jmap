@@ -1828,7 +1828,7 @@ pub fn seed_group_chat(backend: &MemoryBackend, id: &str) {
 /// §Message `burnOnRead`: "Applies only to the receiving mailbox; the
 /// sender's own copy is not affected."
 pub async fn make_received(backend: &MemoryBackend, id: &str) {
-    let HandlerOutput { primary: get, .. } = jmap_chat_server::handle_message_get(
+    let HandlerOutput { primary: get, .. } = jmap_chat_server::message::handle_message_get(
         backend,
         &(),
         serde_json::json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
