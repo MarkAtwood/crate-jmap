@@ -345,6 +345,9 @@ pub(crate) mod test_support {
         last_get_args: Arc<Mutex<Option<CalendarEventGetArgs>>>,
         /// Accounts that do not belong to the caller (§5.10 copy tests).
         foreign_accounts: Arc<Mutex<HashSet<String>>>,
+        /// When set, `privacy_conflicts` and `may_copy_calendar_event`
+        /// return `Err` (error-path tests).
+        fail_privacy_hooks: Arc<std::sync::atomic::AtomicBool>,
     }
 
     impl MockBackend {
@@ -353,7 +356,24 @@ pub(crate) mod test_support {
                 state: Arc::new(Mutex::new(HashMap::new())),
                 last_get_args: Arc::new(Mutex::new(None)),
                 foreign_accounts: Arc::new(Mutex::new(HashSet::new())),
+                fail_privacy_hooks: Arc::default(),
             }
+        }
+
+        /// Make `privacy_conflicts` and `may_copy_calendar_event` fail.
+        pub fn fail_privacy_hooks(&self) {
+            self.fail_privacy_hooks
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        fn privacy_hooks_fail(&self) -> Result<(), MockError> {
+            if self
+                .fail_privacy_hooks
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                return Err(MockError::new("injected privacy hook failure"));
+            }
+            Ok(())
         }
 
         /// Mark `account_id` as an account that does not belong to the
@@ -1039,6 +1059,7 @@ pub(crate) mod test_support {
             updates: &[(Id, jmap_types::PatchObject)],
             destroys: &[Id],
         ) -> Result<PrivacyConflicts, MockError> {
+            self.privacy_hooks_fail()?;
             // (uid, privacy) of a stored or new event; absent privacy is the
             // "public" default (§5.9).
             fn key(v: &serde_json::Value) -> (Option<String>, String) {
@@ -1109,6 +1130,7 @@ pub(crate) mod test_support {
             from_account_id: &Id,
             source: &jmap_calendars_types::CalendarEvent,
         ) -> Result<bool, MockError> {
+            self.privacy_hooks_fail()?;
             let foreign = self
                 .foreign_accounts
                 .lock()

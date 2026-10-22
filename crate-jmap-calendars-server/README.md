@@ -275,11 +275,23 @@ create or update, and similarly `utcEnd` and `duration` MUST NOT both be set.
 The handler checks for these conflicts before forwarding to the backend and
 returns `invalidProperties` citing both field names if detected.
 
+### `CalendarEvent/set` §5.9 uid/privacy rule
+
+draft §5.9 requires every event in an account sharing a `uid` to have the
+same `privacy`, judged after all the creates, updates and destroys of the
+request. Before applying anything, the handler calls `privacy_conflicts`
+with the whole request; each create or update it names is rejected with
+`invalidProperties` naming `privacy`, and the rest are applied. The
+default returns no conflicts (fail-open).
+
 ### `CalendarEvent/copy` — cross-account event duplication
 
 `CalendarEvent/copy` (draft §5.7) fetches the source event from
 `fromAccountId` using `get_objects`, merges any per-entry patch overrides
-from the create map, then calls `create_object` in the target account.
+from the create map, then calls `create_calendar_event` in the target
+account. Before that, `may_copy_calendar_event` enforces §5.10: a private
+event in an account that does not belong to the user is rejected with
+`forbidden` (the default allows every copy).
 The `call_id` is forwarded to the handler for idempotency tracking.
 If `onSuccessDestroyOriginal` is set, the handler issues a destroy of the
 source event after all creates succeed.

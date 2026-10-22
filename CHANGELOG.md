@@ -1453,10 +1453,10 @@ wire behaviour that a conforming peer can observe.
   **jmap-calendars-server**, **jmap-contacts-server**,
   **jmap-tasks-server**, **jmap-sharing-server**,
   **jmap-filenode-server**, **jmap-graph-server**,
-  **jmap-scene-server**, **jmap-vtc-server**: **BREAKING**
-  `MemoryBackend` is `#[non_exhaustive]`, so fields can be added
-  without a further break; build it with `MemoryBackend::new()` (or
-  `Default` where implemented).
+  **jmap-scene-server**, **jmap-vtc-server**: `MemoryBackend` is
+  `#[non_exhaustive]`, stating that fields can be added. Not breaking:
+  its fields were already private, so callers build it with
+  `MemoryBackend::new()` (or `Default` where implemented) as before.
 - **jmap-types**: **BREAKING** `SetResponse<T>` has no default type
   parameter (was `T = serde_json::Value`), so a signature can no longer
   depend on it silently; name the type, normally `PartialObject` for

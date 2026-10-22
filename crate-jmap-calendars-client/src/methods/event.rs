@@ -55,7 +55,7 @@ impl super::SessionClient {
         // `calendar_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id Vec Serialize is infallible");
+            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
         }
         if let Some(props) = properties {
             args["properties"] =
@@ -205,7 +205,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::to_value(d).expect("Id slice Serialize is infallible");
+            args["destroy"] = serde_json::to_value(d).expect("Id Vec Serialize is infallible");
         }
         if let Some(s) = if_in_state {
             args["ifInState"] = s.as_ref().into();

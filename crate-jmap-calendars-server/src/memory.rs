@@ -19,6 +19,10 @@
 //! (`CalendarEvent/query` with `expandRecurrences: true`) and iTIP
 //! scheduling-message delivery (`sendSchedulingMessages: true`) are not
 //! implemented — the trait's default implementations are inherited.
+//! The same holds for the §5.9 uid/privacy rule
+//! (`CalendarsBackend::privacy_conflicts`) and the §5.10 private-copy
+//! rule (`CalendarsBackend::may_copy_calendar_event`): both fail open,
+//! since this backend has no account-ownership model.
 //!
 //! # Feature flag and API stability
 //!
