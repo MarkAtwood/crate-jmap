@@ -46,14 +46,13 @@ fn validate_sender_reaction_id(id: &str) -> Result<(), jmap_base_client::ClientE
 impl super::SessionClient {
     /// Fetch Message objects by IDs (RFC 8620 §5.1 / JMAP Chat §Message/get).
     ///
-    /// `ids` is required (non-empty); fetching all messages is impractical.
-    /// Pass `properties: None` to return all fields.
+    /// Pass `ids: None` to fetch every Message in the account
+    /// (RFC 8620 §5.1: "If null, then all records of the data type are
+    /// returned"); the server bounds the result with `maxObjectsInGet` and
+    /// `requestTooLarge`. Pass `properties: None` to return all fields.
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `ids` is empty (caller-precondition guard — fetching all
-    ///   messages is impractical and explicitly disallowed).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -71,22 +70,17 @@ impl super::SessionClient {
     ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn message_get(
         &self,
-        ids: &[Id],
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_chat_types::Message>, jmap_base_client::ClientError> {
-        if ids.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "message_get: ids may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
-        // Omit `properties` when None — see the matching comment on
-        // `chat_get` for the rationale. `ids` is required (non-Option) so it
-        // is always present in the request.
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-            "ids": ids,
-        });
+        // Omit `ids` / `properties` when None — see the matching comment on
+        // `chat_get` for the rationale.
+        let mut args = serde_json::json!({ "accountId": account_id });
+        if let Some(id_slice) = ids {
+            args["ids"] = serde_json::to_value(id_slice)
+                .map_err(jmap_base_client::ClientError::from_parse)?;
+        }
         if let Some(props) = properties {
             args["properties"] =
                 serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;

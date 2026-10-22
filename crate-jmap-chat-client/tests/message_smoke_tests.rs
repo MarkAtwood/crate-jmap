@@ -22,34 +22,36 @@ use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::MockServer;
 
-/// `Message/get` must reject an empty `ids` slice client-side
-/// (message.rs:31-35); fetching all messages is impractical per the doc.
+/// `Message/get` with `ids: None` must send the request with `ids` omitted.
+/// RFC 8620 §5.1: "ids: Id[]|null ... If null, then all records of the data
+/// type are returned, if this is supported for that data type and the number
+/// of records does not exceed the maxObjectsInGet limit."
+/// draft-atwood-jmap-chat-00 §Message/get: "Standard JMAP `/get`." — so the
+/// limit is the server's to enforce, not the client's.
 #[tokio::test]
-async fn message_get_empty_ids_rejected_before_send() {
+async fn message_get_none_ids_omits_ids_on_wire() {
     let server = MockServer::start().await;
-    let sc = helpers::make_client(&server);
-    let empty: [Id; 0] = [];
-    let err = sc
-        .message_get(&empty, None)
-        .await
-        .expect_err("message_get must reject empty ids");
-    match err {
-        jmap_base_client::ClientError::InvalidArgument(msg) => {
-            assert!(
-                msg.contains("ids may not be empty"),
-                "error message must mention ids: got {msg:?}"
-            );
-        }
-        other => panic!("expected InvalidArgument, got {other:?}"),
-    }
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("recorded_requests must succeed");
-    assert!(
-        reqs.is_empty(),
-        "no HTTP request must be sent when ids is empty"
+    let resp_body = jmap_response(
+        "Message/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "m-state-0",
+            "list": [],
+            "notFound": []
+        }),
     );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let resp = sc
+        .message_get(None, None)
+        .await
+        .expect("message_get(None): must succeed");
+    assert_eq!(resp.state, "m-state-0", "state mismatch");
+
+    let body = recorded_body(&server).await;
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(args, &json!({ "accountId": TEST_ACCOUNT_ID }));
 }
 
 /// `Message/get` with non-empty ids must thread the slice to the wire
@@ -71,7 +73,7 @@ async fn message_get_threads_ids_and_omits_properties_when_none() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("msg-1"), Id::from("msg-2")];
     let _ = sc
-        .message_get(&ids, None)
+        .message_get(Some(&ids), None)
         .await
         .expect("message_get: must succeed");
 
@@ -170,7 +172,7 @@ async fn message_get_decodes_populated_message() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("msg-1")];
     let resp = sc
-        .message_get(&ids, None)
+        .message_get(Some(&ids), None)
         .await
         .expect("message_get: must succeed");
 
