@@ -1319,6 +1319,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-client**: **BREAKING** every `/set` wrapper (`chat_*`,
+  `message_*`, `space_*`, `space_ban_*`, `space_invite_*`,
+  `custom_emoji_*`, `chat_contact_*`, `read_position_update`,
+  `presence_status_update`, `push_subscription_update` /
+  `_destroy`) returns `SetResponse<PartialObject>` instead of the hidden
+  default `SetResponse<serde_json::Value>`; read a created id as
+  `created[key].id` instead of `created[key]["id"]` (RFC 8620 §5.3).
 - **jmap-sharing-client**: **BREAKING** `principal_set` and
   `share_notification_set` return `SetResponse<PartialObject>` (was
   `SetResponse<Principal>`, which rejected RFC 8620 §5.3 `created`

@@ -12,7 +12,7 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse,
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
     SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput,
     SpaceCreateInput, SpaceJoinInput, SpaceJoinResponse, SpacePatch, SpaceUpdateCategoryInput,
     SpaceUpdateChannelInput, SpaceUpdateMemberInput, SpaceUpdateRoleInput,
@@ -135,7 +135,7 @@ impl super::SessionClient {
         &self,
         ids: &[Id],
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "space_destroy: ids may not be empty".into(),
@@ -309,7 +309,7 @@ impl super::SessionClient {
         &self,
         input: &SpaceCreateInput<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if input.name.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "space_create: name may not be empty".into(),
@@ -424,7 +424,7 @@ impl super::SessionClient {
         id: &Id,
         patch: &SpacePatch<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
 

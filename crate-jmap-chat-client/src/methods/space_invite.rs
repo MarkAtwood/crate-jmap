@@ -4,7 +4,7 @@
 
 use jmap_types::{Id, State};
 
-use super::{ChangesResponse, GetResponse, SetResponse, SpaceInviteCreateInput};
+use super::{ChangesResponse, GetResponse, PartialObject, SetResponse, SpaceInviteCreateInput};
 
 impl super::SessionClient {
     /// Fetch SpaceInvite objects by IDs (JMAP Chat §4.17 SpaceInvite/get).
@@ -113,7 +113,7 @@ impl super::SessionClient {
         &self,
         input: &SpaceInviteCreateInput<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut obj = serde_json::json!({ "spaceId": input.space_id });
         if let Some(ch) = input.default_channel_id {
@@ -162,7 +162,7 @@ impl super::SessionClient {
         &self,
         ids: &[Id],
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "space_invite_destroy: ids may not be empty".into(),

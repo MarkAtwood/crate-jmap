@@ -36,8 +36,8 @@ use jmap_types::Id;
 // function at the bottom of this module reads that field.
 
 pub use jmap_types::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
-    SetResponse,
+    AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
+    SetError, SetResponse,
 };
 
 /// Response to a `PushSubscription/set` create call (RFC 8620 §7.2).

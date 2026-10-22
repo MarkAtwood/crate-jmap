@@ -4,7 +4,9 @@
 
 use jmap_types::{Id, PatchObject, State};
 
-use super::{ChangesResponse, GetResponse, SetResponse, SpaceBanCreateInput, SpaceBanPatch};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, SetResponse, SpaceBanCreateInput, SpaceBanPatch,
+};
 
 impl super::SessionClient {
     /// Fetch SpaceBan objects by IDs (JMAP Chat §4.18 SpaceBan/get).
@@ -113,7 +115,7 @@ impl super::SessionClient {
         &self,
         input: &SpaceBanCreateInput<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut create_obj = serde_json::json!({
             "spaceId": input.space_id,
@@ -165,7 +167,7 @@ impl super::SessionClient {
         id: &Id,
         patch: &SpaceBanPatch<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
         if let Some(entry) = patch
@@ -220,7 +222,7 @@ impl super::SessionClient {
         &self,
         ids: &[Id],
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "space_ban_destroy: ids may not be empty".into(),

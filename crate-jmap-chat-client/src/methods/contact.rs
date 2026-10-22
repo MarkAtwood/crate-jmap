@@ -6,8 +6,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, ChatContactPatch, GetResponse, QueryChangesResponse, QueryResponse,
-    SetResponse,
+    ChangesResponse, ChatContactPatch, GetResponse, PartialObject, QueryChangesResponse,
+    QueryResponse, SetResponse,
 };
 
 impl super::SessionClient {
@@ -120,7 +120,7 @@ impl super::SessionClient {
         &self,
         identity: &str,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let client_id = super::resolve_client_id(None);
         let mut args = serde_json::json!({
@@ -164,7 +164,7 @@ impl super::SessionClient {
         id: &Id,
         patch: &ChatContactPatch<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
         if let Some(b) = patch.blocked {
