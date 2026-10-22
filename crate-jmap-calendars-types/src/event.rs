@@ -6,6 +6,7 @@
 
 use std::collections::BTreeMap;
 
+use jmap_jscalendar_types::LocalDateTime;
 use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
@@ -398,12 +399,12 @@ pub struct CalendarEventFilterCondition {
     /// Event end (or any recurrence end) must be on or after this
     /// `LocalDateTime`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub after: Option<String>,
+    pub after: Option<LocalDateTime>,
 
     /// Event start (or any recurrence start) must be before this
     /// `LocalDateTime`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub before: Option<String>,
+    pub before: Option<LocalDateTime>,
 
     /// Full-text search across title, description, location names,
     /// participant names/emails and other textual properties.

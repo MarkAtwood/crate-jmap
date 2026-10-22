@@ -345,14 +345,20 @@ fn task_filter_condition_empty_defaults() {
 }
 
 /// A populated filter condition round-trips correctly.
+///
+/// Oracle: `after`/`before` are LocalDateTime (no trailing `Z`) because
+/// Task/query "is the "CalendarEvent/query" method"
+/// (draft-ietf-jmap-tasks-06 §4.13), whose FilterCondition defines
+/// "*after*: LocalDateTime" and "*before*: LocalDateTime"
+/// (draft-ietf-jmap-calendars-33 §5.11.1).
 #[test]
 fn task_filter_condition_populated() {
     let json = r#"{
         "taskListId": "list001",
         "isDraft": false,
         "progress": "needs-action",
-        "after": "2024-01-01T00:00:00Z",
-        "before": "2025-01-01T00:00:00Z"
+        "after": "2024-01-01T00:00:00",
+        "before": "2025-01-01T00:00:00"
     }"#;
     let cond: TaskFilterCondition = serde_json::from_str(json).expect("filter");
     assert_eq!(
@@ -363,11 +369,11 @@ fn task_filter_condition_populated() {
     assert_eq!(cond.progress.as_deref(), Some("needs-action"));
     assert_eq!(
         cond.after.as_ref().map(AsRef::as_ref),
-        Some("2024-01-01T00:00:00Z")
+        Some("2024-01-01T00:00:00")
     );
     assert_eq!(
         cond.before.as_ref().map(AsRef::as_ref),
-        Some("2025-01-01T00:00:00Z")
+        Some("2025-01-01T00:00:00")
     );
 }
 

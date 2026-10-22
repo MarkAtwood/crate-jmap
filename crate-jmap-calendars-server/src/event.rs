@@ -1260,8 +1260,8 @@ fn expand_duration_seconds(
     filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
 ) -> Option<i64> {
     let f = filter?;
-    let before = f.before.as_deref()?;
-    let after = f.after.as_deref()?;
+    let before = f.before.as_ref()?;
+    let after = f.after.as_ref()?;
     let before_utc = UTCDate::from(format!("{before}Z"))
         .to_epoch_seconds()
         .ok()?;
