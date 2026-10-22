@@ -127,6 +127,91 @@ pub struct CalendarSetParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_events: Option<bool>,
 
+    /// Calendar to make the account default once every create, update
+    /// and destroy in the call succeeds (draft-ietf-jmap-calendars-33
+    /// §4.3, `onSuccessSetIsDefault: Id|null`): an existing calendar
+    /// id, or `"#"` followed by a creation id from this call's `create`
+    /// map. A `String`, not [`Id`], because `#` is not a valid `Id`
+    /// character. The server ignores an id it cannot find or a change
+    /// it does not permit. A call with only this field set is valid
+    /// (draft-ietf-jmap-calendars-33 §8.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success_set_is_default: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------------
+// CalendarEvent/set extra parameters
+// ---------------------------------------------------------------------------
+
+/// Extra method-level arguments for `CalendarEvent/set`
+/// (draft-ietf-jmap-calendars-33 §5.9).
+///
+/// Pass `None` (or `Default::default()`) when not needed. Mirrors the
+/// canonical `MailboxSetParams` shape in `jmap-mail-client`.
+#[derive(Debug, Default, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarEventSetParams {
+    /// If `true`, the server sends iTIP scheduling messages for changes
+    /// to scheduled events: to all participants when it is the origin of
+    /// the event, otherwise back to the origin
+    /// (draft-ietf-jmap-calendars-33 §5.9, §5.9.2). Server default:
+    /// false.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub send_scheduling_messages: Option<bool>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------------
+// ParticipantIdentity/set extra parameters
+// ---------------------------------------------------------------------------
+
+/// Extra method-level arguments for `ParticipantIdentity/set`
+/// (draft-ietf-jmap-calendars-33 §3.3).
+///
+/// Pass `None` (or `Default::default()`) when not needed. Mirrors the
+/// canonical `MailboxSetParams` shape in `jmap-mail-client`.
+#[derive(Debug, Default, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParticipantIdentitySetParams {
+    /// Identity to make the default once every create, update and
+    /// destroy in the call succeeds (draft-ietf-jmap-calendars-33 §3.3,
+    /// `onSuccessSetIsDefault: Id|null`): an existing identity id, or
+    /// `"#"` followed by a creation id from this call's `create` map.
+    /// A `String`, not [`Id`], because `#` is not a valid `Id`
+    /// character. The server ignores an id it cannot find or a change
+    /// it does not permit. A call with only this field set is valid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success_set_is_default: Option<String>,
+
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -818,6 +903,7 @@ mod tests {
     fn calendar_set_params_on_destroy_remove_events_serializes() {
         let params = CalendarSetParams {
             on_destroy_remove_events: Some(true),
+            on_success_set_is_default: None,
             extra: serde_json::Map::new(),
         };
         let out = serde_json::to_value(&params).expect("serialize CalendarSetParams");
@@ -836,6 +922,53 @@ mod tests {
             obj.is_empty(),
             "all-None default must serialize to empty object, got: {out}"
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §8.4 — the
+    /// default-calendar change request carries
+    /// `"onSuccessSetIsDefault": "062adcfa-105d-455c-bc60-6db68b69c3f3"`.
+    #[test]
+    fn calendar_set_params_on_success_set_is_default_serializes() {
+        let params = CalendarSetParams {
+            on_success_set_is_default: Some("062adcfa-105d-455c-bc60-6db68b69c3f3".into()),
+            ..Default::default()
+        };
+        let out = serde_json::to_value(&params).expect("serialize CalendarSetParams");
+        assert_eq!(
+            out,
+            json!({"onSuccessSetIsDefault": "062adcfa-105d-455c-bc60-6db68b69c3f3"})
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §8.2, Figure 9 — the
+    /// CalendarEvent/set request carries `"sendSchedulingMessages": true`.
+    #[test]
+    fn calendar_event_set_params_send_scheduling_messages_serializes() {
+        let params = CalendarEventSetParams {
+            send_scheduling_messages: Some(true),
+            ..Default::default()
+        };
+        let out = serde_json::to_value(&params).expect("serialize CalendarEventSetParams");
+        assert_eq!(out, json!({"sendSchedulingMessages": true}));
+        let empty = serde_json::to_value(CalendarEventSetParams::default())
+            .expect("serialize CalendarEventSetParams::default");
+        assert_eq!(empty, json!({}));
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §3.3 — a creation reference
+    /// is "the creation id prefixed with a `#`", sent under
+    /// `onSuccessSetIsDefault`.
+    #[test]
+    fn participant_identity_set_params_creation_reference_serializes() {
+        let params = ParticipantIdentitySetParams {
+            on_success_set_is_default: Some("#newPi".into()),
+            ..Default::default()
+        };
+        let out = serde_json::to_value(&params).expect("serialize ParticipantIdentitySetParams");
+        assert_eq!(out, json!({"onSuccessSetIsDefault": "#newPi"}));
+        let empty = serde_json::to_value(ParticipantIdentitySetParams::default())
+            .expect("serialize ParticipantIdentitySetParams::default");
+        assert_eq!(empty, json!({}));
     }
 
     /// `CalendarSetParams.extra` flattens into serialized JSON.

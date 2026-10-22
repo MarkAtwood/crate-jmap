@@ -1338,6 +1338,24 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-client**: **BREAKING** `calendar_event_set` takes a
+  trailing `params: Option<CalendarEventSetParams>` carrying
+  `sendSchedulingMessages` (draft-ietf-jmap-calendars-33 §5.9), so a
+  client can ask the server to send iTIP scheduling messages.
+  `participant_identity_set` takes a trailing
+  `params: Option<ParticipantIdentitySetParams>` carrying
+  `onSuccessSetIsDefault` (§3.3). `CalendarSetParams` gains
+  `on_success_set_is_default: Option<String>` (§4.3), which breaks
+  struct literals without `..Default::default()`. Pass `None` to keep
+  the old behaviour. `calendar_set` and `participant_identity_set` now
+  send a call with no create, update or destroy when
+  `on_success_set_is_default` is set (§8.4) (bd JMAP-skk9.9).
+- **jmap-contacts-client**: **BREAKING**
+  `AddressBookSetParams::on_success_set_is_default` is `Option<String>`
+  (was `Option<serde_json::Value>`): RFC 9610 §2.3 defines it as
+  `Id|null`, and a `String` also holds a `#creationId` reference.
+  `address_book_set` now sends a call with only this argument set
+  (RFC 9610 §4.2) (bd JMAP-skk9.9).
 - **jmap-chat-client**: **BREAKING** `SessionClient::message_get` takes
   `ids: Option<&[Id]>` (was `&[Id]`), like `email_get` and every other
   client `*_get`; wrap existing arguments in `Some(..)`. The client no

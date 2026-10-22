@@ -9,7 +9,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_calendars_client::CalendarSetParams;
+use jmap_calendars_client::{CalendarEventSetParams, CalendarSetParams};
 use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -146,7 +146,7 @@ async fn calendar_event_set_smoke() {
     let mut create_map = std::collections::BTreeMap::new();
     create_map.insert("newEv".to_owned(), event);
     let resp = sc
-        .calendar_event_set(Some(json!(create_map)), None, None, None)
+        .calendar_event_set(Some(json!(create_map)), None, None, None, None)
         .await
         .expect("calendar_event_set_smoke: must succeed");
 
@@ -553,4 +553,114 @@ async fn calendar_set_created_omits_client_sent_properties() {
     assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("cal-9"));
     assert_eq!(k1.extra["sortOrder"], 0);
     assert!(!k1.extra.contains_key("name"));
+}
+
+/// Oracle: draft-ietf-jmap-calendars-33 §5.9 ("sendSchedulingMessages:
+/// Boolean (default: false)") and §8.2, Figure 9, whose CalendarEvent/set
+/// request carries `"sendSchedulingMessages": true`.
+#[tokio::test]
+async fn calendar_event_set_send_scheduling_messages_passthrough() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "CalendarEvent/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "destroyed": ["ev-1"]
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    sc.calendar_event_set(
+        None,
+        None,
+        Some(vec![Id::from("ev-1")]),
+        None,
+        Some(CalendarEventSetParams {
+            send_scheduling_messages: Some(true),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("calendar_event_set: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    assert_eq!(reqs.len(), 1, "must have received exactly one request");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    assert_eq!(
+        body["methodCalls"][0][1],
+        json!({
+            "accountId": "A13824",
+            "destroy": ["ev-1"],
+            "sendSchedulingMessages": true
+        })
+    );
+}
+
+/// Oracle: draft-ietf-jmap-calendars-33 §8.4 — "The client tries to
+/// change the default calendar ... (and makes no other change)" with a
+/// Calendar/set carrying only `accountId` and `onSuccessSetIsDefault`.
+#[tokio::test]
+async fn calendar_set_default_only_change() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Calendar/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2"
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    sc.calendar_set(
+        None,
+        None,
+        None,
+        None,
+        Some(CalendarSetParams {
+            on_success_set_is_default: Some("062adcfa-105d-455c-bc60-6db68b69c3f3".into()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("calendar_set: a default-only change must be sent");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    assert_eq!(reqs.len(), 1, "must have received exactly one request");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    assert_eq!(
+        body["methodCalls"][0][1],
+        json!({
+            "accountId": "A13824",
+            "onSuccessSetIsDefault": "062adcfa-105d-455c-bc60-6db68b69c3f3"
+        })
+    );
 }

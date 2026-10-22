@@ -160,9 +160,13 @@ impl super::SessionClient {
         if_in_state: Option<&State>,
         params: Option<AddressBookSetParams>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
-        if create.is_none() && update.is_none() && destroy.is_none() {
+        let sets_default = params
+            .as_ref()
+            .is_some_and(|p| p.on_success_set_is_default.is_some());
+        if create.is_none() && update.is_none() && destroy.is_none() && !sets_default {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "address_book_set: at least one of create, update, destroy must be Some \
+                "address_book_set: at least one of create, update, destroy or \
+                 params.on_success_set_is_default must be Some \
                  (an all-None /set is a no-op round-trip)"
                     .into(),
             ));
@@ -192,7 +196,7 @@ impl super::SessionClient {
                 args["onDestroyRemoveContents"] = v.into();
             }
             if let Some(v) = p.on_success_set_is_default {
-                args["onSuccessSetIsDefault"] = v;
+                args["onSuccessSetIsDefault"] = v.into();
             }
             // Route caller-supplied vendor extras onto the wire (workspace
             // extras-preservation policy). Use `entry().or_insert()` so a

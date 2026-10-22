@@ -82,7 +82,7 @@ from the bound session.
 |---|---|---|
 | `calendar_event_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<CalendarEventGetParams>)` | `GetResponse<CalendarEvent>` |
 | `calendar_event_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_event_set` | `(create: Option<Value>, update, destroy: Option<Vec<Id>>, if_in_state: Option<&State>)` | `SetResponse<PartialObject>` |
+| `calendar_event_set` | `(create: Option<Value>, update, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<CalendarEventSetParams>)` | `SetResponse<PartialObject>` |
 | `calendar_event_copy` | `(params: CalendarEventCopyParams, create: Value)` | `CopyResponse<PartialObject>` |
 | `calendar_event_query` | `(filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, params: &QueryParams, expand_recurrences: Option<bool>)` | `QueryResponse` |
 | `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>)` | `QueryChangesResponse` |
@@ -104,7 +104,7 @@ from the bound session.
 |---|---|---|
 | `participant_identity_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<ParticipantIdentity>` |
 | `participant_identity_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
-| `participant_identity_set` | `(create: Option<Value>, update, destroy: Option<Vec<Id>>, if_in_state: Option<&State>)` | `SetResponse<PartialObject>` |
+| `participant_identity_set` | `(create: Option<Value>, update, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<ParticipantIdentitySetParams>)` | `SetResponse<PartialObject>` |
 
 ### Principal
 
