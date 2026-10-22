@@ -2,9 +2,7 @@
 //!
 //! CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-33 §5.10).
 
-use std::collections::BTreeMap;
-
-use super::{CalendarEventCopyParams, SetResponse};
+use super::{CalendarEventCopyParams, CopyResponse, PartialObject};
 
 impl super::SessionClient {
     /// Copy `CalendarEvent` objects from one account to another
@@ -13,21 +11,21 @@ impl super::SessionClient {
     /// - `params`: `fromAccountId`, the optional `ifFromInState` /
     ///   `ifInState` state guards, the optional destroy-after-copy flags,
     ///   and vendor extras (RFC 8620 §5.4).
-    /// - `create`: map of creation id → typed
-    ///   [`CalendarEvent`](jmap_calendars_types::CalendarEvent) describing
-    ///   what to copy and any modifications to apply. Each event MUST carry
-    ///   the source `id` field (RFC 8620 §5.4 — `id` is the source record).
+    /// - `create`: JSON object mapping each creation id to the source
+    ///   event's `id` plus any properties to change. Each entry MUST carry
+    ///   the source `id` (RFC 8620 §5.4 — `id` is the source record).
     ///
     /// The target account is the primary Calendars account from the session.
+    ///
+    /// Returns a [`CopyResponse`]. Each `created` value is a
+    /// [`PartialObject`] holding the server-set properties of the copy,
+    /// such as its new `id` (RFC 8620 §5.4).
     ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if any key in `create` is the empty string (caller-precondition
-    ///   guard — RFC 8620 §5.3 requires non-empty creation ids), or if
-    ///   `serde_json::to_value` fails on the `create` map (pathological
-    ///   conditions only — allocation failure or a `CalendarEvent`
-    ///   whose JSON tree exceeds `serde_json`'s recursion limit).
+    ///   guard — RFC 8620 §5.3 requires non-empty creation ids).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
@@ -43,24 +41,21 @@ impl super::SessionClient {
     pub async fn calendar_event_copy(
         &self,
         params: CalendarEventCopyParams,
-        create: BTreeMap<String, jmap_calendars_types::CalendarEvent>,
-    ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
-    {
-        if create.keys().any(|k| k.is_empty()) {
+        create: serde_json::Value,
+    ) -> Result<CopyResponse<PartialObject>, jmap_base_client::ClientError> {
+        if create
+            .as_object()
+            .is_some_and(|m| m.keys().any(|k| k.is_empty()))
+        {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "calendar_event_copy: create map key (creation id) may not be empty".into(),
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
-        let create_val = serde_json::to_value(&create).map_err(|e| {
-            jmap_base_client::ClientError::InvalidArgument(format!(
-                "calendar_event_copy: serializing create map failed: {e}"
-            ))
-        })?;
         let mut args = serde_json::json!({
             "fromAccountId": params.from_account_id,
             "accountId": account_id,
-            "create": create_val,
+            "create": create,
         });
         if let Some(v) = params.if_from_in_state {
             args["ifFromInState"] = v.into_inner().into();

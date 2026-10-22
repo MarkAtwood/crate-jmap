@@ -74,7 +74,7 @@ from the bound session.
 |---|---|---|
 | `calendar_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<Calendar>` |
 | `calendar_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_set` | `(create, update, destroy: Option<&[Id]>, if_in_state: Option<&State>, params: Option<CalendarSetParams>)` | `SetResponse<Calendar>` |
+| `calendar_set` | `(create: Option<Value>, update, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<CalendarSetParams>)` | `SetResponse<PartialObject>` |
 
 ### CalendarEvent
 
@@ -82,8 +82,8 @@ from the bound session.
 |---|---|---|
 | `calendar_event_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<CalendarEventGetParams>)` | `GetResponse<CalendarEvent>` |
 | `calendar_event_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_event_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<CalendarEvent>` |
-| `calendar_event_copy` | `(params: CalendarEventCopyParams, create: BTreeMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
+| `calendar_event_set` | `(create: Option<Value>, update, destroy: Option<Vec<Id>>, if_in_state: Option<&State>)` | `SetResponse<PartialObject>` |
+| `calendar_event_copy` | `(params: CalendarEventCopyParams, create: Value)` | `CopyResponse<PartialObject>` |
 | `calendar_event_query` | `(filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, params: &QueryParams, expand_recurrences: Option<bool>)` | `QueryResponse` |
 | `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>)` | `QueryChangesResponse` |
 | `calendar_event_parse` | `(blob_ids: &[Id], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |
@@ -94,7 +94,7 @@ from the bound session.
 |---|---|---|
 | `calendar_event_notification_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<CalendarEventNotification>` |
 | `calendar_event_notification_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_event_notification_set` | `(destroy: Option<&[Id]>)` | `SetResponse` |
+| `calendar_event_notification_set` | `(destroy: Option<Vec<Id>>, if_in_state: Option<&State>)` | `SetResponse<PartialObject>` |
 | `calendar_event_notification_query` | `(filter: Option<&Filter<C>>, sort: Option<&[serde_json::Value]>, params: &QueryParams)` | `QueryResponse` |
 | `calendar_event_notification_query_changes` | `(since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[serde_json::Value]>, up_to_id: Option<&Id>, calculate_total: Option<bool>)` | `QueryChangesResponse` |
 
@@ -104,7 +104,7 @@ from the bound session.
 |---|---|---|
 | `participant_identity_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<ParticipantIdentity>` |
 | `participant_identity_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
-| `participant_identity_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<ParticipantIdentity>` |
+| `participant_identity_set` | `(create: Option<Value>, update, destroy: Option<Vec<Id>>, if_in_state: Option<&State>)` | `SetResponse<PartialObject>` |
 
 ### Principal
 
@@ -122,8 +122,10 @@ validation at construction time via `UTCDate::new_validated`.
 draft-ietf-jmap-metadata-04 §3.6 conditions. When passing `None`, name the
 type (`None::<&CalendarEventFilter>`). `sort` uses typed comparators where
 defined, falling back to `serde_json::Value` for spec extensions not yet bound.
-`create` parameters are typed as `Option<BTreeMap<String, T>>` for the relevant
-JMAP object `T`. `update` parameters are typed as
+`create` parameters are `Option<serde_json::Value>`: a JSON object of
+creation id to the properties to set, without server-set ones such as
+`id` (RFC 8620 §5.3). `destroy` parameters are `Option<Vec<Id>>`. `update`
+parameters are typed as
 `Option<BTreeMap<Id, jmap_types::PatchObject>>` (RFC 8620 §5.3) — wire format is
 unchanged from a plain JSON object because `PatchObject` is
 `#[serde(transparent)]`. Pass `None` to omit any of these from the request.
@@ -162,14 +164,18 @@ session, it returns `ClientError::InvalidSession`.
 | `GetResponse<T>` | `account_id`, `state`, `list: Vec<T>`, `not_found: Vec<Id>` | RFC 8620 §5.1 |
 | `ChangesResponse` | `account_id`, `old_state`, `new_state`, `has_more_changes`, `created`, `updated`, `destroyed` | RFC 8620 §5.2 |
 | `SetResponse<T>` | `account_id`, `old_state`, `new_state`, `created`, `updated`, `destroyed`, `not_created`, `not_updated`, `not_destroyed` | RFC 8620 §5.3 |
+| `CopyResponse<T>` | `from_account_id`, `account_id`, `old_state`, `new_state`, `created`, `not_created` | RFC 8620 §5.4 |
+| `PartialObject` | `id: Option<Id>`, `extra` (every other returned property) | RFC 8620 §5.3, §5.4 |
 | `QueryResponse` | `account_id`, `query_state`, `can_calculate_changes`, `position`, `ids`, `total`, `limit` | RFC 8620 §5.5 |
 | `QueryChangesResponse` | `account_id`, `old_query_state`, `new_query_state`, `total`, `removed`, `added` | RFC 8620 §5.6 |
 | `CalendarEventParseResponse` | `account_id`, `parsed: Option<BTreeMap<Id, Vec<CalendarEvent>>>`, `not_found`, `not_parsable` | draft §5.13 |
 | `PrincipalGetAvailabilityResponse` | `account_id`, `list: Vec<BusyPeriod>` | draft §2.2 |
 
-`SetResponse<T>` defaults to `T = serde_json::Value` when the concrete type
-is not needed. Use `SetResponse<Calendar>` or `SetResponse<CalendarEvent>`
-when you need typed access to created/updated objects.
+Every `/set` and `/copy` method returns `PartialObject` values: RFC 8620
+§5.3 `created` holds only the properties the client did not send (the
+server-set `id` plus any server defaults), so a full `Calendar` or
+`CalendarEvent` cannot hold it. `create` is a JSON object of creation id
+to properties, as in the canonical `jmap-mail-client`.
 
 `CalendarEventGetParams` carries optional extra arguments for
 `calendar_event_get`:

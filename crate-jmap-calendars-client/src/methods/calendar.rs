@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
-use super::{ChangesResponse, GetResponse, SetResponse};
+use super::{ChangesResponse, GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
     /// Fetch Calendar objects by IDs (draft-ietf-jmap-calendars-33 §4.1).
@@ -51,7 +51,7 @@ impl super::SessionClient {
         // in proxies / audit loggers.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] = serde_json::to_value(id_slice).expect("Id Vec Serialize is infallible");
         }
         if let Some(props) = properties {
             args["properties"] =
@@ -105,8 +105,9 @@ impl super::SessionClient {
 
     /// Create, update, or destroy Calendar objects (draft-ietf-jmap-calendars-33 §4.4).
     ///
-    /// - `create`: map of creation id → typed [`Calendar`](jmap_calendars_types::Calendar)
-    ///   to create. Pass `None` to omit the `create` argument entirely.
+    /// - `create`: JSON object mapping each creation id to the Calendar
+    ///   properties to set (RFC 8620 §5.3). Pass `None` to omit the
+    ///   `create` argument entirely.
     /// - `update`: map of existing Calendar id → [`PatchObject`]
     ///   (RFC 8620 §5.3). Wire format is unchanged from a plain JSON object
     ///   because [`PatchObject`] is `#[serde(transparent)]`; the typed
@@ -132,9 +133,9 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if any key in `create` is the empty string (caller-precondition
     ///   guard — RFC 8620 §5.3 requires non-empty creation ids), or if
-    ///   `serde_json::to_value` fails on the `create` or `update` map
+    ///   `serde_json::to_value` fails on the `update` map
     ///   (pathological conditions only — allocation failure, a
-    ///   `Calendar` value or a `PatchObject` whose JSON tree exceeds
+    ///   `PatchObject` whose JSON tree exceeds
     ///   `serde_json`'s recursion limit). The transient memory peak for
     ///   very large maps is roughly 3-4× the source map's in-memory
     ///   size (source map + `serde_json::Value` tree + serialized
@@ -147,12 +148,12 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::calendar_get`].
     pub async fn calendar_set(
         &self,
-        create: Option<BTreeMap<String, jmap_calendars_types::Calendar>>,
+        create: Option<serde_json::Value>,
         update: Option<BTreeMap<Id, PatchObject>>,
-        destroy: Option<&[Id]>,
+        destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<super::CalendarSetParams>,
-    ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "calendar_set: at least one of create, update, destroy must be Some \
@@ -160,7 +161,7 @@ impl super::SessionClient {
                     .into(),
             ));
         }
-        if let Some(m) = &create {
+        if let Some(m) = create.as_ref().and_then(serde_json::Value::as_object) {
             if m.keys().any(|k| k.is_empty()) {
                 return Err(jmap_base_client::ClientError::InvalidArgument(
                     "calendar_set: create map key (creation id) may not be empty".into(),
@@ -184,11 +185,7 @@ impl super::SessionClient {
             args["ifInState"] = s.as_ref().into();
         }
         if let Some(c) = create {
-            args["create"] = serde_json::to_value(&c).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "calendar_set: serializing create map failed: {e}"
-                ))
-            })?;
+            args["create"] = c;
         }
         if let Some(u) = update {
             args["update"] = serde_json::to_value(&u).map_err(|e| {
