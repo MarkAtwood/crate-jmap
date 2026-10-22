@@ -106,10 +106,12 @@ impl super::SessionClient {
     /// the filter must include a `chatId` condition unless it includes
     /// `hasMention: true`; servers return `unsupportedFilter` otherwise.
     ///
-    /// `sort: None` sends `receivedAt` descending, so `position: 0,
-    /// limit: N` returns the N most recent messages; the spec forbids
-    /// ordering by `sentAt`. Callers displaying messages chronologically
-    /// pass an ascending `receivedAt` comparator or reverse after fetching.
+    /// `sort: None` omits `sort`, so the server applies the
+    /// draft-atwood-jmap-chat-00 §Message/query default: `receivedAt`
+    /// ascending when the filter has `chatId`, descending otherwise. To get
+    /// the N most recent messages of a chat with `position: 0, limit: N`,
+    /// pass a descending `receivedAt` comparator. The spec forbids ordering
+    /// by `sentAt`.
     ///
     /// `params` selects the result window
     /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5);
@@ -593,13 +595,12 @@ pub(super) fn message_query_args<C: Serialize>(
             "message_query: a filter scoped by chat_id or has_mention=true must be provided".into(),
         ));
     };
-    let sort = match sort {
-        Some(s) => serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?,
-        None => serde_json::json!([{"property": "receivedAt", "isAscending": false}]),
-    };
     let mut args = params.to_arguments(account_id);
     args["filter"] =
         serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?;
-    args["sort"] = sort;
+    if let Some(s) = sort {
+        args["sort"] =
+            serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+    }
     Ok(args)
 }

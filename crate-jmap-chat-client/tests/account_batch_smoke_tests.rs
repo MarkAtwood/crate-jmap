@@ -221,8 +221,9 @@ async fn batch_chat_query_get_sends_rfc8620_result_reference() {
 /// its own /query, and each handle reads its own response.
 ///
 /// Oracle: RFC 8620 §3.7 example (four calls "t0".."t3", each `#ids`
-/// naming the prior call's id and method); `Message/query` sort per
-/// draft-atwood-jmap-chat-00 §Message/query (`receivedAt`).
+/// naming the prior call's id and method); `sort: None` omits `sort` so
+/// the draft-atwood-jmap-chat-00 §Message/query default applies
+/// (jmap-chat-spec 29e9a41 L1295).
 #[tokio::test]
 async fn batch_two_pairs_reference_their_own_queries() {
     let server = MockServer::start().await;
@@ -303,7 +304,6 @@ async fn batch_two_pairs_reference_their_own_queries() {
             ["Message/query", {
                 "accountId": TEST_ACCOUNT_ID,
                 "filter": { "chatId": "chat-1" },
-                "sort": [{ "property": "receivedAt", "isAscending": false }],
                 "limit": 50
             }, "t2"],
             ["Message/get", {
