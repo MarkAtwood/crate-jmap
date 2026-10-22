@@ -105,6 +105,12 @@ impl super::SessionClient {
     ///   `ParticipantIdentity` state on the server or the method rejects
     ///   with `stateMismatch`. Pass the `newState` returned by a prior
     ///   /get or /set response.
+    /// - `params`: extra method-level arguments
+    ///   ([`ParticipantIdentitySetParams`](super::ParticipantIdentitySetParams)).
+    ///   Pass `None` for spec-default behavior. Set
+    ///   [`ParticipantIdentitySetParams::on_success_set_is_default`](super::ParticipantIdentitySetParams::on_success_set_is_default)
+    ///   to change the default identity; with it set, `create`, `update`
+    ///   and `destroy` may all be `None`.
     ///
     /// # Errors
     ///
@@ -126,10 +132,15 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
+        params: Option<super::ParticipantIdentitySetParams>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
-        if create.is_none() && update.is_none() && destroy.is_none() {
+        let sets_default = params
+            .as_ref()
+            .is_some_and(|p| p.on_success_set_is_default.is_some());
+        if create.is_none() && update.is_none() && destroy.is_none() && !sets_default {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "participant_identity_set: at least one of create, update, destroy must be Some \
+                "participant_identity_set: at least one of create, update, destroy or \
+                 params.on_success_set_is_default must be Some \
                  (an all-None /set is a no-op round-trip)"
                     .into(),
             ));
@@ -161,6 +172,27 @@ impl super::SessionClient {
         }
         if let Some(s) = if_in_state {
             args["ifInState"] = s.as_ref().into();
+        }
+        let mut params_extra: Option<serde_json::Map<String, serde_json::Value>> = None;
+        if let Some(p) = params {
+            if let Some(v) = p.on_success_set_is_default {
+                args["onSuccessSetIsDefault"] = v.into();
+            }
+            if !p.extra.is_empty() {
+                params_extra = Some(p.extra);
+            }
+        }
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if let Some(extra) = params_extra {
+            let args_obj = args
+                .as_object_mut()
+                .expect("participant_identity_set: args is constructed as Object");
+            for (k, v) in extra {
+                args_obj.entry(k).or_insert(v);
+            }
         }
         let req = super::build_request("ParticipantIdentity/set", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;

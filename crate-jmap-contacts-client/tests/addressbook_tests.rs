@@ -383,3 +383,57 @@ async fn address_book_set_created_omits_client_sent_properties() {
     assert_eq!(k1.extra["myRights"]["mayShare"], false);
     assert!(!k1.extra.contains_key("name"));
 }
+
+/// Oracle: RFC 9610 §4.2, Figure 3 — "The client tries to change the
+/// default address book ... (and makes no other change)" with an
+/// AddressBook/set carrying only `accountId` and `onSuccessSetIsDefault`.
+#[tokio::test]
+async fn addressbook_set_default_only_change() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "AddressBook/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2"
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    sc.address_book_set(
+        None,
+        None,
+        None,
+        None,
+        Some(jmap_contacts_client::AddressBookSetParams {
+            on_success_set_is_default: Some("cd40089d-35f9-4fd7-980b-ba3a9f1d74fe".into()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("address_book_set: a default-only change must be sent");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    assert_eq!(reqs.len(), 1, "must have received exactly one request");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    assert_eq!(
+        body["methodCalls"][0][1],
+        json!({
+            "accountId": "A13824",
+            "onSuccessSetIsDefault": "cd40089d-35f9-4fd7-980b-ba3a9f1d74fe"
+        })
+    );
+}

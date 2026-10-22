@@ -39,11 +39,16 @@ pub struct AddressBookSetParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_contents: Option<bool>,
 
-    /// A `serde_json::Value` holding the `onSuccessSetIsDefault` argument.
-    /// When `Some`, the server sets the indicated AddressBook as the default
-    /// after all other operations succeed (RFC 9610 §2.3).
+    /// AddressBook to make the default once every create, update and
+    /// destroy in the call succeeds (RFC 9610 §2.3,
+    /// `onSuccessSetIsDefault: Id|null`): an existing AddressBook id, or
+    /// `"#"` followed by a creation id from this call's `create` map. A
+    /// `String`, not [`jmap_types::Id`], because `#` is not a valid `Id`
+    /// character. The server ignores an id it cannot find or a change it
+    /// does not permit. A call with only this field set is valid
+    /// (RFC 9610 §4.2).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_success_set_is_default: Option<serde_json::Value>,
+    pub on_success_set_is_default: Option<String>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -363,13 +368,13 @@ mod tests {
         );
     }
 
-    /// Oracle: AddressBookSetParams with on_success_set_is_default serializes it.
-    /// Expected: JSON key is "onSuccessSetIsDefault".
+    /// Oracle: RFC 9610 §4.2, Figure 3 — the default-change request
+    /// carries `"onSuccessSetIsDefault": "cd40089d-35f9-4fd7-980b-ba3a9f1d74fe"`.
     #[test]
     fn address_book_set_params_serializes_on_success_set_is_default() {
         let params = AddressBookSetParams {
             on_destroy_remove_contents: None,
-            on_success_set_is_default: Some(json!({"newDefaultId": true})),
+            on_success_set_is_default: Some("cd40089d-35f9-4fd7-980b-ba3a9f1d74fe".into()),
             extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&params).expect("serialize");
@@ -379,7 +384,7 @@ mod tests {
         );
         assert_eq!(
             v["onSuccessSetIsDefault"],
-            json!({"newDefaultId": true}),
+            json!("cd40089d-35f9-4fd7-980b-ba3a9f1d74fe"),
             "onSuccessSetIsDefault must be present"
         );
     }

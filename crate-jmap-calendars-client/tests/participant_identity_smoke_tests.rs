@@ -202,7 +202,7 @@ async fn participant_identity_set_create_round_trip() {
     let mut create_map = BTreeMap::new();
     create_map.insert("newPi".to_owned(), identity);
     let resp = sc
-        .participant_identity_set(Some(json!(create_map)), None, None, None)
+        .participant_identity_set(Some(json!(create_map)), None, None, None, None)
         .await
         .expect("participant_identity_set: must succeed");
 
@@ -295,7 +295,7 @@ async fn participant_identity_set_destroy_only_passthrough() {
     let sc = helpers::make_client(&server);
     let destroy_ids = [Id::from("pi-old")];
     let _ = sc
-        .participant_identity_set(None, None, Some(destroy_ids.to_vec()), None)
+        .participant_identity_set(None, None, Some(destroy_ids.to_vec()), None, None)
         .await
         .expect("participant_identity_set: must succeed");
 
@@ -314,5 +314,61 @@ async fn participant_identity_set_destroy_only_passthrough() {
     assert!(
         args.get("update").is_none(),
         "update must be absent when None passed"
+    );
+}
+
+/// Oracle: draft-ietf-jmap-calendars-33 §3.3 — `onSuccessSetIsDefault`
+/// for a ParticipantIdentity created in the same call is "the creation
+/// id prefixed with a `#`".
+#[tokio::test]
+async fn participant_identity_set_default_creation_reference() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "ParticipantIdentity/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": {"newPi": {"id": "pi-9"}}
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    sc.participant_identity_set(
+        Some(json!({"newPi": {"calendarAddress": "mailto:jane@work.example.com"}})),
+        None,
+        None,
+        None,
+        Some(jmap_calendars_client::ParticipantIdentitySetParams {
+            on_success_set_is_default: Some("#newPi".into()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .expect("participant_identity_set: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    assert_eq!(reqs.len(), 1, "must have received exactly one request");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    assert_eq!(
+        body["methodCalls"][0][1],
+        json!({
+            "accountId": "A13824",
+            "create": {"newPi": {"calendarAddress": "mailto:jane@work.example.com"}},
+            "onSuccessSetIsDefault": "#newPi"
+        })
     );
 }

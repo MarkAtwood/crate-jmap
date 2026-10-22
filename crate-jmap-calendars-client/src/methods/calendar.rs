@@ -123,7 +123,10 @@ impl super::SessionClient {
     ///   (or `Some(Default::default())`) for spec-default behavior. Use
     ///   [`CalendarSetParams::on_destroy_remove_events`](super::CalendarSetParams::on_destroy_remove_events)
     ///   to allow destroying a non-empty calendar (otherwise the server
-    ///   returns `calendarHasEvent`), and
+    ///   returns `calendarHasEvent`),
+    ///   [`CalendarSetParams::on_success_set_is_default`](super::CalendarSetParams::on_success_set_is_default)
+    ///   to change the default calendar (the only argument needed for a
+    ///   default-only change), and
     ///   [`CalendarSetParams::extra`](super::CalendarSetParams::extra) for
     ///   vendor / site extension fields (workspace extras-preservation
     ///   policy).
@@ -154,9 +157,13 @@ impl super::SessionClient {
         if_in_state: Option<&State>,
         params: Option<super::CalendarSetParams>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
-        if create.is_none() && update.is_none() && destroy.is_none() {
+        let sets_default = params
+            .as_ref()
+            .is_some_and(|p| p.on_success_set_is_default.is_some());
+        if create.is_none() && update.is_none() && destroy.is_none() && !sets_default {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "calendar_set: at least one of create, update, destroy must be Some \
+                "calendar_set: at least one of create, update, destroy or \
+                 params.on_success_set_is_default must be Some \
                  (an all-None /set is a no-op round-trip)"
                     .into(),
             ));
@@ -176,6 +183,9 @@ impl super::SessionClient {
         if let Some(p) = params {
             if let Some(flag) = p.on_destroy_remove_events {
                 args["onDestroyRemoveEvents"] = flag.into();
+            }
+            if let Some(id) = p.on_success_set_is_default {
+                args["onSuccessSetIsDefault"] = id.into();
             }
             if !p.extra.is_empty() {
                 params_extra = Some(p.extra);

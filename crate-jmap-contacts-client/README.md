@@ -138,13 +138,15 @@ pub struct AddressBookSetParams {
     pub on_destroy_remove_contents: Option<bool>,
 
     /// Designates one AddressBook as the account default after all other
-    /// operations succeed (RFC 9610 §2.3).
-    pub on_success_set_is_default: Option<serde_json::Value>,
+    /// operations succeed (RFC 9610 §2.3): an AddressBook id, or `"#"`
+    /// followed by a creation id from the same call.
+    pub on_success_set_is_default: Option<String>,
 }
 ```
 
 Pass `None` for `params` (or `Some(Default::default())`) when neither argument
-is needed.
+is needed. A call that only sets `on_success_set_is_default` (no create,
+update or destroy) is valid and changes the default (RFC 9610 §4.2).
 
 ## How it works
 
