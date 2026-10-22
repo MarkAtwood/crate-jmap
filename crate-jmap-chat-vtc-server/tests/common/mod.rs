@@ -297,13 +297,9 @@ impl VtcBackend for Bound {
         self.vtc.destroy_object::<O>(caller, account_id, id).await
     }
 
-    async fn is_user_blocked(
-        &self,
-        _caller: &String,
-        account_id: &Id,
-        user_id: &str,
-    ) -> Result<bool, VtcError> {
-        is_blocked_by_contact(&self.chat, &(), account_id, user_id)
+    /// Every caller's own account is [`ACCOUNT`] in this fixture.
+    async fn is_user_blocked(&self, _caller: &String, user_id: &str) -> Result<bool, VtcError> {
+        is_blocked_by_contact(&self.chat, &(), &Id::from(ACCOUNT), user_id)
             .await
             .map_err(chat_error)
     }

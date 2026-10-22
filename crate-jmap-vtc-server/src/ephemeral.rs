@@ -28,6 +28,7 @@ use jmap_vtc_types::{
     RingEndReason, VtcCall, VtcEvent, VtcParticipant, VtcStreamEnable, VTC_EVENT_TYPES,
 };
 
+use crate::call::JMAP_CHAT_URI;
 use crate::VtcBackend;
 
 /// Which calls a subscription covers for per-call events.
@@ -184,9 +185,12 @@ enum Origin<'a> {
 /// VTCParticipant records ... This is usually not the recipient's personal
 /// account" (draft-atwood-jmap-vtc-wss-00 L296-301). The call, its
 /// participants, the recipient's userId and moderator status are read
-/// there. `recipient_account_id` is the recipient's own account, whose
-/// block list "the recipient's contact list" (L347, L360) names; every
-/// [`VtcBackend::is_user_blocked`] check uses it.
+/// there. `recipient_account_id` is the recipient's own account: the
+/// block checks apply only when it advertises `urn:ietf:params:jmap:chat`
+/// ([`VtcBackend::has_capability`]), as in Scene and Graph, and then ask
+/// [`VtcBackend::is_user_blocked`] with the recipient as the caller,
+/// whose contact list is "the recipient's contact list" (L347, L360 at
+/// 29e9a41).
 ///
 /// This function does not rate-limit; the §Rate Limiting SHOULD rules are
 /// the transport's or deployment's to apply.
@@ -211,9 +215,7 @@ pub async fn should_deliver<B: VtcBackend>(
     }
     let (call_id, origin) = match event {
         VtcEvent::Ring(e) => {
-            return Ok(!backend
-                .is_user_blocked(caller, recipient_account_id, &e.initiator_id)
-                .await?)
+            return Ok(!is_blocked(backend, caller, recipient_account_id, &e.initiator_id).await?)
         }
         VtcEvent::CallEnd(e) => {
             if !matches!(
@@ -225,8 +227,7 @@ pub async fn should_deliver<B: VtcBackend>(
             return Ok(
                 match fetch_call(backend, caller, hosting_account_id, &e.call_id).await? {
                     Some(call) => {
-                        !backend
-                            .is_user_blocked(caller, recipient_account_id, &call.initiator_id)
+                        !is_blocked(backend, caller, recipient_account_id, &call.initiator_id)
                             .await?
                     }
                     None => true,
@@ -280,13 +281,23 @@ pub async fn should_deliver<B: VtcBackend>(
         Origin::User(user) => Some(user),
     };
     Ok(match origin_user {
-        Some(user) => {
-            !backend
-                .is_user_blocked(caller, recipient_account_id, user)
-                .await?
-        }
+        Some(user) => !is_blocked(backend, caller, recipient_account_id, user).await?,
         None => true,
     })
+}
+
+/// `true` if the recipient `caller` blocked `user`: only when
+/// `recipient_account_id` has Chat, then per [`VtcBackend::is_user_blocked`].
+async fn is_blocked<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    recipient_account_id: &Id,
+    user: &str,
+) -> Result<bool, B::Error> {
+    if !backend.has_capability(caller, recipient_account_id, JMAP_CHAT_URI) {
+        return Ok(false);
+    }
+    backend.is_user_blocked(caller, user).await
 }
 
 async fn fetch_call<B: VtcBackend>(

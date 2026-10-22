@@ -43,9 +43,11 @@ fn seed_participant(backend: &MemoryBackend, record: Value) {
 }
 
 /// Active room call `C1` (initiator [`BOB`]) with [`BOB`] as moderator and
-/// [`ALICE`] and [`EVE`] as current participants.
+/// [`ALICE`] and [`EVE`] as current participants, in an account that
+/// advertises Chat, so the contact-list block rules apply.
 fn fixture(e2ee: bool) -> MemoryBackend {
     let backend = backend();
+    backend.advertise(&Id::from(ACCOUNT), CHAT_URI);
     let mut call = stored_call("C1", "room", "active", "2026-06-05T14:30:00Z");
     call["e2eeEnabled"] = json!(e2ee);
     seed(&backend, call);
@@ -358,6 +360,34 @@ async fn blocked_participant_suppresses_in_call_events() {
     assert!(delivers(&backend, ALICE, &sub, &unmute_request(BOB)).await);
     // Only the blocking recipient is affected.
     assert!(delivers(&backend, BOB, &sub, &participant_event("P-EVE")).await);
+}
+
+/// wss at 29e9a41 L344-348: the contact-list block applies "when
+/// {{JMAP-CHAT}} is present". The recipient's account here does not
+/// advertise `urn:ietf:params:jmap:chat`, so a block recorded for the
+/// recipient suppresses nothing (bd:JMAP-skk9.4: the Scene rule, wss
+/// L826-830 of draft-atwood-jmap-scene-wss-00, for every extension).
+#[tokio::test]
+async fn blocks_need_chat_on_the_recipient_account() {
+    let backend = backend();
+    seed(
+        &backend,
+        stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
+    );
+    seed_participant(
+        &backend,
+        participant("P-ALICE", "C1", ALICE, "participant", true, false),
+    );
+    seed_participant(
+        &backend,
+        participant("P-EVE", "C1", EVE, "participant", true, false),
+    );
+    backend.block(ALICE, BOB);
+    backend.block(ALICE, EVE);
+    let sub = all_events();
+    assert!(delivers(&backend, ALICE, &sub, &ring()).await);
+    assert!(delivers(&backend, ALICE, &sub, &call_end("cancelled")).await);
+    assert!(delivers(&backend, ALICE, &sub, &participant_event("P-EVE")).await);
 }
 
 /// wss L378-382: "This rule does not apply to `VTCRecordingStateEvent`,

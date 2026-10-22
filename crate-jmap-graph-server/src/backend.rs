@@ -342,14 +342,31 @@ pub trait GraphBackend: JmapBackend {
         async {}
     }
 
+    /// `true` if the consumer advertises the capability `uri` for
+    /// `account_id`.
+    ///
+    /// [`crate::should_deliver`] asks it for `urn:ietf:params:jmap:chat` on
+    /// the recipient's own account: the blocked-sender rule applies "When
+    /// {{JMAP-CHAT}} is also available" (draft-atwood-jmap-graph-edit-00
+    /// at 29e9a41, L370).
+    fn has_capability(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        uri: &str,
+    ) -> bool;
+
     /// `true` if the recipient `caller` has blocked Principal `sender_id`.
     ///
-    /// "When JMAP Chat is also available, a server SHOULD NOT deliver a
+    /// "When {{JMAP-CHAT}} is also available, a server SHOULD NOT deliver a
     /// cursor event to a user who has blocked the sender"
-    /// (draft-atwood-jmap-graph-edit-00 §GraphCursorEvent).
-    /// [`crate::should_deliver`] consults it for cursor events only: "Ops
-    /// are shared document state ... so they are always delivered." A
-    /// backend without Chat returns `false`.
+    /// (draft-atwood-jmap-graph-edit-00 at 29e9a41, L370).
+    /// [`crate::should_deliver`] consults it for cursor events only, and
+    /// only when the recipient's own account advertises
+    /// `urn:ietf:params:jmap:chat` ([`GraphBackend::has_capability`]):
+    /// "Ops are shared document state ... so they are always delivered."
+    /// The caller identifies whose contact list to read, never the node's
+    /// hosting account.
     ///
     /// # Default implementation
     ///
@@ -357,10 +374,9 @@ pub trait GraphBackend: JmapBackend {
     fn is_sender_blocked(
         &self,
         caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
         sender_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        let _ = (caller, account_id, sender_id);
+        let _ = (caller, sender_id);
         async { Ok(false) }
     }
 

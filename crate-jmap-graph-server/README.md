@@ -19,7 +19,7 @@ No HTTP, no persistence, no WebSocket transport.
 | `handle_graph_*` | §Graph Methods |
 | `handle_graph_node_*` | §GraphNode Methods |
 | `handle_graph_edge_*` | §GraphEdge Methods |
-| `GraphBackend` | storage, `graph_capability`, atomic rights re-checks and destroy cascades; edit hooks `graph_edit_capability`, `edit_log`, `projected_graph_id`, `publish_cursor`, `is_sender_blocked`; search hook `graph_search_capability` |
+| `GraphBackend` | storage, `graph_capability`, `has_capability`, atomic rights re-checks and destroy cascades; edit hooks `graph_edit_capability`, `edit_log`, `projected_graph_id`, `publish_cursor`, `is_sender_blocked`; search hook `graph_search_capability` |
 | `register_graph_edit_handlers` | graph-edit §Methods: GraphNodeOp `/get`, `/changes`, `/set`, `/query`, `/queryChanges`, `GraphNode/cursor` |
 | `op::*` | graph-edit §GraphNodeOp/set, §GraphNodeOp/query, §GraphNode/cursor |
 | `GraphEditSubscription`, `should_deliver` | graph-edit §WebSocket Stream |

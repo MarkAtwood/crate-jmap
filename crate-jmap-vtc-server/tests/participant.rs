@@ -1567,13 +1567,8 @@ impl VtcBackend for FailCallUpdate {
             .await
     }
 
-    async fn is_user_blocked(
-        &self,
-        caller: &String,
-        account_id: &Id,
-        user_id: &str,
-    ) -> Result<bool, MemoryError> {
-        self.0.is_user_blocked(caller, account_id, user_id).await
+    async fn is_user_blocked(&self, caller: &String, user_id: &str) -> Result<bool, MemoryError> {
+        self.0.is_user_blocked(caller, user_id).await
     }
 
     fn supports_type<O: JmapObject>(&self, caller: &String, account_id: &Id) -> bool {

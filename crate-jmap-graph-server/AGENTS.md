@@ -52,5 +52,5 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-graph-serv
 | `opsCompacted` | `EditLog::compacted_through` read after the query; front-only compaction makes that sufficient |
 | Compaction | backend policy, not a trait method; memory `compact_ops` |
 | Stream | `GraphEditSubscription` per connection + `should_deliver`; transport is the consumer's (scene/chat pattern) |
-| Cursor fan-out, block check | `publish_cursor` (no-op default), `is_sender_blocked` (fail-open, bd:JMAP-bghk) |
+| Cursor fan-out, block check | `publish_cursor` (no-op default), `is_sender_blocked(caller, sender)` (fail-open, bd:JMAP-bghk), asked only when `has_capability` reports Chat on the recipient's account |
 | Tests | Each assertion quotes its draft line; never the code under test |
