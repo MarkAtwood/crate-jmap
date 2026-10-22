@@ -1309,6 +1309,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `jmap_tasks_types::jscalendar` and
+  `jmap_contacts_types::jscontact` are modules re-exporting the same named
+  sub-types as each crate's top level, no longer aliases of the whole
+  `jmap-jscalendar-types` / `jmap-jscontact-types` crates. Paths such as
+  `jmap_tasks_types::jscalendar::Location` keep working; names outside the
+  list must be imported from the source crate (bd:JMAP-y6a8).
 - **BREAKING** Capability URI constants are declared only in the types
   crates; server crates re-export them. jmap-mail-server,
   jmap-calendars-server and jmap-contacts-server drop their duplicate

@@ -104,14 +104,27 @@ pub mod capability;
 pub mod card;
 mod collision;
 
-/// Module alias re-exporting [`jmap_jscontact_types`].
+/// RFC 9553 JSContact typed sub-objects from [`jmap_jscontact_types`].
 ///
 /// Provides nested access to JSContact sub-object types as
 /// `jmap_contacts_types::jscontact::Name`, mirroring the
 /// `jmap_calendars_types::jscalendar::*` pattern. New code should prefer
 /// the top-level re-exports (e.g. `jmap_contacts_types::Name`) or the
 /// direct path `jmap_jscontact_types::Name`.
-pub use jmap_jscontact_types as jscontact;
+///
+/// **Bounded surface.** This module re-exports exactly the names of the
+/// top-level JSContact re-export below, not the whole
+/// `jmap_jscontact_types` crate, so an addition there does not widen this
+/// crate's public API without an intentional change to both lists
+/// (bd:JMAP-y6a8).
+pub mod jscontact {
+    pub use jmap_jscontact_types::{
+        Address, AddressComponent, Anniversary, AnniversaryDate, Author, Calendar, CryptoKey,
+        Directory, EmailAddress, LanguagePref, Link, Media, Name, NameComponent, Nickname, Note,
+        OnlineService, OrgUnit, Organization, PartialDate, PersonalInfo, Phone, Pronouns, Relation,
+        SchedulingAddress, SpeakToAs, Timestamp, Title,
+    };
+}
 
 pub use addressbook::{AddressBook, AddressBookRights};
 pub use backend::{AddressBookProperty, ContactCardProperty};
