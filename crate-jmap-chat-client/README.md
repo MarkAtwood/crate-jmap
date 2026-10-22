@@ -184,11 +184,9 @@ async fn drive_chat_ws(session: &Session) -> Result<(), Box<dyn std::error::Erro
     // 3. Open the WsSession (auth header tuple is built by your auth code).
     let mut ws = connect_ws(&ws_cap.url, /* auth_header = */ None).await?;
 
-    // 4. Drive it via ChatWsExt — each yielded frame is a typed ChatWsFrame:
-    //    StateChange, Response, ChatTyping, ChatPresence or
-    //    Unknown { type_name }. An RFC 8887 RequestError frame currently
-    //    arrives as Unknown { type_name: "<unknown>" }; use
-    //    jmap_base_client's WsFrame::RequestError to see it typed.
+    // 4. Drive it via ChatWsExt — each yielded frame is a ChatWsFrame:
+    //    ChatTyping, ChatPresence, or Other(WsFrame) carrying the base
+    //    StateChange, Response, RequestError or Unknown frame unchanged.
     while let Some(frame) = ws.next_chat_frame().await {
         let _frame = frame?;
     }
