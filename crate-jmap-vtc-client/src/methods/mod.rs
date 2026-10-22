@@ -26,8 +26,8 @@ use serde::{de::DeserializeOwned, Serialize};
 // one canonical set of /get, /set, /changes, /query, /queryChanges shapes.
 
 pub use jmap_types::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
-    SetResponse,
+    AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
+    SetError, SetResponse,
 };
 
 // ---------------------------------------------------------------------------
@@ -283,7 +283,7 @@ impl SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(format!(
                 "{method}: at least one of create, update, destroy must be Some \

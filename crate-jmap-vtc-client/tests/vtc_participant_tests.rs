@@ -270,7 +270,8 @@ async fn vtc_participant_set_join_matches_lifecycle_example() {
     );
     let created = resp.created.expect("created must be present");
     let record: VtcParticipant =
-        serde_json::from_value(created["p0"].clone()).expect("complete record must decode");
+        serde_json::from_value(serde_json::to_value(&created["p0"]).expect("serializes"))
+            .expect("complete record must decode");
     assert_eq!(record.display_name, "Alice Chen");
     assert_eq!(record.role, CallRole::Participant);
     assert_eq!(record.speaker_time_ms, 0);

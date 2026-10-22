@@ -7,7 +7,9 @@ use jmap_types::{Id, PatchObject, State};
 use jmap_vtc_types::query::{VtcParticipantComparator, VtcParticipantFilter};
 use jmap_vtc_types::VtcParticipant;
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 
 impl super::SessionClient {
     /// `VTCParticipant/get` (draft-atwood-jmap-vtc-00 L824-L826; RFC 8620 §5.1).
@@ -94,7 +96,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set("VTCParticipant/set", create, update, destroy, if_in_state)
             .await
     }

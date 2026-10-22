@@ -1319,6 +1319,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-vtc-client**: **BREAKING** `vtc_call_set`,
+  `vtc_participant_set`, `vtc_recording_set` and `vtc_livestream_set`
+  return `SetResponse<PartialObject>` instead of the hidden default
+  `SetResponse<serde_json::Value>` (RFC 8620 §5.3).
 - **jmap-scene-client**: **BREAKING** `scene_asset_set`,
   `scene_avatar_set`, `scene_object_set` and `scene_region_set` return
   `SetResponse<PartialObject>` instead of the hidden default

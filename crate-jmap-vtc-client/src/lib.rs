@@ -29,8 +29,8 @@ pub mod ws;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
-    SetError, SetResponse,
+    AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
+    SessionClient, SetError, SetResponse,
 };
 pub use ws::{parse_vtc_ws_frame, VtcWsExt, VtcWsFrame};
 
