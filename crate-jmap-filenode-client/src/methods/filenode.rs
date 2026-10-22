@@ -61,8 +61,25 @@ pub struct FileNodeGetParams {
 
 /// The action to take when a FileNode with the same name already exists
 /// (draft-ietf-jmap-filenode-16 §3.2.3 `onExists` argument).
+///
+/// The `onExists` value set has grown across draft revisions (`"newest"`
+/// in -14, `"unchanged"` in -16), so this enum is `#[non_exhaustive]` and
+/// a `match` outside this crate needs a wildcard arm:
+///
+/// ```compile_fail
+/// use jmap_filenode_client::FileNodeOnExists;
+/// fn f(o: FileNodeOnExists) -> u8 {
+///     match o {
+///         FileNodeOnExists::Replace => 0,
+///         FileNodeOnExists::Rename => 1,
+///         FileNodeOnExists::Newest => 2,
+///         FileNodeOnExists::Unchanged => 3,
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub enum FileNodeOnExists {
     /// Replace the existing node with the new one.
     Replace,
