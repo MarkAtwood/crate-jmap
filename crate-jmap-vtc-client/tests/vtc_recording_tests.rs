@@ -51,8 +51,8 @@ async fn vtc_recording_set_create_matches_lifecycle_example() {
         }])
     );
     assert_eq!(
-        resp.created.expect("created")["r0"]["id"],
-        json!("01J4XP2SN9RXVV1SSEGJVT6GH0")
+        resp.created.expect("created")["r0"].id,
+        Some(Id::from("01J4XP2SN9RXVV1SSEGJVT6GH0"))
     );
 }
 

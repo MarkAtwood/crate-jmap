@@ -70,7 +70,7 @@ All `pub async fn` on `SessionClient`. `<T>` is `vtc_call`, `vtc_participant`,
 |---|---|---|
 | `<T>_get(ids, properties)` | `…/get` | `GetResponse<VtcCall>` (etc.) |
 | `<T>_changes(since_state, max_changes)` | `…/changes` | `ChangesResponse` |
-| `<T>_set(create, update, destroy, if_in_state)` | `…/set` | `SetResponse` |
+| `<T>_set(create, update, destroy, if_in_state)` | `…/set` | `SetResponse<PartialObject>` |
 | `<T>_query(filter, sort, position, limit)` | `…/query` | `QueryResponse` |
 | `<T>_query_changes(since_query_state, max_changes, filter, sort, up_to_id, calculate_total)` | `…/queryChanges` | `QueryChangesResponse` |
 
@@ -91,7 +91,7 @@ before any I/O.
   `sc.for_account(hosting_account_id)?`; to list all of a user's calls, query each
   VTC account in the session.
 
-- `/set` returns the untyped `SetResponse`: RFC 8620 §5.3 `created` entries carry only
+- `/set` returns `SetResponse<PartialObject>`: RFC 8620 §5.3 `created` entries carry only
   the server-set properties, which are not whole VTC objects.
 - `/get` decodes whole objects; a `properties` subset that drops a required field fails
   to decode.

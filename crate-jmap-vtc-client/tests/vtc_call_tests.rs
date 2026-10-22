@@ -77,8 +77,11 @@ async fn vtc_call_set_create_ring_matches_lifecycle_example() {
     );
     // L1864-L1872: the created entry carries only server-set properties.
     let created = resp.created.expect("created must be present");
-    assert_eq!(created["c0"]["id"], json!("01J4XKZQN4MWVT8PPBEHTJ3AB0"));
-    assert_eq!(created["c0"]["state"], json!("ringing"));
+    assert_eq!(
+        created["c0"].id,
+        Some(Id::from("01J4XKZQN4MWVT8PPBEHTJ3AB0"))
+    );
+    assert_eq!(created["c0"].extra["state"], json!("ringing"));
 }
 
 /// draft-atwood-jmap-vtc-00 L1997-L2004, "Bob ends the call".
