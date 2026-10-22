@@ -280,7 +280,7 @@ pub struct ContactCardFilterCondition {
     pub note: Option<String>,
 }
 
-pub type ContactCardFilter = jmap_types::query::Filter<ContactCardFilterCondition>;
+pub type ContactCardFilter = jmap_types::Filter<ContactCardFilterCondition>;
 
 pub struct ContactCardComparator {
     pub property: String,                         // "created"|"updated"|"name/given"|...
