@@ -15,9 +15,9 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, EmailCopyParams, EmailGetParams, EmailImportInput, EmailImportResponse,
-    EmailParseParams, EmailParseResponse, GetResponse, QueryChangesResponse, QueryResponse,
-    SetResponse,
+    ChangesResponse, CopyResponse, EmailCopyParams, EmailGetParams, EmailImportInput,
+    EmailImportResponse, EmailParseParams, EmailParseResponse, GetResponse, PartialObject,
+    QueryChangesResponse, QueryResponse, SetResponse,
 };
 
 impl super::SessionClient {
@@ -170,6 +170,10 @@ impl super::SessionClient {
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
     ///
+    /// Each `created` / `updated` value is a [`PartialObject`]: RFC 8620 §5.3
+    /// returns only the properties the client did not send, which for an
+    /// Email are `id`, `blobId`, `threadId` and `size` (RFC 8621 §4.6).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -197,7 +201,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse<jmap_mail_types::Email>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "email_set: at least one of create, update, destroy must be Some \
@@ -424,10 +428,14 @@ impl super::SessionClient {
     ///   `#`-prefixed result references that cannot be resolved.
     ///
     /// Per-entry failures (one per creation key in `create`) appear in
-    /// [`SetResponse::not_created`] as [`SetError`](super::SetError)
+    /// [`CopyResponse::not_created`] as [`SetError`](super::SetError)
     /// values, NOT as method-level errors. Common per-entry codes
     /// include `invalidProperties`, `notFound` (when the source email
     /// id does not exist), `overQuota`, and `alreadyExists`.
+    ///
+    /// Returns a [`CopyResponse`]. Each `created` value is a
+    /// [`PartialObject`] holding the server-set properties (RFC 8620 §5.4):
+    /// `id`, `blobId`, `threadId` and `size` of the new Email (RFC 8621 §4.7).
     ///
     /// # Errors
     ///
@@ -446,7 +454,7 @@ impl super::SessionClient {
         &self,
         params: EmailCopyParams,
         create: serde_json::Value,
-    ) -> Result<SetResponse<jmap_mail_types::Email>, jmap_base_client::ClientError> {
+    ) -> Result<CopyResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,

@@ -2,8 +2,9 @@
 //!
 //! SearchSnippet/get (RFC 8621 §5.1) is not a standard /get method: it takes
 //! `filter` and `emailIds` instead of a plain `ids` array, and the response
-//! shape differs (no `state` field, but does include `notFound`). We
-//! therefore return `serde_json::Value` and let the caller deserialize.
+//! shape differs (no `state` field, and `notFound` is `Id[]|null`). It
+//! therefore returns its own typed
+//! [`SearchSnippetGetResponse`].
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -13,6 +14,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
+use jmap_mail_types::SearchSnippetGetResponse;
 use jmap_types::query::Filter;
 use jmap_types::Id;
 use serde::Serialize;
@@ -30,10 +32,8 @@ impl super::SessionClient {
     /// the resulting email ids here — RFC 8621 §5.1 does not define a
     /// `threadIds` argument on this method.
     ///
-    /// Returns the raw response value because the SearchSnippet/get response
-    /// shape differs from the standard /get shape (no `state`).
-    /// Callers should deserialize into `Vec<jmap_mail_types::SearchSnippet>` via
-    /// `response["list"].as_array()`.
+    /// Returns a [`SearchSnippetGetResponse`]: the RFC 8621 §5.1 response
+    /// is not the standard /get shape (no `state`, nullable `notFound`).
     ///
     /// The account is the one bound to this [`SessionClient`](super::SessionClient)
     /// — there is no caller-supplied override (closed bd:JMAP-tjvm.30 for
@@ -73,7 +73,7 @@ impl super::SessionClient {
         &self,
         filter: &Filter<C>,
         email_ids: Option<&[Id]>,
-    ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
+    ) -> Result<SearchSnippetGetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let filter = serde_json::to_value(filter).map_err(|e| {
             jmap_base_client::ClientError::InvalidArgument(format!(

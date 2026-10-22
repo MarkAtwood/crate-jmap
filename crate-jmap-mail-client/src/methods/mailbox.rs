@@ -14,8 +14,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, GetResponse, MailboxSetParams, QueryChangesResponse, QueryResponse,
-    SetResponse,
+    ChangesResponse, GetResponse, MailboxSetParams, PartialObject, QueryChangesResponse,
+    QueryResponse, SetResponse,
 };
 
 impl super::SessionClient {
@@ -126,6 +126,10 @@ impl super::SessionClient {
     /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
     /// `stateMismatch` unless its current state matches.
     ///
+    /// Each `created` / `updated` value is a [`PartialObject`]: RFC 8620 §5.3
+    /// returns only the properties the client did not send (the server-set
+    /// `id`, plus any property the server defaulted).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -145,7 +149,7 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<MailboxSetParams>,
-    ) -> Result<SetResponse<jmap_mail_types::Mailbox>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "mailbox_set: at least one of create, update, destroy must be Some \

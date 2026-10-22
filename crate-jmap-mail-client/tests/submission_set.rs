@@ -74,8 +74,8 @@ async fn email_submission_set_create_round_trip() {
 
     let created = resp.created.as_ref().expect("created must be Some");
     assert_eq!(
-        created["k1490"].id.as_ref(),
-        "ES-3bab7f9a",
+        created["k1490"].id.as_ref().map(|i| i.as_ref()),
+        Some("ES-3bab7f9a"),
         "created[k1490].id must match"
     );
     assert!(resp.not_created.is_none(), "notCreated must be absent");
