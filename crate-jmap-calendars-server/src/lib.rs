@@ -968,7 +968,7 @@ pub(crate) mod test_support {
             params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
             args: &CalendarEventQueryArgs,
         ) -> Result<jmap_server::QueryResult, QueryCalendarEventsError<Self::Error>> {
-            if let Some(f) = params.filter {
+            if let Some(jmap_types::Filter::Condition(f)) = params.filter {
                 if let Some(in_cal) = f.in_calendar.as_ref() {
                     match in_cal.as_ref() {
                         "trigger-too-large" => {
@@ -2219,27 +2219,27 @@ mod tests {
     /// syntactically valid, but the server cannot process it."
     /// draft-ietf-jmap-calendars-33 §5.11 and §7.4 define the
     /// CalendarEvent and CalendarEventNotification FilterCondition
-    /// properties (`inCalendar`, ...; `type`, `calendarEventIds`, ...).
-    /// These objects take a bare FilterCondition here, so an unknown key or
-    /// an operator tree is refused on the bespoke CalendarEvent/query path
-    /// and on the generic CalendarEvent/queryChanges and
-    /// CalendarEventNotification/query paths, instead of matching every
-    /// record.
+    /// properties (`inCalendar`, ...; `type`, `calendarEventIds`, ...). An
+    /// unknown key, at the top level or inside an operator tree, is refused
+    /// on the bespoke CalendarEvent/query path and on the generic
+    /// CalendarEvent/queryChanges and CalendarEventNotification/query
+    /// paths, instead of matching every record.
     #[tokio::test]
-    async fn calendar_queries_refuse_unknown_keys_and_operator_trees() {
+    async fn calendar_queries_refuse_unknown_keys() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
 
-        let operator_tree = json!({ "operator": "AND", "conditions": [{ "inCalendar": "c1" }] });
         for (method, filter) in [
             ("CalendarEvent/query", json!({ "in_calendar": "c1" })),
-            ("CalendarEvent/query", operator_tree.clone()),
+            (
+                "CalendarEvent/query",
+                json!({ "operator": "AND", "conditions": [{ "in_calendar": "c1" }] }),
+            ),
             (
                 "CalendarEvent/queryChanges",
                 json!({ "inCalendar": "c1", "bogus": 1 }),
             ),
-            ("CalendarEventNotification/query", operator_tree),
             (
                 "CalendarEventNotification/query",
                 json!({ "calendar_event_ids": ["e1"] }),
@@ -2271,6 +2271,62 @@ mod tests {
             resp.method_responses[0].name, "CalendarEvent/query",
             "{resp:?}"
         );
+    }
+
+    /// Oracle: RFC 8620 §5.5 types the /query and /queryChanges `filter` as
+    /// "FilterOperator|FilterCondition|null", so an operator tree is
+    /// accepted on all three paths. draft-ietf-jmap-calendars-33 §5.11:
+    /// with expandRecurrences true, "the filter MUST be just a
+    /// FilterCondition (not a FilterOperator) and MUST include both a
+    /// "before" and "after" property", so the same tree is then refused.
+    #[tokio::test]
+    async fn calendar_queries_accept_operator_trees() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let tree = |key: &str, a: serde_json::Value, b: serde_json::Value| {
+            json!({ "operator": "OR", "conditions": [
+                { key: a },
+                { "operator": "NOT", "conditions": [{ key: b }] },
+            ] })
+        };
+        for (method, operator_tree) in [
+            (
+                "CalendarEvent/query",
+                tree("inCalendar", json!("c1"), json!("c2")),
+            ),
+            (
+                "CalendarEvent/queryChanges",
+                tree("inCalendar", json!("c1"), json!("c2")),
+            ),
+            (
+                "CalendarEventNotification/query",
+                tree("calendarEventIds", json!(["e1"]), json!(["e2"])),
+            ),
+        ] {
+            let req = single_call(
+                method,
+                json!({ "accountId": "acc1", "sinceQueryState": "s0", "filter": operator_tree }),
+                "c0",
+            );
+            let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+            assert_eq!(resp.method_responses[0].name, method, "{resp:?}");
+        }
+
+        let bounded_tree = json!({ "operator": "AND", "conditions": [
+            { "after": "2026-01-01T00:00:00", "before": "2026-01-02T00:00:00" },
+        ] });
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({ "accountId": "acc1", "expandRecurrences": true, "filter": bounded_tree }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
+        assert_eq!(args["type"], "invalidArguments", "{args}");
     }
 
     /// Oracle: §10.8.3 — when the backend signals `ExpandDurationTooLarge`,

@@ -1665,3 +1665,65 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
     );
     assert_eq!(not_found[0], "card-source");
 }
+
+// ---------------------------------------------------------------------------
+// ContactCard/query evaluates an RFC 8620 §5.5 filter tree (bd:JMAP-skk9.2)
+// Oracle: RFC 8620 §5.5 types `filter` as "FilterOperator|FilterCondition|null";
+// "AND": all of the conditions must match, "OR": at least one must match,
+// "NOT": none of the conditions must match. RFC 9610 §3.3.1 `inAddressBook`
+// and `kind`. Expected ids are read off the hand-written fixture: card-a is
+// an individual in ab1, card-b an individual in ab2, card-c a group in ab1.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn contact_card_query_evaluates_operator_tree() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    for (id, book, kind) in [
+        ("card-a", "ab1", "individual"),
+        ("card-b", "ab2", "individual"),
+        ("card-c", "ab1", "group"),
+    ] {
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            id,
+            json!({
+                "id": id,
+                "@type": "Card",
+                "version": "1.0",
+                "uid": format!("u-{id}"),
+                "kind": kind,
+                "addressBookIds": { book: true },
+            }),
+        );
+    }
+    for (filter, want) in [
+        (
+            json!({ "operator": "OR", "conditions": [
+                { "inAddressBook": "ab2" },
+                { "kind": "group" },
+            ] }),
+            vec!["card-b", "card-c"],
+        ),
+        (
+            json!({ "operator": "AND", "conditions": [
+                { "inAddressBook": "ab1" },
+                { "operator": "NOT", "conditions": [{ "kind": "group" }] },
+            ] }),
+            vec!["card-a"],
+        ),
+    ] {
+        let args = json!({ "accountId": "acc1", "filter": filter });
+        let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+            .await
+            .expect("/query must succeed");
+        let mut got: Vec<&str> = resp["ids"]
+            .as_array()
+            .expect("ids must be array")
+            .iter()
+            .map(|v| v.as_str().expect("id must be a string"))
+            .collect();
+        got.sort_unstable();
+        assert_eq!(got, want, "filter {filter}: {resp}");
+    }
+}

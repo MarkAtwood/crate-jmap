@@ -34,7 +34,7 @@ use jmap_chat_types::{Attachment, AttachmentCreate, Chat, ChatKind, ChatPermissi
 use jmap_filenode_server::FileNodeBackend;
 use jmap_filenode_types::{FileNode, FileNodeFilterCondition, FilesRights, NodeRole, NodeType};
 use jmap_server::{BackendQueryError, BackendSetError, QueryParams, SetError, SetErrorType};
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Filter, Id, PatchObject};
 
 /// A storage failure while checking a FileNode operation or a
 /// `filenodeId` Attachment.
@@ -147,9 +147,10 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
         )));
     };
 
-    let mut filter = FileNodeFilterCondition::default();
-    filter.role = Some(NodeRole::ChatSpace);
-    filter.space_id = Some(space_id.clone());
+    let mut condition = FileNodeFilterCondition::default();
+    condition.role = Some(NodeRole::ChatSpace);
+    condition.space_id = Some(space_id.clone());
+    let filter = Filter::Condition(condition);
     let existing = files
         .query_objects::<FileNode>(
             files_caller,
@@ -353,9 +354,10 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
     account_id: &Id,
     space_id: &Id,
 ) -> Result<Vec<Id>, TreeDestroyError<F::Error>> {
-    let mut filter = FileNodeFilterCondition::default();
-    filter.role = Some(NodeRole::ChatSpace);
-    filter.space_id = Some(space_id.clone());
+    let mut condition = FileNodeFilterCondition::default();
+    condition.role = Some(NodeRole::ChatSpace);
+    condition.space_id = Some(space_id.clone());
+    let filter = Filter::Condition(condition);
     let roots = files
         .query_objects::<FileNode>(caller, account_id, QueryParams::new().filter(Some(&filter)))
         .await

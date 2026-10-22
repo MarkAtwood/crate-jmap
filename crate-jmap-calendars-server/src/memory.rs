@@ -70,6 +70,7 @@ use crate::{
     QueryResult, SetError, SetErrorType, SetObject,
 };
 use crate::{CalendarsBackend, SetDefaultResult};
+use jmap_calendars_types::CalendarEventFilter;
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
 
@@ -800,17 +801,26 @@ impl JmapBackend for MemoryBackend {
         // crate-level MemoryBackend rustdoc.
         let inner = self.inner.lock().unwrap();
 
-        // For CalendarEvent, support the `inCalendar` filter (used by
-        // `Calendar/set` cleanup when `onDestroyRemoveEvents: true`).
-        // Other filters fall through to "match all".
-        let in_calendar: Option<String> = if O::TYPE_NAME == "CalendarEvent" {
-            filter
-                .and_then(|f| serde_json::to_value(f).ok())
-                .and_then(|v| {
-                    v.get("inCalendar")
-                        .and_then(|c| c.as_str())
-                        .map(String::from)
-                })
+        // For CalendarEvent, evaluate the RFC 8620 §5.5 filter tree over
+        // the `inCalendar` condition property (used by `Calendar/set`
+        // cleanup when `onDestroyRemoveEvents: true`). Other condition
+        // properties are not evaluated: a condition naming only them
+        // matches every event. Other types match every record.
+        //
+        // Type-identity roundtrip: when O::TYPE_NAME == "CalendarEvent" the
+        // generic O::Filter is necessarily CalendarEventFilter (see the
+        // QueryObject impl in jmap-calendars-types src/backend.rs), so both
+        // halves are infallible; Pattern G (bc79c70) requires .expect()
+        // rather than a silent fallback that would drop the filter.
+        let event_filter: Option<CalendarEventFilter> = if O::TYPE_NAME == "CalendarEvent" {
+            filter.map(|f| {
+                let v =
+                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+                serde_json::from_value(v).expect(
+                    "type-identity roundtrip on CalendarEventFilter is infallible: \
+                     the JSON came from Serialize on the same concrete type",
+                )
+            })
         } else {
             None
         };
@@ -822,13 +832,16 @@ impl JmapBackend for MemoryBackend {
                     m.iter().map(|(k, v)| (k.clone(), v)).collect();
                 keys.sort_by(|a, b| a.0.as_ref().cmp(b.0.as_ref()));
                 keys.into_iter()
-                    .filter(|(_, v)| match &in_calendar {
-                        None => true,
-                        Some(target) => v
-                            .get("calendarIds")
-                            .and_then(|c| c.as_object())
-                            .map(|map| map.contains_key(target))
-                            .unwrap_or(false),
+                    .filter(|(_, v)| {
+                        event_filter.as_ref().is_none_or(|f| {
+                            f.matches(&|c| {
+                                c.in_calendar.as_ref().is_none_or(|target| {
+                                    v.get("calendarIds")
+                                        .and_then(|ids| ids.as_object())
+                                        .is_some_and(|map| map.contains_key(target.as_ref()))
+                                })
+                            })
+                        })
                     })
                     .map(|(id, _)| id)
                     .collect()

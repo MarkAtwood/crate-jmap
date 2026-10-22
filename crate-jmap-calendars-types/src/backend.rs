@@ -224,7 +224,7 @@ impl SetObject for crate::Calendar {
 }
 
 impl QueryObject for crate::Calendar {
-    type Filter = crate::CalendarFilterCondition;
+    type Filter = crate::CalendarFilter;
     // draft-ietf-jmap-calendars-33 defines no Calendar/query, so there are
     // no sort properties to type.
     type Comparator = serde_json::Value;
@@ -242,7 +242,7 @@ impl SetObject for crate::CalendarEvent {
 }
 
 impl QueryObject for crate::CalendarEvent {
-    type Filter = crate::CalendarEventFilterCondition;
+    type Filter = crate::CalendarEventFilter;
     type Comparator = crate::CalendarEventComparator;
 }
 
@@ -262,7 +262,7 @@ impl SetObject for crate::CalendarEventNotification {
 }
 
 impl QueryObject for crate::CalendarEventNotification {
-    type Filter = crate::NotificationFilterCondition;
+    type Filter = crate::NotificationFilter;
     type Comparator = crate::CalendarEventNotificationComparator;
 }
 
@@ -527,5 +527,34 @@ mod tests {
                  variant has the wrong wire-string"
             );
         }
+    }
+
+    /// Oracle: RFC 8620 §5.5 (line 2368) types the /query `filter` as
+    /// "FilterOperator|FilterCondition|null". draft-ietf-jmap-calendars-33
+    /// §5.11 names the CalendarEvent `inCalendar` condition and §7.4 the
+    /// CalendarEventNotification `calendarEventIds` condition; Calendar's
+    /// `name` is this crate's condition (the draft defines no
+    /// Calendar/query). A hand-written NOT tree decodes as each filter.
+    #[test]
+    fn query_filters_are_operator_trees() {
+        /// Decodes `json` as `O`'s filter, which must be the full tree.
+        fn decodes_as_operator<O, C>(json: serde_json::Value) -> bool
+        where
+            O: QueryObject<Filter = jmap_types::Filter<C>>,
+            C: serde::de::DeserializeOwned,
+        {
+            let f: O::Filter = serde_json::from_value(json).expect("operator tree must decode");
+            matches!(f, jmap_types::Filter::Operator(_))
+        }
+        let not = |cond: serde_json::Value| serde_json::json!({ "operator": "NOT", "conditions": [cond] });
+        assert!(decodes_as_operator::<crate::Calendar, _>(not(
+            serde_json::json!({ "name": "Work" })
+        )));
+        assert!(decodes_as_operator::<crate::CalendarEvent, _>(not(
+            serde_json::json!({ "inCalendar": "c1" })
+        )));
+        assert!(decodes_as_operator::<crate::CalendarEventNotification, _>(
+            not(serde_json::json!({ "calendarEventIds": ["e1"] }))
+        ));
     }
 }

@@ -3686,3 +3686,90 @@ async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
         "L145: role not changed, so not rejected: {resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/query — RFC 8620 §5.5 filter tree on MemoryBackend (bd:JMAP-skk9.2).
+// Oracle: RFC 8620 §5.5 types `filter` as "FilterOperator|FilterCondition|null";
+// "OR": at least one of the conditions must match, "NOT": none of the
+// conditions must match. draft-ietf-jmap-filenode `role` / `hasAnyRole`.
+// Expected nodes are read off the hand-written create: d1 has role
+// documents, d2 role downloads, d3 no role. An unsupported `body`
+// condition nested in a tree still surfaces as serverFail.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_query_evaluates_operator_tree() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "d1": { "@type": "Directory", "name": "documents", "parentId": null, "role": "documents" },
+                "d2": { "@type": "Directory", "name": "downloads", "parentId": null, "role": "downloads" },
+                "d3": { "@type": "Directory", "name": "no-role",    "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("create must succeed");
+    let id = |c: &str| {
+        set_resp["created"][c]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{c} must be created: {set_resp}"))
+            .to_owned()
+    };
+
+    for (filter, mut want) in [
+        (
+            json!({ "operator": "OR", "conditions": [
+                { "role": "documents" },
+                { "role": "downloads" },
+            ] }),
+            vec![id("d1"), id("d2")],
+        ),
+        (
+            json!({ "operator": "NOT", "conditions": [{ "hasAnyRole": true }] }),
+            vec![id("d3")],
+        ),
+    ] {
+        let HandlerOutput {
+            primary: q_resp, ..
+        } = handle_filenode_query(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "filter": filter, "sort": null }),
+        )
+        .await
+        .expect("query must succeed");
+        let mut got: Vec<String> = q_resp["ids"]
+            .as_array()
+            .expect("ids must be array")
+            .iter()
+            .map(|v| v.as_str().expect("id must be a string").to_owned())
+            .collect();
+        got.sort();
+        want.sort();
+        assert_eq!(got, want, "filter {filter}: {q_resp}");
+    }
+
+    let err = handle_filenode_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "filter": { "operator": "AND", "conditions": [
+                { "role": "documents" },
+                { "body": "search-term" },
+            ] },
+            "sort": null
+        }),
+    )
+    .await
+    .expect_err("a nested body condition must not silently match");
+    assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
+}

@@ -29,7 +29,7 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilterCondition};
-use jmap_types::{Id, JmapError, PatchObject};
+use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::helpers::{
@@ -448,8 +448,9 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
     // Step 1: query event ids whose calendarIds include this calendar.
     // CalendarEventFilterCondition is #[non_exhaustive], so construct via
     // Default + field assignment rather than a struct literal.
-    let mut filter = CalendarEventFilterCondition::default();
-    filter.in_calendar = Some(calendar_id.clone());
+    let mut condition = CalendarEventFilterCondition::default();
+    condition.in_calendar = Some(calendar_id.clone());
+    let filter = Filter::Condition(condition);
     let event_ids: Vec<Id> = backend
         .query_objects::<CalendarEvent>(
             caller,

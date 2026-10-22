@@ -575,3 +575,54 @@ fn capability_uri_calendars_matches_draft() {
         "urn:ietf:params:jmap:calendars"
     );
 }
+
+// ---------------------------------------------------------------------------
+// CalendarEvent/query evaluates an RFC 8620 §5.5 filter tree
+// Oracle: RFC 8620 §5.5 types `filter` as "FilterOperator|FilterCondition|null";
+// "AND": all of the conditions must match, "OR": at least one must match,
+// "NOT": none of the conditions must match. draft-ietf-jmap-calendars-33
+// §5.11 `inCalendar`: the event must be in this calendar. Expected ids are
+// read off the hand-written fixture: e1 is in cal1, e2 in cal2, e3 in both.
+// Bead: JMAP-skk9.2.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn calendar_event_query_evaluates_operator_tree() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    for (id, calendar_ids) in [
+        ("e1", json!({ "cal1": true })),
+        ("e2", json!({ "cal2": true })),
+        ("e3", json!({ "cal1": true, "cal2": true })),
+    ] {
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            id,
+            json!({ "id": id, "calendarIds": calendar_ids }),
+        );
+    }
+    let cal = |id: &str| json!({ "inCalendar": id });
+    for (filter, want) in [
+        (
+            json!({ "operator": "OR", "conditions": [cal("cal1"), cal("cal2")] }),
+            json!(["e1", "e2", "e3"]),
+        ),
+        (
+            json!({ "operator": "AND", "conditions": [
+                cal("cal1"),
+                { "operator": "NOT", "conditions": [cal("cal2")] },
+            ] }),
+            json!(["e1"]),
+        ),
+        (
+            json!({ "operator": "NOT", "conditions": [cal("cal1")] }),
+            json!(["e2"]),
+        ),
+    ] {
+        let args = json!({ "accountId": "acc1", "filter": filter });
+        let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+            .await
+            .expect("/query must not return top-level error");
+        assert_eq!(resp["ids"], want, "filter {filter}: {resp}");
+    }
+}

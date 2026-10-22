@@ -59,9 +59,9 @@ use crate::{
     QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_cid_types::Sha256;
-use jmap_filenode_types::{FileNode, NodeRole, NodeType};
+use jmap_filenode_types::{FileNode, FileNodeFilter, NodeRole, NodeType};
 use jmap_server::{apply_patch_object, resolve_query_start};
-use jmap_types::{Id, State};
+use jmap_types::{Filter, Id, Operator, State};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -546,13 +546,13 @@ impl JmapBackend for MemoryBackend {
         };
         let current_state = State::from(store.state.to_string());
 
-        // Parse the filter as FileNodeFilterCondition via serde round-trip.
+        // Parse the filter as FileNodeFilter via serde round-trip.
         // This avoids the #[non_exhaustive] restriction outside the defining
         // crate. Serde errors are propagated as MemoryError rather than
         // silently dropped — silent-drop on filter parse degenerates into
         // an unfiltered query, which is a query-correctness bug
         // (workspace AGENTS.md "Filter algebra exclusion §1"; bd:JMAP-510h.53).
-        let fc: Option<jmap_filenode_types::FileNodeFilterCondition> = match filter {
+        let fc: Option<FileNodeFilter> = match filter {
             None => None,
             Some(f) => {
                 let v = serde_json::to_value(f)
@@ -566,7 +566,11 @@ impl JmapBackend for MemoryBackend {
 
         let mut ids: Vec<Id> = Vec::new();
         for node in store.nodes.values() {
-            if node_matches_filter(node, fc.as_ref(), &store.nodes)? {
+            let matches = match &fc {
+                None => true,
+                Some(f) => node_matches_tree(node, f, &store.nodes)?,
+            };
+            if matches {
                 ids.push(node.id.clone());
             }
         }
@@ -973,6 +977,39 @@ impl FileNodeBackend for MemoryBackend {
 // ---------------------------------------------------------------------------
 // Filter matching helper
 // ---------------------------------------------------------------------------
+
+/// Evaluate an RFC 8620 §5.5 filter tree over [`node_matches_filter`]:
+/// "AND": all of the conditions must match, "OR": at least one, "NOT":
+/// none.
+///
+/// Every child is evaluated, without short-circuiting, so an unsupported
+/// condition anywhere in the tree is an `Err` regardless of its position.
+/// An operator or filter variant this version does not know is an `Err`
+/// too, rather than a guessed match.
+fn node_matches_tree(
+    node: &FileNode,
+    filter: &FileNodeFilter,
+    nodes: &HashMap<Id, FileNode>,
+) -> Result<bool, MemoryError> {
+    let op = match filter {
+        Filter::Condition(c) => return node_matches_filter(node, Some(c), nodes),
+        Filter::Operator(op) => op,
+        _ => return Err(MemoryError::new("unknown filter variant")),
+    };
+    let mut any = false;
+    let mut all = true;
+    for child in &op.conditions {
+        let m = node_matches_tree(node, child, nodes)?;
+        any |= m;
+        all &= m;
+    }
+    match op.operator {
+        Operator::And => Ok(all),
+        Operator::Or => Ok(any),
+        Operator::Not => Ok(!any),
+        _ => Err(MemoryError::new("unknown filter operator")),
+    }
+}
 
 /// Returns `Ok(true)` if `node` satisfies the filter condition `fc`,
 /// `Ok(false)` if it does not match, and `Err(MemoryError(...))` if the
