@@ -3,7 +3,7 @@
 //! Oracle: draft-atwood-jmap-chat-00 at jmap-chat-spec 0983787, which
 //! removed `offset` and `length` from both types.
 
-use jmap_chat_types::message::{BroadcastMention, Mention};
+use jmap_chat_types::{BroadcastMention, Mention};
 use serde_json::json;
 
 /// §Mention: "A Mention carries no position in `body`." Its only field is

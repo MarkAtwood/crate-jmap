@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_graph_types::query::GraphComparator;
+use jmap_graph_types::GraphComparator;
 use jmap_graph_types::{Graph, GraphCapability, GraphRights};
 use jmap_types::{Id, JmapError};
 use serde_json::{json, Map, Value};

@@ -32,7 +32,7 @@ wants to consume any Tasks type.
 ## What it's for
 
 These typed sub-types are consumed by `jmap-calendars-types` — which re-exports
-them as the `jscalendar` module alias — and are planned for `jmap-tasks-types`
+them at its crate root — and are planned for `jmap-tasks-types`
 (bd:JMAP-yfpq) so Tasks can share the same shapes without taking a Calendars
 dep. The crate carries pure data-types only: no JMAP-method semantics, no
 async, no network I/O. JMAP wire envelopes and identity types come from

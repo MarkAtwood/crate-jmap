@@ -13,7 +13,7 @@ Implements draft-ietf-jmap-contacts (RFC 9610) method bindings on top of
 `jmap-mail-client` in the extension-client family — mirrors that crate's
 shape. Depends on `jmap-base-client` for transport and session, and on
 `jmap-contacts-types` for the wire types (including the RFC 9553 JSContact
-sub-types re-exported under the `jscontact` module alias).
+sub-types re-exported at its crate root).
 
 ## How to use
 

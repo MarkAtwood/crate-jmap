@@ -95,7 +95,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`MessageFilterCondition`](jmap_chat_types::query::MessageFilterCondition); use
+    /// [`MessageFilterCondition`](jmap_chat_types::MessageFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<MessageFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions. Per spec
     /// the filter must include a `chatId` condition unless it includes
@@ -134,7 +134,7 @@ impl super::SessionClient {
     pub async fn message_query<C: Serialize>(
         &self,
         filter: Option<&Filter<C>>,
-        sort: Option<&[jmap_chat_types::query::MessageComparator]>,
+        sort: Option<&[jmap_chat_types::MessageComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
@@ -510,7 +510,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`MessageFilterCondition`](jmap_chat_types::query::MessageFilterCondition); use
+    /// [`MessageFilterCondition`](jmap_chat_types::MessageFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<MessageFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&MessageFilter>`).
@@ -538,7 +538,7 @@ impl super::SessionClient {
         since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<&Filter<C>>,
-        sort: Option<&[jmap_chat_types::query::MessageComparator]>,
+        sort: Option<&[jmap_chat_types::MessageComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -584,7 +584,7 @@ impl super::SessionClient {
 pub(super) fn message_query_args<C: Serialize>(
     account_id: &str,
     filter: Option<&Filter<C>>,
-    sort: Option<&[jmap_chat_types::query::MessageComparator]>,
+    sort: Option<&[jmap_chat_types::MessageComparator]>,
     params: &jmap_base_client::QueryParams,
 ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
     let Some(filter) = filter else {

@@ -8,8 +8,8 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_tasks_types::task::{TaskFilter, TaskFilterCondition};
 use jmap_tasks_types::{LocalDateTime, TaskComparator, TaskComparatorProperty};
+use jmap_tasks_types::{TaskFilter, TaskFilterCondition};
 use jmap_types::query::Filter;
 use jmap_types::{Id, State};
 use serde_json::json;

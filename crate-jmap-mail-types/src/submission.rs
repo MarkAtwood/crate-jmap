@@ -6,7 +6,7 @@
 //!
 //! Also defines [`EmailSubmissionFilterCondition`] for EmailSubmission/query
 //! (RFC 8621 §7.3); the `EmailSubmissionFilter` type alias lives in
-//! [`crate::query`].
+//! `query`.
 
 use std::collections::BTreeMap;
 

@@ -23,8 +23,8 @@
 //! deny path) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::query::{CustomEmojiComparator, CustomEmojiFilter};
 use jmap_chat_types::CustomEmoji;
+use jmap_chat_types::{CustomEmojiComparator, CustomEmojiFilter};
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 

@@ -28,7 +28,7 @@
 //! [`Default::default`] and set the fields you need:
 //!
 //! ```rust
-//! use jmap_chat_types::query::{MessageFilter, MessageFilterCondition};
+//! use jmap_chat_types::{MessageFilter, MessageFilterCondition};
 //! use jmap_types::Id;
 //!
 //! let mut cond = MessageFilterCondition::default();
@@ -254,7 +254,7 @@ impl_string_enum!(CustomEmojiComparatorProperty, "a sort property string",
 /// `is_ascending` defaults to `true` (RFC 8620 §5.5).
 ///
 /// ```rust
-/// use jmap_chat_types::query::{MessageComparator, MessageComparatorProperty};
+/// use jmap_chat_types::{MessageComparator, MessageComparatorProperty};
 ///
 /// let mut cmp = MessageComparator::new(MessageComparatorProperty::ReceivedAt);
 /// cmp.is_ascending = false;

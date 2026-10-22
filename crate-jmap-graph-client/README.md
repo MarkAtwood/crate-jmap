@@ -39,7 +39,7 @@ edges.
 
 ```rust,no_run
 use jmap_graph_client::JmapGraphExt;
-use jmap_graph_types::query::GraphEdgeFilterCondition;
+use jmap_graph_types::GraphEdgeFilterCondition;
 use jmap_types::Id;
 
 # async fn run(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {

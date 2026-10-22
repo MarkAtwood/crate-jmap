@@ -14,7 +14,7 @@ use jmap_chat_federation_types::{
     PeerRoleUpdate,
 };
 use jmap_chat_server::{ChatBackend, GroupUpdateAction};
-use jmap_chat_types::vocabulary::CHAT_CAP_TASK;
+use jmap_chat_types::CHAT_CAP_TASK;
 use jmap_chat_types::{
     Chat, ChatContact, ChatKind, ChatMember, Clearable, DeliveryState, Message, MessageAction,
     Space,

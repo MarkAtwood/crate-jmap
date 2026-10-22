@@ -16,7 +16,7 @@
 //! call to any SceneAsset method returns an `unknownMethod` error"
 //! (§Account-Level Capability Object).
 
-use jmap_scene_types::query::SceneAssetComparator;
+use jmap_scene_types::SceneAssetComparator;
 use jmap_scene_types::{SceneAsset, SceneCapability};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Map, Value};

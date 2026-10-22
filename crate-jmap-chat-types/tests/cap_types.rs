@@ -3,7 +3,7 @@
 //! Oracle: the type strings quoted from draft-atwood-jmap-chat-00 at
 //! jmap-chat-spec 6bcd9d8.
 
-use jmap_chat_types::vocabulary::{
+use jmap_chat_types::{
     CHAT_CAP_AVAILABILITY, CHAT_CAP_CALENDAR_EVENT, CHAT_CAP_TASK, CHAT_CAP_VTC,
 };
 

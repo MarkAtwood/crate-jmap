@@ -12,7 +12,7 @@ use futures::{SinkExt as _, StreamExt as _};
 use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_base_client::{WsFrame, WsSession};
 use jmap_graph_client::{GraphEditWsExt, GraphEditWsFrame};
-use jmap_graph_types::edit::{GraphEditDataType, GraphEditStreamEnable};
+use jmap_graph_types::{GraphEditDataType, GraphEditStreamEnable};
 use jmap_types::Id;
 use serde_json::Value;
 use tokio::net::TcpListener;

@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_mail_types::{keyword, Keyword, Mailbox, MailboxRights, MailboxRole};
+use jmap_mail_types::{Keyword, Mailbox, MailboxRights, MailboxRole};
 use jmap_types::{Id, UTCDate};
 
 use super::MemoryBackend;
@@ -111,16 +111,16 @@ fn kw(name: &str) -> Keyword {
 }
 
 fn seen() -> Keyword {
-    kw(keyword::SEEN)
+    kw(jmap_mail_types::SEEN)
 }
 fn flagged() -> Keyword {
-    kw(keyword::FLAGGED)
+    kw(jmap_mail_types::FLAGGED)
 }
 fn answered() -> Keyword {
-    kw(keyword::ANSWERED)
+    kw(jmap_mail_types::ANSWERED)
 }
 fn forwarded() -> Keyword {
-    kw(keyword::FORWARDED)
+    kw(jmap_mail_types::FORWARDED)
 }
 
 /// Builder for a seed [`Mailbox`] with zero counts and default rights.

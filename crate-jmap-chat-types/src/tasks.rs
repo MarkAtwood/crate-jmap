@@ -10,7 +10,7 @@
 //!   `extra` field of `jmap_tasks_types::Task`) rather than the Task.
 //! - [`TaskMetadata`] is the typed `metadata` shape of a
 //!   [`MessageAction`](crate::MessageAction) whose `type` is
-//!   [`CHAT_CAP_TASK`](crate::vocabulary::CHAT_CAP_TASK). Cast with
+//!   [`CHAT_CAP_TASK`]. Cast with
 //!   `serde_json::from_value` at the consumer boundary. The draft treats
 //!   both `uri` and `metadata` as "peer-supplied and untrusted".
 //! - [`JMAP_URI_TASK_TYPE`] is the type name of the

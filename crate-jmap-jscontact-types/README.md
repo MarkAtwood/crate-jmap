@@ -46,8 +46,8 @@ future consumers. The Rust crate graph mirrors the spec dep graph.
 ## What it's for
 
 These typed sub-types are consumed by `jmap-contacts-types`, which re-exports
-them as the `jscontact` module alias so callers can write
-`jmap_contacts_types::Name` symmetrically with the jscalendar pattern. The
+them at its crate root so callers can write
+`jmap_contacts_types::Name`, the same pattern as `jmap-calendars-types`. The
 crate carries pure data-types only: no JMAP-method semantics, no async, no
 network I/O. It has no JMAP dependency — the RFC 9553 sub-object types are
 defined independently of the JMAP wire envelope.

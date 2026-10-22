@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 
 use jmap_base_client::ClientError;
 use jmap_graph_client::{JmapGraphExt, SessionClient};
-use jmap_graph_types::query::{
+use jmap_graph_types::{
     Filter, GraphComparator, GraphEdgeFilterCondition, GraphFilterCondition, GraphNodeComparator,
     GraphNodeFilterCondition, GraphNodeSortProperty, GraphSortProperty,
 };

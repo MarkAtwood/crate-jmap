@@ -3,10 +3,10 @@
 //! the draft text (examples copied byte-for-byte, quoted rules) and
 //! hand-written JSON, never the code under test.
 
-use jmap_graph_types::query::{GraphEdgeFilterCondition, GraphNodeFilterCondition};
-use jmap_graph_types::search::{
+use jmap_graph_types::{
     Bound, CandidateKind, Direction, Expression, FieldTest, WhereError, QUERY_TOO_COMPLEX,
 };
+use jmap_graph_types::{GraphEdgeFilterCondition, GraphNodeFilterCondition};
 use jmap_graph_types::{GraphSearchCapability, JMAP_GRAPH_SEARCH_URI};
 use jmap_types::{Id, JmapError};
 use serde::de::DeserializeOwned;

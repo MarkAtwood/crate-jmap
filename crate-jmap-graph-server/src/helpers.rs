@@ -6,7 +6,7 @@ use jmap_graph_types::{Graph, GraphCapability, GraphEdge, GraphNode, GraphNodeOp
 use jmap_types::{GetObject, Id, JmapError, JmapObject, PatchObject, State};
 use serde_json::{json, Map, Value};
 
-use jmap_graph_types::search::CandidateKind;
+use jmap_graph_types::CandidateKind;
 
 use crate::search::{check_search_filter, uses_search};
 use crate::{BackendSetError, GraphBackend, QueryObject, SetError, SetErrorType};
@@ -356,9 +356,9 @@ macro_rules! known_sort {
 }
 
 known_sort!(
-    jmap_graph_types::query::GraphComparator => jmap_graph_types::query::GraphSortProperty::Other,
-    jmap_graph_types::query::GraphNodeComparator => jmap_graph_types::query::GraphNodeSortProperty::Other,
-    jmap_graph_types::query::GraphEdgeComparator => jmap_graph_types::query::GraphEdgeSortProperty::Other,
+    jmap_graph_types::GraphComparator => jmap_graph_types::GraphSortProperty::Other,
+    jmap_graph_types::GraphNodeComparator => jmap_graph_types::GraphNodeSortProperty::Other,
+    jmap_graph_types::GraphEdgeComparator => jmap_graph_types::GraphEdgeSortProperty::Other,
 );
 
 /// The `annotations` checks of a Graph, GraphNode or GraphEdge as it would

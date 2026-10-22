@@ -11,11 +11,11 @@
 //! `nodeId` and sort by `seq` ascending only; `/query` answers
 //! `opsCompacted` when the result would not be contiguous with `afterSeq`.
 
-use jmap_graph_types::edit::{
+use jmap_graph_types::{GraphCapability, GraphEditCapability, GraphNode, GraphNodeOp};
+use jmap_graph_types::{
     GraphCursorEvent, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
     GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
-use jmap_graph_types::{GraphCapability, GraphEditCapability, GraphNode, GraphNodeOp};
 use jmap_server::{now_utc_string, server_fail_from_backend, HandlerOutput};
 use jmap_types::{Id, JmapError};
 use serde::Deserialize as _;

@@ -16,7 +16,6 @@ use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, set_update_response,
     MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, TEST_ACCOUNT_ID,
 };
-use jmap_chat_types::query;
 use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
@@ -281,7 +280,7 @@ async fn message_query_requires_chat_id_or_has_mention() {
 
     let err = sc
         .message_query(
-            None::<&query::MessageFilter>,
+            None::<&jmap_chat_types::MessageFilter>,
             None,
             &jmap_base_client::QueryParams::default(),
         )
@@ -364,8 +363,8 @@ async fn message_query_sort_ascending() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let sort = [query::MessageComparator::new(
-        query::MessageComparatorProperty::ReceivedAt,
+    let sort = [jmap_chat_types::MessageComparator::new(
+        jmap_chat_types::MessageComparatorProperty::ReceivedAt,
     )];
     let _ = sc
         .message_query(
@@ -404,7 +403,7 @@ async fn message_query_topic_id_filter_serializes() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut cond = query::MessageFilterCondition::default();
+    let mut cond = jmap_chat_types::MessageFilterCondition::default();
     cond.chat_id = Some(Id::from("chat-1"));
     cond.topic_id = Some("topic-1".to_owned());
     let _ = sc
@@ -499,7 +498,7 @@ async fn message_query_sends_not_operator() {
     );
     mock_jmap_post(&server, resp_body).await;
 
-    let mut with_attachment = query::MessageFilterCondition::default();
+    let mut with_attachment = jmap_chat_types::MessageFilterCondition::default();
     with_attachment.has_attachment = Some(true);
     let filter = Filter::Operator(FilterOperator::new(
         Operator::And,
@@ -535,8 +534,8 @@ async fn message_query_sends_not_operator() {
 }
 
 /// A `Message/query` filter with only `chatId: "chat-1"`.
-fn chat_filter() -> query::MessageFilter {
-    let mut cond = query::MessageFilterCondition::default();
+fn chat_filter() -> jmap_chat_types::MessageFilter {
+    let mut cond = jmap_chat_types::MessageFilterCondition::default();
     cond.chat_id = Some(Id::from("chat-1"));
     Filter::Condition(cond)
 }
@@ -1326,7 +1325,7 @@ async fn message_query_changes_passthrough_and_empty_state_rejected() {
         .message_query_changes(
             &since,
             Some(25),
-            None::<&query::MessageFilter>,
+            None::<&jmap_chat_types::MessageFilter>,
             None,
             None,
             None,
@@ -1347,7 +1346,7 @@ async fn message_query_changes_passthrough_and_empty_state_rejected() {
         .message_query_changes(
             &empty,
             None,
-            None::<&query::MessageFilter>,
+            None::<&jmap_chat_types::MessageFilter>,
             None,
             None,
             None,
@@ -1478,17 +1477,19 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("MSG-100");
-    let mut cond = query::MessageFilterCondition::default();
+    let mut cond = jmap_chat_types::MessageFilterCondition::default();
     cond.chat_id = Some(Id::from("chat-1"));
     // draft-atwood-jmap-chat-00 §Input Validation: "`sentAt`, `editedAt`:
     // store as-is; never use for ordering or expiry."; §Message/query
     // "Default sort: `receivedAt`".
-    let mut cmp = query::MessageComparator::new(query::MessageComparatorProperty::ReceivedAt);
+    let mut cmp = jmap_chat_types::MessageComparator::new(
+        jmap_chat_types::MessageComparatorProperty::ReceivedAt,
+    );
     cmp.is_ascending = false;
     sc.message_query_changes(
         &since,
         None,
-        Some(&query::Filter::Condition(cond)),
+        Some(&jmap_chat_types::Filter::Condition(cond)),
         Some(&[cmp]),
         Some(&up_to),
         Some(true),
@@ -1644,7 +1645,7 @@ async fn message_query_changes_all_none_omits_optional_wire_keys() {
     sc.message_query_changes(
         &since,
         None,
-        None::<&query::MessageFilter>,
+        None::<&jmap_chat_types::MessageFilter>,
         None,
         None,
         None,

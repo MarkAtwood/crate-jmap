@@ -3,8 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use jmap_graph_types::query::{GraphNodeComparator, GraphNodeFilterCondition};
 use jmap_graph_types::GraphNode;
+use jmap_graph_types::{GraphNodeComparator, GraphNodeFilterCondition};
 use jmap_types::{Id, PatchObject, State};
 
 use super::{

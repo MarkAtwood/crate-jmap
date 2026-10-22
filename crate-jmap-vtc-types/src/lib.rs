@@ -37,7 +37,7 @@
 //!   [`VtcStreamEnable`] and [`VtcStreamDisable`], and the
 //!   [`VTC_EVENT_TYPES`] vocabulary — the client→server stream control
 //!   frames of draft-atwood-jmap-vtc-wss-00.
-//! - [`query`] — the `VTCCall/query`, `VTCParticipant/query`,
+//! - `query` — the `VTCCall/query`, `VTCParticipant/query`,
 //!   `VTCRecording/query` and `VTCLivestream/query` filters and comparators.
 //! - `JmapObject` impls for [`VtcCall`] (`"VTCCall"`) and
 //!   [`VtcParticipant`] (`"VTCParticipant"`), each get/set/query, for
@@ -46,14 +46,14 @@
 #![forbid(unsafe_code)]
 
 mod backend;
-pub mod call;
+mod call;
 mod capability;
-pub mod event;
-pub mod participant;
-pub mod push;
-pub mod query;
-pub mod recording;
-pub mod stream;
+mod event;
+mod participant;
+mod push;
+mod query;
+mod recording;
+mod stream;
 mod wire;
 
 pub use call::{CallEndReason, CallState, CallType, VtcCall, VtcCallPolicy, VtcMediaState};
@@ -68,6 +68,13 @@ pub use event::{
 };
 pub use participant::{CallResponse, CallRole, JoinMethod, LobbyState, VtcParticipant};
 pub use push::VtcCallPush;
+pub use query::{
+    Filter, FilterOperator, Operator, VtcCallComparator, VtcCallFilter, VtcCallFilterCondition,
+    VtcCallSortProperty, VtcLivestreamFilter, VtcLivestreamFilterCondition, VtcMediaComparator,
+    VtcMediaSortProperty, VtcParticipantComparator, VtcParticipantFilter,
+    VtcParticipantFilterCondition, VtcParticipantSortProperty, VtcRecordingFilter,
+    VtcRecordingFilterCondition,
+};
 pub use recording::{LivestreamState, RecordingState, VtcLivestream, VtcRecording};
 pub use stream::{
     VtcEventType, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage, VTC_EVENT_TYPES,

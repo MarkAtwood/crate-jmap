@@ -8,15 +8,15 @@
 //! server-set properties, so the object tests below add hand-written
 //! server-set values (and resolve the creation ids) to make whole objects.
 
-use jmap_graph_types::query::{
-    GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphEdgeSortProperty,
-    GraphFilter, GraphNodeComparator, GraphNodeFilterCondition, GraphNodeSortProperty,
-    GraphSortProperty,
-};
 use jmap_graph_types::{
     Graph, GraphCapability, GraphEdge, GraphNode, GraphProjectionCapability, GraphRights,
     PrincipalGraphCapability, JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE,
     JMAP_URI_GRAPH_TYPE,
+};
+use jmap_graph_types::{
+    GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphEdgeSortProperty,
+    GraphFilter, GraphNodeComparator, GraphNodeFilterCondition, GraphNodeSortProperty,
+    GraphSortProperty,
 };
 use jmap_types::{Id, JmapObject, JmapUri};
 use serde::de::DeserializeOwned;

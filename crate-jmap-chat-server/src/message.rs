@@ -23,11 +23,11 @@
 //! `invalidPatch` paths) surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::query::{Filter, MessageComparator, MessageFilter, MessageFilterCondition};
 use jmap_chat_types::{
     Attachment, AttachmentCreate, BroadcastMention, Chat, DeliveryState, Mention, Message,
     MessageAction, PresenceStatus, ReadPosition, Space, BROADCAST_MENTION_SCOPES,
 };
+use jmap_chat_types::{Filter, MessageComparator, MessageFilter, MessageFilterCondition};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};

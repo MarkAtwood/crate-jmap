@@ -15,14 +15,14 @@
 //! L1943-L1956, L3113-L3203) are not instances of these types; the method
 //! beads test them.
 
-use jmap_scene_types::query::{
-    SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
-    SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
-    WithinBounds, WithinRadius,
-};
 use jmap_scene_types::{
     AccessPolicy, GeoAnchor, PhysicsMode, SceneAvatar, SceneBounds, SceneCapability, SceneObject,
     SceneRegion, ViewHint, JMAP_SCENE_URI,
+};
+use jmap_scene_types::{
+    SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
+    SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
+    WithinBounds, WithinRadius,
 };
 use jmap_types::Id;
 use serde::de::DeserializeOwned;

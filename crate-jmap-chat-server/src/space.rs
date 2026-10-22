@@ -27,12 +27,12 @@
 //! / `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not
 //! as `Err`.
 
-use jmap_chat_types::query::{SpaceComparator, SpaceFilter};
-use jmap_chat_types::space_set::{
+use jmap_chat_types::SPEC_PERMISSION_NAMES;
+use jmap_chat_types::{
     CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
 };
-use jmap_chat_types::vocabulary::SPEC_PERMISSION_NAMES;
 use jmap_chat_types::{Chat, ChatKind, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
+use jmap_chat_types::{SpaceComparator, SpaceFilter};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;

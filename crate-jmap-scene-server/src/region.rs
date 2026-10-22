@@ -10,7 +10,7 @@
 //! `createdAt` descending" and refuses an unknown `accessPolicy` filter
 //! value with `invalidArguments`.
 
-use jmap_scene_types::query::SceneRegionComparator;
+use jmap_scene_types::SceneRegionComparator;
 use jmap_scene_types::{GeoAnchor, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Map, Value};

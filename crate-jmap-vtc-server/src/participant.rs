@@ -24,12 +24,12 @@
 //! backend's reads apply ([`VtcBackend`] §Per-call access).
 
 use jmap_types::{Id, JmapError, PatchObject};
-use jmap_vtc_types::query::{Filter, Operator, VtcParticipantComparator, VtcParticipantFilter};
 use jmap_vtc_types::{
     CallEndReason, CallResponse, CallRole, CallState, CallType, JoinMethod, LobbyState,
     RingEndReason, VtcCall, VtcEvent, VtcGatewaySignal, VtcMediaState, VtcParticipant,
     VtcUnmuteRequestEvent,
 };
+use jmap_vtc_types::{Filter, Operator, VtcParticipantComparator, VtcParticipantFilter};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::time::SystemTime;

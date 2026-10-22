@@ -26,33 +26,33 @@
 //! - [`Graph`], [`GraphRights`] (draft §Graph).
 //! - [`GraphNode`] (draft §GraphNode).
 //! - [`GraphEdge`] (draft §GraphEdge).
-//! - [`query`] — the `/query` filters and comparators of the three types,
+//! - `query` — the `/query` filters and comparators of the three types,
 //!   including the draft-atwood-jmap-graph-projection-00 GraphNode
 //!   `objectUri` filter and its [`JMAP_GRAPH_PROJECTION_URI`] capability,
 //!   whose account-level object is [`GraphProjectionCapability`].
 //! - [`JMAP_URI_GRAPH_TYPE`], [`JMAP_URI_GRAPH_NODE_TYPE`],
 //!   [`JMAP_URI_GRAPH_EDGE_TYPE`] — the JMAP Object URI type names (draft
 //!   §JMAP Object URI Type Registrations).
-//! - [`edit`] — draft-atwood-jmap-graph-edit-00, the
+//! - `edit` — draft-atwood-jmap-graph-edit-00, the
 //!   `urn:ietf:params:jmap:graph:edit` capability: [`GraphNodeOp`], the
 //!   GraphNode `editFormat` and `snapshotSeq` accessors, `GraphNode/cursor`
 //!   and the WebSocket op and cursor stream.
-//! - [`search`] — draft-atwood-jmap-graph-search-00, the
+//! - `search` — draft-atwood-jmap-graph-search-00, the
 //!   `urn:ietf:params:jmap:graph:search` capability: the
 //!   [`GraphSearchCapability`], the built-in filter language
-//!   [`Expression`](search::Expression) carried in the GraphNode and
+//!   [`Expression`] carried in the GraphNode and
 //!   GraphEdge filter conditions' `where`, and `queryTooComplex`.
 
 #![forbid(unsafe_code)]
 
 mod backend;
 mod capability;
-pub mod edge;
-pub mod edit;
-pub mod graph;
-pub mod node;
-pub mod query;
-pub mod search;
+mod edge;
+mod edit;
+mod graph;
+mod node;
+mod query;
+mod search;
 mod wire;
 
 pub use capability::{
@@ -61,7 +61,22 @@ pub use capability::{
     JMAP_URI_GRAPH_TYPE,
 };
 pub use edge::GraphEdge;
-pub use edit::{GraphEditCapability, GraphNodeOp, JMAP_GRAPH_EDIT_URI};
+pub use edit::{
+    GraphCursorEvent, GraphEditCapability, GraphEditDataType, GraphEditEvent,
+    GraphEditStreamDisable, GraphEditStreamEnable, GraphEditStreamMessage, GraphNodeCursorRequest,
+    GraphNodeCursorResponse, GraphNodeOp, GraphNodeOpComparator, GraphNodeOpEvent,
+    GraphNodeOpFilterCondition, GraphNodeOpSortProperty, DATA_TYPE_CURSORS, DATA_TYPE_OPS,
+    GRAPH_EDIT_DATA_TYPES, GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY,
+    JMAP_GRAPH_EDIT_URI, OPS_COMPACTED,
+};
 pub use graph::{Graph, GraphRights};
 pub use node::GraphNode;
-pub use search::{GraphSearchCapability, JMAP_GRAPH_SEARCH_URI};
+pub use query::{
+    Filter, FilterOperator, GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition,
+    GraphEdgeSortProperty, GraphFilter, GraphFilterCondition, GraphNodeComparator,
+    GraphNodeFilterCondition, GraphNodeSortProperty, GraphSortProperty, Operator,
+};
+pub use search::{
+    Bound, CandidateKind, Direction, EdgeTest, Expression, FieldTest, GraphSearchCapability,
+    ReachTest, WhereError, JMAP_GRAPH_SEARCH_URI, QUERY_TOO_COMPLEX,
+};

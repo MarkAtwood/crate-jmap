@@ -14,7 +14,7 @@
 //! `joinedAt` ascending" and the §Filter Validation `invalidArguments`
 //! checks.
 
-use jmap_scene_types::query::SceneAvatarComparator;
+use jmap_scene_types::SceneAvatarComparator;
 use jmap_scene_types::{SceneAvatar, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Map, Value};

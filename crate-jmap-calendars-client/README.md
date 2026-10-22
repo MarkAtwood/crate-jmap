@@ -17,7 +17,7 @@ Implements draft-ietf-jmap-calendars-33 method bindings on top of
 extension-client family — mirrors that crate's shape. Depends on
 `jmap-base-client` for transport and session, and on `jmap-calendars-types`
 for the wire types (including the RFC 8984 JSCalendar sub-types re-exported
-under the `jscalendar` module alias).
+at its crate root).
 
 ## How to use
 

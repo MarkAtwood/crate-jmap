@@ -24,7 +24,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_mail_types::query::EmailFilterCondition;
+use jmap_mail_types::EmailFilterCondition;
 use jmap_types::query::Filter;
 use jmap_types::Id;
 use serde_json::json;

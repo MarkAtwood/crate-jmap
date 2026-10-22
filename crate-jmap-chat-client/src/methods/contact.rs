@@ -198,7 +198,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`ChatContactFilterCondition`](jmap_chat_types::query::ChatContactFilterCondition); use
+    /// [`ChatContactFilterCondition`](jmap_chat_types::ChatContactFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<ChatContactFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to send `"filter": null`; name the type when you do (`None::<&ChatContactFilter>`).
@@ -221,7 +221,7 @@ impl super::SessionClient {
     pub async fn chat_contact_query<C: Serialize>(
         &self,
         filter: Option<&Filter<C>>,
-        sort: Option<&[jmap_chat_types::query::ChatContactComparator]>,
+        sort: Option<&[jmap_chat_types::ChatContactComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
@@ -251,7 +251,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`ChatContactFilterCondition`](jmap_chat_types::query::ChatContactFilterCondition); use
+    /// [`ChatContactFilterCondition`](jmap_chat_types::ChatContactFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<ChatContactFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&ChatContactFilter>`).
@@ -279,7 +279,7 @@ impl super::SessionClient {
         since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<&Filter<C>>,
-        sort: Option<&[jmap_chat_types::query::ChatContactComparator]>,
+        sort: Option<&[jmap_chat_types::ChatContactComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {

@@ -18,14 +18,13 @@ pub type EmailFilter = Filter<EmailFilterCondition>;
 
 /// Concrete filter type for Mailbox/query (RFC 8621 §2.3).
 ///
-/// The condition struct ([`crate::mailbox::MailboxFilterCondition`])
-/// lives in [`crate::mailbox`] alongside the other Mailbox types.
+/// The condition struct is [`MailboxFilterCondition`](crate::MailboxFilterCondition).
 pub type MailboxFilter = Filter<crate::mailbox::MailboxFilterCondition>;
 
 /// Concrete filter type for EmailSubmission/query (RFC 8621 §7.3).
 ///
-/// The condition struct ([`crate::submission::EmailSubmissionFilterCondition`])
-/// lives in [`crate::submission`] alongside the other EmailSubmission types.
+/// The condition struct is
+/// [`EmailSubmissionFilterCondition`](crate::EmailSubmissionFilterCondition).
 pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilterCondition>;
 
 /// Filter condition for Email objects (RFC 8621 §4.4.1).
@@ -79,13 +78,13 @@ pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilter
 /// need:
 ///
 /// ```rust
-/// use jmap_mail_types::query::EmailFilterCondition;
-/// use jmap_mail_types::{keyword, Keyword};
+/// use jmap_mail_types::EmailFilterCondition;
+/// use jmap_mail_types::{Keyword};
 /// use jmap_types::Id;
 ///
 /// let mut cond = EmailFilterCondition::default();
 /// cond.in_mailbox = Some(Id::from("inbox-id"));
-/// cond.has_keyword = Some(Keyword::from(keyword::SEEN));
+/// cond.has_keyword = Some(Keyword::from(jmap_mail_types::SEEN));
 /// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -308,7 +307,7 @@ impl_string_enum!(ComparatorProperty, "an Email comparator property string",
 /// to external callers.
 ///
 /// ```rust
-/// use jmap_mail_types::query::{EmailComparator, ComparatorProperty};
+/// use jmap_mail_types::{EmailComparator, ComparatorProperty};
 ///
 /// let mut cmp = EmailComparator::new(ComparatorProperty::ReceivedAt);
 /// cmp.is_ascending = false;  // sort descending
@@ -344,7 +343,7 @@ impl EmailComparator {
     /// Set fields directly after construction:
     ///
     /// ```rust
-    /// use jmap_mail_types::query::{EmailComparator, ComparatorProperty};
+    /// use jmap_mail_types::{EmailComparator, ComparatorProperty};
     /// use jmap_mail_types::Keyword;
     ///
     /// let mut cmp = EmailComparator::new(ComparatorProperty::HasKeyword);

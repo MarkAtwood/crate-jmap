@@ -47,21 +47,26 @@
 
 mod backend;
 mod capability;
-pub mod email;
-pub mod identity;
-pub mod keyword;
-pub mod mailbox;
-pub mod query;
-pub mod snippet;
-pub mod submission;
-pub mod thread;
-pub mod vacation;
+mod email;
+mod identity;
+mod keyword;
+mod mailbox;
+mod query;
+mod snippet;
+mod submission;
+mod thread;
+mod vacation;
 
 #[cfg(feature = "mdn")]
-pub mod mdn;
+mod mdn;
+#[cfg(feature = "mdn")]
+pub use mdn::{
+    ActionMode, Disposition, DispositionType, Mdn, MdnParseRequest, MdnParseResponse,
+    MdnSendRequest, MdnSendResponse, SendingMode, JMAP_MDN_URI,
+};
 
 #[cfg(feature = "sieve")]
-pub mod sieve;
+mod sieve;
 #[cfg(feature = "sieve")]
 pub use sieve::{SieveAccountCapability, SieveCapability, SieveScript, JMAP_SIEVE_SCRIPTS_URI};
 
@@ -79,7 +84,9 @@ pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,
 };
 pub use identity::Identity;
-pub use keyword::{Keyword, KeywordError};
+pub use keyword::{
+    Keyword, KeywordError, ANSWERED, DRAFT, FLAGGED, FORWARDED, JUNK, NOT_JUNK, PHISHING, SEEN,
+};
 pub use mailbox::{Mailbox, MailboxFilterCondition, MailboxRights, MailboxRole};
 pub use query::{
     ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition,

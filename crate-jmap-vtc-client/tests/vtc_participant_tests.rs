@@ -11,10 +11,10 @@ mod helpers;
 use std::collections::BTreeMap;
 
 use jmap_types::{query::Filter, Id, PatchObject, State};
-use jmap_vtc_types::query::{
+use jmap_vtc_types::{CallRole, VtcParticipant};
+use jmap_vtc_types::{
     VtcParticipantComparator, VtcParticipantFilterCondition, VtcParticipantSortProperty,
 };
-use jmap_vtc_types::{CallRole, VtcParticipant};
 use serde_json::{json, Value};
 use wiremock::MockServer;
 

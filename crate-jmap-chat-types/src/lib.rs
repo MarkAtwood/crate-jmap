@@ -105,23 +105,23 @@
 #![forbid(unsafe_code)]
 
 mod backend;
-pub mod calendars;
+mod calendars;
 mod capability;
-pub mod chat;
-pub mod clearable;
-pub mod contact;
-pub mod emoji;
-pub mod ephemeral;
-pub mod message;
-pub mod position;
-pub mod presence;
-pub mod push;
-pub mod query;
-pub mod rich;
-pub mod space;
-pub mod space_set;
-pub mod tasks;
-pub mod vocabulary;
+mod chat;
+mod clearable;
+mod contact;
+mod emoji;
+mod ephemeral;
+mod message;
+mod position;
+mod presence;
+mod push;
+mod query;
+mod rich;
+mod space;
+mod space_set;
+mod tasks;
+mod vocabulary;
 
 /// Serde default for boolean properties whose spec default is `true`.
 pub(crate) fn default_true() -> bool {
@@ -160,6 +160,14 @@ pub use message::{
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};
 pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig, UrgencyLevel};
+pub use query::{
+    ChatComparator, ChatComparatorProperty, ChatContactComparator, ChatContactComparatorProperty,
+    ChatContactFilter, ChatContactFilterCondition, ChatFilter, ChatFilterCondition,
+    CustomEmojiComparator, CustomEmojiComparatorProperty, CustomEmojiFilter,
+    CustomEmojiFilterCondition, Filter, FilterOperator, MessageComparator,
+    MessageComparatorProperty, MessageFilter, MessageFilterCondition, Operator, SpaceComparator,
+    SpaceComparatorProperty, SpaceFilter, SpaceFilterCondition,
+};
 pub use rich::{RichBody, Span, SpanType};
 pub use space::{Category, ChatPermission, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 pub use space_set::{
@@ -169,4 +177,9 @@ pub use space_set::{
 pub use tasks::{
     task_chat_id, TaskMetadata, JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY,
     TASK_CHAT_ID_PROPERTY,
+};
+pub use vocabulary::{
+    CHAT_CAP_AVAILABILITY, CHAT_CAP_CALENDAR_EVENT, CHAT_CAP_TASK, CHAT_CAP_VTC,
+    COMPANION_EPHEMERAL_DATA_TYPES, SPEC_CHANNEL_PERMISSION_TARGET_TYPES, SPEC_CHAT_MEMBER_ROLES,
+    SPEC_EPHEMERAL_DATA_TYPES, SPEC_PERMISSION_NAMES,
 };

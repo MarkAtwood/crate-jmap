@@ -131,9 +131,9 @@ macro_rules! known_sort {
 }
 
 known_sort!(
-    jmap_vtc_types::query::VtcCallComparator => jmap_vtc_types::query::VtcCallSortProperty::Other,
-    jmap_vtc_types::query::VtcParticipantComparator => jmap_vtc_types::query::VtcParticipantSortProperty::Other,
-    jmap_vtc_types::query::VtcMediaComparator => jmap_vtc_types::query::VtcMediaSortProperty::Other,
+    jmap_vtc_types::VtcCallComparator => jmap_vtc_types::VtcCallSortProperty::Other,
+    jmap_vtc_types::VtcParticipantComparator => jmap_vtc_types::VtcParticipantSortProperty::Other,
+    jmap_vtc_types::VtcMediaComparator => jmap_vtc_types::VtcMediaSortProperty::Other,
 );
 
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.

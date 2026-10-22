@@ -80,7 +80,7 @@ impl MetadataTextMatch {
 /// §3.6: "For each data type listed in dataTypes, the FilterCondition
 /// object for Foo/query is extended with the optional fields defined
 /// below." `base` is the data type's own condition (for example
-/// `jmap_mail_types::query::EmailFilterCondition`); its fields are
+/// `jmap_mail_types::EmailFilterCondition`); its fields are
 /// flattened into the same JSON object as the metadata fields. Use it as
 /// the leaf of a `jmap_types::query::Filter<WithMetadata<C>>` and pass that
 /// to the extension client's `/query` or `/queryChanges` method; the

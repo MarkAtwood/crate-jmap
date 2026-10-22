@@ -234,7 +234,7 @@ async fn memory_backend_get_changes_from_zero() {
 /// Oracle: search_snippets with a text filter highlights matching text.
 #[tokio::test]
 async fn memory_backend_search_snippets_highlight() {
-    use jmap_mail_types::query::EmailFilterCondition;
+    use jmap_mail_types::EmailFilterCondition;
 
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
@@ -2590,7 +2590,7 @@ async fn submission_set_create_and_get() {
 /// succeed and the result appears as an extra `Email/set` invocation.
 #[tokio::test]
 async fn submission_set_on_success_update_email() {
-    use jmap_mail_types::keyword::{self, Keyword};
+    use jmap_mail_types::{self, Keyword};
 
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
@@ -2613,7 +2613,7 @@ async fn submission_set_on_success_update_email() {
             &account_id,
             &blob_id,
             &[Id::from("drafts")],
-            &[Keyword::from(keyword::DRAFT)],
+            &[Keyword::from(jmap_mail_types::DRAFT)],
             None,
         )
         .await
@@ -2697,7 +2697,7 @@ async fn submission_set_on_success_update_email() {
         .expect("get_objects");
     assert_eq!(emails.len(), 1);
     assert!(
-        !emails[0].keywords.contains_key(keyword::DRAFT),
+        !emails[0].keywords.contains_key(jmap_mail_types::DRAFT),
         "email must no longer have $draft keyword after onSuccessUpdateEmail"
     );
 }
@@ -3995,7 +3995,6 @@ async fn email_import_with_malformed_received_at_rejected() {
 #[tokio::test]
 async fn email_import_with_keywords_succeeds() {
     use jmap_mail_server::handle_email_import;
-    use jmap_mail_types::keyword;
 
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("account1"));
@@ -4040,7 +4039,7 @@ async fn email_import_with_keywords_succeeds() {
         .expect("get_objects");
     assert_eq!(emails.len(), 1, "imported email must be retrievable");
     assert!(
-        emails[0].keywords.contains_key(keyword::SEEN),
+        emails[0].keywords.contains_key(jmap_mail_types::SEEN),
         "$seen must be set on the imported email"
     );
 }
@@ -4052,7 +4051,6 @@ async fn email_import_with_keywords_succeeds() {
 #[tokio::test]
 async fn email_copy_with_keywords_succeeds() {
     use jmap_mail_server::handle_email_copy;
-    use jmap_mail_types::keyword;
 
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("src"));
@@ -4104,7 +4102,7 @@ async fn email_copy_with_keywords_succeeds() {
         .expect("get_objects");
     assert_eq!(emails.len(), 1, "copied email must be retrievable");
     assert!(
-        emails[0].keywords.contains_key(keyword::SEEN),
+        emails[0].keywords.contains_key(jmap_mail_types::SEEN),
         "$seen must be on the copied email"
     );
 }
@@ -5242,7 +5240,7 @@ async fn submission_query_filter_by_undo_status() {
         .to_owned();
 
     // Create submission B directly via backend with undoStatus = "pending".
-    use jmap_mail_types::{submission::UndoStatus, EmailSubmission};
+    use jmap_mail_types::{EmailSubmission, UndoStatus};
     let sub_b = |id: &Id| {
         EmailSubmission::new(
             id.clone(),
@@ -8017,8 +8015,6 @@ async fn submission_set_destroy_non_string_returns_invalid_arguments() {
 /// applied (RFC 8621 §7.5: onSuccess only fires for successful creates).
 #[tokio::test]
 async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
-    use jmap_mail_types::keyword;
-
     let backend = MemoryBackend::new();
     let account_id = Id::from("acct-onsuccess-no-apply");
 
@@ -8089,7 +8085,7 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
         .expect("get_objects must not fail");
     assert_eq!(emails.len(), 1, "email must still exist");
     assert!(
-        !emails[0].keywords.contains_key(keyword::SEEN),
+        !emails[0].keywords.contains_key(jmap_mail_types::SEEN),
         "email must NOT have $seen keyword; onSuccess must not have fired; keywords: {:?}",
         emails[0].keywords
     );
@@ -14099,7 +14095,7 @@ async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
 /// and EmailSubmission/get must still return "pending".
 #[tokio::test]
 async fn submission_set_update_null_undo_status_is_invalid_properties() {
-    use jmap_mail_types::{submission::UndoStatus, EmailSubmission};
+    use jmap_mail_types::{EmailSubmission, UndoStatus};
 
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");

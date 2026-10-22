@@ -203,7 +203,7 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jmap_chat_types::space_set::{
+    use jmap_chat_types::{
         CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
     };
     use jmap_chat_types::{Clearable, SpaceRole};

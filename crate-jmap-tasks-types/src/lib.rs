@@ -17,42 +17,20 @@
 //!
 //! | Module | Contents |
 //! |---|---|
-//! | [`task_list`] | [`TaskList`], [`TaskRights`], [`TaskListRole`] |
-//! | [`task`] | [`Task`], [`TaskProgress`], [`Checklist`], [`CheckItem`], [`Comment`], [`Person`], [`TaskFilterCondition`] |
-//! | [`notification`] | [`TaskNotification`], [`NotificationType`], [`TaskNotificationFilterCondition`] |
-//! | [`filter`] | [`TaskComparator`], [`TaskComparatorProperty`], [`TaskNotificationComparator`], [`TaskNotificationComparatorProperty`] |
+//! | `task_list` | [`TaskList`], [`TaskRights`], [`TaskListRole`] |
+//! | `task` | [`Task`], [`TaskProgress`], [`Checklist`], [`CheckItem`], [`Comment`], [`Person`], [`TaskFilterCondition`] |
+//! | `notification` | [`TaskNotification`], [`NotificationType`], [`TaskNotificationFilterCondition`] |
+//! | `filter` | [`TaskComparator`], [`TaskComparatorProperty`], [`TaskNotificationComparator`], [`TaskNotificationComparatorProperty`] |
 //! | Crate root | [`TasksCapability`], [`TasksAccountCapability`], URI constants, extension capabilities |
 
 #![forbid(unsafe_code)]
 
 mod backend;
 mod capability;
-pub mod filter;
-pub mod notification;
-pub mod task;
-pub mod task_list;
-
-/// RFC 8984 JSCalendar typed sub-objects from [`jmap_jscalendar_types`].
-///
-/// The sub-objects (`Location`, `Participant`, `RecurrenceRule`, `Alert`,
-/// etc.) used in this crate's sloppy-`Value` fields live in the
-/// `jmap-jscalendar-types` crate and are re-exported here for symmetry
-/// with `jmap_calendars_types::jscalendar`. New code may import from the
-/// top-level re-exports (`jmap_tasks_types::Location`), this module
-/// (`jmap_tasks_types::jscalendar::Location`), or the source crate
-/// directly (`jmap_jscalendar_types::Location`).
-///
-/// **Bounded surface.** This module re-exports exactly the names of the
-/// top-level re-export below, not the whole `jmap_jscalendar_types`
-/// crate, so an addition there does not widen this crate's public API
-/// without an intentional change to both lists (bd:JMAP-y6a8).
-pub mod jscalendar {
-    pub use jmap_jscalendar_types::{
-        AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
-        OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone,
-        TimeZoneRule, VirtualLocation,
-    };
-}
+mod filter;
+mod notification;
+mod task;
+mod task_list;
 
 // --- Top-level re-exports ---
 
@@ -89,9 +67,7 @@ pub use task_list::{TaskList, TaskListRole, TaskRights};
 /// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
 ///
 /// Re-exported here so callers of `jmap-tasks-types` do not need a direct
-/// dependency on `jmap-types`. Mirrors the canonical
-/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// dependency on `jmap-types`. Mirrors the same root
+/// re-exports in `jmap-mail-types`, the workspace canonical
 /// extension-types template.
-///
-/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
 pub use jmap_types::query::{Filter, FilterOperator, Operator};

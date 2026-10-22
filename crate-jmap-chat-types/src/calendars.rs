@@ -6,8 +6,8 @@
 //!   the server's Space extension hook stores it.
 //! - [`CalendarEventMetadata`] and [`AvailabilityMetadata`] are the typed
 //!   `metadata` shapes of a [`MessageAction`](crate::MessageAction) whose
-//!   `type` is [`CHAT_CAP_CALENDAR_EVENT`](crate::vocabulary::CHAT_CAP_CALENDAR_EVENT)
-//!   or [`CHAT_CAP_AVAILABILITY`](crate::vocabulary::CHAT_CAP_AVAILABILITY).
+//!   `type` is [`CHAT_CAP_CALENDAR_EVENT`]
+//!   or [`CHAT_CAP_AVAILABILITY`].
 //!   Cast with `serde_json::from_value` at the consumer boundary. The
 //!   draft treats both `uri` and `metadata` as "peer-supplied and
 //!   untrusted".

@@ -12,7 +12,7 @@ use jmap_graph_server::memory::MemoryBackend;
 use jmap_graph_server::{
     handle_graph_node_set, handle_graph_set, should_deliver, GraphEditSubscription,
 };
-use jmap_graph_types::edit::{GraphEditEvent, GraphEditStreamMessage};
+use jmap_graph_types::{GraphEditEvent, GraphEditStreamMessage};
 use jmap_types::Id;
 use serde_json::{json, Value};
 

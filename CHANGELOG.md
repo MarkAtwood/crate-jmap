@@ -14,6 +14,24 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**, **jmap-graph-types**, **jmap-mail-types**,
+  **jmap-scene-types**, **jmap-vtc-types**: crate-root re-exports for
+  the items that had only a module path (bd JMAP-wf92.23): the chat
+  `*Filter`/`*Comparator` aliases, `*FilterCondition`s,
+  `*ComparatorProperty`s and `SPEC_*`/`CHAT_CAP_*`/
+  `COMPANION_EPHEMERAL_DATA_TYPES` vocabulary constants; the graph
+  `/query` filters and comparators, the graph-edit stream, cursor and
+  `GraphNode/op` query types and constants (`OPS_COMPACTED`,
+  `DATA_TYPE_OPS`, ...), and the graph-search filter language
+  (`Expression`, `FieldTest`, `EdgeTest`, `ReachTest`, `Bound`,
+  `Direction`, `CandidateKind`, `WhereError`, `QUERY_TOO_COMPLEX`); the
+  mail system keyword constants (`DRAFT`, `SEEN`, `FLAGGED`,
+  `ANSWERED`, `FORWARDED`, `PHISHING`, `JUNK`, `NOT_JUNK`) and, with the
+  `mdn` feature, the RFC 9007 MDN types and `JMAP_MDN_URI`; the scene and
+  vtc `/query` filters and comparators (`WithinRadius`, `WithinBounds`,
+  `VtcCallFilter`, ...). Each crate also re-exports `Filter`,
+  `FilterOperator` and `Operator` at its root.
+
 - **jmap-chat-mimi-server**: `pub use openmls;` and
   `pub use openmls_rust_crypto;` (now a normal dependency);
   **jmap-chat-mimi-client**: `pub use openmls;`. openmls 0.x is a
@@ -2586,6 +2604,23 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** Every remaining public module path of the extension
+  types crates (jmap-calendars-types, -chat-federation-types,
+  -chat-mimi-types, -chat-types, -cid-types, -contacts-types,
+  -did-types, -filenode-types, -graph-types, -mail-types,
+  -metadata-types, -scene-types, -sharing-types, -tasks-types,
+  -vtc-types): for example `jmap_mail_types::email`,
+  `jmap_chat_types::query`, `jmap_graph_types::search`,
+  `jmap_mail_types::keyword`. The modules are private and the crate
+  root is the single public path, so name `jmap_mail_types::Email`, not
+  `jmap_mail_types::email::Email`, and `jmap_mail_types::SEEN`, not
+  `jmap_mail_types::keyword::SEEN` (bd JMAP-wf92.23).
+- **BREAKING** The `jmap_calendars_types::jscalendar`,
+  `jmap_tasks_types::jscalendar` and `jmap_contacts_types::jscontact`
+  alias modules. They re-exported exactly the names already at each
+  crate root; use the root path (`jmap_calendars_types::Location`) or
+  the source crate (`jmap_jscalendar_types::Location`)
+  (bd JMAP-wf92.23).
 - **BREAKING** The `backend` module path in jmap-mail-types,
   -calendars-types, -chat-types, -contacts-types, -filenode-types,
   -sharing-types and -tasks-types. The module is private; its items

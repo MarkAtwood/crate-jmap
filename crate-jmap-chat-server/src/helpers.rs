@@ -113,11 +113,11 @@ macro_rules! known_sort {
 }
 
 known_sort!(
-    jmap_chat_types::query::ChatContactComparator => jmap_chat_types::query::ChatContactComparatorProperty::Other,
-    jmap_chat_types::query::ChatComparator => jmap_chat_types::query::ChatComparatorProperty::Other,
-    jmap_chat_types::query::MessageComparator => jmap_chat_types::query::MessageComparatorProperty::Other,
-    jmap_chat_types::query::SpaceComparator => jmap_chat_types::query::SpaceComparatorProperty::Other,
-    jmap_chat_types::query::CustomEmojiComparator => jmap_chat_types::query::CustomEmojiComparatorProperty::Other,
+    jmap_chat_types::ChatContactComparator => jmap_chat_types::ChatContactComparatorProperty::Other,
+    jmap_chat_types::ChatComparator => jmap_chat_types::ChatComparatorProperty::Other,
+    jmap_chat_types::MessageComparator => jmap_chat_types::MessageComparatorProperty::Other,
+    jmap_chat_types::SpaceComparator => jmap_chat_types::SpaceComparatorProperty::Other,
+    jmap_chat_types::CustomEmojiComparator => jmap_chat_types::CustomEmojiComparatorProperty::Other,
 );
 
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.

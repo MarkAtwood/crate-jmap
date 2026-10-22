@@ -9,7 +9,7 @@
 
 use std::cmp::Ordering;
 
-use jmap_graph_types::query::{
+use jmap_graph_types::{
     Filter, GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphEdgeSortProperty,
     GraphFilter, GraphNodeComparator, GraphNodeFilterCondition, GraphNodeSortProperty,
     GraphSortProperty, Operator,

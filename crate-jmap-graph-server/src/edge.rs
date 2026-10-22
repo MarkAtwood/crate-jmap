@@ -7,8 +7,8 @@
 //! the edge's Graph and checks that `fromId` and `toId` name nodes of that
 //! Graph.
 
-use jmap_graph_types::query::GraphEdgeComparator;
-use jmap_graph_types::search::CandidateKind;
+use jmap_graph_types::CandidateKind;
+use jmap_graph_types::GraphEdgeComparator;
 use jmap_graph_types::{GraphCapability, GraphEdge, GraphNode};
 use jmap_types::{Id, JmapError};
 use serde_json::{Map, Value};

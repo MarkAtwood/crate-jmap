@@ -16,7 +16,7 @@
 //! # Construction from outside this crate
 //!
 //! ```rust
-//! use jmap_vtc_types::query::{VtcCallFilter, VtcCallFilterCondition};
+//! use jmap_vtc_types::{VtcCallFilter, VtcCallFilterCondition};
 //! use jmap_vtc_types::CallState;
 //!
 //! let mut cond = VtcCallFilterCondition::default();

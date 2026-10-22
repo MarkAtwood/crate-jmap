@@ -19,7 +19,7 @@ a region hosted elsewhere.
 
 ```rust,no_run
 use jmap_scene_client::JmapSceneExt;
-use jmap_scene_types::query::{Filter, SceneObjectFilterCondition, WithinRadius};
+use jmap_scene_types::{Filter, SceneObjectFilterCondition, WithinRadius};
 
 # async fn run(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
 let session = client.fetch_session().await?;

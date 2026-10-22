@@ -6,8 +6,8 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_mail_types::query::EmailSubmissionFilter;
-use jmap_mail_types::submission::{EmailSubmissionFilterCondition, UndoStatus};
+use jmap_mail_types::EmailSubmissionFilter;
+use jmap_mail_types::{EmailSubmissionFilterCondition, UndoStatus};
 use jmap_types::query::Filter;
 use jmap_types::State;
 use serde_json::json;

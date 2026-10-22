@@ -8,7 +8,7 @@
 
 use std::cmp::Ordering;
 
-use jmap_scene_types::query::{
+use jmap_scene_types::{
     Filter, Operator, SceneAssetComparator, SceneAssetFilter, SceneAssetSortProperty,
     SceneAvatarComparator, SceneAvatarFilter, SceneAvatarSortProperty, SceneObjectComparator,
     SceneObjectFilter, SceneObjectSortProperty, SceneRegionComparator, SceneRegionFilter,

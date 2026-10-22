@@ -4,8 +4,8 @@
 use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
-use jmap_vtc_types::query::{VtcCallComparator, VtcCallFilter};
 use jmap_vtc_types::VtcCall;
+use jmap_vtc_types::{VtcCallComparator, VtcCallFilter};
 
 use super::{
     ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,

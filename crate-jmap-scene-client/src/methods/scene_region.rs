@@ -3,8 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use jmap_scene_types::query::{SceneRegionComparator, SceneRegionFilter};
 use jmap_scene_types::SceneRegion;
+use jmap_scene_types::{SceneRegionComparator, SceneRegionFilter};
 use jmap_types::{Id, PatchObject, State};
 
 use super::{

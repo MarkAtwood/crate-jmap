@@ -44,7 +44,7 @@
 
 #![forbid(unsafe_code)]
 
-use jmap_mail_types::email::{EmailBodyPart, EmailBodyValue};
+use jmap_mail_types::{EmailBodyPart, EmailBodyValue};
 use jmap_types::Id;
 use mime_tree::{DecodedBodyValue, ParsedMessage, ParsedPart};
 

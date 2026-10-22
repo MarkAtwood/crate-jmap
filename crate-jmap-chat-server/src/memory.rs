@@ -746,7 +746,7 @@ impl JmapBackend for MemoryBackend {
 
         // Serialize the generic filter to a serde_json::Value so we can
         // inspect it for type-specific filter keys; O is generic here, so
-        // the typed `jmap_chat_types::query` fields are not nameable.
+        // the typed `jmap_chat_types` filter-condition fields are not nameable.
         let filter_val: Option<serde_json::Value> =
             filter.and_then(|f| serde_json::to_value(f).ok());
         let sort_val: Option<serde_json::Value> = sort.and_then(|s| serde_json::to_value(s).ok());
@@ -2596,7 +2596,7 @@ fn apply_category_op(
     chats_updated: &mut HashSet<Id>,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, SetError> {
-    use jmap_chat_types::space::Category;
+    use jmap_chat_types::Category;
 
     // The Space exists (the caller verified). Pull it out as a typed
     // value, apply the mutation, write it back.
@@ -2916,7 +2916,7 @@ fn apply_add_channel(
     chats_created: &mut Vec<Id>,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, SetError> {
-    use jmap_chat_types::space_set::ChannelCreate;
+    use jmap_chat_types::ChannelCreate;
 
     let create: ChannelCreate = match op {
         SpacePatchOp::AddChannel(c) => c,
@@ -3150,7 +3150,7 @@ fn apply_remove_channel(
 /// Per draft-atwood-jmap-chat-00 §Space/set L1286: `updateChannels`
 /// patches one of `name`, `topic`, `categoryId`, `position`,
 /// `slowModeSeconds`, `permissionOverrides`. The nullable fields use
-/// [`jmap_chat_types::clearable::Clearable`] semantics: `null` clears
+/// [`jmap_chat_types::Clearable`] semantics: `null` clears
 /// and absence leaves unchanged.
 ///
 /// `categoryId` changes additionally maintain Space-side cross-references:
@@ -3168,8 +3168,8 @@ fn apply_update_channel(
     chats_updated: &mut HashSet<Id>,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, SetError> {
-    use jmap_chat_types::clearable::Clearable;
-    use jmap_chat_types::space_set::ChannelPatch;
+    use jmap_chat_types::ChannelPatch;
+    use jmap_chat_types::Clearable;
 
     let (id, patch): (Id, ChannelPatch) = match op {
         SpacePatchOp::UpdateChannel { id, patch } => (id, patch),
@@ -3500,8 +3500,8 @@ fn apply_update_role(
     op: SpacePatchOp,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, SetError> {
-    use jmap_chat_types::clearable::Clearable;
-    use jmap_chat_types::space::SpaceRole;
+    use jmap_chat_types::Clearable;
+    use jmap_chat_types::SpaceRole;
 
     let (target_id, patch) = match op {
         SpacePatchOp::UpdateRole { id, patch } => (id, patch),
@@ -3738,7 +3738,7 @@ fn apply_update_member(
     op: SpacePatchOp,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, SetError> {
-    use jmap_chat_types::clearable::Clearable;
+    use jmap_chat_types::Clearable;
 
     let (user_id, patch) = match op {
         SpacePatchOp::UpdateMember { user_id, patch } => (user_id, patch),

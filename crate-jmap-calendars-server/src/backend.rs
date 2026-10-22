@@ -989,7 +989,7 @@ pub trait CalendarsBackend: JmapBackend {
 /// `max_expanded_query_duration_seconds` corresponds to the
 /// `maxExpandedQueryDuration` capability field
 /// (draft-ietf-jmap-calendars-33 §1.5). The spec's wire shape is an
-/// ISO 8601 [`Duration`](jmap_calendars_types::jscalendar::Duration);
+/// ISO 8601 [`Duration`](jmap_calendars_types::Duration);
 /// consumers formatting the session capability convert from this
 /// integer-seconds representation. The integer representation is the
 /// implementation shape because backend enforcement requires arithmetic

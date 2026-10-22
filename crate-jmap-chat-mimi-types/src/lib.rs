@@ -41,7 +41,7 @@
 //!   — the `GroupInfo/fetch` arguments (draft §GroupInfo/fetch).
 //! - [`Base64Url`] / [`Base64UrlError`] — the unpadded base64url wire
 //!   shape of every byte-string property (draft §Conventions).
-//! - [`convert`] — the converting-party rules: [`sender_msg_id`],
+//! - `convert` — the converting-party rules: [`sender_msg_id`],
 //!   [`RefKey`], [`check_ref_key`] / [`RefKeyCollision`],
 //!   [`may_record_alias`], [`topic_id`], [`is_media_reaction`] and
 //!   [`never_sets_read`] (draft §Message Identifiers through §Message
@@ -49,13 +49,13 @@
 
 #![forbid(unsafe_code)]
 
-pub mod base64url;
+mod base64url;
 mod capability;
-pub mod convert;
-pub mod groupinfo;
-pub mod keymaterial;
-pub mod keypackage;
-pub mod room;
+mod convert;
+mod groupinfo;
+mod keymaterial;
+mod keypackage;
+mod room;
 
 pub use base64url::{Base64Url, Base64UrlError};
 pub use capability::{

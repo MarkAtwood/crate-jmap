@@ -11,8 +11,8 @@ mod helpers;
 use std::collections::BTreeMap;
 
 use jmap_types::{query::Filter, Id, PatchObject, State};
-use jmap_vtc_types::query::{VtcCallComparator, VtcCallFilterCondition, VtcCallSortProperty};
 use jmap_vtc_types::{CallState, CallType};
+use jmap_vtc_types::{VtcCallComparator, VtcCallFilterCondition, VtcCallSortProperty};
 use serde_json::json;
 use wiremock::MockServer;
 

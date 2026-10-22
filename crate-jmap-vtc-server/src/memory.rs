@@ -46,13 +46,13 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
-use jmap_vtc_types::query::{
-    VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator,
-    VtcParticipantComparator, VtcParticipantFilter, VtcRecordingFilter,
-};
 use jmap_vtc_types::{
     CallRole, CallState, VtcCall, VtcCapability, VtcEvent, VtcLivestream, VtcParticipant,
     VtcRecording, VtcRecordingStateEvent,
+};
+use jmap_vtc_types::{
+    VtcCallComparator, VtcCallFilter, VtcLivestreamFilter, VtcMediaComparator,
+    VtcParticipantComparator, VtcParticipantFilter, VtcRecordingFilter,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};

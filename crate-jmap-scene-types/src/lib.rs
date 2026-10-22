@@ -35,9 +35,9 @@
 //! - [`SceneInteraction`], [`SceneObjectInteractRequest`],
 //!   [`SceneObjectInteractResponse`] — the `SceneObject/interact` method
 //!   (draft §SceneObject/interact).
-//! - [`query`] — the `/query` filters, including the `withinRadius` and
+//! - `query` — the `/query` filters, including the `withinRadius` and
 //!   `withinBounds` spatial filters, and comparators of the four types.
-//! - [`set_error`] — the `contentPolicy` SetError type (draft §Content
+//! - `set_error` — the `contentPolicy` SetError type (draft §Content
 //!   Moderation for User-Created Objects).
 //! - [`JMAP_SCENE_WEBSOCKET_URI`] — the WebSocket capability
 //!   (scene-wss draft §Capability).
@@ -50,18 +50,18 @@
 
 #![forbid(unsafe_code)]
 
-pub mod asset;
-pub mod avatar;
+mod asset;
+mod avatar;
 mod backend;
 mod capability;
-pub mod coordinates;
-pub mod event;
-pub mod interact;
-pub mod object;
-pub mod query;
-pub mod region;
-pub mod set_error;
-pub mod stream;
+mod coordinates;
+mod event;
+mod interact;
+mod object;
+mod query;
+mod region;
+mod set_error;
+mod stream;
 mod wire;
 
 pub use asset::SceneAsset;
@@ -76,6 +76,13 @@ pub use event::{
 };
 pub use interact::{SceneInteraction, SceneObjectInteractRequest, SceneObjectInteractResponse};
 pub use object::{PhysicsMode, SceneObject};
+pub use query::{
+    Filter, FilterOperator, Operator, SceneAssetComparator, SceneAssetFilter,
+    SceneAssetFilterCondition, SceneAssetSortProperty, SceneAvatarComparator, SceneAvatarFilter,
+    SceneAvatarFilterCondition, SceneAvatarSortProperty, SceneObjectComparator, SceneObjectFilter,
+    SceneObjectFilterCondition, SceneObjectSortProperty, SceneRegionComparator, SceneRegionFilter,
+    SceneRegionFilterCondition, SceneRegionSortProperty, WithinBounds, WithinRadius,
+};
 pub use region::{AccessPolicy, GeoAnchor, SceneRegion, ViewHint};
 pub use set_error::CONTENT_POLICY;
 pub use stream::{

@@ -7,7 +7,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
-use jmap_sharing_types::notification::{ShareNotificationFilter, ShareNotificationFilterCondition};
+use jmap_sharing_types::{ShareNotificationFilter, ShareNotificationFilterCondition};
 use jmap_types::query::Filter;
 use jmap_types::State;
 use serde_json::json;

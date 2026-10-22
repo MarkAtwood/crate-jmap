@@ -4,13 +4,13 @@
 //! Oracle: wire strings quoted from the drafts at jmap-chat-spec 6bcd9d8
 //! and hand-written JSON frames.
 
-use jmap_chat_types::vocabulary::{
-    COMPANION_EPHEMERAL_DATA_TYPES, SPEC_CHANNEL_PERMISSION_TARGET_TYPES,
-    SPEC_EPHEMERAL_DATA_TYPES, SPEC_PERMISSION_NAMES,
-};
 use jmap_chat_types::{
     ChannelPermission, ChannelPermissionTargetType, ChatPermission, ChatStreamEnable,
     EphemeralDataType, RolePatch, SpaceRole,
+};
+use jmap_chat_types::{
+    COMPANION_EPHEMERAL_DATA_TYPES, SPEC_CHANNEL_PERMISSION_TARGET_TYPES,
+    SPEC_EPHEMERAL_DATA_TYPES, SPEC_PERMISSION_NAMES,
 };
 use serde_json::json;
 

@@ -7,11 +7,11 @@
 //! the account of their Graph" (L196), so these methods target the same
 //! account as the Graph methods.
 
-use jmap_graph_types::edit::{
+use jmap_graph_types::GraphNodeOp;
+use jmap_graph_types::{
     GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
     GraphNodeOpFilterCondition,
 };
-use jmap_graph_types::GraphNodeOp;
 use jmap_types::{Id, State};
 
 use super::{
@@ -135,7 +135,7 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if serializing an argument fails.
     /// - [`MethodError`](jmap_base_client::ClientError::MethodError) whose
-    ///   type is [`OPS_COMPACTED`](jmap_graph_types::edit::OPS_COMPACTED)
+    ///   type is [`OPS_COMPACTED`](jmap_graph_types::OPS_COMPACTED)
     ///   when the server has destroyed an op after `afterSeq` (L234); the
     ///   client then reloads the node from its snapshot.
     /// - Any other transport / protocol variant returned by

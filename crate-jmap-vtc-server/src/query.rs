@@ -8,7 +8,7 @@
 use std::cmp::Ordering;
 
 use jmap_types::UTCDate;
-use jmap_vtc_types::query::{
+use jmap_vtc_types::{
     Filter, Operator, VtcCallComparator, VtcCallFilter, VtcCallFilterCondition,
     VtcCallSortProperty, VtcLivestreamFilter, VtcMediaComparator, VtcMediaSortProperty,
     VtcParticipantComparator, VtcParticipantFilter, VtcParticipantSortProperty, VtcRecordingFilter,

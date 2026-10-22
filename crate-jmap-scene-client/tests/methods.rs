@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use jmap_base_client::ClientError;
 use jmap_scene_client::{JmapSceneExt, SessionClient};
-use jmap_scene_types::query::{
+use jmap_scene_types::{
     Filter, SceneAssetComparator, SceneAssetFilterCondition, SceneAssetSortProperty,
     SceneAvatarComparator, SceneAvatarFilterCondition, SceneAvatarSortProperty,
     SceneObjectComparator, SceneObjectFilterCondition, SceneObjectSortProperty,

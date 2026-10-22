@@ -4,8 +4,8 @@
 use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
-use jmap_vtc_types::query::{VtcLivestreamFilter, VtcMediaComparator};
 use jmap_vtc_types::VtcLivestream;
+use jmap_vtc_types::{VtcLivestreamFilter, VtcMediaComparator};
 
 use super::{
     ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,

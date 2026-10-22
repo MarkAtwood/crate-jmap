@@ -26,10 +26,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_mail_types::{
-    mdn::{Mdn, MdnParseRequest, MdnSendRequest},
-    Email, Identity,
-};
+use jmap_mail_types::{Email, Identity, Mdn, MdnParseRequest, MdnSendRequest};
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
@@ -741,7 +738,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jmap_mail_types::mdn::{ActionMode, Disposition, DispositionType, SendingMode};
+    use jmap_mail_types::{ActionMode, Disposition, DispositionType, SendingMode};
 
     fn sample_mdn() -> Mdn {
         Mdn::new(Disposition::new(
