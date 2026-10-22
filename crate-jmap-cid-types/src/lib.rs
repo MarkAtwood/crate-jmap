@@ -78,10 +78,10 @@
 
 #![forbid(unsafe_code)]
 
-pub mod blobext;
+mod blobext;
 mod capability;
-pub mod cidv1;
-pub mod digest;
+mod cidv1;
+mod digest;
 
 pub use blobext::Sha256Base64Error;
 pub use capability::{CidCapability, JMAP_CID_URI};

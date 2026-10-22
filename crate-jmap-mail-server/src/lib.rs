@@ -58,9 +58,9 @@ pub mod memory;
 #[cfg(feature = "sieve")]
 mod sieve;
 #[cfg(feature = "mdn")]
-pub use jmap_mail_types::mdn::JMAP_MDN_URI;
+pub use jmap_mail_types::JMAP_MDN_URI;
 #[cfg(feature = "sieve")]
-pub use jmap_mail_types::sieve::JMAP_SIEVE_SCRIPTS_URI;
+pub use jmap_mail_types::JMAP_SIEVE_SCRIPTS_URI;
 #[cfg(feature = "sieve")]
 pub use sieve::SieveBackend;
 #[cfg(feature = "sieve")]

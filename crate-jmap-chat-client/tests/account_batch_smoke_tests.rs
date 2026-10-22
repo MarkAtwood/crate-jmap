@@ -12,7 +12,7 @@ mod helpers;
 
 use helpers::{mock_jmap_post, recorded_args, recorded_body, TEST_ACCOUNT_ID, TEST_SESSION_STATE};
 use jmap_chat_client::JmapChatExt;
-use jmap_chat_types::query::{ChatFilter, MessageFilter, MessageFilterCondition};
+use jmap_chat_types::{ChatFilter, MessageFilter, MessageFilterCondition};
 use jmap_types::query::Filter;
 use jmap_types::Id;
 use serde_json::json;

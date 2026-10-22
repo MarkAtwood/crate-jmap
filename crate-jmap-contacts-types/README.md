@@ -33,7 +33,7 @@ below for the usage pattern.
 RFC 9610 data types, consumed by
 `jmap-contacts-server` (method handlers + the `ContactsBackend` trait)
 and `jmap-contacts-client` (typed method bindings). Re-exports
-`jmap-jscontact-types` as the `jscontact` module so callers can opt into
+the `jmap-jscontact-types` sub-objects at the crate root so callers can opt into
 typed RFC 9553 JSContact sub-objects without taking an extra direct
 dependency. Sibling to `jmap-mail-types` and `jmap-calendars-types` in
 the workspace's extension-types family.
@@ -203,16 +203,14 @@ The full list of re-exported sub-types is in
 
 ## JSContact sub-objects
 
-JSContact sub-object types are available three ways from this crate:
+JSContact sub-object types are available two ways:
 
 - Top-level: `jmap_contacts_types::Name`, `jmap_contacts_types::EmailAddress`,
   etc. (recommended for application code).
-- Module alias: `jmap_contacts_types::jscontact::Name` (mirrors
-  `jmap_calendars_types::jscalendar::*`).
 - Direct: `jmap_jscontact_types::Name` (lowest-coupling option for
   callers that already depend on `jmap-jscontact-types` separately).
 
-All three paths resolve to the same type.
+Both paths resolve to the same type.
 
 ## How it works
 

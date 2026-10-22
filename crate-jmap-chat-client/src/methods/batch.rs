@@ -21,7 +21,7 @@ use super::{GetResponse, QueryResponse};
 /// ```rust,no_run
 /// # use jmap_base_client::QueryParams;
 /// # use jmap_chat_client::SessionClient;
-/// # use jmap_chat_types::query::{ChatFilter, MessageFilter, MessageFilterCondition};
+/// # use jmap_chat_types::{ChatFilter, MessageFilter, MessageFilterCondition};
 /// # async fn example(sc: SessionClient, chat_id: jmap_types::Id) -> Result<(), jmap_base_client::ClientError> {
 /// let mut batch = sc.batch()?;
 /// let (_, chats) =
@@ -126,7 +126,7 @@ impl Batch {
     pub fn chat_query_get<C: Serialize>(
         &mut self,
         filter: Option<&Filter<C>>,
-        sort: Option<&[jmap_chat_types::query::ChatComparator]>,
+        sort: Option<&[jmap_chat_types::ChatComparator]>,
         params: &jmap_base_client::QueryParams,
         properties: Option<&[&str]>,
     ) -> Result<
@@ -156,7 +156,7 @@ impl Batch {
     pub fn message_query_get<C: Serialize>(
         &mut self,
         filter: Option<&Filter<C>>,
-        sort: Option<&[jmap_chat_types::query::MessageComparator]>,
+        sort: Option<&[jmap_chat_types::MessageComparator]>,
         params: &jmap_base_client::QueryParams,
         properties: Option<&[&str]>,
     ) -> Result<

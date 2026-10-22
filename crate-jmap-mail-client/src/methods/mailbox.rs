@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_mail_types::query::MailboxComparator;
+use jmap_mail_types::MailboxComparator;
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
@@ -214,7 +214,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`MailboxFilterCondition`](jmap_mail_types::mailbox::MailboxFilterCondition); use
+    /// [`MailboxFilterCondition`](jmap_mail_types::MailboxFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<MailboxFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&MailboxFilter>`).
@@ -283,7 +283,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`MailboxFilterCondition`](jmap_mail_types::mailbox::MailboxFilterCondition); use
+    /// [`MailboxFilterCondition`](jmap_mail_types::MailboxFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<MailboxFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&MailboxFilter>`).

@@ -18,20 +18,20 @@ JSCalendar ([RFC 8984]).
 | `CalendarEvent` | `event` | draft §5, RFC 8984 §2.1, §4, §5.1 |
 | `CalendarEventFilterCondition` | `event` | draft §5.11.1 |
 | `CalendarEventComparator` | `event` | draft §5.11.2 |
-| `RecurrenceRule` | `jscalendar` | RFC 8984 §4.3.3 |
-| `NDay` | `jscalendar` | RFC 8984 §4.3.3 |
-| `Location` | `jscalendar` | RFC 8984 §4.2.5 |
-| `VirtualLocation` | `jscalendar` | RFC 8984 §4.2.6 |
-| `Link` | `jscalendar` | RFC 8984 §1.4.11 |
-| `Participant` | `jscalendar` | RFC 8984 §4.4.6 |
-| `Alert` | `jscalendar` | RFC 8984 §4.5.2 |
-| `AlertTrigger` | `jscalendar` | RFC 8984 §4.5.2 |
-| `OffsetTrigger` | `jscalendar` | RFC 8984 §4.5.2 |
-| `AbsoluteTrigger` | `jscalendar` | RFC 8984 §4.5.2 |
-| `Relation` | `jscalendar` | RFC 8984 §1.4.10 |
-| `LocalDateTime` | `jscalendar` | RFC 8984 §1.4.5 |
-| `Duration` | `jscalendar` | RFC 8984 §1.4.6 |
-| `SignedDuration` | `jscalendar` | RFC 8984 §1.4.7 |
+| `RecurrenceRule` | `jmap-jscalendar-types` | RFC 8984 §4.3.3 |
+| `NDay` | `jmap-jscalendar-types` | RFC 8984 §4.3.3 |
+| `Location` | `jmap-jscalendar-types` | RFC 8984 §4.2.5 |
+| `VirtualLocation` | `jmap-jscalendar-types` | RFC 8984 §4.2.6 |
+| `Link` | `jmap-jscalendar-types` | RFC 8984 §1.4.11 |
+| `Participant` | `jmap-jscalendar-types` | RFC 8984 §4.4.6 |
+| `Alert` | `jmap-jscalendar-types` | RFC 8984 §4.5.2 |
+| `AlertTrigger` | `jmap-jscalendar-types` | RFC 8984 §4.5.2 |
+| `OffsetTrigger` | `jmap-jscalendar-types` | RFC 8984 §4.5.2 |
+| `AbsoluteTrigger` | `jmap-jscalendar-types` | RFC 8984 §4.5.2 |
+| `Relation` | `jmap-jscalendar-types` | RFC 8984 §1.4.10 |
+| `LocalDateTime` | `jmap-jscalendar-types` | RFC 8984 §1.4.5 |
+| `Duration` | `jmap-jscalendar-types` | RFC 8984 §1.4.6 |
+| `SignedDuration` | `jmap-jscalendar-types` | RFC 8984 §1.4.7 |
 | `CalendarEventNotification` | `notification` | draft §7 |
 | `Person` | `notification` | draft §7 |
 | `NotificationType` | `notification` | draft §7 |
@@ -46,11 +46,13 @@ JSCalendar ([RFC 8984]).
 | `PrincipalsAvailabilityCapability` | crate root | draft §2.2 |
 | `PrincipalsAvailabilityAccountCapability` | crate root | draft §2.2 |
 
-The types in the `jscalendar` module (rows above with module = `jscalendar`) live in
-the [`jmap-jscalendar-types`] crate and are re-exported here for backward-compatible
-access. The re-export is available both as flat re-exports (`jmap_calendars_types::Location`)
-and as a module alias (`jmap_calendars_types::jscalendar::Location`). The same sub-types
-are consumed by `jmap-tasks-types` (planned).
+The JSCalendar sub-object types (rows above with module = `jmap-jscalendar-types`)
+live in the [`jmap-jscalendar-types`] crate and are re-exported at this crate's root
+(`jmap_calendars_types::Location`). The same sub-types are consumed by
+`jmap-tasks-types`.
+
+Every public item has exactly one path in this crate: the crate root. The
+Module column names the source file only; the modules are private.
 
 [`jmap-jscalendar-types`]: https://crates.io/crates/jmap-jscalendar-types
 
@@ -59,12 +61,12 @@ are consumed by `jmap-tasks-types` (planned).
 draft-ietf-jmap-calendars-33 data types, consumed by
 `jmap-calendars-server` (method handlers + the `CalendarsBackend` trait)
 and `jmap-calendars-client` (typed method bindings). Re-exports
-`jmap-jscalendar-types` as the `jscalendar` module so callers can opt
-into typed RFC 8984 JSCalendar sub-objects without taking an extra
+the `jmap-jscalendar-types` sub-objects at the crate root so callers can
+opt into typed RFC 8984 JSCalendar sub-objects without taking an extra
 direct dependency. Sibling to `jmap-mail-types`, `jmap-contacts-types`,
 and `jmap-tasks-types` in the workspace's extension-types family.
 
-Property enum types re-exported from the `backend` sub-module:
+Property enum types re-exported at the crate root:
 `CalendarProperty`, `CalendarEventProperty`, `CalendarEventNotificationProperty`,
 `ParticipantIdentityProperty`.
 
@@ -251,7 +253,7 @@ concrete typed structs:
 | Field | Why `Value` |
 |---|---|
 | `timeZones` | Custom VTIMEZONE definitions (RFC 8984 §4.7.2) are a complex nested format requiring a full timezone parser. Almost no caller needs to construct these. |
-| `locations`, `virtualLocations`, `links`, `participants`, `alerts`, `recurrenceRules`, `excludedRecurrenceRules`, `keywords`, `categories`, `replyTo`, `relatedTo` | JSCalendar defines these as open-ended maps/arrays where values are rich nested objects. Concrete types for each exist in the `jscalendar` module; callers that need typed access deserialize the `Value` themselves using those types. |
+| `locations`, `virtualLocations`, `links`, `participants`, `alerts`, `recurrenceRules`, `excludedRecurrenceRules`, `keywords`, `categories`, `replyTo`, `relatedTo` | JSCalendar defines these as open-ended maps/arrays where values are rich nested objects. Concrete types for each are re-exported at the crate root; callers that need typed access deserialize the `Value` themselves using those types. |
 
 The fields `recurrenceOverrides` and `localizations` use a typed envelope —
 `Option<BTreeMap<String, jmap_types::PatchObject>>` — because they ARE
@@ -283,7 +285,7 @@ pub icalendar: Option<serde_json::Value>,
   `virtualLocations`** use `Option<serde_json::Value>` because JSCalendar
   defines these as open-ended maps where values are complex nested
   objects. Callers needing typed access must deserialize the `Value`
-  themselves using the concrete types in the `jscalendar` module.
+  themselves using the concrete types re-exported at the crate root.
 - **`recurrenceOverrides`, `localizations`** use
   `Option<BTreeMap<String, jmap_types::PatchObject>>`: the outer envelope
   is typed (RFC 8620 §5.3 PatchObject) while inner leaves remain `Value`

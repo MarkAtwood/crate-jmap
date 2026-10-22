@@ -35,8 +35,8 @@
 
 mod backend;
 mod capability;
-pub mod notification;
-pub mod principal;
+mod notification;
+mod principal;
 
 pub use backend::{PrincipalProperty, ShareNotificationProperty};
 pub use capability::{
@@ -51,9 +51,7 @@ pub use principal::{Principal, PrincipalFilter, PrincipalFilterCondition, Princi
 /// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
 ///
 /// Re-exported here so callers of `jmap-sharing-types` do not need a
-/// direct dependency on `jmap-types`. Mirrors the canonical
-/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// direct dependency on `jmap-types`. Mirrors the same root
+/// re-exports in `jmap-mail-types`, the workspace canonical
 /// extension-types template.
-///
-/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
 pub use jmap_types::query::{Filter, FilterOperator, Operator};

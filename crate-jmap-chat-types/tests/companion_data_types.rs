@@ -3,8 +3,8 @@
 //! Oracle: hand-written frames and strings quoted from the drafts at
 //! jmap-chat-spec 91672c9.
 
-use jmap_chat_types::vocabulary::{COMPANION_EPHEMERAL_DATA_TYPES, SPEC_EPHEMERAL_DATA_TYPES};
 use jmap_chat_types::{ChatStreamEnable, EphemeralDataType};
+use jmap_chat_types::{COMPANION_EPHEMERAL_DATA_TYPES, SPEC_EPHEMERAL_DATA_TYPES};
 use serde_json::json;
 
 /// draft-atwood-jmap-chat-wss-00 L179: "This specification defines

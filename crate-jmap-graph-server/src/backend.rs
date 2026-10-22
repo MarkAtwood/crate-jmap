@@ -10,8 +10,8 @@
 
 use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 
-use jmap_graph_types::edit::GraphCursorEvent;
-use jmap_graph_types::search::GraphSearchCapability;
+use jmap_graph_types::GraphCursorEvent;
+use jmap_graph_types::GraphSearchCapability;
 use jmap_graph_types::{GraphCapability, GraphEditCapability};
 
 /// The internal bounds of one node's edit log

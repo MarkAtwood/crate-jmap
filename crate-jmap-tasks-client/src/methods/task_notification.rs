@@ -144,7 +144,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`TaskNotificationFilterCondition`](jmap_tasks_types::notification::TaskNotificationFilterCondition); use
+    /// [`TaskNotificationFilterCondition`](jmap_tasks_types::TaskNotificationFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<TaskNotificationFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&TaskNotificationFilter>`).
@@ -205,7 +205,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`TaskNotificationFilterCondition`](jmap_tasks_types::notification::TaskNotificationFilterCondition); use
+    /// [`TaskNotificationFilterCondition`](jmap_tasks_types::TaskNotificationFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<TaskNotificationFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&TaskNotificationFilter>`).

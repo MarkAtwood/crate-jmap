@@ -17,7 +17,6 @@ mod helpers;
 use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, TEST_ACCOUNT_ID,
 };
-use jmap_chat_types::query;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -278,11 +277,11 @@ async fn chat_contact_query_filter_presence_sort_serialise() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut cond = query::ChatContactFilterCondition::default();
+    let mut cond = jmap_chat_types::ChatContactFilterCondition::default();
     cond.blocked = Some(false);
     cond.presence = Some(jmap_chat_types::Presence::Online);
-    let sort = [query::ChatContactComparator::new(
-        query::ChatContactComparatorProperty::LastSeenAt,
+    let sort = [jmap_chat_types::ChatContactComparator::new(
+        jmap_chat_types::ChatContactComparatorProperty::LastSeenAt,
     )];
     let _ = sc
         .chat_contact_query(
@@ -336,7 +335,7 @@ async fn chat_contact_query_changes_passthrough_and_empty_state_rejected() {
         .chat_contact_query_changes(
             &since,
             Some(20),
-            None::<&query::ChatContactFilter>,
+            None::<&jmap_chat_types::ChatContactFilter>,
             None,
             None,
             None,
@@ -358,7 +357,7 @@ async fn chat_contact_query_changes_passthrough_and_empty_state_rejected() {
         .chat_contact_query_changes(
             &empty,
             None,
-            None::<&query::ChatContactFilter>,
+            None::<&jmap_chat_types::ChatContactFilter>,
             None,
             None,
             None,
@@ -402,17 +401,17 @@ async fn chat_contact_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("CC-100");
-    let mut cond = query::ChatContactFilterCondition::default();
+    let mut cond = jmap_chat_types::ChatContactFilterCondition::default();
     cond.blocked = Some(false);
     // draft-atwood-jmap-chat-00 §ChatContact/query: "Sort properties:
     // `lastSeenAt`, `login`, `lastActiveAt`." (`name` is not one.)
-    let sort = [query::ChatContactComparator::new(
-        query::ChatContactComparatorProperty::Login,
+    let sort = [jmap_chat_types::ChatContactComparator::new(
+        jmap_chat_types::ChatContactComparatorProperty::Login,
     )];
     sc.chat_contact_query_changes(
         &since,
         None,
-        Some(&query::Filter::Condition(cond)),
+        Some(&jmap_chat_types::Filter::Condition(cond)),
         Some(&sort),
         Some(&up_to),
         Some(true),
@@ -470,7 +469,7 @@ async fn chat_contact_query_changes_all_none_omits_optional_wire_keys() {
     sc.chat_contact_query_changes(
         &since,
         None,
-        None::<&query::ChatContactFilter>,
+        None::<&jmap_chat_types::ChatContactFilter>,
         None,
         None,
         None,
@@ -538,7 +537,7 @@ async fn chat_contact_query_filter_identity_serialise() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut cond = query::ChatContactFilterCondition::default();
+    let mut cond = jmap_chat_types::ChatContactFilterCondition::default();
     cond.identity = Some("alice@example.com".to_owned());
     let _ = sc
         .chat_contact_query(

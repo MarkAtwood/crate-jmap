@@ -5,9 +5,9 @@
 //!
 //! ## Module layout
 //!
-//! - [`filenode`] — [`FileNode`], [`NodeType`], [`NodeRole`], [`FilesRights`]
+//! - `filenode` — [`FileNode`], [`NodeType`], [`NodeRole`], [`FilesRights`]
 //! - Crate root — [`FileNodeCapability`], [`JMAP_FILENODE_URI`]
-//! - [`filter`] — [`FileNodeFilterCondition`]
+//! - `filter` — [`FileNodeFilterCondition`]
 //!
 //! All public types are re-exported at the crate root.
 
@@ -15,8 +15,8 @@
 
 mod backend;
 mod capability;
-pub mod filenode;
-pub mod filter;
+mod filenode;
+mod filter;
 
 pub use backend::FileNodeProperty;
 pub use capability::{FileNodeCapability, JMAP_FILENODE_URI};
@@ -28,9 +28,7 @@ pub use filter::{
 /// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
 ///
 /// Re-exported here so callers of `jmap-filenode-types` do not need a
-/// direct dependency on `jmap-types`. Mirrors the canonical
-/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// direct dependency on `jmap-types`. Mirrors the same root
+/// re-exports in `jmap-mail-types`, the workspace canonical
 /// extension-types template.
-///
-/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
 pub use jmap_types::query::{Filter, FilterOperator, Operator};

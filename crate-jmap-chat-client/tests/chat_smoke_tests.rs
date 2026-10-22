@@ -22,7 +22,6 @@ use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_destroy_response,
     set_response, CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID,
 };
-use jmap_chat_types::query;
 use jmap_metadata_types::WithMetadata;
 use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
@@ -274,7 +273,7 @@ async fn chat_query_empty_filter_sends_null() {
     let sc = helpers::make_client(&server);
     let _ = sc
         .chat_query(
-            None::<&query::ChatFilter>,
+            None::<&jmap_chat_types::ChatFilter>,
             None,
             &jmap_base_client::QueryParams {
                 position: Some(0),
@@ -313,7 +312,7 @@ async fn chat_query_filter_muted_serializes() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut cond = query::ChatFilterCondition::default();
+    let mut cond = jmap_chat_types::ChatFilterCondition::default();
     cond.muted = Some(true);
     let _ = sc
         .chat_query(
@@ -358,7 +357,7 @@ async fn chat_query_anchor_offset_calculate_total_serialize() {
     let anchor = Id::from("chat-4");
     let _ = sc
         .chat_query(
-            None::<&query::ChatFilter>,
+            None::<&jmap_chat_types::ChatFilter>,
             None,
             &jmap_base_client::QueryParams {
                 anchor: Some(anchor.clone()),
@@ -410,7 +409,7 @@ async fn chat_query_sends_metadata_condition_leaf() {
     );
     mock_jmap_post(&server, resp_body).await;
 
-    let mut cond = WithMetadata::<query::ChatFilterCondition>::default();
+    let mut cond = WithMetadata::<jmap_chat_types::ChatFilterCondition>::default();
     cond.base.muted = Some(false);
     cond.private_metadata_exists = Some("acme.example.com/pinned".to_owned());
 
@@ -518,7 +517,14 @@ async fn chat_query_changes_since_query_state_passthrough() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let _ = sc
-        .chat_query_changes(&since, None, None::<&query::ChatFilter>, None, None, None)
+        .chat_query_changes(
+            &since,
+            None,
+            None::<&jmap_chat_types::ChatFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("chat_query_changes: must succeed");
 
@@ -1018,16 +1024,18 @@ async fn chat_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("CH-100");
-    let mut cond = query::ChatFilterCondition::default();
+    let mut cond = jmap_chat_types::ChatFilterCondition::default();
     cond.kind = Some(jmap_chat_types::ChatKind::Group);
     // draft-atwood-jmap-chat-00 §Chat/query: "Default sort:
     // `lastMessageAt` descending". (`lastSeenAt` is a ChatContact property.)
-    let mut cmp = query::ChatComparator::new(query::ChatComparatorProperty::LastMessageAt);
+    let mut cmp = jmap_chat_types::ChatComparator::new(
+        jmap_chat_types::ChatComparatorProperty::LastMessageAt,
+    );
     cmp.is_ascending = false;
     sc.chat_query_changes(
         &since,
         None,
-        Some(&query::Filter::Condition(cond)),
+        Some(&jmap_chat_types::Filter::Condition(cond)),
         Some(&[cmp]),
         Some(&up_to),
         Some(true),
@@ -1082,9 +1090,16 @@ async fn chat_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
-    sc.chat_query_changes(&since, None, None::<&query::ChatFilter>, None, None, None)
-        .await
-        .expect("chat_query_changes_all_none_omits_optional_wire_keys: must succeed");
+    sc.chat_query_changes(
+        &since,
+        None,
+        None::<&jmap_chat_types::ChatFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("chat_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
     let args = recorded_args(&server).await;
     assert!(args.get("filter").is_none(), "filter must be omitted");
@@ -1124,9 +1139,9 @@ async fn chat_query_changes_sends_metadata_condition_in_and() {
     );
     mock_jmap_post(&server, resp_body).await;
 
-    let mut muted = WithMetadata::<query::ChatFilterCondition>::default();
+    let mut muted = WithMetadata::<jmap_chat_types::ChatFilterCondition>::default();
     muted.base.muted = Some(true);
-    let mut pinned = WithMetadata::<query::ChatFilterCondition>::default();
+    let mut pinned = WithMetadata::<jmap_chat_types::ChatFilterCondition>::default();
     pinned.private_metadata_exists = Some("acme.example.com/pinned".to_owned());
     let filter = Filter::Operator(FilterOperator::new(
         Operator::And,

@@ -188,7 +188,7 @@ body fields directly:
 ```rust
 use std::collections::BTreeMap;
 use jmap_types::{Id, UTCDate};
-use jmap_mail_types::{Email, EmailAddress, keyword, Keyword};
+use jmap_mail_types::{Email, EmailAddress, Keyword};
 
 let mut mailbox_ids = BTreeMap::new();
 mailbox_ids.insert(Id::from("inbox-id"), true);
@@ -205,7 +205,7 @@ let mut email = Email::new(
 email.subject = Some("Hello from JMAP".into());
 email.from = Some(vec![EmailAddress { name: Some("Alice".into()), email: "alice@example.com".into() }]);
 email.to   = Some(vec![EmailAddress::new("bob@example.com")]);
-email.keywords.insert(Keyword::from(keyword::SEEN), true);
+email.keywords.insert(Keyword::from(jmap_mail_types::SEEN), true);
 
 let json = serde_json::to_string(&email).unwrap();
 // {"id":"em1","blobId":"blob1","threadId":"thread1","mailboxIds":{"inbox-id":true},
@@ -221,15 +221,15 @@ keywords are available as `&str` constants in the `keyword` module. Because `Key
 implements `Borrow<str>`, a `BTreeMap<Keyword, bool>` can be queried with a bare `&str`:
 
 ```rust
-use jmap_mail_types::{keyword, Keyword};
+use jmap_mail_types::{Keyword};
 use std::collections::BTreeMap;
 
 let mut kw: BTreeMap<Keyword, bool> = BTreeMap::new();
-kw.insert(Keyword::from(keyword::SEEN), true);
-kw.insert(Keyword::from(keyword::FLAGGED), true);
+kw.insert(Keyword::from(jmap_mail_types::SEEN), true);
+kw.insert(Keyword::from(jmap_mail_types::FLAGGED), true);
 
-assert!(kw.contains_key(keyword::SEEN));
-assert!(!kw.contains_key(keyword::DRAFT));
+assert!(kw.contains_key(jmap_mail_types::SEEN));
+assert!(!kw.contains_key(jmap_mail_types::DRAFT));
 
 // Custom keywords are also valid; they must not start with '$'.
 kw.insert(Keyword::new("project-alpha"), true);
@@ -246,14 +246,14 @@ either a leaf `FilterCondition` or a `FilterOperator` that combines sub-filters 
 with `Default::default()` and then mutate the fields you need:
 
 ```rust
-use jmap_mail_types::query::{EmailFilter, EmailFilterCondition, FilterOperator, Operator};
-use jmap_mail_types::{keyword, Keyword};
+use jmap_mail_types::{EmailFilter, EmailFilterCondition, FilterOperator, Operator};
+use jmap_mail_types::{Keyword};
 use jmap_types::Id;
 
 // Simple condition: unread emails in a specific mailbox
 let mut cond = EmailFilterCondition::default();
 cond.in_mailbox  = Some(Id::from("inbox-id"));
-cond.not_keyword = Some(Keyword::from(keyword::SEEN));
+cond.not_keyword = Some(Keyword::from(jmap_mail_types::SEEN));
 let filter = EmailFilter::Condition(cond);
 
 // Compound: inbox AND (flagged OR has attachment)
@@ -270,7 +270,7 @@ let filter = EmailFilter::Operator(FilterOperator::new(
             vec![
                 EmailFilter::Condition({
                     let mut c = EmailFilterCondition::default();
-                    c.has_keyword = Some(Keyword::from(keyword::FLAGGED));
+                    c.has_keyword = Some(Keyword::from(jmap_mail_types::FLAGGED));
                     c
                 }),
                 EmailFilter::Condition({
@@ -314,7 +314,7 @@ whether cancellation is still possible:
 
 ```rust
 use jmap_types::{Id, UTCDate};
-use jmap_mail_types::submission::{EmailSubmission, UndoStatus};
+use jmap_mail_types::{EmailSubmission, UndoStatus};
 
 let sub = EmailSubmission::new(
     Id::from("sub1"),
@@ -344,7 +344,7 @@ All structs carry `#[serde(rename_all = "camelCase")]`, mapping Rust field names
 `Keyword` is a newtype over `String` with `#[serde(transparent)]`. It serializes
 directly as a JSON string, so `BTreeMap<Keyword, bool>` round-trips as a JSON object
 with string keys — exactly the `keywords` wire format in RFC 8621 §4.1.1. System
-keywords are `&str` constants (e.g. `keyword::SEEN = "$seen"`). Because `Keyword`
+keywords are `&str` constants (e.g. `jmap_mail_types::SEEN = "$seen"`). Because `Keyword`
 implements `Borrow<str>` and `Deref<Target = str>`, the constants work directly as
 `BTreeMap` lookup keys without constructing a `Keyword`.
 

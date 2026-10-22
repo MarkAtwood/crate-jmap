@@ -23,7 +23,7 @@ use jmap_chat_server::message::{
 use jmap_chat_server::{
     resolve_channel_permissions, BackendSetError, ChatBackend, ChatLimits, SetErrorType,
 };
-use jmap_chat_types::vocabulary::CHAT_CAP_TASK;
+use jmap_chat_types::CHAT_CAP_TASK;
 use jmap_chat_types::{
     BroadcastMention, Chat, ChatContact, ChatKind, ChatPermission, ChatTypingEvent, DeliveryState,
     Mention, Message, MessageAction, Space, SpaceBan, BROADCAST_MENTION_SCOPES,

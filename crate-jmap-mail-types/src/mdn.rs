@@ -215,7 +215,7 @@ impl Mdn {
     /// directly after construction as needed, e.g.:
     ///
     /// ```rust
-    /// # use jmap_mail_types::mdn::{Mdn, Disposition, ActionMode, SendingMode, DispositionType};
+    /// # use jmap_mail_types::{Mdn, Disposition, ActionMode, SendingMode, DispositionType};
     /// let mut mdn = Mdn::new(Disposition::new(
     ///     ActionMode::ManualAction,
     ///     SendingMode::MdnSentManually,

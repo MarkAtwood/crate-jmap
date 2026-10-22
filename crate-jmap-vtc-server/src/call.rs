@@ -12,11 +12,11 @@
 //! `notDestroyed`. The extra-invocation list is always empty.
 
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
-use jmap_vtc_types::query::{VtcCallComparator, VtcCallFilter};
 use jmap_vtc_types::{
     CallEndReason, CallResponse, CallState, CallType, MediaKind, RingEndReason, VtcCall,
     VtcCallEndEvent, VtcEvent, VtcParticipant,
 };
+use jmap_vtc_types::{VtcCallComparator, VtcCallFilter};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

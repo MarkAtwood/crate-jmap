@@ -7,10 +7,10 @@
 //! the node's Graph, validates `graphId` and `uri`, and leaves the edge
 //! cascade of a destroy to the backend.
 
-use jmap_graph_types::edit::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
-use jmap_graph_types::query::GraphNodeComparator;
-use jmap_graph_types::search::CandidateKind;
+use jmap_graph_types::CandidateKind;
+use jmap_graph_types::GraphNodeComparator;
 use jmap_graph_types::{GraphCapability, GraphNode, GraphRights};
+use jmap_graph_types::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
 use jmap_types::{Id, JmapError};
 use serde_json::{json, Map, Value};
 

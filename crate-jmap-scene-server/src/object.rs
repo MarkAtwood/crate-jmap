@@ -13,7 +13,7 @@
 
 use std::collections::HashMap;
 
-use jmap_scene_types::query::SceneObjectComparator;
+use jmap_scene_types::SceneObjectComparator;
 use jmap_scene_types::{SceneObject, SceneRegion, IDENTITY_ORIENTATION};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Map, Value};

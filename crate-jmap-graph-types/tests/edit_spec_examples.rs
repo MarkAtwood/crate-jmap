@@ -3,7 +3,7 @@
 //! the draft text (examples copied byte-for-byte, quoted property
 //! definitions) and hand-written JSON, never the code under test.
 
-use jmap_graph_types::edit::{
+use jmap_graph_types::{
     GraphCursorEvent, GraphEditDataType, GraphEditEvent, GraphEditStreamDisable,
     GraphEditStreamMessage, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
     GraphNodeOpFilterCondition, GraphNodeOpSortProperty, GRAPH_EDIT_DATA_TYPES,

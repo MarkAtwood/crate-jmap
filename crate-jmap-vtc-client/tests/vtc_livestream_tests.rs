@@ -9,10 +9,8 @@ mod helpers;
 use std::collections::BTreeMap;
 
 use jmap_types::{query::Filter, Id, PatchObject, State};
-use jmap_vtc_types::query::{
-    VtcLivestreamFilterCondition, VtcMediaComparator, VtcMediaSortProperty,
-};
 use jmap_vtc_types::LivestreamState;
+use jmap_vtc_types::{VtcLivestreamFilterCondition, VtcMediaComparator, VtcMediaSortProperty};
 use serde_json::json;
 use wiremock::MockServer;
 

@@ -132,12 +132,12 @@ jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference
 
 jmap-jscalendar-types  — RFC 8984 JSCalendar typed sub-types: LocalDateTime, Duration,
                          RecurrenceRule, Location, Participant, Alert, etc. No JMAP dep, no async.
-    ├── jmap-calendars-types   — consumes + re-exports as `jscalendar` module alias.
+    ├── jmap-calendars-types   — consumes + re-exports at the crate root.
     └── jmap-tasks-types       — (planned, JMAP-yfpq) will consume the same shared sub-types.
 
 jmap-jscontact-types   — RFC 9553 JSContact typed sub-types: Name, EmailAddress, Phone,
                          Address, Organization, Anniversary, etc. No JMAP dep, no async.
-    └── jmap-contacts-types    — consumes + re-exports as `jscontact` module alias.
+    └── jmap-contacts-types    — consumes + re-exports at the crate root.
 
 jmap-metadata-types    — draft-ietf-jmap-metadata-04 data types: DataTypeMetadataInfo,
                          MetadataTextMatch, namespace validation. No async.

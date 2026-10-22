@@ -11,10 +11,8 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_mail_types::query::{
-    ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition,
-};
 use jmap_mail_types::Keyword;
+use jmap_mail_types::{ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition};
 use jmap_metadata_types::{MetadataTextMatch, WithMetadata};
 use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};

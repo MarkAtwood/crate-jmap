@@ -22,7 +22,7 @@
 //!   `ChatContact.serverUrl` and `ChatContact.directAddress` extension
 //!   fields, read from `ChatContact.extra` (draft §ChatContact Type
 //!   Extensions for Federation).
-//! - [`peer`] — request and response arguments of the eight `Peer/*`
+//! - `peer` — request and response arguments of the eight `Peer/*`
 //!   methods (draft §Server-to-Server Methods). User references are
 //!   identity strings (draft §User References in Peer Methods).
 //! - [`is_jmap_object_uri`] — whether a MessageAction or Endpoint `uri`
@@ -37,9 +37,9 @@
 
 #![forbid(unsafe_code)]
 
-pub mod contact;
-pub mod peer;
-pub mod session;
+mod contact;
+mod peer;
+mod session;
 
 pub use contact::{contact_direct_address, contact_server_url};
 pub use peer::{

@@ -11,7 +11,7 @@
 //! `jmap-chat-types` respectively; the crate root re-exports the ones an
 //! impl needs.
 
-use jmap_chat_types::space_set::SpacePatchOp;
+use jmap_chat_types::SpacePatchOp;
 use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetError, SetErrorType, SetObject};
 
 // ---------------------------------------------------------------------------

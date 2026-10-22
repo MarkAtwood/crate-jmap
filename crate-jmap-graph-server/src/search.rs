@@ -25,7 +25,7 @@ use std::collections::{HashMap, HashSet};
 
 use icu_casemap::CaseMapper;
 use icu_normalizer::DecomposingNormalizerBorrowed;
-use jmap_graph_types::search::{
+use jmap_graph_types::{
     Bound, CandidateKind, Direction, EdgeTest, Expression, FieldTest, GraphSearchCapability,
     ReachTest, QUERY_TOO_COMPLEX,
 };

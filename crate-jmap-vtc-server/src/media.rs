@@ -23,7 +23,7 @@
 use std::collections::HashMap;
 
 use jmap_types::{GetObject, Id, JmapError, JmapObject, PatchObject, SetObject};
-use jmap_vtc_types::query::VtcMediaComparator;
+use jmap_vtc_types::VtcMediaComparator;
 use jmap_vtc_types::{
     CallState, LivestreamState, RecordingState, VtcCall, VtcLivestream, VtcRecording,
     VtcRecordingStateEvent,

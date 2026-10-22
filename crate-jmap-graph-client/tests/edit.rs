@@ -9,7 +9,7 @@
 
 use jmap_base_client::ClientError;
 use jmap_graph_client::{JmapGraphExt, SessionClient};
-use jmap_graph_types::edit::{
+use jmap_graph_types::{
     GraphNodeOpComparator, GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
 use jmap_types::{Id, State};

@@ -98,33 +98,11 @@
 
 #![forbid(unsafe_code)]
 
-pub mod addressbook;
+mod addressbook;
 mod backend;
 mod capability;
-pub mod card;
+mod card;
 mod collision;
-
-/// RFC 9553 JSContact typed sub-objects from [`jmap_jscontact_types`].
-///
-/// Provides nested access to JSContact sub-object types as
-/// `jmap_contacts_types::jscontact::Name`, mirroring the
-/// `jmap_calendars_types::jscalendar::*` pattern. New code should prefer
-/// the top-level re-exports (e.g. `jmap_contacts_types::Name`) or the
-/// direct path `jmap_jscontact_types::Name`.
-///
-/// **Bounded surface.** This module re-exports exactly the names of the
-/// top-level JSContact re-export below, not the whole
-/// `jmap_jscontact_types` crate, so an addition there does not widen this
-/// crate's public API without an intentional change to both lists
-/// (bd:JMAP-y6a8).
-pub mod jscontact {
-    pub use jmap_jscontact_types::{
-        Address, AddressComponent, Anniversary, AnniversaryDate, Author, Calendar, CryptoKey,
-        Directory, EmailAddress, LanguagePref, Link, Media, Name, NameComponent, Nickname, Note,
-        OnlineService, OrgUnit, Organization, PartialDate, PersonalInfo, Phone, Pronouns, Relation,
-        SchedulingAddress, SpeakToAs, Timestamp, Title,
-    };
-}
 
 pub use addressbook::{AddressBook, AddressBookRights};
 pub use backend::{AddressBookProperty, ContactCardProperty};
@@ -138,11 +116,9 @@ pub use collision::CollisionError;
 /// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
 ///
 /// Re-exported here so callers of `jmap-contacts-types` do not need a
-/// direct dependency on `jmap-types`. Mirrors the canonical
-/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// direct dependency on `jmap-types`. Mirrors the same root
+/// re-exports in `jmap-mail-types`, the workspace canonical
 /// extension-types template.
-///
-/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
 pub use jmap_types::query::{Filter, FilterOperator, Operator};
 
 // ── JSContact sub-object re-exports (RFC 9553) ───────────────────────────────
@@ -1154,28 +1130,23 @@ mod tests {
         assert_eq!(kws.len(), 2);
     }
 
-    /// Verify the `jscontact` module alias resolves to the same crate as
-    /// the top-level re-exports.
+    /// Verify the top-level JSContact re-export resolves to the same crate
+    /// as `jmap_jscontact_types`.
     ///
     /// Type identity is asserted at **compile time** by the const fn
-    /// pointers below: if `jmap_jscontact_types::Name`,
-    /// `crate::jscontact::Name`, and the top-level `Name` re-export ever
-    /// resolved to distinct types, these `const _ASSERT_*` items would
-    /// fail to typecheck and the build would break — no runtime call
-    /// needed. JMAP-glx8.21.
+    /// pointer below: if `jmap_jscontact_types::Name` and the top-level
+    /// `Name` re-export ever resolved to distinct types, the
+    /// `const _ASSERT_*` item would fail to typecheck and the build would
+    /// break — no runtime call needed. JMAP-glx8.21.
     #[test]
-    fn jscontact_module_alias_is_jmap_jscontact_types() {
-        const _ASSERT_ALIASED_SAME_AS_DIRECT: fn(
-            jmap_jscontact_types::Name,
-        ) -> crate::jscontact::Name = |x| x;
+    fn top_level_jscontact_reexport_is_jmap_jscontact_types() {
         const _ASSERT_TOP_LEVEL_SAME_AS_DIRECT: fn(jmap_jscontact_types::Name) -> Name = |x| x;
 
-        // Smoke-test that all three paths actually deserialize the same
-        // wire JSON; a regression in re-export visibility would show up
-        // as a build error here, not a runtime panic.
+        // Smoke-test that both paths actually deserialize the same wire
+        // JSON; a regression in re-export visibility would show up as a
+        // build error here, not a runtime panic.
         let v = json!({ "full": "Vincent van Gogh" });
         let _direct: jmap_jscontact_types::Name = serde_json::from_value(v.clone()).unwrap();
-        let _aliased: crate::jscontact::Name = serde_json::from_value(v.clone()).unwrap();
         let _top_level: Name = serde_json::from_value(v).unwrap();
     }
 

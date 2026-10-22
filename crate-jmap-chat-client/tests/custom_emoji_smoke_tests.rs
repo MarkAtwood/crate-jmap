@@ -13,7 +13,6 @@ mod helpers;
 use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, TEST_ACCOUNT_ID,
 };
-use jmap_chat_types::query;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -292,7 +291,7 @@ async fn custom_emoji_query_filter_space_id_serialises() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut cond = query::CustomEmojiFilterCondition::default();
+    let mut cond = jmap_chat_types::CustomEmojiFilterCondition::default();
     cond.space_id = Some(Id::from("space-eng"));
     let _ = sc
         .custom_emoji_query(
@@ -342,7 +341,7 @@ async fn custom_emoji_query_changes_passthrough_and_empty_state_rejected() {
         .custom_emoji_query_changes(
             &since,
             Some(5),
-            None::<&query::CustomEmojiFilter>,
+            None::<&jmap_chat_types::CustomEmojiFilter>,
             None,
             None,
             None,
@@ -363,7 +362,7 @@ async fn custom_emoji_query_changes_passthrough_and_empty_state_rejected() {
         .custom_emoji_query_changes(
             &empty,
             None,
-            None::<&query::CustomEmojiFilter>,
+            None::<&jmap_chat_types::CustomEmojiFilter>,
             None,
             None,
             None,
@@ -407,15 +406,15 @@ async fn custom_emoji_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("CE-100");
-    let mut cond = query::CustomEmojiFilterCondition::default();
+    let mut cond = jmap_chat_types::CustomEmojiFilterCondition::default();
     cond.space_id = Some(Id::from("sp-1"));
-    let sort = [query::CustomEmojiComparator::new(
-        query::CustomEmojiComparatorProperty::Name,
+    let sort = [jmap_chat_types::CustomEmojiComparator::new(
+        jmap_chat_types::CustomEmojiComparatorProperty::Name,
     )];
     sc.custom_emoji_query_changes(
         &since,
         None,
-        Some(&query::Filter::Condition(cond)),
+        Some(&jmap_chat_types::Filter::Condition(cond)),
         Some(&sort),
         Some(&up_to),
         Some(true),
@@ -473,7 +472,7 @@ async fn custom_emoji_query_changes_all_none_omits_optional_wire_keys() {
     sc.custom_emoji_query_changes(
         &since,
         None,
-        None::<&query::CustomEmojiFilter>,
+        None::<&jmap_chat_types::CustomEmojiFilter>,
         None,
         None,
         None,

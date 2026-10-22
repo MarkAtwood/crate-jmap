@@ -160,7 +160,7 @@ pub struct GraphNodeOp {
 /// "The `filter` argument MUST be a single FilterCondition, not a
 /// FilterOperator, and MUST include `nodeId`"; any other filter is
 /// `unsupportedFilter`. As with the GraphNode and GraphEdge filters (see
-/// [`query`](crate::query)), `node_id` is required and unknown keys are
+/// `query`), `node_id` is required and unknown keys are
 /// rejected, so a FilterOperator, a condition without `nodeId` or an
 /// unknown clause fails the decode.
 #[non_exhaustive]

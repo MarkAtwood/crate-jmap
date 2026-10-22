@@ -16,10 +16,10 @@ use jmap_chat_client::{
     SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput,
     SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
 };
-use jmap_chat_types::query::{
+use jmap_chat_types::{Attachment, AttachmentCreate, BodyType, ChatKind, Mention, MessageAction};
+use jmap_chat_types::{
     MessageComparator, MessageComparatorProperty, MessageFilter, MessageFilterCondition,
 };
-use jmap_chat_types::{Attachment, AttachmentCreate, BodyType, ChatKind, Mention, MessageAction};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
 use jmap_types::{Id, UTCDate};
 

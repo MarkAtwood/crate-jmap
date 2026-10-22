@@ -34,9 +34,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_mail_types::{
-    query::EmailSubmissionFilter,
-    submission::{Address, Delivered, DeliveryStatus, Displayed, Envelope, UndoStatus},
-    Email, EmailSubmission, Identity,
+    Address, Delivered, DeliveryStatus, Displayed, Email, EmailSubmission, EmailSubmissionFilter,
+    Envelope, Identity, UndoStatus,
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;

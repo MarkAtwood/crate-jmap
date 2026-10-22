@@ -10,7 +10,7 @@
 //! ops" (L289).
 
 use jmap_base_client::{ClientError, WsFrame, WsSession};
-use jmap_graph_types::edit::{
+use jmap_graph_types::{
     GraphCursorEvent, GraphEditEvent, GraphEditStreamDisable, GraphEditStreamEnable,
     GraphEditStreamMessage, GraphNodeOpEvent,
 };

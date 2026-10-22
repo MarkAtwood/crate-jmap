@@ -56,11 +56,11 @@
 #![forbid(unsafe_code)]
 
 mod capability;
-pub mod did;
+mod did;
 mod jcs;
-pub mod key;
-pub mod plc;
-pub mod webvh;
+mod key;
+mod plc;
+mod webvh;
 
 pub use capability::{DidAccountCapability, DidCapability, KeyCustody, JMAP_DID_URI};
 pub use did::{Did, DidError};

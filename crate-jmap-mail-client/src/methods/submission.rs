@@ -18,7 +18,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_mail_types::query::EmailSubmissionComparator;
+use jmap_mail_types::EmailSubmissionComparator;
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
@@ -128,7 +128,7 @@ impl super::SessionClient {
     ///
     /// The sort property for this object type is `"sentAt"` (RFC 8621 §7.3),
     /// not `"sendAt"` (which is an object field); use
-    /// [`EmailSubmissionComparatorProperty::SentAt`](jmap_mail_types::query::EmailSubmissionComparatorProperty::SentAt).
+    /// [`EmailSubmissionComparatorProperty::SentAt`](jmap_mail_types::EmailSubmissionComparatorProperty::SentAt).
     ///
     /// `params` selects the result window
     /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5).
@@ -136,7 +136,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`EmailSubmissionFilterCondition`](jmap_mail_types::submission::EmailSubmissionFilterCondition); use
+    /// [`EmailSubmissionFilterCondition`](jmap_mail_types::EmailSubmissionFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<EmailSubmissionFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&EmailSubmissionFilter>`).
@@ -206,7 +206,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`EmailSubmissionFilterCondition`](jmap_mail_types::submission::EmailSubmissionFilterCondition); use
+    /// [`EmailSubmissionFilterCondition`](jmap_mail_types::EmailSubmissionFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<EmailSubmissionFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&EmailSubmissionFilter>`).

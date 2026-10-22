@@ -33,7 +33,7 @@ definition of the Graph wire types. It depends on `jmap-types` only.
 ## How to use
 
 ```rust
-use jmap_graph_types::query::GraphEdgeFilterCondition;
+use jmap_graph_types::GraphEdgeFilterCondition;
 
 let f: GraphEdgeFilterCondition =
     serde_json::from_str(r#"{ "graphId": "G1", "fromId": ["N1"] }"#)?;

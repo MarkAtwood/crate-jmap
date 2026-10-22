@@ -27,7 +27,7 @@
 //! # Construction from outside this crate
 //!
 //! ```rust
-//! use jmap_graph_types::query::GraphEdgeFilterCondition;
+//! use jmap_graph_types::GraphEdgeFilterCondition;
 //! use jmap_types::Id;
 //!
 //! let mut cond = GraphEdgeFilterCondition::new(Id::from("G1"));
@@ -109,7 +109,7 @@ impl GraphComparator {
 
 /// Filter condition for `GraphNode/query`, which is also its whole filter
 /// (draft-atwood-jmap-graph-00 §GraphNode/query and
-/// §GraphNode/queryChanges; see the [module docs](self)).
+/// §GraphNode/queryChanges).
 ///
 /// `object_uri` is the draft-atwood-jmap-graph-projection-00 §GraphNode/query
 /// Filter addition. A request that sets it uses
@@ -212,7 +212,7 @@ impl GraphNodeComparator {
 
 /// Filter condition for `GraphEdge/query`, which is also its whole filter
 /// (draft-atwood-jmap-graph-00 §GraphEdge/query and
-/// §GraphEdge/queryChanges; see the [module docs](self)).
+/// §GraphEdge/queryChanges).
 ///
 /// "All properties given must match." `where_`, `language` and `expression`
 /// are the draft-atwood-jmap-graph-search-00 §FilterCondition Extensions, as

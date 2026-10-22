@@ -67,15 +67,15 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime};
 
-use jmap_graph_types::edit::{GraphCursorEvent, GraphNodeOpFilterCondition};
-use jmap_graph_types::query::{
-    GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphFilter,
-    GraphNodeComparator, GraphNodeFilterCondition,
-};
-use jmap_graph_types::search::{CandidateKind, Expression, GraphSearchCapability};
+use jmap_graph_types::{CandidateKind, Expression, GraphSearchCapability};
 use jmap_graph_types::{
     Graph, GraphCapability, GraphEdge, GraphEditCapability, GraphNode, GraphNodeOp, GraphRights,
 };
+use jmap_graph_types::{
+    GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphFilter,
+    GraphNodeComparator, GraphNodeFilterCondition,
+};
+use jmap_graph_types::{GraphCursorEvent, GraphNodeOpFilterCondition};
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, JmapError, State};
 use serde::de::DeserializeOwned;

@@ -25,8 +25,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use jmap_chat_types::query::ChatComparator;
-use jmap_chat_types::vocabulary::SPEC_CHAT_MEMBER_ROLES;
+use jmap_chat_types::ChatComparator;
+use jmap_chat_types::SPEC_CHAT_MEMBER_ROLES;
 use jmap_chat_types::{Chat, ChatKind, ChatMember, ChatMemberRole, Message, ReadPosition};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;

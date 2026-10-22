@@ -93,13 +93,13 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use jmap_scene_types::query::{
-    SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
-    SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
-};
 use jmap_scene_types::{
     AccessPolicy, SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject,
     SceneRegion,
+};
+use jmap_scene_types::{
+    SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
+    SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};

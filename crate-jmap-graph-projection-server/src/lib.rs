@@ -37,7 +37,7 @@
 use std::collections::BTreeSet;
 
 use jmap_contacts_types::{AddressBook, ContactCard};
-use jmap_graph_types::query::GraphNodeFilterCondition;
+use jmap_graph_types::GraphNodeFilterCondition;
 use jmap_graph_types::{GraphEdge, GraphNode, GraphRights};
 use jmap_mail_types::{Email, EmailSubmission, Identity, Mailbox, Thread};
 use jmap_server::{GetObject, JmapBackend};

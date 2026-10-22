@@ -16,7 +16,6 @@ use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_destroy_response,
     set_response, SPACE_STATE_NEW, SPACE_STATE_OLD, TEST_ACCOUNT_ID,
 };
-use jmap_chat_types::query;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -345,7 +344,7 @@ async fn space_query_empty_filter_sends_null() {
     let sc = helpers::make_client(&server);
     let _ = sc
         .space_query(
-            None::<&query::SpaceFilter>,
+            None::<&jmap_chat_types::SpaceFilter>,
             None,
             &jmap_base_client::QueryParams {
                 position: Some(0),
@@ -380,7 +379,7 @@ async fn space_query_filter_is_public_serializes() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut cond = query::SpaceFilterCondition::default();
+    let mut cond = jmap_chat_types::SpaceFilterCondition::default();
     cond.is_public = Some(true);
     let _ = sc
         .space_query(
@@ -423,7 +422,7 @@ async fn space_query_changes_since_state_passthrough() {
         .space_query_changes(
             &since,
             Some(50),
-            None::<&query::SpaceFilter>,
+            None::<&jmap_chat_types::SpaceFilter>,
             None,
             None,
             None,
@@ -750,15 +749,15 @@ async fn space_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("SP-100");
-    let mut cond = query::SpaceFilterCondition::default();
+    let mut cond = jmap_chat_types::SpaceFilterCondition::default();
     cond.is_public = Some(true);
-    let sort = [query::SpaceComparator::new(
-        query::SpaceComparatorProperty::Name,
+    let sort = [jmap_chat_types::SpaceComparator::new(
+        jmap_chat_types::SpaceComparatorProperty::Name,
     )];
     sc.space_query_changes(
         &since,
         None,
-        Some(&query::Filter::Condition(cond)),
+        Some(&jmap_chat_types::Filter::Condition(cond)),
         Some(&sort),
         Some(&up_to),
         Some(true),
@@ -813,9 +812,16 @@ async fn space_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
-    sc.space_query_changes(&since, None, None::<&query::SpaceFilter>, None, None, None)
-        .await
-        .expect("space_query_changes_all_none_omits_optional_wire_keys: must succeed");
+    sc.space_query_changes(
+        &since,
+        None,
+        None::<&jmap_chat_types::SpaceFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("space_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
     let args = recorded_args(&server).await;
     assert!(args.get("filter").is_none(), "filter must be omitted");

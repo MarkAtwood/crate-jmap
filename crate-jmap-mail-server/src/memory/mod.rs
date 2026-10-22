@@ -80,13 +80,10 @@ use crate::{
     QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_mail_types::{
-    query::{
-        ComparatorProperty, EmailComparator, EmailFilter, EmailSubmissionFilter, Filter,
-        MailboxComparator, MailboxComparatorProperty, Operator,
-    },
-    submission::{EmailSubmission, EmailSubmissionFilterCondition},
-    Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
-    MailboxFilterCondition, MailboxRole, SearchSnippet,
+    ComparatorProperty, Email, EmailAddress, EmailComparator, EmailFilter, EmailFilterCondition,
+    EmailHeader, EmailSubmission, EmailSubmissionFilter, EmailSubmissionFilterCondition, Filter,
+    Keyword, Mailbox, MailboxComparator, MailboxComparatorProperty, MailboxFilterCondition,
+    MailboxRole, Operator, SearchSnippet,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
@@ -2453,7 +2450,7 @@ use crate::mdn::MdnBackend;
 #[cfg(feature = "mdn")]
 use crate::mdn::{MdnParseResult, MdnSendResult};
 #[cfg(feature = "mdn")]
-use jmap_mail_types::mdn::Mdn;
+use jmap_mail_types::Mdn;
 
 #[cfg(feature = "mdn")]
 impl MdnBackend for MemoryBackend {
@@ -2481,7 +2478,7 @@ impl MdnBackend for MemoryBackend {
         _caller: &(),
         _account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
-        send: BTreeMap<String, (jmap_mail_types::mdn::Mdn, jmap_mail_types::Email)>,
+        send: BTreeMap<String, (jmap_mail_types::Mdn, jmap_mail_types::Email)>,
     ) -> Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>> {
         let mut sent: BTreeMap<String, Mdn> = BTreeMap::new();
         let mut not_sent: BTreeMap<String, SetError> = BTreeMap::new();

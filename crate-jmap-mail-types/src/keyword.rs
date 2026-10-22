@@ -8,11 +8,10 @@
 //!
 //! ```rust
 //! use jmap_mail_types::Keyword;
-//! use jmap_mail_types::keyword;
 //!
-//! let kw = Keyword::from(keyword::SEEN);
+//! let kw = Keyword::from(jmap_mail_types::SEEN);
 //! // BTreeMap<Keyword, bool> also accepts &str via Borrow<str>:
-//! // let is_seen = email.keywords.contains_key(keyword::SEEN);
+//! // let is_seen = email.keywords.contains_key(jmap_mail_types::SEEN);
 //! ```
 
 use std::borrow::Borrow;
@@ -76,12 +75,12 @@ const SYSTEM_KEYWORDS: &[&str] = &[
 /// be queried with a bare `&str`:
 ///
 /// ```rust
-/// use jmap_mail_types::{keyword, Keyword};
+/// use jmap_mail_types::{Keyword};
 /// use std::collections::BTreeMap;
 ///
 /// let mut kw: BTreeMap<Keyword, bool> = BTreeMap::new();
-/// kw.insert(Keyword::from(keyword::SEEN), true);
-/// assert!(kw.contains_key(keyword::SEEN));
+/// kw.insert(Keyword::from(jmap_mail_types::SEEN), true);
+/// assert!(kw.contains_key(jmap_mail_types::SEEN));
 /// ```
 ///
 /// No syntax validation is performed at construction time — keyword syntax

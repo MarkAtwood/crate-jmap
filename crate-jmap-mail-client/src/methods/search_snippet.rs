@@ -43,7 +43,7 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`EmailFilterCondition`](jmap_mail_types::query::EmailFilterCondition); use
+    /// [`EmailFilterCondition`](jmap_mail_types::EmailFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<EmailFilterCondition>` to add the
     /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
     ///

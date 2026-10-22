@@ -22,8 +22,8 @@
 //! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::query::{ChatContactComparator, ChatContactFilter};
 use jmap_chat_types::ChatContact;
+use jmap_chat_types::{ChatContactComparator, ChatContactFilter};
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 

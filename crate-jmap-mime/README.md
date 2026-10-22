@@ -15,7 +15,7 @@ Three public functions cover the full conversion surface:
 ### `part_to_jmap(part, blob_id_for) -> EmailBodyPart`
 
 Converts a `mime_tree::ParsedPart` (and all its children, recursively) to a
-`jmap_mail_types::email::EmailBodyPart` tree.
+`jmap_mail_types::EmailBodyPart` tree.
 
 - The `blob_id_for` closure is called once per non-multipart leaf to assign a
   `blobId`; the storage layer decides how to construct these IDs. **The
@@ -34,7 +34,7 @@ Converts a `mime_tree::ParsedPart` (and all its children, recursively) to a
 ### `body_value_to_jmap(val) -> EmailBodyValue`
 
 Converts a `mime_tree::DecodedBodyValue` to a
-`jmap_mail_types::email::EmailBodyValue`. This is a direct field rename with no
+`jmap_mail_types::EmailBodyValue`. This is a direct field rename with no
 logic.
 
 ### `message_to_jmap_body(msg, blob_id_for) -> JmapBodyFields`

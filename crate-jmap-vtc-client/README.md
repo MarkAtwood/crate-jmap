@@ -18,7 +18,7 @@ family. Wire types come from `jmap-vtc-types`.
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_vtc_client::JmapVtcExt;
-use jmap_vtc_types::query::{VtcParticipantFilter, VtcParticipantFilterCondition};
+use jmap_vtc_types::{VtcParticipantFilter, VtcParticipantFilterCondition};
 use jmap_types::Id;
 
 # async fn run() -> Result<(), Box<dyn std::error::Error>> {

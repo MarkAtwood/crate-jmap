@@ -12,7 +12,7 @@ use jmap_graph_server::{
     handle_graph_edge_query, handle_graph_edge_set, handle_graph_node_query,
     handle_graph_node_query_changes, handle_graph_node_set, handle_graph_set,
 };
-use jmap_graph_types::search::GraphSearchCapability;
+use jmap_graph_types::GraphSearchCapability;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -588,7 +588,7 @@ fn view_node(id: &str) -> jmap_graph_types::GraphNode {
 #[test]
 fn hidden_endpoint_edge_is_not_followed() {
     use jmap_graph_server::search::GraphView;
-    use jmap_graph_types::search::{CandidateKind, Expression};
+    use jmap_graph_types::{CandidateKind, Expression};
     // L313-315 at jmap-chat-spec 33702a5: "The nodes and edges a search
     // considers are exactly those the user could fetch with `/get`" and
     // "a node or edge the user cannot see has no effect on any search

@@ -26,7 +26,7 @@
 //! # Construction from outside this crate
 //!
 //! ```rust
-//! use jmap_scene_types::query::{SceneObjectFilter, SceneObjectFilterCondition, WithinRadius};
+//! use jmap_scene_types::{SceneObjectFilter, SceneObjectFilterCondition, WithinRadius};
 //! use jmap_types::Id;
 //!
 //! let mut cond = SceneObjectFilterCondition::default();

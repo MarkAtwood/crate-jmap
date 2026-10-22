@@ -12,7 +12,7 @@ mod common;
 
 use common::{seed::setup_seed_data, MemoryBackend};
 use jmap_mail_server::JmapBackend;
-use jmap_mail_types::{keyword, Email, Mailbox, MailboxRole};
+use jmap_mail_types::{Email, Mailbox, MailboxRole};
 use jmap_types::Id;
 
 const ACCOUNT: &str = "acct1";
@@ -239,7 +239,7 @@ async fn test_email_keywords_plain_simple() {
     );
 
     assert!(
-        email.keywords.contains_key(keyword::SEEN),
+        email.keywords.contains_key(jmap_mail_types::SEEN),
         "plain-simple must have $seen keyword"
     );
 }
@@ -263,11 +263,11 @@ async fn test_email_keywords_html_attachment() {
         .expect("html-attachment email must exist");
 
     assert!(
-        email.keywords.contains_key(keyword::SEEN),
+        email.keywords.contains_key(jmap_mail_types::SEEN),
         "html-attachment must have $seen keyword"
     );
     assert!(
-        email.keywords.contains_key(keyword::FLAGGED),
+        email.keywords.contains_key(jmap_mail_types::FLAGGED),
         "html-attachment must have $flagged keyword"
     );
 
@@ -306,11 +306,11 @@ async fn test_email_keywords_custom() {
         email.keywords.keys().collect::<Vec<_>>()
     );
     assert!(
-        email.keywords.contains_key(keyword::SEEN),
+        email.keywords.contains_key(jmap_mail_types::SEEN),
         "custom-keywords must have $seen keyword"
     );
     assert!(
-        email.keywords.contains_key(keyword::FORWARDED),
+        email.keywords.contains_key(jmap_mail_types::FORWARDED),
         "custom-keywords must have $forwarded keyword"
     );
 }

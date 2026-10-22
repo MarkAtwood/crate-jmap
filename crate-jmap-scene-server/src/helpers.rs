@@ -420,10 +420,10 @@ macro_rules! known_sort {
 }
 
 known_sort!(
-    jmap_scene_types::query::SceneAssetComparator => jmap_scene_types::query::SceneAssetSortProperty::Other,
-    jmap_scene_types::query::SceneRegionComparator => jmap_scene_types::query::SceneRegionSortProperty::Other,
-    jmap_scene_types::query::SceneObjectComparator => jmap_scene_types::query::SceneObjectSortProperty::Other,
-    jmap_scene_types::query::SceneAvatarComparator => jmap_scene_types::query::SceneAvatarSortProperty::Other,
+    jmap_scene_types::SceneAssetComparator => jmap_scene_types::SceneAssetSortProperty::Other,
+    jmap_scene_types::SceneRegionComparator => jmap_scene_types::SceneRegionSortProperty::Other,
+    jmap_scene_types::SceneObjectComparator => jmap_scene_types::SceneObjectSortProperty::Other,
+    jmap_scene_types::SceneAvatarComparator => jmap_scene_types::SceneAvatarSortProperty::Other,
 );
 
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.

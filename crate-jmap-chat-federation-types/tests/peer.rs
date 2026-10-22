@@ -6,7 +6,7 @@
 //! parses the JSON, checks the typed fields, and serializes back to the
 //! same JSON.
 
-use jmap_chat_federation_types::peer::*;
+use jmap_chat_federation_types::*;
 use jmap_chat_types::{BodyType, ChatKind, ChatMemberRole, Clearable, Presence, ReadDisposition};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
