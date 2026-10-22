@@ -1309,6 +1309,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `jmap_mail_server::MailBackend::copy_email` and
+  `jmap_contacts_server::ContactsBackend::copy_contact_card` are replaced
+  by the generic `copy_object<O: SetObject>(caller, from_account_id,
+  to_account_id, obj) -> (Id, O)`, matching `create_object`. `Email/copy`
+  now reads the source Email itself, applies the overrides, assigns
+  `threadId` in the destination and hands the record to `copy_object`; an
+  unknown source id is `notFound` from the handler (bd:JMAP-a4zg).
 - **BREAKING** `jmap_chat_server::ChatBackend::generate_invite_code` and
   `jmap_chat_federation_server::FederationBackend::new_message_id` take
   `caller` and `account_id` and are async and fallible
@@ -2363,6 +2370,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** (wire) **jmap-mail-server**: `Email/copy` without
+  `keywords` keeps the source Email's keywords instead of clearing them,
+  and the copy carries every source property rather than a fixed subset
+  (RFC 8620 §5.4: "any other properties included are used instead of the
+  current value").
 - **jmap-vtc-server**: a participant join or answer no longer moves a
   call that a moderator ended concurrently back to `"active"`. A failed
   activation in `VTCParticipant/set` no longer skips the decline and

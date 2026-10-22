@@ -56,7 +56,7 @@ with write operations and contacts-specific methods.
 
 The actual trait signatures to copy: `create_object`, `update_object`,
 `destroy_object` — identical signatures to `MailBackend`.  The contacts-specific
-method (`copy_contact_card`) mirrors `copy_email`.
+method (`copy_object<O>`) mirrors the mail-server one.
 
 ### Handler logic reference — read, do not copy
 
@@ -168,8 +168,8 @@ provides `blob_exists`; the handler applies the policy.
 
 The draft (§3.6) lists `/copy` as a standard method.  The handler follows RFC
 8620 §5.4 semantics exactly: copy from one account to another, assigning new IDs
-in the destination.  A dedicated `copy_contact_card` backend method handles the
-cross-account duplication.
+in the destination.  The generic `copy_object<O>` backend method handles the
+cross-account duplication (bd:JMAP-a4zg).
 
 ### 7. ContactCard groups — no special handler
 
@@ -273,16 +273,16 @@ pub trait ContactsBackend: JmapBackend {
 
     // ── Contacts-specific methods ────────────────────────────────────────
 
-    /// Copy a ContactCard from one account to another (RFC 8620 §5.4).
-    /// Returns the new id and the created ContactCard in to_account_id.
-    fn copy_contact_card(
+    /// Store a record from another account (RFC 8620 §5.4 /copy).
+    /// Returns the new id and the stored record in to_account_id.
+    fn copy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         from_account_id: &jmap_types::Id,
-        card_id: &jmap_types::Id,
         to_account_id: &jmap_types::Id,
-        address_book_ids: &HashMap<jmap_types::Id, bool>,
+        obj: O,
     ) -> impl Future<
-        Output = Result<(jmap_types::Id, ContactCard), BackendSetError<Self::Error>>,
+        Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>,
     > + Send;
 
     /// Return true if blob_id exists in account_id's blob store.

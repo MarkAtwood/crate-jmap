@@ -276,23 +276,23 @@ pub trait ContactsBackend: JmapBackend {
         account_id: &jmap_types::Id,
     ) -> bool;
 
-    /// Copy a ContactCard from one account to another.
+    /// Store `obj`, a record read from `from_account_id`, as a new record in
+    /// `to_account_id`, for `/copy` (RFC 8620 §5.4).
     ///
-    /// Called by `ContactCard/copy`. The card has already been fetched from
-    /// `from_account_id`; the backend must store it in `to_account_id` and
-    /// return the newly assigned `(id, card)`.
-    fn copy_contact_card(
+    /// Called by `ContactCard/copy` after the handler fetched the card from
+    /// `from_account_id` and applied the request's patch. The backend
+    /// assigns the new `id`, stores the record in `to_account_id` and
+    /// records the create in the state and change log as
+    /// [`create_object`](Self::create_object) does. Returns the new id and
+    /// the stored record.
+    fn copy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
         from_account_id: &jmap_types::Id,
         to_account_id: &jmap_types::Id,
-        card: jmap_contacts_types::ContactCard,
-    ) -> impl std::future::Future<
-        Output = Result<
-            (jmap_types::Id, jmap_contacts_types::ContactCard),
-            BackendSetError<Self::Error>,
-        >,
-    > + Send;
+        obj: O,
+    ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
+           + Send;
 
     /// Return `Ok(true)` if `address_book_id` (in `account_id`)
     /// currently references one or more ContactCards.

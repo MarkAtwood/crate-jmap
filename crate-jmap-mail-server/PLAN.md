@@ -147,7 +147,7 @@ No MIME parsing libraries. No HTTP client. No database drivers.
 | Mailbox | get, changes, query, queryChanges, set | §2 | generic CRUD + query |
 | Thread | get, changes | §3 | generic get + changes |
 | Email | get, changes, query, queryChanges, set | §4.2–4.6 | generic CRUD + query |
-| Email | copy | §4.7 | `copy_email` |
+| Email | copy | §4.7 | `copy_object` |
 | Email | import | §4.8 | `import_email` |
 | Email | parse | §4.9 | `parse_email` (read-only) |
 | SearchSnippet | get | §5.1 | `search_snippets` |
@@ -194,10 +194,12 @@ The handler does not know how blobs are stored; the backend does.
 
 ### 4. Email/copy as a separate backend method
 
-Cross-account blob movement has no generic CRUD equivalent. `copy_email`
-receives a `from_account_id`, `from_email_id`, `to_account_id`, `mailbox_ids`,
-and `keywords`. The backend handles duplication; the handler handles the RFC
-8621 §4.7 response structure (`created`, `notCreated`).
+Cross-account blob movement has no generic CRUD equivalent. The handler reads
+the source Email, applies `mailboxIds` and any given `keywords` and
+`receivedAt`, assigns `threadId` in the destination, and passes the result to
+the generic `copy_object<O>` (bd:JMAP-a4zg), which assigns the new id, makes
+the blob available in `to_account_id` and stores it. The handler builds the
+RFC 8621 §4.7 response structure (`created`, `notCreated`).
 
 ### 5. EmailSubmission/set create triggers actual email sending
 
@@ -352,15 +354,14 @@ pub trait MailBackend: Send + Sync + 'static {
         properties: Option<&[EmailProperty]>,
     ) -> impl Future<Output = Result<Email, Self::Error>> + Send;
 
-    /// Email/copy (RFC 8621 §4.7): duplicate an email into another account.
-    fn copy_email(
+    /// /copy (RFC 8620 §5.4): store a record from another account.
+    fn copy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         from_account_id: &Id,
-        email_id: &Id,
         to_account_id: &Id,
-        mailbox_ids: &[Id],
-        keywords: &[Keyword],
-    ) -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>> + Send;
+        obj: O,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
 
     /// SearchSnippet/get (RFC 8621 §5.1): return search snippets for email IDs.
     /// Only called when supports_type::<SearchSnippet>() returns true.

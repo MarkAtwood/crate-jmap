@@ -104,10 +104,12 @@ pub trait MailBackend: JmapBackend {
         keywords: &[Keyword], received_at: Option<&UTCDate>)
         -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>> + Send;
 
-    /// Copy an Email from one account to another (RFC 8621 §6.3 / RFC 8620 §6.3).
-    fn copy_email(&self, from_account_id: &Id, email_id: &Id, to_account_id: &Id,
-        mailbox_ids: &[Id], keywords: &[Keyword], received_at: Option<&UTCDate>)
-        -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>> + Send;
+    /// Store a record read from `from_account_id` as a new record in
+    /// `to_account_id` (RFC 8620 §5.4 /copy; the handler applied the
+    /// overrides). Returns the new id and the stored record.
+    fn copy_object<O: SetObject + Send + Sync>(&self, caller: &Self::CallerCtx,
+        from_account_id: &Id, to_account_id: &Id, obj: O)
+        -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
 
     /// Parse a blob as a message and return an Email without storing it
     /// (RFC 8621 §5.8 — Email/parse).
