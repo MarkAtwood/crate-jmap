@@ -296,7 +296,7 @@ impl MemoryBackend {
 
     /// **Test-only**: set the maximum Sieve script size in bytes for
     /// size-enforcement tests. Production backends should implement
-    /// [`SieveBackend::max_sieve_script_bytes`](crate::sieve::SieveBackend::max_sieve_script_bytes)
+    /// [`SieveBackend::max_sieve_script_bytes`](crate::SieveBackend::max_sieve_script_bytes)
     /// directly on their own backend type — this setter exists so the
     /// reference [`MemoryBackend`] can simulate per-deployment caps
     /// inside integration tests without growing a separate fixture
@@ -318,7 +318,7 @@ impl MemoryBackend {
     /// **Test-only**: set the maximum per-account Sieve script count for
     /// `overQuota` enforcement tests. Production backends should
     /// implement
-    /// [`SieveBackend::max_sieve_scripts_per_account`](crate::sieve::SieveBackend::max_sieve_scripts_per_account)
+    /// [`SieveBackend::max_sieve_scripts_per_account`](crate::SieveBackend::max_sieve_scripts_per_account)
     /// directly on their own backend type — this setter exists so the
     /// reference [`MemoryBackend`] can simulate per-account quota caps
     /// inside integration tests. The `pub` exposure plus the `memory`
@@ -2453,9 +2453,9 @@ fn submission_matches_filter(sub: &EmailSubmission, filter: &EmailSubmissionFilt
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "mdn")]
-use crate::mdn::{MdnParseResult, MdnSendResult};
+use crate::mdn::MdnBackend;
 #[cfg(feature = "mdn")]
-use crate::MdnBackend;
+use crate::mdn::{MdnParseResult, MdnSendResult};
 #[cfg(feature = "mdn")]
 use jmap_mail_types::mdn::Mdn;
 
