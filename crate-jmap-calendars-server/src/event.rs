@@ -408,6 +408,31 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
 
+    // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
+    // Reject the whole request if any element is non-string rather than
+    // silently skipping it, which would produce a misleading response.
+    // Checked before anything is applied so the method-level error leaves
+    // the account unchanged.
+    let destroys: Vec<Id> = match args.remove("destroy") {
+        Some(Value::Array(destroy_arr)) => {
+            if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
+                return Err(JmapError::invalid_arguments(format!(
+                    "destroy: every element must be a string Id; got {bad}"
+                )));
+            }
+            destroy_arr
+                .iter()
+                .filter_map(Value::as_str)
+                .map(Id::from)
+                .collect()
+        }
+        _ => Vec::new(),
+    };
+
+    // Validate every create and update first: draft-ietf-jmap-calendars-33
+    // §5.9's uid/privacy rule is judged on the account "after applying all
+    // the creates, updates, and destroys", so it needs the whole request.
+    let mut creates: Vec<(String, CalendarEvent)> = Vec::new();
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
             // §5.9: client cannot set both utcStart and start simultaneously,
@@ -461,43 +486,11 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 not_created.insert(create_id, err);
                 continue;
             }
-            let build = move |id: &Id| {
-                event.id = Some(id.clone());
-                event
-            };
-            match backend
-                .create_calendar_event(caller, &account_id, &create_id, build, &set_args)
-                .await
-            {
-                Ok((_new_id, created_obj)) => {
-                    mutated = true;
-                    // CalendarEvent uses #[derive(Serialize)] on plain data;
-                    // to_value is infallible (JMAP-r3pg.13).
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
-                }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
-                }
-            }
+            creates.push((create_id, event));
         }
     }
 
+    let mut updates: Vec<(Id, PatchObject)> = Vec::new();
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch_val) in update_map {
             // §5.9: patch cannot contain both utcStart and start, or both
@@ -533,33 +526,6 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 }
             }
 
-            // §5.4: if every top-level patch key is a per-user property,
-            // route to update_per_user_properties so the backend can store
-            // it without touching the shared updated timestamp. Routing is
-            // by property identity only: clearing a shared property
-            // (`{"title": null}`) is still a shared-property mutation and
-            // must NOT be routed to the per-user code path.
-            //
-            // RFC 8620 §5.3 PatchObject keys may be JSON Pointer paths
-            // into nested values (e.g. `"alerts/abc/trigger"` targets the
-            // `trigger` field of the alert object at key `"abc"` in the
-            // `alerts` map). Routing is decided on the first path segment
-            // (the property identity), not the full pointer string.
-            // RFC 6901 escapes (`~0` for `~`, `~1` for `/`) are NOT
-            // expanded here: a wire key like `"keywords~1foo"` is the
-            // literal property name `keywords/foo`, which is neither a
-            // per-user nor a known shared property, so it routes to the
-            // shared path where the backend rejects it.
-            let is_per_user_only = patch_val
-                .as_object()
-                .map(|m| {
-                    m.iter().all(|(k, _)| {
-                        let head = k.split_once('/').map_or(k.as_str(), |(h, _)| h);
-                        jmap_calendars_types::is_per_user_calendar_event_property(head)
-                    })
-                })
-                .unwrap_or(false);
-
             // Convert wire-format Value into a typed PatchObject at the
             // backend boundary. RFC 8620 §5.3 mandates a PatchObject is a
             // JSON Object; non-object values produce an `invalidPatch`
@@ -567,102 +533,170 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             // and utcEnd/duration validation above, since those checks
             // operate on the raw wire shape and are valid regardless of
             // whether the value is a strict object.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
+            match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => updates.push((id, p)),
                 Err(e) => {
                     not_updated.insert(
                         id_str,
                         json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            // §5.9.2.1: per-user-only updates do not generate iTIP REQUEST
-            // messages, so they bypass scheduling. The non-per-user path
-            // routes through update_calendar_event so the backend sees the
-            // sendSchedulingMessages flag.
-            let update_result = if is_per_user_only {
-                backend
-                    .update_per_user_properties(caller, &account_id, &id, patch)
-                    .await
-            } else {
-                backend
-                    .update_calendar_event(caller, &account_id, &id, patch, &set_args)
-                    .await
-            };
-
-            match update_result {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    // See create branch above (JMAP-r3pg.13).
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
                     );
                 }
             }
         }
     }
 
-    if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
-        // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
-        // Reject the whole request if any element is non-string rather than
-        // silently skipping it, which would produce a misleading response.
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
-            )));
+    // §5.9: "if the Account would contain two or more CalendarEvent objects
+    // with the same uid but different values for their "privacy" property,
+    // the server MUST reject each create or update in the request that
+    // affects a CalendarEvent with that uid with an invalidProperties
+    // SetError. Changes in the request to CalendarEvent objects with other
+    // uids are unaffected."
+    let conflicts = backend
+        .privacy_conflicts(caller, &account_id, &creates, &updates, &destroys)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let privacy_error = || json!({ "type": "invalidProperties", "properties": ["privacy"] });
+
+    for (create_id, mut event) in creates {
+        if conflicts.create_ids.contains(&create_id) {
+            not_created.insert(create_id, privacy_error());
+            continue;
         }
-        for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s.to_owned(),
-                None => continue, // unreachable: validated above
-            };
-            let id = Id::from(id_str.as_str());
-            match backend
-                .destroy_calendar_event(caller, &account_id, &id, &set_args)
+        let build = move |id: &Id| {
+            event.id = Some(id.clone());
+            event
+        };
+        match backend
+            .create_calendar_event(caller, &account_id, &create_id, build, &set_args)
+            .await
+        {
+            Ok((_new_id, created_obj)) => {
+                mutated = true;
+                // CalendarEvent uses #[derive(Serialize)] on plain data;
+                // to_value is infallible (JMAP-r3pg.13).
+                created.insert(
+                    create_id,
+                    serde_json::to_value(&created_obj)
+                        .expect("derive(Serialize) on plain data is infallible"),
+                );
+            }
+            Err(BackendSetError::SetError(set_err)) => {
+                not_created.insert(create_id, set_error_value(&set_err));
+            }
+            Err(BackendSetError::Other(e)) => {
+                not_created.insert(create_id, server_fail_value_from_backend(&e));
+            }
+            Err(_) => {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "serverFail",
+                        "description": "unhandled backend error variant",
+                    }),
+                );
+            }
+        }
+    }
+
+    for (id, patch) in updates {
+        let id_str = id.as_ref().to_owned();
+        if conflicts.update_ids.contains(&id) {
+            not_updated.insert(id_str, privacy_error());
+            continue;
+        }
+
+        // §5.4: if every top-level patch key is a per-user property,
+        // route to update_per_user_properties so the backend can store
+        // it without touching the shared updated timestamp. Routing is
+        // by property identity only: clearing a shared property
+        // (`{"title": null}`) is still a shared-property mutation and
+        // must NOT be routed to the per-user code path.
+        //
+        // RFC 8620 §5.3 PatchObject keys may be JSON Pointer paths
+        // into nested values (e.g. `"alerts/abc/trigger"` targets the
+        // `trigger` field of the alert object at key `"abc"` in the
+        // `alerts` map). Routing is decided on the first path segment
+        // (the property identity), not the full pointer string.
+        // RFC 6901 escapes (`~0` for `~`, `~1` for `/`) are NOT
+        // expanded here: a wire key like `"keywords~1foo"` is the
+        // literal property name `keywords/foo`, which is neither a
+        // per-user nor a known shared property, so it routes to the
+        // shared path where the backend rejects it.
+        let is_per_user_only = patch.as_map().keys().all(|k| {
+            let head = k.split_once('/').map_or(k.as_str(), |(h, _)| h);
+            jmap_calendars_types::is_per_user_calendar_event_property(head)
+        });
+
+        // §5.9.2.1: per-user-only updates do not generate iTIP REQUEST
+        // messages, so they bypass scheduling. The non-per-user path
+        // routes through update_calendar_event so the backend sees the
+        // sendSchedulingMessages flag.
+        let update_result = if is_per_user_only {
+            backend
+                .update_per_user_properties(caller, &account_id, &id, patch)
                 .await
-            {
-                Ok(()) => {
-                    mutated = true;
-                    destroyed_list.push(Value::String(id_str));
-                }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
-                }
+        } else {
+            backend
+                .update_calendar_event(caller, &account_id, &id, patch, &set_args)
+                .await
+        };
+
+        match update_result {
+            Ok(Some(obj)) => {
+                mutated = true;
+                // See create branch above (JMAP-r3pg.13).
+                updated.insert(
+                    id_str,
+                    serde_json::to_value(&obj)
+                        .expect("derive(Serialize) on plain data is infallible"),
+                );
+            }
+            Ok(None) => {
+                mutated = true;
+                updated.insert(id_str, Value::Null);
+            }
+            Err(BackendSetError::SetError(set_err)) => {
+                not_updated.insert(id_str, set_error_value(&set_err));
+            }
+            Err(BackendSetError::Other(e)) => {
+                not_updated.insert(id_str, server_fail_value_from_backend(&e));
+            }
+            Err(_) => {
+                not_updated.insert(
+                    id_str,
+                    json!({
+                        "type": "serverFail",
+                        "description": "unhandled backend error variant",
+                    }),
+                );
+            }
+        }
+    }
+
+    for id in destroys {
+        let id_str = id.as_ref().to_owned();
+        match backend
+            .destroy_calendar_event(caller, &account_id, &id, &set_args)
+            .await
+        {
+            Ok(()) => {
+                mutated = true;
+                destroyed_list.push(Value::String(id_str));
+            }
+            Err(BackendSetError::SetError(set_err)) => {
+                not_destroyed.insert(id_str, set_error_value(&set_err));
+            }
+            Err(BackendSetError::Other(e)) => {
+                not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
+            }
+            Err(_) => {
+                not_destroyed.insert(
+                    id_str,
+                    json!({
+                        "type": "serverFail",
+                        "description": "unhandled backend error variant",
+                    }),
+                );
             }
         }
     }
@@ -822,6 +856,25 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                     continue;
                 }
             };
+
+            // §5.10: "If the account being copied from does not belong to
+            // the user and the "privacy" property of the event being copied
+            // is "private", the server MUST reject the copy with a forbidden
+            // SetError."
+            match backend
+                .may_copy_calendar_event(caller, &from_account_id, &source_events[0])
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    not_created.insert(create_id, json!({"type": "forbidden"}));
+                    continue;
+                }
+                Err(e) => {
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
+                    continue;
+                }
+            }
 
             // Merge: serialize source to map, overlay client-supplied properties,
             // then strip "id" so the backend assigns a fresh server id.
@@ -1659,6 +1712,157 @@ mod tests {
             assigned_id, "ev1",
             "server must assign a fresh id, not the source id: {resp}"
         );
+    }
+
+    fn seed_event(backend: &MockBackend, id: &str, uid: &str, privacy: &str, rid: &str) {
+        backend.seed_object(
+            "acc",
+            "CalendarEvent",
+            id,
+            json!({
+                "id": id, "uid": uid, "privacy": privacy, "recurrenceId": rid,
+                "calendarIds": { "cal1": true }
+            }),
+        );
+    }
+
+    fn new_event(uid: &str, privacy: &str, rid: &str) -> Value {
+        json!({
+            "uid": uid, "privacy": privacy, "recurrenceId": rid,
+            "calendarIds": { "cal1": true }
+        })
+    }
+
+    fn privacy_rejected() -> Value {
+        json!({ "type": "invalidProperties", "properties": ["privacy"] })
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.9 — "if the Account would
+    /// contain two or more CalendarEvent objects with the same uid but
+    /// different values for their "privacy" property, the server MUST
+    /// reject each create or update in the request that affects a
+    /// CalendarEvent with that uid with an invalidProperties SetError.
+    /// Changes in the request to CalendarEvent objects with other uids are
+    /// unaffected."
+    #[tokio::test]
+    async fn set_privacy_conflict_rejects_only_that_uid() {
+        let backend = MockBackend::new_with_account("acc");
+        seed_event(&backend, "e1", "uid-a", "public", "2026-01-01T09:00:00");
+        seed_event(&backend, "e2", "uid-a", "public", "2026-01-08T09:00:00");
+        let args = json!({
+            "accountId": "acc",
+            "create": {
+                "c1": new_event("uid-a", "private", "2026-01-15T09:00:00"),
+                "c2": new_event("uid-b", "private", "2026-01-15T09:00:00")
+            },
+            "update": { "e2": { "title": "renamed" } }
+        });
+        let resp = handle_calendar_event_set(&backend, &(), args)
+            .await
+            .expect("no method-level error")
+            .primary;
+        assert_eq!(resp["notCreated"]["c1"], privacy_rejected(), "{resp}");
+        assert_eq!(resp["notUpdated"]["e2"], privacy_rejected(), "{resp}");
+        assert!(resp["created"]["c2"].is_object(), "{resp}");
+    }
+
+    /// Oracle: §5.9 — "a client wishing to change the privacy of an event
+    /// that exists as multiple instances in the Account must therefore
+    /// update every instance in the same "/set" request", and the rule is
+    /// judged "After applying all the creates, updates, and destroys".
+    #[tokio::test]
+    async fn set_privacy_change_of_every_instance_is_accepted() {
+        let backend = MockBackend::new_with_account("acc");
+        seed_event(&backend, "e1", "uid-a", "public", "2026-01-01T09:00:00");
+        seed_event(&backend, "e2", "uid-a", "public", "2026-01-08T09:00:00");
+        seed_event(&backend, "e3", "uid-a", "public", "2026-01-15T09:00:00");
+        let args = json!({
+            "accountId": "acc",
+            "create": { "c1": new_event("uid-a", "private", "2026-01-22T09:00:00") },
+            "update": {
+                "e1": { "privacy": "private" },
+                "e2": { "privacy": "private" }
+            },
+            "destroy": ["e3"]
+        });
+        let resp = handle_calendar_event_set(&backend, &(), args)
+            .await
+            .expect("no method-level error")
+            .primary;
+        assert_eq!(resp["notCreated"], Value::Null, "{resp}");
+        assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+        assert!(resp["created"]["c1"].is_object(), "{resp}");
+        assert_eq!(resp["destroyed"], json!(["e3"]), "{resp}");
+    }
+
+    /// Oracle: §5.9 — updating only some instances leaves the uid with two
+    /// privacy values, so that update is rejected and the destroy (not a
+    /// create or update) still applies.
+    #[tokio::test]
+    async fn set_privacy_change_of_one_instance_is_rejected() {
+        let backend = MockBackend::new_with_account("acc");
+        seed_event(&backend, "e1", "uid-a", "public", "2026-01-01T09:00:00");
+        seed_event(&backend, "e2", "uid-a", "public", "2026-01-08T09:00:00");
+        seed_event(&backend, "e3", "uid-a", "public", "2026-01-15T09:00:00");
+        let args = json!({
+            "accountId": "acc",
+            "update": { "e1": { "privacy": "private" } },
+            "destroy": ["e3"]
+        });
+        let resp = handle_calendar_event_set(&backend, &(), args)
+            .await
+            .expect("no method-level error")
+            .primary;
+        assert_eq!(resp["notUpdated"]["e1"], privacy_rejected(), "{resp}");
+        assert_eq!(resp["destroyed"], json!(["e3"]), "{resp}");
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.10 — "If the account being
+    /// copied from does not belong to the user and the "privacy" property
+    /// of the event being copied is "private", the server MUST reject the
+    /// copy with a forbidden SetError." A public event in that account and
+    /// a private event in the user's own account still copy.
+    #[tokio::test]
+    async fn copy_private_event_from_foreign_account_is_forbidden() {
+        let backend = MockBackend::new_with_account("dst");
+        for (account, id, privacy) in [
+            ("shared", "priv", "private"),
+            ("shared", "pub", "public"),
+            ("own", "priv", "private"),
+        ] {
+            backend.seed_object(
+                account,
+                "CalendarEvent",
+                id,
+                json!({ "id": id, "privacy": privacy, "calendarIds": { "cal1": true } }),
+            );
+        }
+        backend.mark_foreign("shared");
+        let copy = |from: &str, id: &str| {
+            json!({
+                "accountId": "dst",
+                "fromAccountId": from,
+                "create": { "c1": { "id": id } }
+            })
+        };
+
+        let resp = handle_calendar_event_copy(&backend, &(), copy("shared", "priv"), "c0")
+            .await
+            .expect("no method-level error")
+            .primary;
+        assert_eq!(
+            resp["notCreated"]["c1"],
+            json!({ "type": "forbidden" }),
+            "{resp}"
+        );
+
+        for (from, id) in [("shared", "pub"), ("own", "priv")] {
+            let resp = handle_calendar_event_copy(&backend, &(), copy(from, id), "c0")
+                .await
+                .expect("no method-level error")
+                .primary;
+            assert!(resp["created"]["c1"].is_object(), "{from}/{id}: {resp}");
+        }
     }
 
     /// Oracle: CalendarEvent/set create with client-supplied "id" → notCreated

@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-calendars-server**: `CalendarsBackend::privacy_conflicts`
+  receives every valid create, update and destroy of one
+  `CalendarEvent/set` before any is applied and returns the
+  `PrivacyConflicts` (creation ids and event ids) touching a uid whose
+  events would end up with different `privacy`; the handler rejects
+  those with `invalidProperties` naming `privacy` and applies the rest
+  (draft-ietf-jmap-calendars-33 §5.9). `may_copy_calendar_event` lets
+  the backend refuse a `CalendarEvent/copy` of a `private` event out of
+  an account that does not belong to the user; the handler answers
+  `forbidden` (§5.10). Both default to fail-open (bd:JMAP-bghk).
 - **jmap-mail-types**: `SearchSnippetGetResponse`, the RFC 8621 §5.1
   `SearchSnippet/get` response (`accountId`, `list`, nullable
   `notFound`).
@@ -2507,6 +2517,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-calendars-server**: `CalendarEvent/set` rejects a `destroy`
+  array with a non-string element (`invalidArguments`) before applying
+  any create or update; it used to apply them first.
 - **BREAKING** (wire) **jmap-mail-server**: `Email/copy` without
   `keywords` keeps the source Email's keywords instead of clearing them,
   and the copy carries every source property rather than a fixed subset

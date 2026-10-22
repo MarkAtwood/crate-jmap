@@ -441,6 +441,75 @@ pub trait CalendarsBackend: JmapBackend {
         self.destroy_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id)
     }
 
+    /// Report which changes of one `CalendarEvent/set` request break the
+    /// uid/privacy invariant (draft-ietf-jmap-calendars-33 §5.9):
+    ///
+    /// > After applying all the creates, updates, and destroys in the "/set"
+    /// > request, if the Account would contain two or more CalendarEvent
+    /// > objects with the same uid but different values for their "privacy"
+    /// > property, the server MUST reject each create or update in the
+    /// > request that affects a CalendarEvent with that uid with an
+    /// > invalidProperties SetError. Changes in the request to CalendarEvent
+    /// > objects with other uids are unaffected.
+    ///
+    /// The handler calls this once per request, before applying anything,
+    /// with every create and update that passed its own checks and every
+    /// destroy. `creates` pairs each creation id with the event to be
+    /// created; `updates` pairs each event id with its patch. The backend
+    /// computes the account as it would be after the whole request, using
+    /// its unfiltered view (the caller's `get_objects` view strips private
+    /// events and hides secret ones), and returns the creation ids and
+    /// event ids touching each conflicting uid. The handler rejects those
+    /// with `invalidProperties` naming `privacy` and applies the rest.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns no conflicts (fail-open, bd:JMAP-bghk); backends that store
+    /// events override it.
+    ///
+    /// # Errors
+    ///
+    /// `Err` fails the whole method with `serverFail`; nothing is applied.
+    fn privacy_conflicts(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        creates: &[(String, jmap_calendars_types::CalendarEvent)],
+        updates: &[(jmap_types::Id, PatchObject)],
+        destroys: &[jmap_types::Id],
+    ) -> impl std::future::Future<Output = Result<PrivacyConflicts, Self::Error>> + Send {
+        let _ = (caller, account_id, creates, updates, destroys);
+        async { Ok(PrivacyConflicts::default()) }
+    }
+
+    /// `true` if the caller may copy `source` out of `from_account_id`
+    /// with `CalendarEvent/copy` (draft-ietf-jmap-calendars-33 §5.10):
+    ///
+    /// > If the account being copied from does not belong to the user and
+    /// > the "privacy" property of the event being copied is "private", the
+    /// > server MUST reject the copy with a forbidden SetError.
+    ///
+    /// `source` is the event as the caller's `get_objects` returned it.
+    /// `false` fails that copy with `forbidden`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); backends with accounts
+    /// that do not belong to the caller override it.
+    ///
+    /// # Errors
+    ///
+    /// `Err` fails that copy with `serverFail`.
+    fn may_copy_calendar_event(
+        &self,
+        caller: &Self::CallerCtx,
+        from_account_id: &jmap_types::Id,
+        source: &jmap_calendars_types::CalendarEvent,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, from_account_id, source);
+        async { Ok(true) }
+    }
+
     /// Returns `true` if the given Calendar has any events.
     ///
     /// Called by `Calendar/set` handler when `onDestroyRemoveEvents` is
@@ -1120,6 +1189,33 @@ impl SetDefaultResult {
     pub fn with_previous_default(mut self, previous_default: Option<jmap_types::Id>) -> Self {
         self.previous_default = previous_default;
         self
+    }
+}
+
+/// Result of [`privacy_conflicts`](CalendarsBackend::privacy_conflicts): the
+/// changes of one `CalendarEvent/set` request that touch a uid whose events
+/// would end up with different `privacy` values
+/// (draft-ietf-jmap-calendars-33 §5.9).
+///
+/// `#[non_exhaustive]` like [`SetDefaultResult`]; construct it with
+/// [`PrivacyConflicts::new`] or [`PrivacyConflicts::default`] (no conflicts).
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PrivacyConflicts {
+    /// Creation ids (keys of the request's `create` map) to reject.
+    pub create_ids: Vec<String>,
+    /// Event ids (keys of the request's `update` map) to reject.
+    pub update_ids: Vec<jmap_types::Id>,
+}
+
+impl PrivacyConflicts {
+    /// Construct a `PrivacyConflicts` from the creation ids and event ids
+    /// to reject.
+    pub fn new(create_ids: Vec<String>, update_ids: Vec<jmap_types::Id>) -> Self {
+        Self {
+            create_ids,
+            update_ids,
+        }
     }
 }
 

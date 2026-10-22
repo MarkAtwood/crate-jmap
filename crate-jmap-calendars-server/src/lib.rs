@@ -48,8 +48,8 @@ mod principal;
 
 pub use backend::{
     AvailabilityError, CalendarEventGetArgs, CalendarEventParseResult, CalendarEventQueryArgs,
-    CalendarEventSetArgs, CalendarsBackend, CalendarsLimits, QueryCalendarEventsError,
-    SetDefaultResult,
+    CalendarEventSetArgs, CalendarsBackend, CalendarsLimits, PrivacyConflicts,
+    QueryCalendarEventsError, SetDefaultResult,
 };
 pub use calendar::{handle_calendar_changes, handle_calendar_get, handle_calendar_set};
 pub use event::{
@@ -287,7 +287,7 @@ pub(crate) mod test_support {
 
     use crate::{
         CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
-        QueryCalendarEventsError,
+        PrivacyConflicts, QueryCalendarEventsError,
     };
 
     /// Minimal error type for the mock backend.
@@ -344,6 +344,8 @@ pub(crate) mod test_support {
         /// Last `CalendarEventGetArgs` seen by `get_calendar_events`. Tests
         /// inspect this to verify §5.7 args were threaded from the handler.
         last_get_args: Arc<Mutex<Option<CalendarEventGetArgs>>>,
+        /// Accounts that do not belong to the caller (§5.10 copy tests).
+        foreign_accounts: Arc<Mutex<HashSet<String>>>,
     }
 
     impl MockBackend {
@@ -351,7 +353,18 @@ pub(crate) mod test_support {
             Self {
                 state: Arc::new(Mutex::new(HashMap::new())),
                 last_get_args: Arc::new(Mutex::new(None)),
+                foreign_accounts: Arc::new(Mutex::new(HashSet::new())),
             }
+        }
+
+        /// Mark `account_id` as an account that does not belong to the
+        /// caller (draft-ietf-jmap-calendars-33 §5.10).
+        #[allow(dead_code)]
+        pub fn mark_foreign(&self, account_id: &str) {
+            self.foreign_accounts
+                .lock()
+                .unwrap()
+                .insert(account_id.to_owned());
         }
 
         /// Return and clear the last `CalendarEventGetArgs` recorded by
@@ -996,6 +1009,95 @@ pub(crate) mod test_support {
                 new_default: Some(identity_id.clone()),
                 previous_default: previous,
             })
+        }
+
+        // §5.9: judge the account as it would be after the whole request.
+        // A patch that does not apply leaves the event as stored; the update
+        // itself is rejected later by update_object.
+        async fn privacy_conflicts(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            creates: &[(String, jmap_calendars_types::CalendarEvent)],
+            updates: &[(Id, jmap_types::PatchObject)],
+            destroys: &[Id],
+        ) -> Result<PrivacyConflicts, MockError> {
+            // (uid, privacy) of a stored or new event; absent privacy is the
+            // "public" default (§5.9).
+            fn key(v: &serde_json::Value) -> (Option<String>, String) {
+                let uid = v.get("uid").and_then(|u| u.as_str()).map(str::to_owned);
+                let privacy = v.get("privacy").and_then(|p| p.as_str());
+                (uid, privacy.unwrap_or("public").to_owned())
+            }
+            let stored: HashMap<Id, serde_json::Value> = self
+                .state
+                .lock()
+                .unwrap()
+                .get(account_id.as_ref())
+                .and_then(|a| a.objects.get("CalendarEvent"))
+                .cloned()
+                .unwrap_or_default();
+            let mut after: HashMap<Id, (Option<String>, String)> =
+                stored.iter().map(|(id, v)| (id.clone(), key(v))).collect();
+            let mut update_uids = Vec::new();
+            for (id, patch) in updates {
+                let Some(mut v) = stored.get(id).cloned() else {
+                    continue;
+                };
+                let before = key(&v).0;
+                if let Some(obj) = v.as_object_mut() {
+                    if apply_patch_object(obj, patch.as_map()).is_ok() {
+                        after.insert(id.clone(), key(&v));
+                    }
+                }
+                update_uids.push((id, before, after[id].0.clone()));
+            }
+            for id in destroys {
+                after.remove(id);
+            }
+            let create_keys: Vec<_> = creates
+                .iter()
+                .map(|(cid, ev)| (cid, key(&serde_json::to_value(ev).unwrap())))
+                .collect();
+            let mut privacies: HashMap<String, HashSet<String>> = HashMap::new();
+            for (uid, privacy) in after.values().chain(create_keys.iter().map(|(_, k)| k)) {
+                if let Some(uid) = uid {
+                    privacies
+                        .entry(uid.clone())
+                        .or_default()
+                        .insert(privacy.clone());
+                }
+            }
+            let bad = |uid: &Option<String>| {
+                uid.as_ref()
+                    .is_some_and(|u| privacies.get(u).is_some_and(|p| p.len() > 1))
+            };
+            Ok(PrivacyConflicts::new(
+                create_keys
+                    .iter()
+                    .filter(|(_, (uid, _))| bad(uid))
+                    .map(|(cid, _)| (*cid).clone())
+                    .collect(),
+                update_uids
+                    .into_iter()
+                    .filter(|(_, before, now)| bad(before) || bad(now))
+                    .map(|(id, _, _)| id.clone())
+                    .collect(),
+            ))
+        }
+
+        async fn may_copy_calendar_event(
+            &self,
+            _caller: &(),
+            from_account_id: &Id,
+            source: &jmap_calendars_types::CalendarEvent,
+        ) -> Result<bool, MockError> {
+            let foreign = self
+                .foreign_accounts
+                .lock()
+                .unwrap()
+                .contains(from_account_id.as_ref());
+            Ok(!(foreign && source.privacy.as_deref() == Some("private")))
         }
 
         // The mock has no iCalendar parser and no busy-time data: every blob
