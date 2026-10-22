@@ -79,6 +79,10 @@ impl super::SessionClient {
     /// `created` entry carries only the server-set properties, which is not
     /// a whole [`Graph`].
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -96,9 +100,17 @@ impl super::SessionClient {
         create: Option<serde_json::Value>,
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        self.standard_set("Graph/set", super::USING_GRAPH, create, update, destroy)
-            .await
+        self.standard_set(
+            "Graph/set",
+            super::USING_GRAPH,
+            create,
+            update,
+            destroy,
+            if_in_state,
+        )
+        .await
     }
 
     /// `Graph/query` (draft-atwood-jmap-graph-00 L256-L265; RFC 8620 §5.5).

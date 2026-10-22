@@ -56,6 +56,7 @@ async fn vtc_call_set_create_ring_matches_lifecycle_example() {
             })),
             None,
             None,
+            None,
         )
         .await
         .expect("VTCCall/set must succeed");
@@ -100,7 +101,7 @@ async fn vtc_call_set_end_matches_lifecycle_example() {
 
     let sc = helpers::make_client(&server, "bob-account");
     let resp = sc
-        .vtc_call_set(None, Some(update), None)
+        .vtc_call_set(None, Some(update), None, None)
         .await
         .expect("VTCCall/set must succeed");
 
@@ -142,6 +143,7 @@ async fn vtc_call_set_create_room_matches_lifecycle_example() {
                 "channelId": "01J3ABCDEF1111111111111111"
             }
         })),
+        None,
         None,
         None,
     )
@@ -450,7 +452,7 @@ async fn vtc_call_set_rejects_empty_request() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server, "bob-account");
     let err = sc
-        .vtc_call_set(None, None, None)
+        .vtc_call_set(None, None, None, None)
         .await
         .expect_err("all-None /set must be rejected");
     assert!(

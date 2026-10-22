@@ -150,6 +150,7 @@ async fn scene_asset_set_create_matches_full_envelope_example() {
             })),
             None,
             None,
+            None,
         )
         .await
         .expect("SceneAsset/set must succeed");
@@ -433,7 +434,7 @@ async fn scene_avatar_set_enter_matches_example() {
     });
     let sc = make_client(&server, "acct-001");
     let resp = sc
-        .scene_avatar_set(Some(create.clone()), None, None)
+        .scene_avatar_set(Some(create.clone()), None, None, None)
         .await
         .expect("SceneAvatar/set must succeed");
 
@@ -627,7 +628,7 @@ async fn for_account_targets_hosting_account() {
         .as_map_mut()
         .insert("leftAt".into(), json!("2026-06-06T11:00:00Z"));
     let update = BTreeMap::from([(Id::from("01J5AVA0000000000000000001"), patch)]);
-    sc.scene_avatar_set(None, Some(update), None)
+    sc.scene_avatar_set(None, Some(update), None, None)
         .await
         .expect("SceneAvatar/set must succeed");
 
@@ -701,8 +702,75 @@ async fn empty_state_tokens_are_rejected_without_io() {
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(matches!(
-        sc.scene_object_set(None, None, None).await,
+        sc.scene_object_set(None, None, None, None).await,
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+// RFC 8620 §5.3 `ifInState` on every `/set` method. Oracle: RFC 8620
+// §5.3, "ifInState: `String|null` This is a state string as returned by
+// the `Foo/get` method ... If supplied, the string must match the current
+// state; otherwise, the method will be aborted and a `stateMismatch` error
+// returned. If null, any changes will be applied to the current state."
+// Each call is checked on the recorded request body only.
+
+const SET_METHODS: [&str; 4] = [
+    "SceneAsset/set",
+    "SceneAvatar/set",
+    "SceneObject/set",
+    "SceneRegion/set",
+];
+
+async fn serve_empty() -> MockServer {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({ "sessionState": "s1", "methodResponses": [] })),
+        )
+        .mount(&server)
+        .await;
+    server
+}
+
+/// `(method name, ifInState argument)` of each request sent.
+async fn sent_if_in_state(server: &MockServer) -> Vec<(String, Option<Value>)> {
+    let reqs = server.received_requests().await.expect("recorded requests");
+    reqs.iter()
+        .map(|r| {
+            let body: Value = serde_json::from_slice(&r.body).expect("JSON body");
+            let call = &body["methodCalls"][0];
+            let name = call[0].as_str().expect("method name").to_owned();
+            (name, call[1].get("ifInState").cloned())
+        })
+        .collect()
+}
+
+async fn send_all_set(server: &MockServer, if_in_state: Option<&State>) {
+    let sc = make_client(server, "A1");
+    let d = || Some(vec![Id::from("x")]);
+    let _ = sc.scene_asset_set(None, None, d(), if_in_state).await;
+    let _ = sc.scene_avatar_set(None, None, d(), if_in_state).await;
+    let _ = sc.scene_object_set(None, None, d(), if_in_state).await;
+    let _ = sc.scene_region_set(None, None, d(), if_in_state).await;
+}
+
+#[tokio::test]
+async fn set_sends_some_if_in_state() {
+    let server = serve_empty().await;
+    send_all_set(&server, Some(&State::from("s-guard"))).await;
+    let want: Vec<_> = SET_METHODS
+        .iter()
+        .map(|m| (m.to_string(), Some(json!("s-guard"))))
+        .collect();
+    assert_eq!(sent_if_in_state(&server).await, want);
+}
+
+#[tokio::test]
+async fn set_omits_none_if_in_state() {
+    let server = serve_empty().await;
+    send_all_set(&server, None).await;
+    let want: Vec<_> = SET_METHODS.iter().map(|m| (m.to_string(), None)).collect();
+    assert_eq!(sent_if_in_state(&server).await, want);
 }

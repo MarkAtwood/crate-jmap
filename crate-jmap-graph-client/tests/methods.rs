@@ -144,7 +144,12 @@ async fn graph_set_create_matches_example() {
     respond(&server, "Graph/set", set_created("g", "G1")).await;
 
     let resp = make_client(&server)
-        .graph_set(Some(json!({ "g": { "name": "Design notes" } })), None, None)
+        .graph_set(
+            Some(json!({ "g": { "name": "Design notes" } })),
+            None,
+            None,
+            None,
+        )
         .await
         .expect("Graph/set must succeed");
     assert_eq!(resp.created.expect("created")["g"]["id"], json!("G1"));
@@ -179,7 +184,7 @@ async fn graph_node_set_create_matches_example() {
         }
     });
     make_client(&server)
-        .graph_node_set(Some(create.clone()), None, None)
+        .graph_node_set(Some(create.clone()), None, None, None)
         .await
         .expect("GraphNode/set must succeed");
 
@@ -207,7 +212,7 @@ async fn graph_edge_set_create_matches_example() {
         }
     });
     make_client(&server)
-        .graph_edge_set(Some(create.clone()), None, None)
+        .graph_edge_set(Some(create.clone()), None, None, None)
         .await
         .expect("GraphEdge/set must succeed");
 
@@ -239,7 +244,12 @@ async fn graph_node_set_patch_matches_annotation_example() {
         .as_map_mut()
         .insert("annotations/com.example.color".into(), json!("red"));
     make_client(&server)
-        .graph_node_set(None, Some(BTreeMap::from([(Id::from("N1"), patch)])), None)
+        .graph_node_set(
+            None,
+            Some(BTreeMap::from([(Id::from("N1"), patch)])),
+            None,
+            None,
+        )
         .await
         .expect("GraphNode/set must succeed");
 
@@ -584,7 +594,7 @@ async fn empty_state_tokens_are_rejected_without_io() {
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(matches!(
-        gc.graph_node_set(None, None, None).await,
+        gc.graph_node_set(None, None, None, None).await,
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(server.received_requests().await.unwrap().is_empty());

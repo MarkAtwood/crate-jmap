@@ -42,6 +42,7 @@ async fn vtc_livestream_set_create_matches_draft_example() {
         })),
         None,
         None,
+        None,
     )
     .await
     .expect("VTCLivestream/set must succeed");
@@ -84,6 +85,7 @@ async fn vtc_livestream_set_stop_matches_draft_example() {
                 Id::from("01J4XQ7VN0SYWV2TTFHJVW7JJ0"),
                 patch,
             )])),
+            None,
             None,
         )
         .await

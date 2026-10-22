@@ -88,6 +88,10 @@ impl super::SessionClient {
     /// outcome is unknown "MUST resend the same `baseSeq` and `data`
     /// unchanged" (L216).
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -100,6 +104,7 @@ impl super::SessionClient {
     pub async fn graph_node_op_set(
         &self,
         create: serde_json::Value,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         self.standard_set(
             "GraphNodeOp/set",
@@ -107,6 +112,7 @@ impl super::SessionClient {
             Some(create),
             None,
             None,
+            if_in_state,
         )
         .await
     }

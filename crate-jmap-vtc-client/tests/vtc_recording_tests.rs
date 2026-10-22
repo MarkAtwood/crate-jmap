@@ -35,6 +35,7 @@ async fn vtc_recording_set_create_matches_lifecycle_example() {
             Some(json!({ "r0": { "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0" } })),
             None,
             None,
+            None,
         )
         .await
         .expect("VTCRecording/set must succeed");
@@ -84,6 +85,7 @@ async fn vtc_recording_set_stop_and_destroy_matches_draft_example() {
                 patch,
             )])),
             Some(vec![Id::from("01J4XOLDREC0000000000000000")]),
+            None,
         )
         .await
         .expect("VTCRecording/set must succeed");
