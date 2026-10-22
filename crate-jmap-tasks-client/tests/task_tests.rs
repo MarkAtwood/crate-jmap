@@ -9,7 +9,7 @@
 mod helpers;
 
 use jmap_tasks_types::task::{TaskFilter, TaskFilterCondition};
-use jmap_tasks_types::TaskComparator;
+use jmap_tasks_types::{TaskComparator, TaskComparatorProperty};
 use jmap_types::query::Filter;
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
@@ -527,8 +527,7 @@ async fn task_query_changes_with_filter_sort_upto_calculatetotal() {
     let up_to = Id::from("task-100");
     let mut cond = TaskFilterCondition::default();
     cond.task_list_id = Some(Id::from("tl-1"));
-    let mut cmp = TaskComparator::default();
-    cmp.property = "created".into();
+    let mut cmp = TaskComparator::new(TaskComparatorProperty::Created);
     cmp.is_ascending = false;
     sc.task_query_changes(
         &since,

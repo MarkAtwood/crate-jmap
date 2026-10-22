@@ -116,12 +116,11 @@ pub use jmap_jscontact_types as jscontact;
 pub use addressbook::{AddressBook, AddressBookRights};
 pub use backend::{AddressBookProperty, ContactCardProperty};
 pub use capability::{ContactsAccountCapability, ContactsCapability, JMAP_CONTACTS_URI};
-pub use card::{ContactCard, ContactCardComparator, ContactCardFilter, ContactCardFilterCondition};
+pub use card::{
+    ContactCard, ContactCardComparator, ContactCardComparatorProperty, ContactCardFilter,
+    ContactCardFilterCondition,
+};
 pub use collision::CollisionError;
-
-/// Constant identifiers for [`ContactCardComparator::property`] sort keys
-/// (re-export of [`card::prop`]).
-pub use card::prop as comparator_prop;
 
 /// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
 ///
@@ -701,13 +700,37 @@ mod tests {
     fn comparator_round_trip() {
         let json = r#"{ "property": "name/given", "isAscending": false, "collation": "i;unicode-casemap" }"#;
         let c: ContactCardComparator = serde_json::from_str(json).unwrap();
-        assert_eq!(c.property, "name/given");
+        assert_eq!(c.property, ContactCardComparatorProperty::NameGiven);
         assert!(!c.is_ascending);
         assert_eq!(c.collation.as_deref(), Some("i;unicode-casemap"));
         let rt: ContactCardComparator =
             serde_json::from_str(&serde_json::to_string(&c).unwrap()).unwrap();
-        assert_eq!(rt.property, "name/given");
+        assert_eq!(rt.property, ContactCardComparatorProperty::NameGiven);
         assert!(!rt.is_ascending);
+    }
+
+    /// RFC 9610 §3.3.2: "created" and "updated" "MUST be supported for
+    /// sorting"; "name/given", "name/surname" and "name/surname2" "SHOULD
+    /// be supported for sorting". A name not listed survives as `Other`
+    /// and re-encodes to the same JSON (bd JMAP-wf92.11).
+    #[test]
+    fn comparator_sort_properties() {
+        use ContactCardComparatorProperty as P;
+        for (wire, want) in [
+            ("created", P::Created),
+            ("updated", P::Updated),
+            ("name/given", P::NameGiven),
+            ("name/surname", P::NameSurname),
+            ("name/surname2", P::NameSurname2),
+        ] {
+            let c: ContactCardComparator =
+                serde_json::from_value(serde_json::json!({ "property": wire })).unwrap();
+            assert_eq!(c.property, want);
+        }
+        let wire = serde_json::json!({ "property": "uid", "isAscending": true });
+        let c: ContactCardComparator = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(c.property, P::Other("uid".to_owned()));
+        assert_eq!(serde_json::to_value(&c).unwrap(), wire);
     }
 
     // ── ContactCard sloppy-field → jmap-jscontact-types typed round-trip ──

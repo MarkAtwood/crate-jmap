@@ -9,8 +9,9 @@
 //! server-set values (and resolve the creation ids) to make whole objects.
 
 use jmap_graph_types::query::{
-    GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphFilter,
-    GraphNodeComparator, GraphNodeFilterCondition, GraphSortProperty,
+    GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphEdgeSortProperty,
+    GraphFilter, GraphNodeComparator, GraphNodeFilterCondition, GraphNodeSortProperty,
+    GraphSortProperty,
 };
 use jmap_graph_types::{
     Graph, GraphCapability, GraphEdge, GraphNode, GraphProjectionCapability, GraphRights,
@@ -480,8 +481,18 @@ fn sort_properties_match_draft() {
         let _: GraphNodeComparator = round_trip(&json!({ "property": p, "isAscending": false }));
         let _: GraphEdgeComparator = round_trip(&json!({ "property": p, "isAscending": true }));
     }
-    assert!(serde_json::from_value::<GraphNodeComparator>(json!({ "property": "name" })).is_err());
-    assert!(serde_json::from_value::<GraphEdgeComparator>(json!({ "property": "type" })).is_err());
+    assert_eq!(
+        serde_json::from_value::<GraphNodeComparator>(json!({"property": "name"}))
+            .unwrap()
+            .property,
+        GraphNodeSortProperty::Other("name".to_owned())
+    );
+    assert_eq!(
+        serde_json::from_value::<GraphEdgeComparator>(json!({"property": "type"}))
+            .unwrap()
+            .property,
+        GraphEdgeSortProperty::Other("type".to_owned())
+    );
 }
 
 #[test]

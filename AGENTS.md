@@ -530,7 +530,8 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   **Out of scope** (do NOT add extras / `Other` to these):
   - Filter and comparator algebra types — see the dedicated sub-section
     below.
-  - Control string enums (`Operator`, `ComparatorProperty`) — see same.
+  - Control string enums (`Operator`) — see same. Comparator sort
+    property enums are the one exception: they carry `Other(String)`.
   - Internal Rust API types: backend trait result types
     (`SetDefaultResult`, `ParseResult`, `AvailabilityError`,
     `BackendSetError`, `BackendChangesError`).
@@ -559,8 +560,8 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   (decided 2026-05-10). Filter and comparator algebra types (`Filter<T>`,
   `FilterOperator<T>`, per-crate `FilterCondition` types,
   `EmailComparator`, `CalendarEventComparator`, etc.) and control string
-  enums (`Operator`, `ComparatorProperty`) MUST NOT receive `extra`
-  fields or `Other(String)` variants. Three reasons:
+  enums (`Operator`) MUST NOT receive `extra` fields or `Other(String)`
+  variants (comparator sort properties excepted, below). Three reasons:
 
   1. **Silent-drop is a server-side query-correctness bug.** Unlike
      data-object extras, which round-trip mechanically through the
@@ -579,12 +580,22 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
      reason 3.
 
   3. **Control enums must dispatch on known variants.** `Operator`
-     (`AND`/`OR`/`NOT`) and `ComparatorProperty` are not display values
-     — backends implement matching logic per variant. `Other(String)`
-     is meaningless here: a backend cannot honor `XAND` or
-     `someUnknownSortKey`. The `#[non_exhaustive]` derives already
-     give spec-level forward-compat for future RFC-defined operators;
-     vendor-level forward-compat for control enums is incoherent.
+     (`AND`/`OR`/`NOT`) is not a display value — backends implement
+     matching logic per variant. `Other(String)` is meaningless here:
+     a backend cannot honor `XAND`. The `#[non_exhaustive]` derives
+     already give spec-level forward-compat for future RFC-defined
+     operators; vendor-level forward-compat for control enums is
+     incoherent.
+
+  **Exception: comparator sort properties** (decided 2026-10-21,
+  bd:JMAP-wf92.11, from bd:JMAP-ops7.15 option A). Every comparator's
+  `property` is a typed enum with an `Other(String)` catch-all via
+  `impl_string_enum!`, the `jmap-mail-types` `ComparatorProperty`
+  shape: never a plain `String`, never a closed enum. `Other` exists
+  only so a client round-trips a name it does not know; a server
+  answers it with `unsupportedSort` (RFC 8620 §5.5) and never sorts by
+  it. Server handlers that pre-check `sort` must reject `Other`
+  explicitly, since it no longer fails the typed decode.
 
   Vendors who need filterable extras have two paths:
 

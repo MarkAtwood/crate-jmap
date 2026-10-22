@@ -13,7 +13,7 @@
 
 use jmap_graph_types::edit::{
     GraphCursorEvent, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
-    GraphNodeOpFilterCondition, OPS_COMPACTED,
+    GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
 use jmap_graph_types::{GraphCapability, GraphEditCapability, GraphNode, GraphNodeOp};
 use jmap_server::{now_utc_string, server_fail_from_backend, HandlerOutput};
@@ -113,7 +113,9 @@ fn op_filter(args: &Value) -> Result<GraphNodeOpFilterCondition, JmapError> {
         .map_err(|_| JmapError::unsupported_filter())?;
     if let Some(Value::Array(sort)) = args.get("sort") {
         for c in sort {
-            if !GraphNodeOpComparator::deserialize(c).is_ok_and(|c| c.is_ascending) {
+            if !GraphNodeOpComparator::deserialize(c)
+                .is_ok_and(|c| c.is_ascending && c.property == GraphNodeOpSortProperty::Seq)
+            {
                 return Err(JmapError::unsupported_sort());
             }
         }

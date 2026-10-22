@@ -36,7 +36,7 @@
 //! let filter = MessageFilter::Condition(cond);
 //! ```
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
 use crate::{ChatKind, Presence};
@@ -159,8 +159,7 @@ pub struct CustomEmojiFilterCondition {
 /// Sort property for `ChatContact/query`
 /// (draft-atwood-jmap-chat-00 §ChatContact/query "Sort properties").
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChatContactComparatorProperty {
     /// Sort by `lastSeenAt`.
     LastSeenAt,
@@ -168,54 +167,87 @@ pub enum ChatContactComparatorProperty {
     Login,
     /// Sort by `lastActiveAt`; contacts without it sort last.
     LastActiveAt,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(ChatContactComparatorProperty, "a sort property string",
+    "lastSeenAt" => LastSeenAt,
+    "login" => Login,
+    "lastActiveAt" => LastActiveAt,
+);
 
 /// Sort property for `Chat/query`.
 ///
 /// draft-atwood-jmap-chat-00 §Chat/query names only the default sort,
 /// `lastMessageAt`; chats without messages sort last.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChatComparatorProperty {
     /// Sort by `lastMessageAt`.
     LastMessageAt,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(ChatComparatorProperty, "a sort property string",
+    "lastMessageAt" => LastMessageAt,
+);
 
 /// Sort property for `Message/query`.
 ///
 /// draft-atwood-jmap-chat-00 §Message/query names only the default sort,
 /// `receivedAt`; §Input Validation forbids ordering by `sentAt`.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MessageComparatorProperty {
     /// Sort by `receivedAt`.
     ReceivedAt,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(MessageComparatorProperty, "a sort property string",
+    "receivedAt" => ReceivedAt,
+);
 
 /// Sort property for `Space/query`.
 ///
 /// draft-atwood-jmap-chat-00 §Space/query names only the default sort, `name`.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SpaceComparatorProperty {
     /// Sort by `name`.
     Name,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(SpaceComparatorProperty, "a sort property string",
+    "name" => Name,
+);
 
 /// Sort property for `CustomEmoji/query`.
 ///
 /// draft-atwood-jmap-chat-00 §CustomEmoji/query names only the default
 /// sort, `name`.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CustomEmojiComparatorProperty {
     /// Sort by `name`.
     Name,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(CustomEmojiComparatorProperty, "a sort property string",
+    "name" => Name,
+);
 
 /// RFC 8620 §5.5 `Comparator` over the sort property type `P`.
 ///
@@ -412,11 +444,15 @@ mod tests {
     }
 
     /// Draft §Input Validation: "`sentAt`, `editedAt`: store as-is; never
-    /// use for ordering or expiry." A closed control enum must refuse it.
+    /// use for ordering or expiry." It is not a listed sort property, so it
+    /// decodes to `Other`, which a server answers with `unsupportedSort`.
     #[test]
-    fn message_comparator_rejects_sent_at() {
-        assert!(
-            serde_json::from_value::<MessageComparator>(json!({"property": "sentAt"})).is_err()
+    fn message_comparator_sent_at_is_other() {
+        assert_eq!(
+            serde_json::from_value::<MessageComparator>(json!({"property": "sentAt"}))
+                .unwrap()
+                .property,
+            MessageComparatorProperty::Other("sentAt".to_owned())
         );
     }
 }

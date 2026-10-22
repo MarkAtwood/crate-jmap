@@ -34,7 +34,7 @@
 //! cond.from_id = Some(vec![Id::from("N1")]);
 //! ```
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
 pub use jmap_types::query::{Filter, FilterOperator, Operator};
@@ -60,8 +60,7 @@ pub struct GraphFilterCondition {
 /// Sort property for `Graph/query`: "The following sort properties are
 /// supported: `name`, `created`, `updated`."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GraphSortProperty {
     /// Sort by `name`.
     Name,
@@ -69,7 +68,16 @@ pub enum GraphSortProperty {
     Created,
     /// Sort by `updated`.
     Updated,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(GraphSortProperty, "a sort property string",
+    "name" => Name,
+    "created" => Created,
+    "updated" => Updated,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `Graph/query`.
 ///
@@ -158,14 +166,21 @@ impl GraphNodeFilterCondition {
 /// Sort property for `GraphNode/query`: "The following sort properties are
 /// supported: `created`, `updated`."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GraphNodeSortProperty {
     /// Sort by `created`.
     Created,
     /// Sort by `updated`.
     Updated,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(GraphNodeSortProperty, "a sort property string",
+    "created" => Created,
+    "updated" => Updated,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `GraphNode/query`.
 ///
@@ -253,14 +268,21 @@ impl GraphEdgeFilterCondition {
 /// Sort property for `GraphEdge/query`: "The following sort properties are
 /// supported: `created`, `updated`."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GraphEdgeSortProperty {
     /// Sort by `created`.
     Created,
     /// Sort by `updated`.
     Updated,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(GraphEdgeSortProperty, "a sort property string",
+    "created" => Created,
+    "updated" => Updated,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `GraphEdge/query`.
 ///

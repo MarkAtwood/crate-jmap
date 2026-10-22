@@ -9,9 +9,73 @@
 //! `TaskNotification`.  This module contains only the comparator types used
 //! for sorting query results.
 
+use jmap_types::impl_string_enum;
 use serde::{Deserialize, Serialize};
 
+/// The property to sort by in a [`TaskComparator`].
+///
+/// draft-ietf-jmap-tasks-06 §4.13: Task/query "is the
+/// "CalendarEvent/query" method as described in
+/// [I-D.ietf-jmap-calendars]", so these are the CalendarEvent/query sort
+/// properties (draft-ietf-jmap-calendars-26 §5.11.2: `start`, `uid`,
+/// `recurrenceId` MUST; `created`, `updated` SHOULD).
+///
+/// Unknown property names are preserved in
+/// [`Other`](TaskComparatorProperty::Other) so they round-trip; a server
+/// cannot sort by one it does not know (RFC 8620 §5.5 `unsupportedSort`).
+/// Cross-reference: bd JMAP-wf92.11.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TaskComparatorProperty {
+    /// Sort by `start`.
+    Start,
+    /// Sort by `uid`.
+    Uid,
+    /// Sort by `recurrenceId`.
+    RecurrenceId,
+    /// Sort by `created`.
+    Created,
+    /// Sort by `updated`.
+    Updated,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(TaskComparatorProperty, "a Task sort property string",
+    "start"        => Start,
+    "uid"          => Uid,
+    "recurrenceId" => RecurrenceId,
+    "created"      => Created,
+    "updated"      => Updated,
+);
+
+/// The property to sort by in a [`TaskNotificationComparator`]
+/// (draft-ietf-jmap-tasks-06 §5.5.2: "The "created" property MUST be
+/// supported for sorting.").
+///
+/// Unknown property names are preserved in
+/// [`Other`](TaskNotificationComparatorProperty::Other) so they round-trip;
+/// a server cannot sort by one it does not know (RFC 8620 §5.5
+/// `unsupportedSort`).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TaskNotificationComparatorProperty {
+    /// Sort by `created`.
+    Created,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(TaskNotificationComparatorProperty, "a TaskNotification sort property string",
+    "created" => Created,
+);
+
 /// Comparator for `Task/query` (draft-tasks-06 §4.13).
+///
+/// Build one with [`TaskComparator::new`]; the struct is
+/// `#[non_exhaustive]`.
 ///
 /// Mirrors the CalendarEvent/query comparators from the Calendars draft.
 /// The spec §4.13 is a stub referencing the Calendars spec, so common JMAP
@@ -29,11 +93,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskComparator {
-    /// Property name to sort by.
-    pub property: String,
+    /// The property to sort by.
+    pub property: TaskComparatorProperty,
 
     /// If true, sort ascending; if false, sort descending.
     /// Defaults to true per JMAP base §5.5.
@@ -47,8 +111,8 @@ pub struct TaskComparator {
 
 /// Comparator for `TaskNotification/query` (draft-tasks-06 §5.5.2).
 ///
-/// The spec mandates that the `"created"` property MUST be supported for
-/// sorting.
+/// Build one with [`TaskNotificationComparator::new`]; the struct is
+/// `#[non_exhaustive]`.
 ///
 /// # Excluded from extras preservation
 ///
@@ -62,11 +126,11 @@ pub struct TaskComparator {
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskNotificationComparator {
-    /// Property name to sort by.  `"created"` MUST be supported.
-    pub property: String,
+    /// The property to sort by.
+    pub property: TaskNotificationComparatorProperty,
 
     /// If true, sort ascending; if false, sort descending.
     #[serde(default = "default_ascending")]
@@ -75,6 +139,30 @@ pub struct TaskNotificationComparator {
     /// A collation identifier (RFC 4790) to use when comparing strings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collation: Option<String>,
+}
+
+impl TaskComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: TaskComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
+impl TaskNotificationComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: TaskNotificationComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
 }
 
 fn default_ascending() -> bool {

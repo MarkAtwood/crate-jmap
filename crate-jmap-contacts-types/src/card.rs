@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, PatchObject, UTCDate};
+use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 use crate::collision::{self, CollisionError};
@@ -537,42 +537,46 @@ pub struct ContactCardFilterCondition {
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
 pub type ContactCardFilter = jmap_types::query::Filter<ContactCardFilterCondition>;
 
+/// The property to sort by in a [`ContactCardComparator`] (RFC 9610 §3.3.2).
+///
+/// RFC 9610 §3.3.2: `"created"` and `"updated"` "MUST be supported for
+/// sorting"; `"name/given"`, `"name/surname"` and `"name/surname2"`
+/// "SHOULD be supported for sorting".
+///
+/// Unknown property names are preserved in
+/// [`Other`](ContactCardComparatorProperty::Other) so they round-trip; a
+/// server cannot sort by one it does not know (RFC 8620 §5.5
+/// `unsupportedSort`). Cross-reference: bd JMAP-wf92.11.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ContactCardComparatorProperty {
+    /// Sort by the card's `created` date.
+    Created,
+    /// Sort by the card's `updated` date.
+    Updated,
+    /// Sort by the first NameComponent in `name` whose `kind` is `given`.
+    NameGiven,
+    /// Sort by the first NameComponent in `name` whose `kind` is `surname`.
+    NameSurname,
+    /// Sort by the first NameComponent in `name` whose `kind` is `surname2`.
+    NameSurname2,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(ContactCardComparatorProperty, "a ContactCard sort property string",
+    "created"       => Created,
+    "updated"       => Updated,
+    "name/given"    => NameGiven,
+    "name/surname"  => NameSurname,
+    "name/surname2" => NameSurname2,
+);
+
 /// Comparator for `ContactCard/query` sort order (RFC 9610 §3.3.2).
 ///
-/// The `property` field holds the sort key string. RFC 9610 §3.3.2 declares
-/// a small required + recommended set; const identifiers are exposed in
-/// [`prop`] for spelling-safe call sites:
-///
-/// - Required: `"created"`, `"updated"` ([`prop::CREATED`], [`prop::UPDATED`]).
-/// - Recommended: `"name/given"`, `"name/surname"`, `"name/surname2"`
-///   ([`prop::NAME_GIVEN`], [`prop::NAME_SURNAME`], [`prop::NAME_SURNAME2`]).
-///
-/// The `property` type stays `String` to preserve forward-compat with
-/// server-specific sort keys and with future RFC additions (the workspace
-/// filter-algebra exclusion blocks a typed-enum-with-`Other(String)`
-/// shape; see [`ContactCardFilterCondition`]).
-///
-/// # Default impl divergence
-///
-/// [`ContactCardComparator::default()`] produces
-/// `is_ascending: false` because [`bool::default()`] is `false`. The
-/// **wire-default** for an absent `isAscending` key is **`true`** —
-/// `#[serde(default = "default_ascending")]` (RFC 8620 §5.5). A caller
-/// who writes
-///
-/// ```rust
-/// # use jmap_contacts_types::ContactCardComparator;
-/// let mut c = ContactCardComparator::default();
-/// c.property = "created".into();
-/// ```
-///
-/// and submits the comparator gets **descending** sort silently — the
-/// Rust API default does not match the wire-format default semantic.
-/// This is the same class of footgun as [`ContactCard::default()`]
-/// producing a wire-invalid `{}` (JMAP-glx8.16), but more dangerous
-/// because the result *looks* valid and just returns the wrong record
-/// order. Always set `is_ascending` explicitly when constructing a
-/// comparator from [`Default::default()`]. JMAP-glx8.22.
+/// Build one with [`ContactCardComparator::new`]; the struct is
+/// `#[non_exhaustive]`.
 ///
 /// # Excluded from extras preservation
 ///
@@ -585,17 +589,13 @@ pub type ContactCardFilter = jmap_types::query::Filter<ContactCardFilterConditio
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactCardComparator {
-    /// Sort key string.
-    pub property: String,
+    /// The property to sort by.
+    pub property: ContactCardComparatorProperty,
     /// Sort direction; `true` = ascending (wire-default per RFC 8620
     /// §5.5), `false` = descending.
-    ///
-    /// **`Default::default()` produces `false`** — see the
-    /// [`ContactCardComparator`] type-level "Default impl divergence"
-    /// note. JMAP-glx8.22.
     #[serde(default = "default_ascending")]
     pub is_ascending: bool,
     /// Optional collation identifier (RFC 4790).
@@ -603,33 +603,18 @@ pub struct ContactCardComparator {
     pub collation: Option<String>,
 }
 
-fn default_ascending() -> bool {
-    true
+impl ContactCardComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: ContactCardComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
 }
 
-/// Constant identifiers for [`ContactCardComparator::property`] sort keys
-/// declared by RFC 9610 §3.3.2.
-///
-/// Using a const at the call site catches typos at compile time:
-///
-/// ```rust
-/// # use jmap_contacts_types::card::{ContactCardComparator, prop};
-/// let mut cmp = ContactCardComparator::default();
-/// cmp.property = prop::CREATED.into();
-/// ```
-///
-/// Servers MAY support additional sort keys; the `property` type
-/// remains `String` so vendor extensions and future RFC additions
-/// round-trip unchanged. JMAP-glx8.14.
-pub mod prop {
-    /// Required sort key (RFC 9610 §3.3.2): card `created` timestamp.
-    pub const CREATED: &str = "created";
-    /// Required sort key (RFC 9610 §3.3.2): card `updated` timestamp.
-    pub const UPDATED: &str = "updated";
-    /// Recommended sort key: NameComponent with `kind = "given"`.
-    pub const NAME_GIVEN: &str = "name/given";
-    /// Recommended sort key: NameComponent with `kind = "surname"`.
-    pub const NAME_SURNAME: &str = "name/surname";
-    /// Recommended sort key: NameComponent with `kind = "surname2"`.
-    pub const NAME_SURNAME2: &str = "name/surname2";
+fn default_ascending() -> bool {
+    true
 }

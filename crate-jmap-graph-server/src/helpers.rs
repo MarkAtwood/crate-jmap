@@ -51,7 +51,7 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
 /// `unsupportedFilter`, not silently ignored, unless the account has
 /// [`GraphBackend::graph_search_capability`]; then they are checked with
 /// [`check_search_filter`].
-async fn graph_query_args<C: serde::de::DeserializeOwned, B: GraphBackend>(
+async fn graph_query_args<C: serde::de::DeserializeOwned + KnownSort, B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: &Value,
@@ -95,7 +95,7 @@ pub(crate) async fn handle_graph_item_query<O, C, B>(
 ) -> Result<HandlerOutput, JmapError>
 where
     O: QueryObject + Send + Sync,
-    C: serde::de::DeserializeOwned,
+    C: serde::de::DeserializeOwned + KnownSort,
     B: GraphBackend,
 {
     let searched = graph_query_args::<C, B>(backend, caller, &args, kind).await?;
@@ -119,7 +119,7 @@ pub(crate) async fn handle_graph_item_query_changes<O, C, B>(
 ) -> Result<HandlerOutput, JmapError>
 where
     O: QueryObject + Send + Sync,
-    C: serde::de::DeserializeOwned,
+    C: serde::de::DeserializeOwned + KnownSort,
     B: GraphBackend,
 {
     if graph_query_args::<C, B>(backend, caller, &args, kind).await? {
@@ -325,16 +325,41 @@ pub(crate) async fn handle_get_visible<O: InGraph, B: GraphBackend>(
 /// Reject a `/query` `sort` property the draft does not list: RFC 8620
 /// §5.5 `unsupportedSort`. A value that is not an array is left for the
 /// typed decode to reject.
-pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned>(
+pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned + KnownSort>(
     sort: Option<&Value>,
 ) -> Result<(), JmapError> {
     if let Some(Value::Array(comparators)) = sort {
         for c in comparators {
-            <C as serde::Deserialize>::deserialize(c).map_err(|_| JmapError::unsupported_sort())?;
+            if !<C as serde::Deserialize>::deserialize(c).is_ok_and(|c| c.known()) {
+                return Err(JmapError::unsupported_sort());
+            }
         }
     }
     Ok(())
 }
+
+/// A comparator whose `property` decodes an unknown name to `Other`
+/// (bd JMAP-wf92.11), so [`reject_unsupported_sort`] must check it.
+pub(crate) trait KnownSort {
+    /// `false` when `property` is `Other`, a name the draft does not list.
+    fn known(&self) -> bool;
+}
+
+macro_rules! known_sort {
+    ($($cmp:ty => $prop:path),+ $(,)?) => {$(
+        impl KnownSort for $cmp {
+            fn known(&self) -> bool {
+                !matches!(self.property, $prop(_))
+            }
+        }
+    )+};
+}
+
+known_sort!(
+    jmap_graph_types::query::GraphComparator => jmap_graph_types::query::GraphSortProperty::Other,
+    jmap_graph_types::query::GraphNodeComparator => jmap_graph_types::query::GraphNodeSortProperty::Other,
+    jmap_graph_types::query::GraphEdgeComparator => jmap_graph_types::query::GraphEdgeSortProperty::Other,
+);
 
 /// The `annotations` checks of a Graph, GraphNode or GraphEdge as it would
 /// be stored: "Annotation keys are non-empty strings" (`invalidProperties`
