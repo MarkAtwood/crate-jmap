@@ -1425,9 +1425,9 @@ wire behaviour that a conforming peer can observe.
   filter tree ("FilterOperator|FilterCondition|null") for every object
   whose `QueryObject::Filter` was a bare condition, as Email already
   did (bd JMAP-skk9.2). **jmap-mail-types**: `Mailbox` uses
-  `MailboxFilter`. **jmap-calendars-types**: `Calendar`,
-  `CalendarEvent` and `CalendarEventNotification` use `CalendarFilter`,
-  `CalendarEventFilter` and `NotificationFilter`.
+  `MailboxFilter`. **jmap-calendars-types**: `CalendarEvent` and
+  `CalendarEventNotification` use `CalendarEventFilter` and
+  `NotificationFilter`.
   **jmap-contacts-types**: `ContactCard` uses `ContactCardFilter`.
   **jmap-tasks-types**: `Task` and `TaskNotification` use `TaskFilter`
   and `TaskNotificationFilter`. **jmap-filenode-types**: `FileNode` uses
