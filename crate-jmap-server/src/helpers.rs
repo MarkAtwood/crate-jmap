@@ -17,24 +17,6 @@ pub fn serialize_value<T: serde::Serialize>(val: T) -> Result<serde_json::Value,
     serde_json::to_value(val).map_err(|e| JmapError::server_fail(e.to_string()))
 }
 
-/// Deprecated alias for [`serialize_value`] (bd:JMAP-wlip.21).
-///
-/// The opaque 3-letter name was hard to read in consumer code
-/// (`let v = ser(x)?;` left readers grepping three crates to learn
-/// what `ser` did) and collided with the common local-variable name
-/// `ser`. Use [`serialize_value`] instead. This alias is preserved
-/// for one release as a deprecation runway; it will be removed in
-/// the next major.
-// bd:JMAP-jfia.6 — the `since` field was previously set to "0.1.3"
-// while the crate version was still 0.1.2, which rendered as
-// "deprecated in the FUTURE" in cargo doc / docs.rs. Drop `since`
-// until the release that ships the renaming actually goes out; the
-// version-pinned form will be reintroduced when 0.1.3 is published.
-#[deprecated(note = "renamed to serialize_value (bd:JMAP-wlip.21)")]
-pub fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
-    serialize_value(val)
-}
-
 /// Convert a slice of [`Id`]s to a JSON `notFound` value.
 ///
 /// RFC 8620 §5.1 specifies `notFound` as `Id[]` — always an array, never

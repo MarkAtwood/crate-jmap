@@ -33,6 +33,7 @@ pub const DEFAULT_MAX_ENTRIES: NonZeroUsize = match NonZeroUsize::new(10_000) {
 };
 
 /// A peer domain's usable keys and the identity it advertises.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PeerKeySet {
     /// The usable keys (§Key Publication, after the §DNSSEC Key Binding

@@ -268,7 +268,7 @@ pub trait MdnBackend: jmap_server::JmapBackend {
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        blob_ids: Vec<jmap_types::Id>,
+        blob_ids: &[jmap_types::Id],
     ) -> impl std::future::Future<Output = Result<MdnParseResult, Self::Error>> + Send;
 
     /// Maximum number of blob IDs accepted in a single `MDN/parse` request.
@@ -704,7 +704,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
 
     // Step 4: delegate to the backend.
     let result = backend
-        .parse_mdns(caller, &req.account_id, req.blob_ids)
+        .parse_mdns(caller, &req.account_id, &req.blob_ids)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 

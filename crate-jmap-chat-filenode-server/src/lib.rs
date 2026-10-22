@@ -38,6 +38,7 @@ use jmap_types::{Id, PatchObject};
 
 /// A storage failure while checking a FileNode operation or a
 /// `filenodeId` Attachment.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum RootCheckError<C, F> {
     /// The Chat backend failed to read the Space.
@@ -288,6 +289,7 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
 }
 
 /// A storage failure while destroying a Space file tree.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum TreeDestroyError<E> {
     /// Finding the root or its descendants failed.

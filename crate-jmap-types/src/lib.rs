@@ -56,7 +56,7 @@ pub use methods::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse,
 };
 pub use patch::PatchObject;
-pub use push::{PushKeys, PushSubscription, PushVerification, StateChange};
+pub use push::{PushKeys, PushSubscription, PushVerification, StateChange, Urgency};
 pub use query::{Filter, FilterOperator, Operator};
 pub use resultref::{Argument, ResultReference};
 pub use set_error::{ReservedExtrasKey, SetError, SetErrorType, RESERVED_SET_ERROR_WIRE_NAMES};

@@ -721,6 +721,63 @@ async fn test_download_blob_session_routes_to_session_download_url() {
     assert_eq!(bytes.as_ref(), b"download-session-bytes");
 }
 
+/// Oracle: RFC 8620 §7.3 — `closeafter` "MUST be one of the following
+/// values": `"state"` and `"no"`. Each `CloseAfter` must expand into the
+/// event-source URL as exactly that string; the mock only answers when
+/// the query carries it.
+#[tokio::test]
+async fn test_subscribe_events_session_expands_close_after() {
+    use jmap_base_client::CloseAfter;
+    use wiremock::matchers::query_param;
+
+    for (close_after, wire) in [(CloseAfter::State, "state"), (CloseAfter::No, "no")] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/events/"))
+            .and(query_param("closeafter", wire))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("Content-Type", "text/event-stream")
+                    .set_body_bytes(b"event: state\ndata: {\"changed\":{}}\n\n".to_vec()),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        let client = JmapClient::new(
+            jmap_base_client::auth::DefaultTransport,
+            NoneAuth,
+            &server.uri(),
+            jmap_base_client::client::ClientConfig::default(),
+        )
+        .expect("client construction must succeed");
+        let unmocked = format!("{}/UNMOCKED-must-not-be-hit", server.uri());
+        let session: jmap_base_client::request::Session =
+            serde_json::from_value(serde_json::json!({
+                "capabilities": {},
+                "accounts": {},
+                "primaryAccounts": {},
+                "username": "",
+                "apiUrl": unmocked,
+                "downloadUrl": unmocked,
+                "uploadUrl": unmocked,
+                "eventSourceUrl": format!(
+                    "{}/events/?types={{types}}&closeafter={{closeafter}}&ping={{ping}}",
+                    server.uri()
+                ),
+                "state": "",
+            }))
+            .expect("hand-rolled Session JSON must deserialize");
+        let params = jmap_base_client::SubscribeEventsSessionParams {
+            close_after: Some(close_after),
+            ..Default::default()
+        };
+        let _stream = client
+            .subscribe_events_session(&session, params)
+            .await
+            .unwrap_or_else(|e| panic!("closeafter={wire} must reach the mock: {e:?}"));
+    }
+}
+
 /// Oracle: bd:JMAP-6r7c.64 — `subscribe_events_session` expands
 /// `session.event_source_url` with the caller-supplied
 /// SubscribeEventsSessionParams template variables. Mock server

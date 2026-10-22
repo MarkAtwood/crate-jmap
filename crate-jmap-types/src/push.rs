@@ -1,5 +1,6 @@
 //! RFC 8620 §7 push wire types: [`StateChange`], [`PushSubscription`],
-//! [`PushKeys`], and [`PushVerification`].
+//! [`PushKeys`], and [`PushVerification`], plus the RFC 8030 §5.3 Web Push
+//! [`Urgency`].
 //!
 //! These are shared by servers (which build and send them) and clients
 //! (which receive them over SSE, WebSocket, or a push endpoint).
@@ -22,6 +23,35 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::id::{Id, State, UTCDate};
+
+/// The Web Push `Urgency` header (RFC 8030 §5.3), shared by every crate
+/// that sends or classifies a push: `urgency-option = ("very-low" / "low"
+/// / "normal" / "high")`. Variants order "in order of increasing
+/// urgency", so `max` picks the most urgent. "A push message without the
+/// Urgency header field defaults to a value of "normal"."
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Urgency {
+    /// `very-low`
+    VeryLow,
+    /// `low`
+    Low,
+    /// `normal`, the default when the header is absent.
+    Normal,
+    /// `high`
+    High,
+}
+
+impl Urgency {
+    /// The header value.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::VeryLow => "very-low",
+            Self::Low => "low",
+            Self::Normal => "normal",
+            Self::High => "high",
+        }
+    }
+}
 
 /// `@type` value of a [`StateChange`] (RFC 8620 §7.1).
 const STATE_CHANGE_TYPE: &str = "StateChange";
@@ -325,5 +355,20 @@ mod tests {
              default serde_json::Map (BTreeMap-backed); if this fails, \
              check whether preserve_order has been enabled in the dep graph"
         );
+    }
+
+    /// Oracle: RFC 8030 §5.3 grammar `urgency-option = ("very-low" / "low"
+    /// / "normal" / "high")`, listed "In order of increasing urgency".
+    #[test]
+    fn urgency_wire_values_in_increasing_order() {
+        let ordered = [
+            Urgency::VeryLow,
+            Urgency::Low,
+            Urgency::Normal,
+            Urgency::High,
+        ];
+        let wire: Vec<&str> = ordered.iter().map(|u| u.as_str()).collect();
+        assert_eq!(wire, ["very-low", "low", "normal", "high"]);
+        assert!(ordered.windows(2).all(|w| w[0] < w[1]));
     }
 }

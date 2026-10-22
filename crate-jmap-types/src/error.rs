@@ -439,26 +439,6 @@ impl JmapError {
         }
     }
 
-    /// RFC 8620 §5.6 — "tooManyChanges"
-    ///
-    /// Always prefer [`too_many_changes_with_limit`][Self::too_many_changes_with_limit],
-    /// which includes the server's limit so the client knows the
-    /// maximum `maxChanges` value to use on retry. RFC 8620 §9.6.1
-    /// requires `limit` to be present on the wire; this bare constructor
-    /// produces a wire form that violates that requirement.
-    #[deprecated(
-        note = "always use too_many_changes_with_limit to include the limit per RFC 8620 §9.6.1"
-    )]
-    pub fn too_many_changes() -> Self {
-        Self {
-            error_type: MethodErrorType::TooManyChanges,
-            description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
     /// Returns a `tooManyChanges` error with the server's limit included.
     ///
     /// Per RFC 8620 §9.6.1, the `limit` field MUST be present so the client
@@ -518,28 +498,7 @@ impl JmapError {
         }
     }
 
-    /// RFC 8620 §3.6.1 — "unknownCapability" (request-level error)
-    ///
-    /// The request used a capability URI not recognized by this server.
-    ///
-    /// Always prefer [`unknown_capability_with_detail`][Self::unknown_capability_with_detail],
-    /// which includes the failing URI so clients can act on it.
-    #[deprecated(
-        note = "always use unknown_capability_with_detail to include the URI in the error"
-    )]
-    pub fn unknown_capability() -> Self {
-        Self {
-            error_type: MethodErrorType::UnknownCapability,
-            description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
     /// "unknownCapability" with the failing URI surfaced to the client.
-    ///
-    /// Always use this instead of [`unknown_capability()`][Self::unknown_capability].
     ///
     /// The URI is stored in [`description`][JmapError::description].  The HTTP layer
     /// (`jmap-server::RequestError`) reads `description` to populate the `"detail"` field
@@ -792,15 +751,6 @@ mod tests {
         assert!(!json.contains("\"description\""));
     }
 
-    #[allow(deprecated)]
-    #[test]
-    fn too_many_changes_type_string() {
-        let e = JmapError::too_many_changes();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"tooManyChanges\""));
-        assert!(!json.contains("\"description\""));
-    }
-
     #[test]
     fn too_many_changes_with_limit_serializes_limit_field() {
         let err = JmapError::too_many_changes_with_limit(100);
@@ -808,21 +758,6 @@ mod tests {
         assert_eq!(v["type"], "tooManyChanges");
         assert_eq!(v["limit"], 100u64);
         assert!(v.get("description").is_none());
-    }
-
-    /// Pins the deprecated bare-constructor's wire form — the absence of
-    /// the `limit` field is the RFC 8620 §9.6.1 noncompliance the
-    /// deprecation was added to flag. If a future contributor changes
-    /// the bare constructor to populate `limit` with a placeholder, this
-    /// test would fail and force a deliberate review of whether the
-    /// deprecation should be removed at that time.
-    #[allow(deprecated)]
-    #[test]
-    fn too_many_changes_without_limit_has_no_limit_field() {
-        let err = JmapError::too_many_changes();
-        let v = serde_json::to_value(&err).unwrap();
-        assert_eq!(v["type"], "tooManyChanges");
-        assert!(v.get("limit").is_none());
     }
 
     #[test]
@@ -856,15 +791,6 @@ mod tests {
             serde_json::to_value(&e).unwrap(),
             serde_json::json!({"type": "limit"})
         );
-    }
-
-    #[allow(deprecated)]
-    #[test]
-    fn unknown_capability_type_string() {
-        let e = JmapError::unknown_capability();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"unknownCapability\""));
-        assert!(!json.contains("\"description\""));
     }
 
     // Oracle: RFC 8620 §3.6.1 — unknownCapability with detail includes the URI.

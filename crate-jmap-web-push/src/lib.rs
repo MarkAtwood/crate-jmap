@@ -43,6 +43,10 @@ use serde::Serialize;
 use sha2::Sha256;
 use url::Url;
 
+/// The `Urgency` header (RFC 8030 §5.3), shared with every JMAP crate
+/// that classifies a push (jmap-push-platform-guide §Web Push, Urgency).
+pub use jmap_types::Urgency;
+
 pub use jmap_types;
 pub use p256;
 pub use reqwest;
@@ -343,32 +347,6 @@ pub enum VapidError {
     /// The push URL has an opaque origin, so there is no `aud`.
     #[error("push URL has no origin for the VAPID aud claim")]
     OpaqueOrigin,
-}
-
-/// The `Urgency` header (RFC 8030 §5.3). JMAP urgency values map to it
-/// unchanged (jmap-push-platform-guide §Web Push, Urgency).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Urgency {
-    /// `very-low`
-    VeryLow,
-    /// `low`
-    Low,
-    /// `normal`, the default when the header is absent.
-    Normal,
-    /// `high`
-    High,
-}
-
-impl Urgency {
-    /// The header value.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::VeryLow => "very-low",
-            Self::Low => "low",
-            Self::Normal => "normal",
-            Self::High => "high",
-        }
-    }
 }
 
 /// A `Topic` header value (RFC 8030 §5.4): "no more than 32 characters

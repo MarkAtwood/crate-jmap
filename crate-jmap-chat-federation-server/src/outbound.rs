@@ -334,6 +334,7 @@ pub fn aggregate_delivery_state<'a>(
 }
 
 /// How one outbound `Peer/*` call failed.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeliveryFailure<'a> {
     /// The peer answered with a JMAP method-level error of this `type`.

@@ -8,6 +8,7 @@ use crate::PeerDomain;
 
 /// The outcome of binding a peer identity to an authenticated peer
 /// domain.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IdentityBinding {
     /// The identity's host equals the peer domain: accept.

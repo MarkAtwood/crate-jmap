@@ -127,13 +127,13 @@ their own write/extension methods.
 ### Helpers (from the `helpers` module)
 
 ```rust
-pub use helpers::{extract_account_id, not_found_json, now_utc_string, ser};
+pub use helpers::{extract_account_id, not_found_json, now_utc_string, serialize_value};
 ```
 
 Small utilities used by every method handler: `extract_account_id` pulls the
 `accountId` field from a method-arguments `Value` (returning `accountNotFound`
 on absence), `now_utc_string` produces an RFC 3339 timestamp suitable for
-RFC 8620 `UTCDate` fields, `ser` serializes any `Serialize` value into a
+RFC 8620 `UTCDate` fields, `serialize_value` serializes any `Serialize` value into a
 `Value` (mapping serialization failure to `serverFail`), and `not_found_json`
 builds the `notFound: [...]` array used by `Foo/get` responses for missing
 ids.
