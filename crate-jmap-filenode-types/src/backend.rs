@@ -65,6 +65,6 @@ impl SetObject for crate::FileNode {
 }
 
 impl QueryObject for crate::FileNode {
-    type Filter = crate::FileNodeFilterCondition;
+    type Filter = crate::FileNodeFilter;
     type Comparator = crate::FileNodeComparator;
 }

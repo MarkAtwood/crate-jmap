@@ -255,7 +255,7 @@ impl SetObject for crate::Task {
 }
 
 impl QueryObject for crate::Task {
-    type Filter = crate::TaskFilterCondition;
+    type Filter = crate::TaskFilter;
     type Comparator = crate::TaskComparator;
 }
 
@@ -271,7 +271,7 @@ impl SetObject for crate::TaskNotification {
 }
 
 impl QueryObject for crate::TaskNotification {
-    type Filter = crate::TaskNotificationFilterCondition;
+    type Filter = crate::TaskNotificationFilter;
     type Comparator = crate::TaskNotificationComparator;
 }
 
@@ -342,5 +342,31 @@ mod tests {
         assert!(!is_per_user_task_property("Keywords"));
         assert!(!is_per_user_task_property("keywords/done"));
         assert!(!is_per_user_task_property("alerts/abc"));
+    }
+
+    /// Oracle: RFC 8620 §5.5 (line 2368) types the /query `filter` as
+    /// "FilterOperator|FilterCondition|null". draft-ietf-jmap-tasks-06
+    /// §4.13 makes Task/query the CalendarEvent/query method (Task
+    /// property `taskListId`, §4) and §5.5.1 names the TaskNotification
+    /// `taskIds` condition. A hand-written NOT tree decodes as each filter.
+    #[test]
+    fn query_filters_are_operator_trees() {
+        use jmap_types::QueryObject;
+        /// Decodes `json` as `O`'s filter, which must be the full tree.
+        fn decodes_as_operator<O, C>(json: serde_json::Value) -> bool
+        where
+            O: QueryObject<Filter = jmap_types::Filter<C>>,
+            C: serde::de::DeserializeOwned,
+        {
+            let f: O::Filter = serde_json::from_value(json).expect("operator tree must decode");
+            matches!(f, jmap_types::Filter::Operator(_))
+        }
+        let not = |cond: serde_json::Value| serde_json::json!({ "operator": "NOT", "conditions": [cond] });
+        assert!(decodes_as_operator::<crate::Task, _>(not(
+            serde_json::json!({ "taskListId": "l1" })
+        )));
+        assert!(decodes_as_operator::<crate::TaskNotification, _>(not(
+            serde_json::json!({ "taskIds": ["t1"] })
+        )));
     }
 }

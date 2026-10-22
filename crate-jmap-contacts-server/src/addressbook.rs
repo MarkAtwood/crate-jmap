@@ -28,7 +28,7 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_contacts_types::{AddressBook, ContactCard, ContactCardFilterCondition};
-use jmap_types::{Id, JmapError, PatchObject};
+use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::helpers::{
@@ -618,8 +618,9 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
     // Query for affected card ids using the inAddressBook filter
     // (RFC 9610 §3.3.1). ContactCardFilterCondition is #[non_exhaustive],
     // so build via default + field assignment.
-    let mut filter = ContactCardFilterCondition::default();
-    filter.in_address_book = Some(book_id.clone());
+    let mut condition = ContactCardFilterCondition::default();
+    condition.in_address_book = Some(book_id.clone());
+    let filter = Filter::Condition(condition);
     let query_result = backend
         .query_objects::<ContactCard>(caller, account_id, QueryParams::new().filter(Some(&filter)))
         .await

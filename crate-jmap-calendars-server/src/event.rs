@@ -29,8 +29,10 @@
 
 use std::collections::BTreeMap;
 
-use jmap_calendars_types::{CalendarEvent, ParticipantIdentity};
-use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
+use jmap_calendars_types::{
+    CalendarEvent, CalendarEventFilter, CalendarEventFilterCondition, ParticipantIdentity,
+};
+use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
 use crate::helpers::{
@@ -1122,14 +1124,12 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     };
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    // This server accepts only a bare FilterCondition, which also meets
-    // draft-ietf-jmap-calendars-33 §5.11 ("the filter MUST be just a
-    // FilterCondition (not a FilterOperator)" when expandRecurrences is
-    // true). The typed struct carries `deny_unknown_fields`, so an operator
-    // tree or an unknown property yields unsupportedFilter (RFC 8620 §5.5)
-    // instead of decoding as a match-all; a non-object value stays
-    // invalidArguments with a `filter: ` description (bd:JMAP-ic0j.45).
-    let filter: Option<jmap_calendars_types::CalendarEventFilterCondition> = filter_arg(&mut args)?;
+    // The filter is "FilterOperator|FilterCondition|null" (RFC 8620 §5.5).
+    // The typed condition carries `deny_unknown_fields`, so an unknown
+    // property anywhere in the tree yields unsupportedFilter instead of
+    // decoding as a match-all; a non-object value stays invalidArguments
+    // with a `filter: ` description (bd:JMAP-ic0j.45).
+    let filter: Option<CalendarEventFilter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<jmap_calendars_types::CalendarEventComparator>> = match args.remove("sort")
     {
@@ -1147,20 +1147,19 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         .and_then(|v| v.as_str())
         .map(|s| s.to_owned());
 
-    // §5.11: when expandRecurrences is true, the filter MUST be a single
-    // FilterCondition (verified by deserialization above) carrying BOTH
-    // `before` and `after`. A missing filter or a filter without both
-    // bounds would let the backend produce an unbounded number of synthetic
-    // ids, which the spec explicitly forbids.
+    // §5.11: "If true, the filter MUST be just a FilterCondition (not a
+    // FilterOperator) and MUST include both a "before" and "after"
+    // property." A missing filter, an operator tree or a condition without
+    // both bounds would let the backend produce an unbounded number of
+    // synthetic ids, which the spec explicitly forbids.
     if expand_recurrences {
-        let bounds_ok = filter
-            .as_ref()
-            .is_some_and(|f| f.before.is_some() && f.after.is_some());
-        if !bounds_ok {
-            return Err(JmapError::invalid_arguments(
-                "expandRecurrences requires a FilterCondition with both 'before' and 'after'",
-            ));
-        }
+        let condition =
+            match &filter {
+                Some(Filter::Condition(c)) if c.before.is_some() && c.after.is_some() => c,
+                _ => return Err(JmapError::invalid_arguments(
+                    "expandRecurrences requires a FilterCondition with both 'before' and 'after'",
+                )),
+            };
 
         // bd:JMAP-ic0j.71 — defense-in-depth handler-side pre-check against
         // the account's `maxExpandedQueryDuration` cap (§10.8.3). Computes
@@ -1176,7 +1175,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         // floating LocalDateTime with malformed digits), the pre-check is
         // skipped and the backend handles the request. The backend MUST
         // still re-verify the cap atomically.
-        if let Some(secs) = expand_duration_seconds(filter.as_ref()) {
+        if let Some(secs) = expand_duration_seconds(condition) {
             let limits = backend.limits(caller, &account_id);
             // Non-positive duration (`before <= after`) cannot exceed a
             // non-negative cap; skip and let the backend handle the
@@ -1247,11 +1246,10 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
 /// Compute `before - after` in seconds for the handler-side
 /// `maxExpandedQueryDuration` pre-check (bd:JMAP-ic0j.71).
 ///
-/// Returns `None` when the filter is missing, when either bound is absent,
-/// or when either bound cannot be interpreted as a wall-clock timestamp. In
-/// those cases the handler skips the pre-check and the backend handles the
-/// request (the backend remains canonical for enforcement per workspace
-/// AGENTS.md "Backend caps and limits").
+/// Returns `None` when either bound is absent or cannot be interpreted as
+/// a wall-clock timestamp. In those cases the handler skips the pre-check
+/// and the backend handles the request (the backend remains canonical for
+/// enforcement per workspace AGENTS.md "Backend caps and limits").
 ///
 /// The filter's `before` / `after` carry JSCalendar `LocalDateTime` strings
 /// (RFC 8984 §1.4.5: `YYYY-MM-DDTHH:MM:SS`, no offset — floating until a
@@ -1266,10 +1264,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
 /// exceed a non-negative `max_expanded_query_duration_seconds` so it never
 /// trips the pre-check. The backend handles the (possibly invalid)
 /// inverted-bound case itself.
-fn expand_duration_seconds(
-    filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
-) -> Option<i64> {
-    let f = filter?;
+fn expand_duration_seconds(f: &CalendarEventFilterCondition) -> Option<i64> {
     let before = f.before.as_ref()?;
     let after = f.after.as_ref()?;
     let before_utc = UTCDate::from(format!("{before}Z"))

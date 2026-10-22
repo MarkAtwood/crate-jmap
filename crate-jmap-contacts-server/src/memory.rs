@@ -60,7 +60,7 @@ use crate::{
     ContactsBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
     QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
-use jmap_contacts_types::ContactCardFilterCondition;
+use jmap_contacts_types::{ContactCardFilter, ContactCardFilterCondition};
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
 
@@ -647,7 +647,8 @@ impl JmapBackend for MemoryBackend {
         // per RFC 9610), decode the typed filter and comparator list via the
         // canonical Pattern G type-identity roundtrip (`expect()` per
         // bc79c70 — silent drop would return ALL cards, a query-correctness
-        // bug), then apply `contact_card_matches_filter` and
+        // bug), then evaluate the RFC 8620 §5.5 filter tree with
+        // `Filter::matches` over `contact_card_matches_filter` and sort with
         // `compare_contact_cards_by_property` from this module.
         //
         // For any other type the result is the (id-sorted) set of all
@@ -656,17 +657,17 @@ impl JmapBackend for MemoryBackend {
         let mut ids: Vec<Id> = if O::TYPE_NAME == "ContactCard" {
             // Pattern G: type-identity roundtrip. When O::TYPE_NAME ==
             // "ContactCard" the generic O::Filter is necessarily
-            // ContactCardFilterCondition (see
+            // ContactCardFilter (see
             // the QueryObject impl in jmap-contacts-types src/backend.rs), so both
             // halves of this serde roundtrip are infallible. `.expect()`
             // surfaces a future custom-serde regression instead of
             // silently dropping the filter (which would return ALL cards
             // when the client expected a filtered subset — bd:JMAP-qz9v.3).
-            let card_filter: Option<ContactCardFilterCondition> = filter.map(|f| {
+            let card_filter: Option<ContactCardFilter> = filter.map(|f| {
                 let v =
                     serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
                 serde_json::from_value(v).expect(
-                    "type-identity roundtrip on ContactCardFilterCondition is infallible: \
+                    "type-identity roundtrip on ContactCardFilter is infallible: \
                      the JSON came from Serialize on the same concrete type",
                 )
             });
@@ -698,7 +699,7 @@ impl JmapBackend for MemoryBackend {
                         .filter(|(_, v)| {
                             card_filter
                                 .as_ref()
-                                .is_none_or(|f| contact_card_matches_filter(v, f))
+                                .is_none_or(|f| f.matches(&|c| contact_card_matches_filter(v, c)))
                         })
                         .map(|(k, v)| (k.clone(), v.clone()))
                         .collect()

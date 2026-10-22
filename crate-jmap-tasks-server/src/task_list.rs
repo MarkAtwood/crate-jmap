@@ -27,7 +27,7 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
-use jmap_types::{Id, JmapError, PatchObject};
+use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::helpers::{
@@ -376,8 +376,9 @@ async fn destroy_task_list_tasks<B: TasksBackend>(
     account_id: &Id,
     task_list_id: &Id,
 ) -> Result<(), Value> {
-    let mut filter = TaskFilterCondition::default();
-    filter.task_list_id = Some(task_list_id.clone());
+    let mut condition = TaskFilterCondition::default();
+    condition.task_list_id = Some(task_list_id.clone());
+    let filter = Filter::Condition(condition);
     let ids = backend
         .query_objects::<Task>(caller, account_id, QueryParams::new().filter(Some(&filter)))
         .await

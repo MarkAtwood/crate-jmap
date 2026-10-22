@@ -540,13 +540,16 @@ impl JmapBackend for MemoryBackend {
             ..
         } = params;
         // Fail loud on any non-trivial filter. A `None` or all-fields-None
-        // filter passes (matches everything); any populated field rejects.
+        // filter passes (matches everything); any populated field rejects,
+        // and so does an RFC 8620 §5.5 operator tree, whose `operator` and
+        // `conditions` keys are populated.
         //
         // Type-identity roundtrip (Pattern G, see jmap-mail-server memory): the
-        // generic `O::Filter` is the concrete `Task/TaskList/TaskNotification
-        // FilterCondition` here, so `to_value(&f)` is infallible. A future
-        // custom-serde change that breaks the roundtrip surfaces as a panic
-        // rather than silently dropping the filter.
+        // generic `O::Filter` is the concrete `TaskFilter`,
+        // `TaskNotificationFilter` or (TaskList) `Value` here, so
+        // `to_value(&f)` is infallible. A future custom-serde change that
+        // breaks the roundtrip surfaces as a panic rather than silently
+        // dropping the filter.
         let mut in_task_list: Option<Id> = None;
         if let Some(f) = filter {
             let v = serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
@@ -559,9 +562,9 @@ impl JmapBackend for MemoryBackend {
                         !val.is_null() && !(in_task_list.is_some() && k == "taskListId")
                     })
                 }
-                // Filter serialized as something other than an object (e.g. a
-                // FilterOperator variant from a future spec revision): treat
-                // as non-trivial.
+                // Filter serialized as something other than an object (only
+                // possible for TaskList's untyped `Value`): treat as
+                // non-trivial.
                 None => true,
             };
             if any_field_set {

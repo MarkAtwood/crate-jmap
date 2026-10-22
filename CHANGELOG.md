@@ -1377,11 +1377,27 @@ wire behaviour that a conforming peer can observe.
   filter tree ("FilterOperator|FilterCondition|null") for every object
   whose `QueryObject::Filter` was a bare condition, as Email already
   did (bd JMAP-skk9.2). **jmap-mail-types**: `Mailbox` uses
-  `MailboxFilter`. Backends' `query_objects::<O>` and
-  `query_changes::<O>` receive `Filter<…FilterCondition>`; wrap a single
-  condition in `Filter::Condition`. The reference `MemoryBackend`s
-  evaluate `AND`/`OR`/`NOT`; an operator tree is no longer
-  `unsupportedFilter`.
+  `MailboxFilter`. **jmap-calendars-types**: `Calendar`,
+  `CalendarEvent` and `CalendarEventNotification` use `CalendarFilter`,
+  `CalendarEventFilter` and `NotificationFilter`.
+  **jmap-contacts-types**: `ContactCard` uses `ContactCardFilter`.
+  **jmap-tasks-types**: `Task` and `TaskNotification` use `TaskFilter`
+  and `TaskNotificationFilter`. **jmap-filenode-types**: `FileNode` uses
+  `FileNodeFilter`. **jmap-sharing-types**: `Principal` and
+  `ShareNotification` use `PrincipalFilter` and
+  `ShareNotificationFilter`. Backends' `query_objects::<O>`,
+  `query_changes::<O>` and `CalendarsBackend::query_calendar_events`
+  receive `Filter<…FilterCondition>`; wrap a single condition in
+  `Filter::Condition`. The default `FileNodeBackend::query_subtree`
+  passes `Filter::Condition`. An operator tree is no longer
+  `unsupportedFilter`; the Mail, Calendars (`inCalendar`), Contacts and
+  FileNode `MemoryBackend`s evaluate `AND`/`OR`/`NOT`, while the Tasks
+  and Sharing ones keep their documented filter limits.
+  `CalendarEvent/query` with `expandRecurrences: true` still requires a
+  single FilterCondition with `before` and `after`
+  (draft-ietf-jmap-calendars-33 §5.11) and answers an operator tree with
+  `invalidArguments`. Graph's GraphNode, GraphEdge and GraphNodeOp
+  filters stay single conditions by their drafts.
 - **BREAKING** Filter conditions use the object's enum instead of
   `String`, as `MailboxFilterCondition.role` does (bd JMAP-skk9.1).
   **jmap-filenode-types**: `FileNodeFilterCondition.node_type` is

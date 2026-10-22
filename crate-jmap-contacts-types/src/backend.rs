@@ -136,6 +136,6 @@ impl SetObject for crate::ContactCard {
 }
 
 impl QueryObject for crate::ContactCard {
-    type Filter = crate::ContactCardFilterCondition;
+    type Filter = crate::ContactCardFilter;
     type Comparator = crate::ContactCardComparator;
 }
