@@ -91,10 +91,28 @@ async fn delivers(
     sub: &VtcEphemeralSubscription,
     ev: &VtcEvent,
 ) -> bool {
-    let account = Id::from(ACCOUNT);
-    should_deliver(backend, &recipient.to_owned(), &account, &account, sub, ev)
-        .await
-        .expect("should_deliver")
+    delivers_with_own_account(backend, recipient, ACCOUNT, sub, ev).await
+}
+
+/// [`delivers`] with `own_account` as the recipient's own account, apart
+/// from the call's hosting account [`ACCOUNT`].
+async fn delivers_with_own_account(
+    backend: &MemoryBackend,
+    recipient: &str,
+    own_account: &str,
+    sub: &VtcEphemeralSubscription,
+    ev: &VtcEvent,
+) -> bool {
+    should_deliver(
+        backend,
+        &recipient.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from(own_account),
+        sub,
+        ev,
+    )
+    .await
+    .expect("should_deliver")
 }
 
 fn ring() -> VtcEvent {
@@ -362,11 +380,13 @@ async fn blocked_participant_suppresses_in_call_events() {
     assert!(delivers(&backend, BOB, &sub, &participant_event("P-EVE")).await);
 }
 
-/// wss at 29e9a41 L344-348: the contact-list block applies "when
-/// {{JMAP-CHAT}} is present". The recipient's account here does not
-/// advertise `urn:ietf:params:jmap:chat`, so a block recorded for the
-/// recipient suppresses nothing (bd:JMAP-skk9.4: the Scene rule, wss
-/// L826-830 of draft-atwood-jmap-scene-wss-00, for every extension).
+/// wss at 29e9a41 L344-348: the block uses "the recipient's contact list
+/// (when {{JMAP-CHAT}} is present) or an equivalent deployment-defined
+/// block list". This crate deliberately narrows that SHOULD to the Chat
+/// case (bd:JMAP-skk9.4: the Scene rule, wss L826-830 of
+/// draft-atwood-jmap-scene-wss-00, for every extension), so with no
+/// `urn:ietf:params:jmap:chat` on the recipient's account a block recorded
+/// for the recipient suppresses nothing.
 #[tokio::test]
 async fn blocks_need_chat_on_the_recipient_account() {
     let backend = backend();
@@ -388,6 +408,48 @@ async fn blocks_need_chat_on_the_recipient_account() {
     assert!(delivers(&backend, ALICE, &sub, &ring()).await);
     assert!(delivers(&backend, ALICE, &sub, &call_end("cancelled")).await);
     assert!(delivers(&backend, ALICE, &sub, &participant_event("P-EVE")).await);
+}
+
+/// wss at 29e9a41 L296-303: an event's `accountId` is "the id of the
+/// call's hosting account ... This is usually not the recipient's personal
+/// account". The contact-list block applies "when {{JMAP-CHAT}} is
+/// present" (L347-348) on "the recipient's contact list", so Chat is read
+/// from the recipient's own account: with Chat only on the hosting account
+/// a block suppresses nothing, and with Chat only on the recipient's
+/// account it suppresses the ring and the blocked participant's events.
+#[tokio::test]
+async fn blocks_read_chat_on_the_recipient_account_not_the_hosting_one() {
+    const ALICE_OWN: &str = "A-alice";
+    let sub = all_events();
+
+    let hosted_with_chat = fixture(false);
+    hosted_with_chat.block(ALICE, BOB);
+    hosted_with_chat.block(ALICE, EVE);
+    for ev in [ring(), participant_event("P-EVE"), media_state("P-EVE")] {
+        assert!(delivers_with_own_account(&hosted_with_chat, ALICE, ALICE_OWN, &sub, &ev).await);
+    }
+
+    let recipient_with_chat = backend();
+    recipient_with_chat.advertise(&Id::from(ALICE_OWN), CHAT_URI);
+    seed(
+        &recipient_with_chat,
+        stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
+    );
+    seed_participant(
+        &recipient_with_chat,
+        participant("P-ALICE", "C1", ALICE, "participant", true, false),
+    );
+    seed_participant(
+        &recipient_with_chat,
+        participant("P-EVE", "C1", EVE, "participant", true, false),
+    );
+    recipient_with_chat.block(ALICE, BOB);
+    recipient_with_chat.block(ALICE, EVE);
+    for ev in [ring(), participant_event("P-EVE"), media_state("P-EVE")] {
+        assert!(
+            !delivers_with_own_account(&recipient_with_chat, ALICE, ALICE_OWN, &sub, &ev).await
+        );
+    }
 }
 
 /// wss L378-382: "This rule does not apply to `VTCRecordingStateEvent`,

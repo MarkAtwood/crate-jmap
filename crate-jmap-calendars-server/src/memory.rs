@@ -72,7 +72,7 @@ use crate::{
 use crate::{CalendarsBackend, SetDefaultResult};
 use jmap_calendars_types::CalendarEventFilter;
 use jmap_server::{apply_patch_object, resolve_query_start};
-use jmap_types::{Id, State};
+use jmap_types::{Id, JmapError, State};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -364,10 +364,12 @@ impl Inner {
 ///   `CalendarEventComparator` properties (`start`, `sortOrder`, etc.).
 ///   The integration tests do not exercise sort, so this gap is invisible
 ///   in CI; production tests must.
-/// - **Filter coverage is narrow.** Only the `inCalendar` filter is
-///   honored on `CalendarEvent/query` (used by `Calendar/set` cleanup);
-///   all other `CalendarEventFilterCondition` fields fall through to
-///   "match all". Production backends MUST honor every documented filter.
+/// - **Filter coverage is narrow.** Only the `inCalendar` condition (alone
+///   or in an operator tree) is honored on `CalendarEvent/query` (used by
+///   `Calendar/set` cleanup); a filter naming any other
+///   `CalendarEventFilterCondition` field, and any non-empty filter on
+///   another type, is rejected with `unsupportedFilter`. Production
+///   backends MUST honor every documented filter.
 /// - **No recurrence expansion.** The `expandRecurrences` argument is
 ///   not implemented; the handler's spec-mandated bound-check still
 ///   runs, but recurring events are returned as single rows. Production
@@ -803,27 +805,33 @@ impl JmapBackend for MemoryBackend {
 
         // For CalendarEvent, evaluate the RFC 8620 §5.5 filter tree over
         // the `inCalendar` condition property (used by `Calendar/set`
-        // cleanup when `onDestroyRemoveEvents: true`). Other condition
-        // properties are not evaluated: a condition naming only them
-        // matches every event. Other types match every record.
+        // cleanup when `onDestroyRemoveEvents: true`). Other types evaluate
+        // no condition property and no operator tree. Anything this backend
+        // cannot evaluate is answered with `unsupportedFilter` (RFC 8620
+        // §5.5: "A server MUST reject the call with an unsupportedFilter
+        // error if it cannot process the given filter"), rather than
+        // treating the unevaluated part as a match.
         //
         // Type-identity roundtrip: when O::TYPE_NAME == "CalendarEvent" the
         // generic O::Filter is necessarily CalendarEventFilter (see the
         // QueryObject impl in jmap-calendars-types src/backend.rs), so both
         // halves are infallible; Pattern G (bc79c70) requires .expect()
         // rather than a silent fallback that would drop the filter.
-        let event_filter: Option<CalendarEventFilter> = if O::TYPE_NAME == "CalendarEvent" {
-            filter.map(|f| {
-                let v =
-                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
-                serde_json::from_value(v).expect(
+        let is_event = O::TYPE_NAME == "CalendarEvent";
+        let mut event_filter: Option<CalendarEventFilter> = None;
+        if let Some(f) = filter {
+            let v = serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+            let evaluable: &[&str] = if is_event { &["inCalendar"] } else { &[] };
+            if !filter_is_evaluable(&v, evaluable, is_event) {
+                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
+            }
+            if is_event {
+                event_filter = Some(serde_json::from_value(v).expect(
                     "type-identity roundtrip on CalendarEventFilter is infallible: \
                      the JSON came from Serialize on the same concrete type",
-                )
-            })
-        } else {
-            None
-        };
+                ));
+            }
+        }
 
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -927,6 +935,26 @@ impl JmapBackend for MemoryBackend {
             added,
         ))
     }
+}
+
+/// `true` if this reference backend can evaluate `filter`, a serialized
+/// RFC 8620 §5.5 `FilterOperator|FilterCondition`.
+///
+/// A condition may set only the properties in `evaluable` (a `null` value
+/// counts as unset). An operator tree is accepted only when `trees` is set
+/// and every sub-filter is itself evaluable.
+fn filter_is_evaluable(filter: &serde_json::Value, evaluable: &[&str], trees: bool) -> bool {
+    if filter.get("operator").is_some() {
+        return trees
+            && filter
+                .get("conditions")
+                .and_then(|c| c.as_array())
+                .is_some_and(|c| c.iter().all(|f| filter_is_evaluable(f, evaluable, trees)));
+    }
+    filter.as_object().is_some_and(|m| {
+        m.iter()
+            .all(|(k, v)| v.is_null() || evaluable.contains(&k.as_str()))
+    })
 }
 
 // ---------------------------------------------------------------------------

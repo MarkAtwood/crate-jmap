@@ -1373,6 +1373,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-server**: **BREAKING** the reference `MemoryBackend`
+  answers `unsupportedFilter` (RFC 8620 §5.5) for a filter it cannot
+  evaluate: a `CalendarEvent/query` condition naming anything but
+  `inCalendar` (alone or inside an operator tree), and any non-empty
+  filter on another type such as `CalendarEventNotification`. It used to
+  count the unevaluated condition as a match, so `NOT` over one returned
+  an empty list (bd JMAP-skk9.19).
 - **BREAKING** The blocked-sender hooks of Scene, VTC and Graph have one
   shape (bd JMAP-skk9.4): the delivery function takes the recipient's
   own account, applies the block rule only when that account advertises
@@ -2794,6 +2801,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: the reference `MemoryBackend` sorts a stored
+  `EmailSubmission` that fails to deserialize after every valid one in
+  `EmailSubmission/query`, so the sort comparator is a total order
+  (`slice::sort_by` may panic otherwise) (bd JMAP-skk9.19).
 - **jmap-mail-server**: `SieveScript/query` now accepts an RFC 8620 §5.5
   `FilterOperator` tree (`AND`/`OR`/`NOT` over `name`/`isActive`
   conditions) and evaluates it with `Filter::matches`, instead of

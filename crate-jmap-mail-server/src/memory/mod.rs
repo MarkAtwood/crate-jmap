@@ -2399,7 +2399,12 @@ fn sort_submission_pairs(
                 })
                 .find(|o| o.is_ne())
                 .unwrap_or(std::cmp::Ordering::Equal),
-            _ => std::cmp::Ordering::Equal,
+            // An object that fails to deserialize sorts after every one that
+            // does, so the comparator stays a total order (slice::sort_by may
+            // panic on one that is not).
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
         };
         by_comparators.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
     });
@@ -2942,6 +2947,43 @@ impl SieveBackend for MemoryBackend {
 mod tests {
     use super::*;
     use jmap_types::PatchObject;
+
+    /// A stored submission that fails to deserialize sorts after every one
+    /// that does, which keeps the comparator a total order (`slice::sort_by`
+    /// may panic otherwise). Fixture: "a" (sendAt March) and "c" (sendAt
+    /// January) are valid; "b" is not an EmailSubmission. Comparing "b"
+    /// equal to both would give a < b < c < a by id tie-break.
+    #[test]
+    fn sort_submission_pairs_puts_undecodable_last() {
+        let sub = |id: &str, send_at: &str| {
+            serde_json::to_value(EmailSubmission::new(
+                Id::from(id),
+                Id::from("identity"),
+                Id::from(format!("email-{id}")),
+                Id::from(format!("thread-{id}")),
+                jmap_types::UTCDate::from(send_at),
+                jmap_mail_types::UndoStatus::Final,
+            ))
+            .expect("serialize submission")
+        };
+        let objects: HashMap<Id, serde_json::Value> = [
+            (Id::from("a"), sub("a", "2025-03-01T00:00:00Z")),
+            (Id::from("b"), serde_json::json!({ "id": "b" })),
+            (Id::from("c"), sub("c", "2025-01-01T00:00:00Z")),
+        ]
+        .into_iter()
+        .collect();
+        let sort = [EmailSubmissionComparator::new(
+            EmailSubmissionComparatorProperty::SentAt,
+        )];
+        let mut pairs: Vec<(Id, String)> = ["a", "b", "c"]
+            .into_iter()
+            .map(|id| (Id::from(id), String::new()))
+            .collect();
+        sort_submission_pairs(&mut pairs, &objects, &sort);
+        let order: Vec<&str> = pairs.iter().map(|(id, _)| id.as_ref()).collect();
+        assert_eq!(order, ["c", "a", "b"]);
+    }
 
     /// RFC 8620 §5.3: a patch that breaks the PatchObject rules "MUST be
     /// rejected with an "invalidPatch" error". The rejected update must not

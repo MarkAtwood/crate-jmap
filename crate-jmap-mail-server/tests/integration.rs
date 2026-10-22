@@ -5573,6 +5573,164 @@ async fn submission_query_honors_sort() {
     );
 }
 
+/// Oracle: RFC 8621 §7.3 "emailId", "threadId" and "sentAt" sorts, and RFC
+/// 8620 §5.5: "If two items have identical values for the first comparator,
+/// the next comparator will be considered, and so on." s1 and s3 share a
+/// threadId, so the second comparator orders them. Expected orders follow
+/// from the hand-written literals alone.
+#[tokio::test]
+async fn submission_query_sort_email_id_and_tie_break() {
+    use jmap_mail_types::{EmailSubmission, UndoStatus};
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+
+    // (creation key, emailId, threadId, sendAt)
+    let rows = [
+        ("s1", "email-z", "t-a", "2025-02-01T00:00:00Z"),
+        ("s2", "email-x", "t-b", "2025-01-01T00:00:00Z"),
+        ("s3", "email-y", "t-a", "2025-03-01T00:00:00Z"),
+    ];
+    let mut ids: Vec<String> = Vec::new();
+    for (key, email, thread, send_at) in rows {
+        let make = |id: &Id| {
+            EmailSubmission::new(
+                id.clone(),
+                Id::from("identity"),
+                Id::from(email),
+                Id::from(thread),
+                jmap_types::UTCDate::from(send_at),
+                UndoStatus::Final,
+            )
+        };
+        let (id, _) = backend
+            .create_object::<EmailSubmission, _>(&(), &account_id, key, make)
+            .await
+            .expect("create submission");
+        ids.push(id.as_ref().to_owned());
+    }
+    let (s1, s2, s3) = (ids[0].as_str(), ids[1].as_str(), ids[2].as_str());
+
+    let query = |sort: serde_json::Value| {
+        let backend = &backend;
+        async move {
+            let HandlerOutput { primary, .. } = handle_submission_query(
+                backend,
+                &(),
+                serde_json::json!({ "accountId": "account1", "sort": sort }),
+            )
+            .await
+            .expect("EmailSubmission/query with a §7.3 sort must succeed");
+            primary["ids"]
+                .as_array()
+                .expect("ids")
+                .iter()
+                .map(|v| v.as_str().expect("id string").to_owned())
+                .collect::<Vec<String>>()
+        }
+    };
+
+    assert_eq!(
+        query(serde_json::json!([{ "property": "emailId" }])).await,
+        [s2, s3, s1],
+        "emailId ascending"
+    );
+    assert_eq!(
+        query(serde_json::json!([{ "property": "emailId", "isAscending": false }])).await,
+        [s1, s3, s2],
+        "emailId descending"
+    );
+    assert_eq!(
+        query(serde_json::json!([
+            { "property": "threadId" },
+            { "property": "sentAt", "isAscending": false },
+        ]))
+        .await,
+        [s3, s1, s2],
+        "threadId ascending, then sentAt descending"
+    );
+    assert_eq!(
+        query(serde_json::json!([
+            { "property": "threadId", "isAscending": false },
+            { "property": "sentAt" },
+        ]))
+        .await,
+        [s2, s1, s3],
+        "threadId descending, then sentAt ascending"
+    );
+}
+
+/// Oracle: RFC 8620 §5.6 `added` items carry "index: The index of the Foo in
+/// the new query results", and /queryChanges takes "The sort argument that
+/// was used with Foo/query". With a RFC 8621 §7.3 `sentAt` sort, the
+/// hand-written sendAt literals put s2, s3, s1 at indexes 0, 1, 2.
+#[tokio::test]
+async fn submission_query_changes_honors_sort() {
+    use jmap_mail_types::{EmailSubmission, UndoStatus};
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+
+    let HandlerOutput {
+        primary: initial, ..
+    } = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sinceQueryState": "0" }),
+    )
+    .await
+    .expect("initial queryChanges must succeed");
+    let since = initial["newQueryState"]
+        .as_str()
+        .expect("newQueryState must be present")
+        .to_owned();
+
+    let mut ids: Vec<String> = Vec::new();
+    for (key, send_at) in [
+        ("s1", "2025-03-01T00:00:00Z"),
+        ("s2", "2025-01-01T00:00:00Z"),
+        ("s3", "2025-02-01T00:00:00Z"),
+    ] {
+        let make = |id: &Id| {
+            EmailSubmission::new(
+                id.clone(),
+                Id::from("identity"),
+                Id::from(format!("email-{key}")),
+                Id::from(format!("thread-{key}")),
+                jmap_types::UTCDate::from(send_at),
+                UndoStatus::Final,
+            )
+        };
+        let (id, _) = backend
+            .create_object::<EmailSubmission, _>(&(), &account_id, key, make)
+            .await
+            .expect("create submission");
+        ids.push(id.as_ref().to_owned());
+    }
+
+    let HandlerOutput { primary: qc, .. } = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sinceQueryState": since,
+            "sort": [{ "property": "sentAt" }],
+        }),
+    )
+    .await
+    .expect("sorted queryChanges must succeed");
+
+    assert_eq!(
+        qc["added"],
+        serde_json::json!([
+            { "id": ids[1], "index": 0 },
+            { "id": ids[2], "index": 1 },
+            { "id": ids[0], "index": 2 },
+        ]),
+        "{qc}"
+    );
+}
+
 /// Oracle: EmailSubmission/set create fails with noRecipients when the email has no
 /// To, Cc, or Bcc addresses and no explicit envelope is provided.
 ///
