@@ -1006,7 +1006,8 @@ pub enum ChatCreateInput<'a> {
 ///
 /// All fields are optional; absent fields are not included in the patch (the
 /// server leaves them unchanged). For nullable spec fields (`mute_until`,
-/// `description`, `avatar_blob_id`) use `Patch::Set(v)` to set and
+/// `message_expiry_seconds`, `receipt_sharing`, `description`,
+/// `avatar_blob_id`) use `Patch::Set(v)` to set and
 /// `Patch::Clear` to null-clear. Slice fields default to `None` (no change).
 ///
 /// Use `..Default::default()` to fill in unused fields.
@@ -1025,8 +1026,12 @@ pub struct ChatPatch<'a> {
     /// `Patch::Clear` removes the policy server-side; `Patch::Set(n)` sets
     /// it; `Patch::Keep` (default) leaves it unchanged.
     pub message_expiry_seconds: Patch<u64>,
-    /// Whether read receipts are shared with peers. `None` = no change.
-    pub receipt_sharing: Option<bool>,
+    /// Per-Chat read-receipt override (draft-atwood-jmap-chat-00 §Chat:
+    /// `receiptSharing (Boolean, optional)`). `Patch::Clear` removes the
+    /// override so the account-level `PresenceStatus.receiptSharing`
+    /// applies; `Patch::Set(b)` sets it; `Patch::Keep` (default) leaves it
+    /// unchanged.
+    pub receipt_sharing: Patch<bool>,
     /// New display name (group chats, admin only).
     pub name: Option<&'a str>,
     /// `Patch::Clear` clears; `Patch::Set(s)` sets (group chats, admin only).

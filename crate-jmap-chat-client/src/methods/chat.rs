@@ -439,8 +439,12 @@ impl super::SessionClient {
         {
             patch_map.insert("messageExpirySeconds".into(), entry);
         }
-        if let Some(rs) = patch.receipt_sharing {
-            patch_map.insert("receiptSharing".into(), rs.into());
+        if let Some(entry) = patch
+            .receipt_sharing
+            .map_entry()
+            .map_err(jmap_base_client::ClientError::from_parse)?
+        {
+            patch_map.insert("receiptSharing".into(), entry);
         }
         if let Some(n) = patch.name {
             patch_map.insert("name".into(), n.into());

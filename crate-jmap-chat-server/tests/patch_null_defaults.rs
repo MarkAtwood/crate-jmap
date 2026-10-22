@@ -95,6 +95,32 @@ async fn chat_receive_typing_indicators_null_resets_to_true() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 Chat `receiptSharing` (line 645-646
+/// at spec 29e9a41): "(Boolean, optional) Per-Chat override of the
+/// account-level `PresenceStatus.receiptSharing` preference ... When
+/// absent, the account-level preference applies." The property has no
+/// default, so `null` removes the override and `/get` omits it
+/// (bd:JMAP-w9ox.2).
+#[tokio::test]
+async fn chat_receipt_sharing_null_removes_override() {
+    let backend = MemoryBackend::new();
+    let id = make_chat_group(&backend, "g").await;
+    chat_update(&backend, &id, json!({ "receiptSharing": false })).await;
+    assert_eq!(
+        chat_get(&backend, &id).await["receiptSharing"],
+        json!(false)
+    );
+
+    chat_update(&backend, &id, json!({ "receiptSharing": null })).await;
+
+    let chat = chat_get(&backend, &id).await;
+    assert!(
+        chat.as_object()
+            .is_some_and(|m| !m.contains_key("receiptSharing")),
+        "{chat:?}"
+    );
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 ChatContact `blocked`: "When
 /// `true`, messages from this ChatContact are silently dropped by this
 /// mailbox [...] Default: `false`."

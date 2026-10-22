@@ -747,6 +747,67 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
     );
 }
 
+/// `Chat/set` update with `receipt_sharing: Patch::Clear` must emit JSON
+/// `null` (RFC 8620 §5.3) so the per-Chat override is removed. Oracle:
+/// draft-atwood-jmap-chat-00 §Chat line 645-646 at spec 29e9a41 —
+/// "`receiptSharing` (Boolean, optional) ... When absent, the
+/// account-level preference applies" — and line 1110, which lists
+/// `receiptSharing` as an update patch key for all chat kinds
+/// (bd:JMAP-w9ox.2).
+#[tokio::test]
+async fn chat_update_patch_receipt_sharing_clear_emits_null() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let patch = jmap_chat_client::ChatPatch {
+        receipt_sharing: jmap_chat_client::Patch::Clear,
+        ..Default::default()
+    };
+    let _ = sc
+        .chat_update(&chat_id, &patch, None)
+        .await
+        .expect("chat_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(args["update"]["chat-1"], json!({ "receiptSharing": null }),);
+}
+
+/// `Chat/set` update with `receipt_sharing: Patch::Set(false)` emits the
+/// Boolean verbatim (spec line 645, `receiptSharing` (Boolean)).
+#[tokio::test]
+async fn chat_update_patch_receipt_sharing_set_emits_value() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let patch = jmap_chat_client::ChatPatch {
+        receipt_sharing: jmap_chat_client::Patch::Set(false),
+        ..Default::default()
+    };
+    let _ = sc
+        .chat_update(&chat_id, &patch, None)
+        .await
+        .expect("chat_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(args["update"]["chat-1"], json!({ "receiptSharing": false }),);
+}
+
 /// `Chat/set` update with `message_expiry_seconds: Patch::Set(N)` must
 /// emit `N` verbatim on the wire (sibling of the Clear test above).
 /// Together with the Clear test this exercises both halves of the
