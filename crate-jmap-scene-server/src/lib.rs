@@ -128,7 +128,7 @@ pub use avatar::{
     handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_avatar_query,
     handle_scene_avatar_query_changes, handle_scene_avatar_set,
 };
-pub use backend::{BindingTarget, SceneBackend};
+pub use backend::{BindingProperty, BindingTarget, SceneBackend};
 pub use ephemeral::{
     should_deliver, validate_interaction, RegionScope, SceneEphemeralSubscription,
     SceneStreamFilter,

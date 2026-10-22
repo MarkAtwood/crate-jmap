@@ -11,7 +11,7 @@ use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{
     handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_object_changes,
     handle_scene_object_get, handle_scene_region_changes, handle_scene_region_get,
-    handle_scene_region_set, BindingTarget, JmapBackend,
+    handle_scene_region_set, BindingProperty, BindingTarget, JmapBackend,
 };
 use jmap_scene_types::{SceneAvatar, SceneObject};
 use jmap_types::Id;
@@ -393,7 +393,7 @@ async fn space_policy_needs_a_space_id() {
     r["spaceId"] = Value::Null;
     assert_invalid(&create_error(&backend, r).await, &["spaceId"]);
 
-    backend.set_region_binding("spaceId", "space-1", BindingTarget::Usable);
+    backend.set_region_binding(BindingProperty::SpaceId, "space-1", BindingTarget::Usable);
     let mut r = design_review_room();
     r["accessPolicy"] = json!("space");
     r["spaceId"] = json!("space-1");
@@ -407,7 +407,7 @@ async fn clearing_space_id_under_space_policy_names_space_id() {
     // `spaceId`."
     let backend = backend();
     backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
-    backend.set_region_binding("spaceId", "space-1", BindingTarget::Usable);
+    backend.set_region_binding(BindingProperty::SpaceId, "space-1", BindingTarget::Usable);
     let mut r = design_review_room();
     r["accessPolicy"] = json!("space");
     r["spaceId"] = json!("space-1");
@@ -434,9 +434,9 @@ async fn channel_must_be_a_channel_of_the_space() {
     let backend = backend();
     backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
     for (property, id) in [
-        ("spaceId", "space-1"),
-        ("spaceId", "space-2"),
-        ("channelId", "channel-1"),
+        (BindingProperty::SpaceId, "space-1"),
+        (BindingProperty::SpaceId, "space-2"),
+        (BindingProperty::ChannelId, "channel-1"),
     ] {
         backend.set_region_binding(property, id, BindingTarget::Usable);
     }
@@ -458,7 +458,7 @@ async fn chat_binding_without_the_chat_capability_is_invalid() {
     // companion capability is advertised on the same account"; L409
     // chatId "When `urn:ietf:params:jmap:chat` is present".
     let backend = backend();
-    backend.set_region_binding("chatId", "chat-1", BindingTarget::Usable);
+    backend.set_region_binding(BindingProperty::ChatId, "chat-1", BindingTarget::Usable);
     let mut r = design_review_room();
     r["chatId"] = json!("chat-1");
     assert_invalid(&create_error(&backend, r).await, &["chatId"]);
@@ -471,7 +471,11 @@ async fn chat_binding_must_reference_an_accessible_object() {
     // object does not exist or the caller cannot access it."
     let backend = backend();
     backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
-    backend.set_region_binding("spaceId", "space-hidden", BindingTarget::Inaccessible);
+    backend.set_region_binding(
+        BindingProperty::SpaceId,
+        "space-hidden",
+        BindingTarget::Inaccessible,
+    );
     for (property, id) in [
         ("chatId", "chat-missing"),
         ("spaceId", "space-hidden"),
@@ -493,7 +497,7 @@ async fn usable_chat_binding_is_stored_with_null_siblings() {
     backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
     backend.advertise_capability(&Id::from(ACCOUNT), VTC);
     backend.set_region_binding(
-        "chatId",
+        BindingProperty::ChatId,
         "01J5CHAT000000000000000099",
         BindingTarget::Usable,
     );
@@ -689,7 +693,11 @@ async fn update_of_unknown_region_is_not_found() {
 async fn active_call_id_needs_the_vtc_capability() {
     // L417 activeCallId "When `urn:ietf:params:jmap:vtc` is present".
     let backend = backend();
-    backend.set_region_binding("activeCallId", "call-1", BindingTarget::Usable);
+    backend.set_region_binding(
+        BindingProperty::ActiveCallId,
+        "call-1",
+        BindingTarget::Usable,
+    );
     let id = create(&backend, design_review_room()).await;
     let resp = update(&backend, ALICE, &id, json!({ "activeCallId": "call-1" })).await;
     assert_invalid(&resp["notUpdated"][&id], &["activeCallId"]);
@@ -702,9 +710,21 @@ async fn active_call_id_checks_the_call() {
     // `forbidden` if the caller lacks access."
     let backend = backend();
     backend.advertise_capability(&Id::from(ACCOUNT), VTC);
-    backend.set_region_binding("activeCallId", "call-ended", BindingTarget::Missing);
-    backend.set_region_binding("activeCallId", "call-other", BindingTarget::Inaccessible);
-    backend.set_region_binding("activeCallId", "call-live", BindingTarget::Usable);
+    backend.set_region_binding(
+        BindingProperty::ActiveCallId,
+        "call-ended",
+        BindingTarget::Missing,
+    );
+    backend.set_region_binding(
+        BindingProperty::ActiveCallId,
+        "call-other",
+        BindingTarget::Inaccessible,
+    );
+    backend.set_region_binding(
+        BindingProperty::ActiveCallId,
+        "call-live",
+        BindingTarget::Usable,
+    );
     let id = create(&backend, design_review_room()).await;
 
     for call in ["call-unknown", "call-ended"] {

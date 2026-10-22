@@ -112,9 +112,9 @@ use crate::query::{
     compare_regions, object_matches, region_local_position, region_matches,
 };
 use crate::{
-    BackendChangesError, BackendQueryError, BackendSetError, BindingTarget, ChangesResult,
-    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, BindingProperty, BindingTarget,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
 };
 
 /// How one id changed in one state step.
@@ -150,7 +150,7 @@ struct Inner {
     /// Account → advertised capability URIs.
     capabilities: HashMap<String, HashSet<String>>,
     /// `(binding property, id)` → what the id references.
-    bindings: HashMap<(String, String), BindingTarget>,
+    bindings: HashMap<(BindingProperty, String), BindingTarget>,
     channel_spaces: HashSet<(String, String)>,
     /// `(region id, userId)` pairs granted access to an `"invite"` region.
     grants: HashSet<(String, String)>,
@@ -421,10 +421,10 @@ impl MemoryBackend {
 
     /// Record that binding `property` set to `id` references `target`.
     #[doc(hidden)]
-    pub fn set_region_binding(&self, property: &str, id: &str, target: BindingTarget) {
+    pub fn set_region_binding(&self, property: BindingProperty, id: &str, target: BindingTarget) {
         self.lock()
             .bindings
-            .insert((property.to_owned(), id.to_owned()), target);
+            .insert((property, id.to_owned()), target);
     }
 
     /// Record that channel `channel_id` is a channel of Space `space_id`.
@@ -1051,13 +1051,13 @@ impl SceneBackend for MemoryBackend {
         &self,
         _caller: &String,
         _account_id: &Id,
-        property: &str,
+        property: BindingProperty,
         id: &Id,
     ) -> Result<BindingTarget, MemoryError> {
         Ok(self
             .lock()
             .bindings
-            .get(&(property.to_owned(), id.as_ref().to_owned()))
+            .get(&(property, id.as_ref().to_owned()))
             .copied()
             .unwrap_or(BindingTarget::Missing))
     }

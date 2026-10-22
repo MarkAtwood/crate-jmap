@@ -1309,6 +1309,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `jmap_scene_server::SceneBackend::region_binding` takes
+  the new `BindingProperty` enum (`ChatId`, `SpaceId`, `ChannelId`,
+  `ActiveCallId`, with `as_str`) instead of a `&str` property name, and
+  `MemoryBackend::set_region_binding` takes it too.
 - **BREAKING** `jmap_tasks_types::jscalendar` and
   `jmap_contacts_types::jscontact` are modules re-exporting the same named
   sub-types as each crate's top level, no longer aliases of the whole

@@ -21,7 +21,7 @@ use crate::helpers::{
     normalized_quaternion, not_found, numbers, orientation_ok, reject_unsupported_sort,
     set_error_value, SetAccumulators,
 };
-use crate::{BindingTarget, SceneBackend};
+use crate::{BindingProperty, BindingTarget, SceneBackend};
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
     HandlerOutput, SetError, SetErrorType,
@@ -45,11 +45,11 @@ const SERVER_SET: &[&str] = &[
 /// The binding properties and the companion capability each needs:
 /// "present only when the corresponding companion capability is
 /// advertised on the same account".
-const BINDINGS: &[(&str, &str)] = &[
-    ("chatId", JMAP_CHAT_URI),
-    ("spaceId", JMAP_CHAT_URI),
-    ("channelId", JMAP_CHAT_URI),
-    ("activeCallId", JMAP_VTC_URI),
+const BINDINGS: &[(BindingProperty, &str)] = &[
+    (BindingProperty::ChatId, JMAP_CHAT_URI),
+    (BindingProperty::SpaceId, JMAP_CHAT_URI),
+    (BindingProperty::ChannelId, JMAP_CHAT_URI),
+    (BindingProperty::ActiveCallId, JMAP_VTC_URI),
 ];
 
 /// The `accessPolicy` values: "`accessPolicy` is not one of `\"public\"`,
@@ -342,8 +342,9 @@ fn capability_errors<B: SceneBackend>(
     let has = |uri| backend.has_capability(caller, account_id, uri);
     let mut bad: Vec<&'static str> = BINDINGS
         .iter()
+        .map(|(p, uri)| (p.as_str(), uri))
         .filter(|(key, uri)| touched(key) && m.get(*key).is_some_and(|v| !v.is_null()) && !has(uri))
-        .map(|(key, _)| *key)
+        .map(|(key, _)| key)
         .collect();
     if m.get("accessPolicy").and_then(Value::as_str) == Some("space") {
         if !has(JMAP_CHAT_URI) {
@@ -368,16 +369,17 @@ async fn check_bindings<B: SceneBackend>(
     m: &Map<String, Value>,
     touched: &impl Fn(&str) -> bool,
 ) -> Result<(), Value> {
-    for (key, _) in BINDINGS.iter().filter(|(key, _)| touched(key)) {
-        let Some(id) = m.get(*key).and_then(Value::as_str) else {
+    for (property, _) in BINDINGS.iter().filter(|(p, _)| touched(p.as_str())) {
+        let key = property.as_str();
+        let Some(id) = m.get(key).and_then(Value::as_str) else {
             continue;
         };
         let target = backend
-            .region_binding(caller, account_id, key, &Id::from(id))
+            .region_binding(caller, account_id, *property, &Id::from(id))
             .await
             .map_err(|e| server_fail_value_from_backend(&e))?;
-        match (target, *key) {
-            (BindingTarget::Inaccessible, "activeCallId") => {
+        match (target, property) {
+            (BindingTarget::Inaccessible, BindingProperty::ActiveCallId) => {
                 return Err(forbidden(
                     "the caller is not a participant in or moderator of the VTCCall",
                 ));
@@ -487,9 +489,9 @@ async fn create_region<B: SceneBackend>(
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
 
-    for (key, uri) in BINDINGS {
+    for (property, uri) in BINDINGS {
         if backend.has_capability(caller, account_id, uri) {
-            m.entry(*key).or_insert(Value::Null);
+            m.entry(property.as_str()).or_insert(Value::Null);
         }
     }
     let normalized = normalized_quaternion(&m, "spawnOrientation");

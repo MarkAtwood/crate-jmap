@@ -15,6 +15,34 @@ use jmap_scene_types::{
     SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject, SceneRegion,
 };
 
+/// A SceneRegion binding property, the reference
+/// [`SceneBackend::region_binding`] is asked about
+/// (draft-atwood-jmap-scene-00 §Creating a Region, §Updating a Region).
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BindingProperty {
+    /// `chatId`, a Chat (`urn:ietf:params:jmap:chat`).
+    ChatId,
+    /// `spaceId`, a Space (`urn:ietf:params:jmap:chat`).
+    SpaceId,
+    /// `channelId`, a channel of a Space (`urn:ietf:params:jmap:chat`).
+    ChannelId,
+    /// `activeCallId`, a VTCCall (`urn:ietf:params:jmap:vtc`).
+    ActiveCallId,
+}
+
+impl BindingProperty {
+    /// The SceneRegion property name, e.g. `"activeCallId"`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ChatId => "chatId",
+            Self::SpaceId => "spaceId",
+            Self::ChannelId => "channelId",
+            Self::ActiveCallId => "activeCallId",
+        }
+    }
+}
+
 /// What [`SceneBackend::region_binding`] knows about the object a
 /// SceneRegion binding property references.
 ///
@@ -256,8 +284,7 @@ pub trait SceneBackend: JmapBackend {
         uri: &str,
     ) -> bool;
 
-    /// What `property` (`"chatId"`, `"spaceId"`, `"channelId"` or
-    /// `"activeCallId"`) set to `id` references, for the checks of
+    /// What the binding `property` set to `id` references, for the checks of
     /// draft-atwood-jmap-scene-00 §Creating a Region ("the server MUST
     /// verify that the referenced object exists and the caller has access
     /// to it") and §Updating a Region (for `activeCallId`: "(a) the
@@ -279,7 +306,7 @@ pub trait SceneBackend: JmapBackend {
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        property: &str,
+        property: BindingProperty,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<BindingTarget, Self::Error>> + Send {
         let _ = (caller, account_id, property, id);
