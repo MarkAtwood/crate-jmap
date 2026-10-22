@@ -1469,6 +1469,13 @@ wire behaviour that a conforming peer can observe.
   (draft-atwood-jmap-graph-edit-00 §GraphEditStreamEnable, jmap-chat-spec
   29e9a41 L301-307). Unrecognized values still decode, as `Other`, since
   they "are ignored" rather than rejected.
+- **BREAKING** **jmap-scene-types**: `SceneStreamEnable::event_types` is
+  `Option<Vec<SceneEventType>>` (`Avatar`, `Object`, `Interaction`,
+  `Other(String)`), not `Option<Vec<String>>`, matching
+  `VtcStreamEnable::event_types`. Unrecognized values still decode, as
+  `Other`, since they "MUST be silently ignored"
+  (draft-atwood-jmap-scene-wss-00 §SceneStreamEnable, jmap-chat-spec
+  29e9a41 L444-447, L559-561).
 - **BREAKING** **jmap-vtc-types**: `VtcStreamEnable::event_types` is
   `Option<Vec<VtcEventType>>`, one variant per `VTC_EVENT_TYPES` value
   plus `Other(String)` for the unrecognized values the server "MUST
