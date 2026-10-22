@@ -468,13 +468,35 @@ pub(crate) mod test_support {
             }
         }
 
+        /// Rejects every update with `forbidden`, except that a Task patch
+        /// setting `isDraft: true` on a stored Task that is not a draft is
+        /// `invalidProperties` naming `isDraft`: the backend half of
+        /// draft-tasks-06 §4 "This may only be set to true upon creation",
+        /// which `TasksBackend::update_object` requires of every backend.
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
             _caller: &(),
-            _account_id: &Id,
-            _id: &Id,
-            _patch: O::Patch,
+            account_id: &Id,
+            id: &Id,
+            patch: O::Patch,
         ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            let sets_draft = serde_json::to_value(&patch)
+                .ok()
+                .and_then(|p| p.get("isDraft").and_then(|v| v.as_bool()))
+                == Some(true);
+            let stored_not_draft = self
+                .state
+                .lock()
+                .unwrap()
+                .get(account_id.as_ref())
+                .and_then(|a| a.tasks.get(id))
+                .is_some_and(|t| t.is_draft != Some(true));
+            if O::TYPE_NAME == "Task" && sets_draft && stored_not_draft {
+                return Err(BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_properties(vec!["isDraft".to_owned()]),
+                ));
+            }
             Err(BackendSetError::SetError(SetError::new(
                 SetErrorType::Forbidden,
             )))

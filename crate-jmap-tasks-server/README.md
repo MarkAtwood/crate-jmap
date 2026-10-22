@@ -106,13 +106,6 @@ pub trait TasksBackend: JmapBackend {
 
     // --- Optional overrides (have default implementations) ---
 
-    /// Returns `true` if the backend enforces the `isDraft` immutability
-    /// invariant atomically inside `update_object`. When `true`, the
-    /// `Task/set` handler skips its pre-fetch fast-path. See the
-    /// "isDraft immutability" subsection under "How it works" below.
-    /// Default: `false`.
-    fn enforce_is_draft_atomically(&self) -> bool { false }
-
     /// Compute utcStart and utcDue for a Task by converting local-time fields
     /// and time zone into UTC (draft-tasks-06 §4, utcStart/utcDue paragraphs).
     ///
@@ -157,18 +150,13 @@ mutating — is documented per-method on the trait itself (`backend.rs`).
 
 ### Task/set — isDraft immutability
 
-Once a Task's `isDraft` is set to `false`, it cannot be reverted to `true`. The
-`Task/set` handler enforces this defensively: when the patch contains `isDraft: true`,
-it first fetches the current task via `get_objects` and rejects the patch with
-`invalidProperties: ["isDraft"]` if the current value is already `false`. This costs
-one extra `get_objects` call per updated task that includes `isDraft: true` in the patch.
-Transitions from `isDraft: true` to `isDraft: false` (publishing a draft) are always allowed.
-
-Backends that enforce this invariant atomically inside `update_object` (the
-workspace-canonical posture — see AGENTS.md "Permission enforcement:
-backend canonical") can override `enforce_is_draft_atomically()` to return
-`true`. The handler then skips the pre-fetch and trusts the backend to emit
-the `invalidProperties` SetError. The reference `MemoryBackend` does this.
+Once a Task's `isDraft` is not `true`, it cannot be set to `true` (draft-tasks-06
+§4: "This may only be set to true upon creation"). The backend enforces this in
+`update_object`, atomically with the write, and rejects the patch with
+`invalidProperties: ["isDraft"]`; the `Task/set` handler does not pre-check it (the
+workspace-canonical posture — see AGENTS.md "Permission enforcement: backend
+canonical"). Transitions from `isDraft: true` to `isDraft: false` (publishing a draft)
+are always allowed. The reference `MemoryBackend` does this.
 
 ### Task/set — per-user property routing
 
@@ -241,10 +229,9 @@ until the family is published to crates.io.
 
 - `compute_utc_times` default returns `(None, None)` — `utcStart`/`utcDue` will be
   absent from all `Task/get` responses unless the backend overrides this method.
-- `isDraft` immutability check requires one extra `get_objects` call per updated task where
-  the patch includes `isDraft: true`, unless the backend overrides
-  `enforce_is_draft_atomically()` to return `true` and emits the
-  `invalidProperties` SetError from `update_object` itself.
+- `isDraft` immutability is the backend's job: `update_object` MUST reject a patch that
+  sets `isDraft: true` on a Task whose stored value is not `true`; the handler does not
+  check it.
 - No storage backend ships with this crate. The `memory` feature is for
   tests/demos only.
 
