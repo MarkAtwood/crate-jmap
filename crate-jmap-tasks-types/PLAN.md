@@ -145,7 +145,7 @@ A field absent from the server response must not fail deserialization.
 |---|---|---|
 | `at_type` | `@type` | `Option<String>` | always "Task" on wire |
 | `uid` | `uid` | `Option<String>` |
-| `related_to` | `relatedTo` | `Option<HashMap<String, serde_json::Value>>` |
+| `related_to` | `relatedTo` | `Option<serde_json::Value>` |
 | `prod_id` | `prodId` | `Option<String>` |
 | `created` | `created` | `Option<String>` | UTCDateTime |
 | `updated` | `updated` | `Option<String>` | UTCDateTime |
@@ -159,9 +159,9 @@ A field absent from the server response must not fail deserialization.
 | `description` | `description` | `Option<String>` |
 | `description_content_type` | `descriptionContentType` | `Option<String>` |
 | `show_without_time` | `showWithoutTime` | `Option<bool>` |
-| `locations` | `locations` | `Option<HashMap<Id, serde_json::Value>>` |
-| `virtual_locations` | `virtualLocations` | `Option<HashMap<Id, serde_json::Value>>` |
-| `links` | `links` | `Option<HashMap<Id, serde_json::Value>>` |
+| `locations` | `locations` | `Option<serde_json::Value>` |
+| `virtual_locations` | `virtualLocations` | `Option<serde_json::Value>` |
+| `links` | `links` | `Option<serde_json::Value>` |
 | `locale` | `locale` | `Option<String>` |
 | `keywords` | `keywords` | `Option<HashMap<String, bool>>` | per-user in shared lists |
 | `categories` | `categories` | `Option<HashMap<String, bool>>` |
@@ -173,8 +173,8 @@ A field absent from the server response must not fail deserialization.
 |---|---|---|
 | `recurrence_id` | `recurrenceId` | `Option<String>` | LocalDateTime |
 | `recurrence_id_time_zone` | `recurrenceIdTimeZone` | `Option<String>` |
-| `recurrence_rules` | `recurrenceRules` | `Option<Vec<serde_json::Value>>` |
-| `excluded_recurrence_rules` | `excludedRecurrenceRules` | `Option<Vec<serde_json::Value>>` |
+| `recurrence_rules` | `recurrenceRules` | `Option<serde_json::Value>` |
+| `excluded_recurrence_rules` | `excludedRecurrenceRules` | `Option<serde_json::Value>` |
 | `recurrence_overrides` | `recurrenceOverrides` | `Option<HashMap<String, jmap_types::PatchObject>>` | per-instance PatchObject overrides |
 | `excluded` | `excluded` | `Option<bool>` |
 
@@ -187,7 +187,7 @@ A field absent from the server response must not fail deserialization.
 | `privacy` | `privacy` | `Option<String>` |
 | `reply_to` | `replyTo` | `Option<HashMap<String, String>>` |
 | `sent_by` | `sentBy` | `Option<String>` |
-| `participants` | `participants` | `Option<HashMap<Id, serde_json::Value>>` | assignees extension; Participant objects |
+| `participants` | `participants` | `Option<serde_json::Value>` | assignees extension; Participant objects |
 | `request_status` | `requestStatus` | `Option<String>` |
 
 **JSCalendar Alert Properties** (RFC 8984 §4.5, gated on alerts extension):
@@ -195,7 +195,7 @@ A field absent from the server response must not fail deserialization.
 | Rust field | Wire name | Type |
 |---|---|---|
 | `use_default_alerts` | `useDefaultAlerts` | `Option<bool>` | per-user |
-| `alerts` | `alerts` | `Option<HashMap<Id, serde_json::Value>>` | per-user |
+| `alerts` | `alerts` | `Option<serde_json::Value>` | per-user |
 
 **JSCalendar Multilingual Properties** (RFC 8984 §4.6, gated on multilingual extension):
 
@@ -208,7 +208,7 @@ A field absent from the server response must not fail deserialization.
 | Rust field | Wire name | Type |
 |---|---|---|
 | `time_zone` | `timeZone` | `Option<String>` |
-| `time_zones` | `timeZones` | `Option<HashMap<String, serde_json::Value>>` | customtimezones extension; per-entry value typed-decodable to `jmap_jscalendar_types::TimeZone` (re-exported as `TimeZone`; see JMAP-x014) |
+| `time_zones` | `timeZones` | `Option<serde_json::Value>` | customtimezones extension; per-entry value typed-decodable to `jmap_jscalendar_types::TimeZone` (re-exported as `TimeZone`; see JMAP-x014) |
 
 **JSCalendar Task-specific Properties** (RFC 8984 §5.2):
 

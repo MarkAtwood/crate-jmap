@@ -926,7 +926,11 @@ mod jscalendar_roundtrip {
         let raw = task_with("locations", locations_value);
 
         let task: Task = serde_json::from_value(raw).expect("Task deserialize");
-        let map = task.locations.as_ref().expect("locations present");
+        let map = task
+            .locations
+            .as_ref()
+            .and_then(serde_json::Value::as_object)
+            .expect("locations present");
         let entry = map.values().next().expect("at least one location");
 
         let loc: Location = serde_json::from_value(entry.clone()).expect("decode Location");
@@ -955,6 +959,7 @@ mod jscalendar_roundtrip {
         let map = task
             .virtual_locations
             .as_ref()
+            .and_then(serde_json::Value::as_object)
             .expect("virtualLocations present");
         let entry = map.values().next().expect("at least one vloc");
 
@@ -987,7 +992,11 @@ mod jscalendar_roundtrip {
         let raw = task_with("links", links_value);
 
         let task: Task = serde_json::from_value(raw).expect("Task deserialize");
-        let map = task.links.as_ref().expect("links present");
+        let map = task
+            .links
+            .as_ref()
+            .and_then(serde_json::Value::as_object)
+            .expect("links present");
         let entry = map.values().next().expect("at least one link");
 
         let link: Link = serde_json::from_value(entry.clone()).expect("decode Link");
@@ -1021,6 +1030,7 @@ mod jscalendar_roundtrip {
         let rules = task
             .recurrence_rules
             .as_ref()
+            .and_then(serde_json::Value::as_array)
             .expect("recurrenceRules present");
         let entry = rules.first().expect("at least one rule");
 
@@ -1039,7 +1049,7 @@ mod jscalendar_roundtrip {
 
     /// RFC 8984 §4.3.4 — `excludedRecurrenceRules` shares the RecurrenceRule
     /// shape with §4.3.3. Verifying both fields independently catches a
-    /// regression where only one of the two `Vec<Value>` fields is wired up.
+    /// regression where only one of the two recurrence-rule fields is wired up.
     #[test]
     fn task_excluded_recurrence_rules_roundtrips_as_recurrence_rule() {
         let rules_value = serde_json::json!([
@@ -1055,6 +1065,7 @@ mod jscalendar_roundtrip {
         let rules = task
             .excluded_recurrence_rules
             .as_ref()
+            .and_then(serde_json::Value::as_array)
             .expect("excludedRecurrenceRules present");
         let entry = rules.first().expect("at least one rule");
 
@@ -1087,7 +1098,11 @@ mod jscalendar_roundtrip {
         let raw = task_with("participants", participants_value);
 
         let task: Task = serde_json::from_value(raw).expect("Task deserialize");
-        let map = task.participants.as_ref().expect("participants present");
+        let map = task
+            .participants
+            .as_ref()
+            .and_then(serde_json::Value::as_object)
+            .expect("participants present");
         let entry = map.values().next().expect("at least one participant");
 
         let p: Participant = serde_json::from_value(entry.clone()).expect("decode Participant");
@@ -1123,7 +1138,11 @@ mod jscalendar_roundtrip {
         let raw = task_with("alerts", alerts_value);
 
         let task: Task = serde_json::from_value(raw).expect("Task deserialize");
-        let map = task.alerts.as_ref().expect("alerts present");
+        let map = task
+            .alerts
+            .as_ref()
+            .and_then(serde_json::Value::as_object)
+            .expect("alerts present");
         let entry = map.values().next().expect("at least one alert");
 
         let alert: Alert = serde_json::from_value(entry.clone()).expect("decode Alert");
@@ -1143,7 +1162,7 @@ mod jscalendar_roundtrip {
     /// RFC 8984 §4.7.2 — `timeZones` is `Map<TimeZoneId, TimeZone>`.
     ///
     /// `Task.time_zones` is the sloppy-Value field
-    /// (`Option<BTreeMap<String, serde_json::Value>>`) for wire-shape
+    /// (`Option<serde_json::Value>`) for wire-shape
     /// preservation. Each value entry can be typed-decoded into a
     /// `jmap_jscalendar_types::TimeZone` (re-exported from this crate as
     /// `TimeZone`). This test verifies both:
