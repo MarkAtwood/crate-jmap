@@ -142,7 +142,7 @@ use jmap_types::JmapError;
 
 /// The methods of §Server-to-Server Methods: the five required and the
 /// three optional `Peer/*` methods.
-pub const PEER_METHODS: [&str; 8] = [
+pub const PEER_METHODS: &[&str] = &[
     "Peer/deliver",
     "Peer/receipt",
     "Peer/typing",

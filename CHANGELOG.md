@@ -1309,6 +1309,30 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `#[non_exhaustive]` on `jmap_server::BackendQueryError`,
+  `jmap_mime::JmapBodyFields`, `jmap_jscalendar_types::TypeTagMismatch`,
+  `jmap_chat_filenode_server::{RootCheckError, TreeDestroyError}`,
+  `jmap_chat_federation_server::DeliveryFailure`,
+  `jmap_peer_auth::{IdentityBinding, SignatureHeaders}`,
+  `jmap_peer_auth_io::PeerKeySet` and
+  `jmap_chat_mimi_server::HubUnavailable`, so later fields and variants
+  are not breaking. Matches need a wildcard arm; backends build
+  `HubUnavailable` with its new `Default` impl.
+- **BREAKING** `jmap_chat_federation_server::PEER_METHODS`,
+  `jmap_chat_types::MANDATORY_DID_METHODS` and
+  `jmap_scene_server::SCENE_DATA_TYPES` are `&[&str]`, not fixed-size
+  arrays, so adding a value is not breaking.
+- **BREAKING** **jmap-mail-server**: `MdnBackend::parse_mdns` takes
+  `blob_ids: &[Id]`, not `Vec<Id>`, like the calendars parse methods.
+- **BREAKING** **jmap-base-client**:
+  `SubscribeEventsSessionParams::close_after` is `Option<CloseAfter>`
+  (`State`, `No`), not `Option<&str>`: RFC 8620 §7.3 `closeafter` "MUST
+  be one of" `"state"` or `"no"`.
+- **BREAKING** **jmap-scene-server**: `Urgency` is now the shared
+  `jmap_types::Urgency` (RFC 8030 §5.3) instead of a private copy, and
+  `jmap_web_push::Urgency` re-exports the same type, so a
+  `push_urgency` result goes straight into `PushOptions::urgency`. The
+  shared type also derives `PartialOrd` and `Ord` (increasing urgency).
 - **BREAKING** **jmap-graph-types**: `GraphEditStreamEnable::data_types`
   is `Vec<GraphEditDataType>` (`Ops`, `Cursors`, `Other(String)`), not
   `Vec<String>`, and `GraphEditStreamEnable::new` takes that type
@@ -2251,6 +2275,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-server**: the deprecated `helpers::ser` alias; use
+  `serialize_value`.
+- **BREAKING** **jmap-types**: the deprecated `JmapError::too_many_changes`
+  and `JmapError::unknown_capability`, which omitted the limit and the
+  failing URI; use `too_many_changes_with_limit` and
+  `unknown_capability_with_detail`.
 - **BREAKING** **jmap-server**: the `BackendChangesError::TooManyChanges
   { limit: 0 }` legacy alias for `CannotCalculate`. A zero `limit` now
   maps to `tooManyChanges` like any other value; a backend that cannot

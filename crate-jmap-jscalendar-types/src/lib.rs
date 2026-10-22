@@ -97,6 +97,7 @@ pub use jmap_types::{Id, PatchObject, UTCDate};
 /// so that round-trip preservation of unfamiliar payloads still works;
 /// consumers that need strict input validation call
 /// `validate_at_type()` after deserializing.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeTagMismatch {
     /// The literal the Rust type expects (e.g. `"NDay"`).

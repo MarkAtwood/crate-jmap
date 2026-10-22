@@ -169,6 +169,7 @@ impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapErro
 /// `anchorNotFound`, ...). [`Self::Method`] carries such an error to the
 /// client unchanged; [`Self::Other`] is an internal storage-layer failure
 /// that handlers surface as the redacted `serverFail`.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum BackendQueryError<E> {
     /// An RFC 8620 §5.5 method error, returned to the client as-is

@@ -950,8 +950,8 @@ pub(crate) mod test_support {
             self.query_objects::<jmap_calendars_types::CalendarEvent>(caller, account_id, params)
                 .await
                 .map_err(|e| match e {
-                    BackendQueryError::Method(e) => QueryCalendarEventsError::Method(e),
                     BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
+                    method => QueryCalendarEventsError::Method(method.into()),
                 })
         }
 

@@ -1048,11 +1048,11 @@ impl JmapBackend for MemoryBackend {
             )
             .await
             .map_err(|e| match e {
+                BackendQueryError::Other(e) => BackendChangesError::Other(e),
                 // Changes to a query the server cannot run cannot be
                 // calculated; the client's follow-up /query receives the
                 // method error itself.
-                BackendQueryError::Method(_) => BackendChangesError::CannotCalculate,
-                BackendQueryError::Other(e) => BackendChangesError::Other(e),
+                _ => BackendChangesError::CannotCalculate,
             })?;
         let current_result: Vec<Id> = query_result.ids;
 
@@ -2685,7 +2685,7 @@ impl MdnBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &jmap_types::Id,
-        blob_ids: Vec<jmap_types::Id>,
+        blob_ids: &[jmap_types::Id],
     ) -> Result<MdnParseResult, Self::Error> {
         let mut parsed: BTreeMap<jmap_types::Id, Mdn> = BTreeMap::new();
         let mut not_parsable: Vec<jmap_types::Id> = Vec::new();
@@ -2696,7 +2696,7 @@ impl MdnBackend for MemoryBackend {
         // loading the full blob before the cheap parsability check.
         const HEADER_LIMIT: usize = 4096;
 
-        for blob_id in blob_ids {
+        for blob_id in blob_ids.iter().cloned() {
             // Quick-reject: fetch only the first HEADER_LIMIT bytes for the
             // parsability heuristic.  If that prefix doesn't contain
             // "disposition:", the blob can't be an MDN — skip it without

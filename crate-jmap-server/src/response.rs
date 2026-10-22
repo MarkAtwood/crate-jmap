@@ -369,14 +369,13 @@ mod tests {
     /// Oracle: error_invocation depends on JmapError being infallibly serializable.
     /// This test exercises every JmapError constructor to catch any future regression
     /// in jmap-types that breaks the invariant.
-    #[allow(deprecated)]
     #[test]
     fn jmap_error_all_constructors_serialize() {
         let errors = vec![
             JmapError::not_json(),
             JmapError::not_request(),
             JmapError::limit("maxCallsInRequest"),
-            JmapError::unknown_capability(),
+            JmapError::unknown_capability_with_detail("urn:example:unknown"),
             JmapError::forbidden(),
             JmapError::server_fail("test"),
             JmapError::server_unavailable(),
@@ -401,7 +400,7 @@ mod tests {
             JmapError::anchor_not_found(),
             JmapError::unsupported_sort(),
             JmapError::unsupported_filter(),
-            JmapError::too_many_changes(),
+            JmapError::too_many_changes_with_limit(100),
             JmapError::from_account_not_found(),
             JmapError::from_account_not_supported_by_method(),
             JmapError::already_exists(Id::from("existing-1")),

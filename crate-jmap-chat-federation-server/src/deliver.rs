@@ -240,7 +240,8 @@ pub(crate) fn authenticate<B: FederationBackend>(
     let bound = match bind_identity(&peer.peer_identity, &peer.peer_domain) {
         IdentityBinding::Bound => true,
         IdentityBinding::NeedsDidVerification => peer.did_verified,
-        IdentityBinding::HostMismatch | IdentityBinding::NoHost => false,
+        // HostMismatch, NoHost, and any outcome added later: reject.
+        _ => false,
     };
     if !bound || claimed != peer.peer_identity {
         return Err(JmapError::forbidden());

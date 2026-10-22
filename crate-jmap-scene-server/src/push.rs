@@ -15,43 +15,21 @@ use jmap_scene_types::{SceneAsset, SceneAvatar, SceneObject, SceneRegion};
 
 use crate::JmapObject;
 
+/// The Web Push `Urgency` header (RFC 8030 §5.3) that [`push_urgency`]
+/// picks; the same type `jmap-web-push` sends.
+pub use jmap_types::Urgency;
+
 /// The data types that participate in the state-change mechanism.
 ///
 /// §State-Change Events: "All four Scene data types -- SceneRegion,
 /// SceneObject, SceneAvatar, and SceneAsset -- participate in the RFC 8620
 /// state-change mechanism".
-pub const SCENE_DATA_TYPES: [&str; 4] = [
+pub const SCENE_DATA_TYPES: &[&str] = &[
     SceneRegion::TYPE_NAME,
     SceneObject::TYPE_NAME,
     SceneAvatar::TYPE_NAME,
     SceneAsset::TYPE_NAME,
 ];
-
-/// A Web Push `Urgency` header value (RFC 8030 §5.3), ordered from lowest
-/// to highest.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Urgency {
-    /// `very-low`
-    VeryLow,
-    /// `low`
-    Low,
-    /// `normal`
-    Normal,
-    /// `high`
-    High,
-}
-
-impl Urgency {
-    /// The header value.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::VeryLow => "very-low",
-            Self::Low => "low",
-            Self::Normal => "normal",
-            Self::High => "high",
-        }
-    }
-}
 
 /// A change, as seen by the user who receives the push, for which
 /// §Push Urgency recommends an urgency.

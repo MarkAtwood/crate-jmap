@@ -83,8 +83,8 @@ pub use blob::{
     UploadBlobSessionParams, UploadBlobStreamParams,
 };
 pub use client::{
-    extract_response, method_error_details, ClientConfig, JmapClient, SseReconnectPolicy,
-    SubscribeEventsSessionParams,
+    extract_response, method_error_details, ClientConfig, CloseAfter, JmapClient,
+    SseReconnectPolicy, SubscribeEventsSessionParams,
 };
 pub use error::{
     ClientError, HttpError, InvalidHeaderValueError, ParseCategory, ParseError, SerializeError,

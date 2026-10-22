@@ -848,11 +848,11 @@ impl JmapBackend for MemoryBackend {
             )
             .await
             .map_err(|e| match e {
+                BackendQueryError::Other(e) => BackendChangesError::Other(e),
                 // Changes to a query the server cannot run cannot be
                 // calculated; the client's follow-up /query receives the
                 // method error itself.
-                BackendQueryError::Method(_) => BackendChangesError::CannotCalculate,
-                BackendQueryError::Other(e) => BackendChangesError::Other(e),
+                _ => BackendChangesError::CannotCalculate,
             })?;
         let created_set: HashSet<&Id> = changes.created.iter().collect();
         let updated_set: HashSet<&Id> = changes.updated.iter().collect();

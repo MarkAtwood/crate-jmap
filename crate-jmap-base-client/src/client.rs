@@ -905,7 +905,7 @@ impl JmapClient {
         let ping_owned = ping.map(|p| p.to_string());
         let vars = [
             ("types", types.unwrap_or("")),
-            ("closeafter", close_after.unwrap_or("")),
+            ("closeafter", close_after.map_or("", CloseAfter::as_str)),
             ("ping", ping_owned.as_deref().unwrap_or("")),
         ];
         let expanded = crate::blob::expand_url_template(session.event_source_url.as_str(), &vars)?;
@@ -1091,6 +1091,29 @@ fn sse_error_is_retryable(e: &ClientError) -> bool {
     }
 }
 
+/// The RFC 8620 §7.3 `closeafter` event-source variable, which "MUST be
+/// one of" these two values.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CloseAfter {
+    /// `"state"`: "The server MUST end the HTTP response after pushing a
+    /// state event."
+    State,
+    /// `"no"`: "The connection is persisted by the server as a standard
+    /// event-source resource."
+    No,
+}
+
+impl CloseAfter {
+    /// The wire value substituted into the URL template.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::State => "state",
+            Self::No => "no",
+        }
+    }
+}
+
 /// Parameters for [`JmapClient::subscribe_events_session`]
 /// (bd:JMAP-6r7c.64).
 ///
@@ -1104,7 +1127,7 @@ fn sse_error_is_retryable(e: &ClientError) -> bool {
 /// ```rust,ignore
 /// client.subscribe_events_session(&session, SubscribeEventsSessionParams {
 ///     types: Some("Email,Mailbox"),
-///     close_after: Some("state"),
+///     close_after: Some(CloseAfter::State),
 ///     ping: Some(60),
 ///     last_event_id: Some("evt-1234"),
 /// }).await?;
@@ -1115,10 +1138,9 @@ pub struct SubscribeEventsSessionParams<'a> {
     /// names to subscribe to (`"Email,Mailbox"`), or `"*"` for all types
     /// the server supports. `None` expands to an empty string.
     pub types: Option<&'a str>,
-    /// `closeafter` template variable: `"state"` to close after the
-    /// first state-change push, `"no"` for stay-open. `None` expands to
-    /// an empty string.
-    pub close_after: Option<&'a str>,
+    /// `closeafter` template variable (see [`CloseAfter`]). `None`
+    /// expands to an empty string.
+    pub close_after: Option<CloseAfter>,
     /// `ping` template variable: server-ping interval in seconds, or
     /// `0` to disable. `None` expands to an empty string.
     pub ping: Option<u32>,

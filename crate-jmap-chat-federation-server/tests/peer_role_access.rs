@@ -60,7 +60,7 @@ fn assert_forbidden(caller: &Caller, method: &str) {
 
 #[test]
 fn peer_methods_match_the_draft_list() {
-    let mut ours = PEER_METHODS;
+    let mut ours = PEER_METHODS.to_vec();
     let mut spec = SPEC_PEER_METHODS;
     ours.sort_unstable();
     spec.sort_unstable();

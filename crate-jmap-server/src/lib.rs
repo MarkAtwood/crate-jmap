@@ -46,8 +46,6 @@ pub use handlers::{
     handle_changes, handle_get, handle_query, handle_query_changes, server_fail_from_backend,
     server_fail_value_from_backend, SERVER_FAIL_INTERNAL_DESC,
 };
-#[allow(deprecated)]
-pub use helpers::ser;
 pub use helpers::{
     apply_jmap_patch, apply_patch_object, bool_arg, enforce_max_objects_in_get,
     enforce_max_objects_in_set, extract_account_id, filter_arg, json_merge_patch, not_found_json,

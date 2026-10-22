@@ -115,7 +115,14 @@ impl HubReply {
 /// The provider a [`MimiBackend::mimi_request`] goes to cannot be reached;
 /// the method returns `serverUnavailable` (draft-atwood-jmap-chat-mimi-00
 /// §KeyMaterial/fetch, §Room/update, §Room/send, §GroupInfo/fetch).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// Backends build it with [`Default`]:
+///
+/// ```
+/// let _unreachable = jmap_chat_mimi_server::HubUnavailable::default();
+/// ```
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct HubUnavailable;
 
 /// The `invalidArguments` error for a `Room/create` whose leaf signature

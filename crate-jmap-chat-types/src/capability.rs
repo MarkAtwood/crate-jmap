@@ -68,7 +68,7 @@ pub const JMAP_CHAT_DID_URI: &str = "urn:ietf:params:jmap:chat:did";
 ///
 /// Each entry is a DID Core §8 method name, the form used in the
 /// `supportedMethods` array of `urn:ietf:params:jmap:did`.
-pub const MANDATORY_DID_METHODS: [&str; 3] = ["web", "key", "plc"];
+pub const MANDATORY_DID_METHODS: &[&str] = &["web", "key", "plc"];
 
 /// Returns whether a server may advertise [`JMAP_CHAT_DID_URI`].
 ///

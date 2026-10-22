@@ -77,6 +77,7 @@ pub const MAX_PART_DEPTH: usize = 64;
 /// §4.1.4 definitions. `body_value_part_ids` lists the part IDs the caller
 /// should decode via [`mime_tree::decode_body_value`] and insert into the
 /// `bodyValues` map of the JMAP `Email` response.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct JmapBodyFields {
     /// Full MIME tree (RFC 8621 §4.1.4 `bodyStructure`).

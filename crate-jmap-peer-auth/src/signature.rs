@@ -53,6 +53,7 @@ pub struct Request<'a> {
 }
 
 /// Header field values to add to a signed request.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignatureHeaders {
     /// The `Content-Digest` value (RFC 9530, `sha-256`), present when the
