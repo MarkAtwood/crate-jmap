@@ -742,7 +742,7 @@ impl JmapBackend for MemoryBackend {
         if O::TYPE_NAME == "Mailbox" {
             // Type-identity roundtrip: when O::TYPE_NAME == "Mailbox" the
             // generic O::Filter is necessarily MailboxFilterCondition (see
-            // jmap-mail-types::backend::QueryObject impl), so both halves
+            // the QueryObject impl in jmap-mail-types src/backend.rs), so both halves
             // of this serde roundtrip are infallible:
             //   - to_value(&f) cannot fail: derive(Serialize) on plain data.
             //   - from_value::<MailboxFilterCondition>(v) cannot fail: v was

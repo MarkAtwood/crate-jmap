@@ -13,7 +13,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod backend;
+mod backend;
 mod capability;
 pub mod filenode;
 pub mod filter;

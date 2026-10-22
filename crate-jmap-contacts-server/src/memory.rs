@@ -657,7 +657,7 @@ impl JmapBackend for MemoryBackend {
             // Pattern G: type-identity roundtrip. When O::TYPE_NAME ==
             // "ContactCard" the generic O::Filter is necessarily
             // ContactCardFilterCondition (see
-            // jmap_contacts_types::backend::QueryObject impl), so both
+            // the QueryObject impl in jmap-contacts-types src/backend.rs), so both
             // halves of this serde roundtrip are infallible. `.expect()`
             // surfaces a future custom-serde regression instead of
             // silently dropping the filter (which would return ALL cards
@@ -2445,7 +2445,7 @@ mod seed_object_validation_tests {
     /// rather than silently corrupting the fixture into a namespace
     /// no method reads from. The only known values for contacts are
     /// the two `O::TYPE_NAME` constants defined in
-    /// `jmap_contacts_types::backend` (AddressBook, ContactCard).
+    /// jmap-contacts-types `src/backend.rs` (AddressBook, ContactCard).
     /// Anything else is a test-author typo.
     #[test]
     #[should_panic(expected = "not one of the known")]

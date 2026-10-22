@@ -1406,7 +1406,7 @@ mod seed_object_validation_tests {
     ///
     /// Oracle: the four valid `type_name` values are the
     /// `O::TYPE_NAME` constants defined in
-    /// `jmap_calendars_types::backend` (Calendar, CalendarEvent,
+    /// jmap-calendars-types `src/backend.rs` (Calendar, CalendarEvent,
     /// CalendarEventNotification, ParticipantIdentity). Anything else
     /// is a test-author typo.
     #[test]

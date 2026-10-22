@@ -102,10 +102,10 @@ pub use ephemeral::{
 };
 pub use expiry::sweep_expired;
 pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
-pub use jmap_chat_types::backend::{
+pub use jmap_chat_types::space_set::{SpaceMetadataPatch, SpacePatchOp};
+pub use jmap_chat_types::{
     ChatContactProperty, ChatProperty, MessageProperty, ReadPositionProperty, SpaceProperty,
 };
-pub use jmap_chat_types::space_set::{SpaceMetadataPatch, SpacePatchOp};
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,

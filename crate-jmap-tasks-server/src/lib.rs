@@ -50,7 +50,7 @@ pub use jmap_server::{
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
     QueryResult, SetError, SetErrorType, SetObject,
 };
-pub use jmap_tasks_types::backend::{TaskListProperty, TaskNotificationProperty, TaskProperty};
+pub use jmap_tasks_types::{TaskListProperty, TaskNotificationProperty, TaskProperty};
 pub use task::{
     handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,
     handle_task_query_changes, handle_task_set,
