@@ -201,7 +201,7 @@ async fn task_notification_set_destroy_only_wire_format() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.task_notification_set(vec![Id::from("notif1"), Id::from("notif2")])
+    sc.task_notification_set(vec![Id::from("notif1"), Id::from("notif2")], None)
         .await
         .expect("task_notification_set_destroy_only_wire_format: must succeed");
 
@@ -273,7 +273,7 @@ async fn task_notification_set_empty_destroy_succeeds() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.task_notification_set(vec![])
+    sc.task_notification_set(vec![], None)
         .await
         .expect("task_notification_set_empty_destroy_succeeds: must succeed");
 

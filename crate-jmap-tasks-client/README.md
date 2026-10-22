@@ -45,6 +45,7 @@ sc.task_set(
     })),
     None,
     None,
+    None,
 ).await?;
 # Ok(())
 # }
@@ -64,16 +65,16 @@ All `pub async fn` on `SessionClient`:
 |---|---|---|
 | `task_list_get(ids, properties)` | `TaskList/get` | `GetResponse<TaskList>` |
 | `task_list_changes(since_state, max_changes)` | `TaskList/changes` | `ChangesResponse` |
-| `task_list_set(create, update, destroy, params)` | `TaskList/set` | `SetResponse<TaskList>` |
+| `task_list_set(create, update, destroy, if_in_state, params)` | `TaskList/set` | `SetResponse<TaskList>` |
 | `task_get(ids, properties)` | `Task/get` | `GetResponse<Task>` |
 | `task_changes(since_state, max_changes)` | `Task/changes` | `ChangesResponse` |
-| `task_set(create, update, destroy)` | `Task/set` | `SetResponse<Task>` |
+| `task_set(create, update, destroy, if_in_state)` | `Task/set` | `SetResponse<Task>` |
 | `task_copy(params, create)` | `Task/copy` | `SetResponse<Task>` |
 | `task_query(filter, sort, position, limit)` | `Task/query` | `QueryResponse` |
 | `task_query_changes(since_query_state, max_changes)` | `Task/queryChanges` | `QueryChangesResponse` |
 | `task_notification_get(ids, properties)` | `TaskNotification/get` | `GetResponse<TaskNotification>` |
 | `task_notification_changes(since_state, max_changes)` | `TaskNotification/changes` | `ChangesResponse` |
-| `task_notification_set(destroy)` | `TaskNotification/set` | `SetResponse` |
+| `task_notification_set(destroy, if_in_state)` | `TaskNotification/set` | `SetResponse` |
 | `task_notification_query(filter, sort, position, limit)` | `TaskNotification/query` | `QueryResponse` |
 | `task_notification_query_changes(since_query_state, max_changes)` | `TaskNotification/queryChanges` | `QueryChangesResponse` |
 

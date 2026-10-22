@@ -132,6 +132,10 @@ impl super::SessionClient {
     /// vendor / site extension fields (workspace extras-preservation
     /// policy).
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -149,6 +153,7 @@ impl super::SessionClient {
         create: Option<serde_json::Value>,
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
+        if_in_state: Option<&State>,
         params: Option<super::TaskListSetParams>,
     ) -> Result<SetResponse<jmap_tasks_types::TaskList>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
@@ -162,6 +167,9 @@ impl super::SessionClient {
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let mut params_extra: Option<serde_json::Map<String, serde_json::Value>> = None;
         if let Some(p) = params {
             if let Some(v) = p.on_destroy_remove_tasks {

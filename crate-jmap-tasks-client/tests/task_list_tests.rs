@@ -206,6 +206,7 @@ async fn task_list_set_on_destroy_remove_tasks_round_trip() {
             None,
             None,
             Some(vec![Id::from("list1")]),
+            None,
             Some(TaskListSetParams {
                 on_destroy_remove_tasks: Some(true),
                 ..Default::default()
@@ -288,7 +289,7 @@ async fn task_list_set_without_on_destroy_omits_field() {
     // be omitted from the wire when the caller passes None) is
     // preserved.
     let destroy_ids: Vec<jmap_types::Id> = vec![];
-    sc.task_list_set(None, None, Some(destroy_ids), None)
+    sc.task_list_set(None, None, Some(destroy_ids), None, None)
         .await
         .expect("task_list_set_without_on_destroy_omits_field: must succeed");
 

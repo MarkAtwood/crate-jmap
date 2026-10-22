@@ -120,6 +120,10 @@ impl super::SessionClient {
     ///
     /// Pass an empty vec to send an empty destroy list (no-op round-trip).
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -131,12 +135,16 @@ impl super::SessionClient {
     pub async fn share_notification_set(
         &self,
         destroy: Vec<Id>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "destroy": destroy,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("ShareNotification/set", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

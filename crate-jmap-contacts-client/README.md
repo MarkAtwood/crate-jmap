@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let set_resp = contacts
-        .contact_card_set(Some(create_card), None, None)
+        .contact_card_set(Some(create_card), None, None, None)
         .await?;
     if let Some(created) = set_resp.created {
         if let Some(card) = created.get("newCard") {
