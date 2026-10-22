@@ -1319,6 +1319,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-types**: **BREAKING** `SetResponse<T>` has no default type
+  parameter (was `T = serde_json::Value`), so a signature can no longer
+  depend on it silently; name the type, normally `PartialObject` for
+  client `/set` results (RFC 8620 §5.3).
 - **jmap-vtc-client**: **BREAKING** `vtc_call_set`,
   `vtc_participant_set`, `vtc_recording_set` and `vtc_livestream_set`
   return `SetResponse<PartialObject>` instead of the hidden default

@@ -461,7 +461,8 @@ mod tests {
             "notUpdated": null,
             "notDestroyed": null
         });
-        let resp: SetResponse = serde_json::from_value(json).expect("SetResponse must deserialize");
+        let resp: SetResponse<PartialObject> =
+            serde_json::from_value(json).expect("SetResponse must deserialize");
         assert_eq!(resp.new_state, "s11");
         assert_eq!(resp.destroyed.as_deref(), Some(["id1".into()].as_slice()));
     }

@@ -231,7 +231,7 @@ where
     deserialize = "T: serde::de::DeserializeOwned",
     serialize = "T: Serialize"
 ))]
-pub struct SetResponse<T = serde_json::Value> {
+pub struct SetResponse<T> {
     /// The account the response refers to.
     pub account_id: Id,
     /// State token before this `/set` was applied. Optional because some
