@@ -105,7 +105,8 @@ pub trait ChatBackend: JmapBackend {
         id: &Id,
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
-    /// Returns true if this account supports the given JMAP object type.
+    /// Returns `true` if this backend supports JMAP object type `O` for
+    /// `account_id`, as seen by `caller`.
     /// Called by the session/capability builder — NOT called internally by handlers.
     /// Backends that support all types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;

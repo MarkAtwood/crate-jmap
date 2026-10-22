@@ -30,7 +30,7 @@ calls these functions from its trait methods:
 | `FileNodeBackend::create_object::<FileNode>`, before the insert | `check_root_create` and `check_space_create` |
 | `FileNodeBackend::update_object::<FileNode>`, before the write | `check_space_update` |
 | `FileNodeBackend::destroy_object::<FileNode>`, before the removal | `check_space_destroy` |
-| `FileNodeBackend::files_rights` | return `space_files_rights`; `FileNode/get` reports it as `myRights` |
+| `FileNodeBackend::files_rights` | return `space_files_rights`; `FileNode/get` reports it as `myRights`, and `FileNode/set` and `FileNode/copy` report it in each `created` entry |
 | `JmapBackend::get_objects::<FileNode>` and the other FileNode reads | `space_files_rights`: leave out nodes with no flag |
 | The same, when advertising `maxSpaceStorageBytes` | `check_space_quota` |
 | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | `create_space_file_tree` |

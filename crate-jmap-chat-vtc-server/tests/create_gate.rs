@@ -115,6 +115,30 @@ async fn channel_override_denying_start_call_is_forbidden() {
     assert_eq!(err["type"], "forbidden");
 }
 
+/// chat L1706 at jmap-chat-spec 29e9a41: "Apply `deny` entries from any
+/// ChannelPermission records matching the member's roles (`targetType:
+/// "role"`, including the record for `@everyone`, whose `targetId` is the
+/// Space id)". Every member holds `@everyone`, so the deny reaches the
+/// caller.
+#[tokio::test]
+async fn everyone_override_denying_start_call_is_forbidden() {
+    let backend = Bound::new();
+    backend.seed_chat_object(
+        "Space",
+        space(SPACE, &["start_call"], &[(ACCOUNT, &["R-CALLER"])]),
+    );
+    backend.seed_chat_object(
+        "Chat",
+        channel_chat(
+            CHANNEL,
+            SPACE,
+            json!([{ "targetId": SPACE, "targetType": "role", "allow": [], "deny": ["start_call"] }]),
+        ),
+    );
+    let err = create_call_error(&backend, room_in_channel()).await;
+    assert_eq!(err["type"], "forbidden");
+}
+
 /// The permission is held "in the bound Space or channel", so a caller who
 /// is not a member of the Space holds none.
 #[tokio::test]
