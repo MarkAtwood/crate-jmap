@@ -1,6 +1,6 @@
 //! Wiremock integration test for Principal/getAvailability.
 //!
-//! Oracle for response shape: draft-ietf-jmap-calendars-26 §2.2.
+//! Oracle for response shape: draft-ietf-jmap-calendars-33 §2.2.
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
 #[path = "helpers.rs"]
@@ -13,7 +13,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Test JMAP-7i4v.5 — Principal/getAvailability round-trip.
 ///
-/// Oracle: draft-ietf-jmap-calendars-26 §2.2 — the response contains a list of
+/// Oracle: draft-ietf-jmap-calendars-33 §2.2 — the response contains a list of
 /// BusyPeriod objects within the queried time window. An empty list means the
 /// principal has no busy time in the queried range.
 ///

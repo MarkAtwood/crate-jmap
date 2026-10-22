@@ -4,7 +4,7 @@
 //! no production-path coverage (JMAP-uuoi.1).
 //!
 //! Oracle for response shapes:
-//!   - ParticipantIdentity/get: draft-ietf-jmap-calendars-26 §3.1 + RFC 8620 §5.1
+//!   - ParticipantIdentity/get: draft-ietf-jmap-calendars-33 §3.1 + RFC 8620 §5.1
 //!   - ParticipantIdentity/changes: §3.2 + RFC 8620 §5.2
 //!   - ParticipantIdentity/set: §3.3 + RFC 8620 §5.3
 
@@ -18,7 +18,7 @@ use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-/// Oracle: draft-ietf-jmap-calendars-26 §3.1 / RFC 8620 §5.1 —
+/// Oracle: draft-ietf-jmap-calendars-33 §3.1 / RFC 8620 §5.1 —
 /// `ParticipantIdentity/get` returns the configured participant
 /// identities for the authenticated user. Verifies the basic /get
 /// shape: response deserializes into the typed
@@ -103,7 +103,7 @@ async fn participant_identity_get_basic_shape() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §3.2 / RFC 8620 §5.2 —
+/// Oracle: draft-ietf-jmap-calendars-33 §3.2 / RFC 8620 §5.2 —
 /// `ParticipantIdentity/changes` carries `sinceState`.
 #[tokio::test]
 async fn participant_identity_changes_basic_shape() {
@@ -151,7 +151,7 @@ async fn participant_identity_changes_basic_shape() {
     assert_eq!(args["maxChanges"], json!(10), "maxChanges mismatch");
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §3.3 / RFC 8620 §5.3 —
+/// Oracle: draft-ietf-jmap-calendars-33 §3.3 / RFC 8620 §5.3 —
 /// `ParticipantIdentity/set` accepts create, update, and destroy.
 /// Verifies the create-map round-trip: a caller-supplied creation id
 /// keys into the response `created` map, and the response carries the
@@ -261,7 +261,7 @@ async fn participant_identity_set_create_round_trip() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §3.3 / RFC 8620 §5.3 —
+/// Oracle: draft-ietf-jmap-calendars-33 §3.3 / RFC 8620 §5.3 —
 /// destroy-only `ParticipantIdentity/set` carries only the `destroy`
 /// list. Verifies that omitting `create` and `update` (passing `None`)
 /// keeps those keys off the wire.

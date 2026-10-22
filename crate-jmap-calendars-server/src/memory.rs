@@ -14,7 +14,7 @@
 //!
 //! It is **not** suitable for production: all state is held in `HashMap`s
 //! behind a `std::sync::Mutex`, persistence is not implemented, and a number
-//! of draft-ietf-jmap-calendars-26 edge cases are simplified (see source
+//! of draft-ietf-jmap-calendars-33 edge cases are simplified (see source
 //! comments). In particular, recurrence expansion
 //! (`CalendarEvent/query` with `expandRecurrences: true`) and iTIP
 //! scheduling-message delivery (`sendSchedulingMessages: true`) are not
@@ -165,7 +165,7 @@ struct AccountAux {
     /// Reverse index: `calendar_id → count of CalendarEvent objects that
     /// reference it`. Used to answer "does Calendar X have any events?" in
     /// `O(1)` for the `calendarHasEvent` destroy rejection
-    /// (draft-ietf-jmap-calendars-26 §4.4.1 when `onDestroyRemoveEvents`
+    /// (draft-ietf-jmap-calendars-33 §4.4.1 when `onDestroyRemoveEvents`
     /// is `false`).
     ///
     /// Maintained incrementally by `apply_calendar_event_index_delta`,
@@ -184,10 +184,10 @@ struct AccountAux {
     /// of the changed event's `calendarIds` (typically 1–3).
     calendar_event_counts: HashMap<Id, u32>,
     /// Current default Calendar id, if set
-    /// (draft-ietf-jmap-calendars-26 §4.3 `onSuccessSetIsDefault`).
+    /// (draft-ietf-jmap-calendars-33 §4.3 `onSuccessSetIsDefault`).
     default_calendar: Option<Id>,
     /// Current default ParticipantIdentity id, if set
-    /// (draft-ietf-jmap-calendars-26 §3.3 `onSuccessSetIsDefault`).
+    /// (draft-ietf-jmap-calendars-33 §3.3 `onSuccessSetIsDefault`).
     default_participant_identity: Option<Id>,
 }
 
@@ -353,7 +353,7 @@ impl Inner {
 /// - **Sort is not honored.** `query_calendar_events` and the generic
 ///   `query_objects` ignore the `sort` parameter; ids are returned in
 ///   lexical-by-id order regardless of what the client requested. RFC
-///   8620 §5.5 and draft-ietf-jmap-calendars-26 §5.4 require honoring
+///   8620 §5.5 and draft-ietf-jmap-calendars-33 §5.4 require honoring
 ///   `CalendarEventComparator` properties (`start`, `sortOrder`, etc.).
 ///   The integration tests do not exercise sort, so this gap is invisible
 ///   in CI; production tests must.
@@ -368,7 +368,7 @@ impl Inner {
 /// - **No availability calculation.** `get_availability` falls through
 ///   to the default trait impl, which returns an empty result. Production
 ///   backends MUST implement free/busy lookup per
-///   draft-ietf-jmap-calendars-26 §2.2.
+///   draft-ietf-jmap-calendars-33 §2.2.
 ///
 /// All four caveats are out of scope for the reference impl's purpose —
 /// they are the *reason* production deployments override the backend
@@ -788,7 +788,7 @@ impl JmapBackend for MemoryBackend {
         // prefixed with `_` and never consulted; ids are returned in
         // lexical-by-id order. Production backends that override
         // `CalendarsBackend::query_calendar_events` MUST honor sort per
-        // RFC 8620 §5.5 and draft-ietf-jmap-calendars-26 §5.4. The
+        // RFC 8620 §5.5 and draft-ietf-jmap-calendars-33 §5.4. The
         // reference impl's sort-ignoring shape is documented in the
         // crate-level MemoryBackend rustdoc.
         let inner = self.inner.lock().unwrap();

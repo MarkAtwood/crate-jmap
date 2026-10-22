@@ -1311,6 +1311,24 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** The calendars crates move from draft-ietf-jmap-calendars-26
+  to draft-ietf-jmap-calendars-33. **jmap-calendars-types**:
+  `PrincipalCalendarsCapability::calendar_address` is `Option<String>`,
+  required and nullable (§2.1 `String|null`); the
+  `CalendarEventFilterCondition::attendee` condition is now
+  `participant`, matching any participant (§5.11.1), and `attendee` no
+  longer parses; `CalendarEventComparatorProperty::RecurrenceId` is
+  replaced by `Id`, so the MUST sorts are `id`, `uid`, `start` (§5.11.2)
+  and `recurrenceId` decodes as `Other`; `CalendarEvent::ical_component`
+  (`iCalComponent`, a string) is replaced by `CalendarEvent::icalendar`
+  (`iCalendar`, an ICalComponent object as `serde_json::Value`, §5.7,
+  draft-ietf-calext-jscalendar-icalendar-28 §5.1.1); `CalendarEvent`
+  gains a typed `version`. **jmap-calendars-server**: `CalendarEvent/set`
+  create and `CalendarEvent/copy` fill an omitted `@type` with `"Event"`
+  and an omitted `version` with `"2.0"` (§5.9), and the backend trait
+  docs carry the -33 duties for `hideAttendees` filtering, private
+  events, the `updated` rule, floating-time query and sort, parse
+  `method`, availability and notifications.
 - **BREAKING** `jmap-peer-auth` and `jmap-did-types` move to
   `ed25519-dalek` 3 (from 2). `jmap_peer_auth::ed25519_dalek` re-exports
   the new major, so `SigningKey`, `VerifyingKey` and `Signature` values

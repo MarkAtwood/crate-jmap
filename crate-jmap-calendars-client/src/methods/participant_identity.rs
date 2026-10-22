@@ -8,7 +8,7 @@ use super::{ChangesResponse, GetResponse, SetResponse};
 
 impl super::SessionClient {
     /// Fetch `ParticipantIdentity` objects by IDs
-    /// (draft-ietf-jmap-calendars-26 §3.1).
+    /// (draft-ietf-jmap-calendars-33 §3.1).
     ///
     /// # Errors
     ///
@@ -50,7 +50,7 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to `ParticipantIdentity` objects since `since_state`
-    /// (draft-ietf-jmap-calendars-26 §3.2).
+    /// (draft-ietf-jmap-calendars-33 §3.2).
     ///
     /// # Errors
     ///
@@ -90,7 +90,7 @@ impl super::SessionClient {
     }
 
     /// Create, update, or destroy `ParticipantIdentity` objects
-    /// (draft-ietf-jmap-calendars-26 §3.3).
+    /// (draft-ietf-jmap-calendars-33 §3.3).
     ///
     /// - `create`: map of creation id → typed
     ///   [`ParticipantIdentity`](jmap_calendars_types::ParticipantIdentity).

@@ -5,7 +5,7 @@
 //! that previously lacked production-path coverage (JMAP-uuoi.1).
 //!
 //! Oracle for response shapes:
-//!   - CalendarEvent/get extra args: draft-ietf-jmap-calendars-26 §5.4
+//!   - CalendarEvent/get extra args: draft-ietf-jmap-calendars-33 §5.4
 //!   - CalendarEvent/changes: §5.5 + RFC 8620 §5.2
 //!   - CalendarEvent/query: §5.11
 //!   - CalendarEvent/queryChanges: §5.12 + RFC 8620 §5.6
@@ -35,7 +35,7 @@ use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-/// Oracle: draft-ietf-jmap-calendars-26 §5.4 — `expandRecurrences`,
+/// Oracle: draft-ietf-jmap-calendars-33 §5.4 — `expandRecurrences`,
 /// `reducedParticipants`, `fetchCalendars` are `CalendarEvent/get`
 /// extra args. All three are optional booleans; absent means "use
 /// server default".
@@ -100,7 +100,7 @@ async fn calendar_event_get_params_all_three_passthrough() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §5.4 — when no `params` are
+/// Oracle: draft-ietf-jmap-calendars-33 §5.4 — when no `params` are
 /// provided, none of the three extra arg keys may appear on the wire.
 #[tokio::test]
 async fn calendar_event_get_no_params_omits_all_three_keys() {
@@ -151,7 +151,7 @@ async fn calendar_event_get_no_params_omits_all_three_keys() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §5.5 / RFC 8620 §5.2 —
+/// Oracle: draft-ietf-jmap-calendars-33 §5.5 / RFC 8620 §5.2 —
 /// `CalendarEvent/changes` carries `sinceState` and an optional
 /// `maxChanges`. The response shape matches the canonical
 /// `ChangesResponse`.
@@ -201,7 +201,7 @@ async fn calendar_event_changes_since_state_and_max_changes_passthrough() {
     assert_eq!(args["maxChanges"], json!(100), "maxChanges mismatch");
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §5.11 — `CalendarEvent/query`
+/// Oracle: draft-ietf-jmap-calendars-33 §5.11 — `CalendarEvent/query`
 /// accepts `filter` (a CalendarEventFilterCondition), `sort` (a list of
 /// `CalendarEventComparator`), and optional `position`, `limit`, and
 /// `expandRecurrences`. When `expandRecurrences` is `true`, both
@@ -313,7 +313,7 @@ async fn calendar_event_query_filter_sort_expand_recurrences_passthrough() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §5.11 / RFC 8620 §5.5 — when
+/// Oracle: draft-ietf-jmap-calendars-33 §5.11 / RFC 8620 §5.5 — when
 /// no filter, sort, position, or limit is supplied, those wire keys
 /// MUST be omitted; only `accountId` remains.
 #[tokio::test]
@@ -369,7 +369,7 @@ async fn calendar_event_query_no_args_omits_optional_keys() {
     assert_eq!(args["accountId"], json!("A13824"), "accountId mismatch");
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §5.12 / RFC 8620 §5.6 —
+/// Oracle: draft-ietf-jmap-calendars-33 §5.12 / RFC 8620 §5.6 —
 /// `CalendarEvent/queryChanges` requires `sinceQueryState`. The response
 /// reports ids `removed` and `added` (each `added` entry has `id` and
 /// `index`).
@@ -434,7 +434,7 @@ async fn calendar_event_query_changes_since_state_passthrough() {
     assert_eq!(args["maxChanges"], json!(25), "maxChanges mismatch");
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §5.10 / RFC 8620 §5.4 —
+/// Oracle: draft-ietf-jmap-calendars-33 §5.10 / RFC 8620 §5.4 —
 /// `CalendarEvent/copy` cross-account copy. The wire shape carries
 /// `fromAccountId`, `accountId` (the destination), and a `create` map
 /// keyed by caller-supplied creation ids. Each value in `create` is a
@@ -544,7 +544,7 @@ async fn calendar_event_copy_success_passthrough() {
 /// calculateTotal must emit all four optional args on the wire
 /// (RFC 8620 §5.6).
 ///
-/// Oracle: draft-ietf-jmap-calendars-26 §5.11 — `inCalendar` is a valid
+/// Oracle: draft-ietf-jmap-calendars-33 §5.11 — `inCalendar` is a valid
 /// CalendarEvent filter field; §5.11.2 — `"start"` MUST be supported as
 /// a sort property.
 #[tokio::test]
@@ -605,7 +605,7 @@ async fn calendar_event_query_changes_with_filter_sort_upto_calculatetotal() {
     assert_eq!(
         args["sort"][0]["property"],
         json!("start"),
-        "sort[0].property must be 'start' (draft-ietf-jmap-calendars-26 §5.11.2)"
+        "sort[0].property must be 'start' (draft-ietf-jmap-calendars-33 §5.11.2)"
     );
     assert_eq!(
         args["upToId"],
@@ -709,7 +709,7 @@ async fn sent_event_filter(
 /// ("AND" | "OR" | "NOT"; "NOT: None of the conditions must match for
 /// the filter to match") and `conditions` (`Filter[]`); a FilterCondition
 /// is a plain object without an `operator` property.
-/// draft-ietf-jmap-calendars-26 §5.11 — `inCalendar` and `text` are
+/// draft-ietf-jmap-calendars-33 §5.11 — `inCalendar` and `text` are
 /// CalendarEvent FilterCondition properties. The expected JSON is
 /// hand-written from those definitions.
 #[tokio::test]
@@ -766,7 +766,7 @@ async fn calendar_event_query_not_filter_wire_shape() {
 ///
 /// Oracle: RFC 8620 §5.5 FilterOperator definition (`conditions` is
 /// `(FilterOperator|FilterCondition)[]`, so operators nest);
-/// draft-ietf-jmap-calendars-26 §5.11 `inCalendar`. Expected JSON is
+/// draft-ietf-jmap-calendars-33 §5.11 `inCalendar`. Expected JSON is
 /// hand-written.
 #[tokio::test]
 async fn calendar_event_query_changes_nested_and_not_filter_wire_shape() {
@@ -922,7 +922,7 @@ async fn calendar_event_copy_omits_unset_copy_args() {
 /// Oracle: §3.6 — "the FilterCondition object for Foo/query is extended
 /// with" `metadataExists: String` and `metadataTextEquals:
 /// MetadataTextMatch` (`path`, `value`), composed "through the usual
-/// AND/OR/NOT operators"; draft-ietf-jmap-calendars-26 §5.11 —
+/// AND/OR/NOT operators"; draft-ietf-jmap-calendars-33 §5.11 —
 /// `inCalendar` is a CalendarEvent FilterCondition property. The expected
 /// JSON is hand-written from those definitions.
 #[tokio::test]

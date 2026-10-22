@@ -1,7 +1,7 @@
 //! CalendarEvent object and CalendarEventFilterCondition.
 //!
 //! Normative references:
-//!   - draft-ietf-jmap-calendars-26 §5 — JMAP-specific additions
+//!   - draft-ietf-jmap-calendars-33 §5 — JMAP-specific additions
 //!   - RFC 8984 §2.1, §4, §5.1 — JSCalendar Event properties
 
 use std::collections::BTreeMap;
@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-26 §5; RFC 8984 §5.1).
+/// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-33 §5; RFC 8984 §5.1).
 ///
 /// `CalendarEvent` is a JSCalendar Event with additional JMAP-specific properties.
 /// Every field is `Option<T>` because RFC 8620 §5.1 allows partial responses
@@ -83,16 +83,19 @@ pub struct CalendarEvent {
     #[serde(default = "some_false", serialize_with = "serialize_false_if_none")]
     pub use_default_alerts: Option<bool>,
 
-    /// If `true`, any user may add themselves as an attendee (draft §5.1.1).
+    /// If `true`, anyone may add themselves to the event as a participant
+    /// (draft §5.1.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub may_invite_self: Option<bool>,
 
-    /// If `true`, existing attendees may add new attendees (draft §5.1.2).
+    /// If `true`, any current participant may add new participants
+    /// (draft §5.1.2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub may_invite_others: Option<bool>,
 
-    /// If `true`, non-owners see only owners and themselves in participants
-    /// (draft §5.1.3).
+    /// If `true`, only users with full permission to modify the event see
+    /// the complete set of participants; others see only the owners and
+    /// themselves (draft §5.1.3, §5.7).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hide_attendees: Option<bool>,
 
@@ -100,33 +103,18 @@ pub struct CalendarEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_id: Option<Id>,
 
-    /// Raw iCalendar (RFC 5545) data for this event, base64-encoded.
+    /// iCalendar data that converted to this event, as an `ICalComponent`
+    /// object (draft-ietf-calext-jscalendar-icalendar-28 §5.1.1).
     ///
-    /// Only returned when explicitly requested via `properties:["iCalComponent"]`
-    /// (draft-ietf-jmap-calendars-26 §5.7).  Never included by default.
+    /// Only returned when explicitly requested via `properties:["iCalendar"]`
+    /// (draft-ietf-jmap-calendars-33 §5.7: a null `properties` returns all
+    /// properties except `iCalendar`). Kept as a `serde_json::Value` per the
+    /// workspace Sloppy-Value policy: it carries jCal arrays (RFC 7265).
     ///
-    /// The value is the base64url-encoded VEVENT iCalendar component, suitable
-    /// for interoperability with systems that do not support the native
-    /// CalendarEvent representation.
-    ///
-    /// Wire name is `"iCalComponent"` — not `"icalComponent"` — because "iCal"
-    /// is a brand abbreviation with mixed case.  Manual rename required since
-    /// `rename_all = "camelCase"` would produce `"icalComponent"`.
-    ///
-    /// **Brand-mismatch hazard (interop pitfall).** A peer that follows naive
-    /// camelCase rules instead of the spec spelling will emit
-    /// `"icalComponent"` (lowercase `i`). That key does NOT deserialize into
-    /// this typed field — it falls through into [`CalendarEvent::extra`] and
-    /// round-trips back out under the same lowercase spelling. Application
-    /// code that reads `.ical_component` will see `None` and conclude no
-    /// iCalendar data was provided, even though the bytes are present in
-    /// `extra["icalComponent"]`. Pinned in regression test
-    /// `calendar_event_naive_icalcomponent_lands_in_extras_not_typed_field`.
-    /// Consumers that interoperate with non-conformant peers should either
-    /// check `extra` for the lowercase key explicitly, or normalize the
-    /// payload upstream.
-    #[serde(rename = "iCalComponent", skip_serializing_if = "Option::is_none")]
-    pub ical_component: Option<String>,
+    /// Wire name is `"iCalendar"`; a manual rename keeps it explicit
+    /// rather than relying on `rename_all` of a `i_calendar` field name.
+    #[serde(rename = "iCalendar", skip_serializing_if = "Option::is_none")]
+    pub icalendar: Option<serde_json::Value>,
 
     // ── JSCalendar @type ─────────────────────────────────────────────────────
     /// JSCalendar object type; always `"Event"` when present.
@@ -135,6 +123,12 @@ pub struct CalendarEvent {
     pub at_type: Option<String>,
 
     // ── JSCalendar metadata properties (RFC 8984 §4.1) ───────────────────────
+    /// JSCalendar version this event conforms to, e.g. `"2.0"`
+    /// (draft-ietf-calext-jscalendarbis-22 §3.1.2). The server sets it when
+    /// a create omits it (draft-ietf-jmap-calendars-33 §5.9).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+
     /// Globally unique identifier for this event.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uid: Option<String>,
@@ -362,7 +356,7 @@ fn some_false() -> Option<bool> {
 }
 
 /// Filter condition for `CalendarEvent/query`
-/// (draft-ietf-jmap-calendars-26 §5.11.1).
+/// (draft-ietf-jmap-calendars-33 §5.11.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
 /// CalendarEvent.
@@ -411,7 +405,8 @@ pub struct CalendarEventFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before: Option<String>,
 
-    /// Full-text search across title, description, locations, and participants.
+    /// Full-text search across title, description, location names,
+    /// participant names/emails and other textual properties.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 
@@ -423,7 +418,7 @@ pub struct CalendarEventFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    /// Matches against name/description of a participant-associated location.
+    /// Matches against the name of a location in `locations`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
 
@@ -431,9 +426,10 @@ pub struct CalendarEventFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
 
-    /// Matches against name or email of an `"attendee"` participant.
+    /// Matches against the name or email of any participant
+    /// (draft-ietf-jmap-calendars-33 §5.11.1 `participant`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub attendee: Option<String>,
+    pub participant: Option<String>,
 
     /// Event `uid` must be exactly this string.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -441,7 +437,7 @@ pub struct CalendarEventFilterCondition {
 }
 
 /// Concrete filter type for CalendarEvent/query
-/// (draft-ietf-jmap-calendars-26 §5.11).
+/// (draft-ietf-jmap-calendars-33 §5.11).
 ///
 /// Alias for `jmap_types::query::Filter<CalendarEventFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.
@@ -452,9 +448,9 @@ pub struct CalendarEventFilterCondition {
 pub type CalendarEventFilter = jmap_types::query::Filter<CalendarEventFilterCondition>;
 
 /// The property to sort by in a [`CalendarEventComparator`]
-/// (draft-ietf-jmap-calendars-26 §5.11.2: "The following properties MUST
-/// be supported for sorting: start, uid, recurrenceId" and "SHOULD be
-/// supported for sorting: created, updated").
+/// (draft-ietf-jmap-calendars-33 §5.11.2: "The following properties MUST
+/// be supported for sorting: id, uid, start" and "SHOULD be supported for
+/// sorting: created, updated").
 ///
 /// Unknown property names are preserved in
 /// [`Other`](CalendarEventComparatorProperty::Other) so they round-trip;
@@ -463,12 +459,14 @@ pub type CalendarEventFilter = jmap_types::query::Filter<CalendarEventFilterCond
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalendarEventComparatorProperty {
-    /// Sort by `start`.
-    Start,
+    /// Sort by `id`.
+    Id,
     /// Sort by `uid`.
     Uid,
-    /// Sort by `recurrenceId`.
-    RecurrenceId,
+    /// Sort by `start`, as an absolute point in time rather than the
+    /// lexical `start` value; a floating event's start is read in the
+    /// query's `timeZone` (draft-ietf-jmap-calendars-33 §5.11.2).
+    Start,
     /// Sort by `created`.
     Created,
     /// Sort by `updated`.
@@ -479,15 +477,15 @@ pub enum CalendarEventComparatorProperty {
 }
 
 impl_string_enum!(CalendarEventComparatorProperty, "a CalendarEvent sort property string",
-    "start"        => Start,
-    "uid"          => Uid,
-    "recurrenceId" => RecurrenceId,
-    "created"      => Created,
-    "updated"      => Updated,
+    "id"      => Id,
+    "uid"     => Uid,
+    "start"   => Start,
+    "created" => Created,
+    "updated" => Updated,
 );
 
 /// Comparator for `CalendarEvent/query`
-/// (draft-ietf-jmap-calendars-26 §5.11.2).
+/// (draft-ietf-jmap-calendars-33 §5.11.2).
 ///
 /// Build one with [`CalendarEventComparator::new`]; the struct is
 /// `#[non_exhaustive]`.

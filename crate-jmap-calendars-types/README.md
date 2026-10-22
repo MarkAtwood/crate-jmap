@@ -1,6 +1,6 @@
 # jmap-calendars-types
 
-Serde-annotated Rust types for JMAP Calendars ([draft-ietf-jmap-calendars-26]) and
+Serde-annotated Rust types for JMAP Calendars ([draft-ietf-jmap-calendars-33]) and
 JSCalendar ([RFC 8984]).
 
 **Types only** — no method handlers, no async, no network I/O. Sits between
@@ -56,7 +56,7 @@ are consumed by `jmap-tasks-types` (planned).
 
 ## What it's for
 
-draft-ietf-jmap-calendars-26 data types, consumed by
+draft-ietf-jmap-calendars-33 data types, consumed by
 `jmap-calendars-server` (method handlers + the `CalendarsBackend` trait)
 and `jmap-calendars-client` (typed method bindings). Re-exports
 `jmap-jscalendar-types` as the `jscalendar` module so callers can opt
@@ -107,7 +107,7 @@ decision is bd JMAP-lbdy.
 
 ## Spec coverage
 
-### draft-ietf-jmap-calendars-26
+### draft-ietf-jmap-calendars-33
 
 | Section | Topic |
 |---|---|
@@ -117,7 +117,7 @@ decision is bd JMAP-lbdy.
 | §4 | `Calendar`, `CalendarRights`, `IncludeInAvailability` |
 | §5 | `CalendarEvent` JMAP properties (`id`, `calendarIds`, `isDraft`, `utcStart`, `utcEnd`, `useDefaultAlerts`, `blobId`, etc.) |
 | §5.4 | Per-user properties (`keywords`, `color`, `freeBusyStatus`, `useDefaultAlerts`, `alerts`) |
-| §5.7 | `iCalComponent` wire property |
+| §5.7 | `iCalendar` wire property (ICalComponent, draft-ietf-calext-jscalendar-icalendar-28 §5.1.1) |
 | §5.11.1 | `CalendarEventFilterCondition` |
 | §5.11.2 | `CalendarEventComparator` |
 | §5.13 | `CalendarsParseCapability` |
@@ -264,17 +264,17 @@ byte-identical to a plain JSON object map via `PatchObject`'s
 This is the correct representation, not laziness — do not change these to
 typed structs without reading RFC 8984 §3.3 on extensibility.
 
-### `iCalComponent` wire name
+### `iCalendar` wire name
 
-The `ical_component` field on `CalendarEvent` carries the raw iCalendar
-representation of the event. The wire name is `"iCalComponent"` — not
-`"icalComponent"` — because "iCal" is a brand abbreviation with mixed case.
-The automatic `rename_all = "camelCase"` conversion would produce the wrong
-name, so this field carries an explicit override:
+The `icalendar` field on `CalendarEvent` carries the `iCalendar` property
+(draft-ietf-jmap-calendars-33 §5.7), an ICalComponent object holding
+iCalendar data that converted to the event. It is only returned when
+explicitly requested. The field carries an explicit rename rather than
+relying on `rename_all = "camelCase"`:
 
 ```rust
-#[serde(rename = "iCalComponent", skip_serializing_if = "Option::is_none")]
-pub ical_component: Option<String>,
+#[serde(rename = "iCalendar", skip_serializing_if = "Option::is_none")]
+pub icalendar: Option<serde_json::Value>,
 ```
 
 ## Gotchas
@@ -290,21 +290,15 @@ pub ical_component: Option<String>,
   for JSCalendar shape flexibility. Construct via
   `PatchObject::from_map(...)` or `Map::into()`.
 
-- **`iCalComponent: Option<String>`** carries raw base64-encoded iCalendar data
-  with no validation. The crate does not parse or validate the iCalendar content;
-  that is the consumer's responsibility.
+- **`iCalendar: Option<Value>`** carries the ICalComponent object (jCal
+  arrays, RFC 7265) with no validation; the crate does not parse it.
 
-- **`iCalComponent` brand-mismatch hazard.** The spec wire name is
-  `iCalComponent` (capital I, capital C) — reflecting the "iCal" brand
-  spelling. A peer that follows naive `rename_all = "camelCase"` rules emits
-  `icalComponent` (lowercase `i`), which does NOT deserialize into the typed
-  `ical_component` field — it falls into the extras catch-all and round-trips
-  back out under the same lowercase spelling. Consumers reading
-  `.ical_component` will see `None` and conclude no data was provided even
-  though the bytes are present in `extra["icalComponent"]`. Pinned in
-  regression test `calendar_event_naive_icalcomponent_lands_in_extras_not_typed_field`.
+- **draft-26 `iCalComponent`.** draft-ietf-jmap-calendars-26 used an
+  `iCalComponent` string. That key no longer deserializes into the typed
+  field; it falls into the extras catch-all and round-trips under its own
+  spelling. Pinned in `calendar_event_draft26_icalcomponent_lands_in_extras`.
 
-- **Draft expired.** draft-ietf-jmap-calendars-26 is an expired Internet-Draft,
+- **Draft expired.** draft-ietf-jmap-calendars-33 is an expired Internet-Draft,
   not a published RFC. Some ambiguous field semantics use best-judgment
   interpretation based on the JSCalendar RFC 8984 normative base. The type
   definitions will need review when (if) the draft is published.
@@ -327,7 +321,7 @@ remain that way until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-calendars-26]** — JMAP Calendars binding (Calendar,
+- **[draft-ietf-jmap-calendars-33]** — JMAP Calendars binding (Calendar,
   CalendarEvent additions, CalendarEventNotification, ParticipantIdentity,
   capability objects, error codes)
 - **[RFC 8984]** — JSCalendar Event format (all JSCalendar Event properties,
@@ -335,6 +329,6 @@ remain that way until the family is published to crates.io.
 - **[RFC 8620]** — JMAP Core (request format, PatchObject, SetError,
   ResultReference)
 
-[draft-ietf-jmap-calendars-26]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
+[draft-ietf-jmap-calendars-33]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

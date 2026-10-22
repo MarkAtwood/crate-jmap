@@ -1,6 +1,6 @@
 //! Capability types for the JMAP Calendars extension.
 //!
-//! Normative reference: draft-ietf-jmap-calendars-26 §1.5.
+//! Normative reference: draft-ietf-jmap-calendars-33 §1.5.
 //!
 //! The Calendars extension defines three capability URIs.  Each has both a
 //! session-level capability (value in the JMAP Session `capabilities` map)
@@ -12,18 +12,18 @@ use jmap_types::UTCDate;
 use serde::{Deserialize, Serialize};
 
 /// Capability URI for core JMAP Calendars support
-/// (draft-ietf-jmap-calendars-26 §1.5.1).
+/// (draft-ietf-jmap-calendars-33 §1.5.1).
 pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
 
 /// Capability URI for Principal availability queries
-/// (draft-ietf-jmap-calendars-26 §1.5.2).
+/// (draft-ietf-jmap-calendars-33 §1.5.2).
 pub const JMAP_PRINCIPALS_AVAILABILITY_URI: &str = "urn:ietf:params:jmap:principals:availability";
 
 /// Capability URI for the CalendarEvent/parse method
-/// (draft-ietf-jmap-calendars-26 §1.5.3).
+/// (draft-ietf-jmap-calendars-33 §1.5.3).
 pub const JMAP_CALENDARS_PARSE_URI: &str = "urn:ietf:params:jmap:calendars:parse";
 
-/// Session-level Calendars capability (draft-ietf-jmap-calendars-26 §1.5.1).
+/// Session-level Calendars capability (draft-ietf-jmap-calendars-33 §1.5.1).
 ///
 /// The value of `capabilities["urn:ietf:params:jmap:calendars"]` in the JMAP
 /// Session object.  The spec mandates that this is an empty object `{}`.
@@ -31,7 +31,7 @@ pub const JMAP_CALENDARS_PARSE_URI: &str = "urn:ietf:params:jmap:calendars:parse
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CalendarsCapability {}
 
-/// Account-level Calendars capability (draft-ietf-jmap-calendars-26 §1.5.1).
+/// Account-level Calendars capability (draft-ietf-jmap-calendars-33 §1.5.1).
 ///
 /// The value of `accountCapabilities["urn:ietf:params:jmap:calendars"]` for a
 /// given account.  Describes server capabilities and account-level permissions
@@ -65,7 +65,7 @@ pub struct CalendarsAccountCapability {
 }
 
 /// Session-level capability for the Principal availability extension
-/// (draft-ietf-jmap-calendars-26 §1.5.2).
+/// (draft-ietf-jmap-calendars-33 §1.5.2).
 ///
 /// Value is an empty object `{}` at the session level.
 #[non_exhaustive]
@@ -73,7 +73,7 @@ pub struct CalendarsAccountCapability {
 pub struct PrincipalsAvailabilityCapability {}
 
 /// Account-level capability for the Principal availability extension
-/// (draft-ietf-jmap-calendars-26 §1.5.2).
+/// (draft-ietf-jmap-calendars-33 §1.5.2).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,7 +84,7 @@ pub struct PrincipalsAvailabilityAccountCapability {
 }
 
 /// Session-level capability for the CalendarEvent/parse method
-/// (draft-ietf-jmap-calendars-26 §1.5.3).
+/// (draft-ietf-jmap-calendars-33 §1.5.3).
 ///
 /// Value is an empty object `{}` at both session and account level.
 #[non_exhaustive]
@@ -92,7 +92,7 @@ pub struct PrincipalsAvailabilityAccountCapability {
 pub struct CalendarsParseCapability {}
 
 /// The value of `Principal.capabilities["urn:ietf:params:jmap:calendars"]`
-/// on a JMAP Principals object (draft-ietf-jmap-calendars-26 §2.1).
+/// on a JMAP Principals object (draft-ietf-jmap-calendars-33 §2.1).
 ///
 /// This is distinct from the session-level [`CalendarsCapability`].  Where
 /// [`CalendarsCapability`] appears in the JMAP Session `capabilities` map,
@@ -109,7 +109,8 @@ pub struct CalendarsParseCapability {}
 /// - `may_share_with` — the requesting user may add this principal to the
 ///   `shareWith` of their own Calendar objects.
 /// - `calendar_address` — the iTIP scheduling address for this principal
-///   (e.g. `"mailto:alice@example.com"`).
+///   (e.g. `"mailto:alice@example.com"`), or `null` if the principal may
+///   not be added as a participant to an event.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -128,6 +129,11 @@ pub struct PrincipalCalendarsCapability {
     /// of their own Calendar objects.
     pub may_share_with: bool,
 
-    /// iTIP scheduling address for this principal.
-    pub calendar_address: String,
+    /// iTIP scheduling address for this principal, or `null` when it may
+    /// not be added as a participant (draft-ietf-jmap-calendars-33 §2.1:
+    /// "`calendarAddress`: String|null ... otherwise, this is null").
+    ///
+    /// Required-and-nullable: always present on the wire, as `null` or a
+    /// String.
+    pub calendar_address: Option<String>,
 }

@@ -1,6 +1,6 @@
 //! JMAP Calendars — CalendarEvent/copy method implementation on SessionClient.
 //!
-//! CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-26 §5.10).
+//! CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-33 §5.10).
 
 use std::collections::BTreeMap;
 
@@ -8,7 +8,7 @@ use super::{CalendarEventCopyParams, SetResponse};
 
 impl super::SessionClient {
     /// Copy `CalendarEvent` objects from one account to another
-    /// (draft-ietf-jmap-calendars-26 §5.10).
+    /// (draft-ietf-jmap-calendars-33 §5.10).
     ///
     /// - `params`: `fromAccountId`, the optional `ifFromInState` /
     ///   `ifInState` state guards, the optional destroy-after-copy flags,

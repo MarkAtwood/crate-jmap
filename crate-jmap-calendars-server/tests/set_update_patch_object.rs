@@ -1,7 +1,7 @@
 //! `CalendarEvent/set` update applies PatchObjects per RFC 8620 §5.3.
 //!
 //! Oracle: RFC 8620 §5.3 (`update` argument) and, for the per-user
-//! route, draft-ietf-jmap-calendars-26 §5.4. Each test quotes the
+//! route, draft-ietf-jmap-calendars-33 §5.4. Each test quotes the
 //! sentence it checks; expected values are hand-written from that text,
 //! using real JSCalendar properties of `CalendarEvent`.
 
@@ -199,7 +199,7 @@ async fn wrong_typed_sequence_is_invalid_properties() {
     assert_eq!(get_ev1(&backend).await, before, "ev1 must be unchanged");
 }
 
-/// draft-ietf-jmap-calendars-26 §5.4: "When writing only per-user
+/// draft-ietf-jmap-calendars-33 §5.4: "When writing only per-user
 /// properties, the "updated" property MUST also be stored just for that
 /// user if set.  When fetching the "updated" property, the value to
 /// return is whichever is later of the per-user updated time or the

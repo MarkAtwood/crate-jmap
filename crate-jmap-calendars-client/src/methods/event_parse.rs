@@ -1,4 +1,4 @@
-//! CalendarEvent/parse method (draft-ietf-jmap-calendars-26 §5.13).
+//! CalendarEvent/parse method (draft-ietf-jmap-calendars-33 §5.13).
 
 use jmap_types::Id;
 
@@ -7,7 +7,7 @@ use jmap_base_client::ClientError;
 
 impl SessionClient {
     /// Parse calendar event blobs into `CalendarEvent` objects
-    /// (draft-ietf-jmap-calendars-26 §5.13 — CalendarEvent/parse).
+    /// (draft-ietf-jmap-calendars-33 §5.13 — CalendarEvent/parse).
     ///
     /// `params` lets the caller pin the `properties` selector and thread
     /// vendor / site extension fields through the wire request via the

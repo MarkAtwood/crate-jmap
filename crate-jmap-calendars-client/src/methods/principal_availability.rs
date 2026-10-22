@@ -1,4 +1,4 @@
-//! Principal/getAvailability method (draft-ietf-jmap-calendars-26 §2.2).
+//! Principal/getAvailability method (draft-ietf-jmap-calendars-33 §2.2).
 
 use jmap_types::{Id, UTCDate};
 
@@ -7,7 +7,7 @@ use jmap_base_client::ClientError;
 
 impl SessionClient {
     /// Fetch availability data for a principal
-    /// (draft-ietf-jmap-calendars-26 §2.2 — Principal/getAvailability).
+    /// (draft-ietf-jmap-calendars-33 §2.2 — Principal/getAvailability).
     ///
     /// The wire key for `principal_id` is `"id"` (not `"principalId"`) per §2.2.
     ///

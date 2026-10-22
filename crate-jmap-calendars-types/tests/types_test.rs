@@ -1,7 +1,7 @@
 //! Integration tests for jmap-calendars-types.
 //!
 //! Test oracles are hand-written JSON fixtures constructed directly from:
-//!   - draft-ietf-jmap-calendars-26 §4 (Calendar), §5 (CalendarEvent),
+//!   - draft-ietf-jmap-calendars-33 §4 (Calendar), §5 (CalendarEvent),
 //!     §7 (CalendarEventNotification), §3 (ParticipantIdentity)
 //!   - RFC 8984 §4 (JSCalendar sub-objects), §5.1 (Event-specific properties)
 //!
@@ -21,7 +21,7 @@ use jmap_types::Id;
 // ─── Calendar ────────────────────────────────────────────────────────────────
 
 /// Deserialize a full Calendar from hand-written JSON and verify key fields.
-/// Oracle derived from draft-ietf-jmap-calendars-26 §4 field descriptions.
+/// Oracle derived from draft-ietf-jmap-calendars-33 §4 field descriptions.
 #[test]
 fn calendar_deserialize_full() {
     // r##"..."## needed because color value contains `"#`.
@@ -217,7 +217,7 @@ fn calendar_rights_default_all_false() {
 }
 
 /// All eight boolean fields serialize to the correct camelCase wire names.
-/// Oracle: field names from draft-ietf-jmap-calendars-26 §4.
+/// Oracle: field names from draft-ietf-jmap-calendars-33 §4.
 #[test]
 fn calendar_rights_wire_names() {
     // Deserialize from known-good JSON then re-serialize to check wire names.
@@ -566,7 +566,7 @@ fn calendar_event_filter_condition_empty() {
     assert!(fc.description.is_none());
     assert!(fc.location.is_none());
     assert!(fc.owner.is_none());
-    assert!(fc.attendee.is_none());
+    assert!(fc.participant.is_none());
     assert!(fc.uid.is_none());
 }
 
@@ -601,10 +601,30 @@ fn calendar_event_filter_condition_wire_names() {
     assert_eq!(out["before"], "2024-12-31T23:59:59");
 }
 
+/// draft-ietf-jmap-calendars-33 §5.11.1 renamed the `attendee` condition:
+/// "*participant*: String Looks for the text in the name or email fields of
+/// a participant in the "participants" property of the event". The old
+/// -26 name is now an unknown key, which the filter refuses.
+#[test]
+fn calendar_event_filter_condition_participant_replaces_attendee() {
+    let fc: CalendarEventFilterCondition =
+        serde_json::from_str(r#"{"participant":"tom@foobar.example.com"}"#)
+            .expect("participant condition");
+    assert_eq!(fc.participant.as_deref(), Some("tom@foobar.example.com"));
+    assert_eq!(
+        serde_json::to_value(&fc).expect("serialize"),
+        serde_json::json!({ "participant": "tom@foobar.example.com" })
+    );
+    assert!(
+        serde_json::from_str::<CalendarEventFilterCondition>(r#"{"attendee":"tom"}"#).is_err(),
+        "the draft-26 `attendee` condition must no longer parse"
+    );
+}
+
 // ─── CalendarEventNotification ────────────────────────────────────────────────
 
 /// Deserialize a full CalendarEventNotification from hand-written JSON.
-/// Oracle: draft-ietf-jmap-calendars-26 §7 field descriptions.
+/// Oracle: draft-ietf-jmap-calendars-33 §7 field descriptions.
 #[test]
 fn notification_deserialize() {
     let json = r#"{
@@ -972,11 +992,11 @@ fn person_null_fields() {
     assert!(p.calendar_address.is_none());
 }
 
-// ─── BusyPeriod (draft-ietf-jmap-calendars-26 §2.2) ─────────────────────────
+// ─── BusyPeriod (draft-ietf-jmap-calendars-33 §2.2) ─────────────────────────
 
 /// Deserialize a BusyPeriod with all fields set.
 ///
-/// Oracle: field types from draft-ietf-jmap-calendars-26 §2.2 field descriptions.
+/// Oracle: field types from draft-ietf-jmap-calendars-33 §2.2 field descriptions.
 /// busyStatus values: "confirmed", "tentative", "unavailable".
 #[test]
 fn busy_period_full_deserialize() {
@@ -1117,11 +1137,11 @@ fn busy_status_wire_strings() {
     }
 }
 
-// ─── PrincipalCalendarsCapability (calendars-26 §2.1) ────────────────────────
+// ─── PrincipalCalendarsCapability (calendars-33 §2.1) ────────────────────────
 
 /// Deserialize PrincipalCalendarsCapability with accountId populated.
 ///
-/// Oracle: field names from draft-ietf-jmap-calendars-26 §2.1 field descriptions.
+/// Oracle: field names from draft-ietf-jmap-calendars-33 §2.1 field descriptions.
 #[test]
 fn principal_calendars_capability_with_account_id() {
     let json = r#"{
@@ -1139,7 +1159,29 @@ fn principal_calendars_capability_with_account_id() {
     );
     assert!(cap.may_get_availability);
     assert!(cap.may_share_with);
-    assert_eq!(cap.calendar_address, "mailto:alice@example.com");
+    assert_eq!(
+        cap.calendar_address.as_deref(),
+        Some("mailto:alice@example.com")
+    );
+}
+
+/// draft-ietf-jmap-calendars-33 §2.1: "*calendarAddress*: String|null If
+/// this Principal may be added as a participant to an event, this is the
+/// calendarAddress to use to receive iTIP scheduling messages; otherwise,
+/// this is null." Required-nullable: `null` parses and re-serializes as
+/// `null`, not as an absent key.
+#[test]
+fn principal_calendars_capability_calendar_address_null() {
+    let wire = serde_json::json!({
+        "accountId": null,
+        "mayGetAvailability": true,
+        "mayShareWith": false,
+        "calendarAddress": null
+    });
+    let cap: PrincipalCalendarsCapability =
+        serde_json::from_value(wire.clone()).expect("null calendarAddress must parse");
+    assert!(cap.calendar_address.is_none());
+    assert_eq!(serde_json::to_value(&cap).expect("serialize"), wire);
 }
 
 /// Deserialize PrincipalCalendarsCapability with accountId null.
@@ -1331,7 +1373,7 @@ fn link_with_href_roundtrip() {
 
 #[test]
 fn link_with_blob_id_roundtrip() {
-    // Oracle: draft-ietf-jmap-calendars-26 §5.3 — blobId may be set instead of href.
+    // Oracle: draft-ietf-jmap-calendars-33 §5.3 — blobId may be set instead of href.
     let json = r#"{"@type":"Link","blobId":"blob-abc123","contentType":"image/png","size":2048,"rel":"enclosure"}"#;
     let link: Link =
         serde_json::from_str(json).expect("link_with_blob_id_roundtrip: must deserialize");
@@ -1403,7 +1445,7 @@ fn link_wire_names() {
 
 #[test]
 fn calendar_alert_with_recurrence_id_roundtrip() {
-    // Oracle: draft-ietf-jmap-calendars-26 §6.4 CalendarAlert push-notification object.
+    // Oracle: draft-ietf-jmap-calendars-33 §6.4 CalendarAlert push-notification object.
     // A recurring-event alert: recurrenceId is present and non-null.
     let json = r#"{"@type":"CalendarAlert","accountId":"acc-1","calendarEventId":"ev-42","uid":"abc-uid-123","recurrenceId":"2024-06-15T10:00:00","alertId":"alert-1"}"#;
     let alert: CalendarAlert = serde_json::from_str(json)
@@ -1432,7 +1474,7 @@ fn calendar_alert_with_recurrence_id_roundtrip() {
 
 #[test]
 fn calendar_alert_recurrence_id_null_for_non_recurring() {
-    // Oracle: draft-ietf-jmap-calendars-26 §6.4 — recurrenceId is null for non-recurring events.
+    // Oracle: draft-ietf-jmap-calendars-33 §6.4 — recurrenceId is null for non-recurring events.
     // It MUST serialize as null (not be omitted) so receivers can distinguish
     // recurring from non-recurring events.
     let json = r#"{"@type":"CalendarAlert","accountId":"acc-2","calendarEventId":"ev-99","uid":"xyz-uid-999","recurrenceId":null,"alertId":"alert-2"}"#;
@@ -1646,98 +1688,73 @@ fn participant_schedule_status_roundtrip() {
 }
 
 // ---------------------------------------------------------------------------
-// CalendarEvent.iCalComponent (calendars-26 §5.7)
+// CalendarEvent.iCalendar (calendars-33 §5.7)
 // ---------------------------------------------------------------------------
 
+/// draft-ietf-jmap-calendars-33 §5.7 names the property "iCalendar" (see
+/// [I-D.ietf-calext-jscalendar-icalendar]), whose value is an
+/// ICalComponent object. Fixture: Figure 9 of
+/// draft-ietf-calext-jscalendar-icalendar-28.
 #[test]
-fn calendar_event_ical_component_roundtrip() {
-    // Oracle: draft-ietf-jmap-calendars-26 §5.7 — iCalComponent is returned
-    // only when explicitly requested. The value is base64-encoded iCalendar data.
-    let sample_base64 = "QkVHSU46VkNBTEVOREFSCk...(truncated)..."; // not real base64, just a string value
-    let json = format!(r#"{{"id":"ev1","iCalComponent":"{sample_base64}"}}"#);
-    let event: CalendarEvent = serde_json::from_str(&json)
-        .expect("calendar_event_ical_component_roundtrip: must deserialize");
-    assert_eq!(
-        event.ical_component.as_deref(),
-        Some(sample_base64),
-        "iCalComponent must round-trip correctly"
+fn calendar_event_icalendar_roundtrip() {
+    let ical = serde_json::json!({
+        "@type": "ICalComponent",
+        "name": "participant",
+        "properties": [
+            ["uid", {}, "text", "47AD2E1C-49D4-45DF-BD83-8398ACC7D8E2"]
+        ]
+    });
+    let wire = serde_json::json!({ "id": "ev1", "iCalendar": ical });
+    let event: CalendarEvent = serde_json::from_value(wire.clone()).expect("must deserialize");
+    assert_eq!(event.icalendar.as_ref(), Some(&ical));
+    assert!(
+        event.extra.is_empty(),
+        "iCalendar must land in the typed field"
     );
-
-    let out = serde_json::to_value(&event)
-        .expect("calendar_event_ical_component_roundtrip: must serialize");
-    assert_eq!(
-        out["iCalComponent"], sample_base64,
-        "iCalComponent wire name must be 'iCalComponent'"
-    );
+    let out = serde_json::to_value(&event).expect("must serialize");
+    assert_eq!(out["iCalendar"], ical);
 }
 
-/// Regression marker for the brand-mismatch hazard documented at bd:JMAP-1rwf.3.
-///
-/// The spec wire name for `CalendarEvent.ical_component` is `iCalComponent`
-/// (capital I, capital C) — reflecting the "iCal" brand spelling. A peer
-/// that follows naive camelCase rules emits `icalComponent` (lowercase i).
-/// The typed field does NOT accept the lowercase spelling: it stays `None`
-/// and the data ends up preserved in the `extra` flatten-catchall, where
-/// it round-trips back out under the same lowercase spelling.
-///
-/// This test pins the current behavior so that any future change — adding
-/// `#[serde(alias = "icalComponent")]` to recover the data into the typed
-/// field, or any unrelated serde behavior change — is visible. If you are
-/// adding the alias, update this test to assert the new typed-field
-/// destination; do not delete it.
+/// The draft-26 `iCalComponent` key is not the draft-33 property: a peer
+/// still sending it must not be read as `iCalendar`. It stays in the
+/// extras catch-all and round-trips under its own spelling.
 #[test]
-fn calendar_event_naive_icalcomponent_lands_in_extras_not_typed_field() {
-    let payload = r#"{"id":"e1","icalComponent":"BEGIN:VEVENT END:VEVENT"}"#;
-    let ev: CalendarEvent =
-        serde_json::from_str(payload).expect("naive camelCase payload must still deserialize");
-
-    // The typed field does NOT capture the lowercase spelling.
-    assert!(
-        ev.ical_component.is_none(),
-        "typed ical_component must remain None for the lowercase spelling — \
-         got {:?}",
-        ev.ical_component
-    );
-
-    // The flatten-catchall preserves the unknown key.
-    assert!(
-        ev.extra.contains_key("icalComponent"),
-        "naive 'icalComponent' must round-trip via the extras catch-all"
-    );
+fn calendar_event_draft26_icalcomponent_lands_in_extras() {
+    let payload = r#"{"id":"e1","iCalComponent":"QkVHSU46VkVWRU5U"}"#;
+    let ev: CalendarEvent = serde_json::from_str(payload).expect("must still deserialize");
+    assert!(ev.icalendar.is_none());
     assert_eq!(
-        ev.extra.get("icalComponent").and_then(|v| v.as_str()),
-        Some("BEGIN:VEVENT END:VEVENT"),
-        "extras must preserve the raw value verbatim"
+        ev.extra.get("iCalComponent").and_then(|v| v.as_str()),
+        Some("QkVHSU46VkVWRU5U")
     );
-
-    // Re-serialize: the lowercase form survives in extras, unchanged.
     let reser = serde_json::to_value(&ev).expect("re-serialize must succeed");
-    assert_eq!(
-        reser["icalComponent"], "BEGIN:VEVENT END:VEVENT",
-        "re-serialize must emit the original lowercase spelling from extras"
-    );
-    assert!(
-        reser.get("iCalComponent").is_none(),
-        "no canonicalization happens — the spec spelling must NOT appear"
-    );
+    assert_eq!(reser["iCalComponent"], "QkVHSU46VkVWRU5U");
+    assert!(reser.get("iCalendar").is_none());
 }
 
+/// draft-ietf-jmap-calendars-33 §5.7: "The "iCalendar" property is also
+/// only returned if explicitly requested", so an unset value is absent
+/// from the wire.
 #[test]
-fn calendar_event_ical_component_absent_when_none() {
-    // Oracle: skip_serializing_if = Option::is_none — iCalComponent must be absent
-    // from the wire when not explicitly set (it is never returned by default).
-    let json = r#"{"id":"ev1"}"#;
-    let event: CalendarEvent = serde_json::from_str(json)
-        .expect("calendar_event_ical_component_absent_when_none: must deserialize");
-    assert!(
-        event.ical_component.is_none(),
-        "iCalComponent must be None when absent from JSON"
-    );
-    let out = serde_json::to_string(&event)
-        .expect("calendar_event_ical_component_absent_when_none: must serialize");
-    assert!(
-        !out.contains("iCalComponent"),
-        "iCalComponent must not appear in output when None: {out}"
+fn calendar_event_icalendar_absent_when_none() {
+    let event: CalendarEvent = serde_json::from_str(r#"{"id":"ev1"}"#).expect("must deserialize");
+    assert!(event.icalendar.is_none());
+    let out = serde_json::to_value(&event).expect("must serialize");
+    assert!(out.get("iCalendar").is_none(), "{out}");
+}
+
+/// draft-ietf-calext-jscalendarbis-22 §3.1.2: "version: String ... The
+/// JSCalendar version of this object." Figure 10 of
+/// draft-ietf-jmap-calendars-33 returns `"version": "2.0"` in `created`.
+#[test]
+fn calendar_event_version_is_typed() {
+    let wire = serde_json::json!({ "id": "E-5d5776f6", "@type": "Event", "version": "2.0" });
+    let event: CalendarEvent = serde_json::from_value(wire).expect("must deserialize");
+    assert_eq!(event.version.as_deref(), Some("2.0"));
+    assert!(event.extra.is_empty());
+    assert_eq!(
+        serde_json::to_value(&event).expect("serialize")["version"],
+        "2.0"
     );
 }
 
@@ -1942,7 +1959,7 @@ fn participant_identity_preserves_vendor_extras() {
 // (bd:JMAP-ky8g.1).
 //
 // Independent oracle: hand-written JSON shaped against
-// draft-ietf-jmap-calendars-26 §6.4 example text with `@type` omitted.
+// draft-ietf-jmap-calendars-33 §6.4 example text with `@type` omitted.
 
 /// `CalendarAlert` deserialize succeeds when `@type` is absent and
 /// defaults to `"CalendarAlert"`. Re-serialize emits the field with
@@ -2029,17 +2046,18 @@ fn calendar_rights_may_set_metadata_typed_and_optional() {
 
 // ─── CalendarEventComparator ─────────────────────────────────────────────────
 
-/// draft-ietf-jmap-calendars-26 §5.11.2: "The following properties MUST be
-/// supported for sorting: start, uid, recurrenceId" and "SHOULD be supported
-/// for sorting: created, updated". A name not listed survives as `Other`
-/// and re-encodes to the same JSON (bd JMAP-wf92.11).
+/// draft-ietf-jmap-calendars-33 §5.11.2: "The following properties MUST be
+/// supported for sorting: id, uid, start" and "SHOULD be supported for
+/// sorting: created, updated". A name not listed (including the draft-26
+/// `recurrenceId`) survives as `Other` and re-encodes to the same JSON
+/// (bd JMAP-wf92.11).
 #[test]
 fn calendar_event_comparator_sort_properties() {
     use jmap_calendars_types::{CalendarEventComparator, CalendarEventComparatorProperty as P};
     for (wire, want) in [
-        ("start", P::Start),
+        ("id", P::Id),
         ("uid", P::Uid),
-        ("recurrenceId", P::RecurrenceId),
+        ("start", P::Start),
         ("created", P::Created),
         ("updated", P::Updated),
     ] {
@@ -2049,8 +2067,10 @@ fn calendar_event_comparator_sort_properties() {
         // RFC 8620 §5.5 isAscending "(default: true)".
         assert!(c.is_ascending);
     }
-    let wire = serde_json::json!({ "property": "x-vendor-rank", "isAscending": false });
-    let c: CalendarEventComparator = serde_json::from_value(wire.clone()).unwrap();
-    assert_eq!(c.property, P::Other("x-vendor-rank".to_owned()));
-    assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+    for name in ["x-vendor-rank", "recurrenceId"] {
+        let wire = serde_json::json!({ "property": name, "isAscending": false });
+        let c: CalendarEventComparator = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(c.property, P::Other(name.to_owned()));
+        assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+    }
 }

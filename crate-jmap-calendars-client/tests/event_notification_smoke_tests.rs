@@ -4,7 +4,7 @@
 //! no production-path coverage (JMAP-uuoi.1).
 //!
 //! Oracle for response shapes:
-//!   - CalendarEventNotification/get: draft-ietf-jmap-calendars-26 §7.1 + RFC 8620 §5.1
+//!   - CalendarEventNotification/get: draft-ietf-jmap-calendars-33 §7.1 + RFC 8620 §5.1
 //!   - CalendarEventNotification/changes: §7.2 + RFC 8620 §5.2
 //!   - CalendarEventNotification/set: §7.3 + RFC 8620 §5.3 (destroy-only)
 //!   - CalendarEventNotification/query: §7.4 + RFC 8620 §5.5
@@ -23,7 +23,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 // NotificationFilterCondition is `#[non_exhaustive]`; constructed via
 // `Default::default()` plus field mutation in the filter test below.
 
-/// Oracle: draft-ietf-jmap-calendars-26 §7.1 / RFC 8620 §5.1 — basic
+/// Oracle: draft-ietf-jmap-calendars-33 §7.1 / RFC 8620 §5.1 — basic
 /// `CalendarEventNotification/get` shape. Verifies that `ids` and
 /// `properties` (when supplied) thread through verbatim.
 #[tokio::test]
@@ -72,7 +72,7 @@ async fn calendar_event_notification_get_basic_shape() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §7.2 / RFC 8620 §5.2 —
+/// Oracle: draft-ietf-jmap-calendars-33 §7.2 / RFC 8620 §5.2 —
 /// `CalendarEventNotification/changes` requires `sinceState`.
 #[tokio::test]
 async fn calendar_event_notification_changes_basic_shape() {
@@ -120,7 +120,7 @@ async fn calendar_event_notification_changes_basic_shape() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §7.3 — `CalendarEventNotification/set`
+/// Oracle: draft-ietf-jmap-calendars-33 §7.3 — `CalendarEventNotification/set`
 /// is destroy-only. The server MUST reject create and update operations
 /// with `forbidden`. This client method only sends a `destroy` array;
 /// `create` and `update` keys MUST be absent from the wire.
@@ -187,7 +187,7 @@ async fn calendar_event_notification_set_destroy_only_with_ids() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §7.3 — when caller passes
+/// Oracle: draft-ietf-jmap-calendars-33 §7.3 — when caller passes
 /// `None`, the wire request still carries `destroy: []` (the production
 /// builder is deliberate about always sending a non-null destroy array,
 /// see method docstring).
@@ -240,7 +240,7 @@ async fn calendar_event_notification_set_destroy_none_sends_empty_array() {
     assert!(args.get("update").is_none(), "update MUST be absent");
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §7.4 / RFC 8620 §5.5 —
+/// Oracle: draft-ietf-jmap-calendars-33 §7.4 / RFC 8620 §5.5 —
 /// `CalendarEventNotification/query` accepts a typed
 /// `NotificationFilterCondition` and a sort comparator slice.
 #[tokio::test]
@@ -330,7 +330,7 @@ async fn calendar_event_notification_query_filter_passthrough() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §7.5 / RFC 8620 §5.6 —
+/// Oracle: draft-ietf-jmap-calendars-33 §7.5 / RFC 8620 §5.6 —
 /// `CalendarEventNotification/queryChanges` carries `sinceQueryState`.
 #[tokio::test]
 async fn calendar_event_notification_query_changes_basic_shape() {
@@ -388,7 +388,7 @@ async fn calendar_event_notification_query_changes_basic_shape() {
 /// and calculateTotal must emit all four optional args on the wire
 /// (RFC 8620 §5.6).
 ///
-/// Oracle: draft-ietf-jmap-calendars-26 §7.4 — `calendarEventIds` is a
+/// Oracle: draft-ietf-jmap-calendars-33 §7.4 — `calendarEventIds` is a
 /// valid NotificationFilterCondition field; the comparator shape
 /// (property + isAscending) follows RFC 8620 §5.5.
 #[tokio::test]
@@ -563,7 +563,7 @@ async fn sent_notification_filter(
 /// `CalendarEventNotification/query` accepts a compound `NOT` filter.
 ///
 /// Oracle: RFC 8620 §5.5 — FilterOperator is `{"operator": "AND" | "OR" |
-/// "NOT", "conditions": Filter[]}`; draft-ietf-jmap-calendars-26 §7.4 —
+/// "NOT", "conditions": Filter[]}`; draft-ietf-jmap-calendars-33 §7.4 —
 /// `type` is a CalendarEventNotification FilterCondition property.
 /// Expected JSON is hand-written.
 #[tokio::test]
@@ -609,7 +609,7 @@ async fn calendar_event_notification_query_not_filter_wire_shape() {
 /// filter, matching the shape `/query` accepts (RFC 8620 §5.6).
 ///
 /// Oracle: RFC 8620 §5.5 FilterOperator definition;
-/// draft-ietf-jmap-calendars-26 §7.4 `type`. Expected JSON is
+/// draft-ietf-jmap-calendars-33 §7.4 `type`. Expected JSON is
 /// hand-written.
 #[tokio::test]
 async fn calendar_event_notification_query_changes_or_filter_wire_shape() {

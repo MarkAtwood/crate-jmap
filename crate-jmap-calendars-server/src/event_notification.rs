@@ -1,10 +1,18 @@
-//! CalendarEventNotification/* method handlers (draft-ietf-jmap-calendars-26 §7).
+//! CalendarEventNotification/* method handlers (draft-ietf-jmap-calendars-33 §7).
 //!
 //! CalendarEventNotifications are server-created records. Clients may only
 //! query and destroy them. Any attempt to create or update a
 //! CalendarEventNotification via `/set` MUST be rejected with `forbidden` at
 //! the handler layer — the backend never sees create or update calls for
 //! this type.
+//!
+//! The backend owns which notifications a user can see (§7): none for
+//! anyone but the calendar's owner when the event is `"private"` or
+//! `"secret"` before or after the change; for a user without write access
+//! to an event with `hideAttendees`, `event` and `eventPatch` computed from
+//! the filtered views, and no notification when that patch would be empty.
+//! A notification withheld from a user MUST behave as not existing in the
+//! backend's caller-scoped reads.
 //!
 //! # Wire-shape contract
 //!
@@ -13,7 +21,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
 //! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
-//! arguments defined by draft-ietf-jmap-calendars-26 §7. The returned
+//! arguments defined by draft-ietf-jmap-calendars-33 §7. The returned
 //! `Value` is the corresponding method-response object per the same
 //! section refs.
 //!
@@ -45,7 +53,7 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, Hand
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/get` method call
-/// (draft-ietf-jmap-calendars-26 §7.1).
+/// (draft-ietf-jmap-calendars-33 §7.1).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
@@ -65,7 +73,7 @@ pub async fn handle_calendar_event_notification_get<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/changes` method call
-/// (draft-ietf-jmap-calendars-26 §7.2).
+/// (draft-ietf-jmap-calendars-33 §7.2).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -87,7 +95,7 @@ pub async fn handle_calendar_event_notification_changes<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/set` method call
-/// (draft-ietf-jmap-calendars-26 §7.3).
+/// (draft-ietf-jmap-calendars-33 §7.3).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -227,7 +235,7 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/query` method call
-/// (draft-ietf-jmap-calendars-26 §7.4).
+/// (draft-ietf-jmap-calendars-33 §7.4).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
 /// `filter`, optional `sort`, optional `position` / `anchor` /
@@ -250,7 +258,7 @@ pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/queryChanges` method call
-/// (draft-ietf-jmap-calendars-26 §7.5).
+/// (draft-ietf-jmap-calendars-33 §7.5).
 ///
 /// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
 /// optional `filter`, optional `sort`, `sinceQueryState`, optional
@@ -283,7 +291,7 @@ mod tests {
     use crate::test_support::MockBackend;
 
     /// Oracle: create entries must produce `forbidden` in notCreated.
-    /// Source: draft-ietf-jmap-calendars-26 §7.3 — notifications are server-created.
+    /// Source: draft-ietf-jmap-calendars-33 §7.3 — notifications are server-created.
     #[tokio::test]
     async fn set_create_returns_forbidden_not_created() {
         let backend = MockBackend::new_with_account("acc1");

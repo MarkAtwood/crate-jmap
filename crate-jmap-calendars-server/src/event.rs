@@ -1,4 +1,4 @@
-//! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-26 §5).
+//! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-33 §5).
 //!
 //! # Wire-shape contract
 //!
@@ -7,7 +7,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3, `/copy` → §5.4,
 //! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
-//! arguments defined by draft-ietf-jmap-calendars-26 §5. The returned
+//! arguments defined by draft-ietf-jmap-calendars-33 §5. The returned
 //! `Value` is the corresponding method-response object per the same
 //! section refs. `CalendarEvent/parse` (draft §5.13) is a Calendars-
 //! specific method with its own request/response shape (`accountId`,
@@ -50,7 +50,7 @@ use jmap_server::{
 // CalendarEvent/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/get` method call (draft-ietf-jmap-calendars-26 §5.7).
+/// Handle a `CalendarEvent/get` method call (draft-ietf-jmap-calendars-33 §5.7).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`), augmented with the draft §5.7
@@ -200,7 +200,7 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 // CalendarEvent/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/changes` method call (draft-ietf-jmap-calendars-26 §5.5).
+/// Handle a `CalendarEvent/changes` method call (draft-ietf-jmap-calendars-33 §5.5).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -220,7 +220,7 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 // CalendarEvent/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/set` method call (draft-ietf-jmap-calendars-26 §5.6).
+/// Handle a `CalendarEvent/set` method call (draft-ietf-jmap-calendars-33 §5.6).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
@@ -260,8 +260,9 @@ async fn compute_is_origin<B: CalendarsBackend>(
 }
 
 /// Applies the server-set and invariant rules every new CalendarEvent must
-/// satisfy (create and copy): a valid `calendarIds`, and `isOrigin` set by
-/// the server, replacing any client or source value.
+/// satisfy (create and copy): a valid `calendarIds`, `@type` and `version`
+/// filled in when omitted, and `isOrigin` set by the server, replacing any
+/// client or source value.
 async fn prepare_new_event<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -271,6 +272,11 @@ async fn prepare_new_event<B: CalendarsBackend>(
     if !valid_calendar_ids(event.calendar_ids.as_ref()) {
         return Err(json!({ "type": "invalidProperties", "properties": ["calendarIds"] }));
     }
+    // draft-ietf-jmap-calendars-33 §5.9: "If omitted on create, the server
+    // MUST set ... @type MUST be set to "Event" * version MUST be set to the
+    // JSCalendar version the event conforms to, e.g., "2.0"".
+    event.at_type.get_or_insert_with(|| "Event".to_owned());
+    event.version.get_or_insert_with(|| "2.0".to_owned());
     let organizer = event.organizer_calendar_address.as_deref();
     event.is_origin = Some(compute_is_origin(backend, caller, account_id, organizer).await?);
     Ok(())
@@ -385,7 +391,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     // §5.9: sendSchedulingMessages — Boolean (default false). When true, the
     // backend MUST send iTIP scheduling messages on success of each
     // create/update/destroy, or return a noSupportedScheduleMethods SetError
-    // (§10.7.2) when at least one recipient has no usable calendarAddress.
+    // (§10.8.2) when at least one recipient has no usable calendarAddress.
     // Non-boolean values are treated as the default (false) per RFC 8620
     // permissive parsing — strict rejection would be invalidArguments, but
     // the spec defines no such requirement and we match Calendar/set's
@@ -683,7 +689,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 // CalendarEvent/copy
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/copy` method call (draft-ietf-jmap-calendars-26 §5.7).
+/// Handle a `CalendarEvent/copy` method call (draft-ietf-jmap-calendars-33 §5.7).
 ///
 /// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
 /// optional `ifFromInState`, `accountId`, optional `ifInState`, `create`
@@ -989,7 +995,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 // CalendarEvent/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/query` method call (draft-ietf-jmap-calendars-26 §5.11).
+/// Handle a `CalendarEvent/query` method call (draft-ietf-jmap-calendars-33 §5.11).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
 /// `filter`, optional `sort`, optional `position` / `anchor` /
@@ -1008,7 +1014,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 /// - `timeZone`: TimeZoneId, default `Etc/UTC`. Used by the backend when
 ///   evaluating `before` / `after` against floating events.
 ///
-/// Two new method-level errors may be returned per §10.7.3 / §10.7.4:
+/// Two new method-level errors may be returned per §10.8.3 / §10.8.4:
 ///
 /// - `expandDurationTooLarge` — when `before - after` exceeds the account's
 ///   `maxExpandedQueryDuration` capability.
@@ -1054,7 +1060,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
     // This server accepts only a bare FilterCondition, which also meets
-    // draft-ietf-jmap-calendars-26 §5.11 ("the filter MUST be just a
+    // draft-ietf-jmap-calendars-33 §5.11 ("the filter MUST be just a
     // FilterCondition (not a FilterOperator)" when expandRecurrences is
     // true). The typed struct carries `deny_unknown_fields`, so an operator
     // tree or an unknown property yields unsupportedFilter (RFC 8620 §5.5)
@@ -1094,7 +1100,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         }
 
         // bd:JMAP-ic0j.71 — defense-in-depth handler-side pre-check against
-        // the account's `maxExpandedQueryDuration` cap (§10.7.3). Computes
+        // the account's `maxExpandedQueryDuration` cap (§10.8.3). Computes
         // `before - after` in seconds and compares against
         // `CalendarsLimits::max_expanded_query_duration_seconds`. When
         // exceeded, short-circuit with the `expandDurationTooLarge` error
@@ -1215,7 +1221,7 @@ fn expand_duration_seconds(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEvent/queryChanges` method call
-/// (draft-ietf-jmap-calendars-26 §5.12).
+/// (draft-ietf-jmap-calendars-33 §5.12).
 ///
 /// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
 /// optional `filter`, optional `sort`, `sinceQueryState`, optional
@@ -1237,7 +1243,7 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
 // CalendarEvent/parse
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/parse` method call (draft-ietf-jmap-calendars-26 §5.13).
+/// Handle a `CalendarEvent/parse` method call (draft-ietf-jmap-calendars-33 §5.13).
 ///
 /// `args` is the draft §5.13 `CalendarEvent/parse` request shape
 /// (`accountId`, `blobIds`); the returned `Value` is the §5.13 response
@@ -1264,7 +1270,7 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // blobIds is spec-typed `Id[]` (draft-ietf-jmap-calendars-26 §5.13);
+    // blobIds is spec-typed `Id[]` (draft-ietf-jmap-calendars-33 §5.13);
     // treat missing/null as empty to produce a valid response, but reject
     // any non-string entry with invalidArguments. Mirrors the canonical
     // mail-server pattern at crate-jmap-mail-server/src/email.rs:2193
@@ -2081,7 +2087,7 @@ mod tests {
     // of `query_calendar_events` on the TrackingBackend.
     // -----------------------------------------------------------------------
 
-    /// Oracle: §10.7.3 — when `expandRecurrences` is true and
+    /// Oracle: §10.8.3 — when `expandRecurrences` is true and
     /// `before - after` exceeds the account's `maxExpandedQueryDuration`,
     /// the handler MUST return `expandDurationTooLarge` WITHOUT invoking
     /// the backend's `query_calendar_events` method.
@@ -2112,7 +2118,7 @@ mod tests {
         );
     }
 
-    /// Oracle: §10.7.3 — when `before - after` is within the
+    /// Oracle: §10.8.3 — when `before - after` is within the
     /// `maxExpandedQueryDuration`, the handler MUST proceed to invoke the
     /// backend's `query_calendar_events`. The backend remains canonical
     /// for any further cap enforcement.
@@ -2219,7 +2225,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — a patch containing only
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — a patch containing only
     /// per-user properties (`keywords`) must be routed to
     /// `update_per_user_properties`, NOT `update_object`.
     #[tokio::test]
@@ -2243,7 +2249,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — a patch containing a
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — a patch containing a
     /// shared property (`title`) must be routed to `update_object`, NOT
     /// `update_per_user_properties`.
     #[tokio::test]
@@ -2267,7 +2273,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — a mixed patch containing
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — a mixed patch containing
     /// both per-user (`keywords`) and shared (`title`) properties must be
     /// routed to `update_object` (the shared-property path), NOT
     /// `update_per_user_properties`.
@@ -2299,7 +2305,7 @@ mod tests {
     /// would have mis-routed `{"title": null, "description": null}` to the
     /// per-user code path even though both keys are shared properties.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — the per-user property set
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — the per-user property set
     /// is fixed (`keywords`, `color`, `freeBusyStatus`, `useDefaultAlerts`,
     /// `alerts`); routing is by property identity, not by value.
     #[tokio::test]
@@ -2335,7 +2341,7 @@ mod tests {
     /// timestamp (draft §5.4) and potentially triggering iTIP REQUEST
     /// (§5.9.2.1) for what should be a per-user-only mutation.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — routing is by
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — routing is by
     /// property identity, which for a JSON Pointer key is the first
     /// path segment (RFC 6901 §3) before the first unescaped `/`.
     #[tokio::test]
@@ -2513,7 +2519,7 @@ mod tests {
     /// must be rejected at the handler boundary with `invalidArguments`,
     /// not silently dropped via `filter_map`.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-26 §5.13 types `blobIds` as `Id[]`.
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.13 types `blobIds` as `Id[]`.
     /// RFC 8620 §3.6.1 mandates `invalidArguments` for type-incorrect args.
     /// The canonical sibling `jmap-mail-server::handle_email_parse`
     /// (crate-jmap-mail-server/src/email.rs:2193) rejects with
@@ -2539,7 +2545,7 @@ mod tests {
     /// must be rejected at the handler boundary with `invalidArguments`,
     /// not silently dropped via `filter_map`.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-26 §5.13 types `properties` as
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.13 types `properties` as
     /// `String[]`. RFC 8620 §3.6.1 mandates `invalidArguments` for
     /// type-incorrect args.
     #[tokio::test]
