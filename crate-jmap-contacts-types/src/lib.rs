@@ -666,6 +666,19 @@ mod tests {
         assert!(!cap.may_create_address_book);
     }
 
+    /// maxAddressBooksPerCard accepts the largest UnsignedInt.
+    /// Oracle: RFC 9610 §1.4.1 "maxAddressBooksPerCard: UnsignedInt|null";
+    /// RFC 8620 §1.3 "the value MUST be in the range 0 <= value <= 2^53-1".
+    #[test]
+    fn contacts_account_capability_max_unsigned_int() {
+        let json = r#"{
+            "maxAddressBooksPerCard": 9007199254740991,
+            "mayCreateAddressBook": true
+        }"#;
+        let cap: ContactsAccountCapability = serde_json::from_str(json).unwrap();
+        assert_eq!(cap.max_address_books_per_card, Some(9_007_199_254_740_991));
+    }
+
     /// URI constant has the correct value.
     #[test]
     fn jmap_contacts_uri_value() {

@@ -1373,6 +1373,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-contacts-types**: **BREAKING**
+  `ContactsAccountCapability.max_address_books_per_card` is
+  `Option<u64>` (was `Option<u32>`). RFC 9610 §1.4.1 types it
+  `UnsignedInt|null` (up to 2^53-1), so a value above `u32::MAX` no
+  longer fails to decode the whole capability (bd JMAP-w9ox.4).
 - **jmap-calendars-server**: **BREAKING** the reference `MemoryBackend`
   answers `unsupportedFilter` (RFC 8620 §5.5) for a filter it cannot
   evaluate: a `CalendarEvent/query` condition naming anything but
