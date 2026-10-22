@@ -1373,6 +1373,23 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** The blocked-sender hooks of Scene, VTC and Graph have one
+  shape (bd JMAP-skk9.4): the delivery function takes the recipient's
+  own account, applies the block rule only when that account advertises
+  `urn:ietf:params:jmap:chat` (`has_capability`), and asks a hook that
+  takes only the caller and the sender, since the caller names "the
+  recipient's contact list". **jmap-vtc-server**:
+  `VtcBackend::is_user_blocked(caller, user_id)` drops `account_id`, and
+  `should_deliver` no longer suppresses a blocked user's events when the
+  recipient's account lacks Chat. **jmap-graph-server**:
+  `GraphBackend::is_sender_blocked(caller, sender_id)` drops
+  `account_id` (it was the node's hosting account, so a shared account
+  looked up the wrong contact list); new required
+  `GraphBackend::has_capability(caller, account_id, uri)`, declared like
+  `SceneBackend::has_capability`; `should_deliver` takes
+  `recipient_account_id` after `caller`. **jmap-chat-vtc-server**:
+  `is_blocked_by_contact` keeps its `account_id`; pass the caller's own
+  account from `is_user_blocked`. Scene keeps its shape.
 - **BREAKING** `/query` and `/queryChanges` take the full RFC 8620 §5.5
   filter tree ("FilterOperator|FilterCondition|null") for every object
   whose `QueryObject::Filter` was a bare condition, as Email already

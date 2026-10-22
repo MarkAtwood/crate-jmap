@@ -475,9 +475,13 @@ pub trait VtcBackend: JmapBackend {
     /// (draft-atwood-jmap-vtc-wss-00 §Blocked-Sender Suppression).
     ///
     /// [`crate::ephemeral::should_deliver`] asks this at delivery time,
-    /// with the recipient as the caller and the recipient's own account as
-    /// `account_id`, not the call's hosting account, to suppress ring and
-    /// in-call events from a blocked user.
+    /// with the recipient as the caller, to suppress ring and in-call
+    /// events from a blocked user, and only when the recipient's own
+    /// account advertises `urn:ietf:params:jmap:chat`
+    /// ([`VtcBackend::has_capability`]). The caller identifies whose
+    /// contact list to read: "the recipient's contact list"
+    /// (draft-atwood-jmap-vtc-wss-00 at 29e9a41, L347, L360), never the
+    /// call's hosting account.
     ///
     /// # Default implementation
     ///
@@ -487,10 +491,9 @@ pub trait VtcBackend: JmapBackend {
     fn is_user_blocked(
         &self,
         caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
         user_id: &str,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        let _ = (caller, account_id, user_id);
+        let _ = (caller, user_id);
         async { Ok(false) }
     }
 

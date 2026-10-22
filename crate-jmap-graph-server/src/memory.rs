@@ -39,7 +39,9 @@
 //! younger than `opRetention`. `set_projected_graph` marks an account's
 //! projected Graph. Cursor events are recorded, read back with
 //! `published_cursors`; `block` makes one Principal blocked by another,
-//! for [`GraphBackend::is_sender_blocked`]. No op events are recorded:
+//! for [`GraphBackend::is_sender_blocked`], and `advertise` records a
+//! companion capability for [`GraphBackend::has_capability`]. No op events
+//! are recorded:
 //! there is no WebSocket transport.
 //!
 //! # Query
@@ -139,6 +141,8 @@ struct Inner {
     cursors: Vec<GraphCursorEvent>,
     /// `(blocking Principal, blocked Principal)` pairs.
     blocked: HashSet<(Id, Id)>,
+    /// `(account id, capability URI)` pairs advertised as companions.
+    advertised: HashSet<(Id, String)>,
 }
 
 impl Inner {
@@ -411,6 +415,15 @@ impl MemoryBackend {
         if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
             a.projected = Some(graph_id.clone());
         }
+    }
+
+    /// Advertise the companion capability `uri` (e.g.
+    /// `urn:ietf:params:jmap:chat`) on `account_id`.
+    #[doc(hidden)]
+    pub fn advertise(&self, account_id: &Id, uri: &str) {
+        self.lock()
+            .advertised
+            .insert((account_id.clone(), uri.to_owned()));
     }
 
     /// Make Principal `blocked` blocked by Principal `blocker`.
@@ -1093,12 +1106,13 @@ impl GraphBackend for MemoryBackend {
         self.lock().cursors.push(event.clone());
     }
 
-    async fn is_sender_blocked(
-        &self,
-        caller: &Id,
-        _account_id: &Id,
-        sender_id: &Id,
-    ) -> Result<bool, MemoryError> {
+    fn has_capability(&self, _caller: &Id, account_id: &Id, uri: &str) -> bool {
+        self.lock()
+            .advertised
+            .contains(&(account_id.clone(), uri.to_owned()))
+    }
+
+    async fn is_sender_blocked(&self, caller: &Id, sender_id: &Id) -> Result<bool, MemoryError> {
         Ok(self
             .lock()
             .blocked

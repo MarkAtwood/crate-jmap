@@ -85,7 +85,7 @@ async fn delivers(
     sub: &GraphEditSubscription,
     e: &GraphEditEvent,
 ) -> bool {
-    should_deliver(backend, &Id::from(to), sub, e)
+    should_deliver(backend, &Id::from(to), &Id::from(ACCOUNT), sub, e)
         .await
         .expect("backend")
 }
@@ -210,7 +210,25 @@ async fn cursor_sender_and_block_rules() {
     assert!(!delivers(&backend, ALICE, &sub, &cursor_event(&n, ALICE)).await);
     assert!(delivers(&backend, ALICE, &sub, &cursor_event(&n, BOB)).await);
 
+    backend.advertise(&Id::from(ACCOUNT), CHAT_URI);
     backend.block(&Id::from(ALICE), &Id::from(BOB));
     assert!(!delivers(&backend, ALICE, &sub, &cursor_event(&n, BOB)).await);
     assert!(delivers(&backend, ALICE, &sub, &op_event(&g, &n, 1, BOB)).await);
 }
+
+/// L370: the block rule applies "When {{JMAP-CHAT}} is also available".
+/// The recipient's account does not advertise `urn:ietf:params:jmap:chat`,
+/// so a recorded block does not suppress the cursor.
+#[tokio::test]
+async fn cursor_block_needs_chat() {
+    let backend = backend();
+    let (_, n) = graph_and_node(&backend, json!({ BOB: rights(true, true, false) })).await;
+    let sub = subscribe(json!({
+        "@type": "GraphEditStreamEnable", "nodeIds": [n], "dataTypes": ["cursors"]
+    }));
+    backend.block(&Id::from(ALICE), &Id::from(BOB));
+    assert!(delivers(&backend, ALICE, &sub, &cursor_event(&n, BOB)).await);
+}
+
+/// `urn:ietf:params:jmap:chat`, draft-atwood-jmap-chat-00 §Capability.
+const CHAT_URI: &str = "urn:ietf:params:jmap:chat";

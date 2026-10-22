@@ -34,6 +34,10 @@ use jmap_types::{Id, JmapError};
 
 use crate::{GraphBackend, JmapBackend};
 
+/// Capability URI of draft-atwood-jmap-chat-00, which gates the
+/// blocked-sender rule.
+const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
+
 /// The active filters of an enabled subscription.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GraphEditStreamFilter {
@@ -125,6 +129,13 @@ impl GraphEditSubscription {
 /// ([`GraphBackend::is_sender_blocked`]). Op events of a blocked user are
 /// delivered: "Ops are shared document state".
 ///
+/// `recipient_account_id` is the recipient's own account. The block rule
+/// applies only "When {{JMAP-CHAT}} is also available"
+/// (draft-atwood-jmap-graph-edit-00 at 29e9a41, L370), that is when it
+/// advertises `urn:ietf:params:jmap:chat` ([`GraphBackend::has_capability`]),
+/// as in Scene and VTC. The event's `accountId` is the node's hosting
+/// account, which may be shared, so it is not the one checked.
+///
 /// # Errors
 ///
 /// Returns the backend's error if reading the node, its Graph or the
@@ -132,6 +143,7 @@ impl GraphEditSubscription {
 pub async fn should_deliver<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    recipient_account_id: &Id,
     subscription: &GraphEditSubscription,
     event: &GraphEditEvent,
 ) -> Result<bool, B::Error> {
@@ -185,7 +197,8 @@ pub async fn should_deliver<B: GraphBackend>(
     if <B as JmapBackend>::principal_id(caller) == Some(sender) {
         return Ok(false);
     }
-    Ok(!backend
-        .is_sender_blocked(caller, account_id, sender)
-        .await?)
+    Ok(
+        !backend.has_capability(caller, recipient_account_id, JMAP_CHAT_URI)
+            || !backend.is_sender_blocked(caller, sender).await?,
+    )
 }

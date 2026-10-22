@@ -387,8 +387,9 @@ pub async fn eject_banned_user<V: VtcBackend>(
 /// field is `true` on the target participant's contact list (when
 /// {{JMAP-CHAT}} is present) ... If the initiator is blocked, the server
 /// SHOULD silently drop the ring notification." Return it from
-/// [`VtcBackend::is_user_blocked`], which
-/// [`jmap_vtc_server::should_deliver`] asks with the recipient's account.
+/// [`VtcBackend::is_user_blocked`], passing the caller's own account as
+/// `account_id`: the hook takes only the caller, the recipient
+/// [`jmap_vtc_server::should_deliver`] asks it for.
 ///
 /// # Errors
 ///

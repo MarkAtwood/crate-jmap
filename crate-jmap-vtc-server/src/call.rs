@@ -34,7 +34,7 @@ use jmap_server::{
 
 /// Capability URI of draft-atwood-jmap-chat-00, which gates the Chat binding
 /// properties.
-const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
+pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 
 /// Properties a `VTCCall/set` create may not carry: "The server sets `id`,
 /// `initiatorId`, `createdAt`, `state`, and `joinUri`", plus the other
