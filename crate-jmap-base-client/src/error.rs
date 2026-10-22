@@ -684,20 +684,19 @@ pub enum ClientError {
     #[error("method not found in response: {0}")]
     MethodNotFound(String),
 
-    /// The JMAP server returned a method-level error object (RFC 8620 §3.6).
-    /// Retriability depends on `error_type` (e.g. `serverFail` may be
-    /// retried; `invalidArguments` is not retriable).
+    /// The JMAP server returned a method-level error object (RFC 8620 §3.6.2).
+    /// Retriability depends on [`JmapError::error_type`](jmap_types::JmapError::error_type)
+    /// (e.g. `serverFail` may be retried; `invalidArguments` is not).
     ///
-    /// `description` is `None` when the server omits the optional description field.
-    #[error("JMAP method error: {error_type}")]
-    MethodError {
-        /// The `type` field of the JMAP method-level error object (RFC 8620 §3.6.2),
-        /// e.g. `"invalidArguments"`, `"serverFail"`, `"accountNotFound"`.
-        error_type: String,
-        /// Optional human-readable error description (RFC 8620 §3.6.2);
-        /// `None` when the server omits this field.
-        description: Option<String>,
-    },
+    /// The payload keeps every property [`jmap_types::JmapError`] models
+    /// (`type`, `description`, `existingId`, `limit`), so for example a
+    /// `tooManyChanges` error's `limit` reaches the caller.
+    /// [`method_error_details`](crate::method_error_details) returns any
+    /// other properties. An error object without a `type` is
+    /// [`ClientError::Parse`]: RFC 8620 §3.6.2 says it "MUST have a type
+    /// property".
+    #[error("JMAP method error: {0}")]
+    MethodError(jmap_types::JmapError),
 
     /// A JMAP request could not be serialized to JSON when sending over
     /// WebSocket. Indicates a caller bug — the data structure contains
@@ -933,7 +932,7 @@ mod tests {
             ClientError::InvalidArgument(_) => {}
             ClientError::InvalidSession(_) => {}
             ClientError::MethodNotFound(_) => {}
-            ClientError::MethodError { .. } => {}
+            ClientError::MethodError(_) => {}
             ClientError::Serialize(_) => {}
             ClientError::SseFrameTooLarge { .. } => {}
             ClientError::ResponseTooLarge { .. } => {}

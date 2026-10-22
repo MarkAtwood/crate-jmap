@@ -1131,7 +1131,8 @@ pub struct SubscribeEventsSessionParams<'a> {
 ///
 /// Returns [`ClientError::MethodNotFound`] if no invocation with the given
 /// call_id exists. Returns [`ClientError::MethodError`] if any invocation
-/// with the matching call_id is a JMAP `"error"` response (RFC 8620 §3.6.1).
+/// with the matching call_id is a JMAP `"error"` response (RFC 8620 §3.6.2),
+/// or [`ClientError::Parse`] if that error object has no string `type`.
 ///
 /// # Multiple invocations sharing a call_id
 ///
@@ -1200,19 +1201,9 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     // Two-pass scan: errors take precedence per §3.6.1, so look for an error
     // invocation first; otherwise return the first non-error invocation.
     if let Some(args) = find_error_args(resp, call_id) {
-        let err_type = args
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("serverError") // safe: fallback literal, not user input
-            .to_owned();
-        let description = args
-            .get("description")
-            .and_then(|v| v.as_str())
-            .map(str::to_owned);
-        return Err(ClientError::MethodError {
-            error_type: err_type,
-            description,
-        });
+        let err = <jmap_types::JmapError as serde::Deserialize>::deserialize(args)
+            .map_err(ClientError::from_parse)?;
+        return Err(ClientError::MethodError(err));
     }
 
     // The early return above already handled the error case; every remaining
@@ -1229,9 +1220,10 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
 /// properties beyond `type` and `description`.
 ///
 /// RFC 8620 §3.6.2: "Other properties may be present with further
-/// information". [`ClientError::MethodError`] carries only `type` and
-/// `description`; call this with the same `resp` and `call_id` after
-/// [`extract_response`] returns `MethodError` to read the rest.
+/// information". [`ClientError::MethodError`] carries the properties
+/// [`jmap_types::JmapError`] models; call this with the same `resp` and
+/// `call_id` after [`extract_response`] returns `MethodError` to read the
+/// rest.
 ///
 /// Uses the same lookup as [`extract_response`]: the first invocation
 /// matching `call_id` whose method name is `"error"`. Returns `None` if

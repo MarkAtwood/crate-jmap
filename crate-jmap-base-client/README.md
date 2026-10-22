@@ -395,9 +395,11 @@ pub fn extract_response<T: DeserializeOwned>(
 Finds the invocation matching `call_id` in `resp.method_responses` and
 deserializes its arguments into `T`. Returns `ClientError::MethodNotFound` if
 the call ID is absent. Returns `ClientError::MethodError` if the server
-returned a JMAP `"error"` response for that call (RFC 8620 §3.6.1).
-`MethodError` carries only `type` and `description`; to read any other
-properties of the error object (RFC 8620 §3.6.2), call
+returned a JMAP `"error"` response for that call (RFC 8620 §3.6.2), or
+`ClientError::Parse` if that error object has no `type` (§3.6.2: it "MUST
+have a type property"). `MethodError`
+carries a `jmap_types::JmapError` (`type`, `description`, `existingId`,
+`limit`); to read any other properties of the error object, call
 `method_error_details(&resp, call_id)`, which returns the full error
 object as a `serde_json::Map`.
 
@@ -564,8 +566,8 @@ have `http` or `https` scheme before the `Session` is returned.
 **`extract_response<T>`** — scans `resp.method_responses` (a `Vec` of
 `Invocation { name, arguments, call_id }`) for the entry whose `call_id`
 matches, then deserializes `arguments` into `T`. If `name` is `"error"`, returns
-`ClientError::MethodError` with the server-supplied `type` and optional
-`description`. `method_error_details` returns the full error object,
+`ClientError::MethodError` carrying the server's error object as a
+`jmap_types::JmapError`. `method_error_details` returns the full error object,
 including any extra properties.
 
 **Blob upload** — `upload_blob` expands the `upload_url` template, POSTs the
@@ -659,7 +661,7 @@ let emails = client.email_get(&session, account_id, &[]).await?;
 | `InvalidArgument(String)` | Caller bug (empty token, bad URL, duplicate call ID, etc.) |
 | `InvalidSession(String)` | Server returned a bad Session document |
 | `MethodNotFound(String)` | `extract_response` call ID not in response |
-| `MethodError { error_type, description }` | Server returned a JMAP error for a method call |
+| `MethodError(JmapError)` | Server returned a JMAP error for a method call |
 | `BlobIntegrityMismatch { expected, actual }` | SHA-256 mismatch on upload or download |
 | `ResponseTooLarge { actual, limit }` | Server response exceeded configured size cap |
 | `SseFrameTooLarge { limit }` | Single SSE frame exceeded `max_sse_frame`; stream terminated |

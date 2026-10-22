@@ -240,8 +240,8 @@ async fn key_material_fetch_server_unavailable_is_a_method_error() {
     assert!(
         matches!(
             &err,
-            jmap_base_client::ClientError::MethodError { error_type, .. }
-                if error_type == "serverUnavailable"
+            jmap_base_client::ClientError::MethodError(e)
+                if e.error_type.to_string() == "serverUnavailable"
         ),
         "{err:?}"
     );
