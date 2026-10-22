@@ -1319,6 +1319,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-scene-client**: **BREAKING** `scene_asset_set`,
+  `scene_avatar_set`, `scene_object_set` and `scene_region_set` return
+  `SetResponse<PartialObject>` instead of the hidden default
+  `SetResponse<serde_json::Value>` (RFC 8620 §5.3).
 - **jmap-graph-client**: **BREAKING** `graph_set`, `graph_node_set`,
   `graph_edge_set` and `graph_node_op_set` return
   `SetResponse<PartialObject>` instead of the hidden default

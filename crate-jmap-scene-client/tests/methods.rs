@@ -176,8 +176,11 @@ async fn scene_asset_set_create_matches_full_envelope_example() {
         }])
     );
     let created = resp.created.expect("created must be present");
-    assert_eq!(created["a0"]["id"], json!("01J5AST0000000000000000001"));
-    assert_eq!(created["a0"]["size"], json!(2483712));
+    assert_eq!(
+        created["a0"].id,
+        Some(Id::from("01J5AST0000000000000000001"))
+    );
+    assert_eq!(created["a0"].extra["size"], json!(2483712));
 }
 
 /// draft-atwood-jmap-scene-00 L898-L913, "Example query -- glTF assets
@@ -444,7 +447,10 @@ async fn scene_avatar_set_enter_matches_example() {
     );
     assert_eq!(resp.new_state, State::from("state-avatar-21"));
     let created = resp.created.expect("created must be present");
-    assert_eq!(created["av0"]["userId"], json!("user:alice@example.com"));
+    assert_eq!(
+        created["av0"].extra["userId"],
+        json!("user:alice@example.com")
+    );
 }
 
 /// draft-atwood-jmap-scene-00 L2495-L2542, the `SceneAvatar/query`
