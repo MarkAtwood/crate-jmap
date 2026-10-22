@@ -1329,6 +1329,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-types**: `Keyword` is `#[non_exhaustive]`, matching
+  `Id`, `State`, `UTCDate` and `LocalDateTime`. Not breaking: its field
+  was already private, so callers construct it with `Keyword::new`,
+  `Keyword::try_new` or `From<&str>` as before.
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-chat-mimi-server**,
   **jmap-calendars-server**, **jmap-contacts-server**,
   **jmap-tasks-server**, **jmap-sharing-server**,

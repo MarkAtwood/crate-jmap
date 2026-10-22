@@ -88,6 +88,7 @@ const SYSTEM_KEYWORDS: &[&str] = &[
 /// validation is the server's responsibility.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
+#[non_exhaustive]
 pub struct Keyword(String);
 
 impl Keyword {
