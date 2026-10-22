@@ -284,7 +284,7 @@ mod tests {
     /// [`jmap_server::SERVER_FAIL_INTERNAL_DESC`] description, NOT the
     /// backend error's `Display` output.
     ///
-    /// Oracle: `jmap_server::handlers::server_fail_from_backend` is
+    /// Oracle: `jmap_server::server_fail_from_backend` is
     /// documented as deliberately discarding the backend error text to
     /// prevent leakage of internal state (account ids, database error
     /// text, principal ids, etc.) into JMAP wire responses. Every other

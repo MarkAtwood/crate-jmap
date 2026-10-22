@@ -242,7 +242,7 @@ pub async fn handle_message_changes<B: ChatBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<Message, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Message, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -459,7 +459,7 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
             return Err(JmapError::cannot_calculate_changes());
         }
     }
-    jmap_server::handlers::handle_query_changes::<Message, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<Message, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

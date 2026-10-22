@@ -52,7 +52,7 @@ pub async fn handle_task_notification_get<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<TaskNotification, B>(backend, caller, args).await
+    jmap_server::handle_get::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ pub async fn handle_task_notification_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<TaskNotification, B>(backend, caller, args).await
+    jmap_server::handle_changes::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +240,7 @@ pub async fn handle_task_notification_query<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<TaskNotification, B>(backend, caller, args).await
+    jmap_server::handle_query::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -262,7 +262,7 @@ pub async fn handle_task_notification_query_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<TaskNotification, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

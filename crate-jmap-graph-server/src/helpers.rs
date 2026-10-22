@@ -99,7 +99,7 @@ where
     B: GraphBackend,
 {
     let searched = graph_query_args::<C, B>(backend, caller, &args, kind).await?;
-    let mut out = jmap_server::handlers::handle_query::<O, B>(backend, caller, args).await?;
+    let mut out = jmap_server::handle_query::<O, B>(backend, caller, args).await?;
     if searched {
         out.primary["canCalculateChanges"] = Value::Bool(false);
     }
@@ -125,7 +125,7 @@ where
     if graph_query_args::<C, B>(backend, caller, &args, kind).await? {
         return Err(JmapError::cannot_calculate_changes());
     }
-    jmap_server::handlers::handle_query_changes::<O, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<O, B>(backend, caller, args).await
 }
 
 /// A `forbidden` SetError.

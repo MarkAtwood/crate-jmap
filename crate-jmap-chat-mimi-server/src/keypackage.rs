@@ -192,7 +192,7 @@ pub async fn handle_key_package_get<B: MimiBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<KeyPackage, B>(backend, caller, args).await
+    jmap_server::handle_get::<KeyPackage, B>(backend, caller, args).await
 }
 
 /// Handle `KeyPackage/set` (draft-atwood-jmap-chat-mimi-00 §KeyPackage/set).

@@ -2577,7 +2577,7 @@ mod tests {
     }
 
     use super::OpResult;
-    use jmap_server::backend::{SetError, SetErrorType};
+    use jmap_server::{SetError, SetErrorType};
 
     #[test]
     fn op_result_ok_carries_op_index_and_optional_id() {

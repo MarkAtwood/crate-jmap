@@ -65,7 +65,7 @@ pub async fn handle_calendar_event_notification_get<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<CalendarEventNotification, B>(backend, caller, args).await
+    jmap_server::handle_get::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -86,8 +86,7 @@ pub async fn handle_calendar_event_notification_changes<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<CalendarEventNotification, B>(backend, caller, args)
-        .await
+    jmap_server::handle_changes::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +249,7 @@ pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<CalendarEventNotification, B>(backend, caller, args).await
+    jmap_server::handle_query::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -273,10 +272,7 @@ pub async fn handle_calendar_event_notification_query_changes<B: CalendarsBacken
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<CalendarEventNotification, B>(
-        backend, caller, args,
-    )
-    .await
+    jmap_server::handle_query_changes::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

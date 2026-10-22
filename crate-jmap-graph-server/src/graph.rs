@@ -70,7 +70,7 @@ pub async fn handle_graph_changes<B: GraphBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<Graph, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Graph, B>(backend, caller, args).await
 }
 
 /// Handle `Graph/query` (draft-atwood-jmap-graph-00 §Graph/query): "The
@@ -85,7 +85,7 @@ pub async fn handle_graph_query<B: GraphBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     reject_unsupported_sort::<GraphComparator>(args.get("sort"))?;
-    jmap_server::handlers::handle_query::<Graph, B>(backend, caller, args).await
+    jmap_server::handle_query::<Graph, B>(backend, caller, args).await
 }
 
 /// Handle `Graph/queryChanges`: standard RFC 8620 §5.6, with the `/query`
@@ -96,7 +96,7 @@ pub async fn handle_graph_query_changes<B: GraphBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     reject_unsupported_sort::<GraphComparator>(args.get("sort"))?;
-    jmap_server::handlers::handle_query_changes::<Graph, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<Graph, B>(backend, caller, args).await
 }
 
 /// Handle `Graph/set` (draft-atwood-jmap-graph-00 §Graph/set).

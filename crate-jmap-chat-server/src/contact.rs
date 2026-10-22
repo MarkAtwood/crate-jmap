@@ -534,5 +534,5 @@ pub async fn handle_contact_query_changes<B: ChatBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     reject_unsupported_sort::<ChatContactComparator>(args.get("sort"))?;
-    jmap_server::handlers::handle_query_changes::<ChatContact, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<ChatContact, B>(backend, caller, args).await
 }

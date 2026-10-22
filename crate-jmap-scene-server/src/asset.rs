@@ -106,7 +106,7 @@ pub async fn handle_scene_asset_get<B: SceneBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_scene_asset_supported(backend, caller, &args).await?;
-    jmap_server::handlers::handle_get::<SceneAsset, B>(backend, caller, args).await
+    jmap_server::handle_get::<SceneAsset, B>(backend, caller, args).await
 }
 
 /// Handle `SceneAsset/changes` (draft-atwood-jmap-scene-00
@@ -117,7 +117,7 @@ pub async fn handle_scene_asset_changes<B: SceneBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_scene_asset_supported(backend, caller, &args).await?;
-    jmap_server::handlers::handle_changes::<SceneAsset, B>(backend, caller, args).await
+    jmap_server::handle_changes::<SceneAsset, B>(backend, caller, args).await
 }
 
 /// Handle `SceneAsset/query` (draft-atwood-jmap-scene-00
@@ -134,8 +134,7 @@ pub async fn handle_scene_asset_query<B: SceneBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_scene_asset_supported(backend, caller, &args).await?;
-    jmap_server::handlers::handle_query::<SceneAsset, B>(backend, caller, prepare_query(args)?)
-        .await
+    jmap_server::handle_query::<SceneAsset, B>(backend, caller, prepare_query(args)?).await
 }
 
 /// Handle `SceneAsset/queryChanges` (draft-atwood-jmap-scene-00
@@ -147,12 +146,7 @@ pub async fn handle_scene_asset_query_changes<B: SceneBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_scene_asset_supported(backend, caller, &args).await?;
-    jmap_server::handlers::handle_query_changes::<SceneAsset, B>(
-        backend,
-        caller,
-        prepare_query(args)?,
-    )
-    .await
+    jmap_server::handle_query_changes::<SceneAsset, B>(backend, caller, prepare_query(args)?).await
 }
 
 fn prepare_query(mut args: Value) -> Result<Value, JmapError> {

@@ -2620,6 +2620,11 @@ wire behaviour that a conforming peer can observe.
   `wire` module paths. The modules are private and every item keeps its
   crate-root path, so name `jmap_types::Filter`, not
   `jmap_types::query::Filter` (bd JMAP-wf92.23).
+- **BREAKING** **jmap-server**: the `backend` and `handlers` module
+  paths. The modules are private and every item keeps its crate-root
+  path, so name `jmap_server::JmapBackend` and `jmap_server::handle_get`,
+  not `jmap_server::backend::JmapBackend` or
+  `jmap_server::handlers::handle_get` (bd JMAP-wf92.23).
 - **BREAKING** The `jmap_calendars_types::jscalendar`,
   `jmap_tasks_types::jscalendar` and `jmap_contacts_types::jscontact`
   alias modules. They re-exported exactly the names already at each

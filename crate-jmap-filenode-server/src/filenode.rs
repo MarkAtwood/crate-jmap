@@ -128,7 +128,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         primary: mut response,
         extra_invocations: tail,
         ..
-    } = jmap_server::handlers::handle_get::<FileNode, B>(backend, caller, args).await?;
+    } = jmap_server::handle_get::<FileNode, B>(backend, caller, args).await?;
 
     if fetch_parents {
         // Recover account_id from the response shape the generic
@@ -333,7 +333,7 @@ pub async fn handle_filenode_changes<B: FileNodeBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
-    jmap_server::handlers::handle_changes::<FileNode, B>(backend, caller, args).await
+    jmap_server::handle_changes::<FileNode, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -2440,7 +2440,7 @@ fn property_owner(property: &str) -> Option<NodeType> {
 /// `depth` additional levels. IDs are deduplicated across all levels.
 ///
 /// When `depth` is absent, `null`, or `0`, the query is a flat one-liner
-/// delegated to [`jmap_server::handlers::handle_query`].
+/// delegated to [`jmap_server::handle_query`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_query<B: FileNodeBackend>(
@@ -2460,7 +2460,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         primary: mut response,
         extra_invocations: tail,
         ..
-    } = jmap_server::handlers::handle_query::<FileNode, B>(backend, caller, args).await?;
+    } = jmap_server::handle_query::<FileNode, B>(backend, caller, args).await?;
 
     if depth == 0 {
         return Ok(HandlerOutput::new(response).with_extra(tail));
@@ -2533,7 +2533,7 @@ pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
-    jmap_server::handlers::handle_query_changes::<FileNode, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<FileNode, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

@@ -54,7 +54,7 @@ pub async fn handle_share_notification_get<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<ShareNotification, B>(backend, caller, args).await
+    jmap_server::handle_get::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ pub async fn handle_share_notification_changes<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<ShareNotification, B>(backend, caller, args).await
+    jmap_server::handle_changes::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: an unknown accountId MUST surface as `accountNotFound`.
-    // The /get-family handlers in `jmap_server::handlers` perform this check
+    // The /get-family handlers in `jmap-server` perform this check
     // internally; the hand-rolled /set handler must reproduce it explicitly.
     // Mirrors the canonical pattern at
     // `crate-jmap-mail-server/src/mailbox.rs:441-447`.
@@ -253,7 +253,7 @@ pub async fn handle_share_notification_query<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query::<ShareNotification, B>(backend, caller, args).await
+    jmap_server::handle_query::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -275,7 +275,7 @@ pub async fn handle_share_notification_query_changes<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_query_changes::<ShareNotification, B>(backend, caller, args).await
+    jmap_server::handle_query_changes::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------

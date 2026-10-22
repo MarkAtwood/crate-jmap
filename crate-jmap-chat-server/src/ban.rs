@@ -124,7 +124,7 @@ pub async fn handle_ban_changes<B: ChatBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_changes::<SpaceBan, B>(backend, caller, args).await
+    jmap_server::handle_changes::<SpaceBan, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
