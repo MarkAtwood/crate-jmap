@@ -1338,6 +1338,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-tasks-types**: **BREAKING** `Task.related_to`, `locations`,
+  `virtual_locations`, `links`, `recurrence_rules`,
+  `excluded_recurrence_rules`, `participants`, `alerts` and `time_zones`
+  are `Option<serde_json::Value>` (were `Option<BTreeMap<..>>` or
+  `Option<Vec<..>>`), matching `jmap-calendars-types` `CalendarEvent` and
+  the workspace sloppy-Value rule. Decode entries with
+  `serde_json::from_value` into the `jmap-jscalendar-types` sub-types.
+  The wire format is unchanged (bd JMAP-skk9.7).
 - **jmap-tasks-types**, **jmap-calendars-types**: **BREAKING**
   `TaskFilterCondition.after` / `before` (was `Option<UTCDate>`) and
   `CalendarEventFilterCondition.after` / `before` (was `Option<String>`) are

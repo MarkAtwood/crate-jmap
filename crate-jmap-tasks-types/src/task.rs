@@ -315,7 +315,7 @@ pub struct Task {
 
     /// Map of related object UIDs to relation type objects (RFC 8984 §4.1.3).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub related_to: Option<BTreeMap<String, serde_json::Value>>,
+    pub related_to: Option<serde_json::Value>,
 
     /// Product identifier of the software that last modified this task.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -352,15 +352,15 @@ pub struct Task {
 
     /// Map of location id → Location objects (RFC 8984 §4.2.5).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub locations: Option<BTreeMap<Id, serde_json::Value>>,
+    pub locations: Option<serde_json::Value>,
 
     /// Map of virtual location id → VirtualLocation objects (RFC 8984 §4.2.6).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub virtual_locations: Option<BTreeMap<Id, serde_json::Value>>,
+    pub virtual_locations: Option<serde_json::Value>,
 
     /// Map of link id → Link objects (RFC 8984 §4.2.7).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub links: Option<BTreeMap<Id, serde_json::Value>>,
+    pub links: Option<serde_json::Value>,
 
     /// BCP 47 language tag for the task content.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -391,11 +391,11 @@ pub struct Task {
 
     /// List of RecurrenceRule objects (RFC 8984 §4.3.2).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recurrence_rules: Option<Vec<serde_json::Value>>,
+    pub recurrence_rules: Option<serde_json::Value>,
 
     /// List of RecurrenceRule objects for exclusions (RFC 8984 §4.3.3).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub excluded_recurrence_rules: Option<Vec<serde_json::Value>>,
+    pub excluded_recurrence_rules: Option<serde_json::Value>,
 
     /// Map of LocalDateTime → PatchObject for per-instance overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -430,7 +430,7 @@ pub struct Task {
     /// Map of participant id → Participant objects (RFC 8984 §4.4.6).
     /// Assignees extension.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub participants: Option<BTreeMap<Id, serde_json::Value>>,
+    pub participants: Option<serde_json::Value>,
 
     /// iTIP request status (RFC 8984 §4.4.7).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -445,7 +445,7 @@ pub struct Task {
 
     /// Map of alert id → Alert objects (RFC 8984 §4.5.2).  Per-user.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub alerts: Option<BTreeMap<Id, serde_json::Value>>,
+    pub alerts: Option<serde_json::Value>,
 
     // --- JSCalendar Multilingual Properties (RFC 8984 §4.6) ---
     // Gated on the multilingual extension at the handler layer.
@@ -461,7 +461,7 @@ pub struct Task {
     /// Map of time zone id → custom TimeZone objects (RFC 8984 §4.7.2).
     /// Customtimezones extension.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_zones: Option<BTreeMap<String, serde_json::Value>>,
+    pub time_zones: Option<serde_json::Value>,
 
     // --- JSCalendar Task-specific Properties (RFC 8984 §5.2) ---
     /// Due date/time (LocalDateTime; RFC 8984 §5.2.1).
