@@ -122,3 +122,44 @@ async fn principal_set_create_returns_forbidden() {
         "error type must be forbidden per RFC 9670 §2.3"
     );
 }
+
+/// RFC 8620 §5.3: each `created` value holds only "properties of the
+/// created Foo object that were not sent by the client". Oracle: the
+/// hand-written response echoes only the server-set `id`; the client-sent
+/// `type` and `name`, both required on a full `Principal`, are absent and
+/// the response must still parse.
+#[tokio::test]
+async fn principal_set_created_omits_client_sent_properties() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Principal/set",
+            {
+                "accountId": "A13824",
+                "oldState": "p1",
+                "newState": "p2",
+                "created": { "k1": { "id": "P-9" } }
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = common::make_client(&server);
+    let resp = sc
+        .principal_set(
+            Some(json!({ "k1": { "type": "group", "name": "Team" } })),
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("a partial created object must parse");
+    let k1 = &resp.created.expect("created")["k1"];
+    assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("P-9"));
+    assert!(k1.extra.is_empty());
+}

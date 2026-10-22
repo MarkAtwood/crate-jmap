@@ -13,7 +13,9 @@ use std::collections::BTreeMap;
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 
 impl super::SessionClient {
     /// Fetch Principal objects by IDs (RFC 9670 §2.1).
@@ -165,7 +167,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse<jmap_sharing_types::Principal>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "principal_set: at least one of create, update, destroy must be Some \

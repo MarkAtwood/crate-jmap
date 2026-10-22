@@ -23,8 +23,8 @@ pub mod methods;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
-    SetError, SetResponse,
+    AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
+    SessionClient, SetError, SetResponse,
 };
 
 /// Extension trait adding JMAP Sharing methods to [`jmap_base_client::JmapClient`].

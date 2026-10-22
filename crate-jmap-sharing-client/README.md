@@ -80,12 +80,12 @@ All method implementations live on `SessionClient` in the `methods/` submodules.
 |---|---|---|
 | `Principal/get` | `principal_get` | `GetResponse<Principal>` |
 | `Principal/changes` | `principal_changes` | `ChangesResponse` |
-| `Principal/set` | `principal_set` | `SetResponse<Principal>` |
+| `Principal/set` | `principal_set` | `SetResponse<PartialObject>` |
 | `Principal/query` | `principal_query` | `QueryResponse` |
 | `Principal/queryChanges` | `principal_query_changes` | `QueryChangesResponse` |
 | `ShareNotification/get` | `share_notification_get` | `GetResponse<ShareNotification>` |
 | `ShareNotification/changes` | `share_notification_changes` | `ChangesResponse` |
-| `ShareNotification/set` | `share_notification_set` | `SetResponse` |
+| `ShareNotification/set` | `share_notification_set` | `SetResponse<PartialObject>` |
 | `ShareNotification/query` | `share_notification_query` | `QueryResponse` |
 | `ShareNotification/queryChanges` | `share_notification_query_changes` | `QueryChangesResponse` |
 
