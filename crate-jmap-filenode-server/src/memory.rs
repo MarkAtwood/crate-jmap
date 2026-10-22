@@ -1316,6 +1316,44 @@ mod tests {
         .expect("fixture FileNode must deserialize")
     }
 
+    /// Oracle: the wire strings `"home"` / `"File"` in hand-written JSON
+    /// (draft-ietf-jmap-filenode-16 §3.2.5: `nodeType` and `role` are exact
+    /// matches). A hand-built `NodeRole::Other("home")` carries the same
+    /// wire string as `NodeRole::Home`, so it must match a Home node too.
+    #[test]
+    fn node_matches_filter_node_type_and_role() {
+        let mut home: FileNode = make_filenode("h", "home");
+        home.role = serde_json::from_value(json!("home")).expect("role");
+        let file: FileNode = serde_json::from_value(json!({
+            "id": "f", "name": "a.txt", "parentId": null, "role": null,
+            "@type": "File", "blobId": "b1", "size": 0,
+            "created": "1970-01-01T00:00:00Z", "modified": "1970-01-01T00:00:00Z"
+        }))
+        .expect("fixture File node must deserialize");
+        let nodes = HashMap::new();
+        let fc = |v| -> jmap_filenode_types::FileNodeFilterCondition {
+            serde_json::from_value(v).expect("filter condition")
+        };
+        let matches = |n: &FileNode, c: &jmap_filenode_types::FileNodeFilterCondition| {
+            node_matches_filter(n, Some(c), &nodes).expect("no cycle")
+        };
+
+        let by_role = fc(json!({ "role": "home" }));
+        assert!(matches(&home, &by_role));
+        assert!(!matches(&file, &by_role), "null role must not match");
+
+        let by_type = fc(json!({ "nodeType": "File" }));
+        assert!(matches(&file, &by_type));
+        assert!(!matches(&home, &by_type), "Directory must not match File");
+
+        let mut other_home = fc(json!({}));
+        other_home.role = Some(NodeRole::Other("home".into()));
+        assert!(matches(&home, &other_home));
+        let mut other_file = fc(json!({}));
+        other_file.node_type = Some(NodeType::Other("File".into()));
+        assert!(matches(&file, &other_file));
+    }
+
     /// Oracle: with_account on an existing account is a no-op — pre-existing
     /// nodes, state counter, and change log all survive (bd:JMAP-510h.41).
     /// The original `HashMap::insert` semantics would have replaced the
