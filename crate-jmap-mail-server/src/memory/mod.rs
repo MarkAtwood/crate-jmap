@@ -255,9 +255,9 @@ enum IdFate {
 /// **Known limitation**: the internal change log grows without bound. This is
 /// intentional for unit tests (which are short-lived).
 ///
-/// Note: `query_changes` is a stub — it ignores filter, sort, max_changes,
-/// up_to_id, and collapse_threads. Do not write tests that rely on these
-/// parameters with MemoryBackend.
+/// Note: `query_changes` applies filter, sort, max_changes and up_to_id but
+/// ignores collapse_threads. Do not write tests that rely on collapse_threads
+/// with MemoryBackend.
 #[derive(Clone, Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
