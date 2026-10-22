@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: `Urgency` implements `Serialize` and `Deserialize` as
+  its RFC 8030 §5.3 header string; any other string is a deserialize
+  error. `jmap-chat-types`: `UrgencyLevel::to_urgency` (bd JMAP-skk9.5).
 - **jmap-chat-server**: `MemoryBackend::set_space_everyone_permissions`
   sets the implicit `@everyone` role's permissions of one Space,
   replacing the `set_everyone_permissions` set there, in
@@ -1335,6 +1338,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-types**, **jmap-chat-server**: **BREAKING**
+  `ChatPushCapability.supported_urgency_values` is `Vec<jmap_types::Urgency>`
+  and `BuiltPush.urgency` is `jmap_types::Urgency`, both previously the open
+  `UrgencyLevel`. draft-atwood-jmap-chat-push-00 closes
+  `supportedUrgencyValues` to the four RFC 8030 values, so a capability
+  listing another string now fails to deserialize, and a built push always
+  carries a sendable `Urgency` header. `UrgencyLevel` stays on the
+  client-supplied `ChatPushConfig.urgency` / `mentionUrgency`, where an
+  unknown value must be reported as `invalidProperties`; `validate_chat_push`
+  now rejects such a value even if it were advertised (bd JMAP-skk9.5).
 - **jmap-calendars-types**, **jmap-tasks-types**: **BREAKING**
   `CalendarsAccountCapability::max_expanded_query_duration`,
   `PrincipalsAvailabilityAccountCapability::max_availability_duration`

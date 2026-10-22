@@ -15,11 +15,10 @@
 //! (`draft-atwood-jmap-chat-did-00`). A marker's value is an empty object,
 //! so only its URI constant is defined here, with no struct.
 
-use jmap_types::impl_string_enum;
+use jmap_types::{impl_string_enum, Urgency};
 use serde::{Deserialize, Serialize};
 
 use crate::message::BodyType;
-use crate::push::UrgencyLevel;
 
 /// Capability URI for core JMAP Chat support (draft-atwood-jmap-chat-00 §3).
 pub const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
@@ -246,15 +245,14 @@ pub struct ChatPushCapability {
     /// Truncation occurs on a UTF-8 boundary.
     pub max_snippet_bytes: u64,
     /// Supported Web Push urgency values.
-    /// MUST include at least [`UrgencyLevel::Normal`] and
-    /// [`UrgencyLevel::High`].
+    /// MUST include at least [`Urgency::Normal`] and [`Urgency::High`].
     ///
-    /// Element type is [`UrgencyLevel`] rather than `String` so callers can
-    /// match on the typed variants directly. Canonical wire strings
-    /// (`"very-low"`, `"low"`, `"normal"`, `"high"`) deserialize to typed
-    /// variants; unknown wire strings land in [`UrgencyLevel::Other`] per
-    /// the `impl_string_enum!` round-trip contract.
-    pub supported_urgency_values: Vec<UrgencyLevel>,
+    /// The element type is the closed [`Urgency`]: draft-atwood-jmap-chat-push-00
+    /// §Capability: "Valid values are `"very-low"`, `"low"`, `"normal"`,
+    /// and `"high"`." Any other string fails to
+    /// deserialize, so a server cannot advertise a value it could not send
+    /// as an RFC 8030 `Urgency` header.
+    pub supported_urgency_values: Vec<Urgency>,
     /// Maximum number of `ChatMessageEntry` objects per push payload.
     /// `None` means the server does not impose a bound.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -500,10 +498,23 @@ mod tests {
         assert_eq!(cap.max_snippet_bytes, 256);
         assert_eq!(
             cap.supported_urgency_values,
-            vec![UrgencyLevel::Normal, UrgencyLevel::High]
+            vec![Urgency::Normal, Urgency::High]
         );
         assert!(cap.max_messages_per_push.is_none());
         assert!(cap.extra.is_empty());
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-push-00 line 98, on
+    /// `supportedUrgencyValues`: "Valid values are `"very-low"`, `"low"`,
+    /// `"normal"`, and `"high"`." A capability advertising anything else
+    /// is rejected rather than carried as an unsendable value.
+    #[test]
+    fn chat_push_capability_rejects_non_rfc8030_urgency() {
+        let raw = json!({
+            "maxSnippetBytes": 256_u64,
+            "supportedUrgencyValues": ["normal", "high", "urgent"]
+        });
+        assert!(serde_json::from_value::<ChatPushCapability>(raw).is_err());
     }
 
     /// Oracle: optional field present serialises with the optional key.

@@ -2,15 +2,18 @@
 
 use crate::chat::ChatKind;
 use crate::message::BroadcastScope;
-use jmap_types::{impl_string_enum, Id, State, UTCDate};
+use jmap_types::{impl_string_enum, Id, State, UTCDate, Urgency};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// Web Push urgency level per draft-atwood-jmap-chat-push-00 §4.1
-/// and RFC 8030 Section 5.3.
+/// A client-supplied Web Push urgency in [`ChatPushConfig`]
+/// (draft-atwood-jmap-chat-push-00 §ChatPushConfig, RFC 8030 Section 5.3).
 ///
-/// Servers MUST support at least `Normal` and `High`. `Other`
-/// preserves any future value for round-trip fidelity.
+/// `Other` keeps a value outside RFC 8030 so a server can name it in an
+/// `invalidProperties` SetError ("If the client supplies a value not in
+/// `supportedUrgencyValues`, the server MUST return an `invalidProperties`
+/// SetError"). Everything the server advertises or sends uses the closed
+/// [`Urgency`]; [`to_urgency`](Self::to_urgency) converts.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UrgencyLevel {
@@ -32,6 +35,19 @@ impl_string_enum!(UrgencyLevel, "a web-push urgency string",
     "normal" => Normal,
     "high" => High,
 );
+
+impl UrgencyLevel {
+    /// The RFC 8030 [`Urgency`] for this value, or `None` for `Other`.
+    pub fn to_urgency(&self) -> Option<Urgency> {
+        match self {
+            Self::VeryLow => Some(Urgency::VeryLow),
+            Self::Low => Some(Urgency::Low),
+            Self::Normal => Some(Urgency::Normal),
+            Self::High => Some(Urgency::High),
+            Self::Other(_) => None,
+        }
+    }
+}
 
 /// Client-supplied filter controlling which push notifications are delivered.
 ///
@@ -579,6 +595,20 @@ mod tests {
         );
         let back = serde_json::to_string(&cfg).unwrap();
         assert_eq!(back, json);
+    }
+
+    /// Oracle: RFC 8030 §5.3 `urgency-option` strings. Each wire value
+    /// parsed as a `ChatPushConfig.urgency` maps to the `Urgency` whose
+    /// header value is the same string; a value outside the grammar has
+    /// no `Urgency`.
+    #[test]
+    fn urgency_level_to_urgency_matches_header_value() {
+        for wire in ["very-low", "low", "normal", "high"] {
+            let level: UrgencyLevel = serde_json::from_value(serde_json::json!(wire)).unwrap();
+            assert_eq!(level.to_urgency().map(Urgency::as_str), Some(wire));
+        }
+        let other: UrgencyLevel = serde_json::from_value(serde_json::json!("urgent")).unwrap();
+        assert_eq!(other.to_urgency(), None);
     }
 
     /// Oracle: a ChatPushConfig with typed `kinds` round-trips
