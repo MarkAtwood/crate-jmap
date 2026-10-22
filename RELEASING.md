@@ -284,6 +284,24 @@ other `jmap-chat-types` field changes), so the shared line is now `0.3.x`
 and the workspace dependency requirements are `"0.3"`. `CHANGELOG.md` lists
 every break.
 
+### Third-party majors in public APIs
+
+Some crates expose third-party types: `jmap_peer_auth::ed25519_dalek`
+(re-export), `reqwest::Client` and `reqwest::ClientBuilder` in
+`jmap-base-client`, `jmap-did-resolver`, `jmap-peer-auth-io`,
+`jmap-scene-client` and `jmap-web-push`. A major bump of such a
+dependency is a minor bump of ours (the pre-1.0 breaking bump), listed as
+**BREAKING** in `CHANGELOG.md`.
+
+`ed25519-dalek` is on 3. `reqwest` stays on 0.12 because 0.13 has no
+ring-backed TLS that works without process-global setup. Its `rustls`
+feature uses aws-lc-rs and the OS trust store (rustls-platform-verifier)
+rather than ring and the bundled webpki-roots. Its `rustls-no-provider`
+feature panics in `ClientBuilder::build` unless a rustls `CryptoProvider`
+is installed process-wide first, including in clients built by our
+callers. Moving to 0.13 is a later breaking release that picks one of
+those trade-offs (bd:JMAP-wf92.14).
+
 ## Tracking
 
 This file was first written for issue **JMAP-sc1b.23** (P3 publish-readiness

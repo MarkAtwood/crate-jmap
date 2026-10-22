@@ -1309,6 +1309,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `jmap-peer-auth` and `jmap-did-types` move to
+  `ed25519-dalek` 3 (from 2). `jmap_peer_auth::ed25519_dalek` re-exports
+  the new major, so `SigningKey`, `VerifyingKey` and `Signature` values
+  built with `ed25519-dalek` 2 no longer type-check; depend on
+  `ed25519-dalek = "3"` (bd:JMAP-wf92.14). `reqwest` stays at 0.12; see
+  `RELEASING.md` §Third-party majors in public APIs.
 - **BREAKING** `jmap_mail_server::MailBackend::copy_email` and
   `jmap_contacts_server::ContactsBackend::copy_contact_card` are replaced
   by the generic `copy_object<O: SetObject>(caller, from_account_id,

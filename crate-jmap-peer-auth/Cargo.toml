@@ -12,7 +12,7 @@ categories = ["authentication", "cryptography"]
 
 [dependencies]
 base64 = "0.22"
-ed25519-dalek = "2.2"
+ed25519-dalek = "3"
 getrandom = { workspace = true, features = ["std"] }
 http = { workspace = true }
 idna = "1"
