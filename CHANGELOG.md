@@ -1338,6 +1338,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `#[non_exhaustive]` on `jmap_chat_client::RsvpStatus`
+  (RFC 8984 §4.4.6 `participationStatus` is registry-extensible) and
+  `jmap_filenode_client::FileNodeOnExists` (the `onExists` value set
+  grew in draft-ietf-jmap-filenode-14 and -16). A `match` on either
+  outside its crate needs a wildcard arm.
 - **jmap-tasks-types**: **BREAKING** `Task.related_to`, `locations`,
   `virtual_locations`, `links`, `recurrence_rules`,
   `excluded_recurrence_rules`, `participants`, `alerts` and `time_zones`

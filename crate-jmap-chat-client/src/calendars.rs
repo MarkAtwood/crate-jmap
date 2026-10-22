@@ -15,7 +15,25 @@ use serde_json::{Map, Value};
 /// draft-atwood-jmap-chat-calendars-00 limits the RSVP patch to one of
 /// `"accepted"`, `"declined"`, `"tentative"` or `"delegated"`
 /// (RFC 8984 §4.4.6 `participationStatus`).
+///
+/// `participationStatus` is an IANA-registry-extensible set (RFC 8984
+/// §4.4.6 also defines `"needs-action"`), so this enum is
+/// `#[non_exhaustive]` and a `match` outside this crate needs a wildcard
+/// arm:
+///
+/// ```compile_fail
+/// use jmap_chat_client::RsvpStatus;
+/// fn f(s: RsvpStatus) -> u8 {
+///     match s {
+///         RsvpStatus::Accepted => 0,
+///         RsvpStatus::Declined => 1,
+///         RsvpStatus::Tentative => 2,
+///         RsvpStatus::Delegated => 3,
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum RsvpStatus {
     /// `"accepted"`: the participant will participate.
     Accepted,
