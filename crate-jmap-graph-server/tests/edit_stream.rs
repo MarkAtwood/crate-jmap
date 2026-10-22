@@ -85,7 +85,19 @@ async fn delivers(
     sub: &GraphEditSubscription,
     e: &GraphEditEvent,
 ) -> bool {
-    should_deliver(backend, &Id::from(to), &Id::from(ACCOUNT), sub, e)
+    delivers_with_own_account(backend, to, ACCOUNT, sub, e).await
+}
+
+/// [`delivers`] with `own_account` as the recipient's own account, apart
+/// from the event's hosting account [`ACCOUNT`].
+async fn delivers_with_own_account(
+    backend: &MemoryBackend,
+    to: &str,
+    own_account: &str,
+    sub: &GraphEditSubscription,
+    e: &GraphEditEvent,
+) -> bool {
+    should_deliver(backend, &Id::from(to), &Id::from(own_account), sub, e)
         .await
         .expect("backend")
 }
@@ -228,6 +240,38 @@ async fn cursor_block_needs_chat() {
     }));
     backend.block(&Id::from(ALICE), &Id::from(BOB));
     assert!(delivers(&backend, ALICE, &sub, &cursor_event(&n, BOB)).await);
+}
+
+/// L370 at 29e9a41: the block rule applies "When {{JMAP-CHAT}} is also
+/// available" to the recipient, so Chat is read from the recipient's own
+/// account, not from the node's hosting account [`ACCOUNT`] (a cursor
+/// event's `accountId`). Hosted in an account with Chat, a recipient whose
+/// own account lacks it still gets the cursor; in the reverse case the
+/// block applies.
+#[tokio::test]
+async fn cursor_block_reads_chat_on_recipient_account() {
+    const ALICE_OWN: &str = "A-alice";
+    let backend = backend();
+    let (_, n) = graph_and_node(&backend, json!({ BOB: rights(true, true, false) })).await;
+    let sub = subscribe(json!({
+        "@type": "GraphEditStreamEnable", "nodeIds": [n], "dataTypes": ["cursors"]
+    }));
+    backend.block(&Id::from(ALICE), &Id::from(BOB));
+    let e = cursor_event(&n, BOB);
+
+    backend.advertise(&Id::from(ACCOUNT), CHAT_URI);
+    assert!(delivers_with_own_account(&backend, ALICE, ALICE_OWN, &sub, &e).await);
+
+    let backend = backend_with(Value::Null);
+    let (_, n) = graph_and_node(&backend, json!({ BOB: rights(true, true, false) })).await;
+    let sub = subscribe(json!({
+        "@type": "GraphEditStreamEnable", "nodeIds": [n], "dataTypes": ["cursors"]
+    }));
+    backend.block(&Id::from(ALICE), &Id::from(BOB));
+    backend.advertise(&Id::from(ALICE_OWN), CHAT_URI);
+    assert!(
+        !delivers_with_own_account(&backend, ALICE, ALICE_OWN, &sub, &cursor_event(&n, BOB)).await
+    );
 }
 
 /// `urn:ietf:params:jmap:chat`, draft-atwood-jmap-chat-00 §Capability.

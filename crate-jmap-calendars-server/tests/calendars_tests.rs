@@ -13,8 +13,9 @@ mod common;
 use common::MemoryBackend;
 use jmap_calendars_server::{
     handle_calendar_changes, handle_calendar_event_changes, handle_calendar_event_get,
-    handle_calendar_event_query, handle_calendar_event_set, handle_calendar_get,
-    handle_calendar_set, handle_participant_identity_get, handle_participant_identity_set,
+    handle_calendar_event_notification_query, handle_calendar_event_query,
+    handle_calendar_event_set, handle_calendar_get, handle_calendar_set,
+    handle_participant_identity_get, handle_participant_identity_set,
 };
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
@@ -624,5 +625,52 @@ async fn calendar_event_query_evaluates_operator_tree() {
             .await
             .expect("/query must not return top-level error");
         assert_eq!(resp["ids"], want, "filter {filter}: {resp}");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The reference backend rejects a filter it cannot evaluate
+// Oracle: RFC 8620 §5.5 "A server MUST reject the call with an
+// unsupportedFilter error if it cannot process the given filter." The
+// reference MemoryBackend evaluates only `inCalendar` on CalendarEvent and
+// nothing on CalendarEventNotification, so each hand-written filter below
+// names something it cannot evaluate. Counting the unevaluated condition as
+// a match would make the NOT case return an empty list instead.
+// Bead: JMAP-skk9.19.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn calendar_query_rejects_filter_backend_cannot_evaluate() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "CalendarEvent",
+        "e1",
+        json!({ "id": "e1", "calendarIds": { "cal1": true } }),
+    );
+    for filter in [
+        json!({ "operator": "NOT", "conditions": [{ "after": "2026-01-01T00:00:00" }] }),
+        json!({ "operator": "AND", "conditions": [
+            { "inCalendar": "cal1" },
+            { "title": "standup" },
+        ] }),
+        json!({ "inCalendar": "cal1", "text": "standup" }),
+    ] {
+        let args = json!({ "accountId": "acc1", "filter": filter });
+        let err = handle_calendar_event_query(&backend, &(), args)
+            .await
+            .expect_err("an unevaluable CalendarEvent filter must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{filter}");
+    }
+
+    for filter in [
+        json!({ "operator": "NOT", "conditions": [{ "calendarEventIds": ["e1"] }] }),
+        json!({ "type": "created" }),
+    ] {
+        let args = json!({ "accountId": "acc1", "filter": filter });
+        let err = handle_calendar_event_notification_query(&backend, &(), args)
+            .await
+            .expect_err("an unevaluable CalendarEventNotification filter must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{filter}");
     }
 }
