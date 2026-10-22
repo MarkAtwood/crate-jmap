@@ -1320,6 +1320,10 @@ wire behaviour that a conforming peer can observe.
   **jmap-sharing-client** (`principal_set`, `share_notification_set`):
   the same `if_in_state: Option<&State>` argument, placed as on
   jmap-mail-client.
+- **BREAKING** **jmap-vtc-client**, **jmap-scene-client** and
+  **jmap-graph-client**: every `*_set` method (including
+  `graph_node_op_set`, a standard `/set` per draft-atwood-jmap-graph-edit-00
+  L206) takes a trailing `if_in_state: Option<&State>`.
 - **BREAKING** **jmap-base-client** and every extension client: each
   `*_query` method (and chat `Batch::chat_query_get` /
   `message_query_get`) takes `params: &QueryParams` in place of the

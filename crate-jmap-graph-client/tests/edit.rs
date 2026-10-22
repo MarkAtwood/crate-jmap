@@ -125,9 +125,12 @@ async fn graph_node_op_set_matches_submitting_example() {
     )
     .await;
     let resp = make_client(&server)
-        .graph_node_op_set(json!({
-            "o1": { "nodeId": "N1", "baseSeq": 41, "data": "AAECAwQF" }
-        }))
+        .graph_node_op_set(
+            json!({
+                "o1": { "nodeId": "N1", "baseSeq": 41, "data": "AAECAwQF" }
+            }),
+            None,
+        )
         .await
         .expect("GraphNodeOp/set must succeed");
 
@@ -357,4 +360,71 @@ async fn graph_node_cursor_sends_arguments() {
     );
     assert_eq!(resp.account_id, Id::from("A1"));
     assert_eq!(resp.node_id, Id::from("N1"));
+}
+
+// RFC 8620 §5.3 `ifInState` on every `/set` method. Oracle: RFC 8620
+// §5.3, "ifInState: `String|null` This is a state string as returned by
+// the `Foo/get` method ... If supplied, the string must match the current
+// state; otherwise, the method will be aborted and a `stateMismatch` error
+// returned. If null, any changes will be applied to the current state."
+// Each call is checked on the recorded request body only.
+
+const SET_METHODS: [&str; 4] = [
+    "Graph/set",
+    "GraphEdge/set",
+    "GraphNode/set",
+    "GraphNodeOp/set",
+];
+
+async fn serve_empty() -> MockServer {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({ "sessionState": "s1", "methodResponses": [] })),
+        )
+        .mount(&server)
+        .await;
+    server
+}
+
+/// `(method name, ifInState argument)` of each request sent.
+async fn sent_if_in_state(server: &MockServer) -> Vec<(String, Option<Value>)> {
+    let reqs = server.received_requests().await.expect("recorded requests");
+    reqs.iter()
+        .map(|r| {
+            let body: Value = serde_json::from_slice(&r.body).expect("JSON body");
+            let call = &body["methodCalls"][0];
+            let name = call[0].as_str().expect("method name").to_owned();
+            (name, call[1].get("ifInState").cloned())
+        })
+        .collect()
+}
+
+async fn send_all_set(server: &MockServer, if_in_state: Option<&State>) {
+    let sc = make_client(server);
+    let d = || Some(vec![Id::from("x")]);
+    let _ = sc.graph_set(None, None, d(), if_in_state).await;
+    let _ = sc.graph_edge_set(None, None, d(), if_in_state).await;
+    let _ = sc.graph_node_set(None, None, d(), if_in_state).await;
+    let _ = sc.graph_node_op_set(json!({ "c1": {} }), if_in_state).await;
+}
+
+#[tokio::test]
+async fn set_sends_some_if_in_state() {
+    let server = serve_empty().await;
+    send_all_set(&server, Some(&State::from("s-guard"))).await;
+    let want: Vec<_> = SET_METHODS
+        .iter()
+        .map(|m| (m.to_string(), Some(json!("s-guard"))))
+        .collect();
+    assert_eq!(sent_if_in_state(&server).await, want);
+}
+
+#[tokio::test]
+async fn set_omits_none_if_in_state() {
+    let server = serve_empty().await;
+    send_all_set(&server, None).await;
+    let want: Vec<_> = SET_METHODS.iter().map(|m| (m.to_string(), None)).collect();
+    assert_eq!(sent_if_in_state(&server).await, want);
 }
