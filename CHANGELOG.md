@@ -1329,6 +1329,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**, **jmap-chat-server**, **jmap-chat-mimi-server**,
+  **jmap-calendars-server**, **jmap-contacts-server**,
+  **jmap-tasks-server**, **jmap-sharing-server**,
+  **jmap-filenode-server**, **jmap-graph-server**,
+  **jmap-scene-server**, **jmap-vtc-server**: **BREAKING**
+  `MemoryBackend` is `#[non_exhaustive]`, so fields can be added
+  without a further break; build it with `MemoryBackend::new()` (or
+  `Default` where implemented).
 - **jmap-types**: **BREAKING** `SetResponse<T>` has no default type
   parameter (was `T = serde_json::Value`), so a signature can no longer
   depend on it silently; name the type, normally `PartialObject` for

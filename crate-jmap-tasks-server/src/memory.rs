@@ -269,6 +269,7 @@ impl Inner {
 /// with independent state, construct a fresh `MemoryBackend::new()` and seed
 /// it via `register_account` / the typed test helpers.
 #[derive(Default)]
+#[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
 }

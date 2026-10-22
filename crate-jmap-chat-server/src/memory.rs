@@ -220,6 +220,7 @@ impl Inner {
 /// counter and records a change log entry. Used as both the integration-test
 /// harness and the canonical example for backend implementors.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
 }

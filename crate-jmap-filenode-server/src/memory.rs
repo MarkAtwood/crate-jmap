@@ -234,6 +234,7 @@ impl MemoryState {
 ///
 /// Cloning is cheap: the clone shares the same `Arc<Mutex<…>>`.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<MemoryState>>,
 }

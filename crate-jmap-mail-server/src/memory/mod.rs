@@ -260,6 +260,7 @@ enum IdFate {
 /// up_to_id, and collapse_threads. Do not write tests that rely on these
 /// parameters with MemoryBackend.
 #[derive(Clone, Default)]
+#[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
 }

@@ -355,6 +355,7 @@ impl Inner {
 ///
 /// `Clone` is a cheap `Arc` clone: every clone shares the same state.
 #[derive(Clone, Default)]
+#[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
 }
