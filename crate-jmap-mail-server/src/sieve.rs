@@ -38,7 +38,7 @@ pub(crate) const SIEVE_ERR_INVALID: &str = "invalidSieve";
 pub(crate) const SIEVE_ERR_IS_ACTIVE: &str = "sieveIsActive";
 
 use jmap_mail_types::SieveScript;
-use jmap_types::{Id, JmapError, PatchObject};
+use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -174,6 +174,19 @@ pub trait SieveBackend: jmap_server::JmapBackend {
 struct SieveScriptFilter {
     name: Option<String>,
     is_active: Option<bool>,
+}
+
+/// `true` if `script` matches one `SieveScript/query` FilterCondition.
+///
+/// `name` is a case-sensitive substring match (a script without a name
+/// never matches it); `isActive` is an exact match.
+fn sieve_script_matches_condition(script: &SieveScript, cond: &SieveScriptFilter) -> bool {
+    cond.name
+        .as_deref()
+        .is_none_or(|needle| script.name.as_deref().is_some_and(|n| n.contains(needle)))
+        && cond
+            .is_active
+            .is_none_or(|active| script.is_active == active)
 }
 
 // ---------------------------------------------------------------------------
@@ -1063,8 +1076,9 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // Step 2: parse filter (optional).
-    let filter: Option<SieveScriptFilter> = filter_arg(&mut args)?;
+    // Step 2: parse filter (optional). RFC 8620 §5.5: the filter is
+    // "FilterOperator|FilterCondition|null", so AND/OR/NOT trees decode too.
+    let filter: Option<Filter<SieveScriptFilter>> = filter_arg(&mut args)?;
 
     // Step 3: parse pagination arguments.
     let position: i64 = match args.remove("position") {
@@ -1110,27 +1124,9 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     let filtered: Vec<&SieveScript> = all_scripts
         .iter()
         .filter(|s| {
-            if let Some(ref f) = filter {
-                // name filter: substring match (case-sensitive per spec default).
-                if let Some(ref name_needle) = f.name {
-                    match &s.name {
-                        Some(n) => {
-                            if !n.contains(name_needle.as_str()) {
-                                return false;
-                            }
-                        }
-                        // Script with no name does not match a name filter.
-                        None => return false,
-                    }
-                }
-                // isActive filter: exact boolean match.
-                if let Some(active) = f.is_active {
-                    if s.is_active != active {
-                        return false;
-                    }
-                }
-            }
-            true
+            filter
+                .as_ref()
+                .is_none_or(|f| f.matches(&|c| sieve_script_matches_condition(s, c)))
         })
         .collect();
 

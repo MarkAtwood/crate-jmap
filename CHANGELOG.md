@@ -2794,6 +2794,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: `SieveScript/query` now accepts an RFC 8620 §5.5
+  `FilterOperator` tree (`AND`/`OR`/`NOT` over `name`/`isActive`
+  conditions) and evaluates it with `Filter::matches`, instead of
+  refusing every operator tree with `unsupportedFilter` (bd JMAP-skk9.17).
 - **BREAKING** **jmap-mail-server**: `EmailSubmission/query` and
   `EmailSubmission/queryChanges` now decode `sort` as
   `EmailSubmissionComparator[]` and pass it to the backend instead of

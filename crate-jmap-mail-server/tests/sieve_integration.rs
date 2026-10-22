@@ -638,6 +638,87 @@ async fn sieve_query_filter_active() {
     assert!(extra.is_empty(), "query must produce no extra invocations");
 }
 
+/// SieveScript/query evaluates AND/OR/NOT filter trees.
+///
+/// Oracle: RFC 8620 §5.5 — `filter` is "FilterOperator|FilterCondition|null";
+/// "AND: All of the conditions must match", "OR: At least one of the
+/// conditions must match", "NOT: None of the conditions must match".
+/// Expected ids are worked out by hand from the three scripts below
+/// (`alpha` active; `beta`, `gamma` inactive), in the handler's
+/// name-ascending order.
+#[tokio::test]
+async fn sieve_query_filter_operator_trees() {
+    let backend = MemoryBackend::new();
+    let account_id = setup_account(&backend).await;
+    store_valid_blob(&backend);
+
+    let create_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "A": { "name": "alpha", "blobId": "valid-script-blob" },
+            "B": { "name": "beta", "blobId": "valid-script-blob" },
+            "G": { "name": "gamma", "blobId": "valid-script-blob" }
+        },
+        "onSuccessActivateScript": "#A"
+    });
+    let created = handle_sieve_set(&backend, &(), create_args)
+        .await
+        .expect("create must succeed")
+        .primary;
+    let id = |k: &str| {
+        created["created"][k]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("created.{k}.id missing: {created}"))
+            .to_owned()
+    };
+    let (a, b, g) = (id("A"), id("B"), id("G"));
+
+    let cases = [
+        (
+            serde_json::json!({ "operator": "OR", "conditions": [
+                { "name": "alpha" }, { "name": "gamma" }
+            ]}),
+            vec![a.clone(), g.clone()],
+        ),
+        (
+            serde_json::json!({ "operator": "NOT", "conditions": [
+                { "isActive": true }
+            ]}),
+            vec![b.clone(), g.clone()],
+        ),
+        (
+            serde_json::json!({ "operator": "AND", "conditions": [
+                { "name": "a" },
+                { "operator": "NOT", "conditions": [{ "name": "alpha" }] }
+            ]}),
+            vec![b.clone(), g.clone()],
+        ),
+        (
+            serde_json::json!({ "operator": "AND", "conditions": [
+                { "isActive": true }, { "name": "beta" }
+            ]}),
+            vec![],
+        ),
+    ];
+    for (filter, expected) in cases {
+        let query_args = serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": filter
+        });
+        let resp = handle_sieve_query(&backend, &(), query_args)
+            .await
+            .unwrap_or_else(|e| panic!("filter {filter} must be accepted: {e:?}"))
+            .primary;
+        let ids: Vec<&str> = resp["ids"]
+            .as_array()
+            .expect("ids must be an array")
+            .iter()
+            .map(|v| v.as_str().expect("id must be a string"))
+            .collect();
+        assert_eq!(ids, expected, "filter {filter}; resp: {resp}");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // SieveScript/validate tests
 // ---------------------------------------------------------------------------
