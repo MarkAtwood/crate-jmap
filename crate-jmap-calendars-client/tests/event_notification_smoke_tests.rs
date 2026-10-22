@@ -273,7 +273,11 @@ async fn calendar_event_notification_query_filter_passthrough() {
     filter.after = Some(UTCDate::from("2024-06-01T00:00:00Z"));
     filter.notification_type = Some("invitation".to_owned());
     filter.calendar_event_ids = Some(vec![Id::from("ev-1")]);
-    let sort = [json!({ "property": "created", "isAscending": false })];
+    let mut created_desc = jmap_calendars_types::CalendarEventNotificationComparator::new(
+        jmap_calendars_types::CalendarEventNotificationComparatorProperty::Created,
+    );
+    created_desc.is_ascending = false;
+    let sort = [created_desc];
     let filter = Filter::Condition(filter);
 
     let _ = sc
@@ -421,7 +425,11 @@ async fn calendar_event_notification_query_changes_with_filter_sort_upto_calcula
     let mut condition = NotificationFilterCondition::default();
     condition.calendar_event_ids = Some(vec![Id::from("ev-1")]);
     let filter = Filter::Condition(condition);
-    let sort = [json!({ "property": "created", "isAscending": false })];
+    let mut created_desc = jmap_calendars_types::CalendarEventNotificationComparator::new(
+        jmap_calendars_types::CalendarEventNotificationComparatorProperty::Created,
+    );
+    created_desc.is_ascending = false;
+    let sort = [created_desc];
     sc.calendar_event_notification_query_changes(
         &since,
         None,

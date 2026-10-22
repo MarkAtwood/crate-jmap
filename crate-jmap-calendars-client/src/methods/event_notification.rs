@@ -4,6 +4,7 @@
 //! The server must reject create and update operations with `forbidden`.
 //! This method accepts only `destroy` to prevent constructing invalid requests.
 
+use jmap_calendars_types::CalendarEventNotificationComparator;
 use jmap_types::{query::Filter, Id, State};
 use serde::Serialize;
 
@@ -187,10 +188,8 @@ impl super::SessionClient {
     ///   [`NotificationFilterCondition`](jmap_calendars_types::NotificationFilterCondition).
     ///   Pass `None` to omit it; name the type when you do
     ///   (`None::<&NotificationFilter>`).
-    /// - `sort`: comparator slice. `CalendarEventNotification`'s Comparator
-    ///   type in `jmap-calendars-types` is `serde_json::Value` because the
-    ///   spec's sort properties for notifications are minimal (just
-    ///   `created`); the slice is forwarded as-is.
+    /// - `sort`: comparator slice; draft-ietf-jmap-calendars-33 §7.4.2
+    ///   names `created` as the one required sort property.
     ///
     /// # Errors
     ///
@@ -212,7 +211,7 @@ impl super::SessionClient {
     pub async fn calendar_event_notification_query<C: Serialize>(
         &self,
         filter: Option<&Filter<C>>,
-        sort: Option<&[serde_json::Value]>,
+        sort: Option<&[CalendarEventNotificationComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
@@ -225,7 +224,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = serde_json::Value::Array(s.to_vec());
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_notification_query: serializing sort failed: {e}"
+                ))
+            })?;
         }
         let req = super::build_request(
             "CalendarEventNotification/query",
@@ -273,7 +276,7 @@ impl super::SessionClient {
         since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<&Filter<C>>,
-        sort: Option<&[serde_json::Value]>,
+        sort: Option<&[CalendarEventNotificationComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -297,7 +300,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = serde_json::Value::Array(s.to_vec());
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_notification_query_changes: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

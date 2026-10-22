@@ -455,7 +455,9 @@ async fn filenode_query_changes_with_filter_sort_upto_calculatetotal() {
         &since,
         None,
         Some(&Filter::Condition(cond)),
-        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&[jmap_filenode_types::FileNodeComparator::new(
+            jmap_filenode_types::FileNodeComparatorProperty::Name,
+        )]),
         Some(&up_to),
         Some(true),
     )

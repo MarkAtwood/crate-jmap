@@ -9937,7 +9937,11 @@ async fn memory_backend_query_objects_mailbox_honors_sort_directly() {
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
-    let sort = [serde_json::json!({"property": "name", "isAscending": true})];
+    let sort: [jmap_mail_types::MailboxComparator; 1] =
+        [
+            serde_json::from_value(serde_json::json!({"property": "name", "isAscending": true}))
+                .expect("MailboxComparator must deserialize"),
+        ];
     let result = backend
         .query_objects::<Mailbox>(&(), &account_id, QueryParams::new().sort(Some(&sort)))
         .await

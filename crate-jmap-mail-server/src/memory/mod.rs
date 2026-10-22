@@ -81,7 +81,8 @@ use crate::{
 };
 use jmap_mail_types::{
     query::{
-        ComparatorProperty, EmailComparator, EmailFilter, EmailSubmissionFilter, Filter, Operator,
+        ComparatorProperty, EmailComparator, EmailFilter, EmailSubmissionFilter, Filter,
+        MailboxComparator, MailboxComparatorProperty, Operator,
     },
     submission::{EmailSubmission, EmailSubmissionFilterCondition},
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
@@ -354,7 +355,7 @@ impl MemoryBackend {
         &self,
         account_id: &Id,
         filter: Option<&MailboxFilterCondition>,
-        sort: &[(String, bool)],
+        sort: &[MailboxComparator],
         limit: Option<u64>,
         position: i64,
         anchor: Option<&Id>,
@@ -382,20 +383,20 @@ impl MemoryBackend {
         };
 
         // Sort by client comparators with id tiebreak for stable pagination.
-        // Unknown properties are pre-rejected by the handler; treat any leftover
-        // as Equal so we never panic on a malformed comparator slipping through.
+        // `Other` properties are pre-rejected by the handler; treat any leftover
+        // as Equal so we never panic on a comparator slipping through.
         matching.sort_by(|a, b| {
             let mut ord = std::cmp::Ordering::Equal;
-            for (prop, asc) in sort {
+            for c in sort {
                 if ord != std::cmp::Ordering::Equal {
                     break;
                 }
-                let cmp = match prop.as_str() {
-                    "name" => a.name.cmp(&b.name),
-                    "sortOrder" => a.sort_order.cmp(&b.sort_order),
+                let cmp = match c.property {
+                    MailboxComparatorProperty::Name => a.name.cmp(&b.name),
+                    MailboxComparatorProperty::SortOrder => a.sort_order.cmp(&b.sort_order),
                     _ => std::cmp::Ordering::Equal,
                 };
-                ord = if *asc { cmp } else { cmp.reverse() };
+                ord = if c.is_ascending { cmp } else { cmp.reverse() };
             }
             if ord == std::cmp::Ordering::Equal {
                 a.id.as_ref().cmp(b.id.as_ref())
@@ -759,23 +760,17 @@ impl JmapBackend for MemoryBackend {
                      the JSON came from Serialize on the same concrete type",
                 )
             });
-            // Mailbox::Comparator is serde_json::Value (the wire shape per RFC 8621
-            // §2.3 — only `name` and `sortOrder` are valid properties). The handler
-            // validates property names before reaching the backend, so here we just
-            // decode each comparator into (property, isAscending).
-            let mailbox_sort: Vec<(String, bool)> = sort
+            // Type-identity roundtrip: when O::TYPE_NAME == "Mailbox" the
+            // generic O::Comparator is necessarily MailboxComparator. Same
+            // Pattern G rationale as the filter roundtrip above.
+            let mailbox_sort: Vec<MailboxComparator> = sort
                 .map(|s| {
-                    s.iter()
-                        .filter_map(|c| {
-                            let v = serde_json::to_value(c).ok()?;
-                            let prop = v.get("property")?.as_str()?.to_owned();
-                            let asc = v
-                                .get("isAscending")
-                                .and_then(|x| x.as_bool())
-                                .unwrap_or(true);
-                            Some((prop, asc))
-                        })
-                        .collect()
+                    let v = serde_json::to_value(s)
+                        .expect("derive(Serialize) on plain data is infallible");
+                    serde_json::from_value(v).expect(
+                        "type-identity roundtrip on Vec<MailboxComparator> is infallible: \
+                         the JSON came from Serialize on the same concrete type",
+                    )
                 })
                 .unwrap_or_default();
             return self

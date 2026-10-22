@@ -1343,6 +1343,37 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** Typed `/query` comparators for the remaining types whose
+  spec names sort properties, each with an `Other(String)` catch-all
+  property enum (bd JMAP-wf92.25). **jmap-mail-types**:
+  `MailboxComparator` / `MailboxComparatorProperty` (RFC 8621 §2.3
+  `sortOrder`, `name`) and `EmailSubmissionComparator` /
+  `EmailSubmissionComparatorProperty` (§7.3 `emailId`, `threadId`,
+  `sentAt`). **jmap-calendars-types**: `CalendarEventNotificationComparator`
+  (draft-ietf-jmap-calendars-33 §7.4.2 `created`).
+  **jmap-sharing-types**: `ShareNotificationComparator` (RFC 9670
+  §3.4.2 `created`). **jmap-filenode-types**: `FileNodeComparator`
+  (draft-ietf-jmap-filenode-16 §3.2.5 `tree`, `nodeType`, plus the §1
+  `fileNodeQuerySortOptions` example names). Each is now that type's
+  `QueryObject::Comparator`. Calendar, ParticipantIdentity and TaskList
+  keep `serde_json::Value` (their specs define no `/query`), and so
+  does Principal (RFC 9670 §2.4 names no sort property).
+- **BREAKING** Every client `/query` and `/queryChanges` `sort` argument
+  takes `Option<&[XxxComparator]>`, the `email_query` shape:
+  **jmap-mail-client** `mailbox_query*` and `email_submission_query*`
+  (were `Option<serde_json::Value>`), **jmap-filenode-client**
+  `filenode_query*` and **jmap-sharing-client**
+  `share_notification_query*` (were `Option<serde_json::Value>`),
+  **jmap-calendars-client** `calendar_event_notification_query*` (was
+  `Option<&[serde_json::Value]>`), and **jmap-sharing-client**
+  `principal_query*`, which takes `Option<&[serde_json::Value]>`
+  (bd JMAP-wf92.25).
+- **jmap-mail-server**: `Mailbox/query` and `Mailbox/queryChanges`
+  decode `sort` as `MailboxComparator`; a comparator with a non-boolean
+  `isAscending` or other malformed field is now `invalidArguments`
+  instead of being read as ascending (RFC 8620 §5.5). An unknown
+  property is still `unsupportedSort` (bd JMAP-wf92.25).
+
 - **jmap-metadata-server**: **BREAKING** `value_depth` returns `u64`
   and `exceeds_max_depth` takes `max_depth: u64`, matching
   `DataTypeMetadataInfo::max_depth: Option<u64>`
@@ -1653,10 +1684,10 @@ wire behaviour that a conforming peer can observe.
 - **BREAKING** Every typed `/query` comparator `property` is a typed enum
   with an `Other(String)` catch-all, the `jmap-mail-types`
   `ComparatorProperty` shape (bd JMAP-wf92.11). Comparators that are
-  still untyped `serde_json::Value` are out of scope: Calendar, CalendarEventNotification and ParticipantIdentity
-  (jmap-calendars-types), Mailbox and EmailSubmission (jmap-mail-types),
-  Principal and ShareNotification (jmap-sharing-types), TaskList
-  (jmap-tasks-types) and FileNode (jmap-filenode-types). **jmap-calendars-types**:
+  still untyped `serde_json::Value` are out of scope: Calendar and
+  ParticipantIdentity (jmap-calendars-types), Principal
+  (jmap-sharing-types) and TaskList (jmap-tasks-types); bd JMAP-wf92.25
+  typed the others. **jmap-calendars-types**:
   `CalendarEventComparatorProperty` (draft-ietf-jmap-calendars-26
   §5.11.2). **jmap-tasks-types**: `TaskComparatorProperty`
   (draft-ietf-jmap-tasks-06 §4.13) and `TaskNotificationComparatorProperty`

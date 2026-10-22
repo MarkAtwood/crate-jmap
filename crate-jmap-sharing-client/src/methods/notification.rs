@@ -12,6 +12,7 @@
 //! The server MUST reject create/update operations with `forbidden` errors.
 //! This method accepts only `destroy` to prevent constructing invalid requests.
 
+use jmap_sharing_types::ShareNotificationComparator;
 use jmap_types::{query::Filter, Id, State};
 use serde::Serialize;
 
@@ -186,7 +187,7 @@ impl super::SessionClient {
     pub async fn share_notification_query<C: Serialize>(
         &self,
         filter: Option<&Filter<C>>,
-        sort: Option<serde_json::Value>,
+        sort: Option<&[ShareNotificationComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
@@ -199,7 +200,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "share_notification_query: serializing sort failed: {e}"
+                ))
+            })?;
         }
         let req = super::build_request("ShareNotification/query", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;
@@ -251,7 +256,7 @@ impl super::SessionClient {
         since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<&Filter<C>>,
-        sort: Option<serde_json::Value>,
+        sort: Option<&[ShareNotificationComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -274,7 +279,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "share_notification_query_changes: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

@@ -21,7 +21,9 @@ pub mod filter;
 pub use backend::FileNodeProperty;
 pub use capability::{FileNodeCapability, JMAP_FILENODE_URI};
 pub use filenode::{FileNode, FilesRights, NodeRole, NodeType};
-pub use filter::{FileNodeFilter, FileNodeFilterCondition};
+pub use filter::{
+    FileNodeComparator, FileNodeComparatorProperty, FileNodeFilter, FileNodeFilterCondition,
+};
 
 /// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
 ///

@@ -262,3 +262,98 @@ pub struct NotificationFilterCondition {
 ///
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
 pub type NotificationFilter = jmap_types::query::Filter<NotificationFilterCondition>;
+
+/// The property to sort by in a [`CalendarEventNotificationComparator`]
+/// (draft-ietf-jmap-calendars-33 §7.4.2: "The "created" property MUST be
+/// supported for sorting.").
+///
+/// Unknown property names are preserved in
+/// [`Other`](CalendarEventNotificationComparatorProperty::Other) so they
+/// round-trip; a server cannot sort by one it does not know (RFC 8620 §5.5
+/// `unsupportedSort`).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CalendarEventNotificationComparatorProperty {
+    /// Sort by `created`.
+    Created,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(CalendarEventNotificationComparatorProperty,
+    "a CalendarEventNotification sort property string",
+    "created" => Created,
+);
+
+/// Comparator for `CalendarEventNotification/query`
+/// (draft-ietf-jmap-calendars-33 §7.4.2).
+///
+/// Build one with [`CalendarEventNotificationComparator::new`]; the struct
+/// is `#[non_exhaustive]`. Out of scope for extras preservation for the
+/// same reason as [`crate::CalendarEventComparator`]: backends dispatch on
+/// `property`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarEventNotificationComparator {
+    /// The property to sort by.
+    pub property: CalendarEventNotificationComparatorProperty,
+
+    /// If `true`, sort ascending; if `false`, sort descending (default `true`).
+    #[serde(default = "default_ascending")]
+    pub is_ascending: bool,
+
+    /// A collation identifier (RFC 4790) to use when comparing strings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl CalendarEventNotificationComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: CalendarEventNotificationComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
+fn default_ascending() -> bool {
+    true
+}
+
+#[cfg(test)]
+mod comparator_tests {
+    use super::*;
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §7.4.2 names "created" as the
+    /// sort property; RFC 8620 §5.5 makes `isAscending` default to true.
+    #[test]
+    fn created_comparator_decodes_from_spec_name() {
+        let c: CalendarEventNotificationComparator =
+            serde_json::from_str(r#"{"property":"created"}"#).expect("must parse");
+        assert_eq!(
+            c.property,
+            CalendarEventNotificationComparatorProperty::Created
+        );
+        assert!(c.is_ascending);
+        assert_eq!(c.collation, None);
+    }
+
+    /// Oracle: hand-written JSON; an unknown property survives as `Other`
+    /// and re-serializes unchanged (AGENTS.md comparator rule).
+    #[test]
+    fn unknown_property_round_trips() {
+        let json = serde_json::json!({"property":"calendarEventId","isAscending":false});
+        let c: CalendarEventNotificationComparator =
+            serde_json::from_value(json.clone()).expect("must parse");
+        assert_eq!(
+            c.property,
+            CalendarEventNotificationComparatorProperty::Other("calendarEventId".to_owned())
+        );
+        assert_eq!(serde_json::to_value(&c).unwrap(), json);
+    }
+}
