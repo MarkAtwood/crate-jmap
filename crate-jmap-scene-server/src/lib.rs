@@ -78,7 +78,7 @@
 //! announced by a bound Chat's push is not sent at `normal` or higher.
 //!
 //! Ephemeral subscriptions (draft-atwood-jmap-scene-wss-00
-//! §SceneStreamEnable): the [`ephemeral`] module holds the per-connection
+//! §SceneStreamEnable): [`SceneEphemeralSubscription`] holds the per-connection
 //! subscription a `SceneStreamEnable` frame replaces in its entirety, with
 //! a dynamic ([`RegionScope::All`]) or static ([`RegionScope::Only`])
 //! region scope and the `invalidArguments` check on `eventTypes`;
@@ -104,21 +104,21 @@ use std::sync::Arc;
 
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod asset;
-pub mod avatar;
+mod asset;
+mod avatar;
 mod backend;
-pub mod ephemeral;
+mod ephemeral;
 mod helpers;
-pub mod interact;
+mod interact;
 /// In-memory reference implementation of [`SceneBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production.
 #[cfg(feature = "memory")]
 pub mod memory;
-pub mod object;
-pub mod push;
+mod object;
+mod push;
 pub mod query;
-pub mod region;
+mod region;
 
 pub use asset::{
     handle_scene_asset_changes, handle_scene_asset_get, handle_scene_asset_query,

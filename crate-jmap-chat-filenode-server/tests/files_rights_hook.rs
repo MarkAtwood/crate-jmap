@@ -20,7 +20,7 @@ use std::collections::HashSet;
 
 use jmap_chat_filenode_server::space_files_rights;
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
-use jmap_filenode_server::filenode::handle_filenode_get;
+use jmap_filenode_server::handle_filenode_get;
 use jmap_filenode_server::memory::{MemoryBackend as FilesMemory, MemoryError};
 use jmap_filenode_server::{
     BackendChangesError, BackendQueryError, BackendSetError, CaseFolding, ChangesResult,

@@ -6,7 +6,7 @@
 mod common;
 
 use common::MemoryBackend;
-use jmap_filenode_server::filenode::{
+use jmap_filenode_server::{
     handle_filenode_changes, handle_filenode_get, handle_filenode_query, handle_filenode_set,
 };
 use jmap_filenode_types::FileNode;
@@ -930,7 +930,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
 // behaviour." Regression for bd JMAP-510h.1.
 // ---------------------------------------------------------------------------
 
-use jmap_filenode_server::filenode::handle_filenode_copy;
+use jmap_filenode_server::handle_filenode_copy;
 
 /// Helper: create a node and return its id.
 async fn create_node(

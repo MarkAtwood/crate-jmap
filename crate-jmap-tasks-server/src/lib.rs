@@ -40,9 +40,9 @@ mod helpers;
 /// the full module documentation.
 #[cfg(feature = "memory")]
 pub mod memory;
-pub mod task;
-pub mod task_list;
-pub mod task_notification;
+mod task;
+mod task_list;
+mod task_notification;
 
 pub use backend::TasksBackend;
 pub use jmap_server::{

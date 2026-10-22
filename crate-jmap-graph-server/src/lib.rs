@@ -53,8 +53,8 @@
 //! - [`register_graph_edit_handlers`] wires `GraphNodeOp/get`, `/changes`,
 //!   create-only `/set` (the backend assigns `seq`), `/query` and
 //!   `/queryChanges` (single `nodeId` condition with `afterSeq`, `seq`
-//!   ascending, `opsCompacted`), and `GraphNode/cursor` ([`op`]).
-//! - [`stream`] holds the per-connection `GraphEditStreamEnable`
+//!   ascending, `opsCompacted`), and `GraphNode/cursor`.
+//! - [`GraphEditSubscription`] holds the per-connection `GraphEditStreamEnable`
 //!   subscription and the [`should_deliver`] check a WebSocket transport
 //!   applies to each `GraphNodeOpEvent` and `GraphCursorEvent`.
 //!
@@ -90,20 +90,20 @@ use std::sync::Arc;
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 mod backend;
-pub mod edge;
+mod edge;
 mod edit;
-pub mod graph;
+mod graph;
 mod helpers;
 /// In-memory reference implementation of [`GraphBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production.
 #[cfg(feature = "memory")]
 pub mod memory;
-pub mod node;
-pub mod op;
+mod node;
+mod op;
 pub mod query;
 pub mod search;
-pub mod stream;
+mod stream;
 
 pub use backend::{EditLog, GraphBackend};
 pub use edge::{
@@ -195,7 +195,7 @@ where
 /// advertises [`JMAP_GRAPH_EDIT_URI`] with the account-level object
 /// [`GraphBackend::graph_edit_capability`] returns. The handlers answer
 /// `accountNotSupportedByMethod` for an account without it. The WebSocket
-/// stream frames are not methods; see [`stream`].
+/// stream frames are not methods; see [`GraphEditSubscription`].
 pub fn register_graph_edit_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: GraphBackend + 'static,

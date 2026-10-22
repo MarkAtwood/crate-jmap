@@ -33,7 +33,7 @@ use std::sync::Arc;
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 mod backend;
-pub mod filenode;
+mod filenode;
 mod helpers;
 /// In-memory reference implementation of [`FileNodeBackend`].
 ///

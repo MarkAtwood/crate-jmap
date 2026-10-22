@@ -12,10 +12,10 @@
 mod common;
 
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID, SPACE_ID};
-use jmap_chat_server::{
+use jmap_chat_server::message::{
     handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
-    ChatBackend, JmapBackend, QueryChangesParams,
 };
+use jmap_chat_server::{ChatBackend, JmapBackend, QueryChangesParams};
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, State};

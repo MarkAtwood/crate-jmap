@@ -11,9 +11,10 @@
 mod common;
 
 use common::MemoryBackend;
+use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
     handle_ban_set, handle_chat_set, handle_contact_set, handle_emoji_set, handle_invite_set,
-    handle_message_set, handle_position_set, handle_presence_set, handle_space_set,
+    handle_position_set, handle_presence_set, handle_space_set,
 };
 use jmap_types::Id;
 use serde_json::{json, Value};

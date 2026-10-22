@@ -33,9 +33,9 @@ use std::sync::Arc;
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 mod backend;
-pub mod calendar;
-pub mod event;
-pub mod event_notification;
+mod calendar;
+mod event;
+mod event_notification;
 mod helpers;
 /// In-memory reference implementation of [`CalendarsBackend`].
 ///
@@ -43,8 +43,8 @@ mod helpers;
 /// the full module documentation.
 #[cfg(feature = "memory")]
 pub mod memory;
-pub mod participant_identity;
-pub mod principal;
+mod participant_identity;
+mod principal;
 
 pub use backend::{
     AvailabilityError, CalendarEventGetArgs, CalendarEventParseResult, CalendarEventQueryArgs,

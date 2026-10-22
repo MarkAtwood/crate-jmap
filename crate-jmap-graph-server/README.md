@@ -22,7 +22,7 @@ No HTTP, no persistence, no WebSocket transport.
 | `GraphBackend` | storage, `graph_capability`, atomic rights re-checks and destroy cascades; edit hooks `graph_edit_capability`, `edit_log`, `projected_graph_id`, `publish_cursor`, `is_sender_blocked`; search hook `graph_search_capability` |
 | `register_graph_edit_handlers` | graph-edit §Methods: GraphNodeOp `/get`, `/changes`, `/set`, `/query`, `/queryChanges`, `GraphNode/cursor` |
 | `op::*` | graph-edit §GraphNodeOp/set, §GraphNodeOp/query, §GraphNode/cursor |
-| `stream::GraphEditSubscription`, `should_deliver` | graph-edit §WebSocket Stream |
+| `GraphEditSubscription`, `should_deliver` | graph-edit §WebSocket Stream |
 | `query::*` | §Graph/query, §GraphNode/query, §GraphEdge/query match and order functions |
 | `search::check_search_filter`, `search::GraphView`, `COLLATIONS` | graph-search §FilterCondition Extensions, §The Built-In Filter Language, §Visibility |
 | `memory::MemoryBackend` (feature `memory`) | reference backend, not production |

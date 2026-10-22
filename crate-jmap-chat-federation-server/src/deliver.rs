@@ -17,9 +17,11 @@ use jmap_chat_federation_types::{
     is_jmap_object_uri, PeerAttachment, PeerAvatar, PeerDeliverArgs, PeerDeliverResponse, PeerEdit,
     PeerMention, PeerMessage, PeerReactionUpdate, ReactionAction,
 };
+use jmap_chat_server::message::{
+    find_message_by_sender_msg_id, store_server_message, StoreOutcome,
+};
 use jmap_chat_server::{
-    find_message_by_sender_msg_id, resolve_channel_permissions, store_server_message,
-    BackendSetError, ChatBackend, ChatLimits, SetErrorType, StoreOutcome,
+    resolve_channel_permissions, BackendSetError, ChatBackend, ChatLimits, SetErrorType,
 };
 use jmap_chat_types::vocabulary::CHAT_CAP_TASK;
 use jmap_chat_types::{

@@ -73,9 +73,10 @@
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
+use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
-    handle_chat_set, handle_chat_typing, handle_message_set, handle_presence_set,
-    GroupUpdateAction, OutboundEvent, ReactionAction,
+    handle_chat_set, handle_chat_typing, handle_presence_set, GroupUpdateAction, OutboundEvent,
+    ReactionAction,
 };
 use jmap_chat_types::ReadDisposition;
 use jmap_server::HandlerOutput;

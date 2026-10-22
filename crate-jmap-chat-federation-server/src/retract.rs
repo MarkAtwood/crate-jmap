@@ -2,7 +2,7 @@
 //! the original sender tombstones one of their Messages.
 
 use jmap_chat_federation_types::{PeerRetractArgs, PeerRetractResponse};
-use jmap_chat_server::find_message_by_sender_msg_id;
+use jmap_chat_server::message::find_message_by_sender_msg_id;
 use jmap_chat_types::Message;
 use jmap_server::{now_utc_string, serialize_value, server_fail_from_backend, HandlerOutput};
 use jmap_types::{JmapError, PatchObject, UTCDate};

@@ -25,7 +25,7 @@
 
 use std::collections::HashSet;
 
-use jmap_chat_server::permissions::resolve_channel_permissions;
+use jmap_chat_server::resolve_channel_permissions;
 use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{Chat, ChatContact, ChatKind, ChatPermission, Space};
 use jmap_server::{

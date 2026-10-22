@@ -13,9 +13,9 @@
 mod common;
 
 use common::{make_space, MemoryBackend, ACCOUNT_ID};
+use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
-    handle_ban_set, handle_chat_set, handle_emoji_set, handle_invite_set, handle_message_set,
-    handle_space_set,
+    handle_ban_set, handle_chat_set, handle_emoji_set, handle_invite_set, handle_space_set,
 };
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};

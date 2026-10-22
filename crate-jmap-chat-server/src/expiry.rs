@@ -1,34 +1,4 @@
 //! Time-driven expiry for one account (draft-atwood-jmap-chat-00).
-//!
-//! The kit runs no scheduler. A deployment calls [`sweep_expired`] from
-//! its own timer, passing the current time, and the sweep applies every
-//! deadline that has passed:
-//!
-//! - §Message `senderExpiresAt`: hard-delete "at or before this time".
-//! - §Chat `messageExpirySeconds`: "messages in this chat older than this
-//!   many seconds are deleted by this mailbox", age measured from
-//!   `receivedAt` ("Authoritative for ordering and expiry calculations").
-//! - §Message `expiresAfterReadSeconds`: hard-delete "this many seconds
-//!   after setting `readAt`".
-//! - §Message `burnOnRead`: a read message is hard-deleted "immediately
-//!   after setting `readAt`". `Message/set` already does this atomically
-//!   through [`ChatBackend::read_and_burn_message`]; the sweep deletes any
-//!   read `burnOnRead` message that reached the store another way.
-//!
-//!   Both read-based rules apply "only to the receiving mailbox; the
-//!   sender's own copy is not affected", so the sweep skips them for a
-//!   Message whose `senderId` is the account itself.
-//! - §Chat `muteUntil`: "Servers SHOULD clear `muted` and `muteUntil`
-//!   automatically when the time passes."
-//! - §PresenceStatus `expiresAt`: "the server SHOULD clear `statusText`
-//!   and `statusEmoji` (setting them to null) at this time, and SHOULD
-//!   reset `presence` to `"online"`."
-//!
-//! Messages are hard-deleted through [`ChatBackend::expire_message`],
-//! after which each affected Chat's derived §Chat `unreadCount` is
-//! recorded as changed, as `Message/set` destroy does. Chat and
-//! PresenceStatus resets go through
-//! [`ChatBackend::update_object`], so each advances its type's state.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -41,9 +11,38 @@ use crate::{BackendSetError, ChatBackend};
 
 /// Apply every expiry deadline in `account_id` that has passed at `now`.
 ///
-/// See the [module documentation](self) for the rules applied. Each step
-/// is idempotent: a re-run at the same `now` finds nothing left to do,
-/// and changes no state.
+/// The kit runs no scheduler. A deployment calls this function from
+/// its own timer, passing the current time, and the sweep applies every
+/// deadline that has passed:
+///
+/// - §Message `senderExpiresAt`: hard-delete "at or before this time".
+/// - §Chat `messageExpirySeconds`: "messages in this chat older than this
+///   many seconds are deleted by this mailbox", age measured from
+///   `receivedAt` ("Authoritative for ordering and expiry calculations").
+/// - §Message `expiresAfterReadSeconds`: hard-delete "this many seconds
+///   after setting `readAt`".
+/// - §Message `burnOnRead`: a read message is hard-deleted "immediately
+///   after setting `readAt`". `Message/set` already does this atomically
+///   through [`ChatBackend::read_and_burn_message`]; the sweep deletes any
+///   read `burnOnRead` message that reached the store another way.
+///
+///   Both read-based rules apply "only to the receiving mailbox; the
+///   sender's own copy is not affected", so the sweep skips them for a
+///   Message whose `senderId` is the account itself.
+/// - §Chat `muteUntil`: "Servers SHOULD clear `muted` and `muteUntil`
+///   automatically when the time passes."
+/// - §PresenceStatus `expiresAt`: "the server SHOULD clear `statusText`
+///   and `statusEmoji` (setting them to null) at this time, and SHOULD
+///   reset `presence` to `"online"`."
+///
+/// Messages are hard-deleted through [`ChatBackend::expire_message`],
+/// after which each affected Chat's derived §Chat `unreadCount` is
+/// recorded as changed, as `Message/set` destroy does. Chat and
+/// PresenceStatus resets go through
+/// [`ChatBackend::update_object`], so each advances its type's state.
+///
+/// Each step is idempotent: a re-run at the same `now` finds nothing left
+/// to do, and changes no state.
 ///
 /// A stored date that does not parse as a UTCDate never counts as passed.
 ///
