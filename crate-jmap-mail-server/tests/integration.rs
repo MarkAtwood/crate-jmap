@@ -9899,9 +9899,9 @@ async fn memory_backend_query_objects_mailbox_honors_filter_directly() {
     // filter={parentId: null} → top-level mailboxes only.
     // MailboxFilterCondition is #[non_exhaustive], so we deserialize from a
     // small fixture JSON to construct it (same path the handler uses).
-    let filter: jmap_mail_types::MailboxFilterCondition =
+    let filter: jmap_mail_types::MailboxFilter =
         serde_json::from_value(serde_json::json!({"parentId": null}))
-            .expect("MailboxFilterCondition must deserialize");
+            .expect("MailboxFilter must deserialize");
     let result = backend
         .query_objects::<Mailbox>(&(), &account_id, QueryParams::new().filter(Some(&filter)))
         .await
@@ -14420,17 +14420,16 @@ async fn mailbox_query_changes_applies_sort() {
 }
 
 /// Oracle: RFC 8621 §2.3 Mailbox/query FilterCondition properties are
-/// `parentId`, `name`, `role`, `hasAnyRole`, `isSubscribed`. This server
-/// decodes Mailbox filters as a bare FilterCondition, so an RFC 8620 §5.5
-/// operator tree is a filter it cannot process: unsupportedFilter, not a
-/// match-all.
+/// `parentId`, `name`, `role`, `hasAnyRole`, `isSubscribed`; anything else,
+/// at the top level or inside an RFC 8620 §5.5 operator tree, is a filter
+/// the server cannot process: unsupportedFilter, not a match-all.
 #[tokio::test]
-async fn mailbox_query_operator_tree_and_unknown_key_return_unsupported_filter() {
+async fn mailbox_query_unknown_key_returns_unsupported_filter() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("account1"));
     for filter in [
-        serde_json::json!({ "operator": "AND", "conditions": [{ "role": "inbox" }] }),
         serde_json::json!({ "has_any_role": true }),
+        serde_json::json!({ "operator": "AND", "conditions": [{ "has_any_role": true }] }),
     ] {
         let args = serde_json::json!({ "accountId": "account1", "filter": filter });
         let err = handle_mailbox_query(&backend, &(), args)
@@ -14446,6 +14445,49 @@ async fn mailbox_query_operator_tree_and_unknown_key_return_unsupported_filter()
     handle_mailbox_query(&backend, &(), args)
         .await
         .expect("known filter key must be accepted");
+}
+
+/// Oracle: RFC 8620 §5.5 types the /query `filter` as
+/// "FilterOperator|FilterCondition|null" (RFC 8620 line 2368): "OR": at
+/// least one of the conditions must match; "NOT": none of the conditions
+/// must match. Expected sets are read off the seed fixture by hand: Inbox
+/// is the only `role: inbox` mailbox, Child 1 and Child 2 are the children
+/// of Test Folder A, and Inbox, Test Folder A and Test Folder B are the
+/// top-level mailboxes.
+#[tokio::test]
+async fn mailbox_query_evaluates_operator_tree() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+    let mb = |name: &str| seed.mailbox[name].as_ref().to_owned();
+    let cases = [
+        (
+            serde_json::json!({ "operator": "OR", "conditions": [
+                { "role": "inbox" },
+                { "parentId": mb("folderA") },
+            ] }),
+            vec![mb("inbox"), mb("child1"), mb("child2")],
+        ),
+        (
+            serde_json::json!({ "operator": "NOT", "conditions": [{ "parentId": null }] }),
+            vec![mb("child1"), mb("child2")],
+        ),
+    ];
+    for (filter, mut want) in cases {
+        let args = serde_json::json!({ "accountId": "account1", "filter": filter });
+        let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+            .await
+            .expect("operator tree must be accepted");
+        let mut got: Vec<String> = resp["ids"]
+            .as_array()
+            .expect("ids must be an array")
+            .iter()
+            .map(|v| v.as_str().expect("id must be a string").to_owned())
+            .collect();
+        got.sort();
+        want.sort();
+        assert_eq!(got, want, "filter {filter}");
+    }
 }
 
 /// Oracle: RFC 8621 §7.3 EmailSubmission/query FilterCondition properties

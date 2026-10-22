@@ -155,6 +155,29 @@ pub struct FilterOperator<T> {
     pub conditions: Vec<Filter<T>>,
 }
 
+impl<T> Filter<T> {
+    /// `true` if a record matches this filter tree, where `condition`
+    /// decides whether the record matches one [`Filter::Condition`]
+    /// (RFC 8620 §5.5): "AND": all of the conditions must match; "OR": at
+    /// least one must match; "NOT": none of the conditions must match.
+    ///
+    /// Over an empty `conditions` list, `AND` and `NOT` match and `OR`
+    /// does not ("all" and "none" hold vacuously, "at least one" fails).
+    pub fn matches(&self, condition: &impl Fn(&T) -> bool) -> bool {
+        match self {
+            Filter::Condition(cond) => condition(cond),
+            Filter::Operator(op) => {
+                let mut each = op.conditions.iter().map(|f| f.matches(condition));
+                match op.operator {
+                    Operator::And => each.all(|m| m),
+                    Operator::Or => each.any(|m| m),
+                    Operator::Not => !each.any(|m| m),
+                }
+            }
+        }
+    }
+}
+
 impl<T> FilterOperator<T> {
     /// Create a new [`FilterOperator`] with the given logical operator and conditions.
     pub fn new(operator: Operator, conditions: Vec<Filter<T>>) -> Self {
@@ -335,5 +358,37 @@ mod tests {
         let json = serde_json::to_string(&filter).expect("serialize");
         let back: Filter<Cond> = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(filter, back);
+    }
+
+    /// Oracle: RFC 8620 §5.5 (line 2378-2385), quoted:
+    ///
+    /// > "AND": All of the conditions must match for the filter to match.
+    /// > "OR": At least one of the conditions must match for the filter to
+    /// > match.
+    /// > "NOT": None of the conditions must match for the filter to match.
+    ///
+    /// The condition predicate here is "has_keyword is `$seen`", applied to
+    /// a hand-written tree over the record's keyword `$seen`.
+    #[test]
+    fn matches_follows_rfc8620_operator_semantics() {
+        let seen = |c: &Cond| c.has_keyword.as_deref() == Some("$seen");
+        let tree = |json: &str| -> Filter<Cond> { serde_json::from_str(json).expect("must parse") };
+        let hit = r#"{"has_keyword":"$seen"}"#;
+        let miss = r#"{"has_keyword":"$flagged"}"#;
+        let op =
+            |o: &str, a: &str, b: &str| format!(r#"{{"operator":"{o}","conditions":[{a},{b}]}}"#);
+
+        assert!(tree(hit).matches(&seen));
+        assert!(!tree(miss).matches(&seen));
+        assert!(tree(&op("AND", hit, hit)).matches(&seen));
+        assert!(!tree(&op("AND", hit, miss)).matches(&seen));
+        assert!(tree(&op("OR", miss, hit)).matches(&seen));
+        assert!(!tree(&op("OR", miss, miss)).matches(&seen));
+        assert!(tree(&op("NOT", miss, miss)).matches(&seen));
+        assert!(!tree(&op("NOT", miss, hit)).matches(&seen));
+        // Nested: NOT(OR(miss, AND(hit, hit))) — the inner AND matches, so
+        // the OR matches, so the NOT does not.
+        let nested = op("NOT", &op("OR", miss, &op("AND", hit, hit)), miss);
+        assert!(!tree(&nested).matches(&seen));
     }
 }
