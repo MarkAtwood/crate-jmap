@@ -7040,7 +7040,7 @@ fn capability_uri_submission_matches_rfc() {
 #[test]
 fn capability_uri_vacation_response_matches_rfc() {
     assert_eq!(
-        jmap_mail_server::JMAP_VACATION_RESPONSE_URI,
+        jmap_mail_server::JMAP_VACATIONRESPONSE_URI,
         "urn:ietf:params:jmap:vacationresponse"
     );
 }

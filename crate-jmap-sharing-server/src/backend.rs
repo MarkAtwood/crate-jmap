@@ -8,42 +8,10 @@
 //! supertrait. Only write operations are here.
 //!
 //! Marker traits and property selector enums live in `jmap-types` and
-//! `jmap-sharing-types` respectively; they are re-exported here for convenience.
-//!
-//! # About the re-exports
-//!
-//! This module re-exports a bundle of types from [`jmap_server`] and
-//! [`jmap_sharing_types::backend`] so a downstream `SharingBackend` impl
-//! can `use jmap_sharing_server::backend::*` without separately importing
-//! the foundation crate and the types crate. The re-exported items are
-//! GROUPED here, not redefined — their canonical home is the source crate.
-//!
-//! **Version pinning**: each `pub use` pins the upstream type's major-
-//! version contract into this crate's public surface. A SemVer-breaking
-//! change in [`jmap_server`] or [`jmap_sharing_types`] cascades into a
-//! SemVer-breaking change here. The workspace's path-dep coordination
-//! and synchronized minor-version cadence (`0.1.x` across all `jmap-*`
-//! crates) is what keeps this manageable.
-//!
-//! **Discoverability**: callers importing via the re-export should
-//! consult the upstream rustdoc for canonical documentation:
-//! - [`AddedItem`], [`BackendChangesError`], [`BackendSetError`],
-//!   [`ChangesResult`], [`GetObject`], [`JmapBackend`], [`JmapObject`],
-//!   [`QueryChangesParams`], [`QueryChangesResult`], [`QueryObject`],
-//!   [`QueryParams`], [`QueryResult`],
-//!   [`SetError`], [`SetErrorType`], [`SetObject`] → [`jmap_server`]
-//! - [`PrincipalProperty`], [`ShareNotificationProperty`] →
-//!   [`jmap_sharing_types::backend`]
-//!
-//! [`PrincipalProperty`]: jmap_sharing_types::backend::PrincipalProperty
-//! [`ShareNotificationProperty`]: jmap_sharing_types::backend::ShareNotificationProperty
+//! `jmap-sharing-types` respectively; the crate root re-exports the ones
+//! an impl needs.
 
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
-};
-pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProperty};
+use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // SharingBackend trait
@@ -410,7 +378,7 @@ pub trait SharingBackend: JmapBackend {
     /// always forwards `create_object` / `update_object` / `destroy_object`
     /// to the backend regardless of this return value, and per-object
     /// authorization is the backend's own responsibility (returning a
-    /// `forbidden` [`SetError`] is the wire-visible enforcement
+    /// `forbidden` [`SetError`](crate::SetError) is the wire-visible enforcement
     /// mechanism). Backends that support all types unconditionally
     /// SHOULD return `true` always; both in-tree reference impls
     /// (`memory::MemoryBackend` and the test `MockBackend`) do exactly

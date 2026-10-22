@@ -13,7 +13,6 @@ use jmap_graph_types::{GraphCapability, GraphEdge, GraphNode};
 use jmap_types::{Id, JmapError};
 use serde_json::{Map, Value};
 
-use crate::backend::GraphBackend;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, handle_get_visible,
     handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, listed_in,
@@ -23,6 +22,7 @@ use crate::node::{
     create_graph_id, created_entry, fill_server_set, item_graph_writable, touch, IMMUTABLE,
     SERVER_SET,
 };
+use crate::GraphBackend;
 use jmap_server::HandlerOutput;
 
 /// The properties with a draft default, echoed in `created` when the

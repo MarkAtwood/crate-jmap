@@ -9,7 +9,7 @@
 use jmap_chat_mimi_types::chat_room_id;
 use serde_json::{Map, Value};
 
-use crate::backend::{SetError, SetErrorType};
+use crate::{SetError, SetErrorType};
 
 /// The property a patch key changes: the key up to its first `/`.
 fn property(patch_key: &str) -> &str {

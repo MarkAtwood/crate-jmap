@@ -34,13 +34,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::time::SystemTime;
 
-use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use crate::call::{deliver_call_end, end_call, is_state_refusal, ring_deadline, set_call_state};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
     set_error_value, utc_key, SetAccumulators,
 };
+use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
     HandlerOutput,

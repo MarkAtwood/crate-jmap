@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use jmap_types::{Id, JmapError, JmapObject, PatchObject, State};
 use serde_json::{json, Map, Value};
 
-use crate::backend::MailBackend;
+use crate::MailBackend;
 use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{
@@ -14,8 +14,8 @@ pub(crate) use jmap_server::{
 
 /// Sentinel blob ID set by the `Email/set` create and import handlers.
 ///
-/// Backends MUST replace this value in [`crate::backend::MailBackend::create_object`]
-/// and [`crate::backend::MailBackend::import_email`] with the real blob ID before
+/// Backends MUST replace this value in [`crate::MailBackend::create_object`]
+/// and [`crate::MailBackend::import_email`] with the real blob ID before
 /// returning. Clients must never see this value. Defined as a constant so all
 /// three sites that reference it (handler, debug_assert, backend test harness)
 /// use the same string and a rename is caught at compile time.
@@ -53,7 +53,7 @@ pub(crate) fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value 
 /// scalar fields) and its `Serialize` impl is derive-generated, so the
 /// `.expect` below is provably unreachable: `serde_json::to_value` on a
 /// derive-Serialize type with no custom logic cannot fail.
-pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
+pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 

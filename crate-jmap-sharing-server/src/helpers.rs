@@ -3,7 +3,7 @@
 use jmap_types::{Id, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
-use crate::backend::SharingBackend;
+use crate::SharingBackend;
 use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
@@ -15,7 +15,7 @@ pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 /// scalar fields) and its `Serialize` impl is derive-generated, so the
 /// `.expect` below is provably unreachable: `serde_json::to_value` on a
 /// derive-Serialize type with no custom logic cannot fail.
-pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
+pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 

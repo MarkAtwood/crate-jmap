@@ -52,9 +52,9 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 pub mod call;
 pub mod ephemeral;
 mod helpers;
@@ -67,17 +67,17 @@ pub mod memory;
 pub mod participant;
 pub mod query;
 
-pub use backend::{
-    call_already_active_on_chat, AddedItem, BackendChangesError, BackendQueryError,
-    BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams,
-    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-    StatefulObject, VtcBackend,
-};
+pub use backend::{call_already_active_on_chat, StatefulObject, VtcBackend};
 pub use call::{
     end_call, expire_ring, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
     handle_vtc_call_query_changes, handle_vtc_call_set, RING_TIMEOUT,
 };
 pub use ephemeral::{should_deliver, CallScope, VtcEphemeralSubscription, VtcStreamFilter};
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
+};
 pub use media::{
     handle_vtc_livestream_changes, handle_vtc_livestream_get, handle_vtc_livestream_query,
     handle_vtc_livestream_query_changes, handle_vtc_livestream_set, handle_vtc_recording_changes,
@@ -91,10 +91,6 @@ pub use participant::{
 
 /// Capability URI for `urn:ietf:params:jmap:vtc`.
 pub use jmap_vtc_types::JMAP_VTC_URI;
-
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`],
-/// re-exported for the registration macro.
-pub use jmap_server::ClosureHandler;
 
 /// Register the `VTCCall/*`, `VTCParticipant/*`, `VTCRecording/*` and
 /// `VTCLivestream/*` method handlers with `dispatcher`.

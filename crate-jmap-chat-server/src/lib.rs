@@ -54,9 +54,9 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 pub mod ban;
 pub mod chat;
 pub mod contact;
@@ -81,12 +81,7 @@ pub mod push;
 pub mod space;
 
 pub use backend::{
-    AddedItem, AttachmentBlob, BackendChangesError, BackendQueryError, BackendSetError,
-    ChangesResult, ChatBackend, ChatContactProperty, ChatLimits, ChatProperty, EmojiSetOp,
-    GetObject, InviteJoinRefusal, JmapBackend, JmapObject, MessageProperty, OpResult,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    ReadPositionProperty, SetError, SetErrorType, SetObject, SlowModeError, SpaceMetadataPatch,
-    SpacePatchOp, SpaceProperty,
+    AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError,
 };
 pub use ban::{handle_ban_changes, handle_ban_get, handle_ban_set};
 pub use chat::{
@@ -107,6 +102,15 @@ pub use ephemeral::{
 };
 pub use expiry::sweep_expired;
 pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
+pub use jmap_chat_types::backend::{
+    ChatContactProperty, ChatProperty, MessageProperty, ReadPositionProperty, SpaceProperty,
+};
+pub use jmap_chat_types::space_set::{SpaceMetadataPatch, SpacePatchOp};
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
+};
 pub use message::{
     find_message_by_sender_msg_id, handle_message_changes, handle_message_get,
     handle_message_query, handle_message_query_changes, handle_message_set, store_server_message,
@@ -333,16 +337,3 @@ where
         handle_presence_set(&*b, &ctx, a).await
     });
 }
-
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
-///
-/// Re-exported so the [`register_chat_handlers`] macro body can name
-/// `ClosureHandler` without a fully-qualified path. **Stability**: this
-/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
-/// into this crate's public surface — a breaking change to that type
-/// upstream is a breaking change here. Consumers needing a closure handler
-/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
-/// re-export is retained primarily for the in-crate macro and for
-/// backward-compatible spelling of the existing handler-registration
-/// pattern.
-pub use jmap_server::ClosureHandler;

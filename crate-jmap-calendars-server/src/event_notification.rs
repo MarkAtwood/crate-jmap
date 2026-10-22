@@ -33,11 +33,11 @@ use jmap_calendars_types::CalendarEventNotification;
 use jmap_types::{Id, JmapError};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
+use crate::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------

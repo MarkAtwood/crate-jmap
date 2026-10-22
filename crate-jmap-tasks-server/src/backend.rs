@@ -7,100 +7,8 @@
 //! `query_objects`, `query_changes`) are defined on the [`jmap_server::JmapBackend`]
 //! supertrait. Only write operations and type-specific operations are here.
 
-// ── Re-exports from jmap-server (the foundation crate) ────────────────────
-//
-// Every TasksBackend implementor needs these names. They are re-exported
-// here so a consumer can write `use jmap_tasks_server::backend::*;` and get
-// the full vocabulary in one import.
-
-/// JMAP wire-format SetError; emitted by [`TasksBackend`] write methods
-/// wrapped as [`BackendSetError::SetError`] and serialised into
-/// `notCreated` / `notUpdated` / `notDestroyed` maps by the `/set` handlers
-/// (RFC 8620 §5.3).
-pub use jmap_server::SetError;
-
-/// The standard wire-format SetError type tag (RFC 8620 §5.3 +
-/// extension-specific types like `taskListHasTask` from
-/// draft-ietf-jmap-tasks-06 §3.4).
-pub use jmap_server::SetErrorType;
-
-/// Backend-side wrapper around [`SetError`]; the trait's write methods
-/// return `Result<…, BackendSetError<Self::Error>>`. The handler unwraps
-/// `BackendSetError::SetError` into the per-target SetError map and
-/// folds `BackendSetError::Other(e)` into a top-level `serverFail`.
-pub use jmap_server::BackendSetError;
-
-/// Backend-side error wrapper for `/changes` paths (RFC 8620 §5.2);
-/// distinguished from [`BackendSetError`] because the `cannotCalculateChanges`
-/// recovery is a `/changes`-specific contract.
-pub use jmap_server::{BackendChangesError, BackendQueryError};
-
-/// Result of [`JmapBackend::get_changes`] (RFC 8620 §5.2). Carries
-/// `created`, `updated`, `destroyed`, the `hasMoreChanges` flag, and the
-/// new state token.
-pub use jmap_server::ChangesResult;
-
-/// Result of [`JmapBackend::query_objects`] (RFC 8620 §5.5). Carries the
-/// id list, anchor position, total count (when requested), and state.
-pub use jmap_server::QueryResult;
-
-/// Arguments of [`JmapBackend::query_objects`] (RFC 8620 §5.5).
-pub use jmap_server::QueryParams;
-
-/// Result of [`JmapBackend::query_changes`] (RFC 8620 §5.6). Carries
-/// `added`, `removed`, optional total count, and the new state.
-pub use jmap_server::QueryChangesResult;
-
-/// Arguments of [`JmapBackend::query_changes`] (RFC 8620 §5.6).
-pub use jmap_server::QueryChangesParams;
-
-/// One entry in the `added` array of a [`QueryChangesResult`]: a typed
-/// `(index, id)` pair.
-pub use jmap_server::AddedItem;
-
-/// Foundation `JmapBackend` supertrait. [`TasksBackend`] extends this with
-/// Task-specific methods; consumers must implement both.
-pub use jmap_server::JmapBackend;
-
-/// Marker trait identifying a JMAP object type (RFC 8620 §5). Used as a
-/// bound on `get_state` / `get_changes` / `query_objects`.
-pub use jmap_server::JmapObject;
-
-/// Marker trait identifying a "gettable" JMAP object type. Adds the
-/// property-projection contract on top of [`JmapObject`].
-pub use jmap_server::GetObject;
-
-/// Marker trait identifying a "settable" JMAP object type. Adds the
-/// `Patch` associated type on top of [`JmapObject`].
-pub use jmap_server::SetObject;
-
-/// Marker trait identifying a "queryable" JMAP object type. Adds the
-/// `Filter` and `Comparator` associated types on top of [`JmapObject`].
-pub use jmap_server::QueryObject;
-
-// ── Property selector enums from jmap-tasks-types ────────────────────────
-//
-// These let backends interpret the `properties` argument on /get without
-// reparsing string literals.
-
-/// `TaskList` property selector enum (draft-ietf-jmap-tasks-06 §3); used
-/// in [`JmapBackend::get_objects::<TaskList>`] property projection.
-pub use jmap_tasks_types::backend::TaskListProperty;
-
-/// `Task` property selector enum (draft-ietf-jmap-tasks-06 §4); used in
-/// [`JmapBackend::get_objects::<Task>`] property projection.
-pub use jmap_tasks_types::backend::TaskProperty;
-
-/// `TaskNotification` property selector enum
-/// (draft-ietf-jmap-tasks-06 §5).
-pub use jmap_tasks_types::backend::TaskNotificationProperty;
-
-// ── Wire types from jmap-types ───────────────────────────────────────────
-
-/// JMAP wire-format `PatchObject` (RFC 8620 §5.3) — a JSON-Pointer-keyed
-/// map of property paths to new values, used as the patch payload for
-/// `update_object` and `update_task_per_user`.
-pub use jmap_types::PatchObject;
+use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
+use jmap_types::PatchObject;
 
 // ---------------------------------------------------------------------------
 // TasksBackend trait
@@ -130,7 +38,7 @@ pub trait TasksBackend: JmapBackend {
     /// access to the target account / TaskList / Task before performing the
     /// mutation, and MUST return
     /// [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`] otherwise. Handlers in this crate do NO
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only and the backend MUST re-verify atomically with the mutation. A
     /// backend that trusts the handler is a bug; a backend that returns `None`
@@ -141,7 +49,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`]; the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
@@ -196,7 +104,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`] otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Patch format
@@ -253,7 +161,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`] otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -357,7 +265,7 @@ pub trait TasksBackend: JmapBackend {
     /// Implementors MUST verify caller read access to the target Task (per-user
     /// properties are still scoped to the user, but only users who can see the
     /// Task can have per-user state on it) and MUST return
-    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`] otherwise.
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise.
     /// The shared-property write-access rule from [`Self::update_object`] does
     /// NOT apply here — a user with only read access to the shared Task may
     /// still mutate their own per-user state. See [`Self::create_object`] for
@@ -379,7 +287,7 @@ pub trait TasksBackend: JmapBackend {
     /// The invariant is: once a Task transitions to `isDraft: false`, the
     /// value MUST NOT be updated back to `true`. Exactly one of the handler
     /// or the backend is responsible for rejecting such a revert with
-    /// [`SetErrorType::InvalidProperties`] (`properties: ["isDraft"]`); this
+    /// [`SetErrorType::InvalidProperties`](crate::SetErrorType::InvalidProperties) (`properties: ["isDraft"]`); this
     /// method tells the handler which side owns enforcement on this backend.
     ///
     /// # Returning `false` (default)

@@ -7,14 +7,9 @@
 //! `query_objects`, `query_changes`) are defined on the [`jmap_server::JmapBackend`]
 //! supertrait. Only write operations and calendar-specific introspection are here.
 
-pub use jmap_calendars_types::backend::{
-    CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,
-    ParticipantIdentityProperty,
-};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+use jmap_server::{
+    BackendQueryError, BackendSetError, JmapBackend, JmapObject, QueryParams, QueryResult,
+    SetObject,
 };
 
 // bd:JMAP-ic0j.30 — `jmap_types::PatchObject` is referenced as a fully
@@ -22,8 +17,7 @@ pub use jmap_server::{
 // crate's public API. Callers needing `PatchObject` import it directly
 // from `jmap_types` so a `jmap_types` major-version bump does not break
 // consumers who never reference `PatchObject` through this crate's API
-// surface. Matches the canonical `jmap-mail-server` pattern at
-// `crate-jmap-mail-server/src/backend.rs:14-17` (no `PatchObject`
+// surface. Matches the canonical `jmap-mail-server` (no `PatchObject`
 // re-export).
 use jmap_types::PatchObject;
 
@@ -129,7 +123,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`]; the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were

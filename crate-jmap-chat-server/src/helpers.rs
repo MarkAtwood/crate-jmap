@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use jmap_types::{Id, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
-use crate::backend::ChatBackend;
+use crate::ChatBackend;
 use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{
@@ -258,7 +258,7 @@ pub(crate) fn iso8601_before(a: &jmap_types::UTCDate, b: &jmap_types::UTCDate) -
 /// scalar fields) and its `Serialize` impl is derive-generated, so the
 /// `.expect` below is provably unreachable: `serde_json::to_value` on a
 /// derive-Serialize type with no custom logic cannot fail.
-pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
+pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 
@@ -275,21 +275,21 @@ pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value
 /// Used both by `handle_space_set` for the defense-in-depth pre-flight
 /// and by the reference `MemoryBackend`'s `apply_space_patch_impl` for
 /// the backend-canonical enforcement (bd:JMAP-x2gd.44).
-pub(crate) fn count_add_ops(ops: &[crate::backend::SpacePatchOp]) -> (u32, u32, u32, u32) {
+pub(crate) fn count_add_ops(ops: &[crate::SpacePatchOp]) -> (u32, u32, u32, u32) {
     let mut add_roles: u32 = 0;
     let mut add_members: u32 = 0;
     let mut add_channels: u32 = 0;
     let mut add_categories: u32 = 0;
     for op in ops {
         match op {
-            crate::backend::SpacePatchOp::AddRole(_) => add_roles = add_roles.saturating_add(1),
-            crate::backend::SpacePatchOp::AddMember(_) => {
+            crate::SpacePatchOp::AddRole(_) => add_roles = add_roles.saturating_add(1),
+            crate::SpacePatchOp::AddMember(_) => {
                 add_members = add_members.saturating_add(1);
             }
-            crate::backend::SpacePatchOp::AddChannel(_) => {
+            crate::SpacePatchOp::AddChannel(_) => {
                 add_channels = add_channels.saturating_add(1);
             }
-            crate::backend::SpacePatchOp::AddCategory(_) => {
+            crate::SpacePatchOp::AddCategory(_) => {
                 add_categories = add_categories.saturating_add(1);
             }
             _ => {}

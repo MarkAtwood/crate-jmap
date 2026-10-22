@@ -11,11 +11,11 @@
 //! Per workspace AGENTS.md "backend canonical" policy, handlers MUST NOT
 //! call these helpers for permission gating — only backends do.
 //!
-//! [`ChatBackend::apply_space_patch`]: crate::backend::ChatBackend::apply_space_patch
+//! [`ChatBackend::apply_space_patch`]: crate::ChatBackend::apply_space_patch
 
 use std::collections::HashSet;
 
-use crate::backend::SpacePatchOp;
+use crate::SpacePatchOp;
 use jmap_chat_types::{ChannelPermission, ChatPermission};
 
 /// Resolve a member's effective permissions in one channel Chat, per
@@ -145,7 +145,7 @@ pub enum RequiredPermissions {
 /// workspace AGENTS.md.
 ///
 /// [`PatchObject`]: jmap_types::PatchObject
-/// [`ChatBackend::apply_space_patch`]: crate::backend::ChatBackend::apply_space_patch
+/// [`ChatBackend::apply_space_patch`]: crate::ChatBackend::apply_space_patch
 pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
     match op {
         // Role family — draft §Space/set L1260, L1263, L1266.

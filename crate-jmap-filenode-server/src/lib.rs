@@ -30,9 +30,9 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 pub mod filenode;
 mod helpers;
 /// In-memory reference implementation of [`FileNodeBackend`].
@@ -42,14 +42,16 @@ mod helpers;
 #[cfg(feature = "memory")]
 pub mod memory;
 
-pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-    FileNodeBackend, FileNodeProperty, GetObject, JmapBackend, JmapObject, QueryChangesParams,
-    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
+pub use backend::{CaseFolding, FileNodeBackend};
 pub use filenode::{
     handle_filenode_changes, handle_filenode_copy, handle_filenode_get, handle_filenode_query,
     handle_filenode_query_changes, handle_filenode_set,
+};
+pub use jmap_filenode_types::backend::FileNodeProperty;
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 
 /// Capability URI for `urn:ietf:params:jmap:filenode`.
@@ -141,19 +143,6 @@ where
         handle_filenode_query_changes(&*b, &ctx, a).await
     });
 }
-
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
-///
-/// Re-exported so the [`register_filenode_handlers`] macro body can name
-/// `ClosureHandler` without a fully-qualified path. **Stability**: this
-/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
-/// into this crate's public surface — a breaking change to that type
-/// upstream is a breaking change here. Consumers needing a closure handler
-/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
-/// re-export is retained primarily for the in-crate macro and for
-/// backward-compatible spelling of the existing handler-registration
-/// pattern.
-pub use jmap_server::ClosureHandler;
 
 // ---------------------------------------------------------------------------
 // Tests

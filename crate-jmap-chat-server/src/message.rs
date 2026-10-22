@@ -32,9 +32,9 @@ use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
 use crate::chat::record_unread_count_changes;
 use crate::outbound::{OutboundEvent, ReactionAction};
+use crate::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
 use std::collections::{HashMap, HashSet};
 use subtle::ConstantTimeEq;
 

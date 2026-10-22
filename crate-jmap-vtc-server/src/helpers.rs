@@ -3,7 +3,7 @@
 use jmap_types::{GetObject, Id, JmapError, JmapObject, State, UTCDate};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
+use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};

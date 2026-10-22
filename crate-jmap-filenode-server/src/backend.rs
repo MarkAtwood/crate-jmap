@@ -1,4 +1,4 @@
-//! `FileNodeBackend` trait and supporting type re-exports.
+//! `FileNodeBackend` trait and supporting types.
 //!
 //! Consumers implement [`FileNodeBackend`] for their storage system.  The
 //! method handlers in [`crate::filenode`] call into the backend through this
@@ -9,12 +9,9 @@
 //! [`jmap_server::JmapBackend`] supertrait.  Only write operations and the
 //! FileNode-specific structural queries live here.
 
-pub use jmap_filenode_types::backend::FileNodeProperty;
 use jmap_filenode_types::{FileNode, FilesRights};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+use jmap_server::{
+    BackendQueryError, BackendSetError, JmapBackend, JmapObject, QueryParams, SetObject,
 };
 
 // ---------------------------------------------------------------------------
@@ -117,7 +114,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`]; the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were

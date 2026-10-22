@@ -33,11 +33,11 @@ use jmap_contacts_types::ContactCard;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ContactsBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
+use crate::{BackendSetError, ContactsBackend};
 use jmap_server::{
     apply_patch_object, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
 };
@@ -1320,7 +1320,7 @@ mod tests {
     /// was never called, and the source card is byte-identical to the
     /// fixture.
     async fn assert_copy_rejected_as_invalid_patch(resp: &Value, backend: &MockBackend) {
-        use crate::backend::JmapBackend;
+        use crate::JmapBackend;
 
         assert_eq!(
             resp["notCopied"]["c1"]["type"], "invalidPatch",

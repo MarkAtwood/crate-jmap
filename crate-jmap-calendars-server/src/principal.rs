@@ -23,8 +23,8 @@
 use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{AvailabilityError, CalendarsBackend};
 use crate::helpers::extract_account_id;
+use crate::{AvailabilityError, CalendarsBackend};
 use jmap_server::{bool_arg, server_fail_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
@@ -492,7 +492,7 @@ mod tests {
                 _account_id: &jmap_types::Id,
                 _blob_ids: &[jmap_types::Id],
                 _properties: Option<&[String]>,
-            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+            ) -> Result<crate::CalendarEventParseResult, Self::Error> {
                 Err(FaultyError(CANARY))
             }
         }

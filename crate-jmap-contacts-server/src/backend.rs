@@ -8,14 +8,10 @@
 //! supertrait. Write operations and contacts-specific operations are here.
 //!
 //! Marker traits and property selector enums live in `jmap-types` and
-//! `jmap-contacts-types` respectively; they are re-exported here for convenience.
+//! `jmap-contacts-types` respectively; the crate root re-exports the ones an
+//! impl needs.
 
-pub use jmap_contacts_types::backend::{AddressBookProperty, ContactCardProperty};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
-};
+use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // ContactsBackend trait
@@ -66,7 +62,7 @@ pub use jmap_server::{
 /// permission model (RFC 9670 `myRights`, `shareWith`,
 /// `isSubscribed`, per-user $seen-style state, vendor ACLs), and
 /// rejects the operation atomically with the storage write via
-/// [`SetError`] / [`BackendSetError`].
+/// [`SetError`](crate::SetError) / [`BackendSetError`].
 ///
 /// The canonical consumer pattern is `ChatBackend::apply_space_patch`
 /// in jmap-chat-server (bd:JMAP-g7wu.2.4). Future AddressBook ACL
@@ -107,7 +103,7 @@ pub trait ContactsBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`]; the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were

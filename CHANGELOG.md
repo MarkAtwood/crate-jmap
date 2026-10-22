@@ -1309,6 +1309,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** Capability URI constants are declared only in the types
+  crates; server crates re-export them. jmap-mail-server,
+  jmap-calendars-server and jmap-contacts-server drop their duplicate
+  local `pub const` declarations, and
+  `jmap_mail_server::JMAP_VACATION_RESPONSE_URI` is renamed
+  `JMAP_VACATIONRESPONSE_URI` to match jmap-mail-types. Values are
+  unchanged.
 - **BREAKING** `#[non_exhaustive]` on `jmap_server::BackendQueryError`,
   `jmap_mime::JmapBodyFields`, `jmap_jscalendar_types::TypeTagMismatch`,
   `jmap_chat_filenode_server::{RootCheckError, TreeDestroyError}`,
@@ -2275,6 +2282,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** The `ClosureHandler` re-export from jmap-mail-server,
+  -calendars-server, -chat-server, -chat-mimi-server, -contacts-server,
+  -filenode-server, -graph-server, -scene-server, -sharing-server,
+  -tasks-server and -vtc-server. The `register_*_handlers` functions
+  build it internally; name it as `jmap_server::ClosureHandler`.
+- **BREAKING** The public `backend` module of the same eleven server
+  crates. Each item was reachable both as `crate::X` and
+  `crate::backend::X`; the crate root is now the only path. Replace
+  `jmap_<x>_server::backend::X` with `jmap_<x>_server::X`. The root
+  gains the items that were only under `backend`:
+  `jmap_filenode_server::CaseFolding` and the `jmap_server` backend types
+  in jmap-chat-mimi-server. `jmap_tasks_server::backend::PatchObject` has
+  no replacement; import `jmap_types::PatchObject`, as for mail and
+  calendars.
+- **BREAKING** **jmap-contacts-types**: the public `collision` module;
+  `CollisionError` stays at the crate root.
 - **BREAKING** **jmap-server**: the deprecated `helpers::ser` alias; use
   `serialize_value`.
 - **BREAKING** **jmap-types**: the deprecated `JmapError::too_many_changes`

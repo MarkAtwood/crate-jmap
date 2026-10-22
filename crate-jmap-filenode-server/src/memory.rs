@@ -922,14 +922,14 @@ impl FileNodeBackend for MemoryBackend {
     /// Production backends will typically need to match the underlying
     /// storage layer's folding rules.
     ///
-    /// [`FileNodeBackend::find_sibling_by_name`]: crate::backend::FileNodeBackend::find_sibling_by_name
+    /// [`FileNodeBackend::find_sibling_by_name`]: crate::FileNodeBackend::find_sibling_by_name
     async fn find_sibling_by_name(
         &self,
         _caller: &(),
         account_id: &Id,
         parent_id: Option<&Id>,
         name: &str,
-        folding: crate::backend::CaseFolding,
+        folding: crate::CaseFolding,
     ) -> Result<Option<Id>, Self::Error> {
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {
@@ -937,7 +937,7 @@ impl FileNodeBackend for MemoryBackend {
             None => return Ok(None),
         };
 
-        let case_insensitive = matches!(folding, crate::backend::CaseFolding::Insensitive);
+        let case_insensitive = matches!(folding, crate::CaseFolding::Insensitive);
         let search_name = if case_insensitive {
             name.to_lowercase()
         } else {

@@ -6,16 +6,10 @@
 //! the KeyPackage hand-out, rooms, FanoutMessage storage and the MIMI
 //! requests sent to a room's hub.
 //!
-//! The `pub use` block re-exports the [`jmap_server`] backend types so a
-//! downstream impl can `use jmap_chat_mimi_server::backend::*`; each
-//! re-export pins the upstream type's major-version contract into this
-//! crate.
+//! Every public item here, and the [`jmap_server`] backend types a
+//! downstream impl needs, are re-exported once at the crate root.
 
-pub use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetError, SetErrorType, SetObject,
-};
+use jmap_server::{BackendSetError, JmapBackend, SetError, SetErrorType};
 
 use jmap_chat_mimi_types::{Base64Url, ClientKeyMaterial, MimiCapability};
 use jmap_types::JmapError;

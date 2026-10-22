@@ -30,9 +30,9 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 mod helpers;
 /// In-memory reference implementation of [`TasksBackend`].
 ///
@@ -44,12 +44,13 @@ pub mod task;
 pub mod task_list;
 pub mod task_notification;
 
-pub use backend::{
+pub use backend::TasksBackend;
+pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject, TaskListProperty, TaskNotificationProperty,
-    TaskProperty, TasksBackend,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
+pub use jmap_tasks_types::backend::{TaskListProperty, TaskNotificationProperty, TaskProperty};
 pub use task::{
     handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,
     handle_task_query_changes, handle_task_set,
@@ -182,26 +183,6 @@ where
     );
 }
 
-/// Handler-wrapper type for registering custom JMAP method handlers on a
-/// [`jmap_server::Dispatcher`] without writing a full `JmapHandler` impl
-/// from scratch. Most consumers should NOT need this — the
-/// [`register_tasks_handlers`] function above registers all 14 method
-/// names automatically. Reach for `ClosureHandler` only when extending
-/// the dispatcher with site-specific JMAP methods that are not part of
-/// the standard Tasks surface.
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
-///
-/// Re-exported so the [`register_tasks_handlers`] macro body can name
-/// `ClosureHandler` without a fully-qualified path. **Stability**: this
-/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
-/// into this crate's public surface — a breaking change to that type
-/// upstream is a breaking change here. Consumers needing a closure handler
-/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
-/// re-export is retained primarily for the in-crate macro and for
-/// backward-compatible spelling of the existing handler-registration
-/// pattern.
-pub use jmap_server::ClosureHandler;
-
 // ---------------------------------------------------------------------------
 // test_support — in-memory mock backend used by inline tests
 // ---------------------------------------------------------------------------
@@ -223,7 +204,7 @@ pub(crate) mod test_support {
     use jmap_tasks_types::{Task, TaskList, TaskNotification};
     use jmap_types::{Id, State};
 
-    use crate::backend::TasksBackend;
+    use crate::TasksBackend;
 
     /// Minimal error type for the mock backend.
     ///
@@ -887,8 +868,8 @@ mod tests {
         use jmap_tasks_types::Task;
         use jmap_types::{Id, UTCDate};
 
-        use crate::backend::TasksBackend;
         use crate::test_support::MockError;
+        use crate::TasksBackend;
 
         /// Minimal recording backend that returns exactly one Task on
         /// `get_objects::<Task>` (so the handler's augmentation loop fires

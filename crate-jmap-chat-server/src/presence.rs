@@ -30,13 +30,13 @@ use jmap_chat_types::PresenceStatus;
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
     SetAccumulators,
 };
 use crate::outbound::OutboundEvent;
+use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------

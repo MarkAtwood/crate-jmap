@@ -34,7 +34,7 @@ use jmap_graph_types::edit::{
 use jmap_graph_types::{Graph, GraphNode};
 use jmap_types::{Id, JmapError};
 
-use crate::backend::{GraphBackend, JmapBackend};
+use crate::{GraphBackend, JmapBackend};
 
 /// The active filters of an enabled subscription.
 #[derive(Debug, Clone, PartialEq, Eq)]

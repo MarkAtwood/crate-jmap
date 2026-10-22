@@ -102,7 +102,7 @@ pub mod addressbook;
 pub mod backend;
 pub mod capability;
 pub mod card;
-pub mod collision;
+mod collision;
 
 /// Module alias re-exporting [`jmap_jscontact_types`].
 ///

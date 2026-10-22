@@ -2,7 +2,7 @@
 //! draft-atwood-jmap-chat-mimi-00 (jmap-chat-spec 6bcd9d8). Chats are
 //! hand-written `extra` maps; each test quotes the draft line it checks.
 
-use jmap_chat_mimi_server::backend::SetError;
+use jmap_chat_mimi_server::SetError;
 use jmap_chat_mimi_server::{
     may_create_room_message, may_update_room_chat, may_update_room_message,
 };

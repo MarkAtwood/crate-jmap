@@ -8,8 +8,8 @@ use serde_json::{json, Map, Value};
 
 use jmap_graph_types::search::CandidateKind;
 
-use crate::backend::{BackendSetError, GraphBackend, QueryObject, SetError, SetErrorType};
 use crate::search::{check_search_filter, uses_search};
+use crate::{BackendSetError, GraphBackend, QueryObject, SetError, SetErrorType};
 use jmap_server::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
     optional_arg, serialize_value, server_fail_from_backend, server_fail_value_from_backend,

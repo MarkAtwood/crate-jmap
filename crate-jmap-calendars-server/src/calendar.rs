@@ -28,11 +28,11 @@ use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilterCondition
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use crate::helpers::{
     apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
+use crate::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{
     bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
@@ -766,7 +766,7 @@ mod tests {
                 _account_id: &jmap_types::Id,
                 _blob_ids: &[jmap_types::Id],
                 _properties: Option<&[String]>,
-            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+            ) -> Result<crate::CalendarEventParseResult, Self::Error> {
                 Err(FaultyError(CANARY))
             }
 
@@ -779,13 +779,9 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<
-                Vec<jmap_calendars_types::BusyPeriod>,
-                crate::backend::AvailabilityError<Self::Error>,
-            > {
-                Err(crate::backend::AvailabilityError::Other(FaultyError(
-                    CANARY,
-                )))
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+            {
+                Err(crate::AvailabilityError::Other(FaultyError(CANARY)))
             }
         }
 

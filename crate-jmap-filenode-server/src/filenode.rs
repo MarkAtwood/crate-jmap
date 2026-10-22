@@ -35,11 +35,11 @@ use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, FileNodeBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
+use crate::{BackendSetError, FileNodeBackend};
 use jmap_server::{
     now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
 };
@@ -440,7 +440,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         }
     };
 
-    let case_folding = crate::backend::CaseFolding::from_wire_bool(
+    let case_folding = crate::CaseFolding::from_wire_bool(
         args.get("compareCaseInsensitively")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
@@ -1568,7 +1568,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         }
     };
 
-    let case_folding = crate::backend::CaseFolding::from_wire_bool(
+    let case_folding = crate::CaseFolding::from_wire_bool(
         args.get("compareCaseInsensitively")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
@@ -2545,12 +2545,12 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    use crate::backend::{
+    use crate::memory::{MemoryBackend, MemoryError};
+    use crate::{
         BackendChangesError, BackendQueryError, CaseFolding, ChangesResult, GetObject, JmapBackend,
         JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
         SetObject,
     };
-    use crate::memory::{MemoryBackend, MemoryError};
     use jmap_types::State;
 
     // -----------------------------------------------------------------------
@@ -4141,7 +4141,7 @@ mod tests {
     /// and returned a truncated subtree.
     #[tokio::test]
     async fn query_subtree_default_impl_propagates_query_objects_err() {
-        use crate::backend::FileNodeBackend;
+        use crate::FileNodeBackend;
 
         let backend = FaultyBackend::new_with_account("acc1");
         // Seed level 0 so the loop has work to do, then arm the failure

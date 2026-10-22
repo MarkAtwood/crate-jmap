@@ -55,7 +55,7 @@
 //! - **URI re-exports** ([`JMAP_PRINCIPALS_URI`],
 //!   [`JMAP_PRINCIPALS_OWNER_URI`]) are stable, normative values from
 //!   RFC 9670 and follow IANA registry semantics.
-//! - **Re-exports from [`jmap_server`]** (`crate::backend::*` block) pin
+//! - **Re-exports from [`jmap_server`]** (`crate::*` block) pin
 //!   the upstream type's major-version contract into this crate's surface.
 //!   A breaking change in [`jmap_server`] is a breaking change here.
 //! - **`memory` module**: opt-in, may break in any minor release. See
@@ -68,9 +68,9 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 mod helpers;
 /// In-memory reference implementation of [`SharingBackend`].
 ///
@@ -81,12 +81,13 @@ pub mod memory;
 pub mod notification;
 pub mod principal;
 
-pub use backend::{
+pub use backend::SharingBackend;
+pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, PrincipalProperty, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-    ShareNotificationProperty, SharingBackend,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
+pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProperty};
 pub use notification::{
     handle_share_notification_changes, handle_share_notification_get,
     handle_share_notification_query, handle_share_notification_query_changes,
@@ -102,19 +103,6 @@ pub use jmap_sharing_types::JMAP_PRINCIPALS_URI;
 
 /// Capability URI for `urn:ietf:params:jmap:principals:owner`.
 pub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;
-
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
-///
-/// Re-exported so the [`register_sharing_handlers`] macro body can name
-/// `ClosureHandler` without a fully-qualified path. **Stability**: this
-/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
-/// into this crate's public surface — a breaking change to that type
-/// upstream is a breaking change here. Consumers needing a closure handler
-/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
-/// re-export is retained primarily for the in-crate macro and for
-/// backward-compatible spelling of the existing handler-registration
-/// pattern.
-pub use jmap_server::ClosureHandler;
 
 // ---------------------------------------------------------------------------
 // register_sharing_handlers — the main entry point for consumers
@@ -263,7 +251,7 @@ pub(crate) mod test_support {
     use jmap_sharing_types::{Principal, ShareNotification};
     use jmap_types::{Id, State};
 
-    use crate::backend::SharingBackend;
+    use crate::SharingBackend;
 
     /// Minimal error type for the mock backend.
     ///

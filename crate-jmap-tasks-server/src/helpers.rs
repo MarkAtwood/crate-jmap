@@ -3,7 +3,7 @@
 use jmap_types::{Id, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
-use crate::backend::TasksBackend;
+use crate::TasksBackend;
 use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
@@ -94,6 +94,6 @@ where
 
 /// Serialize a [`SetError`] to a JSON value for inclusion in
 /// `notCreated`/`notUpdated`/`notDestroyed` maps.
-pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
+pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }

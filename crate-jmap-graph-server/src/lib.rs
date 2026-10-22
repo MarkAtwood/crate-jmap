@@ -87,9 +87,9 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 pub mod edge;
 mod edit;
 pub mod graph;
@@ -105,11 +105,7 @@ pub mod query;
 pub mod search;
 pub mod stream;
 
-pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, EditLog,
-    GetObject, GraphBackend, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
+pub use backend::{EditLog, GraphBackend};
 pub use edge::{
     handle_graph_edge_changes, handle_graph_edge_get, handle_graph_edge_query,
     handle_graph_edge_query_changes, handle_graph_edge_set,
@@ -117,6 +113,11 @@ pub use edge::{
 pub use graph::{
     handle_graph_changes, handle_graph_get, handle_graph_query, handle_graph_query_changes,
     handle_graph_set,
+};
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use node::{
     handle_graph_node_changes, handle_graph_node_get, handle_graph_node_query,
@@ -136,10 +137,6 @@ pub use jmap_graph_types::JMAP_GRAPH_EDIT_URI;
 
 /// Capability URI for `urn:ietf:params:jmap:graph:search`.
 pub use jmap_graph_types::JMAP_GRAPH_SEARCH_URI;
-
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`],
-/// re-exported for the registration macro.
-pub use jmap_server::ClosureHandler;
 
 /// Register the `Graph/*`, `GraphNode/*` and `GraphEdge/*` method handlers
 /// with `dispatcher`.

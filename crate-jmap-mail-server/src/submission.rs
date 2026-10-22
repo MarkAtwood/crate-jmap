@@ -42,11 +42,11 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     find_immutable_patch_key, not_found_json, now_utc_string, serialize_value, set_error_value,
 };
+use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
     bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
     QueryChangesParams, QueryParams,

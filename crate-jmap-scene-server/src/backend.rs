@@ -6,15 +6,10 @@
 //! [`jmap_server::JmapBackend`] supertrait. This module adds the write
 //! operations and the deployment facts the handlers consult.
 //!
-//! The `pub use` block re-exports the [`jmap_server`] backend types so a
-//! downstream impl can `use jmap_scene_server::backend::*`; each re-export
-//! pins the upstream type's major-version contract into this crate.
+//! The crate root re-exports this module's public items and the
+//! [`jmap_server`] backend types a downstream impl needs.
 
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
-};
+use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 
 use jmap_scene_types::{
     SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject, SceneRegion,

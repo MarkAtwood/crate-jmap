@@ -14,7 +14,7 @@ use openmls_memory_storage::MemoryStorage;
 use serde_json::Value;
 use tls_codec::{Deserialize as _, TlsDeserialize, TlsSize, VLBytes};
 
-use crate::backend::{MimiBackend, NewRoom};
+use crate::{MimiBackend, NewRoom};
 
 /// `franking_agent` component ID: draft-ietf-mimi-protocol-06 §IANA
 /// Considerations registers 0x0021 under the name `franking_signature_key`

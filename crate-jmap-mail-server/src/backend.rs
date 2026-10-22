@@ -1,42 +1,7 @@
-//! MailBackend trait and supporting types for RFC 8621 method handlers.
-//!
-//! Consumers implement [`MailBackend`] for their storage system. The method
-//! handlers in sibling modules call into the backend through this trait.
-//!
-//! The read-side operations (`get_objects`, `get_state`, `get_changes`,
-//! `query_objects`, `query_changes`) are defined on the [`jmap_server::JmapBackend`]
-//! supertrait. Only write operations and mail-specific operations are here.
-//!
-//! Marker traits and property selector enums live in `jmap-types` and
-//! `jmap-mail-types` respectively; they are re-exported here for convenience.
-//!
-//! # isUnread convention
-//!
-//! When computing [`Mailbox::unread_emails`](jmap_mail_types::Mailbox::unread_emails)
-//! and [`Mailbox::unread_threads`](jmap_mail_types::Mailbox::unread_threads),
-//! backends MUST use the following definition (RFC 8621 §2 / jmapio/jmap-js
-//! `Message.js` lines 803–805):
-//!
-//! ```text
-//! isUnread = NOT keywords.$seen  AND  NOT keywords.$draft
-//! ```
-//!
-//! Draft messages — those with the `$draft` keyword — are **never** counted as
-//! unread regardless of their `$seen` state. A message is unread only if it
-//! lacks both `$seen` and `$draft`.
-//!
-//! `unread_threads` counts threads that contain at least one unread (by the
-//! above definition) email in the mailbox.
+//! [`MailBackend`] trait for RFC 8621 method handlers, re-exported at the
+//! crate root.
 
-pub use jmap_mail_types::backend::{
-    EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
-    SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
-};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
-};
+use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // MailBackend trait
@@ -52,6 +17,24 @@ pub use jmap_server::{
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl MailBackend>` when sharing across tasks.
+///
+/// # isUnread convention
+///
+/// When computing [`Mailbox::unread_emails`](jmap_mail_types::Mailbox::unread_emails)
+/// and [`Mailbox::unread_threads`](jmap_mail_types::Mailbox::unread_threads),
+/// backends MUST use the following definition (RFC 8621 §2 / jmapio/jmap-js
+/// `Message.js` lines 803–805):
+///
+/// ```text
+/// isUnread = NOT keywords.$seen  AND  NOT keywords.$draft
+/// ```
+///
+/// Draft messages — those with the `$draft` keyword — are **never** counted as
+/// unread regardless of their `$seen` state. A message is unread only if it
+/// lacks both `$seen` and `$draft`.
+///
+/// `unread_threads` counts threads that contain at least one unread (by the
+/// above definition) email in the mailbox.
 pub trait MailBackend: JmapBackend {
     // -----------------------------------------------------------------------
     // Write operations
@@ -98,7 +81,7 @@ pub trait MailBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`]; the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were

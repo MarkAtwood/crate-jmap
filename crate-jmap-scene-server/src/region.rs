@@ -15,13 +15,13 @@ use jmap_scene_types::{GeoAnchor, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{BindingTarget, SceneBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid,
     normalized_quaternion, not_found, numbers, orientation_ok, reject_unsupported_sort,
     set_error_value, SetAccumulators,
 };
+use crate::{BindingTarget, SceneBackend};
 use jmap_server::{
     apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
     HandlerOutput, SetError, SetErrorType,

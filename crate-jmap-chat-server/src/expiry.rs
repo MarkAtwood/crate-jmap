@@ -36,8 +36,8 @@ use jmap_chat_types::{Chat, Message, PresenceStatus};
 use jmap_types::{Id, PatchObject, UTCDate};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{BackendSetError, ChatBackend};
 use crate::chat::record_unread_count_changes;
+use crate::{BackendSetError, ChatBackend};
 
 /// Apply every expiry deadline in `account_id` that has passed at `now`.
 ///

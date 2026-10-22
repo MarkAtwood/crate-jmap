@@ -10,7 +10,7 @@ use base64::Engine as _;
 use jmap_graph_types::edit::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
 use serde_json::{Map, Value};
 
-use crate::backend::{SetError, SetErrorType};
+use crate::{SetError, SetErrorType};
 
 const EDIT_FORMAT: &str = GRAPH_NODE_EDIT_FORMAT_PROPERTY;
 const SNAPSHOT_SEQ: &str = GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY;
