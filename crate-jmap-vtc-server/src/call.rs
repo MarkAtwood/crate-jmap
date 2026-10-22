@@ -576,7 +576,8 @@ async fn update_call<B: VtcBackend>(
             .update_object::<VtcCall>(caller, account_id, id, patch)
             .await
     } else {
-        let ended = end_cascade(backend, caller, account_id, &call, patch).await;
+        let from = std::slice::from_ref(&call.state);
+        let ended = end_cascade(backend, caller, account_id, &call, from, patch).await;
         if ended.is_ok() && call.state == CallState::Ringing {
             // §VTCCallEndEvent: "When a ringing call is answered, declined,
             // cancelled, or times out, the server delivers a
@@ -630,6 +631,13 @@ pub(crate) async fn set_call_state<B: VtcBackend>(
         .map_err(backend_set_error_value)
 }
 
+/// Whether `e` is the `invalidProperties` naming `state` that
+/// [`end_call`] returns for a call not in one of its `from` states.
+pub(crate) fn is_state_refusal(e: &SetError) -> bool {
+    e.error_type == SetErrorType::InvalidProperties
+        && e.properties.as_deref() == Some(&["state".to_owned()][..])
+}
+
 /// The patch that ends a call: `state` `"ended"` with the `endedAt` and
 /// `endReason` §Ending a Call says the server sets.
 fn ended_patch(end_reason: CallEndReason) -> PatchObject {
@@ -672,6 +680,13 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 ///   (§VTCCallEndEvent). `VTCCall/set` does the same when the initiator
 ///   ends a ringing call.
 ///
+/// `from` lists the states `end_reason` applies to, for example
+/// `[CallState::Active]` for `"timeout"`. The call ends only while its
+/// stored state is one of them, checked by
+/// [`VtcBackend::update_object_if`] atomically with the write, so a
+/// reason chosen from an earlier read never lands on a call that has
+/// moved on: a ring call answered since then is not ended `"missed"`.
+///
 /// `caller` is the server's own context; the moderator checks of
 /// `VTCCall/set` do not apply, and it is the `initiatedBy` of each
 /// `VTCRecordingStateEvent`.
@@ -679,9 +694,9 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 /// # Errors
 ///
 /// `notFound` for an unknown `id`, and `invalidProperties` naming `state`
-/// when the call has already ended, or left the state this function read
-/// before the end reached the store. Otherwise the first backend error;
-/// calls ended and recordings stopped before it stay so.
+/// when the call has already ended or is not in one of `from` when the
+/// end reaches the store. Otherwise the first backend error; calls ended
+/// and recordings stopped before it stay so.
 // Same error type as `VtcBackend::update_object`, which it propagates.
 #[allow(clippy::result_large_err)]
 pub async fn end_call<B: VtcBackend>(
@@ -689,6 +704,7 @@ pub async fn end_call<B: VtcBackend>(
     caller: &B::CallerCtx,
     account_id: &Id,
     id: &Id,
+    from: &[CallState],
     end_reason: CallEndReason,
 ) -> Result<(), BackendSetError<B::Error>> {
     let (found, _) = backend
@@ -706,8 +722,12 @@ pub async fn end_call<B: VtcBackend>(
                 .with_description("the call is already in state \"ended\""),
         ));
     }
+    if !from.contains(&call.state) {
+        return Err(BackendSetError::SetError(state_refused()));
+    }
     let cancelled = call.state == CallState::Ringing && end_reason == CallEndReason::Cancelled;
-    end_cascade(backend, caller, account_id, &call, ended_patch(end_reason)).await?;
+    let patch = ended_patch(end_reason);
+    end_cascade(backend, caller, account_id, &call, from, patch).await?;
     if cancelled {
         deliver_call_end(backend, caller, account_id, id, RingEndReason::Cancelled).await;
     }
@@ -730,8 +750,9 @@ pub const RING_TIMEOUT: Duration = Duration::from_secs(30);
 /// happens. Otherwise:
 ///
 /// - a `"ringing"` call ends through [`end_call`] with `endReason`
-///   `"missed"`, and a `VTCCallEndEvent` with `endReason` `"timeout"` is
-///   delivered: "If no target participant answers within a
+///   `"missed"`, from `"ringing"` only; a call answered since the read is
+///   read again and handled as `"active"`. Then a `VTCCallEndEvent` with
+///   `endReason` `"timeout"` is delivered: "If no target participant answers within a
 ///   deployment-defined period ..., the server transitions the call to
 ///   `"ended"` with `endReason: "missed"` and dispatches `VTCCallEndEvent`
 ///   with `endReason: "timeout"` to all ringing devices";
@@ -759,27 +780,50 @@ pub async fn expire_ring<B: VtcBackend>(
     id: &Id,
     now: SystemTime,
 ) -> Result<bool, BackendSetError<B::Error>> {
-    let (found, _) = backend
-        .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
+    // A `"ringing"` call that left that state before the end reached the
+    // store is read again. The loop ends because §State Machine has no
+    // transition back to `"ringing"`.
+    let call = loop {
+        let (found, _) = backend
+            .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
+            .await
+            .map_err(BackendSetError::Other)?;
+        let call = found
+            .into_iter()
+            .next()
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        if call.call_type != CallType::Ring
+            || !matches!(call.state, CallState::Ringing | CallState::Active)
+        {
+            return Ok(false);
+        }
+        let deadline = ring_deadline(&call.created_at, backend.ring_timeout())
+            .map_err(BackendSetError::SetError)?;
+        if now < deadline {
+            return Ok(false);
+        }
+        if call.state != CallState::Ringing {
+            break call;
+        }
+        let from = [CallState::Ringing];
+        match end_call(
+            backend,
+            caller,
+            account_id,
+            id,
+            &from,
+            CallEndReason::Missed,
+        )
         .await
-        .map_err(BackendSetError::Other)?;
-    let call = found
-        .into_iter()
-        .next()
-        .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
-    if call.call_type != CallType::Ring
-        || !matches!(call.state, CallState::Ringing | CallState::Active)
-    {
-        return Ok(false);
-    }
-    let deadline = ring_deadline(&call.created_at, backend.ring_timeout())
-        .map_err(BackendSetError::SetError)?;
-    if now < deadline {
-        return Ok(false);
-    }
-    if call.state == CallState::Ringing {
-        end_call(backend, caller, account_id, id, CallEndReason::Missed).await?;
-    } else {
+        {
+            Err(BackendSetError::SetError(e)) if is_state_refusal(&e) => continue,
+            ended => {
+                ended?;
+                break call;
+            }
+        }
+    };
+    if call.state == CallState::Active {
         // ponytail: loads every VTCParticipant of the account, once per
         // ring. Upgrade path: a `callId` filtered `query_objects`.
         let (all, _) = backend
@@ -850,8 +894,8 @@ pub(crate) fn ring_deadline(
 /// beneath it, and stop each ended call's active recordings and
 /// livestreams (§Ending a Call). Returns
 /// [`VtcBackend::update_object_if`]'s result for `call`, and the
-/// `invalidProperties` SetError naming `state` when `call` is no longer in
-/// the state it was read in.
+/// `invalidProperties` SetError naming `state` when the stored `call` is
+/// not in one of `from`, the states `patch`'s `endReason` was chosen for.
 ///
 /// jmap-vtc-implementer-guide §Breakout room cleanup: "Implement
 /// parent-call end as a cascade that ends all child calls first." The
@@ -866,6 +910,7 @@ async fn end_cascade<B: VtcBackend>(
     caller: &B::CallerCtx,
     account_id: &Id,
     call: &VtcCall,
+    from: &[CallState],
     patch: PatchObject,
 ) -> Result<Option<VtcCall>, BackendSetError<B::Error>> {
     let mut rooms: Vec<VtcCall> = Vec::new();
@@ -911,16 +956,10 @@ async fn end_cascade<B: VtcBackend>(
         stop_recordings(backend, caller, account_id, &room.id).await?;
         stop_livestreams(backend, caller, account_id, &room.id).await?;
     }
-    // `patch` carries the `endReason` for `call.state`, so it applies only
-    // from that state.
+    // `patch` carries the `endReason` the caller chose for the states in
+    // `from`, so it applies only from those.
     let result = backend
-        .update_object_if::<VtcCall>(
-            caller,
-            account_id,
-            &call.id,
-            std::slice::from_ref(&call.state),
-            patch,
-        )
+        .update_object_if::<VtcCall>(caller, account_id, &call.id, from, patch)
         .await?
         .map_err(|_| BackendSetError::SetError(state_refused()))?;
     stop_recordings(backend, caller, account_id, &call.id).await?;

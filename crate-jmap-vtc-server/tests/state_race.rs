@@ -7,6 +7,7 @@
 mod common;
 
 use std::sync::Mutex;
+use std::time::{Duration, UNIX_EPOCH};
 
 use common::*;
 use jmap_server::{
@@ -16,11 +17,13 @@ use jmap_server::{
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
 use jmap_vtc_server::{
-    handle_vtc_call_get, handle_vtc_call_set, handle_vtc_livestream_get, handle_vtc_livestream_set,
-    handle_vtc_participant_set, handle_vtc_recording_get, handle_vtc_recording_set, StatefulObject,
-    VtcBackend,
+    after_leave, end_call, expire_ring, handle_vtc_call_get, handle_vtc_call_set,
+    handle_vtc_livestream_get, handle_vtc_livestream_set, handle_vtc_participant_set,
+    handle_vtc_recording_get, handle_vtc_recording_set, StatefulObject, VtcBackend,
 };
-use jmap_vtc_types::{VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
+use jmap_vtc_types::{
+    CallEndReason, CallRole, CallState, VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent,
+};
 use serde_json::{json, Value};
 
 /// [`MemoryBackend`] that stores one record, as a concurrent request
@@ -403,4 +406,110 @@ async fn join_after_a_concurrent_cancel_leaves_the_call_ended() {
         .clone();
     assert_eq!(stored["state"], "ended");
     assert_eq!(stored["endReason"], "cancelled");
+}
+
+/// The stored call `id`, read from `backend` by [`BOB`].
+async fn stored(backend: &MemoryBackend, id: &str) -> Value {
+    call!(handle_vtc_call_get, backend, BOB, json!({ "ids": [id] }))["list"][0].clone()
+}
+
+#[tokio::test]
+async fn ring_timeout_after_a_concurrent_answer_leaves_the_call_active() {
+    let backend = backend();
+    seed(
+        &backend,
+        stored_call("R1", "ring", "ringing", "2026-06-05T14:30:00Z"),
+    );
+    let backend = Racing::new(
+        backend,
+        "VTCCall",
+        stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
+    );
+
+    // 2027-01-15, long after createdAt plus the 30 s period of L1615.
+    let now = UNIX_EPOCH + Duration::from_secs(1_800_000_000);
+    let delivered = expire_ring(
+        &backend,
+        &BOB.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from("R1"),
+        now,
+    )
+    .await
+    .expect("expire_ring");
+
+    // L1615 "If the call is already `"active"` when the period expires,
+    // the call continues; the server dispatches `VTCCallEndEvent` with
+    // `endReason: "timeout"` to the devices of targets whose
+    // `callResponse` is still `"pending"`." The call has no pending
+    // target, so nothing is delivered.
+    assert!(!delivered);
+    let call = stored(&backend.0, "R1").await;
+    assert_eq!(call["state"], "active");
+    assert_eq!(call["endReason"], Value::Null);
+    assert!(backend.0.events_for_test().is_empty());
+}
+
+#[tokio::test]
+async fn leave_after_a_concurrent_answer_ends_the_call_completed() {
+    let backend = backend();
+    seed(
+        &backend,
+        stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
+    );
+    // The leave's read of the call, from before a target answered.
+    let stale: VtcCall =
+        serde_json::from_value(stored_call("R1", "ring", "ringing", "2026-06-05T14:30:00Z"))
+            .expect("call");
+
+    after_leave(
+        &backend,
+        &BOB.to_owned(),
+        &Id::from(ACCOUNT),
+        &stale,
+        &CallRole::Moderator,
+    )
+    .await
+    .expect("after_leave");
+
+    // L966 "When the last active participant leaves a ring or scheduled
+    // call, the server transitions the VTCCall to `"ended"` with
+    // `endReason: "completed"`, or `"cancelled"` if the call was still
+    // `"ringing"`." The stored call was active, so no ring ends either.
+    let call = stored(&backend, "R1").await;
+    assert_eq!(call["state"], "ended");
+    assert_eq!(call["endReason"], "completed");
+    assert!(backend.events_for_test().is_empty());
+}
+
+#[tokio::test]
+async fn decline_end_of_an_answered_call_is_refused() {
+    let backend = backend();
+    seed(
+        &backend,
+        stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
+    );
+
+    // L930 "When all target participants have declined and the call is
+    // still `"ringing"`, the server transitions the call to `"ended"` with
+    // `endReason: "declined"`": the decline path ends from `"ringing"`
+    // only, and this call was answered first.
+    match end_call(
+        &backend,
+        &BOB.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from("R1"),
+        &[CallState::Ringing],
+        CallEndReason::Declined,
+    )
+    .await
+    {
+        Err(BackendSetError::SetError(e)) => {
+            assert_state_refused(&serde_json::to_value(&e).expect("SetError"))
+        }
+        other => panic!("expected invalidProperties, got {other:?}"),
+    }
+    let call = stored(&backend, "R1").await;
+    assert_eq!(call["state"], "active");
+    assert_eq!(call["endReason"], Value::Null);
 }

@@ -1322,6 +1322,17 @@ wire behaviour that a conforming peer can observe.
   jmap-chat-spec 29e9a41: L506 "The server MUST NOT transition a call
   out of `"ended"`", L1165, L1266). Implement it in each backend; the
   `MemoryBackend` one is the reference.
+- **BREAKING** **jmap-vtc-server**: `end_call` takes `from`, the call
+  states its `end_reason` applies to, and ends the call only while the
+  stored state is one of them (for example `&[CallState::Active]` for
+  `CallEndReason::Timeout`). Before this it compared against its own
+  fresh read, so a reason chosen from an earlier read could land on a
+  call that had moved on. `expire_ring` now ends only a still-ringing
+  call, and an answered one continues (draft-atwood-jmap-vtc-00,
+  jmap-chat-spec 29e9a41 L1615 "If the call is already `"active"` when
+  the period expires, the call continues"). The all-declined end applies
+  only while the call is still `"ringing"` (L930). `after_leave` ends a
+  call answered since its read `"completed"`, not `"cancelled"` (L966).
 - **BREAKING** **jmap-scene-vtc-server**, **jmap-chat-vtc-server**:
   `clear_active_call_id` and `sync_active_call_id` must also run after a
   `VtcBackend::update_object_if::<VtcCall>` write that applied, since
