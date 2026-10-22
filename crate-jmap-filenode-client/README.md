@@ -76,8 +76,8 @@ All `pub async fn` on `SessionClient`:
 |---|---|---|---|
 | `file_node_get` | `ids, properties, fetch_parents` | `FileNode/get` | `GetResponse<FileNode>` |
 | `file_node_changes` | `since_state, max_changes` | `FileNode/changes` | `ChangesResponse` |
-| `file_node_set` | `create, update, destroy, params` | `FileNode/set` | `SetResponse<FileNode>` |
-| `file_node_copy` | `from_account_id, create, on_destroy_remove_children, on_exists, compare_case_insensitively` | `FileNode/copy` | `SetResponse<FileNode>` |
+| `file_node_set` | `create, update, destroy, params` | `FileNode/set` | `SetResponse<PartialObject>` |
+| `file_node_copy` | `from_account_id, create, on_destroy_remove_children, on_exists, compare_case_insensitively` | `FileNode/copy` | `SetResponse<PartialObject>` |
 | `file_node_query` | `filter, sort, position, limit, depth` | `FileNode/query` | `QueryResponse` |
 | `file_node_query_changes` | `since_query_state, max_changes` | `FileNode/queryChanges` | `QueryChangesResponse` |
 
@@ -96,7 +96,7 @@ all collision-handling options (`on_exists`, `compare_case_insensitively`) follo
 | Type | Used for |
 |---|---|
 | `GetResponse<FileNode>` | `file_node_get` — typed list of FileNode objects |
-| `SetResponse<FileNode>` | `file_node_set`, `file_node_copy` — created/updated/destroyed maps |
+| `SetResponse<PartialObject>` | `file_node_set`, `file_node_copy` — created/updated/destroyed maps; RFC 8620 §5.3 `created` values hold only the properties the client did not send. `file_node_copy` keeps this shape, not `CopyResponse`, for the `destroyed` list draft-16 §3.2.3 requires |
 | `ChangesResponse` | `file_node_changes` — added, updated, and destroyed ID lists |
 | `QueryResponse` | `file_node_query` — ordered list of matching IDs |
 | `QueryChangesResponse` | `file_node_query_changes` — added and removed ID lists |
