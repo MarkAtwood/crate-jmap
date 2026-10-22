@@ -1309,6 +1309,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-mail-client**: `mailbox_set`, `identity_set` and
+  `vacation_response_set` take `if_in_state: Option<&State>`, sent as
+  the RFC 8620 §5.3 `ifInState` optimistic-concurrency guard, matching
+  `email_set` and `email_submission_set`. It follows `destroy` (or
+  `update`) and precedes `params`. Pass `None` for the old behaviour.
 - **BREAKING** **jmap-base-client** and every extension client: each
   `*_query` method (and chat `Batch::chat_query_get` /
   `message_query_get`) takes `params: &QueryParams` in place of the
