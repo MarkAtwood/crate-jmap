@@ -140,9 +140,9 @@ pub struct TaskNotificationFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before: Option<UTCDate>,
 
-    /// Notification `type` must equal this string.
+    /// Notification `type` must equal this value.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub notification_type: Option<String>,
+    pub notification_type: Option<NotificationType>,
 
     /// Notification `taskId` must be in this list.
     #[serde(skip_serializing_if = "Option::is_none")]

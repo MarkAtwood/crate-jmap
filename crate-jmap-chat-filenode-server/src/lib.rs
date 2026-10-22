@@ -148,7 +148,7 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
     };
 
     let mut filter = FileNodeFilterCondition::default();
-    filter.role = Some(NodeRole::ChatSpace.to_wire_str().to_owned());
+    filter.role = Some(NodeRole::ChatSpace);
     filter.space_id = Some(space_id.clone());
     let existing = files
         .query_objects::<FileNode>(
@@ -354,7 +354,7 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
     space_id: &Id,
 ) -> Result<Vec<Id>, TreeDestroyError<F::Error>> {
     let mut filter = FileNodeFilterCondition::default();
-    filter.role = Some(NodeRole::ChatSpace.to_wire_str().to_owned());
+    filter.role = Some(NodeRole::ChatSpace);
     filter.space_id = Some(space_id.clone());
     let roots = files
         .query_objects::<FileNode>(caller, account_id, QueryParams::new().filter(Some(&filter)))

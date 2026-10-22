@@ -783,8 +783,8 @@ fn filter_condition_all_fields_deserialize() {
     assert_eq!(cond.parent_id, Some(id("dir1")));
     assert_eq!(cond.ancestor_id, Some(id("root1")));
     assert_eq!(cond.descendant_id, Some(id("child1")));
-    assert_eq!(cond.node_type, Some("File".to_owned()));
-    assert_eq!(cond.role, Some("home".to_owned()));
+    assert_eq!(cond.node_type, Some(NodeType::File));
+    assert_eq!(cond.role, Some(NodeRole::Home));
     assert_eq!(cond.has_any_role, Some(false));
     assert_eq!(cond.blob_id, Some(id("blob1")));
     assert_eq!(cond.is_executable, Some(true));
@@ -1180,4 +1180,20 @@ fn files_rights_may_set_metadata_typed_and_optional() {
     let r: FilesRights = serde_json::from_value(without.clone()).unwrap();
     assert_eq!(r.may_set_metadata, None);
     assert_eq!(serde_json::to_value(&r).unwrap(), without);
+}
+
+/// `nodeType` and `role` filter values outside the known sets survive a
+/// round trip unchanged.
+///
+/// Oracle: draft-ietf-jmap-filenode-16 §3.2.5 (lines
+/// 823-833): "nodeType: "String" ... Only nodes whose @type is precisely
+/// this value match" and "role: "String" ... Only nodes with precisely
+/// this role match". Expected JSON is hand-written.
+#[test]
+fn filter_condition_unknown_node_type_and_role_round_trip() {
+    let wire = serde_json::json!({"nodeType": "x-Device", "role": "x-scans"});
+    let cond: FileNodeFilterCondition = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(cond.node_type, Some(NodeType::Other("x-Device".to_owned())));
+    assert_eq!(cond.role, Some(NodeRole::Other("x-scans".to_owned())));
+    assert_eq!(serde_json::to_value(&cond).unwrap(), wire);
 }

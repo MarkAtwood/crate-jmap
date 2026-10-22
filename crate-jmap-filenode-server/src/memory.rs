@@ -1085,14 +1085,14 @@ fn node_matches_filter(
 
     if let Some(ref nt) = fc.node_type {
         let node_nt_str = node.node_type.as_ref().map(NodeType::to_wire_str);
-        if node_nt_str != Some(nt.as_str()) {
+        if node_nt_str != Some(nt.to_wire_str()) {
             return Ok(false);
         }
     }
 
     if let Some(ref r) = fc.role {
         let node_role_str = node.role.as_ref().map(NodeRole::to_wire_str);
-        if node_role_str != Some(r.as_str()) {
+        if node_role_str != Some(r.to_wire_str()) {
             return Ok(false);
         }
     }

@@ -595,7 +595,7 @@ pub struct TaskFilterCondition {
 
     /// Filter by `progress` value.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub progress: Option<String>,
+    pub progress: Option<TaskProgress>,
 
     /// Filter by `workflow_status` value.
     #[serde(skip_serializing_if = "Option::is_none")]
