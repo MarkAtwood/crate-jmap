@@ -121,11 +121,17 @@ pub trait FederationBackend: ChatBackend {
     /// "Callers without the `"peer"` role MUST receive `forbidden`").
     fn authenticated_peer(&self, caller: &Self::CallerCtx) -> Option<AuthenticatedPeer>;
 
-    /// A fresh id in the form the backend assigns to a stored Message.
+    /// A fresh id in the form the backend assigns to a stored Message in
+    /// `account_id`.
     ///
     /// A silently dropped new message (steps 4 and 7) answers with this
     /// id, so the response does not show the peer that it was dropped.
-    fn new_message_id(&self) -> Id;
+    /// `Err` makes `Peer/deliver` answer `serverFail`.
+    fn new_message_id(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+    ) -> impl std::future::Future<Output = Result<Id, Self::Error>> + Send;
 
     /// Fetch `attachment` from its `fetchUrl` and store it as a blob of
     /// `account_id` (step 11).
@@ -755,7 +761,13 @@ impl SilentDrop<'_> {
             .map(|m| m.id),
             _ => None,
         };
-        let id = existing.unwrap_or_else(|| backend.new_message_id());
+        let id = match existing {
+            Some(id) => id,
+            None => backend
+                .new_message_id(caller, self.account_id)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?,
+        };
         respond(self.account_id, id, self.now.clone(), self.canonical)
     }
 }

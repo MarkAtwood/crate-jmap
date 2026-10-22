@@ -112,7 +112,9 @@ pub trait ChatBackend: JmapBackend {
 
     /// Generate a cryptographically random invite code.
     /// MUST use a CSPRNG. Do NOT use timestamps or sequential counters.
-    fn generate_invite_code(&self) -> String;
+    fn generate_invite_code(
+        &self, caller: &Self::CallerCtx, account_id: &Id,
+    ) -> impl Future<Output = Result<String, Self::Error>> + Send;
 
     /// Permissions of the implicit `@everyone` role in `space`, the
     /// permission floor every member holds. No default.

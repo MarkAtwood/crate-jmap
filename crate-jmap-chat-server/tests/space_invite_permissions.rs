@@ -79,6 +79,23 @@ async fn create_requires_manage_members() {
     assert!(allowed["created"].get("i0").is_some(), "{allowed:?}");
 }
 
+/// A backend that cannot mint an invite code fails that create with
+/// `serverFail` (RFC 8620 §3.6.1: "An unexpected error occurred during
+/// the processing of the call"); nothing is created.
+#[tokio::test]
+async fn create_fails_with_server_fail_when_code_generation_fails() {
+    let backend = seeded(true, "manager");
+    backend.fail_invite_codes();
+
+    let resp = set(
+        &backend,
+        json!({ "create": { "i0": { "spaceId": SPACE_ID } } }),
+    )
+    .await;
+    assert_eq!(resp["created"], Value::Null, "{resp:?}");
+    assert_eq!(resp["notCreated"]["i0"]["type"], "serverFail", "{resp:?}");
+}
+
 /// "`destroy` revokes an invite. Requires `"manage_members"` permission
 /// or ownership of the invite." Here the invite belongs to someone else.
 #[tokio::test]

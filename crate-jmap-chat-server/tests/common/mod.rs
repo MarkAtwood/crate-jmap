@@ -185,16 +185,20 @@ impl ChatBackend for FaultyBackend {
         )))
     }
 
-    fn generate_invite_code(&self) -> String {
+    async fn generate_invite_code(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Result<String, MemoryError> {
         // test-only: not a CSPRNG
-        format!(
+        Ok(format!(
             "{:012x}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_nanos()
                 & 0xffff_ffff_ffff,
-        )
+        ))
     }
 
     async fn everyone_permissions(
@@ -577,8 +581,12 @@ impl ChatBackend for TrackingBackend {
             .await
     }
 
-    fn generate_invite_code(&self) -> String {
-        self.inner.generate_invite_code()
+    async fn generate_invite_code(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+    ) -> Result<String, MemoryError> {
+        self.inner.generate_invite_code(&(), account_id).await
     }
 
     async fn everyone_permissions(
@@ -855,14 +863,20 @@ impl ChatBackend for TrackingBackend {
 #[derive(Clone, Default)]
 pub struct IdentityBackend {
     inner: MemoryBackend,
+    invite_code_fails: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl IdentityBackend {
     /// Fresh `IdentityBackend` wrapping an empty `MemoryBackend`.
     pub fn new() -> Self {
-        Self {
-            inner: MemoryBackend::new(),
-        }
+        Self::default()
+    }
+
+    /// Make every later `generate_invite_code` call return `Err`, as a
+    /// backend whose entropy source is unavailable would.
+    pub fn fail_invite_codes(&self) {
+        self.invite_code_fails
+            .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 
     /// Borrow the wrapped `MemoryBackend` for test seeding (e.g.
@@ -1002,8 +1016,18 @@ impl ChatBackend for IdentityBackend {
             .await
     }
 
-    fn generate_invite_code(&self) -> String {
-        self.inner.generate_invite_code()
+    async fn generate_invite_code(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+    ) -> Result<String, MemoryError> {
+        if self
+            .invite_code_fails
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(MemoryError::new("entropy source unavailable"));
+        }
+        self.inner.generate_invite_code(&(), account_id).await
     }
 
     async fn everyone_permissions(
@@ -1516,8 +1540,12 @@ impl ChatBackend for InjectableBackend {
             .await
     }
 
-    fn generate_invite_code(&self) -> String {
-        self.inner.generate_invite_code()
+    async fn generate_invite_code(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+    ) -> Result<String, MemoryError> {
+        self.inner.generate_invite_code(&(), account_id).await
     }
 
     async fn everyone_permissions(

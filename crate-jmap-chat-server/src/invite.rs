@@ -345,7 +345,13 @@ pub async fn handle_invite_set<B: ChatBackend>(
             // handler does NOT re-validate the output shape — a backend
             // that fails the contract leaks the invite-code unguessability
             // bound.
-            let code = backend.generate_invite_code();
+            let code = match backend.generate_invite_code(caller, &account_id).await {
+                Ok(code) => code,
+                Err(e) => {
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
 
             // Security: createdBy MUST be set server-side, never accepted
             // from the client body. The creator is the owner, referenced by

@@ -498,6 +498,7 @@ impl std::error::Error for SlowModeError {}
 ///    [`ChatBackend::expire_message`],
 ///    [`ChatBackend::read_and_burn_message`],
 ///    [`ChatBackend::slow_mode_check`],
+///    [`ChatBackend::generate_invite_code`],
 ///    [`ChatBackend::is_contact_blocked`], and
 ///    [`ChatBackend::may_set_custom_emoji`] all return
 ///    `impl Future + Send`. These methods consult per-account state,
@@ -506,19 +507,20 @@ impl std::error::Error for SlowModeError {}
 ///    policy lookups without runtime-pinning hazards.
 ///
 /// 2. **Policy / capability hooks are sync.** [`ChatBackend::supports_type`],
-///    [`ChatBackend::generate_invite_code`], [`ChatBackend::limits`],
-///    [`ChatBackend::protect_last_admin`], and
+///    [`ChatBackend::limits`], [`ChatBackend::protect_last_admin`], and
 ///    [`ChatBackend::retains_edit_history`] are synchronous methods.
 ///    These hooks answer deployment-policy or capability questions
 ///    whose answer SHOULD be derivable from in-process state (a
-///    startup-loaded config snapshot, a cached per-account record, a
-///    CSPRNG handle). The sync shape keeps the trait surface easy to
-///    implement for single-process and reference backends, which are
-///    the dominant use case for a kit crate.
+///    startup-loaded config snapshot, a cached per-account record).
+///    The sync shape keeps the trait surface easy to implement for
+///    single-process and reference backends, which are the dominant
+///    use case for a kit crate. `generate_invite_code` is async and
+///    fallible instead, because an HSM or KMS entropy source needs I/O
+///    and can fail.
 ///
 /// The carve-up is intentional and is NOT a "we forgot to async these"
 /// regression. Production backends that need to consult an async
-/// source for any of the five sync hooks have two options: (a)
+/// source for any of the four sync hooks have two options: (a)
 /// pre-cache the answer at startup or on a background refresh; or (b)
 /// file a follow-up bead proposing the conversion for that specific
 /// method, with the production constraint documented. Per-method
@@ -1033,21 +1035,22 @@ pub trait ChatBackend: JmapBackend {
     /// at the first mismatched byte and exposes a byte-by-byte timing
     /// oracle for credential recovery.
     ///
-    /// # Fallibility and async — known limitations
+    /// # Errors
     ///
-    /// This method is sync and infallible. Backends that mint codes
-    /// via a remote source (HSM, KMS, hardened sandbox where
-    /// `getrandom` is gated, etc.) cannot surface failure from this
-    /// signature and cannot `.await` a network call. Such backends
-    /// must pre-fetch a buffer of codes at startup and serve from it,
-    /// or panic on entropy starvation. A future revision MAY change
-    /// the signature to `async fn generate_invite_code(&self) ->
-    /// Result<String, Self::Error>` to support remote / fallible
-    /// entropy sources without forcing the pre-fetch workaround.
+    /// A backend that cannot mint a code (entropy starvation, an
+    /// unreachable HSM or KMS) returns `Err`; `SpaceInvite/set` reports
+    /// that create as `serverFail`. Never fall back to a predictable code.
+    ///
+    /// `caller` and `account_id` identify the SpaceInvite create the code
+    /// is for, so a backend can scope its entropy source per account.
     ///
     /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
     /// [`getrandom`]: https://docs.rs/getrandom
-    fn generate_invite_code(&self) -> String;
+    fn generate_invite_code(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<String, Self::Error>> + Send;
 
     /// Redeem the SpaceInvite `invite_id` for `Space/join`: add the owner
     /// (member entry `account_id`, no roles, `joinedAt` = `joined_at`) to
