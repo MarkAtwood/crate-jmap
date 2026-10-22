@@ -306,3 +306,45 @@ async fn task_list_set_without_on_destroy_omits_field() {
         "onDestroyRemoveTasks must be absent from the wire when None is passed: {args}"
     );
 }
+
+/// RFC 8620 §5.3: each `created` value holds only "properties of the
+/// created Foo object that were not sent by the client". Oracle: the
+/// hand-written response echoes only the server-set `id` and a
+/// server-defaulted `sortOrder`; the client-sent `name`, required on a
+/// full `TaskList`, is absent and the response must still parse.
+#[tokio::test]
+async fn task_list_set_created_omits_client_sent_properties() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "TaskList/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": { "k1": { "id": "tl-9", "sortOrder": 0 } }
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = helpers::make_client(&server);
+    let resp = sc
+        .task_list_set(
+            Some(json!({ "k1": { "name": "Chores" } })),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("a partial created object must parse");
+    let k1 = &resp.created.expect("created")["k1"];
+    assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("tl-9"));
+    assert_eq!(k1.extra["sortOrder"], 0);
+    assert!(!k1.extra.contains_key("name"));
+}

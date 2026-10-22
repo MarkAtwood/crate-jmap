@@ -8,7 +8,9 @@ use jmap_tasks_types::TaskNotificationComparator;
 use jmap_types::{query::Filter, Id, State};
 use serde::Serialize;
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 
 impl super::SessionClient {
     /// Fetch TaskNotification objects by IDs (draft-tasks-06 §5.2).
@@ -122,7 +124,7 @@ impl super::SessionClient {
         &self,
         destroy: Vec<Id>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
