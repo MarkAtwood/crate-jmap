@@ -16,7 +16,7 @@ mod helpers;
 
 use std::collections::BTreeMap;
 
-use jmap_calendars_client::methods::CalendarEventGetParams;
+use jmap_calendars_client::CalendarEventGetParams;
 use jmap_calendars_types::{
     CalendarEventComparator, CalendarEventComparatorProperty, CalendarEventFilter,
     CalendarEventFilterCondition,

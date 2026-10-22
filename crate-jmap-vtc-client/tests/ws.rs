@@ -9,7 +9,7 @@
 //! sent, which the test compares with the draft's client frames.
 
 use futures::{SinkExt as _, StreamExt as _};
-use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_base_client::{WsFrame, WsSession};
 use jmap_types::Id;
 use jmap_vtc_client::{VtcWsExt, VtcWsFrame};

@@ -5,7 +5,7 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! # use jmap_base_client::{JmapClient, auth::{DefaultTransport, BearerAuth}, client::ClientConfig};
+//! # use jmap_base_client::{JmapClient, DefaultTransport, BearerAuth, ClientConfig};
 //! # async fn example() -> Result<(), jmap_base_client::ClientError> {
 //! let auth = BearerAuth::new("...")?;
 //! let client = JmapClient::new(
@@ -63,15 +63,15 @@
 
 #![forbid(unsafe_code)]
 
-pub mod auth;
-pub mod blob;
-pub mod client;
-pub mod error;
-pub mod push;
-pub mod query;
-pub mod request;
-pub mod sse;
-pub mod ws;
+mod auth;
+mod blob;
+mod client;
+mod error;
+mod push;
+mod query;
+mod request;
+mod sse;
+mod ws;
 
 pub use auth::{
     AuthHeader, AuthProvider, BasicAuth, BearerAuth, BuilderTransport, CustomCaTransport,
@@ -87,8 +87,8 @@ pub use client::{
     SseReconnectPolicy, SubscribeEventsSessionParams,
 };
 pub use error::{
-    ClientError, HttpError, InvalidHeaderValueError, ParseCategory, ParseError, SerializeError,
-    WebSocketError,
+    ClientError, HttpError, HttpErrorKind, InvalidHeaderValueError, ParseCategory, ParseError,
+    SerializeError, WebSocketError, WebSocketErrorKind,
 };
 pub use push::StateChange;
 pub use query::QueryParams;
@@ -98,6 +98,6 @@ pub use request::{
 };
 pub use sse::{parse_sse_block, SseEvent, SseFrame};
 pub use ws::{
-    connect_ws, connect_ws_allow_plaintext, WsFrame, WsReceiver, WsRequestError, WsSender,
-    WsSession,
+    connect_ws, connect_ws_allow_plaintext, connect_ws_with_limit, WsFrame, WsReceiver,
+    WsRequestError, WsSender, WsSession, DEFAULT_WS_MAX_MESSAGE_BYTES,
 };

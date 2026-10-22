@@ -183,7 +183,7 @@ async fn space_invite_create_serialises_optionals_and_omits_code() {
     let space_id = Id::from("space-eng");
     let default_channel = Id::from("chat-c1");
     let expires_at = UTCDate::from("2026-02-20T12:00:00Z");
-    let input = jmap_chat_client::methods::SpaceInviteCreateInput {
+    let input = jmap_chat_client::SpaceInviteCreateInput {
         client_id: Some("my-inv-1"),
         space_id: &space_id,
         default_channel_id: Some(&default_channel),
@@ -234,7 +234,7 @@ async fn space_invite_create_serialises_minimal_object() {
 
     let sc = helpers::make_client(&server);
     let space_id = Id::from("space-eng");
-    let input = jmap_chat_client::methods::SpaceInviteCreateInput {
+    let input = jmap_chat_client::SpaceInviteCreateInput {
         client_id: Some("my-inv-2"),
         space_id: &space_id,
         default_channel_id: None,

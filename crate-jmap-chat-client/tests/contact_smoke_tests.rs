@@ -201,7 +201,7 @@ async fn chat_contact_update_blocked_patch_serialises() {
 
     let sc = helpers::make_client(&server);
     let id = Id::from("c1");
-    let patch = jmap_chat_client::methods::ChatContactPatch {
+    let patch = jmap_chat_client::ChatContactPatch {
         blocked: Some(true),
         ..Default::default()
     };
@@ -237,8 +237,8 @@ async fn chat_contact_update_display_name_clear_emits_null() {
 
     let sc = helpers::make_client(&server);
     let id = Id::from("c1");
-    let patch = jmap_chat_client::methods::ChatContactPatch {
-        display_name: jmap_chat_client::methods::Patch::Clear,
+    let patch = jmap_chat_client::ChatContactPatch {
+        display_name: jmap_chat_client::Patch::Clear,
         ..Default::default()
     };
     let _ = sc

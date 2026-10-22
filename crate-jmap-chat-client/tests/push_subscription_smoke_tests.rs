@@ -44,7 +44,7 @@ async fn push_subscription_create_without_chat_push_uses_core_only() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let input = jmap_chat_client::methods::PushSubscriptionCreateInput {
+    let input = jmap_chat_client::PushSubscriptionCreateInput {
         client_id: Some("my-sub-1"),
         device_client_id: "device-abc",
         url: "https://push.example.com/endpoint",
@@ -118,7 +118,7 @@ async fn push_subscription_create_with_chat_push_declares_extension() {
         jmap_chat_types::ChatKind::Group,
     ]);
     let chat_push_entries = [(&account_a, cp_a)];
-    let input = jmap_chat_client::methods::PushSubscriptionCreateInput {
+    let input = jmap_chat_client::PushSubscriptionCreateInput {
         client_id: Some("my-sub-1"),
         device_client_id: "device-abc",
         url: "https://push.example.com/endpoint",
@@ -161,7 +161,7 @@ async fn push_subscription_create_empty_device_id_or_url_rejected() {
     let sc = helpers::make_client(&server);
 
     // Empty device_client_id.
-    let bad_device = jmap_chat_client::methods::PushSubscriptionCreateInput {
+    let bad_device = jmap_chat_client::PushSubscriptionCreateInput {
         client_id: None,
         device_client_id: "",
         url: "https://x.example/p",
@@ -184,7 +184,7 @@ async fn push_subscription_create_empty_device_id_or_url_rejected() {
     }
 
     // Empty url.
-    let bad_url = jmap_chat_client::methods::PushSubscriptionCreateInput {
+    let bad_url = jmap_chat_client::PushSubscriptionCreateInput {
         client_id: None,
         device_client_id: "device-abc",
         url: "",
@@ -223,7 +223,7 @@ async fn push_subscription_create_duplicate_chat_push_account_id_rejected() {
     let cp_1 = jmap_chat_types::ChatPushConfig::default();
     let cp_2 = jmap_chat_types::ChatPushConfig::default();
     let chat_push = [(&account_a, cp_1), (&account_a, cp_2)];
-    let input = jmap_chat_client::methods::PushSubscriptionCreateInput {
+    let input = jmap_chat_client::PushSubscriptionCreateInput {
         client_id: None,
         device_client_id: "device-abc",
         url: "https://x.example/p",
@@ -275,9 +275,9 @@ async fn push_subscription_update_verification_and_types_serialises() {
     let sc = helpers::make_client(&server);
     let id = Id::from("ps-1");
     let types_filter: &[&str] = &["Message", "Chat"];
-    let patch = jmap_chat_client::methods::PushSubscriptionPatch {
+    let patch = jmap_chat_client::PushSubscriptionPatch {
         verification_code: Some("vc-secret-12345"),
-        types: jmap_chat_client::methods::Patch::Set(types_filter),
+        types: jmap_chat_client::Patch::Set(types_filter),
         ..Default::default()
     };
     let _ = sc
@@ -335,9 +335,9 @@ async fn push_subscription_update_clear_emits_nulls_and_declares_chat_push() {
 
     let sc = helpers::make_client(&server);
     let id = Id::from("ps-1");
-    let patch = jmap_chat_client::methods::PushSubscriptionPatch {
-        types: jmap_chat_client::methods::Patch::Clear,
-        chat_push: jmap_chat_client::methods::Patch::Clear,
+    let patch = jmap_chat_client::PushSubscriptionPatch {
+        types: jmap_chat_client::Patch::Clear,
+        chat_push: jmap_chat_client::Patch::Clear,
         ..Default::default()
     };
     let _ = sc
@@ -385,8 +385,8 @@ async fn push_subscription_update_expires_set_emits_value() {
     let sc = helpers::make_client(&server);
     let id = Id::from("ps-1");
     let exp = UTCDate::from("2027-01-01T00:00:00Z");
-    let patch = jmap_chat_client::methods::PushSubscriptionPatch {
-        expires: jmap_chat_client::methods::Patch::Set(&exp),
+    let patch = jmap_chat_client::PushSubscriptionPatch {
+        expires: jmap_chat_client::Patch::Set(&exp),
         ..Default::default()
     };
     let _ = sc
@@ -411,7 +411,7 @@ async fn push_subscription_update_empty_id_rejected() {
     let sc = helpers::make_client(&server);
 
     let empty_id = Id::from("");
-    let patch = jmap_chat_client::methods::PushSubscriptionPatch::default();
+    let patch = jmap_chat_client::PushSubscriptionPatch::default();
     let err = sc
         .push_subscription_update(&empty_id, &patch, None)
         .await

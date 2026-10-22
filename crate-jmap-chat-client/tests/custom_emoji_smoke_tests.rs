@@ -185,7 +185,7 @@ async fn custom_emoji_create_serialises_with_and_without_space_id() {
     let sc = helpers::make_client(&server);
     let space_id = Id::from("space-eng");
     let blob_id = Id::from("blob-emoji-1");
-    let input = jmap_chat_client::methods::CustomEmojiCreateInput {
+    let input = jmap_chat_client::CustomEmojiCreateInput {
         client_id: Some("my-emoji-1"),
         name: "catjam",
         blob_id: &blob_id,
@@ -211,7 +211,7 @@ async fn custom_emoji_create_empty_name_rejected_before_send() {
     let sc = helpers::make_client(&server);
 
     let blob_id = Id::from("blob-emoji-1");
-    let input = jmap_chat_client::methods::CustomEmojiCreateInput {
+    let input = jmap_chat_client::CustomEmojiCreateInput {
         client_id: None,
         name: "",
         blob_id: &blob_id,
@@ -508,7 +508,7 @@ async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
     let sc = helpers::make_client(&server);
     let id = Id::from("emoji-1");
     let blob = Id::from("blob-new");
-    let patch = jmap_chat_client::methods::CustomEmojiPatch {
+    let patch = jmap_chat_client::CustomEmojiPatch {
         name: Some("partyparrot"),
         blob_id: Some(&blob),
     };
@@ -537,7 +537,7 @@ async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
         helpers::set_update_response("CustomEmoji/set", "ce-2", "ce-3", "emoji-1"),
     )
     .await;
-    let name_only = jmap_chat_client::methods::CustomEmojiPatch {
+    let name_only = jmap_chat_client::CustomEmojiPatch {
         name: Some("catjam"),
         ..Default::default()
     };

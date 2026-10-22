@@ -455,7 +455,7 @@ async fn space_create_serializes_create_object() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let input = jmap_chat_client::methods::SpaceCreateInput {
+    let input = jmap_chat_client::SpaceCreateInput {
         client_id: Some("my-space-key"),
         name: "Engineering",
         description: None,
@@ -487,7 +487,7 @@ async fn space_create_serializes_create_object() {
 async fn space_create_rejects_empty_name() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server);
-    let bad = jmap_chat_client::methods::SpaceCreateInput {
+    let bad = jmap_chat_client::SpaceCreateInput {
         client_id: None,
         name: "",
         description: None,
@@ -525,9 +525,8 @@ async fn space_join_via_invite_code_serialises_and_rejects_empty() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let input = jmap_chat_client::methods::SpaceJoinInput::InviteCode(
-        "INVITE-CANARY-TEST-NOT-A-REAL-SECRET",
-    );
+    let input =
+        jmap_chat_client::SpaceJoinInput::InviteCode("INVITE-CANARY-TEST-NOT-A-REAL-SECRET");
     let resp = sc
         .space_join(&input)
         .await
@@ -551,7 +550,7 @@ async fn space_join_via_invite_code_serialises_and_rejects_empty() {
     );
 
     // Empty invite code rejected.
-    let bad = jmap_chat_client::methods::SpaceJoinInput::InviteCode("");
+    let bad = jmap_chat_client::SpaceJoinInput::InviteCode("");
     let err = sc
         .space_join(&bad)
         .await
@@ -581,7 +580,7 @@ async fn space_join_via_space_id_serialises() {
 
     let sc = helpers::make_client(&server);
     let space_id = Id::from("space-public");
-    let input = jmap_chat_client::methods::SpaceJoinInput::SpaceId(&space_id);
+    let input = jmap_chat_client::SpaceJoinInput::SpaceId(&space_id);
     let _ = sc
         .space_join(&input)
         .await
@@ -620,7 +619,7 @@ async fn space_update_patch_full_member_management_serialises() {
     let new_member_id = Id::from("u-alice");
     let new_member_role = Id::from("role-admin");
     let role_ids = [new_member_role.clone()];
-    let new_member = jmap_chat_client::methods::SpaceAddMemberInput {
+    let new_member = jmap_chat_client::SpaceAddMemberInput {
         id: &new_member_id,
         role_ids: Some(&role_ids),
     };
@@ -628,16 +627,16 @@ async fn space_update_patch_full_member_management_serialises() {
     let removed_id = Id::from("u-malice");
     let remove_members = [removed_id];
     let updated_member_id = Id::from("u-bob");
-    let updated_member = jmap_chat_client::methods::SpaceUpdateMemberInput {
+    let updated_member = jmap_chat_client::SpaceUpdateMemberInput {
         id: &updated_member_id,
         role_ids: None,
-        nick: jmap_chat_client::methods::Patch::Set("Bob the Brave"),
+        nick: jmap_chat_client::Patch::Set("Bob the Brave"),
     };
     let update_members = [updated_member];
 
-    let patch = jmap_chat_client::methods::SpacePatch {
+    let patch = jmap_chat_client::SpacePatch {
         name: Some("Engineering"),
-        description: jmap_chat_client::methods::Patch::Clear,
+        description: jmap_chat_client::Patch::Clear,
         is_public: Some(true),
         add_members: Some(&add_members),
         remove_members: Some(&remove_members),
@@ -698,9 +697,9 @@ async fn space_update_empty_member_slices_omit_keys() {
 
     let sc = helpers::make_client(&server);
     let space_id = Id::from("space-1");
-    let empty_add: [jmap_chat_client::methods::SpaceAddMemberInput<'_>; 0] = [];
+    let empty_add: [jmap_chat_client::SpaceAddMemberInput<'_>; 0] = [];
     let empty_remove: [Id; 0] = [];
-    let patch = jmap_chat_client::methods::SpacePatch {
+    let patch = jmap_chat_client::SpacePatch {
         name: Some("Just renaming"),
         add_members: Some(&empty_add),
         remove_members: Some(&empty_remove),
@@ -863,25 +862,25 @@ async fn space_update_roles_accept_all_color_representations() {
     let perms = ["send_messages"];
     let token = json!({ "$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"} });
     let add_roles = [
-        jmap_chat_client::methods::SpaceAddRoleInput {
+        jmap_chat_client::SpaceAddRoleInput {
             name: "Hex",
             permissions: &perms,
             position: 1,
             color: Some(json!("#5865f2")),
         },
-        jmap_chat_client::methods::SpaceAddRoleInput {
+        jmap_chat_client::SpaceAddRoleInput {
             name: "Token",
             permissions: &perms,
             position: 2,
             color: Some(token.clone()),
         },
-        jmap_chat_client::methods::SpaceAddRoleInput {
+        jmap_chat_client::SpaceAddRoleInput {
             name: "Cam16",
             permissions: &perms,
             position: 3,
             color: Some(json!([62.5, 12.0, -30.25])),
         },
-        jmap_chat_client::methods::SpaceAddRoleInput {
+        jmap_chat_client::SpaceAddRoleInput {
             name: "None",
             permissions: &perms,
             position: 4,
@@ -890,23 +889,23 @@ async fn space_update_roles_accept_all_color_representations() {
     ];
     let role_a = Id::from("role-a");
     let role_b = Id::from("role-b");
-    let set_token = jmap_chat_client::methods::SpaceUpdateRoleInput {
+    let set_token = jmap_chat_client::SpaceUpdateRoleInput {
         id: &role_a,
         name: None,
-        color: jmap_chat_client::methods::Patch::Set(token.clone()),
+        color: jmap_chat_client::Patch::Set(token.clone()),
         permissions: None,
         position: None,
     };
-    let clear = jmap_chat_client::methods::SpaceUpdateRoleInput {
+    let clear = jmap_chat_client::SpaceUpdateRoleInput {
         id: &role_b,
         name: None,
-        color: jmap_chat_client::methods::Patch::Clear,
+        color: jmap_chat_client::Patch::Clear,
         permissions: None,
         position: None,
     };
     let update_roles = [set_token, clear];
 
-    let patch = jmap_chat_client::methods::SpacePatch {
+    let patch = jmap_chat_client::SpacePatch {
         add_roles: Some(&add_roles),
         update_roles: Some(&update_roles),
         ..Default::default()

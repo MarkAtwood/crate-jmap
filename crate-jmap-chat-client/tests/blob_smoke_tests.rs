@@ -7,7 +7,7 @@
 //!
 //! `blob_convert` follows the standard RFC 8620 §5.3 `/set`-shaped
 //! `create` pattern keyed by the CALL_ID constant
-//! ([`jmap_chat_client::methods::CALL_ID`] = "r1"); the resulting
+//! ([`jmap_chat_client::CALL_ID`] = "r1"); the resulting
 //! `BlobObject` lands at `response.created[CALL_ID]`.
 //!
 //! Spec oracles:
@@ -18,7 +18,7 @@
 mod helpers;
 
 use helpers::{jmap_response, mock_jmap_post, recorded_args, recorded_body, TEST_ACCOUNT_ID};
-use jmap_chat_client::methods::CALL_ID;
+use jmap_chat_client::CALL_ID;
 use jmap_types::Id;
 use serde_json::json;
 use wiremock::MockServer;

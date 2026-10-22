@@ -26,9 +26,9 @@
 use jmap_types::Invocation;
 use std::time::Duration;
 
-use jmap_base_client::auth::NoneAuth;
-use jmap_base_client::client::{ClientConfig, JmapClient};
-use jmap_base_client::error::ClientError;
+use jmap_base_client::ClientError;
+use jmap_base_client::NoneAuth;
+use jmap_base_client::{ClientConfig, JmapClient};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::time::timeout;
@@ -112,7 +112,7 @@ fn build_client_with_session_cap(base_url: &str, cap: u64) -> JmapClient {
     config.max_session_body = cap;
     config.request_timeout = Duration::from_secs(30);
     JmapClient::new(
-        jmap_base_client::auth::DefaultTransport,
+        jmap_base_client::DefaultTransport,
         NoneAuth,
         base_url,
         config,
@@ -125,7 +125,7 @@ fn build_client_with_call_cap(base_url: &str, cap: u64) -> JmapClient {
     config.max_call_body = cap;
     config.request_timeout = Duration::from_secs(30);
     JmapClient::new(
-        jmap_base_client::auth::DefaultTransport,
+        jmap_base_client::DefaultTransport,
         NoneAuth,
         base_url,
         config,
@@ -138,7 +138,7 @@ fn build_client_with_upload_cap(base_url: &str, cap: u64) -> JmapClient {
     config.max_upload_response_body = cap;
     config.request_timeout = Duration::from_secs(30);
     JmapClient::new(
-        jmap_base_client::auth::DefaultTransport,
+        jmap_base_client::DefaultTransport,
         NoneAuth,
         base_url,
         config,
@@ -151,7 +151,7 @@ fn build_client_with_download_cap(base_url: &str, cap: u64) -> JmapClient {
     config.max_download_body = cap;
     config.request_timeout = Duration::from_secs(30);
     JmapClient::new(
-        jmap_base_client::auth::DefaultTransport,
+        jmap_base_client::DefaultTransport,
         NoneAuth,
         base_url,
         config,

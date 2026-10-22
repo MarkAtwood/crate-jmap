@@ -784,7 +784,7 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
 ///
 /// The `auth_header` value is a credential and must not be logged or
 /// echoed back to other systems. Treat it with the same care as a
-/// [`crate::auth::BearerAuth`] token.
+/// [`BearerAuth`](crate::BearerAuth) token.
 pub async fn connect_ws(
     ws_url: &str,
     auth_header: Option<crate::auth::AuthHeader<'_>>,
@@ -810,7 +810,7 @@ pub async fn connect_ws(
 ///
 /// The `auth_header` value is a credential and must not be logged or
 /// echoed back to other systems. Treat it with the same care as a
-/// [`crate::auth::BearerAuth`] token. The `ClientError::InvalidArgument`
+/// [`BearerAuth`](crate::BearerAuth) token. The `ClientError::InvalidArgument`
 /// values produced for malformed auth header names or values are
 /// constructed without the original bytes, but callers should still
 /// avoid printing or storing the `auth_header` they passed in.

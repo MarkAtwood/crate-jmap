@@ -6,13 +6,13 @@
 //   - SHA-256("") from RFC 6234 / NIST CAVS.
 
 use futures::StreamExt;
-use jmap_base_client::auth::{DefaultTransport, NoneAuth};
-use jmap_base_client::client::{ClientConfig, JmapClient};
-use jmap_base_client::error::ClientError;
+use jmap_base_client::ClientError;
 use jmap_base_client::{
     upload_body_from_reader, BlobUploadBody, DownloadBlobParams, JmapUrlTemplate,
     UploadBlobStreamParams,
 };
+use jmap_base_client::{ClientConfig, JmapClient};
+use jmap_base_client::{DefaultTransport, NoneAuth};
 use wiremock::matchers::{body_bytes, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

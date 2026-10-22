@@ -576,7 +576,7 @@ async fn chat_create_direct_serializes_kind_and_contact_id() {
 
     let sc = helpers::make_client(&server);
     let contact_id = Id::from("contact-bob");
-    let input = jmap_chat_client::methods::ChatCreateInput::Direct {
+    let input = jmap_chat_client::ChatCreateInput::Direct {
         client_id: Some("myKey"),
         contact_id: &contact_id,
     };
@@ -607,7 +607,7 @@ async fn chat_create_group_empty_name_rejected_before_send() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server);
 
-    let input = jmap_chat_client::methods::ChatCreateInput::Group {
+    let input = jmap_chat_client::ChatCreateInput::Group {
         client_id: None,
         name: "",
         member_ids: &[],
@@ -655,7 +655,7 @@ async fn chat_update_patch_muted_serializes() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let patch = jmap_chat_client::methods::ChatPatch {
+    let patch = jmap_chat_client::ChatPatch {
         muted: Some(true),
         ..Default::default()
     };
@@ -693,9 +693,9 @@ async fn chat_update_patch_struct_update_syntax_serializes() {
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
     let until = jmap_types::UTCDate::from("2024-06-16T09:00:00Z");
-    let patch = jmap_chat_client::methods::ChatPatch {
+    let patch = jmap_chat_client::ChatPatch {
         muted: Some(true),
-        mute_until: jmap_chat_client::methods::Patch::Set(&until),
+        mute_until: jmap_chat_client::Patch::Set(&until),
         ..Default::default()
     };
     let _ = sc
@@ -730,8 +730,8 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let patch = jmap_chat_client::methods::ChatPatch {
-        message_expiry_seconds: jmap_chat_client::methods::Patch::Clear,
+    let patch = jmap_chat_client::ChatPatch {
+        message_expiry_seconds: jmap_chat_client::Patch::Clear,
         ..Default::default()
     };
     let _ = sc
@@ -765,8 +765,8 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let patch = jmap_chat_client::methods::ChatPatch {
-        message_expiry_seconds: jmap_chat_client::methods::Patch::Set(86_400),
+    let patch = jmap_chat_client::ChatPatch {
+        message_expiry_seconds: jmap_chat_client::Patch::Set(86_400),
         ..Default::default()
     };
     let _ = sc
@@ -856,10 +856,10 @@ async fn chat_update_patch_name_description_avatar_serialises() {
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
-    let patch = jmap_chat_client::methods::ChatPatch {
+    let patch = jmap_chat_client::ChatPatch {
         name: Some("Renamed Group"),
-        description: jmap_chat_client::methods::Patch::Set("New topic for the group"),
-        avatar_blob_id: jmap_chat_client::methods::Patch::Clear,
+        description: jmap_chat_client::Patch::Set("New topic for the group"),
+        avatar_blob_id: jmap_chat_client::Patch::Clear,
         ..Default::default()
     };
     let _ = sc
@@ -907,11 +907,11 @@ async fn chat_update_patch_add_and_remove_members_serialises() {
     let chat_id = Id::from("chat-1");
     let alice_id = Id::from("u-alice");
     let bob_id = Id::from("u-bob");
-    let add_alice = jmap_chat_client::methods::AddMemberInput {
+    let add_alice = jmap_chat_client::AddMemberInput {
         id: &alice_id,
-        role: Some(jmap_chat_client::types::ChatMemberRole::Admin),
+        role: Some(jmap_chat_client::ChatMemberRole::Admin),
     };
-    let add_bob = jmap_chat_client::methods::AddMemberInput {
+    let add_bob = jmap_chat_client::AddMemberInput {
         id: &bob_id,
         role: None,
     };
@@ -919,7 +919,7 @@ async fn chat_update_patch_add_and_remove_members_serialises() {
     let removed_id = Id::from("u-malice");
     let remove_members = [removed_id];
 
-    let patch = jmap_chat_client::methods::ChatPatch {
+    let patch = jmap_chat_client::ChatPatch {
         add_members: Some(&add_members),
         remove_members: Some(&remove_members),
         ..Default::default()
@@ -966,20 +966,20 @@ async fn chat_update_patch_update_member_roles_serialises() {
     let alice_id = Id::from("u-alice");
     let bob_id = Id::from("u-bob");
     let role_changes = [
-        jmap_chat_client::methods::UpdateMemberRoleInput {
+        jmap_chat_client::UpdateMemberRoleInput {
             id: &alice_id,
-            role: jmap_chat_client::types::ChatMemberRole::Member,
+            role: jmap_chat_client::ChatMemberRole::Member,
         },
         // Vendor-defined role survives via Other(String) at the
         // serialize boundary; the wire string is whatever the caller
         // supplied (workspace policy on Other(String) preservation
         // for round-trip).
-        jmap_chat_client::methods::UpdateMemberRoleInput {
+        jmap_chat_client::UpdateMemberRoleInput {
             id: &bob_id,
-            role: jmap_chat_client::types::ChatMemberRole::Other("moderator".into()),
+            role: jmap_chat_client::ChatMemberRole::Other("moderator".into()),
         },
     ];
-    let patch = jmap_chat_client::methods::ChatPatch {
+    let patch = jmap_chat_client::ChatPatch {
         update_member_roles: Some(&role_changes),
         ..Default::default()
     };
@@ -1189,7 +1189,7 @@ async fn chat_create_created_is_partial_object() {
     );
     mock_jmap_post(&server, resp_body).await;
     let sc = helpers::make_client(&server);
-    let input = jmap_chat_client::methods::ChatCreateInput::Group {
+    let input = jmap_chat_client::ChatCreateInput::Group {
         client_id: Some("g1"),
         name: "Team",
         member_ids: &[],

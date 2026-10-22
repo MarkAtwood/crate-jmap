@@ -31,8 +31,8 @@ use crate::error::ClientError;
 /// Custom transports construct via [`HttpClient::new`] — that signature
 /// still references [`reqwest::Client`] (the only construction path the
 /// kit knows how to make HTTP requests against). The partial-wrap
-/// argument mirrors [`ParseError`](crate::error::ParseError) /
-/// [`SerializeError`](crate::error::SerializeError): the variant
+/// argument mirrors [`ParseError`](crate::ParseError) /
+/// [`SerializeError`](crate::SerializeError): the variant
 /// payload / return type is opaque, but the construction signature still
 /// names the third-party type so callers have a way in. A future
 /// transport swap would deprecate this constructor in favor of an
@@ -362,7 +362,7 @@ impl TransportConfig for CustomCaTransport {
 /// # Usage
 ///
 /// ```rust,ignore
-/// use jmap_base_client::auth::CustomTransportBuilder;
+/// use jmap_base_client::CustomTransportBuilder;
 ///
 /// let transport = CustomTransportBuilder::new()
 ///     .add_root_pem(&std::fs::read("ca-root.pem")?)?
@@ -582,7 +582,7 @@ impl TransportConfig for BuilderTransport {
 /// Construct via [`AuthHeader::new`] — both `name` and `value` are
 /// caller-supplied borrows; the wrapper stashes them as-is. The
 /// constructor does not validate HTTP-header-value syntax; downstream
-/// consumers (e.g. [`connect_ws`](crate::ws::connect_ws)) validate at
+/// consumers (e.g. [`connect_ws`](crate::connect_ws)) validate at
 /// the call site and surface [`ClientError::InvalidArgument`] for
 /// invalid bytes.
 #[non_exhaustive]

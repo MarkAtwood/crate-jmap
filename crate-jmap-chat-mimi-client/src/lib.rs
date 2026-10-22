@@ -52,7 +52,7 @@
 
 mod group_info;
 mod membership;
-pub mod methods;
+mod methods;
 
 pub use group_info::{
     group_info_names_hub_sender, verify_group_info_response, GroupInfoResponseError,

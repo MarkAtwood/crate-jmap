@@ -305,7 +305,7 @@ impl JmapClient {
     ///
     /// ```rust,ignore
     /// use std::sync::Arc;
-    /// use jmap_base_client::{auth::{AuthProvider, BearerAuth, DefaultTransport}, client::{JmapClient, ClientConfig}};
+    /// use jmap_base_client::{AuthProvider, BearerAuth, DefaultTransport, JmapClient, ClientConfig};
     ///
     /// let auth: Arc<dyn AuthProvider> = Arc::new(BearerAuth::new("token")?);
     /// let shard_a = JmapClient::new_with_shared_auth(
@@ -838,7 +838,7 @@ impl JmapClient {
     /// Open a WebSocket connection to `ws_url` using this client's
     /// configured `max_ws_message` byte cap.
     ///
-    /// Convenience wrapper around [`crate::ws::connect_ws_with_limit`] that
+    /// Convenience wrapper around [`connect_ws_with_limit`](crate::connect_ws_with_limit) that
     /// passes [`ClientConfig::max_ws_message`] as the per-message /
     /// per-frame byte cap. Mirrors the [`Self::subscribe_events`]
     /// pattern of "the JmapClient method uses ClientConfig; the free
@@ -854,14 +854,14 @@ impl JmapClient {
     ///
     /// The `auth_header` value is a credential and must not be logged or
     /// echoed back to other systems. Treat it with the same care as a
-    /// [`crate::auth::BearerAuth`] token. Transport errors raised by this
+    /// [`BearerAuth`](crate::BearerAuth) token. Transport errors raised by this
     /// method are constructed without the original credential bytes, but
     /// downstream code that inspects [`ClientError`] should still avoid
     /// printing or storing the `auth_header` itself.
     ///
     /// Returns [`ClientError::InvalidArgument`] for any URL that is not
     /// `wss://` (plaintext `ws://` is rejected).
-    /// See [`crate::ws::connect_ws_with_limit`] for full error semantics.
+    /// See [`connect_ws_with_limit`](crate::connect_ws_with_limit) for full error semantics.
     pub async fn connect_ws_session(
         &self,
         ws_url: &str,

@@ -19,7 +19,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod methods;
+mod methods;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
@@ -51,7 +51,7 @@ pub trait JmapSharingExt: sealed::Sealed {
     /// map has no entry for the principals capability. The
     /// constructor performs no up-front validation and never fails —
     /// its return type is the infallible
-    /// [`methods::SessionClient`], not a `Result`.
+    /// [`SessionClient`], not a `Result`.
     ///
     /// Capability and primary-account validation is deferred to every
     /// individual method call on the returned [`SessionClient`]. If

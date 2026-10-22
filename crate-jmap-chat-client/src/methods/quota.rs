@@ -30,7 +30,7 @@ pub struct Quota {
     pub scope: crate::types::QuotaScope,
     /// Resource type — `Count` (object-count-based) or `Octets`
     /// (byte-based) per RFC 9425 §3.2. Element type is
-    /// [`crate::types::QuotaResourceType`] so callers can match on
+    /// [`QuotaResourceType`](crate::QuotaResourceType) so callers can match on
     /// typed variants directly; unknown wire strings land in
     /// `QuotaResourceType::Other(s)` per the `impl_string_enum!`
     /// round-trip contract.
