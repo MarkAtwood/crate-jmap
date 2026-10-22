@@ -1,7 +1,7 @@
 //! Integration tests for `jmap-calendars-server` using `MemoryBackend`.
 //!
 //! All expected values are derived from the spec
-//! (draft-ietf-jmap-calendars-26) and RFC 8620, not from the code under
+//! (draft-ietf-jmap-calendars-33) and RFC 8620, not from the code under
 //! test. Wire-shape literals are hand-written from the draft's prose.
 //!
 //! These tests exercise the cookie-cut canonical shape established by
@@ -167,7 +167,7 @@ async fn calendar_changes_no_changes_since_current_state() {
 
 // ---------------------------------------------------------------------------
 // Test 4: Calendar/set destroy with no events succeeds
-// Oracle: draft-ietf-jmap-calendars-26 §4.4 — destroy proceeds when the
+// Oracle: draft-ietf-jmap-calendars-33 §4.4 — destroy proceeds when the
 // calendar has no events; oldState bumps to newState.
 // ---------------------------------------------------------------------------
 
@@ -199,7 +199,7 @@ async fn calendar_set_destroy_empty_calendar_succeeds() {
 
 // ---------------------------------------------------------------------------
 // Test 5: Calendar/set destroy with events → calendarHasEvent error
-// Oracle: draft-ietf-jmap-calendars-26 §4.4, §10.7.1 — destroy of a
+// Oracle: draft-ietf-jmap-calendars-33 §4.4, §10.8.1 — destroy of a
 // Calendar that has events MUST fail with the spec-registered name
 // `calendarHasEvent` (singular).
 // ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ async fn calendar_set_destroy_with_events_returns_calendar_has_event() {
     );
     assert_eq!(
         resp["notDestroyed"]["cal1"]["type"], "calendarHasEvent",
-        "draft §10.7.1 registers the singular form `calendarHasEvent`: {resp}"
+        "draft §10.8.1 registers the singular form `calendarHasEvent`: {resp}"
     );
 }
 
@@ -565,7 +565,7 @@ async fn calendar_event_query_non_id_anchor_is_invalid_arguments() {
     assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
-/// draft-ietf-jmap-calendars-26 L3224 (IANA registration):
+/// draft-ietf-jmap-calendars-33 L3224 (IANA registration):
 /// "Capability Name:  urn:ietf:params:jmap:calendars". The constant is
 /// declared in jmap-calendars-types and re-exported at this crate's root.
 #[test]

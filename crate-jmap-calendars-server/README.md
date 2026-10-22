@@ -2,7 +2,7 @@
 
 ## What it is
 
-JMAP Calendars ([draft-ietf-jmap-calendars-26]) method handlers and the
+JMAP Calendars ([draft-ietf-jmap-calendars-33]) method handlers and the
 `CalendarsBackend` trait. Backend-agnostic — plugs into
 `jmap-server::Dispatcher`. Implements all 19 Calendars method names.
 
@@ -11,7 +11,7 @@ own data layer.
 
 ## What it's for
 
-Implements draft-ietf-jmap-calendars-26 — Calendar, CalendarEvent,
+Implements draft-ietf-jmap-calendars-33 — Calendar, CalendarEvent,
 CalendarEventNotification, ParticipantIdentity, and the
 `Principal/getAvailability` query — so consumers can wire JMAP Calendars
 method dispatch into their HTTP transport. Sibling to `jmap-mail-server` (the
@@ -115,7 +115,7 @@ pub trait CalendarsBackend: JmapBackend {
     // Per-user-property classification lives in jmap-calendars-types as the
     // free function `is_per_user_calendar_event_property` and the constant
     // slice `PER_USER_CALENDAR_EVENT_PROPERTIES`. It is wire-protocol
-    // metadata (draft-ietf-jmap-calendars-26 §5.4 / §10.8.2) and intentionally
+    // metadata (draft-ietf-jmap-calendars-33 §5.4; draft-ietf-calext-jscalendarbis-22 §7.4) and intentionally
     // not a trait method, so backends cannot redefine the spec list.
 
     /// Apply a patch consisting only of per-user CalendarEvent properties
@@ -206,7 +206,7 @@ pub trait CalendarsBackend: JmapBackend {
     { async { Ok(vec![]) } }
 
     /// Implementation-defined per-account caps for this caller and
-    /// account (draft-ietf-jmap-calendars-26 §1.5 capability fields, e.g.
+    /// account (draft-ietf-jmap-calendars-33 §1.5 capability fields, e.g.
     /// `maxExpandedQueryDuration`). Workspace cross-extension pattern
     /// per AGENTS.md "Backend caps and limits": every extension trait
     /// exposes a `limits(caller, account_id) -> XxxLimits` sync default
@@ -365,13 +365,13 @@ remain that way until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-calendars-26]** — JMAP Calendars binding (normative for
+- **[draft-ietf-jmap-calendars-33]** — JMAP Calendars binding (normative for
   all method semantics, error codes, and capability definitions)
 - **[RFC 8984]** — JSCalendar Event format (normative for CalendarEvent
   content: JSCalendar properties, recurrence, alerts, participants)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference,
   `/set` response shape, `/copy` semantics)
 
-[draft-ietf-jmap-calendars-26]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
+[draft-ietf-jmap-calendars-33]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

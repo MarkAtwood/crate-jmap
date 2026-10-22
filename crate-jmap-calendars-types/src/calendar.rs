@@ -1,6 +1,6 @@
 //! Calendar object, CalendarRights, and IncludeInAvailability.
 //!
-//! Normative reference: draft-ietf-jmap-calendars-26 §4.
+//! Normative reference: draft-ietf-jmap-calendars-33 §4.
 
 use std::collections::BTreeMap;
 
@@ -8,7 +8,7 @@ use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
 /// Controls which events in a Calendar contribute to availability calculations
-/// (draft-ietf-jmap-calendars-26 §4).
+/// (draft-ietf-jmap-calendars-33 §4).
 ///
 /// The spec defines exactly three values with no extension mechanism; modelled
 /// as a closed enum (no `Other` variant).  Wire values are lowercase.
@@ -30,7 +30,7 @@ pub enum IncludeInAvailability {
 }
 
 /// Access control rights the authenticated user holds for a Calendar
-/// (draft-ietf-jmap-calendars-26 §4, after the `myRights` field definition).
+/// (draft-ietf-jmap-calendars-33 §4, after the `myRights` field definition).
 ///
 /// `Default` produces all-false (no access), which is the most restrictive
 /// valid value and a safe starting point when constructing rights in tests
@@ -91,7 +91,7 @@ pub struct CalendarRights {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A JMAP Calendar object (draft-ietf-jmap-calendars-26 §4).
+/// A JMAP Calendar object (draft-ietf-jmap-calendars-33 §4).
 ///
 /// A Calendar is a named collection of CalendarEvents.  All events are
 /// associated with at least one calendar.  The `id` is immutable and
@@ -177,7 +177,7 @@ fn default_true() -> bool {
     true
 }
 
-/// Filter condition for `Calendar/query` (draft-ietf-jmap-calendars-26 §4.3).
+/// Filter condition for `Calendar/query` (draft-ietf-jmap-calendars-33 §4.3).
 ///
 /// All fields are optional; a condition with no fields set matches every Calendar.
 ///
@@ -220,7 +220,7 @@ pub struct CalendarFilterCondition {
     pub is_subscribed: Option<bool>,
 }
 
-/// Concrete filter type for Calendar/query (draft-ietf-jmap-calendars-26 §4.5).
+/// Concrete filter type for Calendar/query (draft-ietf-jmap-calendars-33 §4.5).
 ///
 /// Alias for `jmap_types::query::Filter<CalendarFilterCondition>` provided so
 /// callers do not have to reach into `jmap-types` directly. Mirrors the

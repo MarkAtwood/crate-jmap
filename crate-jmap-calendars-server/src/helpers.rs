@@ -109,7 +109,7 @@ pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
 
 /// Resolve an `onSuccessSetIsDefault` argument value to the target [`Id`].
 ///
-/// Per draft-ietf-jmap-calendars-26 §3.3 / §4.3, a `#`-prefixed string
+/// Per draft-ietf-jmap-calendars-33 §3.3 / §4.3, a `#`-prefixed string
 /// references a creation id from the same `/set` call; the resolved id is
 /// the backend-assigned id for that creation. A bare string is treated as a
 /// literal id. Any other JSON shape (number, object, array) yields `None`
@@ -136,7 +136,7 @@ pub(crate) fn resolve_on_success_set_is_default(
 }
 
 /// Apply the response-mutation contract for `onSuccessSetIsDefault`
-/// (draft-ietf-jmap-calendars-26 §3.3, §4.3).
+/// (draft-ietf-jmap-calendars-33 §3.3, §4.3).
 ///
 /// On a successful default change, the spec requires that any object whose
 /// `isDefault` flipped MUST appear in either the `created` or `updated`

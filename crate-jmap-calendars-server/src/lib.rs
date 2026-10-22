@@ -1,4 +1,4 @@
-//! JMAP Calendars extension method handlers (draft-ietf-jmap-calendars-26).
+//! JMAP Calendars extension method handlers (draft-ietf-jmap-calendars-33).
 //!
 //! # Usage
 //!
@@ -811,8 +811,8 @@ pub(crate) mod test_support {
 
         // Scheduling-aware overrides: the mock has no iTIP delivery support,
         // so any request to send scheduling messages produces the
-        // noSupportedScheduleMethods SetError per draft-ietf-jmap-calendars-26
-        // §5.9, §10.7.2. When sendSchedulingMessages is false the mock falls
+        // noSupportedScheduleMethods SetError per draft-ietf-jmap-calendars-33
+        // §5.9, §10.8.2. When sendSchedulingMessages is false the mock falls
         // through to the generic create/update/destroy_object path used by
         // every other test in this file.
         async fn create_calendar_event<F>(
@@ -1487,7 +1487,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // sendSchedulingMessages / noSupportedScheduleMethods (§5.9, §10.7.2)
+    // sendSchedulingMessages / noSupportedScheduleMethods (§5.9, §10.8.2)
     //
     // The MockBackend overrides create_calendar_event, update_calendar_event,
     // and destroy_calendar_event to return SetError(noSupportedScheduleMethods)
@@ -1497,7 +1497,7 @@ mod tests {
     // path. These tests pin both ends of the contract.
     // -----------------------------------------------------------------------
 
-    /// Oracle: §5.9 + §10.7.2 — `CalendarEvent/set` create with
+    /// Oracle: §5.9 + §10.8.2 — `CalendarEvent/set` create with
     /// `sendSchedulingMessages: true` MUST surface a backend-issued
     /// `noSupportedScheduleMethods` SetError under `notCreated.<createId>`,
     /// not a top-level method error and not `serverFail`.
@@ -1543,7 +1543,7 @@ mod tests {
         );
     }
 
-    /// Oracle: §5.9 + §10.7.2 — `CalendarEvent/set` update with
+    /// Oracle: §5.9 + §10.8.2 — `CalendarEvent/set` update with
     /// `sendSchedulingMessages: true` MUST surface
     /// `noSupportedScheduleMethods` under `notUpdated.<id>`.
     ///
@@ -1580,7 +1580,7 @@ mod tests {
         );
     }
 
-    /// Oracle: §5.9 + §10.7.2 — `CalendarEvent/set` destroy with
+    /// Oracle: §5.9 + §10.8.2 — `CalendarEvent/set` destroy with
     /// `sendSchedulingMessages: true` MUST surface
     /// `noSupportedScheduleMethods` under `notDestroyed.<id>` (CANCEL
     /// scheduling messages cannot be sent).
@@ -1654,6 +1654,40 @@ mod tests {
             serde_json::Value::Null,
             "no notCreated entries when scheduling not requested: {args}"
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.9 "If omitted on create, the
+    /// server MUST set the following properties: * @type MUST be set to
+    /// "Event" * version MUST be set to the JSCalendar version the event
+    /// conforms to, e.g., "2.0"", and Figure 10, whose `created` entry
+    /// carries `"@type": "Event"` and `"version": "2.0"`. A client-supplied
+    /// value is not omitted, so it is kept.
+    #[tokio::test]
+    async fn set_create_fills_omitted_type_and_version() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/set",
+            json!({
+                "accountId": "acc1",
+                "create": {
+                    "bare": { "calendarIds": { "cal1": true }, "title": "Party at Pete's" },
+                    "given": {
+                        "calendarIds": { "cal1": true },
+                        "@type": "Event",
+                        "version": "1.0"
+                    }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let args = &resp.method_responses[0].arguments;
+        assert_eq!(args["created"]["bare"]["@type"], "Event", "{args}");
+        assert_eq!(args["created"]["bare"]["version"], "2.0", "{args}");
+        assert_eq!(args["created"]["given"]["version"], "1.0", "{args}");
     }
 
     /// Oracle: §5.9 — explicit `sendSchedulingMessages: false` is equivalent
@@ -1932,8 +1966,8 @@ mod tests {
     // -----------------------------------------------------------------------
     // CalendarEvent/query §5.11 expandRecurrences / timeZone
     //
-    // The MockBackend's query_calendar_events override returns the §10.7.3
-    // / §10.7.4 errors when the filter's in_calendar matches a sentinel
+    // The MockBackend's query_calendar_events override returns the §10.8.3
+    // / §10.8.4 errors when the filter's in_calendar matches a sentinel
     // value, otherwise it falls through to the generic query_objects path.
     // -----------------------------------------------------------------------
 
@@ -2042,7 +2076,7 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.5 — "unsupportedFilter: The "filter" is
     /// syntactically valid, but the server cannot process it."
-    /// draft-ietf-jmap-calendars-26 §5.11 and §7.4 define the
+    /// draft-ietf-jmap-calendars-33 §5.11 and §7.4 define the
     /// CalendarEvent and CalendarEventNotification FilterCondition
     /// properties (`inCalendar`, ...; `type`, `calendarEventIds`, ...).
     /// These objects take a bare FilterCondition here, so an unknown key or
@@ -2098,7 +2132,7 @@ mod tests {
         );
     }
 
-    /// Oracle: §10.7.3 — when the backend signals `ExpandDurationTooLarge`,
+    /// Oracle: §10.8.3 — when the backend signals `ExpandDurationTooLarge`,
     /// the handler MUST return a method-level `expandDurationTooLarge` error
     /// (not `serverFail`).
     ///
@@ -2138,7 +2172,7 @@ mod tests {
         );
     }
 
-    /// Oracle: §10.7.4 — when the backend signals
+    /// Oracle: §10.8.4 — when the backend signals
     /// `CannotCalculateOccurrences`, the handler MUST return a method-level
     /// `cannotCalculateOccurrences` error (not `serverFail`).
     ///

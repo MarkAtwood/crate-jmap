@@ -1,16 +1,17 @@
 //! ParticipantIdentity object.
 //!
-//! Normative reference: draft-ietf-jmap-calendars-26 §3.
+//! Normative reference: draft-ietf-jmap-calendars-33 §3.
 
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
-/// A JMAP ParticipantIdentity object (draft-ietf-jmap-calendars-26 §3).
+/// A JMAP ParticipantIdentity object (draft-ietf-jmap-calendars-33 §3).
 ///
 /// Represents a URI (typically a `mailto:` address) that identifies the
 /// authenticated user for iTIP scheduling purposes within a calendar account.
-/// Each account may have multiple participant identities, and at most one may
-/// be marked as the default.
+/// The set is specific to the authenticated user as well as the account:
+/// different users with access to one account may see different
+/// identities, and a different default (§3).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,7 +36,8 @@ pub struct ParticipantIdentity {
     /// (e.g. `"mailto:user@example.com"`).
     pub calendar_address: String,
 
-    /// Server-set; `true` for at most one ParticipantIdentity per account.
+    /// Server-set; `true` for at most one of the identities the user can
+    /// see in the account (§3).
     pub is_default: bool,
 
     /// Catch-all for vendor / site / private extension fields not covered

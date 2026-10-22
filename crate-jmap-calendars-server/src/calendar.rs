@@ -1,8 +1,12 @@
-//! Calendar/* method handlers (draft-ietf-jmap-calendars-26 §4).
+//! Calendar/* method handlers (draft-ietf-jmap-calendars-33 §4).
 //!
 //! `Calendar/set` has special logic: if `onDestroyRemoveEvents` is absent or
 //! `false`, destroying a Calendar that still has events is rejected with a
 //! `calendarHasEvent` SetError (not a top-level error).
+//!
+//! A calendar on which the caller holds only `mayReadFreeBusy` MUST NOT be
+//! returned by the backend's caller-scoped `Calendar/get` or
+//! `Calendar/changes` reads (§4).
 //!
 //! # Wire-shape contract
 //!
@@ -10,7 +14,7 @@
 //! method shape. The `args: serde_json::Value` parameter MUST be a JSON
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
-//! type-specific arguments defined by draft-ietf-jmap-calendars-26 §4.
+//! type-specific arguments defined by draft-ietf-jmap-calendars-33 §4.
 //! The returned `Value` is the corresponding method-response object
 //! per the same section refs.
 //!
@@ -41,7 +45,7 @@ use jmap_server::{
 // Calendar/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `Calendar/get` method call (draft-ietf-jmap-calendars-26 §4.1).
+/// Handle a `Calendar/get` method call (draft-ietf-jmap-calendars-33 §4.1).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
@@ -60,7 +64,7 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
 // Calendar/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `Calendar/changes` method call (draft-ietf-jmap-calendars-26 §4.2).
+/// Handle a `Calendar/changes` method call (draft-ietf-jmap-calendars-33 §4.2).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -80,7 +84,7 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 // Calendar/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `Calendar/set` method call (draft-ietf-jmap-calendars-26 §4.4).
+/// Handle a `Calendar/set` method call (draft-ietf-jmap-calendars-33 §4.4).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
@@ -313,7 +317,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 }
             }
 
-            // PLAN.md §5 / draft-ietf-jmap-calendars-26 §4.4: when
+            // PLAN.md §5 / draft-ietf-jmap-calendars-33 §4.4: when
             // onDestroyRemoveEvents is true, the handler is responsible for
             // cleaning up events in this calendar before destroying the
             // calendar itself. The backend is type-agnostic and has no
@@ -419,7 +423,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
 
 /// Clean up CalendarEvents in a Calendar before destroying the Calendar.
 ///
-/// Implements PLAN.md §5 (draft-ietf-jmap-calendars-26 §4.4 onDestroyRemoveEvents):
+/// Implements PLAN.md §5 (draft-ietf-jmap-calendars-33 §4.4 onDestroyRemoveEvents):
 ///   - Events whose `calendarIds` is just this calendar are destroyed.
 ///   - Events with multiple calendarIds are patched to remove this calendar id.
 ///
@@ -551,7 +555,7 @@ mod tests {
 
     /// Oracle: Calendar/set with onDestroyRemoveEvents=false and a calendar that
     /// has events → notDestroyed with "calendarHasEvent" error type.
-    /// Source: draft-ietf-jmap-calendars-26 §4.4.1.
+    /// Source: draft-ietf-jmap-calendars-33 §4.4.1.
     #[tokio::test]
     async fn set_destroy_calendar_with_events_returns_calendar_has_events() {
         let backend = MockBackend::new_with_account_and_events("acc1", "cal1");
@@ -863,7 +867,7 @@ mod tests {
         assert_eq!(destroyed[0], json!("cal1"));
     }
 
-    /// Oracle: PLAN.md §5 / draft-ietf-jmap-calendars-26 §4.4 —
+    /// Oracle: PLAN.md §5 / draft-ietf-jmap-calendars-33 §4.4 —
     /// onDestroyRemoveEvents:true must destroy events whose only calendar is
     /// the one being deleted.
     ///
@@ -923,7 +927,7 @@ mod tests {
         );
     }
 
-    /// Oracle: PLAN.md §5 / draft-ietf-jmap-calendars-26 §4.4 —
+    /// Oracle: PLAN.md §5 / draft-ietf-jmap-calendars-33 §4.4 —
     /// onDestroyRemoveEvents:true must NOT destroy events that live in
     /// multiple calendars; instead, it must remove only the destroyed
     /// calendar's id from each such event's `calendarIds` map.

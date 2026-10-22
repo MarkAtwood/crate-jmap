@@ -1,9 +1,9 @@
 //! Wiremock smoke tests for Calendar/get, CalendarEvent/set, CalendarEvent/parse.
 //!
 //! Oracle for response shapes:
-//!   - Calendar/get: draft-ietf-jmap-calendars-26 §4.1 and RFC 8620 §5.1
-//!   - CalendarEvent/set: draft-ietf-jmap-calendars-26 §5.6 and RFC 8620 §5.3
-//!   - CalendarEvent/parse: draft-ietf-jmap-calendars-26 §5.13
+//!   - Calendar/get: draft-ietf-jmap-calendars-33 §4.1 and RFC 8620 §5.1
+//!   - CalendarEvent/set: draft-ietf-jmap-calendars-33 §5.6 and RFC 8620 §5.3
+//!   - CalendarEvent/parse: draft-ietf-jmap-calendars-33 §5.13
 //!     Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
 #[path = "helpers.rs"]
@@ -17,7 +17,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Test JMAP-7i4v.4 #1 — Calendar/get smoke: mock returns 1 Calendar; accountId correct.
 ///
-/// Oracle: draft-ietf-jmap-calendars-26 §4.1 — Calendar object fields.
+/// Oracle: draft-ietf-jmap-calendars-33 §4.1 — Calendar object fields.
 /// RFC 8620 §5.1 — /get response shape.
 #[tokio::test]
 async fn calendar_get_smoke() {
@@ -95,7 +95,7 @@ async fn calendar_get_smoke() {
 
 /// Test JMAP-7i4v.4 #2 — CalendarEvent/set smoke: create returns server-assigned id.
 ///
-/// Oracle: draft-ietf-jmap-calendars-26 §5.6 — /set create response.
+/// Oracle: draft-ietf-jmap-calendars-33 §5.6 — /set create response.
 /// RFC 8620 §5.3 — created map keyed by caller-supplied creation key.
 #[tokio::test]
 async fn calendar_event_set_smoke() {
@@ -190,7 +190,7 @@ async fn calendar_event_set_smoke() {
 
 /// Test JMAP-7i4v.4 #3 — CalendarEvent/parse smoke: notParsable returned for bad blob.
 ///
-/// Oracle: draft-ietf-jmap-calendars-26 §5.13 — notParsable lists blob ids that
+/// Oracle: draft-ietf-jmap-calendars-33 §5.13 — notParsable lists blob ids that
 /// could not be parsed as iCalendar data.
 #[tokio::test]
 async fn calendar_event_parse_smoke() {
@@ -303,7 +303,7 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
 // production calendar_set / calendar_changes builders thread caller
 // arguments to the wire correctly.
 
-/// Oracle: draft-ietf-jmap-calendars-26 §4.4 — `onDestroyRemoveEvents`
+/// Oracle: draft-ietf-jmap-calendars-33 §4.4 — `onDestroyRemoveEvents`
 /// is a `Calendar/set`-specific extra argument. When `true`, destroying
 /// a calendar also destroys all its events; when `false` (the default),
 /// the server MUST reject the destroy with a `calendarHasEvent`
@@ -388,7 +388,7 @@ async fn calendar_set_on_destroy_remove_events_true_passthrough() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §4.4 + RFC 8620 §5.3 —
+/// Oracle: draft-ietf-jmap-calendars-33 §4.4 + RFC 8620 §5.3 —
 /// `onDestroyRemoveEvents` MUST be absent from the wire request when the
 /// caller passes `None`. Servers default the value to `false` in that
 /// case; an explicit `false` on the wire is functionally equivalent but
@@ -447,7 +447,7 @@ async fn calendar_set_on_destroy_remove_events_none_omits_field() {
     );
 }
 
-/// Oracle: draft-ietf-jmap-calendars-26 §4.2 / RFC 8620 §5.2 —
+/// Oracle: draft-ietf-jmap-calendars-33 §4.2 / RFC 8620 §5.2 —
 /// `Calendar/changes` carries `sinceState` (the caller-supplied state
 /// token) and an optional `maxChanges`.
 ///

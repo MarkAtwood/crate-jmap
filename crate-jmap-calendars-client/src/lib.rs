@@ -1,7 +1,7 @@
 //! jmap-calendars-client — JMAP Calendars method implementations.
 //!
 //! Depends on jmap-base-client for transport, auth, and session.
-//! Implements the 19-method surface described in draft-ietf-jmap-calendars-26.
+//! Implements the 19-method surface described in draft-ietf-jmap-calendars-33.
 //!
 //! # Usage
 //!

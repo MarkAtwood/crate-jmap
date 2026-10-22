@@ -1,12 +1,12 @@
 //! CalendarEventNotification, Person, and NotificationType.
 //!
-//! Normative reference: draft-ietf-jmap-calendars-26 §7.
+//! Normative reference: draft-ietf-jmap-calendars-33 §7.
 
 use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Who made the change that triggered a [`CalendarEventNotification`]
-/// (draft-ietf-jmap-calendars-26 §7).
+/// (draft-ietf-jmap-calendars-33 §7).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +33,7 @@ pub struct Person {
 }
 
 /// Type of change recorded by a [`CalendarEventNotification`]
-/// (draft-ietf-jmap-calendars-26 §7).
+/// (draft-ietf-jmap-calendars-33 §7).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum NotificationType {
@@ -54,12 +54,14 @@ impl_string_enum!(NotificationType, "a JMAP CalendarEventNotification type strin
 );
 
 /// A JMAP CalendarEventNotification object
-/// (draft-ietf-jmap-calendars-26 §7).
+/// (draft-ietf-jmap-calendars-33 §7).
 ///
 /// Records a change made to a calendar event by an external entity or
-/// another client.  CalendarEventNotifications have no per-user data; a
-/// single notification object is shared across all users who have access
-/// to the changed event.
+/// another client.  Apart from `hideAttendees` filtering, a notification
+/// has no per-user data, so one object may be shared by all users with
+/// access to the calendar; but the server MUST NOT create one for anyone
+/// other than the calendar's owner when the event's `privacy` is
+/// `"private"` or `"secret"` before or after the change (§7).
 ///
 /// Only `destroyed` notifications may be explicitly managed via
 /// `CalendarEventNotification/set`; `created` and `updated` notifications
@@ -117,7 +119,7 @@ pub struct CalendarEventNotification {
 }
 
 // Serde-default function for the `@type` discriminator on
-// CalendarAlert. draft-ietf-jmap-calendars-26 §6.4 marks the field as
+// CalendarAlert. draft-ietf-jmap-calendars-33 §6.4 marks the field as
 // mandatory on the wire; we supply the literal as a default so
 // deserialize is liberal in what it accepts (spec-violating vendor
 // input missing `@type` does not fail). Mirrors the same pattern in
@@ -129,7 +131,7 @@ fn calendar_alert_at_type_default() -> String {
 }
 
 /// Push-notification payload emitted when a calendar alert fires
-/// (draft-ietf-jmap-calendars-26 §6.4).
+/// (draft-ietf-jmap-calendars-33 §6.4).
 ///
 /// Sent over the JMAP push channel when the server determines that an alert
 /// for a CalendarEvent should fire.  Clients receiving this payload should
@@ -161,7 +163,7 @@ pub struct CalendarAlert {
     pub uid: String,
 
     /// The recurrenceId of the specific occurrence, or `null` for non-recurring
-    /// events (draft-ietf-jmap-calendars-26 §6.4).
+    /// events (draft-ietf-jmap-calendars-33 §6.4).
     ///
     /// Serializes as `null` when `None` — intentionally NOT marked
     /// `skip_serializing_if` so the receiver can distinguish recurring from
@@ -169,7 +171,7 @@ pub struct CalendarAlert {
     ///
     /// **Maintainer note: do NOT add `#[serde(skip_serializing_if = "Option::is_none")]`
     /// to this field.** Adding it would silently break the spec contract:
-    /// per draft-ietf-jmap-calendars-26 §6.4, the receiver uses the
+    /// per draft-ietf-jmap-calendars-33 §6.4, the receiver uses the
     /// **presence** of `recurrenceId` to determine whether the alert
     /// fired for a recurring or non-recurring event. An omitted field
     /// is indistinguishable from a sender that forgot to include it; an
@@ -198,7 +200,7 @@ pub struct CalendarAlert {
 }
 
 /// Filter condition for `CalendarEventNotification/query`
-/// (draft-ietf-jmap-calendars-26 §7.4.1).
+/// (draft-ietf-jmap-calendars-33 §7.4.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
 /// CalendarEventNotification.
@@ -251,7 +253,7 @@ pub struct NotificationFilterCondition {
 }
 
 /// Concrete filter type for CalendarEventNotification/query
-/// (draft-ietf-jmap-calendars-26 §6).
+/// (draft-ietf-jmap-calendars-33 §6).
 ///
 /// Alias for `jmap_types::query::Filter<NotificationFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.

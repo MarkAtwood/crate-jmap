@@ -14,7 +14,7 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch `CalendarEvent` objects by IDs (draft-ietf-jmap-calendars-26 §5.4).
+    /// Fetch `CalendarEvent` objects by IDs (draft-ietf-jmap-calendars-33 §5.4).
     ///
     /// Pass `ids: None` to fetch all events. `params` carries
     /// CalendarEvent-specific extra arguments:
@@ -90,7 +90,7 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to `CalendarEvent` objects since `since_state`
-    /// (draft-ietf-jmap-calendars-26 §5.5).
+    /// (draft-ietf-jmap-calendars-33 §5.5).
     ///
     /// # Errors
     ///
@@ -131,7 +131,7 @@ impl super::SessionClient {
     }
 
     /// Create, update, or destroy `CalendarEvent` objects
-    /// (draft-ietf-jmap-calendars-26 §5.9).
+    /// (draft-ietf-jmap-calendars-33 §5.9).
     ///
     /// - `create`: map of creation id → typed
     ///   [`CalendarEvent`](jmap_calendars_types::CalendarEvent) to create.
@@ -214,7 +214,7 @@ impl super::SessionClient {
     }
 
     /// Query `CalendarEvent` IDs with optional filter and sort
-    /// (draft-ietf-jmap-calendars-26 §5.11).
+    /// (draft-ietf-jmap-calendars-33 §5.11).
     ///
     /// - `filter`: an RFC 8620 §5.5 `Filter` — a bare condition
     ///   (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -280,7 +280,7 @@ impl super::SessionClient {
     }
 
     /// Fetch query-result changes for `CalendarEvent` since `since_query_state`
-    /// (draft-ietf-jmap-calendars-26 §5.12).
+    /// (draft-ietf-jmap-calendars-33 §5.12).
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the
     /// original `CalendarEvent/query` call that returned `since_query_state`

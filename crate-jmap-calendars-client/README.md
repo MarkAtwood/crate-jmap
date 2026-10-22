@@ -3,14 +3,14 @@
 ## What it is
 
 Typed JMAP client methods for JMAP Calendars
-([draft-ietf-jmap-calendars-26]).
+([draft-ietf-jmap-calendars-33]).
 
 Implements 19 typed `async fn` methods on a session-bound client. Depends on
 `jmap-base-client` for transport, authentication, and session management.
 
 ## What it's for
 
-Implements draft-ietf-jmap-calendars-26 method bindings on top of
+Implements draft-ietf-jmap-calendars-33 method bindings on top of
 `jmap-base-client`: `Calendar/*`, `CalendarEvent/*`,
 `CalendarEventNotification/*`, `ParticipantIdentity/*`, and
 `Principal/getAvailability`. Sibling of `jmap-mail-client` in the
@@ -244,12 +244,12 @@ remain that way until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-calendars-26]** — JMAP Calendars binding (normative for
+- **[draft-ietf-jmap-calendars-33]** — JMAP Calendars binding (normative for
   method semantics, wire field names, capability URIs)
 - **[RFC 8984]** — JSCalendar Event format (normative for `CalendarEvent`
   content)
 - **[RFC 8620]** — JMAP Core (request format, response shapes, error types)
 
-[draft-ietf-jmap-calendars-26]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
+[draft-ietf-jmap-calendars-33]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

@@ -1,4 +1,10 @@
-//! ParticipantIdentity/* method handlers (draft-ietf-jmap-calendars-26 §3).
+//! ParticipantIdentity/* method handlers (draft-ietf-jmap-calendars-33 §3).
+//!
+//! The set of identities, and which is the default, depends on the
+//! authenticated user as well as the account, so the backend's
+//! caller-scoped reads and the `/changes` state MUST reflect that user's
+//! view (§3, §3.2). A server that configures identities out of band
+//! rejects every `/set` operation with `forbidden` (§3.3).
 //!
 //! # Wire-shape contract
 //!
@@ -6,7 +12,7 @@
 //! method shape. The `args: serde_json::Value` parameter MUST be a JSON
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
-//! type-specific arguments defined by draft-ietf-jmap-calendars-26 §3.
+//! type-specific arguments defined by draft-ietf-jmap-calendars-33 §3.
 //! The returned `Value` is the corresponding method-response object per
 //! the same section refs.
 //!
@@ -36,7 +42,7 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, Hand
 // ---------------------------------------------------------------------------
 
 /// Handle a `ParticipantIdentity/get` method call
-/// (draft-ietf-jmap-calendars-26 §3.1).
+/// (draft-ietf-jmap-calendars-33 §3.1).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
@@ -56,7 +62,7 @@ pub async fn handle_participant_identity_get<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ParticipantIdentity/changes` method call
-/// (draft-ietf-jmap-calendars-26 §3.2).
+/// (draft-ietf-jmap-calendars-33 §3.2).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -77,7 +83,7 @@ pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ParticipantIdentity/set` method call
-/// (draft-ietf-jmap-calendars-26 §3.3).
+/// (draft-ietf-jmap-calendars-33 §3.3).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps), augmented

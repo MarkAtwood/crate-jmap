@@ -1,6 +1,6 @@
 //! JMAP Calendars extension data types.
 //!
-//! Implements the data model from draft-ietf-jmap-calendars-26 and the
+//! Implements the data model from draft-ietf-jmap-calendars-33 and the
 //! JSCalendar Event format of RFC 8984.  Types only — no method handlers,
 //! no async, no network I/O.
 //!
