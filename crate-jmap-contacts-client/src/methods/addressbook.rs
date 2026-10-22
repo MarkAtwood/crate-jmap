@@ -131,6 +131,10 @@ impl super::SessionClient {
     /// arguments; on a key collision the typed argument wins and the
     /// `extra` value is dropped.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -153,6 +157,7 @@ impl super::SessionClient {
         create: Option<serde_json::Value>,
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
+        if_in_state: Option<&State>,
         params: Option<AddressBookSetParams>,
     ) -> Result<SetResponse<jmap_contacts_types::AddressBook>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
@@ -166,6 +171,9 @@ impl super::SessionClient {
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         if let Some(c) = create {
             args["create"] = c;
         }

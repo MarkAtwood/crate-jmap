@@ -1314,6 +1314,12 @@ wire behaviour that a conforming peer can observe.
   the RFC 8620 §5.3 `ifInState` optimistic-concurrency guard, matching
   `email_set` and `email_submission_set`. It follows `destroy` (or
   `update`) and precedes `params`. Pass `None` for the old behaviour.
+- **BREAKING** **jmap-tasks-client** (`task_set`, `task_list_set`,
+  `task_notification_set`), **jmap-contacts-client** (`contact_card_set`,
+  `address_book_set`), **jmap-filenode-client** (`filenode_set`) and
+  **jmap-sharing-client** (`principal_set`, `share_notification_set`):
+  the same `if_in_state: Option<&State>` argument, placed as on
+  jmap-mail-client.
 - **BREAKING** **jmap-base-client** and every extension client: each
   `*_query` method (and chat `Batch::chat_query_get` /
   `message_query_get`) takes `params: &QueryParams` in place of the

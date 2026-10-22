@@ -158,7 +158,7 @@ async fn contact_card_set_create_round_trip() {
         }
     });
     let resp = sc
-        .contact_card_set(Some(create_obj), None, None)
+        .contact_card_set(Some(create_obj), None, None, None)
         .await
         .expect("contact_card_set_create_round_trip: must succeed");
 

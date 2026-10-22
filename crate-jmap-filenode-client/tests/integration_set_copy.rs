@@ -78,6 +78,7 @@ async fn filenode_set_create_with_params() {
             })),
             None,
             None,
+            None,
             Some(params),
         )
         .await
@@ -171,7 +172,7 @@ async fn filenode_set_destroy_node_has_children_error() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .filenode_set(None, None, Some(vec![Id::from("node-abc")]), None)
+        .filenode_set(None, None, Some(vec![Id::from("node-abc")]), None, None)
         .await
         .expect("filenode_set_destroy_node_has_children_error: must succeed");
 

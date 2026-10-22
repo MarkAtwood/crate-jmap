@@ -180,7 +180,7 @@ async fn addressbook_set_create_round_trip() {
         }
     });
     let resp = sc
-        .address_book_set(Some(create_obj), None, None, None)
+        .address_book_set(Some(create_obj), None, None, None, None)
         .await
         .expect("addressbook_set_create_round_trip: must succeed");
 
@@ -240,6 +240,7 @@ async fn addressbook_set_on_destroy_remove_contents() {
             None,
             None,
             Some(vec![jmap_types::Id::from("ab-old")]),
+            None,
             Some(params),
         )
         .await
@@ -313,6 +314,7 @@ async fn addressbook_set_routes_extra_and_typed_wins() {
             None,
             None,
             Some(vec![jmap_types::Id::from("ab-old")]),
+            None,
             Some(params),
         )
         .await
