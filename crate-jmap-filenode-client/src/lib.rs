@@ -27,8 +27,8 @@ pub use methods::filenode::{
     FileNodeCopyParams, FileNodeGetParams, FileNodeOnExists, FileNodeSetParams,
 };
 pub use methods::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
-    SetError, SetResponse,
+    AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
+    SessionClient, SetError, SetResponse,
 };
 
 /// Extension trait adding JMAP FileNode methods to [`jmap_base_client::JmapClient`].

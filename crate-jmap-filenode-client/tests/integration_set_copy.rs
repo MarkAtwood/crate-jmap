@@ -87,20 +87,22 @@ async fn filenode_set_create_with_params() {
     assert_eq!(resp.new_state, "s11", "newState mismatch");
     let created = resp.created.expect("created must be Some");
     assert!(created.contains_key("c1"), "created must contain key c1");
+    // Decode the partial object as a full FileNode (this fixture carries
+    // every required property) to check the typed field mapping.
+    let c1: jmap_filenode_types::FileNode = serde_json::from_value(
+        serde_json::to_value(&created["c1"]).expect("PartialObject serializes"),
+    )
+    .expect("this fixture carries a full FileNode");
+    assert_eq!(c1.id.as_ref(), "new-node-1", "created node id mismatch");
     assert_eq!(
-        created["c1"].id.as_ref(),
-        "new-node-1",
-        "created node id mismatch"
-    );
-    assert_eq!(
-        created["c1"].node_type,
+        c1.node_type,
         Some(NodeType::Directory),
         "created node @type must be Directory"
     );
     assert!(
-        created["c1"].extra.is_empty(),
+        c1.extra.is_empty(),
         "created node extra must be empty: {:?}",
-        created["c1"].extra
+        c1.extra
     );
 
     // Verify onDestroyRemoveChildren and onExists were sent as top-level args.
@@ -271,8 +273,12 @@ async fn filenode_copy_with_on_exists_rename() {
     let created = resp.created.expect("created must be Some");
     assert!(created.contains_key("copy1"), "created must contain copy1");
 
-    // The -16 wire keys must land in typed fields, not in `extra`.
-    let copied = &created["copy1"];
+    // The -16 wire keys must land in typed FileNode fields, not in
+    // `extra`, once the full partial object is decoded as a FileNode.
+    let copied: jmap_filenode_types::FileNode = serde_json::from_value(
+        serde_json::to_value(&created["copy1"]).expect("PartialObject serializes"),
+    )
+    .expect("this fixture carries a full FileNode");
     assert_eq!(
         copied.node_type,
         Some(NodeType::File),
@@ -495,4 +501,47 @@ async fn filenode_copy_omits_unset_copy_args() {
         filenode_copy_sent_args(params).await,
         json!({ "accountId": "A13824", "fromAccountId": "src" })
     );
+}
+
+/// RFC 8620 §5.3: each `created` value holds only "properties of the
+/// created Foo object that were not sent by the client". Oracle: the
+/// hand-written response echoes the server-set `id` and `size` (draft-16
+/// marks `size` server-set); the client-sent `name`, required on a full
+/// `FileNode`, is absent and the response must still parse.
+#[tokio::test]
+async fn filenode_set_created_omits_client_sent_properties() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "FileNode/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": { "k1": { "id": "n-9", "size": 1024 } }
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = helpers::make_client(&server);
+    let resp = sc
+        .filenode_set(
+            Some(json!({ "k1": { "parentId": null, "name": "a.txt", "blobId": "B1" } })),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("a partial created object must parse");
+    let k1 = &resp.created.expect("created")["k1"];
+    assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("n-9"));
+    assert_eq!(k1.extra["size"], 1024);
+    assert!(!k1.extra.contains_key("name"));
 }

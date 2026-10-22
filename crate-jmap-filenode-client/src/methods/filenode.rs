@@ -10,7 +10,9 @@
 
 use std::collections::BTreeMap;
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
@@ -354,7 +356,7 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<FileNodeSetParams>,
-    ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "filenode_set: at least one of create, update, destroy must be Some \
@@ -432,6 +434,15 @@ impl super::SessionClient {
     /// that onExists replacement destroyed, cascades included; it is
     /// `None` when the copy destroyed nothing.
     ///
+    /// This returns a [`SetResponse`] rather than the RFC 8620 §5.4
+    /// [`CopyResponse`](jmap_types::CopyResponse) because
+    /// draft-ietf-jmap-filenode-16 §3.2.4 gives FileNode/copy the
+    /// FileNode/set `onExists` behaviour, under which "the server MUST
+    /// include the id of the replaced item in the destroyed response
+    /// list" (§3.2.3); `CopyResponse` has no `destroyed`. The response's
+    /// `fromAccountId` lands in [`SetResponse::extra`]. Each `created`
+    /// value is a [`PartialObject`] holding the server-set properties.
+    ///
     /// Use [`FileNodeCopyParams::extra`] to plumb vendor / site extension
     /// fields through to the wire (workspace extras-preservation policy).
     ///
@@ -454,7 +465,7 @@ impl super::SessionClient {
         &self,
         params: FileNodeCopyParams,
         create: serde_json::Value,
-    ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "fromAccountId": params.from_account_id,

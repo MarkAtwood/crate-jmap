@@ -1319,6 +1319,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-filenode-client**: **BREAKING** `filenode_set` and
+  `filenode_copy` return `SetResponse<PartialObject>` (was
+  `SetResponse<FileNode>`, which rejected RFC 8620 §5.3 `created` values
+  lacking the client-sent, type-required `name`). `filenode_copy` keeps
+  the `SetResponse` shape rather than `CopyResponse` so the `destroyed`
+  list draft-ietf-jmap-filenode-16 §3.2.3 / §3.2.4 requires stays typed.
 - **jmap-tasks-client**: **BREAKING** `task_list_set`, `task_set` and
   `task_notification_set` return `SetResponse<PartialObject>` (was
   `SetResponse<TaskList>` / `SetResponse<Task>` / the hidden
