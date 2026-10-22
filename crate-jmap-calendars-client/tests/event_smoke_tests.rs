@@ -447,6 +447,7 @@ async fn calendar_event_copy_success_passthrough() {
         "methodResponses": [[
             "CalendarEvent/copy",
             {
+                "fromAccountId": "src-acc",
                 "accountId": "A13824",
                 "oldState": null,
                 "newState": "s50",
@@ -491,7 +492,7 @@ async fn calendar_event_copy_success_passthrough() {
         extra: serde_json::Map::new(),
     };
     let resp = sc
-        .calendar_event_copy(params, create)
+        .calendar_event_copy(params, json!(create))
         .await
         .expect("calendar_event_copy: must succeed");
     let created = resp.created.expect("created must be present");
@@ -854,7 +855,7 @@ async fn calendar_event_copy_sent_args(
     sc.calendar_event_copy(params, {
         let event: jmap_calendars_types::CalendarEvent =
             serde_json::from_value(json!({ "id": "ev-src" })).expect("minimal CalendarEvent");
-        BTreeMap::from([("k1".to_owned(), event)])
+        json!(BTreeMap::from([("k1".to_owned(), event)]))
     })
     .await
     .expect("calendar_event_copy must succeed");

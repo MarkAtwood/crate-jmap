@@ -146,7 +146,7 @@ async fn calendar_event_set_smoke() {
     let mut create_map = std::collections::BTreeMap::new();
     create_map.insert("newEv".to_owned(), event);
     let resp = sc
-        .calendar_event_set(Some(create_map), None, None, None)
+        .calendar_event_set(Some(json!(create_map)), None, None, None)
         .await
         .expect("calendar_event_set_smoke: must succeed");
 
@@ -258,7 +258,7 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
         destroy_from_if_in_state: None,
         extra: serde_json::Map::new(),
     };
-    let result = sc.calendar_event_copy(params, create).await;
+    let result = sc.calendar_event_copy(params, json!(create)).await;
     let err = result.expect_err("calendar_event_copy with empty creation id must error");
     match err {
         jmap_base_client::ClientError::InvalidArgument(msg) => {
@@ -344,7 +344,7 @@ async fn calendar_set_on_destroy_remove_events_true_passthrough() {
         .calendar_set(
             None,
             None,
-            Some(&destroy_ids),
+            Some(destroy_ids.to_vec()),
             None,
             Some(CalendarSetParams {
                 on_destroy_remove_events: Some(true),
@@ -430,7 +430,7 @@ async fn calendar_set_on_destroy_remove_events_none_omits_field() {
     // holds when destroy is Some.
     let destroy_ids = [jmap_types::Id::from("c-doomed")];
     let _ = sc
-        .calendar_set(None, None, Some(&destroy_ids), None, None)
+        .calendar_set(None, None, Some(destroy_ids.to_vec()), None, None)
         .await
         .expect("calendar_set: must succeed");
 
@@ -510,4 +510,47 @@ async fn calendar_changes_since_state_and_max_changes_passthrough() {
         json!(50),
         "maxChanges must thread through verbatim"
     );
+}
+
+/// RFC 8620 §5.3: each `created` value holds only "properties of the
+/// created Foo object that were not sent by the client". Oracle: the
+/// hand-written response below echoes just the server-set `id` and a
+/// server-defaulted `sortOrder`; the client-sent `name` / `color` are
+/// absent, and the response must still parse.
+#[tokio::test]
+async fn calendar_set_created_omits_client_sent_properties() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Calendar/set",
+            {
+                "accountId": "A13824",
+                "oldState": "c1",
+                "newState": "c2",
+                "created": { "k1": { "id": "cal-9", "sortOrder": 0 } }
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    let sc = helpers::make_client(&server);
+    let resp = sc
+        .calendar_set(
+            Some(json!({ "k1": { "name": "Work", "color": "blue" } })),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("a partial created object must parse");
+    let k1 = &resp.created.expect("created")["k1"];
+    assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("cal-9"));
+    assert_eq!(k1.extra["sortOrder"], 0);
+    assert!(!k1.extra.contains_key("name"));
 }

@@ -1319,6 +1319,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-client**: **BREAKING** `calendar_set`,
+  `calendar_event_set` and `participant_identity_set` take
+  `create: Option<serde_json::Value>` (was a typed
+  `BTreeMap<String, Calendar>` etc.) and `destroy: Option<Vec<Id>>` (was
+  `Option<&[Id]>`), `calendar_event_notification_set` takes
+  `destroy: Option<Vec<Id>>`, and `calendar_event_copy` takes
+  `create: serde_json::Value`, matching the canonical `jmap-mail-client`
+  shape. Every `/set` returns `SetResponse<PartialObject>` and
+  `calendar_event_copy` returns `CopyResponse<PartialObject>` (RFC 8620
+  §5.3 / §5.4 `created` values are partial).
 - **jmap-mail-client**: **BREAKING** `email_set`, `mailbox_set`,
   `identity_set`, `email_submission_set` and `vacation_response_set`
   return `SetResponse<PartialObject>` instead of `SetResponse<Email>`

@@ -7,7 +7,9 @@
 use jmap_types::{query::Filter, Id, State};
 use serde::Serialize;
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
+};
 
 impl super::SessionClient {
     /// Fetch `CalendarEventNotification` objects by IDs
@@ -121,7 +123,7 @@ impl super::SessionClient {
     ///
     /// ```ignore
     /// if !ids.is_empty() {
-    ///     let _ = sc.calendar_event_notification_set(Some(&ids), None).await?;
+    ///     let _ = sc.calendar_event_notification_set(Some(ids), None).await?;
     /// }
     /// ```
     ///
@@ -152,12 +154,12 @@ impl super::SessionClient {
     ///   [`Self::calendar_event_notification_get`].
     pub async fn calendar_event_notification_set(
         &self,
-        destroy: Option<&[Id]>,
+        destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {
-            Some(ids) => serde_json::to_value(ids).expect("Id slice Serialize is infallible"),
+            Some(ids) => serde_json::to_value(ids).expect("Id Vec Serialize is infallible"),
             None => serde_json::Value::Array(vec![]),
         };
         let mut args = serde_json::json!({
