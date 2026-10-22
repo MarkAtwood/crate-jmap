@@ -683,7 +683,8 @@ mod tests {
     }
 
     /// Oracle: PrincipalGetAvailabilityResponse deserializes from a
-    /// spec-derived JSON fixture (draft-ietf-jmap-calendars-26 §2.2).
+    /// spec-derived JSON fixture (draft-ietf-jmap-calendars-33 §2.2;
+    /// `busyStatus` "MUST be one of" confirmed, tentative, unavailable).
     #[test]
     fn principal_get_availability_response_deserializes() {
         let raw = json!({
@@ -692,7 +693,7 @@ mod tests {
                 {
                     "utcStart": "2024-06-15T09:00:00Z",
                     "utcEnd": "2024-06-15T10:00:00Z",
-                    "busyStatus": "busy",
+                    "busyStatus": "confirmed",
                     "accountId": "acc1"
                 }
             ]
@@ -705,9 +706,9 @@ mod tests {
         assert_eq!(period.utc_start, "2024-06-15T09:00:00Z");
         assert_eq!(period.utc_end, "2024-06-15T10:00:00Z");
         assert_eq!(
-            period.busy_status.as_deref(),
-            Some("busy"),
-            "busyStatus must be 'busy'"
+            period.busy_status,
+            jmap_calendars_types::BusyStatus::Confirmed,
+            "busyStatus must be 'confirmed'"
         );
         assert_eq!(
             period.account_id.as_ref().map(|id| id.as_ref()),

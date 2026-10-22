@@ -1309,6 +1309,25 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: `Message::body_type` and
+  `MessageRevision::body_type` are `BodyType`, not `String`
+  (draft-atwood-jmap-chat-00 §Message, §MessageRevision, jmap-chat-spec
+  29e9a41 L698, L465). `Message::new` takes `impl Into<BodyType>`, so
+  `&str` and `String` arguments still compile. `BodyType` now also
+  derives `Eq` and `Hash`.
+- **BREAKING** **jmap-calendars-types**: `BusyPeriod::busy_status` is the
+  new closed `BusyStatus` enum (`Confirmed`, `Tentative`, `Unavailable`),
+  not `Option<String>`. An absent `busyStatus` decodes as `Unavailable`
+  and any other string is rejected: "This MUST be one of" the three
+  values, default `"unavailable"` (draft-ietf-jmap-calendars-33 §2.2,
+  L512).
+- **BREAKING** **jmap-mail-types**: `MailboxFilterCondition::parent_id`
+  is `Option<Option<Id>>` (was `Option<serde_json::Value>`) and
+  `MailboxFilterCondition::role` is `Option<Option<MailboxRole>>` (was
+  `Option<String>`): `None` is absent, `Some(None)` is `null`. A filter
+  can now send `"role": null` (RFC 8621 §2.3 `role: String|null`).
+  **jmap-mail-server**'s `MemoryBackend` matches `role: null` against
+  role-less mailboxes; it previously treated `role: null` as absent.
 - **BREAKING** **jmap-chat-server**, **jmap-chat-federation-server**,
   **jmap-chat-filenode-server**, **jmap-chat-vtc-server**: the implicit
   `@everyone` role's permissions are read per Space through one seam,

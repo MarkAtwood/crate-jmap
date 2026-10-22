@@ -67,7 +67,7 @@ pub mod jscalendar {
 
 // ── Top-level re-exports ──────────────────────────────────────────────────────
 
-pub use availability::BusyPeriod;
+pub use availability::{BusyPeriod, BusyStatus};
 pub use calendar::{
     Calendar, CalendarFilter, CalendarFilterCondition, CalendarRights, IncludeInAvailability,
 };

@@ -85,7 +85,7 @@ use jmap_mail_types::{
     },
     submission::{EmailSubmission, EmailSubmissionFilterCondition},
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
-    MailboxFilterCondition, SearchSnippet,
+    MailboxFilterCondition, MailboxRole, SearchSnippet,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
@@ -361,7 +361,9 @@ impl MemoryBackend {
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
         // Pre-extract the wire-format role string from the filter to avoid
         // repeated `to_wire_str()` calls inside the per-mailbox loop.
-        let filter_role_wire: Option<&str> = filter.and_then(|f| f.role.as_deref());
+        let filter_role_wire: Option<Option<&str>> = filter
+            .and_then(|f| f.role.as_ref())
+            .map(|r| r.as_ref().map(MailboxRole::to_wire_str));
 
         let (mut matching, state_n): (Vec<Mailbox>, u64) = {
             let inner = self.inner.lock().unwrap();
@@ -427,36 +429,23 @@ impl MemoryBackend {
 /// Returns `true` if the mailbox passes the filter. A `None` filter passes
 /// everything.
 ///
-/// `filter_role_wire` is the wire-format role string extracted from
-/// `filter.role` once by the caller, so this hot loop does not re-call
-/// `to_wire_str()` for every mailbox.
+/// `filter_role_wire` is the wire-format role extracted from `filter.role`
+/// once by the caller, so this hot loop does not re-call `to_wire_str()`
+/// for every mailbox. Roles compare by wire string so that
+/// `MailboxRole::Other("inbox")` still matches `MailboxRole::Inbox`.
 fn mailbox_matches_filter(
     m: &Mailbox,
     filter: Option<&MailboxFilterCondition>,
-    filter_role_wire: Option<&str>,
+    filter_role_wire: Option<Option<&str>>,
 ) -> bool {
     let Some(f) = filter else { return true };
 
-    // parentId is three-way: absent (None) = no filter; explicit null
-    // (Some(Value::Null)) = top-level only; string (Some(Value::String)) =
-    // specific parent. `MailboxFilterCondition::parent_id` is
-    // `Option<serde_json::Value>` exactly to preserve this distinction.
-    if let Some(pv) = f.parent_id.as_ref() {
-        match pv {
-            serde_json::Value::Null => {
-                if m.parent_id.is_some() {
-                    return false;
-                }
-            }
-            serde_json::Value::String(id_str) => {
-                if m.parent_id.as_ref().map(|p| p.as_ref()) != Some(id_str.as_str()) {
-                    return false;
-                }
-            }
-            // Any other JSON value in parentId is a malformed filter; the
-            // handler rejects unknown shapes, so reaching here implies the
-            // caller already validated. Treat as no-match conservatively.
-            _ => return false,
+    // parentId and role are three-way: absent (None) = no filter;
+    // explicit null (Some(None)) = the mailbox's value must be null;
+    // a value (Some(Some(v))) = the mailbox's value must equal v.
+    if let Some(want) = &f.parent_id {
+        if m.parent_id.as_ref() != want.as_ref() {
+            return false;
         }
     }
 
@@ -466,14 +455,9 @@ fn mailbox_matches_filter(
         }
     }
 
-    if let Some(role_str) = filter_role_wire {
-        match &m.role {
-            Some(r) => {
-                if r.to_wire_str() != role_str {
-                    return false;
-                }
-            }
-            None => return false,
+    if let Some(want) = filter_role_wire {
+        if m.role.as_ref().map(MailboxRole::to_wire_str) != want {
+            return false;
         }
     }
 
