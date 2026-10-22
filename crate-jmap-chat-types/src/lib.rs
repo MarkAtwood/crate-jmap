@@ -104,7 +104,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod backend;
+mod backend;
 pub mod calendars;
 mod capability;
 pub mod chat;

@@ -99,7 +99,7 @@
 #![forbid(unsafe_code)]
 
 pub mod addressbook;
-pub mod backend;
+mod backend;
 mod capability;
 pub mod card;
 mod collision;

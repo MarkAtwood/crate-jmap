@@ -25,7 +25,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod backend;
+mod backend;
 mod capability;
 pub mod filter;
 pub mod notification;

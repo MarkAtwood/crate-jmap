@@ -51,7 +51,7 @@ pub use card::{
     handle_contact_card_changes, handle_contact_card_copy, handle_contact_card_get,
     handle_contact_card_query, handle_contact_card_query_changes, handle_contact_card_set,
 };
-pub use jmap_contacts_types::backend::{AddressBookProperty, ContactCardProperty};
+pub use jmap_contacts_types::{AddressBookProperty, ContactCardProperty};
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,

@@ -87,7 +87,7 @@ pub use jmap_server::{
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
     QueryResult, SetError, SetErrorType, SetObject,
 };
-pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProperty};
+pub use jmap_sharing_types::{PrincipalProperty, ShareNotificationProperty};
 pub use notification::{
     handle_share_notification_changes, handle_share_notification_get,
     handle_share_notification_query, handle_share_notification_query_changes,

@@ -45,7 +45,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod backend;
+mod backend;
 mod capability;
 pub mod email;
 pub mod identity;

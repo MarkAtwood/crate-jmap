@@ -33,7 +33,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod backend;
+mod backend;
 mod capability;
 pub mod notification;
 pub mod principal;

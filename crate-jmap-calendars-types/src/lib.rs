@@ -34,7 +34,7 @@
 #![forbid(unsafe_code)]
 
 pub mod availability;
-pub mod backend;
+mod backend;
 pub mod calendar;
 mod capability;
 pub mod event;

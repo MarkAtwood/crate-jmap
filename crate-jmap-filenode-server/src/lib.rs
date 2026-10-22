@@ -47,7 +47,7 @@ pub use filenode::{
     handle_filenode_changes, handle_filenode_copy, handle_filenode_get, handle_filenode_query,
     handle_filenode_query_changes, handle_filenode_set,
 };
-pub use jmap_filenode_types::backend::FileNodeProperty;
+pub use jmap_filenode_types::FileNodeProperty;
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,

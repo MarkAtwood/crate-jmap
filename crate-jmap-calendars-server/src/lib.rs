@@ -62,7 +62,7 @@ pub use event_notification::{
     handle_calendar_event_notification_query, handle_calendar_event_notification_query_changes,
     handle_calendar_event_notification_set,
 };
-pub use jmap_calendars_types::backend::{
+pub use jmap_calendars_types::{
     CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,
     ParticipantIdentityProperty,
 };
@@ -438,7 +438,7 @@ pub(crate) mod test_support {
         /// Same preconditions and panic shapes as
         /// [`MemoryBackend::seed_object`](crate::memory::MemoryBackend::seed_object):
         /// `type_name` must be one of the four known
-        /// `jmap_calendars_types::backend::*::TYPE_NAME` values, and `value`
+        /// `TYPE_NAME` values from jmap-calendars-types `src/backend.rs`, and `value`
         /// must be a JSON object whose `id` field matches `id`. bd:JMAP-ic0j.32.
         #[allow(dead_code)]
         pub fn seed_object(

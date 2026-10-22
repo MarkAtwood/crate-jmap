@@ -2561,6 +2561,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** The `backend` module path in jmap-mail-types,
+  -calendars-types, -chat-types, -contacts-types, -filenode-types,
+  -sharing-types and -tasks-types. The module is private; its items
+  (the `*Property` enums, plus the per-user property lists and
+  predicates in -calendars-types and -tasks-types) keep their
+  crate-root path, so name `jmap_mail_types::EmailProperty`, not
+  `jmap_mail_types::backend::EmailProperty` (bd JMAP-wf92.26).
 - **BREAKING** The `capability` module path in jmap-mail-types,
   -calendars-types, -chat-types, -chat-mimi-types, -cid-types,
   -contacts-types, -did-types, -filenode-types, -graph-types,

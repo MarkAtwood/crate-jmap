@@ -79,7 +79,7 @@ pub use email::{
     handle_email_parse, handle_email_query, handle_email_query_changes, handle_email_set,
 };
 pub use identity::{handle_identity_changes, handle_identity_get, handle_identity_set};
-pub use jmap_mail_types::backend::{
+pub use jmap_mail_types::{
     EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
 };
