@@ -59,9 +59,9 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `chat_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `chat_query` | `filter: Option<&Filter<C>>, sort: Option<&[ChatComparator]>, params: &QueryParams` | `QueryResponse` |
 | `chat_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[ChatComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `chat_create` | `input: &ChatCreateInput<'_>` | `SetResponse` |
-| `chat_update` | `id: &Id, patch: &ChatPatch<'_>` | `SetResponse` |
-| `chat_destroy` | `ids: &[Id]` | `SetResponse` |
+| `chat_create` | `input: &ChatCreateInput<'_>` | `SetResponse<PartialObject>` |
+| `chat_update` | `id: &Id, patch: &ChatPatch<'_>` | `SetResponse<PartialObject>` |
+| `chat_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
 | `chat_typing` | `chat_id: &Id, typing: bool` | `TypingResponse` |
 
 ### Message/*
@@ -72,9 +72,9 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `message_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `message_query` | `filter: Option<&Filter<C>>, sort: Option<&[MessageComparator]>, params: &QueryParams` | `QueryResponse` |
 | `message_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[MessageComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `message_create` | `input: &MessageCreateInput<'_>` | `SetResponse` |
-| `message_update` | `id: &Id, patch: &MessagePatch<'_>` | `SetResponse` |
-| `message_destroy` | `ids: &[Id]` | `SetResponse` |
+| `message_create` | `input: &MessageCreateInput<'_>` | `SetResponse<PartialObject>` |
+| `message_update` | `id: &Id, patch: &MessagePatch<'_>` | `SetResponse<PartialObject>` |
+| `message_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
 
 ### Space/*
 
@@ -84,9 +84,9 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `space_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `space_query` | `filter: Option<&Filter<C>>, sort: Option<&[SpaceComparator]>, params: &QueryParams` | `QueryResponse` |
 | `space_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[SpaceComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `space_create` | `input: &SpaceCreateInput<'_>` | `SetResponse` |
-| `space_update` | `id: &Id, patch: &SpacePatch<'_>` | `SetResponse` |
-| `space_destroy` | `ids: &[Id]` | `SetResponse` |
+| `space_create` | `input: &SpaceCreateInput<'_>` | `SetResponse<PartialObject>` |
+| `space_update` | `id: &Id, patch: &SpacePatch<'_>` | `SetResponse<PartialObject>` |
+| `space_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
 | `space_join` | `input: &SpaceJoinInput<'_>` | `SpaceJoinResponse` |
 
 ### SpaceInvite/*
@@ -95,8 +95,8 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 |---|---|---|
 | `space_invite_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<SpaceInvite>` |
 | `space_invite_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `space_invite_create` | `input: &SpaceInviteCreateInput<'_>` | `SetResponse` |
-| `space_invite_destroy` | `ids: &[Id]` | `SetResponse` |
+| `space_invite_create` | `input: &SpaceInviteCreateInput<'_>` | `SetResponse<PartialObject>` |
+| `space_invite_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
 
 ### SpaceBan/*
 
@@ -104,8 +104,8 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 |---|---|---|
 | `space_ban_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<SpaceBan>` |
 | `space_ban_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `space_ban_create` | `input: &SpaceBanCreateInput<'_>` | `SetResponse` |
-| `space_ban_destroy` | `ids: &[Id]` | `SetResponse` |
+| `space_ban_create` | `input: &SpaceBanCreateInput<'_>` | `SetResponse<PartialObject>` |
+| `space_ban_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
 
 ### ChatContact/*
 
@@ -115,7 +115,7 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `chat_contact_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `chat_contact_query` | `filter: Option<&Filter<C>>, sort: Option<&[ChatContactComparator]>, params: &QueryParams` | `QueryResponse` |
 | `chat_contact_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[ChatContactComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `chat_contact_update` | `id: &Id, patch: &ChatContactPatch<'_>` | `SetResponse` |
+| `chat_contact_update` | `id: &Id, patch: &ChatContactPatch<'_>` | `SetResponse<PartialObject>` |
 
 ### CustomEmoji/*
 
@@ -125,8 +125,8 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `custom_emoji_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `custom_emoji_query` | `filter: Option<&Filter<C>>, sort: Option<&[CustomEmojiComparator]>, params: &QueryParams` | `QueryResponse` |
 | `custom_emoji_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[CustomEmojiComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `custom_emoji_create` | `input: &CustomEmojiCreateInput<'_>` | `SetResponse` |
-| `custom_emoji_destroy` | `ids: &[Id]` | `SetResponse` |
+| `custom_emoji_create` | `input: &CustomEmojiCreateInput<'_>` | `SetResponse<PartialObject>` |
+| `custom_emoji_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
 
 ### ReadPosition/* and PresenceStatus/*
 
@@ -134,10 +134,10 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 |---|---|---|
 | `read_position_get` | `ids: Option<&[Id]>` | `GetResponse<ReadPosition>` |
 | `read_position_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `read_position_update` | `read_position_id: &Id, last_read_message_id: &Id` | `SetResponse` |
+| `read_position_update` | `read_position_id: &Id, last_read_message_id: &Id` | `SetResponse<PartialObject>` |
 | `presence_status_get` | _(none)_ | `GetResponse<PresenceStatus>` |
 | `presence_status_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `presence_status_update` | `id: &Id, patch: &PresenceStatusPatch<'_>` | `SetResponse` |
+| `presence_status_update` | `id: &Id, patch: &PresenceStatusPatch<'_>` | `SetResponse<PartialObject>` |
 
 ### Push subscriptions
 

@@ -7,8 +7,9 @@
 use jmap_types::{Id, PatchObject, State};
 
 use super::{
-    ChangesResponse, GetResponse, Patch, PresenceStatusPatch, PushSubscriptionCreateInput,
-    PushSubscriptionCreateResponse, PushSubscriptionPatch, SetResponse,
+    ChangesResponse, GetResponse, PartialObject, Patch, PresenceStatusPatch,
+    PushSubscriptionCreateInput, PushSubscriptionCreateResponse, PushSubscriptionPatch,
+    SetResponse,
 };
 
 impl super::SessionClient {
@@ -79,7 +80,7 @@ impl super::SessionClient {
         read_position_id: &Id,
         last_read_message_id: &Id,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -191,7 +192,7 @@ impl super::SessionClient {
         id: &Id,
         patch: &PresenceStatusPatch<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
         if let Some(p) = &patch.presence {
@@ -420,7 +421,7 @@ impl super::SessionClient {
         id: &Id,
         patch: &PushSubscriptionPatch<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         // Defence-in-depth: typed &Id does not prevent empty Id values.
         if id.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -513,7 +514,7 @@ impl super::SessionClient {
         &self,
         ids: &[Id],
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "push_subscription_destroy: ids may not be empty".into(),

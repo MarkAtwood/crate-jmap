@@ -37,13 +37,13 @@ pub use methods::blob::{BlobConvertResponse, BlobLookupEntry, BlobLookupResponse
 pub use methods::quota::Quota;
 pub use methods::{
     AddMemberInput, AddedItem, ChangesResponse, ChatContactPatch, ChatCreateInput, ChatPatch,
-    CustomEmojiCreateInput, CustomEmojiPatch, GetResponse, MessageCreateInput, MessagePatch, Patch,
-    PresenceStatusPatch, PushSubscriptionCreateInput, PushSubscriptionCreateResponse,
-    PushSubscriptionPatch, QueryChangesResponse, QueryResponse, ReactionChange, SessionClient,
-    SetError, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput,
-    SpaceAddRoleInput, SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput,
-    SpaceInviteCreateInput, SpaceJoinInput, SpaceJoinResponse, SpacePatch,
-    SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
+    CustomEmojiCreateInput, CustomEmojiPatch, GetResponse, MessageCreateInput, MessagePatch,
+    PartialObject, Patch, PresenceStatusPatch, PushSubscriptionCreateInput,
+    PushSubscriptionCreateResponse, PushSubscriptionPatch, QueryChangesResponse, QueryResponse,
+    ReactionChange, SessionClient, SetError, SetResponse, SpaceAddCategoryInput,
+    SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput, SpaceBanCreateInput,
+    SpaceBanPatch, SpaceCreateInput, SpaceInviteCreateInput, SpaceJoinInput, SpaceJoinResponse,
+    SpacePatch, SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
     SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput,
 };
 pub use session::{ChatCapability, ChatFilenodeCapability, ChatPushCapability, ChatSessionExt};

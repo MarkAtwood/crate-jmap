@@ -12,9 +12,9 @@
 use jmap_base_client::{BearerAuth, ClientConfig, DefaultTransport, JmapClient, Session};
 use jmap_chat_client::{
     AddMemberInput, ChatCreateInput, ChatMemberRole, ChatPatch, ChatSessionExt, ClientError,
-    JmapChatExt, MessageCreateInput, MessagePatch, ReactionChange, SessionClient, SetResponse,
-    SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput, SpaceBanCreateInput,
-    SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
+    JmapChatExt, MessageCreateInput, MessagePatch, PartialObject, ReactionChange, SessionClient,
+    SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput,
+    SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
 };
 use jmap_chat_types::query::{
     MessageComparator, MessageComparatorProperty, MessageFilter, MessageFilterCondition,
@@ -44,17 +44,15 @@ async fn connect() -> (TestjigHandle, JmapClient, Session) {
 
 /// The server-assigned id for creation key `key`, or a panic naming the
 /// SetError the server returned instead.
-fn created_id(resp: &SetResponse, key: &str) -> Id {
+fn created_id(resp: &SetResponse<PartialObject>, key: &str) -> Id {
     if let Some(err) = resp.not_created.as_ref().and_then(|m| m.get(key)) {
         panic!("{key} not created: {err:?}");
     }
-    let id = resp
-        .created
+    resp.created
         .as_ref()
         .and_then(|m| m.get(key))
-        .and_then(|v| v["id"].as_str())
-        .unwrap_or_else(|| panic!("created[{key}].id missing: {resp:?}"));
-    Id::from(id)
+        .and_then(|v| v.id.clone())
+        .unwrap_or_else(|| panic!("created[{key}].id missing: {resp:?}"))
 }
 
 async fn create_group(sc: &SessionClient, key: &str, name: &str) -> Id {

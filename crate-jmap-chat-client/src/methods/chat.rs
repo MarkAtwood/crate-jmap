@@ -12,8 +12,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    AddMemberInput, ChangesResponse, ChatCreateInput, ChatPatch, GetResponse, QueryChangesResponse,
-    QueryResponse, SetResponse, TypingResponse, UpdateMemberRoleInput,
+    AddMemberInput, ChangesResponse, ChatCreateInput, ChatPatch, GetResponse, PartialObject,
+    QueryChangesResponse, QueryResponse, SetResponse, TypingResponse, UpdateMemberRoleInput,
 };
 
 impl super::SessionClient {
@@ -317,7 +317,7 @@ impl super::SessionClient {
         &self,
         input: &ChatCreateInput<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let (create_obj, client_id_opt) = match input {
             ChatCreateInput::Direct {
@@ -409,7 +409,7 @@ impl super::SessionClient {
         id: &Id,
         patch: &ChatPatch<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
 
@@ -543,7 +543,7 @@ impl super::SessionClient {
         &self,
         ids: &[Id],
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "chat_destroy: ids may not be empty".into(),

@@ -15,8 +15,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, GetResponse, MessageCreateInput, MessagePatch, QueryChangesResponse,
-    QueryResponse, ReactionChange, SetResponse,
+    ChangesResponse, GetResponse, MessageCreateInput, MessagePatch, PartialObject,
+    QueryChangesResponse, QueryResponse, ReactionChange, SetResponse,
 };
 
 /// Reject a `sender_reaction_id` that is empty or contains RFC 6901
@@ -245,7 +245,7 @@ impl super::SessionClient {
         &self,
         input: &MessageCreateInput<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let client_id = super::resolve_client_id(input.client_id);
         // Borrow as &str so we can use it both as the json! key and as the
@@ -304,7 +304,8 @@ impl super::SessionClient {
         }
         let req = super::build_request("Message/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
-        let set_resp: SetResponse = jmap_base_client::extract_response(&resp, super::CALL_ID)?;
+        let set_resp: SetResponse<PartialObject> =
+            jmap_base_client::extract_response(&resp, super::CALL_ID)?;
         // Check for server-side rate limiting on the creation key.
         if let Some(not_created) = &set_resp.not_created {
             if let Some(err) = not_created.get(client_id_str) {
@@ -366,7 +367,7 @@ impl super::SessionClient {
         id: &Id,
         patch: &MessagePatch<'_>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         // draft-atwood-jmap-chat-00 §Message `readDisposition`: "A client
         // supplies it only in the same `Message/set` update that sets
         // `readAt`".
@@ -477,7 +478,7 @@ impl super::SessionClient {
         &self,
         ids: &[Id],
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "message_destroy: ids may not be empty".into(),

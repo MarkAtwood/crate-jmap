@@ -1157,3 +1157,37 @@ async fn chat_query_changes_sends_metadata_condition_in_and() {
         })
     );
 }
+
+/// RFC 8620 §5.3: each `created` value holds only "properties of the
+/// created Foo object that were not sent by the client". Oracle: the
+/// hand-written response echoes the server-set `id` and `createdAt`;
+/// the client-sent `kind` and `name` are absent. The typed
+/// `PartialObject` exposes the id directly.
+#[tokio::test]
+async fn chat_create_created_is_partial_object() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "created": { "g1": { "id": "chat-9", "createdAt": "2026-10-21T10:00:00Z" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+    let sc = helpers::make_client(&server);
+    let input = jmap_chat_client::methods::ChatCreateInput::Group {
+        client_id: Some("g1"),
+        name: "Team",
+        member_ids: &[],
+        description: None,
+        avatar_blob_id: None,
+        message_expiry_seconds: None,
+    };
+    let resp = sc
+        .chat_create(&input, None)
+        .await
+        .expect("a partial created object must parse");
+    let g1 = &resp.created.expect("created")["g1"];
+    assert_eq!(g1.id, Some(Id::from("chat-9")));
+    assert_eq!(g1.extra["createdAt"], "2026-10-21T10:00:00Z");
+    assert!(!g1.extra.contains_key("name"));
+}
