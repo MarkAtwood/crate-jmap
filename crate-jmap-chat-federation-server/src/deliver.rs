@@ -1184,7 +1184,7 @@ async fn deliver_message<B: FederationBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let limits = ctx.backend.limits(ctx.caller, ctx.account_id);
     check_body(&m.body, &limits)?;
-    check_body_type(&m.body_type, &limits)?;
+    check_body_type(m.body_type.as_str(), &limits)?;
     let encrypted = limits.encrypted_body_types.contains(&m.body_type.as_str());
     if encrypted {
         if let Some(field) = encrypted_conflict(m) {
@@ -1331,7 +1331,7 @@ async fn deliver_edit<B: FederationBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let limits = ctx.backend.limits(ctx.caller, ctx.account_id);
     check_body(&e.body, &limits)?;
-    check_body_type(&e.body_type, &limits)?;
+    check_body_type(e.body_type.as_str(), &limits)?;
     if limits.encrypted_body_types.contains(&e.body_type.as_str()) {
         let mentions = e.mentions.as_ref().is_some_and(|v| !v.is_empty());
         let broadcast = e.broadcast_mentions.as_ref().is_some_and(|v| !v.is_empty());

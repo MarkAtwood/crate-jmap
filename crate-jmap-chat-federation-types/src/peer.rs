@@ -17,8 +17,8 @@
 //! identity matching the peer identity.
 
 use jmap_chat_types::{
-    Attachment, BroadcastMention, ChatKind, ChatMemberRole, Clearable, MessageAction, Presence,
-    ReadDisposition,
+    Attachment, BodyType, BroadcastMention, ChatKind, ChatMemberRole, Clearable, MessageAction,
+    Presence, ReadDisposition,
 };
 use jmap_types::{Id, UTCDate};
 use serde::de::DeserializeOwned;
@@ -95,7 +95,7 @@ pub struct PeerMessage {
     /// Message content.
     pub body: String,
     /// MIME type of `body`.
-    pub body_type: String,
+    pub body_type: BodyType,
     /// Sender's claimed composition time.
     pub sent_at: UTCDate,
     /// Attachments, each with its `fetchUrl`.
@@ -143,7 +143,7 @@ impl PeerMessage {
     pub fn new(
         sender_msg_id: Id,
         body: impl Into<String>,
-        body_type: impl Into<String>,
+        body_type: impl Into<BodyType>,
         sent_at: UTCDate,
         attachments: Vec<PeerAttachment>,
     ) -> Self {
@@ -179,7 +179,7 @@ pub struct PeerEdit {
     /// New body content.
     pub body: String,
     /// MIME type of the new body.
-    pub body_type: String,
+    pub body_type: BodyType,
     /// Claimed edit time.
     pub edited_at: UTCDate,
     /// Per-user mentions for the new body.
@@ -198,7 +198,7 @@ impl PeerEdit {
     pub fn new(
         sender_msg_id: Id,
         body: impl Into<String>,
-        body_type: impl Into<String>,
+        body_type: impl Into<BodyType>,
         edited_at: UTCDate,
     ) -> Self {
         Self {
