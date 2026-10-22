@@ -30,7 +30,9 @@ wire behaviour that a conforming peer can observe.
   `mdn` feature, the RFC 9007 MDN types and `JMAP_MDN_URI`; the scene and
   vtc `/query` filters and comparators (`WithinRadius`, `WithinBounds`,
   `VtcCallFilter`, ...). Each crate also re-exports `Filter`,
-  `FilterOperator` and `Operator` at its root.
+  `FilterOperator` and `Operator` at its root; jmap-chat-types also
+  re-exports the generic `Comparator<P>` behind its `*Comparator`
+  aliases.
 - **jmap-base-client**, **jmap-calendars-client**, **jmap-chat-client**:
   crate-root re-exports for the items that had only a module path
   (bd JMAP-wf92.23): `HttpErrorKind`, `WebSocketErrorKind`,

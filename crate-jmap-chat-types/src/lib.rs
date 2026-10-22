@@ -162,7 +162,7 @@ pub use presence::{Presence, PresenceStatus};
 pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig, UrgencyLevel};
 pub use query::{
     ChatComparator, ChatComparatorProperty, ChatContactComparator, ChatContactComparatorProperty,
-    ChatContactFilter, ChatContactFilterCondition, ChatFilter, ChatFilterCondition,
+    ChatContactFilter, ChatContactFilterCondition, ChatFilter, ChatFilterCondition, Comparator,
     CustomEmojiComparator, CustomEmojiComparatorProperty, CustomEmojiFilter,
     CustomEmojiFilterCondition, Filter, FilterOperator, MessageComparator,
     MessageComparatorProperty, MessageFilter, MessageFilterCondition, Operator, SpaceComparator,
