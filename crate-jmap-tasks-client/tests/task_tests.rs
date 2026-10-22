@@ -289,6 +289,7 @@ async fn task_copy_includes_from_account_id() {
         "methodResponses": [[
             "Task/copy",
             {
+                "fromAccountId": "srcacc",
                 "accountId": "A13824",
                 "oldState": null,
                 "newState": "s2",

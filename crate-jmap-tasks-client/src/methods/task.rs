@@ -6,7 +6,10 @@ use jmap_tasks_types::TaskComparator;
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
-use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use super::{
+    ChangesResponse, CopyResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
+    SetResponse,
+};
 
 impl super::SessionClient {
     /// Fetch Task objects by IDs (draft-tasks-06 §4.5).
@@ -130,7 +133,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse<jmap_tasks_types::Task>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "task_set: at least one of create, update, destroy must be Some \
@@ -186,7 +189,7 @@ impl super::SessionClient {
         &self,
         params: super::TaskCopyParams,
         create: serde_json::Value,
-    ) -> Result<SetResponse<jmap_tasks_types::Task>, jmap_base_client::ClientError> {
+    ) -> Result<CopyResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "fromAccountId": params.from_account_id,

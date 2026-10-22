@@ -1319,6 +1319,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-tasks-client**: **BREAKING** `task_list_set`, `task_set` and
+  `task_notification_set` return `SetResponse<PartialObject>` (was
+  `SetResponse<TaskList>` / `SetResponse<Task>` / the hidden
+  `SetResponse<serde_json::Value>`), and `task_copy` returns
+  `CopyResponse<PartialObject>` (RFC 8620 §5.3 / §5.4 `created` values
+  are partial).
 - **jmap-contacts-client**: **BREAKING** `address_book_set` and
   `contact_card_set` return `SetResponse<PartialObject>` (was
   `SetResponse<AddressBook>` / `SetResponse<ContactCard>`, which
