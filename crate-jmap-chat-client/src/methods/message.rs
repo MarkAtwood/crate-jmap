@@ -9,7 +9,8 @@
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 //!
 //! SPECIAL: `message_create` additionally inspects `SetResponse.not_created` for
-//! `error_type == "rateLimit"` and surfaces it as `ClientError::RateLimited`.
+//! [`SetErrorType::RateLimit`](jmap_types::SetErrorType::RateLimit) (wire `"rateLimit"`)
+//! and surfaces it as `ClientError::RateLimited`.
 
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
@@ -226,8 +227,9 @@ impl super::SessionClient {
     ///   `mentions`, `broadcastMentions` or `actions` arrays fails
     ///   (pathological conditions only).
     /// - [`ClientError::RateLimited`](jmap_base_client::ClientError::RateLimited)
-    ///   if the server rejects the message with `error_type ==
-    ///   "rateLimit"`. The `retry_after` field carries the
+    ///   if the server rejects the message with
+    ///   [`SetErrorType::RateLimit`](jmap_types::SetErrorType::RateLimit)
+    ///   (wire `"rateLimit"`). The `retry_after` field carries the
     ///   `serverRetryAfter` deadline, or the receive time when it is absent.
     /// - [`ClientError::UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse)
     ///   if the server emits a `rateLimit` SetError whose

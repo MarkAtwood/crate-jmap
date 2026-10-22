@@ -6,7 +6,7 @@ This crate is a **sibling under the canonical `jmap-mail-types`
 extension-types template**. Module layout, type-naming idioms,
 `#[non_exhaustive]` policy, serde attribute style, doc-comment
 style, and test layout must mirror `jmap-mail-types`. Differences
-are *only* the spec content (draft-ietf-jmap-calendars-26 + RFC 8984
+are *only* the spec content (draft-ietf-jmap-calendars-33 + RFC 8984
 JSCalendar here; RFC 8621 in mail-types).
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
@@ -30,7 +30,7 @@ for full workflow context.
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — planned types, module layout, source material
-2. Read the relevant draft-ietf-jmap-calendars-26 section before
+2. Read the relevant draft-ietf-jmap-calendars-33 section before
    implementing any type
 3. Cross-check the canonical sibling
    `~/PROJECT/crate-jmap/crate-jmap-mail-types/` for the type/serde
@@ -39,7 +39,7 @@ for full workflow context.
 
 ## What This Is
 
-JMAP Calendars extension data types (draft-ietf-jmap-calendars-26).
+JMAP Calendars extension data types (draft-ietf-jmap-calendars-33).
 Types only — no method handlers. No async. Consumed by
 `jmap-calendars-server` and `jmap-calendars-client`. Also re-exports
 typed JSCalendar (RFC 8984) sub-types via `jmap-jscalendar-types`
@@ -62,9 +62,9 @@ still compile.
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-26.txt   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8984.txt                        ← JSCalendar format
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt                        ← base protocol
+~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-33.txt   ← normative
+~/PROJECT/IETF/specs/rfc8984.txt                        ← JSCalendar format
+~/PROJECT/IETF/specs/rfc8620.txt                        ← base protocol
 ```
 
 **Before naming any field or type**, grep the relevant draft text
@@ -98,7 +98,7 @@ Run all four before considering any work done.
 | Async | None — sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Dependencies | jmap-types, jmap-jscalendar-types, serde, serde_json only |
-| Field names | Must match draft-ietf-jmap-calendars-26 exactly |
+| Field names | Must match draft-ietf-jmap-calendars-33 exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from spec examples — never from code under test |
 | Attribute order | `#[non_exhaustive]` → `#[derive(...)]` → `#[serde(...)]` on every type |
@@ -121,5 +121,5 @@ Run all four before considering any work done.
   serde, serde_json
 - Do not add async, tokio, or axum
 - Do not add method handler logic — types only
-- Do not add fields or types not present in draft-ietf-jmap-calendars-26
+- Do not add fields or types not present in draft-ietf-jmap-calendars-33
   unless explicitly directed

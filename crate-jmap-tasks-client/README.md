@@ -70,12 +70,12 @@ All `pub async fn` on `SessionClient`:
 | `task_changes(since_state, max_changes)` | `Task/changes` | `ChangesResponse` |
 | `task_set(create, update, destroy, if_in_state)` | `Task/set` | `SetResponse<PartialObject>` |
 | `task_copy(params, create)` | `Task/copy` | `CopyResponse<PartialObject>` |
-| `task_query(filter, sort, position, limit)` | `Task/query` | `QueryResponse` |
+| `task_query(filter, sort, &QueryParams)` | `Task/query` | `QueryResponse` |
 | `task_query_changes(since_query_state, max_changes)` | `Task/queryChanges` | `QueryChangesResponse` |
 | `task_notification_get(ids, properties)` | `TaskNotification/get` | `GetResponse<TaskNotification>` |
 | `task_notification_changes(since_state, max_changes)` | `TaskNotification/changes` | `ChangesResponse` |
 | `task_notification_set(destroy, if_in_state)` | `TaskNotification/set` | `SetResponse<PartialObject>` |
-| `task_notification_query(filter, sort, position, limit)` | `TaskNotification/query` | `QueryResponse` |
+| `task_notification_query(filter, sort, &QueryParams)` | `TaskNotification/query` | `QueryResponse` |
 | `task_notification_query_changes(since_query_state, max_changes)` | `TaskNotification/queryChanges` | `QueryChangesResponse` |
 
 **Note:** `task_notification_set` is destroy-only. The server creates `TaskNotification`

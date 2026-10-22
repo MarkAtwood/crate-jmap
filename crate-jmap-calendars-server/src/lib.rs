@@ -154,9 +154,8 @@ pub use jmap_calendars_types::JMAP_CALENDARS_URI;
 ///   handler is overwritten. The contract is "last register wins" and
 ///   the caller is responsible for ordering.
 ///
-/// Mirrors the canonical jmap-mail-server `register_mail_handlers`
-/// Re-registration semantics section at
-/// `crate-jmap-mail-server/src/lib.rs:133-148`.
+/// Mirrors the "Re-registration semantics" section of the canonical
+/// jmap-mail-server `register_mail_handlers` rustdoc.
 ///
 /// [`Dispatcher::register`]: jmap_server::Dispatcher::register
 pub fn register_calendars_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)

@@ -294,6 +294,16 @@ async fn send_request_error(
     err: JmapError,
     request_id: Option<String>,
 ) -> Result<(), String> {
+    let body = request_error_body(&err, request_id);
+    let txt = serde_json::to_string(&body).map_err(|e| format!("serialize RequestError: {e}"))?;
+    socket
+        .send(Message::Text(txt.into()))
+        .await
+        .map_err(|e| format!("send RequestError frame: {e}"))
+}
+
+/// Build the JSON body of an RFC 8887 §4.3.4 RequestError envelope.
+fn request_error_body(err: &JmapError, request_id: Option<String>) -> Value {
     // RFC 7807 Problem Details + RFC 8887 extension fields. The
     // testjig's POST /jmap path uses jmap-server's
     // `RequestError::into_response` to assemble this shape, but that
@@ -303,7 +313,7 @@ async fn send_request_error(
     let mut body = json!({
         "@type": "RequestError",
         "type": format!("urn:ietf:params:jmap:error:{}", err.error_type),
-        "status": jmap_server::error_status(&err).as_u16(),
+        "status": jmap_server::error_status(err).as_u16(),
     });
     // RFC 8620 §3.6.1: `limit` errors MUST carry a `limit` property
     // naming the exceeded limit.
@@ -316,11 +326,7 @@ async fn send_request_error(
     if let Some(req_id) = request_id {
         body["requestId"] = Value::String(req_id);
     }
-    let txt = serde_json::to_string(&body).map_err(|e| format!("serialize RequestError: {e}"))?;
-    socket
-        .send(Message::Text(txt.into()))
-        .await
-        .map_err(|e| format!("send RequestError frame: {e}"))
+    body
 }
 
 /// Parse RFC 8887 §4.3.5.2 `WebSocketPushEnable` arguments.
@@ -556,6 +562,27 @@ fn build_state_change_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Oracle: RFC 8620 §3.6.1 ("limit" errors MUST carry a "limit"
+    /// property naming the limit), RFC 7807 §3.1 ("detail" is a
+    /// human-readable explanation) and RFC 8887 §4.3.4 (`@type` and
+    /// `requestId`). Expected object is hand-written.
+    #[test]
+    fn request_error_body_limit_carries_limit_and_detail() {
+        let mut err = JmapError::limit("maxCallsInRequest");
+        err.description = Some("17 calls exceed 16".to_owned());
+        assert_eq!(
+            request_error_body(&err, Some("r1".to_owned())),
+            json!({
+                "@type": "RequestError",
+                "type": "urn:ietf:params:jmap:error:limit",
+                "status": 400,
+                "limit": "maxCallsInRequest",
+                "detail": "17 calls exceed 16",
+                "requestId": "r1",
+            })
+        );
+    }
 
     /// Oracle: RFC 8887 §4.3.5.2 — `dataTypes: null` means
     /// "all supported types".

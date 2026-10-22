@@ -323,3 +323,21 @@ async fn destroying_a_streaming_livestream_stops_it_first() {
         }
     }
 }
+
+#[tokio::test]
+async fn query_other_sort_property_is_unsupported() {
+    let backend = media_backend();
+    // L1293 "Sort properties: `startedAt`."; RFC 8620 §5.5
+    // "unsupportedSort: The sort is syntactically valid, but includes a
+    // property the server does not support sorting on".
+    let Err(err) = handle_vtc_livestream_query(
+        &backend,
+        &BOB.to_owned(),
+        json!({ "accountId": ACCOUNT, "sort": [{ "property": "state" }] }),
+    )
+    .await
+    else {
+        panic!("expected unsupportedSort");
+    };
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+}

@@ -12,8 +12,8 @@
 //! This crate holds the spec-defined parts that need no I/O:
 //!
 //! - No async dependencies, no network, DNS or persistence.
-//! - The clock, the fetched keys, the DNSSEC validation result and the
-//!   replay store are passed in by the caller.
+//! - The clock, the fetched keys and the DNSSEC validation result are
+//!   passed in by the caller.
 //! - Forbids `unsafe`.
 //!
 //! Fetching `peerSigningKeys` over HTTPS, the DNSSEC-validated

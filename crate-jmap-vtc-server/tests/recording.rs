@@ -334,3 +334,21 @@ async fn query_defaults_to_started_at_descending() {
     );
     assert_eq!(resp["ids"], json!(["R1"]), "{resp}");
 }
+
+#[tokio::test]
+async fn query_other_sort_property_is_unsupported() {
+    let backend = media_backend();
+    // L1194 "Sort properties: `startedAt`."; RFC 8620 §5.5
+    // "unsupportedSort: The sort is syntactically valid, but includes a
+    // property the server does not support sorting on".
+    let Err(err) = handle_vtc_recording_query(
+        &backend,
+        &BOB.to_owned(),
+        json!({ "accountId": ACCOUNT, "sort": [{ "property": "state" }] }),
+    )
+    .await
+    else {
+        panic!("expected unsupportedSort");
+    };
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+}

@@ -254,7 +254,7 @@ pub(crate) mod test_support {
         state: Arc<Mutex<HashMap<String, AccountState>>>,
         /// Ids in this set report as having contents (for onDestroyRemoveContents tests).
         nonempty_books: Arc<Mutex<std::collections::HashSet<String>>>,
-        /// Whether copy_contact_card was called (for copy test verification).
+        /// Whether copy_object was called (for copy test verification).
         pub copy_called: Arc<Mutex<bool>>,
         /// When set, `address_book_has_contents` returns `Err` instead of
         /// `Ok(_)`, used to exercise the trait's storage-degraded path

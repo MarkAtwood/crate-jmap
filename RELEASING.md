@@ -293,14 +293,18 @@ Some crates expose third-party types: `jmap_peer_auth::ed25519_dalek`
 dependency is a minor bump of ours (the pre-1.0 breaking bump), listed as
 **BREAKING** in `CHANGELOG.md`.
 
-`ed25519-dalek` is on 3. `reqwest` stays on 0.12 because 0.13 has no
-ring-backed TLS that works without process-global setup. Its `rustls`
-feature uses aws-lc-rs and the OS trust store (rustls-platform-verifier)
-rather than ring and the bundled webpki-roots. Its `rustls-no-provider`
-feature panics in `ClientBuilder::build` unless a rustls `CryptoProvider`
-is installed process-wide first, including in clients built by our
-callers. Moving to 0.13 is a later breaking release that picks one of
-those trade-offs (bd:JMAP-wf92.14).
+`ed25519-dalek` is on 3. `reqwest` stays on 0.12 because 0.13 cannot
+give every client ring-backed TLS with the bundled webpki-roots. Its
+`rustls` feature uses aws-lc-rs and the OS trust store
+(rustls-platform-verifier) instead. With `rustls-no-provider`, a client
+we build can still use ring and webpki-roots with no global setup, by
+passing a `rustls::ClientConfig` to `ClientBuilder::use_preconfigured_tls`.
+But `ClientBuilder::build` without preconfigured TLS panics unless a
+rustls `CryptoProvider` is installed process-wide (reqwest 0.13.5
+`default_rustls_crypto_provider`), and the `reqwest::Client`s our callers
+build and pass in cannot be forced onto the preconfigured path. Moving to
+0.13 is a later breaking release that picks one of those trade-offs
+(bd:JMAP-wf92.14).
 
 ## Tracking
 

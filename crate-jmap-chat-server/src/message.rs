@@ -928,9 +928,9 @@ pub enum StoreOutcome {
 /// [`ChatBackend::create_object`]. It sets every other field, including
 /// the server-set `senderMsgId`, `senderId`, `sentAt` and `receivedAt` and
 /// a body type that [`ChatLimits::server_reserved_body_types`] keeps out
-/// of `Message/set`; its `chatId` and `senderMsgId` MUST be `chat_id` and
-/// `sender_msg_id`. The backend stores `senderMsgId` as built. None of the
-/// `Message/set` client-input checks run.
+/// of `Message/set`. Its `chatId` and `senderMsgId` are then overwritten
+/// with `chat_id` and `sender_msg_id`, so the stored Message always matches
+/// the duplicate check. None of the `Message/set` client-input checks run.
 ///
 /// Before storing, `chat_id` is searched for `sender_msg_id` with
 /// [`find_message_by_sender_msg_id`]. A hit returns
@@ -974,8 +974,19 @@ where
     {
         return Ok(StoreOutcome::Duplicate(existing.id));
     }
+    let (chat, smid) = (chat_id.clone(), sender_msg_id.clone());
     let (id, stored) = backend
-        .create_object(caller, account_id, sender_msg_id.as_ref(), build)
+        .create_object(
+            caller,
+            account_id,
+            sender_msg_id.as_ref(),
+            move |id: &Id| {
+                let mut m = build(id);
+                m.chat_id = chat;
+                m.sender_msg_id = smid;
+                m
+            },
+        )
         .await?;
     ensure_read_positions(backend, caller, account_id, vec![stored.chat_id.clone()]).await;
     record_unread_count_changes(backend, caller, account_id, vec![stored.chat_id]).await;
