@@ -69,4 +69,6 @@ pub use event::{
 pub use participant::{CallResponse, CallRole, JoinMethod, LobbyState, VtcParticipant};
 pub use push::VtcCallPush;
 pub use recording::{LivestreamState, RecordingState, VtcLivestream, VtcRecording};
-pub use stream::{VtcStreamDisable, VtcStreamEnable, VtcStreamMessage, VTC_EVENT_TYPES};
+pub use stream::{
+    VtcEventType, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage, VTC_EVENT_TYPES,
+};

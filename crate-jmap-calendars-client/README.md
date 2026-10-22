@@ -159,7 +159,7 @@ session, it returns `ClientError::InvalidSession`.
 
 | Type | Fields | Source |
 |---|---|---|
-| `GetResponse<T>` | `account_id`, `state`, `list: Vec<T>`, `not_found: Option<Vec<Id>>` | RFC 8620 §5.1 |
+| `GetResponse<T>` | `account_id`, `state`, `list: Vec<T>`, `not_found: Vec<Id>` | RFC 8620 §5.1 |
 | `ChangesResponse` | `account_id`, `old_state`, `new_state`, `has_more_changes`, `created`, `updated`, `destroyed` | RFC 8620 §5.2 |
 | `SetResponse<T>` | `account_id`, `old_state`, `new_state`, `created`, `updated`, `destroyed`, `not_created`, `not_updated`, `not_destroyed` | RFC 8620 §5.3 |
 | `QueryResponse` | `account_id`, `query_state`, `can_calculate_changes`, `position`, `ids`, `total`, `limit` | RFC 8620 §5.5 |

@@ -313,6 +313,45 @@ pub const DATA_TYPE_CURSORS: &str = "cursors";
 /// alongside recognized ones are ignored."
 pub const GRAPH_EDIT_DATA_TYPES: &[&str] = &[DATA_TYPE_OPS, DATA_TYPE_CURSORS];
 
+/// One [`GraphEditStreamEnable::data_types`] value
+/// (draft-atwood-jmap-graph-edit-00 §GraphEditStreamEnable): "`\"ops\"` for
+/// `GraphNodeOpEvent` and `\"cursors\"` for `GraphCursorEvent`".
+///
+/// "Unrecognized values alongside recognized ones are ignored", so any
+/// other string deserializes to [`Other`](Self::Other) and serializes back
+/// unchanged rather than failing the frame.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GraphEditDataType {
+    /// [`DATA_TYPE_OPS`]: [`GraphNodeOpEvent`]s.
+    Ops,
+    /// [`DATA_TYPE_CURSORS`]: [`GraphCursorEvent`]s.
+    Cursors,
+    /// Any value this version does not recognize.
+    ///
+    /// **Forging caveat**: `Other("ops".into())` is unequal to
+    /// [`Ops`](Self::Ops) on `PartialEq` but serializes to the same wire
+    /// string. Reserve `Other(s)` for unrecognized strings; compare wire
+    /// equality via [`as_str`](Self::as_str).
+    Other(String),
+}
+
+impl GraphEditDataType {
+    /// The wire string for this data type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Ops => DATA_TYPE_OPS,
+            Self::Cursors => DATA_TYPE_CURSORS,
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(GraphEditDataType, "a GraphEditStreamEnable dataTypes string",
+    "ops" => Ops,
+    "cursors" => Cursors,
+);
+
 /// Client→server: start or replace the op and cursor subscription on this
 /// WebSocket connection (draft-atwood-jmap-graph-edit-00
 /// §GraphEditStreamEnable). "A new `GraphEditStreamEnable` replaces the
@@ -330,8 +369,9 @@ pub struct GraphEditStreamEnable {
     /// An id matches that id in every account the user can access".
     pub node_ids: Vec<Id>,
     /// "A non-empty list of the event categories wanted". Recognized values
-    /// are [`GRAPH_EDIT_DATA_TYPES`]; other values are kept verbatim.
-    pub data_types: Vec<String>,
+    /// are [`GRAPH_EDIT_DATA_TYPES`]; other values are kept verbatim in
+    /// [`GraphEditDataType::Other`].
+    pub data_types: Vec<GraphEditDataType>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -343,7 +383,7 @@ pub struct GraphEditStreamEnable {
 impl GraphEditStreamEnable {
     /// A subscription to `data_types` of `node_ids`, with no `id` and no
     /// extras.
-    pub fn new(node_ids: Vec<Id>, data_types: Vec<String>) -> Self {
+    pub fn new(node_ids: Vec<Id>, data_types: Vec<GraphEditDataType>) -> Self {
         Self {
             id: None,
             node_ids,

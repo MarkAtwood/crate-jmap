@@ -99,7 +99,7 @@ impl VtcEphemeralSubscription {
                 let recognized: Vec<&'static str> = VTC_EVENT_TYPES
                     .iter()
                     .copied()
-                    .filter(|t| requested.iter().any(|r| r == t))
+                    .filter(|t| requested.iter().any(|r| r.as_str() == *t))
                     .collect();
                 if recognized.is_empty() {
                     return Err(JmapError::invalid_arguments(

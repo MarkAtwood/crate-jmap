@@ -4,8 +4,8 @@
 //! definitions) and hand-written JSON, never the code under test.
 
 use jmap_graph_types::edit::{
-    GraphCursorEvent, GraphEditEvent, GraphEditStreamDisable, GraphEditStreamMessage,
-    GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
+    GraphCursorEvent, GraphEditDataType, GraphEditEvent, GraphEditStreamDisable,
+    GraphEditStreamMessage, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
     GraphNodeOpFilterCondition, GraphNodeOpSortProperty, GRAPH_EDIT_DATA_TYPES,
     GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY, OPS_COMPACTED,
 };
@@ -344,7 +344,10 @@ fn subscribe_example_round_trips() {
     assert_eq!(e.id.as_deref(), Some("sub1"));
     assert!(!e.extra.contains_key("id"));
     assert_eq!(e.node_ids, [Id::from("N1")]);
-    assert_eq!(e.data_types, ["ops", "cursors"]);
+    assert_eq!(
+        e.data_types,
+        [GraphEditDataType::Ops, GraphEditDataType::Cursors]
+    );
 }
 
 #[test]
@@ -368,7 +371,7 @@ fn enable_keeps_empty_and_unrecognized_data_types() {
         "dataTypes": ["ops", "presence"]
     }));
     assert!(matches!(msg, GraphEditStreamMessage::Enable(ref e)
-        if e.data_types == ["ops", "presence"]));
+        if e.data_types == [GraphEditDataType::Ops, GraphEditDataType::Other("presence".to_owned())]));
 }
 
 #[test]

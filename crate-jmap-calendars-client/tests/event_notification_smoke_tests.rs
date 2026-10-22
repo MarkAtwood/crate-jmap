@@ -55,11 +55,7 @@ async fn calendar_event_notification_get_basic_shape() {
         .await
         .expect("calendar_event_notification_get: must succeed");
     assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
-    assert_eq!(
-        resp.not_found.as_deref(),
-        Some(&[Id::from("n-missing")][..]),
-        "notFound mismatch"
-    );
+    assert_eq!(resp.not_found, [Id::from("n-missing")], "notFound mismatch");
 
     let reqs = server
         .received_requests()

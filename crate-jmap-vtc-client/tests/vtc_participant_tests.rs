@@ -344,10 +344,7 @@ async fn vtc_participant_get_sends_ids_and_properties() {
             "properties": ["id", "userId", "displayName", "role"]
         }])
     );
-    assert_eq!(
-        resp.not_found,
-        Some(vec![Id::from("01J4XV7YT4XCA06YYKNQ01BQR0")])
-    );
+    assert_eq!(resp.not_found, vec![Id::from("01J4XV7YT4XCA06YYKNQ01BQR0")]);
 }
 
 /// `VTCParticipant/changes` (L830), RFC 8620 §5.2.

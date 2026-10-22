@@ -48,15 +48,26 @@ pub struct GetResponse<T> {
     pub state: State,
     /// The fetched objects, one per id that was found.
     pub list: Vec<T>,
-    /// Ids that were requested but not found. `null` on the wire is treated
-    /// as an empty list per RFC 8620 §5.1.
-    pub not_found: Option<Vec<Id>>,
+    /// Ids that were requested but not found (RFC 8620 §5.1 `notFound:
+    /// Id[]`). A peer that sends `null` or omits it decodes as empty.
+    #[serde(default, deserialize_with = "null_as_empty")]
+    pub not_found: Vec<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Deserialize a `null` array as empty, for fields RFC 8620 types as a
+/// plain array that lenient peers still send as `null`.
+fn null_as_empty<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Option::<Vec<T>>::deserialize(d)?.unwrap_or_default())
 }
 
 // ---------------------------------------------------------------------------
@@ -367,9 +378,7 @@ mod tests {
         assert_eq!(resp.state, "s42");
         assert_eq!(resp.list.len(), 1);
         assert_eq!(resp.list[0]["name"], "First");
-        let nf = resp.not_found.as_ref().unwrap();
-        assert_eq!(nf.len(), 1);
-        assert_eq!(nf[0].as_ref(), "missing1");
+        assert_eq!(resp.not_found, [Id::from("missing1")]);
         // Round-trip back to JSON and confirm the camelCase keys.
         let back = serde_json::to_value(&resp).unwrap();
         assert_eq!(back["accountId"], "A1");
@@ -378,8 +387,10 @@ mod tests {
 
     #[test]
     fn get_response_null_not_found() {
-        // §5.1 allows notFound to be null when the request did not specify
-        // ids (null is treated as the empty list).
+        // RFC 8620 §5.1 types notFound as "Id[]": "The array is empty if all
+        // requested ids were found or if the "ids" argument passed in was
+        // either null or an empty array." A lenient peer's null decodes as
+        // that empty array and re-encodes as `[]`, never `null`.
         let raw = json!({
             "accountId": "A1",
             "state": "s1",
@@ -387,7 +398,8 @@ mod tests {
             "notFound": null
         });
         let resp: GetResponse<serde_json::Value> = serde_json::from_value(raw).unwrap();
-        assert!(resp.not_found.is_none());
+        assert!(resp.not_found.is_empty());
+        assert_eq!(serde_json::to_value(&resp).unwrap()["notFound"], json!([]));
     }
 
     #[test]
