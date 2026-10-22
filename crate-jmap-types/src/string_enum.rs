@@ -37,6 +37,15 @@
 /// - `impl From<&str>` and `impl From<String>` — the same mapping as
 ///   `Deserialize`, so a listed wire string always builds its typed variant
 ///   and never `Other`: `MyEnum::from("wire-string-1") == MyEnum::Variant1`.
+///
+/// # Forged `Other` values
+///
+/// `Other(String)` is a public variant, so a caller can write
+/// `MyEnum::Other("wire-string-1".into())`. That value compares unequal to
+/// `MyEnum::Variant1`, yet serialises to the same wire string and
+/// deserialises back as `MyEnum::Variant1`. Build values from a string with
+/// `MyEnum::from(..)`, which never yields `Other` for a listed wire string,
+/// and construct `Other` directly only for a string the enum does not list.
 #[macro_export]
 macro_rules! impl_string_enum {
     ($ty:ident, $expecting:literal, $( $s:literal => $variant:ident ),+ $(,)?) => {
@@ -128,6 +137,19 @@ mod tests {
         let bar: TestKind = serde_json::from_str(r#""bar""#).unwrap();
         assert_eq!(foo, TestKind::Foo);
         assert_eq!(bar, TestKind::Bar);
+    }
+
+    #[test]
+    fn forged_other_is_unequal_but_round_trips_to_variant() {
+        // The documented caveat: `Other("foo")` is not `Foo`, serialises to
+        // the wire string "foo" and deserialises back as `Foo`.
+        let forged = TestKind::Other("foo".to_owned());
+        assert_ne!(forged, TestKind::Foo);
+        let wire = serde_json::to_string(&forged).unwrap();
+        assert_eq!(wire, r#""foo""#);
+        let back: TestKind = serde_json::from_str(&wire).unwrap();
+        assert_eq!(back, TestKind::Foo);
+        assert_eq!(TestKind::from("foo"), TestKind::Foo);
     }
 
     #[test]
