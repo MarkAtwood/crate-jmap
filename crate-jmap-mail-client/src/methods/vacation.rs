@@ -16,7 +16,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{GetResponse, SetResponse};
 
@@ -113,6 +113,10 @@ impl super::SessionClient {
     /// from a plain JSON object because [`PatchObject`] is
     /// `#[serde(transparent)]`.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -129,11 +133,15 @@ impl super::SessionClient {
     pub async fn vacation_response_set(
         &self,
         update: Option<BTreeMap<Id, PatchObject>>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_mail_types::VacationResponse>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         if let Some(u) = update {
             args["update"] = serde_json::to_value(&u).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(

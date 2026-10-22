@@ -66,7 +66,7 @@ async fn vacation_response_set_patch_passthrough() {
     update.insert(Id::from("singleton"), patch_obj);
 
     let _ = sc
-        .vacation_response_set(Some(update))
+        .vacation_response_set(Some(update), None)
         .await
         .expect("vacation_response_set: must succeed");
 
@@ -159,7 +159,7 @@ async fn vacation_response_set_no_update_omits_key() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .vacation_response_set(None)
+        .vacation_response_set(None, None)
         .await
         .expect("vacation_response_set: must succeed");
 

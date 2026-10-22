@@ -154,7 +154,7 @@ async fn mailbox_set_routes_vendor_extras_to_wire() {
     // acmeCorpCascade.
     let update: std::collections::BTreeMap<jmap_types::Id, jmap_types::PatchObject> =
         std::collections::BTreeMap::new();
-    sc.mailbox_set(None, Some(update), None, Some(params))
+    sc.mailbox_set(None, Some(update), None, None, Some(params))
         .await
         .expect("must succeed");
 

@@ -58,6 +58,7 @@ async fn mailbox_set_on_destroy_remove_emails_passthrough() {
             None,
             None,
             Some(vec![jmap_types::Id::from("MB-old")]),
+            None,
             Some(params),
         )
         .await
@@ -130,7 +131,7 @@ async fn mailbox_set_without_params_omits_on_destroy_remove_emails() {
     // still holds when destroy is Some.
     let destroy_ids: Vec<jmap_types::Id> = vec![];
     let _ = sc
-        .mailbox_set(None, None, Some(destroy_ids), None)
+        .mailbox_set(None, None, Some(destroy_ids), None, None)
         .await
         .expect("mailbox_set: must succeed");
 
