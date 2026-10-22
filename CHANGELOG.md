@@ -1490,6 +1490,12 @@ wire behaviour that a conforming peer can observe.
   29e9a41 L698, L465). `Message::new` takes `impl Into<BodyType>`, so
   `&str` and `String` arguments still compile. `BodyType` now also
   derives `Eq` and `Hash`.
+- **BREAKING** **jmap-chat-federation-types**: `PeerMessage::body_type`
+  and `PeerEdit::body_type` are `BodyType`, not `String`, matching
+  `Message::body_type` (draft-atwood-jmap-chat-federation-00
+  §Peer/deliver, jmap-chat-spec 29e9a41 L362, L382). `PeerMessage::new`
+  and `PeerEdit::new` take `impl Into<BodyType>`, so `&str` and `String`
+  arguments still compile.
 - **BREAKING** **jmap-calendars-types**: `BusyPeriod::busy_status` is the
   new closed `BusyStatus` enum (`Confirmed`, `Tentative`, `Unavailable`),
   not `Option<String>`. An absent `busyStatus` decodes as `Unavailable`

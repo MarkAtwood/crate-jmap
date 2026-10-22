@@ -7,7 +7,7 @@
 //! same JSON.
 
 use jmap_chat_federation_types::peer::*;
-use jmap_chat_types::{ChatKind, ChatMemberRole, Clearable, Presence, ReadDisposition};
+use jmap_chat_types::{BodyType, ChatKind, ChatMemberRole, Clearable, Presence, ReadDisposition};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -77,6 +77,27 @@ fn deliver_message_requires_attachments() {
         "sentAt": "2026-10-20T10:00:00Z"
     });
     assert!(serde_json::from_value::<PeerMessage>(wire).is_err());
+}
+
+/// 29e9a41 L362: "`bodyType` (String) — MIME type of `body`", and L382
+/// for the edit body. Both decode as the chat-types `BodyType`; an
+/// unlisted MIME type such as `"application/mls-ciphertext"` (named at
+/// L428) is kept as `Other` and serializes back unchanged.
+#[test]
+fn deliver_body_type_is_typed() {
+    let m: PeerMessage = round_trip(json!({
+        "senderMsgId": "M1", "body": "x", "bodyType": "application/jmap-chat-rich",
+        "sentAt": "2026-10-20T10:00:00Z", "attachments": []
+    }));
+    assert_eq!(m.body_type, BodyType::Rich);
+    let e: PeerEdit = round_trip(json!({
+        "senderMsgId": "M1", "body": "AAEC", "bodyType": "application/mls-ciphertext",
+        "editedAt": "2026-10-20T10:05:00Z"
+    }));
+    assert_eq!(
+        e.body_type,
+        BodyType::Other("application/mls-ciphertext".to_owned())
+    );
 }
 
 /// L361-366: the `edit` fields of Peer/deliver.
