@@ -66,7 +66,7 @@ use crate::{
     QueryResult, SetError, SetErrorType, SetObject, TasksBackend,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
-use jmap_types::{Id, State};
+use jmap_types::{Id, JmapError, State};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -540,9 +540,11 @@ impl JmapBackend for MemoryBackend {
             ..
         } = params;
         // Fail loud on any non-trivial filter. A `None` or all-fields-None
-        // filter passes (matches everything); any populated field rejects,
-        // and so does an RFC 8620 §5.5 operator tree, whose `operator` and
-        // `conditions` keys are populated.
+        // filter passes (matches everything); any populated field rejects.
+        // An RFC 8620 §5.5 operator tree is answered with `unsupportedFilter`
+        // ("A server MUST reject the call with an unsupportedFilter error if
+        // it cannot process the given filter"), since this backend evaluates
+        // no FilterOperator.
         //
         // Type-identity roundtrip (Pattern G, see jmap-mail-server memory): the
         // generic `O::Filter` is the concrete `TaskFilter`,
@@ -553,6 +555,9 @@ impl JmapBackend for MemoryBackend {
         let mut in_task_list: Option<Id> = None;
         if let Some(f) = filter {
             let v = serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+            if v.get("operator").is_some() {
+                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
+            }
             let any_field_set = match v.as_object() {
                 Some(m) => {
                     if O::TYPE_NAME == "Task" {
