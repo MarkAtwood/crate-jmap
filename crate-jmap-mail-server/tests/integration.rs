@@ -14913,6 +14913,26 @@ async fn sieve_query_unknown_filter_key_returns_unsupported_filter() {
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
+/// Oracle: as above, nested inside an RFC 8620 §5.5 FilterOperator: the
+/// operator is valid, but its condition names a property RFC 9661 §2.5 does
+/// not define, so the whole filter is unsupportedFilter.
+#[tokio::test]
+async fn sieve_query_unknown_filter_key_in_operator_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "filter": {
+            "operator": "AND",
+            "conditions": [{ "name": "a" }, { "label": "x" }],
+        },
+    });
+    let err = jmap_mail_server::handle_sieve_query(&backend, &(), args)
+        .await
+        .expect_err("unknown filter key inside an operator must be refused");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
+}
+
 /// Oracle: RFC 8621 §5.1 SearchSnippet/get — "unsupportedFilter: The
 /// server is unable to process the given "filter" for any reason."
 #[tokio::test]
