@@ -44,8 +44,8 @@ hub, or processes it as hub when this server is the hub.
 ```rust,ignore
 use std::sync::Arc;
 use jmap_chat_mimi_server::{memory::MemoryBackend, register_mimi_handlers};
+use jmap_chat_mimi_server::openmls_rust_crypto::RustCrypto;
 use jmap_server::Dispatcher;
-use openmls_rust_crypto::RustCrypto;
 
 let backend = Arc::new(MemoryBackend::new(RustCrypto::default()));
 let mut dispatcher: Dispatcher<()> = Dispatcher::new();
@@ -119,9 +119,13 @@ returns `may_update_room_chat`, `may_create_room_message` and
 ## Gotchas
 
 - MSRV 1.91, set by `openmls` 0.9.1.
-- Enable `extensions-draft` on every openmls-family crate in your build,
-  for example `openmls_rust_crypto = { version = "=0.6.0", features =
-  ["extensions-draft"] }`. This crate turns it on in `openmls`, which turns
+- `openmls` and `openmls_rust_crypto` are public dependencies, re-exported
+  as `jmap_chat_mimi_server::openmls` and
+  `jmap_chat_mimi_server::openmls_rust_crypto`; use those paths rather
+  than pinning your own copies. A new `openmls` minor version means a
+  major release of this crate.
+- Enable `extensions-draft` on every other openmls-family crate in your
+  build, for example a storage crate. This crate turns it on in `openmls`, which turns
   it on in `openmls_traits`, and a storage crate built without it then
   fails to compile.
 - openmls 0.9.1 rejects a KeyPackage that carries a GREASE extension

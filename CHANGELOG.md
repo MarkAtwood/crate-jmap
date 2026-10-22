@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-server**: `pub use openmls;` and
+  `pub use openmls_rust_crypto;` (now a normal dependency);
+  **jmap-chat-mimi-client**: `pub use openmls;`. openmls 0.x is a
+  recorded public dependency of both crates, which take a major bump
+  whenever they move to a new openmls minor version (bd JMAP-skk9.11).
 - **jmap-types**: `Urgency` implements `Serialize` and `Deserialize` as
   its RFC 8030 §5.3 header string; any other string is a deserialize
   error. `jmap-chat-types`: `UrgencyLevel::to_urgency` (bd JMAP-skk9.5).
