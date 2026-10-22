@@ -197,6 +197,15 @@ impl ChatBackend for FaultyBackend {
         )
     }
 
+    async fn everyone_permissions(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _space: &jmap_chat_types::Space,
+    ) -> Result<std::collections::HashSet<jmap_chat_types::ChatPermission>, MemoryError> {
+        Err(MemoryError::new("storage unavailable"))
+    }
+
     async fn apply_space_patch(
         &self,
         _caller: &(),
@@ -570,6 +579,17 @@ impl ChatBackend for TrackingBackend {
 
     fn generate_invite_code(&self) -> String {
         self.inner.generate_invite_code()
+    }
+
+    async fn everyone_permissions(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        space: &jmap_chat_types::Space,
+    ) -> Result<std::collections::HashSet<jmap_chat_types::ChatPermission>, MemoryError> {
+        self.inner
+            .everyone_permissions(&(), account_id, space)
+            .await
     }
 
     fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
@@ -984,6 +1004,17 @@ impl ChatBackend for IdentityBackend {
 
     fn generate_invite_code(&self) -> String {
         self.inner.generate_invite_code()
+    }
+
+    async fn everyone_permissions(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        space: &jmap_chat_types::Space,
+    ) -> Result<std::collections::HashSet<jmap_chat_types::ChatPermission>, MemoryError> {
+        self.inner
+            .everyone_permissions(&(), account_id, space)
+            .await
     }
 
     fn limits(&self, _caller: &Id, account_id: &Id) -> ChatLimits {
@@ -1487,6 +1518,17 @@ impl ChatBackend for InjectableBackend {
 
     fn generate_invite_code(&self) -> String {
         self.inner.generate_invite_code()
+    }
+
+    async fn everyone_permissions(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        space: &jmap_chat_types::Space,
+    ) -> Result<std::collections::HashSet<jmap_chat_types::ChatPermission>, MemoryError> {
+        self.inner
+            .everyone_permissions(&(), account_id, space)
+            .await
     }
 
     fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {

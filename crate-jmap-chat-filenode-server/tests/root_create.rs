@@ -42,17 +42,16 @@ const ROLE: &str = "chatspace";
 struct Fixture {
     chat: ChatMemory,
     files: FilesMemory,
-    everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Fixture {
     fn new() -> Self {
         let chat = ChatMemory::new();
+        chat.set_everyone_permissions(HashSet::new());
         chat.register_account(&Id::from(ACCOUNT));
         Self {
             chat,
             files: FilesMemory::new().with_account(ACCOUNT),
-            everyone: HashSet::new(),
         }
     }
 
@@ -104,19 +103,11 @@ impl Fixture {
     /// wire JSON, or `None` if the create may proceed.
     async fn check(&self, node: Value) -> Option<Value> {
         let node: FileNode = serde_json::from_value(node).expect("FileNode fixture");
-        check_root_create(
-            &self.chat,
-            &(),
-            &self.files,
-            &(),
-            &Id::from(ACCOUNT),
-            &node,
-            &self.everyone,
-        )
-        .await
-        .expect("storage")
-        .err()
-        .map(|e| serde_json::to_value(e).expect("SetError serializes"))
+        check_root_create(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
+            .await
+            .expect("storage")
+            .err()
+            .map(|e| serde_json::to_value(e).expect("SetError serializes"))
     }
 }
 
@@ -232,9 +223,10 @@ async fn unheld_role_grants_nothing() {
 /// chat L1705: the union includes "the implicit `@everyone` role".
 #[tokio::test]
 async fn everyone_floor_with_manage_space_may_create() {
-    let mut f = Fixture::new();
-    f.everyone
-        .insert(jmap_chat_types::ChatPermission::ManageSpace);
+    let f = Fixture::new();
+    f.chat.set_everyone_permissions(HashSet::from([
+        jmap_chat_types::ChatPermission::ManageSpace,
+    ]));
     f.seed_space(SPACE, &[], &[(ACCOUNT, &[])]);
     assert_eq!(f.check(root(Some(SPACE))).await, None);
 }
@@ -244,10 +236,11 @@ async fn everyone_floor_with_manage_space_may_create() {
 /// permission, so it grants nothing.
 #[tokio::test]
 async fn other_spelling_of_manage_space_grants_nothing() {
-    let mut f = Fixture::new();
-    f.everyone.insert(jmap_chat_types::ChatPermission::Other(
-        "manage_space".to_owned(),
-    ));
+    let f = Fixture::new();
+    f.chat
+        .set_everyone_permissions(HashSet::from([jmap_chat_types::ChatPermission::Other(
+            "manage_space".to_owned(),
+        )]));
     f.seed_space(SPACE, &[], &[(ACCOUNT, &[])]);
     let err = f.check(root(Some(SPACE))).await.expect("refused");
     assert_eq!(err["type"], "forbidden");

@@ -32,7 +32,6 @@ pub const CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 pub struct Bound {
     pub vtc: VtcMemory,
     pub chat: ChatMemory,
-    pub everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Bound {
@@ -59,13 +58,10 @@ impl Bound {
         vtc.register_account(&Id::from(ACCOUNT), cap);
         vtc.advertise(&Id::from(ACCOUNT), CHAT_URI);
         let chat = ChatMemory::new();
+        chat.set_everyone_permissions(HashSet::new());
         chat.register_account(&Id::from(ACCOUNT));
         chat.set_owner_user_id_for_test(&Id::from(ACCOUNT), OWNER);
-        Self {
-            vtc,
-            chat,
-            everyone: HashSet::new(),
-        }
+        Self { vtc, chat }
     }
 
     /// Store a Chat record `value` (its `id` is the record id).
@@ -190,7 +186,7 @@ impl VtcBackend for Bound {
         // builds the call for the gate first and the wrapped backend stores
         // it under the id it mints.
         let mut call = build(&Id::from(""));
-        check_call_create(&self.chat, &(), account_id, &call, &self.everyone)
+        check_call_create(&self.chat, &(), account_id, &call)
             .await
             .map_err(|e| BackendSetError::Other(chat_error(e)))?
             .map_err(BackendSetError::SetError)?;

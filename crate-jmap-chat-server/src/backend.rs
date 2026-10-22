@@ -1775,6 +1775,28 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(None) }
     }
 
+    /// The permissions of the implicit `@everyone` role in `space`, the
+    /// account `account_id`'s Space.
+    ///
+    /// Every member holds that role, "which serves as the permission
+    /// floor" (draft-atwood-jmap-chat-00 §SpaceRole, jmap-chat-spec
+    /// 29e9a41 L812), and §Space Permission Resolution step 1 (L1705)
+    /// unions its permissions with the member's SpaceRoles. The draft puts
+    /// them on no wire object, so the backend decides where each Space's
+    /// set is stored. The chat bindings (`jmap-chat-filenode-server`,
+    /// `jmap-chat-vtc-server`) and the `Peer/deliver` handler of
+    /// `jmap-chat-federation-server` read it here.
+    ///
+    /// No default: a permission floor has no neutral value.
+    fn everyone_permissions(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        space: &jmap_chat_types::Space,
+    ) -> impl std::future::Future<
+        Output = Result<std::collections::HashSet<jmap_chat_types::ChatPermission>, Self::Error>,
+    > + Send;
+
     /// Authorization gate consulted by `handle_emoji_set` before every
     /// `CustomEmoji/set` create, update, or destroy.
     ///
