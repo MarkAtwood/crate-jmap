@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: `PartialObject` (`id: Option<Id>` plus a flattened
+  `extra` map) for the partial objects a server echoes in `/set`
+  `created` / `updated` and `/copy` `created` (RFC 8620 §5.3, §5.4), and
+  `CopyResponse<T>`, the RFC 8620 §5.4 `/copy` response shape with
+  `fromAccountId` and no `updated` / `destroyed`.
 - **jmap-server**: `CallContext::created_ids` carries the request's
   creation id -> server id map (client `createdIds` plus every earlier
   `/set` creation) into each call, and `resolve_creation_ref` resolves a

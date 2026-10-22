@@ -1,7 +1,7 @@
 //! RFC 8620 §5 generic method-response shapes shared by all JMAP method types.
 //!
 //! These wire types are normative — every JMAP `/get`, `/set`, `/changes`,
-//! `/query`, and `/queryChanges` method (across mail, calendars, contacts,
+//! `/copy`, `/query`, and `/queryChanges` method (across mail, calendars, contacts,
 //! chat, etc.) returns one of these shapes. Centralising them here avoids
 //! drift between the seven `jmap-*-client` crates that previously each
 //! defined their own copies. [`SetResponse`] carries [`SetError`] values,
@@ -17,7 +17,8 @@
 //! |---|---|
 //! | [`GetResponse`] | RFC 8620 §5.1 |
 //! | [`ChangesResponse`] | RFC 8620 §5.2 |
-//! | [`SetResponse`] | RFC 8620 §5.3 |
+//! | [`SetResponse`], [`PartialObject`] | RFC 8620 §5.3 |
+//! | [`CopyResponse`] | RFC 8620 §5.4 |
 //! | [`QueryResponse`] | RFC 8620 §5.5 |
 //! | [`QueryChangesResponse`], [`AddedItem`] | RFC 8620 §5.6 |
 
@@ -253,6 +254,71 @@ pub struct SetResponse<T = serde_json::Value> {
     pub not_updated: Option<BTreeMap<Id, SetError>>,
     /// Failed destroys, keyed by record id.
     pub not_destroyed: Option<BTreeMap<Id, SetError>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// The partial object a server echoes in `/set` `created` / `updated` and
+/// `/copy` `created` (RFC 8620 §5.3, §5.4).
+///
+/// RFC 8620 §5.3 defines each `created` value as "an object containing any
+/// properties of the created Foo object that were not sent by the client",
+/// and §5.4 defines each `/copy` `created` value as the "properties of the
+/// copied Foo object that are set by the server". Neither is a full `Foo`,
+/// so a full typed `Foo` cannot hold them: required client-sent properties
+/// are absent. This type keeps the one property nearly every object type
+/// reports, `id`, and every other returned property in [`Self::extra`].
+///
+/// Deserialize a property out of `extra` with `serde_json::from_value`
+/// when it is needed (e.g. `blobId` / `threadId` / `size` for an Email,
+/// RFC 8621 §4.6).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PartialObject {
+    /// The server-assigned id, when the server reported one. `None` for an
+    /// `updated` entry (the id is the map key) or an object type whose id
+    /// is not server-set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<Id>,
+    /// Every other property the server returned, keyed by wire name.
+    #[serde(flatten, default)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------------
+// /copy
+// ---------------------------------------------------------------------------
+
+/// RFC 8620 §5.4 — `Foo/copy` response shape.
+///
+/// Unlike [`SetResponse`] it carries `fromAccountId` and has no `updated`
+/// / `destroyed` maps. When `onSuccessDestroyOriginal` is set the server
+/// sends a separate implicit `Foo/set` response with the same call id; that
+/// one is a [`SetResponse`].
+#[non_exhaustive]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(bound(
+    deserialize = "T: serde::de::DeserializeOwned",
+    serialize = "T: Serialize"
+))]
+pub struct CopyResponse<T> {
+    /// The account the records were copied from.
+    pub from_account_id: Id,
+    /// The account the records were copied to.
+    pub account_id: Id,
+    /// State of the destination account before the copy, or `None` when
+    /// the server does not know it.
+    pub old_state: Option<State>,
+    /// State of the destination account after the copy.
+    pub new_state: State,
+    /// Successfully copied objects, keyed by caller-supplied creation id.
+    pub created: Option<BTreeMap<String, T>>,
+    /// Failed copies, keyed by caller-supplied creation id.
+    pub not_created: Option<BTreeMap<String, SetError>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -1083,5 +1149,117 @@ mod tests {
             j.contains(r#""notUpdated":{"id8":{"type":"notFound"},"id9":{"type":"notFound"}}"#),
             "notUpdated keys must be sorted: {j}"
         );
+    }
+
+    /// RFC 8620 §5.3: `created` holds only "properties of the created Foo
+    /// object that were not sent by the client". Oracle: the Email/set
+    /// response in RFC 8621 §7 (page 66), `...` elision removed. Its
+    /// `created` entry has no `mailboxIds`, `keywords` etc., so it would
+    /// fail to parse as a full Email; it must parse as [`PartialObject`].
+    #[test]
+    fn set_response_partial_object_parses_rfc8621_created() {
+        let raw = json!({
+            "accountId": "ue150411c",
+            "oldState": "780839",
+            "newState": "780842",
+            "created": {
+                "k1546": {
+                    "id": "Md45b47b4877521042cec0938",
+                    "blobId": "Ge8de6c9f6de198239b982ea214e0f3a704e4af74",
+                    "threadId": "Td957e72e89f516dc",
+                    "size": 11721
+                }
+            },
+            "updated": { "Mabc": null, "Mdef": { "size": 12 } },
+            "destroyed": ["Mf40b5f831efa7233b9eb1c7f"]
+        });
+        let resp: SetResponse<PartialObject> = serde_json::from_value(raw).unwrap();
+        let created = resp.created.as_ref().unwrap();
+        let k = &created["k1546"];
+        assert_eq!(
+            k.id.as_ref().map(|i| i.as_ref()),
+            Some("Md45b47b4877521042cec0938")
+        );
+        assert_eq!(k.extra["threadId"], "Td957e72e89f516dc");
+        assert_eq!(k.extra["size"], 11721);
+        assert!(
+            !k.extra.contains_key("id"),
+            "id must not be duplicated in extra"
+        );
+        let updated = resp.updated.as_ref().unwrap();
+        assert_eq!(updated[&Id::from("Mabc")], None);
+        let def = updated[&Id::from("Mdef")].as_ref().unwrap();
+        assert_eq!(def.id, None);
+        assert_eq!(def.extra["size"], 12);
+    }
+
+    /// A created entry with no `id` (RFC 8620 §5.3: "such as the id in
+    /// most object types", so not all) and with only client-omitted
+    /// defaults must still parse, and serialize back without an `id` key.
+    #[test]
+    fn partial_object_without_id_round_trips() {
+        let raw = json!({ "isSubscribed": false, "sortOrder": 0 });
+        let p: PartialObject = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(p.id, None);
+        assert_eq!(serde_json::to_value(&p).unwrap(), raw);
+    }
+
+    /// RFC 8620 §5.4 response shape. Oracle: the Email/copy response in
+    /// RFC 8621 §7 (page 67), verbatim.
+    #[test]
+    fn copy_response_parses_rfc8621_example() {
+        let raw = json!({
+            "fromAccountId": "ue150411c",
+            "accountId": "u6c6c41ac",
+            "oldState": "7ee7e9263a6d",
+            "newState": "5a0d2447ed26",
+            "created": {
+                "k45": {
+                    "id": "M138f9954a5cd2423daeafa55",
+                    "blobId": "G6b9fb047cba722c48c611e79233d057c6b0b74e8",
+                    "threadId": "T2f242ea424a4079a",
+                    "size": 11721
+                }
+            },
+            "notCreated": null
+        });
+        let resp: CopyResponse<PartialObject> = serde_json::from_value(raw).unwrap();
+        assert_eq!(resp.from_account_id.as_ref(), "ue150411c");
+        assert_eq!(resp.account_id.as_ref(), "u6c6c41ac");
+        assert_eq!(
+            resp.old_state.as_ref().map(|s| s.as_ref()),
+            Some("7ee7e9263a6d")
+        );
+        assert_eq!(resp.new_state.as_ref(), "5a0d2447ed26");
+        let k45 = &resp.created.as_ref().unwrap()["k45"];
+        assert_eq!(
+            k45.id.as_ref().map(|i| i.as_ref()),
+            Some("M138f9954a5cd2423daeafa55")
+        );
+        assert_eq!(
+            k45.extra["blobId"],
+            "G6b9fb047cba722c48c611e79233d057c6b0b74e8"
+        );
+        assert!(resp.not_created.is_none());
+        assert!(resp.extra.is_empty());
+    }
+
+    /// RFC 8620 §5.4: `oldState` is "String|null" and `fromAccountId` is
+    /// required; a response without it is not a /copy response.
+    #[test]
+    fn copy_response_requires_from_account_id() {
+        let ok = json!({
+            "fromAccountId": "A0", "accountId": "A1",
+            "oldState": null, "newState": "s2",
+            "notCreated": { "c1": { "type": "alreadyExists" } }
+        });
+        let resp: CopyResponse<PartialObject> = serde_json::from_value(ok).unwrap();
+        assert!(resp.old_state.is_none());
+        assert_eq!(
+            resp.not_created.unwrap()["c1"].error_type,
+            SetErrorType::AlreadyExists
+        );
+        let missing = json!({ "accountId": "A1", "newState": "s2" });
+        assert!(serde_json::from_value::<CopyResponse<PartialObject>>(missing).is_err());
     }
 }
