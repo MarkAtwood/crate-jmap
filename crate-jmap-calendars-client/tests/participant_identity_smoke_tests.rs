@@ -372,3 +372,33 @@ async fn participant_identity_set_default_creation_reference() {
         })
     );
 }
+
+/// Oracle: `participant_identity_set`'s documented contract — at least
+/// one of create, update, destroy or `params.on_success_set_is_default`
+/// must be Some. A call that sets only `extra` changes nothing, so it is
+/// refused before any request is sent.
+#[tokio::test]
+async fn participant_identity_set_without_changes_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+    let mut extra = serde_json::Map::new();
+    extra.insert("vendorFlag".into(), json!(true));
+    for params in [
+        None,
+        Some(jmap_calendars_client::ParticipantIdentitySetParams {
+            extra,
+            ..Default::default()
+        }),
+    ] {
+        let err = sc
+            .participant_identity_set(None, None, None, None, params)
+            .await
+            .expect_err("an all-None participant_identity_set must be refused");
+        assert!(
+            matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
+            "expected InvalidArgument, got {err:?}"
+        );
+    }
+    let reqs = server.received_requests().await.expect("recording enabled");
+    assert!(reqs.is_empty(), "no request may be sent: {reqs:?}");
+}

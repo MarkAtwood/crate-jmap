@@ -146,13 +146,15 @@ pub struct Calendar {
     pub include_in_availability: IncludeInAvailability,
 
     /// Default alerts for timed events when `useDefaultAlerts` is true.
-    /// Keys are UUIDs; values are Alert objects (RFC 8984 §4.5.2).
+    /// `Id[Alert]` (draft-ietf-jmap-calendars-33 §4): keys are alert ids;
+    /// values are Alert objects (RFC 8984 §4.5.2).
     /// Complex sub-objects passed through as opaque JSON.
-    pub default_alerts_with_time: Option<BTreeMap<String, serde_json::Value>>,
+    pub default_alerts_with_time: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// Default alerts for all-day events when `useDefaultAlerts` is true.
-    /// Keys are UUIDs; values are Alert objects (RFC 8984 §4.5.2).
-    pub default_alerts_without_time: Option<BTreeMap<String, serde_json::Value>>,
+    /// `Id[Alert]` (draft-ietf-jmap-calendars-33 §4): keys are alert ids;
+    /// values are Alert objects (RFC 8984 §4.5.2).
+    pub default_alerts_without_time: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// IANA Time Zone Database id; `null` to inherit from the account Principal.
     pub time_zone: Option<String>,

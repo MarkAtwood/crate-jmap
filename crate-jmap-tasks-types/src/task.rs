@@ -240,9 +240,10 @@ pub struct Comment {
 /// Typed access to these sub-objects is available via the
 /// [`jmap-jscalendar-types`](jmap_jscalendar_types) crate, re-exported by
 /// this crate as the [`jscalendar`](crate::jscalendar) module alias and at
-/// the crate root. Callers obtain typed views with
-/// `serde_json::from_value::<Location>(task.locations.clone().unwrap())`
-/// (and analogous for the other sub-types).
+/// the crate root. The map-valued properties (`locations`, `alerts`, ...)
+/// are id-to-object maps, so decode each entry separately, e.g.
+/// `task.locations.as_ref().and_then(Value::as_object)` and then
+/// `serde_json::from_value::<Location>(v.clone())` for each value `v`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

@@ -437,3 +437,35 @@ async fn addressbook_set_default_only_change() {
         })
     );
 }
+
+/// Oracle: `address_book_set`'s documented contract — at least one of
+/// create, update, destroy or `params.on_success_set_is_default` must be
+/// Some. A call that sets only `onDestroyRemoveContents` or `extra`
+/// changes nothing (RFC 9610 §2.3: `onDestroyRemoveContents` only
+/// qualifies a destroy), so it is refused before any request is sent.
+#[tokio::test]
+async fn addressbook_set_without_changes_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+    let mut extra = serde_json::Map::new();
+    extra.insert("vendorFlag".into(), json!(true));
+    for params in [
+        None,
+        Some(jmap_contacts_client::AddressBookSetParams {
+            on_destroy_remove_contents: Some(true),
+            extra,
+            ..Default::default()
+        }),
+    ] {
+        let err = sc
+            .address_book_set(None, None, None, None, params)
+            .await
+            .expect_err("an all-None address_book_set must be refused");
+        assert!(
+            matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
+            "expected InvalidArgument, got {err:?}"
+        );
+    }
+    let reqs = server.received_requests().await.expect("recording enabled");
+    assert!(reqs.is_empty(), "no request may be sent: {reqs:?}");
+}
