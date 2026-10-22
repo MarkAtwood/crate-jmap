@@ -428,8 +428,12 @@ impl ChatBackend for Fed {
         self.chat.supports_type::<O>(caller, account_id)
     }
 
-    fn generate_invite_code(&self) -> String {
-        self.chat.generate_invite_code()
+    async fn generate_invite_code(
+        &self,
+        caller: &(),
+        account_id: &Id,
+    ) -> Result<String, MemoryError> {
+        self.chat.generate_invite_code(caller, account_id).await
     }
 
     async fn everyone_permissions(
@@ -507,8 +511,10 @@ impl FederationBackend for Fed {
         self.peer.clone()
     }
 
-    fn new_message_id(&self) -> Id {
-        Id::from(format!("fresh-{}", self.next_id.fetch_add(1, Ordering::Relaxed)).as_str())
+    async fn new_message_id(&self, _caller: &(), _account_id: &Id) -> Result<Id, MemoryError> {
+        Ok(Id::from(
+            format!("fresh-{}", self.next_id.fetch_add(1, Ordering::Relaxed)).as_str(),
+        ))
     }
 
     async fn fetch_attachment(

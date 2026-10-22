@@ -1309,6 +1309,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** `jmap_chat_server::ChatBackend::generate_invite_code` and
+  `jmap_chat_federation_server::FederationBackend::new_message_id` take
+  `caller` and `account_id` and are async and fallible
+  (`impl Future<Output = Result<_, Self::Error>> + Send`). An `Err` fails
+  that `SpaceInvite/set` create, or the `Peer/deliver` call, with
+  `serverFail`. `MemoryBackend` returns `Err` instead of panicking when the
+  OS CSPRNG is unavailable (bd:JMAP-x2gd.36.1).
 - **BREAKING** `jmap_scene_server::SceneBackend::region_binding` takes
   the new `BindingProperty` enum (`ChatId`, `SpaceId`, `ChannelId`,
   `ActiveCallId`, with `as_str`) instead of a `&str` property name, and

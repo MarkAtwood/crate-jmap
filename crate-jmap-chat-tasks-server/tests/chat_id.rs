@@ -344,8 +344,12 @@ impl ChatBackend for ViewGate {
             .await
     }
 
-    fn generate_invite_code(&self) -> String {
-        self.inner.generate_invite_code()
+    async fn generate_invite_code(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+    ) -> Result<String, MemoryError> {
+        self.inner.generate_invite_code(&(), account_id).await
     }
 
     async fn everyone_permissions(

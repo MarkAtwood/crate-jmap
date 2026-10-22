@@ -1081,7 +1081,11 @@ impl ChatBackend for MemoryBackend {
         true
     }
 
-    fn generate_invite_code(&self) -> String {
+    async fn generate_invite_code(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Result<String, MemoryError> {
         // CSPRNG-backed invite code, per the contract documented on
         // `ChatBackend::generate_invite_code` (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93).
         //
@@ -1092,14 +1096,12 @@ impl ChatBackend for MemoryBackend {
         // `getrandom::fill` reads from the OS CSPRNG (e.g. `getrandom(2)` on
         // Linux, `RtlGenRandom` on Windows, `arc4random_buf` on BSD/Apple).
         // On the supported tier-1 targets it cannot fail except via a kernel
-        // bug or missing entropy at very early boot; we surface that as a
-        // panic on the reference backend because the alternative (a
-        // predictable fallback) is exactly the failure mode this fix
-        // closes. Production backends ship their own impl and own their
-        // own failure semantics.
+        // bug or missing entropy at very early boot; that is an `Err`, never
+        // a predictable fallback, which is exactly the failure mode this fix
+        // closes.
         let mut bytes = [0u8; 16];
         getrandom::fill(&mut bytes)
-            .expect("OS CSPRNG must be available for invite-code generation");
+            .map_err(|e| MemoryError::new(format!("OS CSPRNG unavailable: {e}")))?;
         // Hex-encode without pulling in the `hex` crate.
         let mut out = String::with_capacity(bytes.len() * 2);
         for byte in bytes {
@@ -1107,7 +1109,7 @@ impl ChatBackend for MemoryBackend {
             use std::fmt::Write as _;
             let _ = write!(out, "{byte:02x}");
         }
-        out
+        Ok(out)
     }
 
     /// Reference implementation of [`ChatBackend::join_space_with_invite`].
@@ -4937,13 +4939,17 @@ mod tests {
     /// code (that would require the code under test to be its own oracle).
     /// It only asserts structural properties that the failing implementation
     /// could not satisfy.
-    #[test]
-    fn generate_invite_code_is_csprng() {
+    #[tokio::test]
+    async fn generate_invite_code_is_csprng() {
         let backend = MemoryBackend::new();
         const N: usize = 256;
         let mut codes: HashSet<String> = HashSet::with_capacity(N);
         for _ in 0..N {
-            codes.insert(backend.generate_invite_code());
+            let code = backend
+                .generate_invite_code(&(), &Id::from("acct"))
+                .await
+                .expect("OS CSPRNG available in tests");
+            codes.insert(code);
         }
         // 256 CSPRNG samples of 128 bits each have negligible birthday-collision
         // probability (~256^2 / 2^129 ≈ 10^-34). Any duplicate indicates the
