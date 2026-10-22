@@ -8,6 +8,7 @@
 //! `accountCapabilities` map).  Session-level values are empty objects for
 //! all Calendars capabilities.
 
+use jmap_jscalendar_types::Duration;
 use jmap_types::UTCDate;
 use serde::{Deserialize, Serialize};
 
@@ -53,8 +54,9 @@ pub struct CalendarsAccountCapability {
     pub max_date_time: UTCDate,
 
     /// Maximum duration the user may query over when asking the server to
-    /// expand recurrences (ISO 8601 Duration string).
-    pub max_expanded_query_duration: String,
+    /// expand recurrences (draft-ietf-jmap-calendars-33 §1.5.1:
+    /// "maxExpandedQueryDuration: Duration").
+    pub max_expanded_query_duration: Duration,
 
     /// Maximum number of participants a single event may have, or `null`
     /// for no limit.
@@ -79,8 +81,9 @@ pub struct PrincipalsAvailabilityCapability {}
 #[serde(rename_all = "camelCase")]
 pub struct PrincipalsAvailabilityAccountCapability {
     /// Maximum duration over which the server will calculate availability in
-    /// a single `Principal/getAvailability` call (ISO 8601 Duration string).
-    pub max_availability_duration: String,
+    /// a single `Principal/getAvailability` call
+    /// (draft-ietf-jmap-calendars-33 §1.5.2: "maxAvailabilityDuration: Duration").
+    pub max_availability_duration: Duration,
 }
 
 /// Session-level capability for the CalendarEvent/parse method

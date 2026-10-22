@@ -1335,6 +1335,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-types**, **jmap-tasks-types**: **BREAKING**
+  `CalendarsAccountCapability::max_expanded_query_duration`,
+  `PrincipalsAvailabilityAccountCapability::max_availability_duration`
+  and `TasksRecurrencesAccountCapability::max_expanded_query_duration`
+  are `Duration`, not `String` (draft-ietf-jmap-calendars-33 §1.5.1,
+  §1.5.2 and draft-ietf-jmap-tasks-06 §1.6.2 type them as Duration).
+  The wire format is unchanged. Migrate with `Duration::from(s)` and
+  `.as_ref()`. (bd JMAP-skk9.3)
 - **jmap-mail-types**: `Keyword` is `#[non_exhaustive]`, matching
   `Id`, `State`, `UTCDate` and `LocalDateTime`. Not breaking: its field
   was already private, so callers construct it with `Keyword::new`,

@@ -14,7 +14,8 @@ use jmap_calendars_types::{
     Alert, AlertTrigger, BusyPeriod, BusyStatus, Calendar, CalendarAlert, CalendarEvent,
     CalendarEventFilterCondition, CalendarEventNotification, CalendarRights,
     CalendarsAccountCapability, CalendarsCapability, IncludeInAvailability, Link, Participant,
-    ParticipantIdentity, Person, PrincipalCalendarsCapability, VirtualLocation, JMAP_CALENDARS_URI,
+    ParticipantIdentity, Person, PrincipalCalendarsCapability,
+    PrincipalsAvailabilityAccountCapability, VirtualLocation, JMAP_CALENDARS_URI,
 };
 use jmap_types::Id;
 
@@ -843,7 +844,7 @@ fn calendars_account_capability_roundtrip() {
     assert_eq!(cap.max_calendars_per_event, Some(5));
     assert_eq!(cap.min_date_time, "1970-01-01T00:00:00Z");
     assert_eq!(cap.max_date_time, "2099-12-31T23:59:59Z");
-    assert_eq!(cap.max_expanded_query_duration, "P1Y");
+    assert_eq!(cap.max_expanded_query_duration.as_ref(), "P1Y");
     assert!(cap.max_participants_per_event.is_none());
     assert!(cap.may_create_calendar);
 
@@ -851,6 +852,18 @@ fn calendars_account_capability_roundtrip() {
     let s = serde_json::to_string(&cap).expect("serialize");
     let r: CalendarsAccountCapability = serde_json::from_str(&s).expect("re-deserialize");
     assert_eq!(cap, r);
+}
+
+/// `maxAvailabilityDuration` is a Duration on the wire and round-trips
+/// unchanged. Oracle: draft-ietf-jmap-calendars-33 §1.5.2
+/// "maxAvailabilityDuration: Duration"; hand-written fixture.
+#[test]
+fn principals_availability_account_capability_roundtrip() {
+    let json = r#"{"maxAvailabilityDuration":"P56D"}"#;
+    let cap: PrincipalsAvailabilityAccountCapability =
+        serde_json::from_str(json).expect("must deserialize");
+    assert_eq!(cap.max_availability_duration.as_ref(), "P56D");
+    assert_eq!(serde_json::to_string(&cap).expect("serialize"), json);
 }
 
 /// JMAP_CALENDARS_URI constant matches spec §1.5.1.
