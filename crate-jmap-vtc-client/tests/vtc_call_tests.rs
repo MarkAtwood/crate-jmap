@@ -357,7 +357,7 @@ async fn vtc_call_query_changes_sends_rfc8620_arguments() {
         .vtc_call_query_changes(
             &State::from("q1"),
             Some(5),
-            None,
+            None::<&jmap_vtc_types::VtcCallFilter>,
             None,
             Some(&Id::from("01J4XKZQN4MWVT8PPBEHTJ3AB0")),
             Some(true),
@@ -376,6 +376,56 @@ async fn vtc_call_query_changes_sends_rfc8620_arguments() {
         }])
     );
     assert_eq!(resp.total, Some(1));
+}
+
+/// `filter` is generic over its condition type, so a caller can send a
+/// condition the draft does not define. RFC 8620 §5.5: a FilterOperator's
+/// `conditions` is `(FilterOperator|FilterCondition)[]` and the
+/// FilterCondition properties are type-specific; the `state` key is
+/// draft-atwood-jmap-vtc-00 L784-L785. The vendor key and the expected
+/// JSON are hand-written.
+#[tokio::test]
+async fn vtc_call_query_changes_sends_caller_condition_type() {
+    let server = MockServer::start().await;
+    helpers::respond(
+        &server,
+        "VTCCall/queryChanges",
+        json!({
+            "accountId": "bob-account",
+            "oldQueryState": "q1",
+            "newQueryState": "q2",
+            "removed": [],
+            "added": []
+        }),
+    )
+    .await;
+
+    let filter = Filter::Operator(jmap_types::FilterOperator::new(
+        jmap_types::Operator::And,
+        vec![
+            Filter::Condition(json!({ "state": "active" })),
+            Filter::Condition(json!({ "example.com:region": "eu" })),
+        ],
+    ));
+    let sc = helpers::make_client(&server, "bob-account");
+    sc.vtc_call_query_changes(&State::from("q1"), None, Some(&filter), None, None, None)
+        .await
+        .expect("VTCCall/queryChanges must succeed");
+
+    assert_eq!(
+        helpers::sent_invocation(&server).await,
+        json!(["VTCCall/queryChanges", {
+            "accountId": "bob-account",
+            "sinceQueryState": "q1",
+            "filter": {
+                "operator": "AND",
+                "conditions": [
+                    { "state": "active" },
+                    { "example.com:region": "eu" }
+                ]
+            }
+        }])
+    );
 }
 
 /// RFC 8620 §3.3: `using` names the capabilities the request uses; the VTC
@@ -486,9 +536,13 @@ async fn vtc_call_query_in_hosting_account_sends_its_account_id() {
 
     let sc = helpers::make_shared_client(&server, "alice-account", "bob-account");
     assert_eq!(sc.vtc_account_id().expect("target"), "bob-account");
-    sc.vtc_call_query(None, None, &jmap_base_client::QueryParams::default())
-        .await
-        .expect("VTCCall/query must succeed");
+    sc.vtc_call_query(
+        None::<&jmap_vtc_types::VtcCallFilter>,
+        None,
+        &jmap_base_client::QueryParams::default(),
+    )
+    .await
+    .expect("VTCCall/query must succeed");
     assert_eq!(
         helpers::sent_invocation(&server).await,
         json!(["VTCCall/query", { "accountId": "bob-account" }])

@@ -1373,6 +1373,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-vtc-client**, **jmap-scene-client**, **jmap-graph-client**:
+  **BREAKING** every `/query` and `/queryChanges` method (`vtc_call_*`,
+  `vtc_participant_*`, `vtc_recording_*`, `vtc_livestream_*`,
+  `scene_asset_*`, `scene_avatar_*`, `scene_region_*`, `scene_object_*`,
+  `graph_query`, `graph_query_changes`) takes `<C: Serialize>`
+  `filter: Option<&Filter<C>>` (was the concrete `Option<&XFilter>`
+  alias), matching jmap-mail-client and the other extension clients, so
+  callers can send `WithMetadata` or vendor conditions. A bare `None`
+  filter now needs its type named, e.g. `None::<&VtcCallFilter>`. The
+  single-condition `graph_node_*`, `graph_edge_*` and `graph_node_op_*`
+  queries are unchanged (bd JMAP-w9ox.3).
 - **jmap-chat-client**: **BREAKING** `ChatPatch.receipt_sharing` is
   `Patch<bool>` (was `Option<bool>`), like `mute_until` and
   `message_expiry_seconds`. `Patch::Clear` sends `receiptSharing: null`,

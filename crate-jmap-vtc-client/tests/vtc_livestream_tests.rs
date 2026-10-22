@@ -242,9 +242,16 @@ async fn vtc_livestream_query_changes_sends_since_query_state() {
     )
     .await;
     let sc = helpers::make_client(&server, "bob-account");
-    sc.vtc_livestream_query_changes(&State::from("q1"), Some(3), None, None, None, Some(false))
-        .await
-        .expect("VTCLivestream/queryChanges must succeed");
+    sc.vtc_livestream_query_changes(
+        &State::from("q1"),
+        Some(3),
+        None::<&jmap_vtc_types::VtcLivestreamFilter>,
+        None,
+        None,
+        Some(false),
+    )
+    .await
+    .expect("VTCLivestream/queryChanges must succeed");
     assert_eq!(
         helpers::sent_invocation(&server).await,
         json!(["VTCLivestream/queryChanges", {

@@ -412,6 +412,39 @@ async fn graph_query_sends_filter_and_sort() {
     );
 }
 
+/// `filter` is generic over its condition type, so a caller can send a
+/// condition the draft does not define. RFC 8620 §5.5: FilterCondition
+/// properties are type-specific; `isSubscribed` is
+/// draft-atwood-jmap-graph-00 L262. The vendor key and the expected JSON
+/// are hand-written.
+#[tokio::test]
+async fn graph_query_sends_caller_condition_type() {
+    let server = MockServer::start().await;
+    respond(&server, "Graph/query", query_ids(&[])).await;
+
+    let filter = Filter::Condition(json!({
+        "isSubscribed": true,
+        "example.com:team": "ops"
+    }));
+    make_client(&server)
+        .graph_query(
+            Some(&filter),
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
+        .await
+        .expect("Graph/query must succeed");
+
+    let (_, call) = sent_call(&server).await;
+    assert_eq!(
+        call,
+        json!(["Graph/query", {
+            "accountId": "A1",
+            "filter": { "isSubscribed": true, "example.com:team": "ops" }
+        }])
+    );
+}
+
 /// RFC 8620 §5.1 `/get`; the GraphNode is the L367-L380 node "b" with
 /// hand-written server-set properties (draft §GraphNode).
 #[tokio::test]
