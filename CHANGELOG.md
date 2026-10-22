@@ -1309,6 +1309,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**, **jmap-chat-federation-server**,
+  **jmap-chat-filenode-server**, **jmap-chat-vtc-server**: the implicit
+  `@everyone` role's permissions are read per Space through one seam,
+  the new required `ChatBackend::everyone_permissions(caller,
+  account_id, space)`, async and returning `Result<HashSet<ChatPermission>,
+  Self::Error>` (draft-atwood-jmap-chat-00 §SpaceRole, §Space Permission
+  Resolution step 1, jmap-chat-spec 29e9a41 L812, L1705).
+  `FederationBackend::everyone_permissions` is removed; implement the
+  `ChatBackend` method instead, and a backend error in `Peer/deliver`
+  step 5 is `serverFail`. The `everyone: &HashSet<ChatPermission>`
+  parameter is removed from `check_call_create`, `check_root_create`,
+  `resolve_filenode_attachment`, `space_files_rights`,
+  `check_space_create`, `check_space_update` and `check_space_destroy`,
+  which now ask the Chat backend for the floor of the Space they check.
+  `MemoryBackend` implements it with the set from
+  `set_everyone_permissions` for every Space.
 - **BREAKING** **jmap-chat-client**: `message_query` and
   `Batch::message_query_get` with `sort: None` omit `sort` instead of
   sending `receivedAt` descending, so the server applies the draft

@@ -50,7 +50,6 @@ const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff
 struct Fixture {
     chat: ChatMemory,
     files: FilesMemory,
-    everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Fixture {
@@ -62,6 +61,7 @@ impl Fixture {
     /// - `loose` (top-level file outside any Space tree)
     fn new(permissions: &[&str]) -> Self {
         let chat = ChatMemory::new();
+        chat.set_everyone_permissions(HashSet::new());
         chat.register_account(&Id::from(ACCOUNT));
         let space = json!({
             "id": SPACE,
@@ -94,11 +94,7 @@ impl Fixture {
                 serde_json::from_value(node).expect("FileNode fixture"),
             );
         }
-        Self {
-            chat,
-            files,
-            everyone: HashSet::new(),
-        }
+        Self { chat, files }
     }
 
     /// Resolve `attachment` for a message in `chat`; the filled
@@ -114,7 +110,6 @@ impl Fixture {
             &Id::from(ACCOUNT),
             chat,
             &attachment,
-            &self.everyone,
         )
         .await
         .expect("storage")
@@ -297,8 +292,9 @@ async fn sender_without_read_access_is_refused() {
 /// everyone counts toward read access.
 #[tokio::test]
 async fn everyone_view_grants_read() {
-    let mut f = Fixture::new(&[]);
-    f.everyone.insert(jmap_chat_types::ChatPermission::View);
+    let f = Fixture::new(&[]);
+    f.chat
+        .set_everyone_permissions(HashSet::from([jmap_chat_types::ChatPermission::View]));
     assert!(f
         .resolve(json!({ "filenodeId": "f1" }))
         .await

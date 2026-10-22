@@ -55,7 +55,6 @@ const ROLE: &str = "chatspace";
 struct Fixture {
     chat: ChatMemory,
     files: FilesMemory,
-    everyone: HashSet<jmap_chat_types::ChatPermission>,
 }
 
 impl Fixture {
@@ -74,6 +73,7 @@ impl Fixture {
 
     fn with_roles(roles: Value, member_role_ids: &[&str]) -> Self {
         let chat = ChatMemory::new();
+        chat.set_everyone_permissions(HashSet::new());
         chat.register_account(&Id::from(ACCOUNT));
         let space = json!({
             "id": SPACE,
@@ -107,11 +107,7 @@ impl Fixture {
                 serde_json::from_value(node).expect("FileNode fixture"),
             );
         }
-        Self {
-            chat,
-            files,
-            everyone: HashSet::new(),
-        }
+        Self { chat, files }
     }
 
     async fn node(&self, id: &str) -> FileNode {
@@ -126,34 +122,19 @@ impl Fixture {
     /// `space_files_rights` of stored node `id`, as wire JSON.
     async fn rights(&self, id: &str) -> Option<Value> {
         let node = self.node(id).await;
-        space_files_rights(
-            &self.chat,
-            &(),
-            &self.files,
-            &(),
-            &Id::from(ACCOUNT),
-            &node,
-            &self.everyone,
-        )
-        .await
-        .expect("storage")
-        .map(|r| serde_json::to_value(r).expect("FilesRights serializes"))
+        space_files_rights(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
+            .await
+            .expect("storage")
+            .map(|r| serde_json::to_value(r).expect("FilesRights serializes"))
     }
 
     /// The SetError type of a create of `node`, or `None` if it may proceed.
     async fn create(&self, node: Value) -> Option<String> {
         let node: FileNode = serde_json::from_value(node).expect("FileNode fixture");
-        let result = check_space_create(
-            &self.chat,
-            &(),
-            &self.files,
-            &(),
-            &Id::from(ACCOUNT),
-            &node,
-            &self.everyone,
-        )
-        .await
-        .expect("storage");
+        let result =
+            check_space_create(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
+                .await
+                .expect("storage");
         error_type(result)
     }
 
@@ -171,7 +152,6 @@ impl Fixture {
             &Id::from(ACCOUNT),
             &node,
             &PatchObject::from_map(patch),
-            &self.everyone,
         )
         .await
         .expect("storage");
@@ -181,17 +161,10 @@ impl Fixture {
     /// The SetError type of a destroy of `id`, or `None`.
     async fn destroy(&self, id: &str) -> Option<String> {
         let node = self.node(id).await;
-        let result = check_space_destroy(
-            &self.chat,
-            &(),
-            &self.files,
-            &(),
-            &Id::from(ACCOUNT),
-            &node,
-            &self.everyone,
-        )
-        .await
-        .expect("storage");
+        let result =
+            check_space_destroy(&self.chat, &(), &self.files, &(), &Id::from(ACCOUNT), &node)
+                .await
+                .expect("storage");
         error_type(result)
     }
 }
@@ -283,8 +256,9 @@ async fn union_over_held_roles() {
 /// `@everyone` role.
 #[tokio::test]
 async fn everyone_permissions_count() {
-    let mut f = Fixture::new(&[]);
-    f.everyone.insert(jmap_chat_types::ChatPermission::Send);
+    let f = Fixture::new(&[]);
+    f.chat
+        .set_everyone_permissions(HashSet::from([jmap_chat_types::ChatPermission::Send]));
     assert_eq!(
         f.rights("docs").await,
         Some(rights(&["mayRead", "mayAddChildren"]))

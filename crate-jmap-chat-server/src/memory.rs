@@ -1403,6 +1403,17 @@ impl ChatBackend for MemoryBackend {
         Ok(inner.owner_user_ids.get(account_id.as_ref()).cloned())
     }
 
+    /// The set from [`MemoryBackend::set_everyone_permissions`], the same
+    /// for every Space.
+    async fn everyone_permissions(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _space: &jmap_chat_types::Space,
+    ) -> Result<HashSet<ChatPermission>, Self::Error> {
+        Ok(self.inner.lock().unwrap().everyone_permissions.clone())
+    }
+
     /// Reference implementation of [`ChatBackend::may_set_custom_emoji`].
     ///
     /// Demonstration-only: returns `Ok(Ok(()))` unconditionally. The

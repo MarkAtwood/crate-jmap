@@ -348,6 +348,17 @@ impl ChatBackend for ViewGate {
         self.inner.generate_invite_code()
     }
 
+    async fn everyone_permissions(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        space: &jmap_chat_types::Space,
+    ) -> Result<std::collections::HashSet<jmap_chat_types::ChatPermission>, MemoryError> {
+        self.inner
+            .everyone_permissions(&(), account_id, space)
+            .await
+    }
+
     fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
         self.inner.limits(caller, account_id)
     }

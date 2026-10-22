@@ -58,9 +58,9 @@ use serde_json::{json, Value};
 ///   the `"start_call"` permission in the bound Space or channel." The
 ///   Space is `spaceId`, or else the
 ///   channel's `spaceId`. The permissions are resolved as in
-///   draft-atwood-jmap-chat-00 §Space Permission Resolution, with
-///   `everyone` as the implicit `@everyone` role's permissions. The draft
-///   leaves those to the deployment. A Space that does not resolve, or
+///   draft-atwood-jmap-chat-00 §Space Permission Resolution, with the
+///   implicit `@everyone` role's permissions from
+///   [`ChatBackend::everyone_permissions`]. A Space that does not resolve, or
 ///   does not list the owner as a member, grants nothing.
 ///
 /// `caller` and `account_id` are the `VTCCall/set` caller and account.
@@ -73,14 +73,13 @@ use serde_json::{json, Value};
 ///
 /// # Errors
 ///
-/// Returns the Chat backend's error if reading the Chat, the channel or
-/// the Space fails.
+/// Returns the Chat backend's error if reading the Chat, the channel,
+/// the Space or its `@everyone` permissions fails.
 pub async fn check_call_create<C: ChatBackend>(
     chat: &C,
     caller: &C::CallerCtx,
     account_id: &Id,
     call: &VtcCall,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, C::Error> {
     if let Some(chat_id) = bound(&call.chat_id) {
         let visible = match get_one::<Chat, _>(chat, caller, account_id, chat_id).await? {
@@ -112,9 +111,13 @@ pub async fn check_call_create<C: ChatBackend>(
         Some(id) => get_one::<Space, _>(chat, caller, account_id, id).await?,
         None => None,
     };
-    let permissions = space
-        .map(|s| member_permissions(&s, account_id, channel.as_ref(), everyone))
-        .unwrap_or_default();
+    let permissions = match space {
+        Some(s) => {
+            let everyone = chat.everyone_permissions(caller, account_id, &s).await?;
+            member_permissions(&s, account_id, channel.as_ref(), &everyone)
+        }
+        None => HashSet::new(),
+    };
     Ok(if permissions.contains(&ChatPermission::StartCall) {
         Ok(())
     } else {

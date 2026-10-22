@@ -432,6 +432,15 @@ impl ChatBackend for Fed {
         self.chat.generate_invite_code()
     }
 
+    async fn everyone_permissions(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _space: &Space,
+    ) -> Result<HashSet<jmap_chat_types::ChatPermission>, MemoryError> {
+        Ok(self.everyone.clone())
+    }
+
     async fn join_space_with_invite(
         &self,
         caller: &(),
@@ -496,15 +505,6 @@ impl ChatBackend for Fed {
 impl FederationBackend for Fed {
     fn authenticated_peer(&self, _caller: &()) -> Option<AuthenticatedPeer> {
         self.peer.clone()
-    }
-
-    fn everyone_permissions(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        _space: &Space,
-    ) -> HashSet<jmap_chat_types::ChatPermission> {
-        self.everyone.clone()
     }
 
     fn new_message_id(&self) -> Id {

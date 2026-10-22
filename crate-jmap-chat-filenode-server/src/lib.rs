@@ -90,10 +90,10 @@ where
 ///   requires servers to support.
 /// - Creating the root "requires `"manage_space"` permission"
 ///   (§Permission Mapping); without it the create fails with `forbidden`.
-///   The permissions are the union over the member's SpaceRoles plus
-///   `everyone`, the implicit `@everyone` role's permissions, which the
-///   draft leaves to the deployment (draft-atwood-jmap-chat-00 §Space
-///   Permission Resolution step 1). ChannelPermission overrides "do not
+///   The permissions are the union over the member's SpaceRoles plus the
+///   implicit `@everyone` role's permissions from
+///   [`ChatBackend::everyone_permissions`] (draft-atwood-jmap-chat-00
+///   §Space Permission Resolution step 1). ChannelPermission overrides "do not
 ///   apply to file tree access".
 ///
 /// The requesting user is the owner of `account_id`, named by
@@ -107,7 +107,8 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`RootCheckError::Chat`] if reading the Space fails, and
+/// Returns [`RootCheckError::Chat`] if reading the Space or its `@everyone`
+/// permissions fails, and
 /// [`RootCheckError::Files`] if the root query fails.
 pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
@@ -116,7 +117,6 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
     if node.role != Some(NodeRole::ChatSpace) {
         return Ok(Ok(()));
@@ -136,10 +136,10 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
         )
         .await
         .map_err(RootCheckError::Chat)?;
-    let Some(permissions) = spaces
-        .iter()
-        .find(|s| &s.id == space_id)
-        .and_then(|s| member_permissions(s, account_id, everyone))
+    let space = spaces.iter().find(|s| &s.id == space_id);
+    let Some(permissions) = member_permissions(chat, chat_caller, account_id, space)
+        .await
+        .map_err(RootCheckError::Chat)?
     else {
         return Ok(Err(forbidden(
             "spaceId does not name a Space the caller is a member of",
@@ -399,8 +399,8 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
 /// - "The sender has at least read access to the FileNode under the
 ///   mapping in {{permissions}}": every row of that table grants Read, so
 ///   the sender must be a Space member holding `view`, `send`,
-///   `manage_channels` or `manage_space` through a SpaceRole or
-///   `everyone`, the implicit `@everyone` role's permissions. Otherwise
+///   `manage_channels` or `manage_space` through a SpaceRole or the
+///   implicit `@everyone` role. Otherwise
 ///   the create fails with `forbidden`, which the draft does not name.
 /// - "the server MUST populate any absent fields from the referenced
 ///   FileNode's properties": `blobId`, `filename`, `contentType`, `size`
@@ -421,8 +421,8 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
 /// # Errors
 ///
 /// Returns [`RootCheckError::Files`] if reading the node or its ancestors
-/// fails, and [`RootCheckError::Chat`] if reading the Space fails.
-#[allow(clippy::too_many_arguments)]
+/// fails, and [`RootCheckError::Chat`] if reading the Space or its
+/// `@everyone` permissions fails.
 pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
     chat_caller: &C::CallerCtx,
@@ -431,7 +431,6 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
     account_id: &Id,
     message_chat: &Chat,
     attachment: &AttachmentCreate,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<Option<Attachment>, SetError>, RootCheckError<C::Error, F::Error>> {
     let Some(node_id) = &attachment.filenode_id else {
         return Ok(Ok(None));
@@ -481,10 +480,10 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
         )
         .await
         .map_err(RootCheckError::Chat)?;
-    let may_read = spaces
-        .iter()
-        .find(|s| &s.id == space_id)
-        .and_then(|s| member_permissions(s, account_id, everyone))
+    let space = spaces.iter().find(|s| &s.id == space_id);
+    let may_read = member_permissions(chat, chat_caller, account_id, space)
+        .await
+        .map_err(RootCheckError::Chat)?
         .is_some_and(|p| TIERS.iter().any(|r| p.contains(r)));
     if !may_read {
         return Ok(Err(forbidden(
@@ -538,7 +537,7 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// `FilesRights` flags ... the server reports in `myRights` and enforces on
 /// each FileNode in the Space file tree". "Each row includes the grants of
 /// the rows above it", and the member's permissions are the union over
-/// their SpaceRoles plus `everyone`, as for [`check_root_create`]:
+/// their SpaceRoles plus the `@everyone` role, as for [`check_root_create`]:
 ///
 /// | Highest permission held | Flags `true` |
 /// |---|---|
@@ -567,7 +566,8 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// # Errors
 ///
 /// Returns [`RootCheckError::Files`] if reading the ancestors fails, and
-/// [`RootCheckError::Chat`] if reading the Space fails.
+/// [`RootCheckError::Chat`] if reading the Space or its `@everyone`
+/// permissions fails.
 pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
     chat_caller: &C::CallerCtx,
@@ -575,7 +575,6 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<Option<FilesRights>, RootCheckError<C::Error, F::Error>> {
     let space_id = if is_tree_root(node) {
         node.space_id.clone()
@@ -603,10 +602,10 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
         )
         .await
         .map_err(RootCheckError::Chat)?;
-    let tier = spaces
-        .iter()
-        .find(|s| s.id == space_id)
-        .and_then(|s| member_permissions(s, account_id, everyone))
+    let space = spaces.iter().find(|s| s.id == space_id);
+    let tier = member_permissions(chat, chat_caller, account_id, space)
+        .await
+        .map_err(RootCheckError::Chat)?
         .and_then(|p| TIERS.iter().rposition(|t| p.contains(t)))
         .map_or(0, |i| i + 1);
 
@@ -644,7 +643,6 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
     if node.role == Some(NodeRole::ChatSpace) {
         return Ok(Ok(()));
@@ -659,7 +657,6 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
         files_caller,
         account_id,
         parent_id,
-        everyone,
     )
     .await?;
     Ok(if may_add {
@@ -698,7 +695,6 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
 ///
 /// As for [`space_files_rights`], plus [`RootCheckError::Files`] if
 /// reading the new parent fails.
-#[allow(clippy::too_many_arguments)]
 pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
     chat_caller: &C::CallerCtx,
@@ -707,18 +703,9 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
     account_id: &Id,
     node: &FileNode,
     patch: &PatchObject,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
-    let rights = space_files_rights(
-        chat,
-        chat_caller,
-        files,
-        files_caller,
-        account_id,
-        node,
-        everyone,
-    )
-    .await?;
+    let rights =
+        space_files_rights(chat, chat_caller, files, files_caller, account_id, node).await?;
     if let Some(rights) = rights {
         let share_with =
             serde_json::to_value(&node.share_with).expect("shareWith serializes to JSON");
@@ -748,7 +735,6 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
                 files_caller,
                 account_id,
                 &Id::from(new_parent),
-                everyone,
             )
             .await?
         {
@@ -785,18 +771,9 @@ pub async fn check_space_destroy<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
-    let rights = space_files_rights(
-        chat,
-        chat_caller,
-        files,
-        files_caller,
-        account_id,
-        node,
-        everyone,
-    )
-    .await?;
+    let rights =
+        space_files_rights(chat, chat_caller, files, files_caller, account_id, node).await?;
     Ok(match rights {
         Some(r) if !r.may_delete => Err(forbidden(
             "destroying this Space file tree node requires mayDelete",
@@ -815,7 +792,6 @@ async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
     files_caller: &F::CallerCtx,
     account_id: &Id,
     parent_id: &Id,
-    everyone: &HashSet<ChatPermission>,
 ) -> Result<bool, RootCheckError<C::Error, F::Error>> {
     let (parents, _) = files
         .get_objects::<FileNode>(
@@ -829,16 +805,8 @@ async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
     let Some(parent) = parents.iter().find(|n| &n.id == parent_id) else {
         return Ok(true);
     };
-    let rights = space_files_rights(
-        chat,
-        chat_caller,
-        files,
-        files_caller,
-        account_id,
-        parent,
-        everyone,
-    )
-    .await?;
+    let rights =
+        space_files_rights(chat, chat_caller, files, files_caller, account_id, parent).await?;
     Ok(rights.is_none_or(|r| r.may_add_children))
 }
 
@@ -858,30 +826,38 @@ const TIERS: [ChatPermission; 4] = [
 ];
 
 /// The Space permissions `account_id` holds as a member of `space`: the
-/// union over the member's SpaceRoles plus `everyone`, the implicit
-/// `@everyone` role's permissions (draft-atwood-jmap-chat-00 §Space
-/// Permission Resolution step 1). `None` if `account_id` is not a member.
-/// ChannelPermission overrides are not applied: they "do not restrict
-/// file-tree access" (draft-atwood-jmap-chat-filenode-00 §Permission
-/// Mapping). Permissions compare by variant, so a `ChatPermission::Other`
-/// spelling of a known name grants nothing, as in
+/// union over the member's SpaceRoles plus the implicit `@everyone`
+/// role's permissions from [`ChatBackend::everyone_permissions`]
+/// (draft-atwood-jmap-chat-00 §Space Permission Resolution step 1).
+/// `None` if `space` is `None` or `account_id` is not a member, without
+/// asking the backend. ChannelPermission overrides are not applied: they
+/// "do not restrict file-tree access" (draft-atwood-jmap-chat-filenode-00
+/// §Permission Mapping). Permissions compare by variant, so a
+/// `ChatPermission::Other` spelling of a known name grants nothing, as in
 /// `resolve_channel_permissions`.
-fn member_permissions<'a>(
-    space: &'a Space,
+async fn member_permissions<C: ChatBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
     account_id: &Id,
-    everyone: &'a HashSet<ChatPermission>,
-) -> Option<HashSet<&'a ChatPermission>> {
-    let member = space.members.iter().find(|m| &m.id == account_id)?;
+    space: Option<&Space>,
+) -> Result<Option<HashSet<ChatPermission>>, C::Error> {
+    let Some((space, member)) =
+        space.and_then(|s| Some((s, s.members.iter().find(|m| &m.id == account_id)?)))
+    else {
+        return Ok(None);
+    };
     let role_ids: HashSet<&Id> = member.role_ids.iter().collect();
-    Some(
+    let mut permissions = chat
+        .everyone_permissions(chat_caller, account_id, space)
+        .await?;
+    permissions.extend(
         space
             .roles
             .iter()
             .filter(|r| role_ids.contains(&r.id))
-            .flat_map(|r| r.permissions.iter())
-            .chain(everyone)
-            .collect(),
-    )
+            .flat_map(|r| r.permissions.iter().cloned()),
+    );
+    Ok(Some(permissions))
 }
 
 /// A `forbidden` SetError with `description`.

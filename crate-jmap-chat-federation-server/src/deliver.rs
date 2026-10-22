@@ -122,16 +122,6 @@ pub trait FederationBackend: ChatBackend {
     /// "Callers without the `"peer"` role MUST receive `forbidden`").
     fn authenticated_peer(&self, caller: &Self::CallerCtx) -> Option<AuthenticatedPeer>;
 
-    /// The permissions of the implicit `@everyone` role in `space`
-    /// (draft-atwood-jmap-chat-00 §Space Permission Resolution step 1).
-    /// The draft does not say where they are stored.
-    fn everyone_permissions(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        space: &Space,
-    ) -> HashSet<ChatPermission>;
-
     /// A fresh id in the form the backend assigns to a stored Message.
     ///
     /// A silently dropped new message (steps 4 and 7) answers with this
@@ -420,7 +410,7 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
             return drop.respond(backend, caller, &payload, &target).await;
         }
         let permissions =
-            channel_permissions(backend, caller, account_id, space, &target, sender_id);
+            channel_permissions(backend, caller, account_id, space, &target, sender_id).await?;
         if !permissions.contains(&ChatPermission::Send) {
             return Err(JmapError::forbidden());
         }
@@ -655,37 +645,41 @@ async fn is_banned<B: ChatBackend>(
 
 /// Step 5: the sender's permissions in the channel, per
 /// draft-atwood-jmap-chat-00 §Space Permission Resolution.
-fn channel_permissions<B: FederationBackend>(
+async fn channel_permissions<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     space: &Space,
     target: &Target,
     sender_id: &Id,
-) -> HashSet<ChatPermission> {
+) -> Result<HashSet<ChatPermission>, JmapError> {
     let Some(member) = space.members.iter().find(|m| &m.id == sender_id) else {
-        return HashSet::new();
+        return Ok(HashSet::new());
     };
+    let everyone = backend
+        .everyone_permissions(caller, account_id, space)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
     let role_ids: HashSet<&str> = member.role_ids.iter().map(AsRef::as_ref).collect();
     let space_permissions: HashSet<ChatPermission> = space
         .roles
         .iter()
         .filter(|r| role_ids.contains(r.id.as_ref()))
         .flat_map(|r| r.permissions.iter().cloned())
-        .chain(backend.everyone_permissions(caller, account_id, space))
+        .chain(everyone)
         .collect();
     let overrides = target
         .chat
         .as_ref()
         .and_then(|c| c.permission_overrides.as_deref())
         .unwrap_or_default();
-    resolve_channel_permissions(
+    Ok(resolve_channel_permissions(
         space_permissions,
         space.id.as_ref(),
         sender_id.as_ref(),
         &role_ids,
         overrides,
-    )
+    ))
 }
 
 /// Step 6: slow mode, exempting holders of `"manage_channels"`.

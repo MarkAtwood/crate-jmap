@@ -41,7 +41,7 @@ calls these functions from its trait methods:
 
 ```rust,ignore
 // Inside FileNodeBackend::create_object, for a FileNode create:
-check_root_create(&self.chat, &(), &self.files, &(), account_id, &node, &self.everyone)
+check_root_create(&self.chat, &(), &self.files, &(), account_id, &node)
     .await
     .map_err(|e| BackendSetError::Other(e.into()))?
     .map_err(BackendSetError::SetError)?;
@@ -56,7 +56,8 @@ unchecked, so the call can run before every FileNode insert.
 The Space is read from the Chat backend and the existing root is found
 with the `FileNode/query` `role` + `spaceId` filter the draft requires.
 The `manage_space` check unions the member's SpaceRole permissions with
-the caller-supplied `@everyone` permissions; ChannelPermission overrides
+the Space's `@everyone` permissions from `ChatBackend::everyone_permissions`;
+ChannelPermission overrides
 do not apply to file tree access.
 
 ## Gotchas
@@ -65,10 +66,11 @@ do not apply to file tree access.
   in the same transaction as the insert (for example a unique index on
   `spaceId` for root nodes), as `FileNodeBackend::create_object` already
   requires for name uniqueness.
-- `check_root_create` takes the `@everyone` role's permissions as an
-  argument: the draft says every member holds that role but puts its
-  permissions on no wire object. Controller principals that bypass
-  permission resolution are deployment-defined; skip the call for them.
+- The permission checks read the `@everyone` role's permissions per
+  Space from `ChatBackend::everyone_permissions`: the draft says every
+  member holds that role but puts its permissions on no wire object.
+  Controller principals that bypass permission resolution are
+  deployment-defined; skip the call for them.
 - `check_space_quota` sums the stored `size` of every node in the tree
   plus the new node's `size`: call it after setting the server-set `size`
   from the blob, and re-check under the insert's transaction. It reads the

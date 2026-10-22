@@ -20,7 +20,6 @@ use std::collections::HashSet;
 
 use jmap_chat_filenode_server::space_files_rights;
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
-use jmap_chat_types::ChatPermission;
 use jmap_filenode_server::backend::{
     BackendChangesError, BackendQueryError, BackendSetError, CaseFolding, ChangesResult,
     FileNodeBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
@@ -40,7 +39,6 @@ const SPACE: &str = "S1";
 struct Deployment {
     chat: ChatMemory,
     files: FilesMemory,
-    everyone: HashSet<ChatPermission>,
 }
 
 impl Deployment {
@@ -49,6 +47,7 @@ impl Deployment {
     /// `loose`, a top-level directory outside any Space tree.
     fn with_send_member() -> Self {
         let chat = ChatMemory::new();
+        chat.set_everyone_permissions(HashSet::new());
         chat.register_account(&Id::from(ACCOUNT));
         let space = json!({
             "id": SPACE,
@@ -79,11 +78,7 @@ impl Deployment {
                 serde_json::from_value(node).expect("FileNode fixture"),
             );
         }
-        Self {
-            chat,
-            files,
-            everyone: HashSet::new(),
-        }
+        Self { chat, files }
     }
 }
 
@@ -221,17 +216,9 @@ impl FileNodeBackend for Deployment {
         account_id: &Id,
         node: &FileNode,
     ) -> Result<Option<FilesRights>, Self::Error> {
-        space_files_rights(
-            &self.chat,
-            &(),
-            &self.files,
-            &(),
-            account_id,
-            node,
-            &self.everyone,
-        )
-        .await
-        .map_err(|e| MemoryError::new(e.to_string()))
+        space_files_rights(&self.chat, &(), &self.files, &(), account_id, node)
+            .await
+            .map_err(|e| MemoryError::new(e.to_string()))
     }
 
     async fn find_sibling_by_name(

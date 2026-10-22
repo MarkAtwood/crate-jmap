@@ -39,7 +39,7 @@ these functions from its trait methods:
 async fn create_call(&self, caller: &Ctx, account_id: &Id, call: VtcCall, targets: &[String])
     -> Result<VtcCall, BackendSetError<Error>>
 {
-    check_call_create(self, caller, account_id, &call, &self.everyone_permissions)
+    check_call_create(self, caller, account_id, &call)
         .await
         .map_err(BackendSetError::Other)?
         .map_err(BackendSetError::SetError)?;
@@ -66,9 +66,10 @@ require.
   Chat update to be "applied atomically with it from the client's
   perspective". The crate cannot enforce this; your backend's transaction
   does.
-- `check_call_create` takes the `@everyone` role's permissions as an
-  argument. The draft says every member holds that role but puts its
-  permissions on no wire object. Controller principals that "bypass this
+- `check_call_create` reads the bound Space's `@everyone` permissions
+  from `ChatBackend::everyone_permissions`. The draft says every member
+  holds that role but puts its permissions on no wire object. Controller
+  principals that "bypass this
   resolution" are also deployment-defined; skip the call for them.
 - `eject_banned_user` returns the `"left"` events and does not deliver
   them; pass each to `VtcBackend::deliver_event`. Like a
