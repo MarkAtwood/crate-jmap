@@ -403,14 +403,14 @@ async fn batch_invalid_result_reference_is_per_call() {
     let resp = sc.send_batch(batch).await.expect("send_batch must succeed");
 
     match resp.get(&get) {
-        Err(jmap_base_client::ClientError::MethodError { error_type, .. }) => {
-            assert_eq!(error_type, "invalidResultReference")
+        Err(jmap_base_client::ClientError::MethodError(e)) => {
+            assert_eq!(e.error_type.to_string(), "invalidResultReference")
         }
         other => panic!("expected invalidResultReference, got {other:?}"),
     }
     match resp.get(&query) {
-        Err(jmap_base_client::ClientError::MethodError { error_type, .. }) => {
-            assert_eq!(error_type, "anchorNotFound")
+        Err(jmap_base_client::ClientError::MethodError(e)) => {
+            assert_eq!(e.error_type.to_string(), "anchorNotFound")
         }
         other => panic!("expected anchorNotFound, got {other:?}"),
     }

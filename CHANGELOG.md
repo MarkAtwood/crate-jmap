@@ -1309,6 +1309,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-base-client**: `ClientError::MethodError` is now
+  the tuple variant `MethodError(jmap_types::JmapError)`, replacing
+  `MethodError { error_type: String, description }`. The typed
+  `MethodErrorType` and the `existingId` and `limit` properties (such as
+  a `tooManyChanges` limit) are no longer dropped. An `"error"` response
+  without a string `type` is now `ClientError::Parse` instead of an
+  invented `"serverError"` type (RFC 8620 §3.6.2: it "MUST have a type
+  property"). Migrate `MethodError { error_type, .. }` matches to
+  `MethodError(e)` and read `e.error_type`.
 - **BREAKING** **jmap-vtc-server**: `VtcBackend` gains the required
   `update_object_if`, a compare-and-set `update_object` that applies a
   patch only while the stored `state` is one of `expected`, checked

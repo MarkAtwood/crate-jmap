@@ -200,7 +200,7 @@ async fn graph_node_op_query_surfaces_ops_compacted() {
         .await
         .expect_err("opsCompacted must be an error");
     match err {
-        ClientError::MethodError { error_type, .. } => assert_eq!(error_type, OPS_COMPACTED),
+        ClientError::MethodError(e) => assert_eq!(e.error_type.to_string(), OPS_COMPACTED),
         other => panic!("expected MethodError, got {other:?}"),
     }
 }

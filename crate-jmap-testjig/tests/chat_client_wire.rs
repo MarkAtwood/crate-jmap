@@ -371,13 +371,9 @@ async fn chat_typing_unknown_or_left_chat_is_invalid_arguments() {
     let mut errors = Vec::new();
     for chat_id in [Id::from("nosuchchat"), group_id] {
         match sc.chat_typing(&chat_id, true).await {
-            Err(ClientError::MethodError {
-                error_type,
-                description,
-                ..
-            }) => {
-                assert_eq!(error_type, "invalidArguments", "{chat_id}");
-                errors.push(description);
+            Err(ClientError::MethodError(e)) => {
+                assert_eq!(e.error_type.to_string(), "invalidArguments", "{chat_id}");
+                errors.push(e.description);
             }
             other => panic!("expected invalidArguments method error, got {other:?}"),
         }
@@ -745,8 +741,8 @@ async fn message_query_rejects_text_and_thread_root_filters() {
             .message_query(Some(&filter), None, None, None, None, None, None)
             .await
         {
-            Err(ClientError::MethodError { error_type, .. }) => {
-                assert_eq!(error_type, "unsupportedFilter", "{name}");
+            Err(ClientError::MethodError(e)) => {
+                assert_eq!(e.error_type.to_string(), "unsupportedFilter", "{name}");
             }
             other => panic!("{name}: expected unsupportedFilter, got {other:?}"),
         }
@@ -1010,7 +1006,7 @@ async fn space_join_rejects_banned_caller() {
     created_id(&resp, "b0");
 
     match sc.space_join(&SpaceJoinInput::SpaceId(&space_id)).await {
-        Err(ClientError::MethodError { error_type, .. }) => assert_eq!(error_type, "forbidden"),
+        Err(ClientError::MethodError(e)) => assert_eq!(e.error_type.to_string(), "forbidden"),
         other => panic!("expected forbidden method error, got {other:?}"),
     }
 }
@@ -1048,8 +1044,8 @@ async fn space_join_unknown_or_private_space_is_not_permitted() {
 
     for space_id in [private_id, Id::from("nosuchspace")] {
         match sc.space_join(&SpaceJoinInput::SpaceId(&space_id)).await {
-            Err(ClientError::MethodError { error_type, .. }) => {
-                assert_eq!(error_type, "notPermitted", "{space_id}")
+            Err(ClientError::MethodError(e)) => {
+                assert_eq!(e.error_type.to_string(), "notPermitted", "{space_id}")
             }
             other => panic!("expected notPermitted method error, got {other:?}"),
         }

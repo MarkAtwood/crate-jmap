@@ -1405,10 +1405,63 @@ fn test_extract_response_method_error() {
     assert!(
         matches!(
             &err,
-            ClientError::MethodError { error_type, description }
-                if error_type == "serverFail" && description.as_deref() == Some("oops")
+            ClientError::MethodError(e)
+                if e.error_type == jmap_types::MethodErrorType::ServerFail
+                    && e.description.as_deref() == Some("oops")
         ),
         "expected MethodError{{serverFail, Some(\"oops\")}}, got {err:?}"
+    );
+}
+
+/// Oracle: hand-written `tooManyChanges` error object (type string from
+/// RFC 8620 §5.6) with a `limit` property. MethodError must carry the
+/// limit rather than dropping everything but `type` and `description`.
+#[test]
+fn test_extract_response_method_error_keeps_limit() {
+    let resp = jmap_types::JmapResponse::new(
+        vec![Invocation::new(
+            "error",
+            serde_json::json!({"type": "tooManyChanges", "limit": 50}),
+            "r1",
+        )],
+        "sess1".into(),
+        None,
+    );
+
+    let err = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r1")
+        .expect_err("error invocation must fail");
+    assert!(
+        matches!(
+            &err,
+            ClientError::MethodError(e)
+                if e.error_type == jmap_types::MethodErrorType::TooManyChanges
+                    && e.limit == Some(50)
+                    && e.description.is_none()
+        ),
+        "expected MethodError{{tooManyChanges, limit 50}}, got {err:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §3.6.2 — the "error" response "MUST have a type
+/// property". An error object without one is a malformed response, so
+/// extract_response must report a parse error, not invent a type.
+#[test]
+fn test_extract_response_error_without_type_is_parse_error() {
+    let resp = jmap_types::JmapResponse::new(
+        vec![Invocation::new(
+            "error",
+            serde_json::json!({"description": "no type here"}),
+            "r1",
+        )],
+        "sess1".into(),
+        None,
+    );
+
+    let err = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r1")
+        .expect_err("typeless error invocation must fail");
+    assert!(
+        matches!(err, ClientError::Parse(_)),
+        "expected Parse, got {err:?}"
     );
 }
 
@@ -1477,7 +1530,7 @@ fn test_extract_response_error_after_success_takes_precedence() {
     assert!(
         matches!(
             &err,
-            ClientError::MethodError { error_type, .. } if error_type == "serverFail"
+            ClientError::MethodError(e) if e.error_type == jmap_types::MethodErrorType::ServerFail
         ),
         "expected MethodError{{serverFail}}, got {err:?}"
     );
@@ -1552,7 +1605,8 @@ fn test_extract_response_error_after_multiple_successes() {
     assert!(
         matches!(
             &err,
-            ClientError::MethodError { error_type, .. } if error_type == "rateLimit"
+            ClientError::MethodError(e)
+                if e.error_type == jmap_types::MethodErrorType::Other("rateLimit".into())
         ),
         "expected MethodError{{rateLimit}}, got {err:?}"
     );
