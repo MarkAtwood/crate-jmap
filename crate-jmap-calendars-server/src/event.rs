@@ -1875,6 +1875,94 @@ mod tests {
         }
     }
 
+    /// Every event id in account `acc`, from CalendarEvent/get with
+    /// `ids: null`.
+    async fn event_ids(backend: &MockBackend) -> Value {
+        let HandlerOutput { primary: get, .. } =
+            handle_calendar_event_get(backend, &(), json!({ "accountId": "acc", "ids": null }))
+                .await
+                .expect("get must succeed");
+        Value::Array(
+            get["list"]
+                .as_array()
+                .expect("list array")
+                .iter()
+                .map(|e| e["id"].clone())
+                .collect(),
+        )
+    }
+
+    /// Oracle: RFC 8620 §5.3 types `destroy` as "Id[]|null"; §3.6.2
+    /// "invalidArguments: One of the arguments is of the wrong type", and
+    /// "the externally visible state of the server MUST NOT have changed
+    /// if an error is returned at the method level". A valid create in the
+    /// same request therefore is not applied.
+    #[tokio::test]
+    async fn set_non_string_destroy_element_applies_nothing() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "create": { "c1": new_event("uid-a", "public", "2026-01-01T09:00:00") },
+            "destroy": [1]
+        });
+        let err = handle_calendar_event_set(&backend, &(), args)
+            .await
+            .expect_err("non-string destroy element must be a method error");
+        assert_eq!(
+            err.error_type,
+            jmap_types::MethodErrorType::InvalidArguments
+        );
+        assert_eq!(event_ids(&backend).await, json!([]), "nothing created");
+    }
+
+    /// Oracle: the `privacy_conflicts` contract (backend.rs) — "`Err`
+    /// fails the whole method with `serverFail`; nothing is applied" —
+    /// and RFC 8620 §3.6.2 "serverFail: ... The method call made no
+    /// changes to the server's state."
+    #[tokio::test]
+    async fn set_privacy_hook_error_is_server_fail_and_applies_nothing() {
+        let backend = MockBackend::new_with_account("acc");
+        seed_event(&backend, "e1", "uid-a", "public", "2026-01-01T09:00:00");
+        backend.fail_privacy_hooks();
+        let args = json!({
+            "accountId": "acc",
+            "create": { "c1": new_event("uid-b", "public", "2026-01-01T09:00:00") },
+            "update": { "e1": { "privacy": "private" } },
+            "destroy": ["e1"]
+        });
+        let err = handle_calendar_event_set(&backend, &(), args)
+            .await
+            .expect_err("hook error must be a method error");
+        assert_eq!(err.error_type, jmap_types::MethodErrorType::ServerFail);
+        assert_eq!(event_ids(&backend).await, json!(["e1"]), "nothing applied");
+    }
+
+    /// Oracle: the `may_copy_calendar_event` contract (backend.rs) —
+    /// "`Err` fails that copy with `serverFail`" — a per-create SetError,
+    /// not a method-level error (RFC 8620 §5.4 "notCreated").
+    #[tokio::test]
+    async fn copy_may_copy_hook_error_is_server_fail_set_error() {
+        let backend = MockBackend::new_with_account("dst");
+        backend.seed_object(
+            "src",
+            "CalendarEvent",
+            "ev1",
+            json!({ "id": "ev1", "calendarIds": { "cal1": true } }),
+        );
+        backend.fail_privacy_hooks();
+        let args = json!({
+            "accountId": "dst",
+            "fromAccountId": "src",
+            "create": { "c1": { "id": "ev1" } }
+        });
+        let resp = handle_calendar_event_copy(&backend, &(), args, "c0")
+            .await
+            .expect("no method-level error")
+            .primary;
+        assert_eq!(resp["notCreated"]["c1"]["type"], "serverFail", "{resp}");
+        assert_eq!(resp["created"], Value::Null, "{resp}");
+    }
+
     /// Oracle: draft-ietf-jmap-calendars-33 §5.10 — "If the account being
     /// copied into does not belong to the user and the "privacy" property
     /// of the event to be created would be anything other than "public"

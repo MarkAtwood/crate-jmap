@@ -474,6 +474,15 @@ pub trait CalendarsBackend: JmapBackend {
     /// event ids touching each conflicting uid. The handler rejects those
     /// with `invalidProperties` naming `privacy` and applies the rest.
     ///
+    /// The hook runs before any change is applied, so the prediction
+    /// assumes every create, update and destroy it does not reject will
+    /// succeed. The handler can still fail one later (`notFound`,
+    /// `forbidden`, the backend's own validation); a failed destroy or
+    /// update can then leave one uid with two `privacy` values. A backend
+    /// that needs the §5.9 MUST to hold in that case must also reject here
+    /// the changes it will itself refuse, or enforce the rule in its write
+    /// path.
+    ///
     /// # Default implementation
     ///
     /// Returns no conflicts (fail-open, bd:JMAP-bghk); backends that store
