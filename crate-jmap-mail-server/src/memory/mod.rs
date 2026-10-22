@@ -81,9 +81,10 @@ use crate::{
 };
 use jmap_mail_types::{
     ComparatorProperty, Email, EmailAddress, EmailComparator, EmailFilter, EmailFilterCondition,
-    EmailHeader, EmailSubmission, EmailSubmissionFilter, EmailSubmissionFilterCondition, Filter,
-    Keyword, Mailbox, MailboxComparator, MailboxComparatorProperty, MailboxFilter,
-    MailboxFilterCondition, MailboxRole, Operator, SearchSnippet,
+    EmailHeader, EmailSubmission, EmailSubmissionComparator, EmailSubmissionComparatorProperty,
+    EmailSubmissionFilter, EmailSubmissionFilterCondition, Filter, Keyword, Mailbox,
+    MailboxComparator, MailboxComparatorProperty, MailboxFilter, MailboxFilterCondition,
+    MailboxRole, Operator, SearchSnippet,
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
@@ -824,6 +825,23 @@ impl JmapBackend for MemoryBackend {
             None
         };
 
+        // Type-identity roundtrip: when O::TYPE_NAME == "EmailSubmission" the
+        // generic O::Comparator is necessarily EmailSubmissionComparator. Same
+        // Pattern G rationale as the filter roundtrips above.
+        let submission_sort: Option<Vec<EmailSubmissionComparator>> =
+            if O::TYPE_NAME == "EmailSubmission" {
+                sort.map(|s| {
+                    let v = serde_json::to_value(s)
+                        .expect("derive(Serialize) on plain data is infallible");
+                    serde_json::from_value(v).expect(
+                        "type-identity roundtrip on Vec<EmailSubmissionComparator> is \
+                         infallible: the JSON came from Serialize on the same concrete type",
+                    )
+                })
+            } else {
+                None
+            };
+
         // Pre-build the inMailboxOtherThan exclusion set once for top-level Condition
         // filters to avoid O(N×k) HashSet allocations inside the per-email loop.
         let top_level_excluded_set: Option<std::collections::HashSet<&Id>> =
@@ -938,6 +956,13 @@ impl JmapBackend for MemoryBackend {
                     })
                     .unwrap_or_default()
             };
+            let mut pairs = pairs;
+            if let (Some(ss), Some(map)) = (
+                submission_sort.as_deref(),
+                inner.objects_ref(O::TYPE_NAME, account_id.as_ref()),
+            ) {
+                sort_submission_pairs(&mut pairs, map, ss);
+            }
             let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
             (pairs, state_n)
         };
@@ -963,7 +988,7 @@ impl JmapBackend for MemoryBackend {
                 let ord = if ascending { ord } else { ord.reverse() };
                 ord.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
             });
-        } else {
+        } else if submission_sort.is_none() {
             id_date_pairs.sort_by(|(a, _), (b, _)| a.as_ref().cmp(b.as_ref()));
         }
         let all_ids: Vec<Id> = id_date_pairs.into_iter().map(|(id, _)| id).collect();
@@ -2329,6 +2354,56 @@ fn email_matches_filter(
 // ---------------------------------------------------------------------------
 // EmailSubmission filter helpers (used by MemoryBackend::query_objects)
 // ---------------------------------------------------------------------------
+
+/// Sort EmailSubmission `(id, _)` pairs by the RFC 8621 §7.3 comparators
+/// in `sort`, breaking ties by id so the order is deterministic.
+///
+/// `sentAt` compares the stored `sendAt` instant (RFC 8621 §7). An id with
+/// no stored object, or an object that fails to deserialize, compares equal
+/// on every comparator and falls through to the id tie-break.
+fn sort_submission_pairs(
+    pairs: &mut [(Id, String)],
+    objects: &HashMap<Id, serde_json::Value>,
+    sort: &[EmailSubmissionComparator],
+) {
+    let subs: HashMap<Id, EmailSubmission> = pairs
+        .iter()
+        .filter_map(|(id, _)| {
+            let sub = EmailSubmission::deserialize(objects.get(id)?).ok()?;
+            Some((id.clone(), sub))
+        })
+        .collect();
+    pairs.sort_by(|(id_a, _), (id_b, _)| {
+        let by_comparators = match (subs.get(id_a), subs.get(id_b)) {
+            (Some(a), Some(b)) => sort
+                .iter()
+                .map(|c| {
+                    let ord = match &c.property {
+                        EmailSubmissionComparatorProperty::EmailId => {
+                            a.email_id.as_ref().cmp(b.email_id.as_ref())
+                        }
+                        EmailSubmissionComparatorProperty::ThreadId => {
+                            a.thread_id.as_ref().cmp(b.thread_id.as_ref())
+                        }
+                        EmailSubmissionComparatorProperty::SentAt => {
+                            utcdate_str_to_epoch_secs(a.send_at.as_ref())
+                                .cmp(&utcdate_str_to_epoch_secs(b.send_at.as_ref()))
+                        }
+                        _ => std::cmp::Ordering::Equal,
+                    };
+                    if c.is_ascending {
+                        ord
+                    } else {
+                        ord.reverse()
+                    }
+                })
+                .find(|o| o.is_ne())
+                .unwrap_or(std::cmp::Ordering::Equal),
+            _ => std::cmp::Ordering::Equal,
+        };
+        by_comparators.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
+    });
+}
 
 /// Pre-built lookup sets for a single `EmailSubmissionFilterCondition`.
 ///
