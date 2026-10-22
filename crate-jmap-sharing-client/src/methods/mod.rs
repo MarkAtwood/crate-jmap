@@ -17,8 +17,8 @@ pub mod principal;
 // The wire format is identical to the previous local definitions.
 
 pub use jmap_types::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
-    SetResponse,
+    AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
+    SetError, SetResponse,
 };
 
 // ---------------------------------------------------------------------------

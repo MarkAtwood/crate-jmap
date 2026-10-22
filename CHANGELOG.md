@@ -1319,6 +1319,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-sharing-client**: **BREAKING** `principal_set` and
+  `share_notification_set` return `SetResponse<PartialObject>` (was
+  `SetResponse<Principal>`, which rejected RFC 8620 §5.3 `created`
+  values lacking the client-sent, type-required `type` / `name`, and the
+  hidden `SetResponse<serde_json::Value>`).
 - **jmap-filenode-client**: **BREAKING** `filenode_set` and
   `filenode_copy` return `SetResponse<PartialObject>` (was
   `SetResponse<FileNode>`, which rejected RFC 8620 §5.3 `created` values
