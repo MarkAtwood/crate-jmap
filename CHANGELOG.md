@@ -2801,6 +2801,12 @@ wire behaviour that a conforming peer can observe.
   a property outside RFC 8621 §7.3's `emailId`/`threadId`/`sentAt` is
   `unsupportedSort` (RFC 8620 §5.5); `MemoryBackend` orders
   EmailSubmission query results by those comparators (bd JMAP-skk9.15).
+- **BREAKING** **jmap-mail-server**: `EmailSubmission/queryChanges` now
+  decodes `filter` as `EmailSubmissionFilter` and passes it to the backend
+  instead of ignoring it, so the delta covers only the filtered results
+  and a malformed or unknown filter is `invalidArguments` /
+  `unsupportedFilter` (RFC 8620 §5.6: "The filter argument that was used
+  with Foo/query") (bd JMAP-skk9.18).
 - **jmap-calendars-server**: `CalendarEvent/copy` creates now go through
   `CalendarsBackend::create_calendar_event` (with default
   `CalendarEventSetArgs`) instead of the generic `create_object`, so a

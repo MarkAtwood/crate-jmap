@@ -5409,6 +5409,98 @@ async fn submission_query_unknown_sort_property_unsupported() {
     assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
 }
 
+/// Oracle: RFC 8620 §5.6 — /queryChanges takes "The filter argument that was
+/// used with Foo/query", so the §5.5 unsupportedFilter rule applies to
+/// EmailSubmission/queryChanges too. `deliveryStatus` is not an RFC 8621 §7.3
+/// FilterCondition property.
+#[tokio::test]
+async fn submission_query_changes_unknown_filter_key_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let err = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sinceQueryState": "0",
+            "filter": { "deliveryStatus": {} },
+        }),
+    )
+    .await
+    .expect_err("unknown filter key must be refused");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
+}
+
+/// Oracle: RFC 8620 §5.6 `added`: "The id and index in the query results (in
+/// the new state) for every Foo that has been added to the results since the
+/// old state". RFC 8621 §7.3 `undoStatus`: "The EmailSubmission "undoStatus"
+/// property must be identical to the value given to match the condition."
+/// A pending submission created after the old state was never added to the
+/// `undoStatus: "final"` results.
+#[tokio::test]
+async fn submission_query_changes_applies_filter() {
+    use jmap_mail_types::{EmailSubmission, UndoStatus};
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+
+    let HandlerOutput {
+        primary: initial, ..
+    } = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sinceQueryState": "0" }),
+    )
+    .await
+    .expect("initial queryChanges must succeed");
+    let since = initial["newQueryState"]
+        .as_str()
+        .expect("newQueryState must be present")
+        .to_owned();
+
+    let mut ids = Vec::new();
+    for (key, status) in [
+        ("final", UndoStatus::Final),
+        ("pending", UndoStatus::Pending),
+    ] {
+        let make = |id: &Id| {
+            EmailSubmission::new(
+                id.clone(),
+                Id::from("identity1"),
+                Id::from(format!("email-{key}").as_str()),
+                Id::from(format!("thread-{key}").as_str()),
+                jmap_types::UTCDate::from("2025-01-01T00:00:00Z"),
+                status.clone(),
+            )
+        };
+        let (id, _) = backend
+            .create_object::<EmailSubmission, _>(&(), &account_id, key, make)
+            .await
+            .expect("create submission");
+        ids.push(id);
+    }
+
+    let HandlerOutput { primary: qc, .. } = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sinceQueryState": since,
+            "filter": { "undoStatus": "final" },
+        }),
+    )
+    .await
+    .expect("filtered queryChanges must succeed");
+
+    let added: Vec<&str> = qc["added"]
+        .as_array()
+        .expect("added must be an array")
+        .iter()
+        .map(|v| v["id"].as_str().expect("added id"))
+        .collect();
+    assert_eq!(added, vec![ids[0].as_ref()], "{qc}");
+}
+
 /// Oracle: RFC 8621 §7.3 "sentAt" and "threadId" sorts. Three submissions
 /// are stored with hand-written sendAt / threadId values whose orders
 /// differ, so the expected id order follows from those literals alone.

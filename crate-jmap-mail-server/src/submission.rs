@@ -323,7 +323,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let (account_id, args) = extract_account_id(args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
         .await
@@ -351,16 +351,18 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
-    // RFC 8620 §5.6: `sort` is "The sort argument that was used with
-    // Foo/query", so it decodes and validates exactly as in
+    // RFC 8620 §5.6: `filter` and `sort` are "The filter/sort argument that
+    // was used with Foo/query", so they decode and validate exactly as in
     // handle_submission_query.
     let sort_values = submission_sort_arg(&args)?;
+    let filter: Option<EmailSubmissionFilter> = filter_arg(&mut args)?;
 
     let result = backend
         .query_changes::<EmailSubmission>(
             caller,
             &account_id,
             QueryChangesParams::new(&since_query_state)
+                .filter(filter.as_ref())
                 .sort((!sort_values.is_empty()).then_some(sort_values.as_slice()))
                 .max_changes(max_changes)
                 .up_to_id(up_to_id.as_ref()),
