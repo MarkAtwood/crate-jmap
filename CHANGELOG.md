@@ -1343,6 +1343,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-metadata-server**: **BREAKING** `value_depth` returns `u64`
+  and `exceeds_max_depth` takes `max_depth: u64`, matching
+  `DataTypeMetadataInfo::max_depth: Option<u64>`
+  (draft-ietf-jmap-metadata-04 §1.2.1 "maxDepth: UnsignedInt|null").
+  The old `u32` made callers write `d as u32`, which turns an
+  advertised `maxDepth` of 2^32 into 0 so that every write is rejected
+  (bd JMAP-skk9.12).
 - **jmap-calendars-client**: **BREAKING** `calendar_event_set` takes a
   trailing `params: Option<CalendarEventSetParams>` carrying
   `sendSchedulingMessages` (draft-ietf-jmap-calendars-33 §5.9), so a

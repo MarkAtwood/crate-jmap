@@ -35,7 +35,7 @@ use serde_json::Value;
 /// assert_eq!(value_depth(&json!({"key": {"nested": "val"}})), 2);
 /// assert_eq!(value_depth(&json!({"x": [{"y": 1}]})), 2);
 /// ```
-pub fn value_depth(value: &Value) -> u32 {
+pub fn value_depth(value: &Value) -> u64 {
     match value {
         Value::Object(map) => 1 + map.values().map(value_depth).max().unwrap_or(0),
         Value::Array(arr) => arr.iter().map(value_depth).max().unwrap_or(0),
@@ -47,7 +47,9 @@ pub fn value_depth(value: &Value) -> u32 {
 /// draft-ietf-jmap-metadata-04 §2.1.
 ///
 /// Servers MUST reject writes that would exceed `maxDepth` with an
-/// `invalidProperties` SetError. A non-object value has depth 0 and
+/// `invalidProperties` SetError. `max_depth` is `u64` to match
+/// [`DataTypeMetadataInfo::max_depth`], so a `Some(d)` passes straight
+/// through without a narrowing cast. A non-object value has depth 0 and
 /// never exceeds a `maxDepth` (which §1.2.1 requires to be at least 1),
 /// so the caller must reject it separately, as with [`value_depth`].
 ///
@@ -65,7 +67,7 @@ pub fn value_depth(value: &Value) -> u32 {
 /// assert!(exceeds_max_depth(&nested, 1));
 /// assert!(!exceeds_max_depth(&nested, 2));
 /// ```
-pub fn exceeds_max_depth(value: &Value, max_depth: u32) -> bool {
+pub fn exceeds_max_depth(value: &Value, max_depth: u64) -> bool {
     value_depth(value) > max_depth
 }
 
@@ -237,6 +239,14 @@ mod tests {
     #[test]
     fn exceeds_three_levels_at_max_2() {
         assert!(exceeds_max_depth(&json!({"a": {"b": {"c": "d"}}}), 2));
+    }
+
+    #[test]
+    fn exceeds_max_above_u32_range() {
+        // -04 §1.2.1: "maxDepth: UnsignedInt|null"; RFC 8620 §1.3 lets an
+        // UnsignedInt reach 2^53-1. A maxDepth of 2^32 permits depth 2.
+        assert!(!exceeds_max_depth(&json!({"a": {"b": "c"}}), 4_294_967_296));
+        assert!(!exceeds_max_depth(&json!({"a": 1}), 9_007_199_254_740_991));
     }
 
     // -- is_namespace_supported -------------------------------------------
