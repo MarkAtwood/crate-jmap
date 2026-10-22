@@ -1309,6 +1309,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** Every `/query` comparator `property` is a typed enum with
+  an `Other(String)` catch-all, the `jmap-mail-types`
+  `ComparatorProperty` shape (bd JMAP-wf92.11). **jmap-calendars-types**:
+  `CalendarEventComparatorProperty` (draft-ietf-jmap-calendars-26
+  §5.11.2). **jmap-tasks-types**: `TaskComparatorProperty`
+  (draft-ietf-jmap-tasks-06 §4.13) and `TaskNotificationComparatorProperty`
+  (§5.5.2). **jmap-contacts-types**: `ContactCardComparatorProperty`
+  (RFC 9610 §3.3.2); the `card::prop` consts and the `comparator_prop`
+  re-export are removed. These four comparators lose `Default` and gain
+  `new(property)`. **jmap-chat-types**, **jmap-graph-types**,
+  **jmap-scene-types**, **jmap-vtc-types**: the per-object sort property
+  enums gain `Other(String)` and are no longer `Copy`; an unlisted name
+  now decodes to `Other` instead of failing. **jmap-chat-server**,
+  **jmap-graph-server**, **jmap-scene-server**, **jmap-vtc-server** still
+  answer an unlisted sort property with `unsupportedSort` (RFC 8620
+  §5.5), as does GraphNodeOp/query for any property other than `seq`.
 - **BREAKING** **jmap-mail-client**: `mailbox_set`, `identity_set` and
   `vacation_response_set` take `if_in_state: Option<&State>`, sent as
   the RFC 8620 §5.3 `ifInState` optimistic-concurrency guard, matching

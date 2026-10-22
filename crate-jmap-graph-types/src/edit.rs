@@ -21,7 +21,7 @@
 //! base64url, oversized data, a `baseSeq` past the head and every other
 //! rule of the draft is a server check.
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::GraphNode;
@@ -187,12 +187,18 @@ impl GraphNodeOpFilterCondition {
 /// Sort property for `GraphNodeOp/query`: "The only supported sort is
 /// `seq` ascending, which is also the order when `sort` is absent."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GraphNodeOpSortProperty {
     /// Sort by `seq`.
     Seq,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(GraphNodeOpSortProperty, "a sort property string",
+    "seq" => Seq,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `GraphNodeOp/query`.
 ///

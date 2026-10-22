@@ -1984,3 +1984,31 @@ fn calendar_rights_may_set_metadata_typed_and_optional() {
     assert_eq!(r.may_set_metadata, None);
     assert_eq!(serde_json::to_value(&r).unwrap(), without);
 }
+
+// ─── CalendarEventComparator ─────────────────────────────────────────────────
+
+/// draft-ietf-jmap-calendars-26 §5.11.2: "The following properties MUST be
+/// supported for sorting: start, uid, recurrenceId" and "SHOULD be supported
+/// for sorting: created, updated". A name not listed survives as `Other`
+/// and re-encodes to the same JSON (bd JMAP-wf92.11).
+#[test]
+fn calendar_event_comparator_sort_properties() {
+    use jmap_calendars_types::{CalendarEventComparator, CalendarEventComparatorProperty as P};
+    for (wire, want) in [
+        ("start", P::Start),
+        ("uid", P::Uid),
+        ("recurrenceId", P::RecurrenceId),
+        ("created", P::Created),
+        ("updated", P::Updated),
+    ] {
+        let c: CalendarEventComparator =
+            serde_json::from_value(serde_json::json!({ "property": wire })).unwrap();
+        assert_eq!(c.property, want);
+        // RFC 8620 §5.5 isAscending "(default: true)".
+        assert!(c.is_ascending);
+    }
+    let wire = serde_json::json!({ "property": "x-vendor-rank", "isAscending": false });
+    let c: CalendarEventComparator = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(c.property, P::Other("x-vendor-rank".to_owned()));
+    assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+}

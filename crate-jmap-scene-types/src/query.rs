@@ -35,7 +35,7 @@
 //! let filter = SceneObjectFilter::Condition(cond);
 //! ```
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 use crate::{AccessPolicy, PhysicsMode, Position, ViewHint};
@@ -112,8 +112,7 @@ pub struct SceneAssetFilterCondition {
 /// Sort property for `SceneAsset/query`: "Sort properties: `createdAt`,
 /// `name`, `size`. Default sort: `createdAt` descending."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SceneAssetSortProperty {
     /// Sort by `createdAt`.
     CreatedAt,
@@ -121,7 +120,16 @@ pub enum SceneAssetSortProperty {
     Name,
     /// Sort by `size`.
     Size,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(SceneAssetSortProperty, "a sort property string",
+    "createdAt" => CreatedAt,
+    "name" => Name,
+    "size" => Size,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `SceneAsset/query`.
 ///
@@ -194,8 +202,7 @@ pub struct SceneRegionFilterCondition {
 /// Sort property for `SceneRegion/query`: "Sort properties: `createdAt`,
 /// `name`, `activeAvatarCount`. Default sort: `createdAt` descending."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SceneRegionSortProperty {
     /// Sort by `createdAt`.
     CreatedAt,
@@ -203,7 +210,16 @@ pub enum SceneRegionSortProperty {
     Name,
     /// Sort by `activeAvatarCount`.
     ActiveAvatarCount,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(SceneRegionSortProperty, "a sort property string",
+    "createdAt" => CreatedAt,
+    "name" => Name,
+    "activeAvatarCount" => ActiveAvatarCount,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `SceneRegion/query`.
 ///
@@ -288,14 +304,21 @@ pub struct SceneObjectFilterCondition {
 /// Sort property for `SceneObject/query`: "Sort properties: `createdAt`,
 /// `name`. Default sort: `createdAt` ascending."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SceneObjectSortProperty {
     /// Sort by `createdAt`.
     CreatedAt,
     /// Sort by `name`.
     Name,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(SceneObjectSortProperty, "a sort property string",
+    "createdAt" => CreatedAt,
+    "name" => Name,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `SceneObject/query`.
 ///
@@ -359,14 +382,21 @@ pub struct SceneAvatarFilterCondition {
 /// Sort property for `SceneAvatar/query`: "Sort properties: `joinedAt`,
 /// `displayName`. Default sort: `joinedAt` ascending."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SceneAvatarSortProperty {
     /// Sort by `joinedAt`.
     JoinedAt,
     /// Sort by `displayName`.
     DisplayName,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(SceneAvatarSortProperty, "a sort property string",
+    "joinedAt" => JoinedAt,
+    "displayName" => DisplayName,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `SceneAvatar/query`.
 ///
@@ -608,20 +638,31 @@ mod tests {
                 serde_json::from_value(json!({ "property": wire })).unwrap();
             assert_eq!(c.property, want);
         }
-        assert!(
+        assert_eq!(
             serde_json::from_value::<SceneAssetComparator>(json!({"property": "mediaType"}))
-                .is_err()
+                .unwrap()
+                .property,
+            SceneAssetSortProperty::Other("mediaType".to_owned())
         );
-        assert!(
+        assert_eq!(
             serde_json::from_value::<SceneRegionComparator>(json!({"property": "updatedAt"}))
-                .is_err()
+                .unwrap()
+                .property,
+            SceneRegionSortProperty::Other("updatedAt".to_owned())
         );
-        assert!(serde_json::from_value::<SceneObjectComparator>(
-            json!({"property": "activeAvatarCount"})
-        )
-        .is_err());
-        assert!(
-            serde_json::from_value::<SceneAvatarComparator>(json!({"property": "leftAt"})).is_err()
+        assert_eq!(
+            serde_json::from_value::<SceneObjectComparator>(
+                json!({"property": "activeAvatarCount"})
+            )
+            .unwrap()
+            .property,
+            SceneObjectSortProperty::Other("activeAvatarCount".to_owned())
+        );
+        assert_eq!(
+            serde_json::from_value::<SceneAvatarComparator>(json!({"property": "leftAt"}))
+                .unwrap()
+                .property,
+            SceneAvatarSortProperty::Other("leftAt".to_owned())
         );
     }
 }

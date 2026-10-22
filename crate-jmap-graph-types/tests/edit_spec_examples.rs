@@ -304,8 +304,11 @@ fn op_query_sort_is_seq() {
     // L230: "The only supported sort is `seq` ascending".
     let c: GraphNodeOpComparator = serde_json::from_value(json!({ "property": "seq" })).unwrap();
     assert_eq!(c, GraphNodeOpComparator::new(GraphNodeOpSortProperty::Seq));
-    assert!(
-        serde_json::from_value::<GraphNodeOpComparator>(json!({ "property": "created" })).is_err()
+    assert_eq!(
+        serde_json::from_value::<GraphNodeOpComparator>(json!({"property": "created"}))
+            .unwrap()
+            .property,
+        GraphNodeOpSortProperty::Other("created".to_owned())
     );
 }
 

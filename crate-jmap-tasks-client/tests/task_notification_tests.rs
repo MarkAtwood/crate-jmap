@@ -10,7 +10,7 @@
 mod helpers;
 
 use jmap_tasks_types::notification::{TaskNotificationFilter, TaskNotificationFilterCondition};
-use jmap_tasks_types::TaskNotificationComparator;
+use jmap_tasks_types::{TaskNotificationComparator, TaskNotificationComparatorProperty};
 use jmap_types::query::Filter;
 use jmap_types::{Id, State};
 use serde_json::json;
@@ -337,8 +337,7 @@ async fn task_notification_query_with_filter() {
     let mut cond = TaskNotificationFilterCondition::default();
     cond.notification_type = Some("created".into());
     cond.task_ids = Some(vec![Id::from("task1")]);
-    let mut cmp = TaskNotificationComparator::default();
-    cmp.property = "created".into();
+    let mut cmp = TaskNotificationComparator::new(TaskNotificationComparatorProperty::Created);
     cmp.is_ascending = true;
     let resp = sc
         .task_notification_query(
@@ -471,8 +470,7 @@ async fn task_notification_query_changes_with_filter_sort_upto_calculatetotal() 
     let up_to = Id::from("tn-100");
     let mut cond = TaskNotificationFilterCondition::default();
     cond.task_ids = Some(vec![Id::from("task1")]);
-    let mut cmp = TaskNotificationComparator::default();
-    cmp.property = "created".into();
+    let mut cmp = TaskNotificationComparator::new(TaskNotificationComparatorProperty::Created);
     cmp.is_ascending = false;
     sc.task_notification_query_changes(
         &since,

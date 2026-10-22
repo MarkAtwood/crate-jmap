@@ -100,16 +100,41 @@ pub(crate) fn default_sort(args: &mut Map<String, Value>, default: Value) {
 /// Reject a `/query` `sort` property this server does not define: RFC 8620
 /// §5.5 `unsupportedSort`. A value that is not an array is left for the
 /// typed decode to reject.
-pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned>(
+pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned + KnownSort>(
     sort: Option<&Value>,
 ) -> Result<(), JmapError> {
     if let Some(Value::Array(comparators)) = sort {
         for c in comparators {
-            <C as serde::Deserialize>::deserialize(c).map_err(|_| JmapError::unsupported_sort())?;
+            if !<C as serde::Deserialize>::deserialize(c).is_ok_and(|c| c.known()) {
+                return Err(JmapError::unsupported_sort());
+            }
         }
     }
     Ok(())
 }
+
+/// A comparator whose `property` decodes an unknown name to `Other`
+/// (bd JMAP-wf92.11), so [`reject_unsupported_sort`] must check it.
+pub(crate) trait KnownSort {
+    /// `false` when `property` is `Other`, a name the draft does not list.
+    fn known(&self) -> bool;
+}
+
+macro_rules! known_sort {
+    ($($cmp:ty => $prop:path),+ $(,)?) => {$(
+        impl KnownSort for $cmp {
+            fn known(&self) -> bool {
+                !matches!(self.property, $prop(_))
+            }
+        }
+    )+};
+}
+
+known_sort!(
+    jmap_vtc_types::query::VtcCallComparator => jmap_vtc_types::query::VtcCallSortProperty::Other,
+    jmap_vtc_types::query::VtcParticipantComparator => jmap_vtc_types::query::VtcParticipantSortProperty::Other,
+    jmap_vtc_types::query::VtcMediaComparator => jmap_vtc_types::query::VtcMediaSortProperty::Other,
+);
 
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 #[derive(Debug, Default)]

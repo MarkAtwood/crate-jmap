@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, PatchObject, UTCDate};
+use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-26 §5; RFC 8984 §5.1).
@@ -451,11 +451,46 @@ pub struct CalendarEventFilterCondition {
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
 pub type CalendarEventFilter = jmap_types::query::Filter<CalendarEventFilterCondition>;
 
+/// The property to sort by in a [`CalendarEventComparator`]
+/// (draft-ietf-jmap-calendars-26 §5.11.2: "The following properties MUST
+/// be supported for sorting: start, uid, recurrenceId" and "SHOULD be
+/// supported for sorting: created, updated").
+///
+/// Unknown property names are preserved in
+/// [`Other`](CalendarEventComparatorProperty::Other) so they round-trip;
+/// a server cannot sort by one it does not know (RFC 8620 §5.5
+/// `unsupportedSort`). Cross-reference: bd JMAP-wf92.11.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CalendarEventComparatorProperty {
+    /// Sort by `start`.
+    Start,
+    /// Sort by `uid`.
+    Uid,
+    /// Sort by `recurrenceId`.
+    RecurrenceId,
+    /// Sort by `created`.
+    Created,
+    /// Sort by `updated`.
+    Updated,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(CalendarEventComparatorProperty, "a CalendarEvent sort property string",
+    "start"        => Start,
+    "uid"          => Uid,
+    "recurrenceId" => RecurrenceId,
+    "created"      => Created,
+    "updated"      => Updated,
+);
+
 /// Comparator for `CalendarEvent/query`
 /// (draft-ietf-jmap-calendars-26 §5.11.2).
 ///
-/// The spec mandates `"start"`, `"uid"`, and `"recurrenceId"` MUST be
-/// supported for sorting.
+/// Build one with [`CalendarEventComparator::new`]; the struct is
+/// `#[non_exhaustive]`.
 ///
 /// # Excluded from extras preservation
 ///
@@ -468,11 +503,11 @@ pub type CalendarEventFilter = jmap_types::query::Filter<CalendarEventFilterCond
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEventComparator {
-    /// Property name to sort by.  `"start"` MUST be supported.
-    pub property: String,
+    /// The property to sort by.
+    pub property: CalendarEventComparatorProperty,
 
     /// If `true`, sort ascending; if `false`, sort descending (default `true`).
     #[serde(default = "default_ascending")]
@@ -481,6 +516,18 @@ pub struct CalendarEventComparator {
     /// A collation identifier (RFC 4790) to use when comparing strings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collation: Option<String>,
+}
+
+impl CalendarEventComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: CalendarEventComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
 }
 
 fn default_ascending() -> bool {

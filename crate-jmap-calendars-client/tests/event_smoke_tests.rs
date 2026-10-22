@@ -18,7 +18,8 @@ use std::collections::BTreeMap;
 
 use jmap_calendars_client::methods::CalendarEventGetParams;
 use jmap_calendars_types::{
-    CalendarEventComparator, CalendarEventFilter, CalendarEventFilterCondition,
+    CalendarEventComparator, CalendarEventComparatorProperty, CalendarEventFilter,
+    CalendarEventFilterCondition,
 };
 use jmap_metadata_types::{MetadataTextMatch, WithMetadata};
 use jmap_types::query::{Filter, FilterOperator, Operator};
@@ -240,8 +241,7 @@ async fn calendar_event_query_filter_sort_expand_recurrences_passthrough() {
     filter.after = Some("2024-06-01T00:00:00".to_owned());
     filter.before = Some("2024-07-01T00:00:00".to_owned());
     filter.text = Some("standup".to_owned());
-    let mut comparator = CalendarEventComparator::default();
-    comparator.property = "start".to_owned();
+    let mut comparator = CalendarEventComparator::new(CalendarEventComparatorProperty::Start);
     comparator.is_ascending = false;
     let sort = vec![comparator];
     let filter = Filter::Condition(filter);
@@ -577,8 +577,7 @@ async fn calendar_event_query_changes_with_filter_sort_upto_calculatetotal() {
     let mut condition = CalendarEventFilterCondition::default();
     condition.in_calendar = Some(Id::from("cal-1"));
     let filter = Filter::Condition(condition);
-    let mut comparator = CalendarEventComparator::default();
-    comparator.property = "start".to_owned();
+    let mut comparator = CalendarEventComparator::new(CalendarEventComparatorProperty::Start);
     comparator.is_ascending = true;
     sc.calendar_event_query_changes(
         &since,

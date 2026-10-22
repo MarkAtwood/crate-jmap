@@ -24,7 +24,7 @@
 //! let filter = VtcCallFilter::Condition(cond);
 //! ```
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -81,14 +81,21 @@ pub struct VtcCallFilterCondition {
 /// Sort property for `VTCCall/query`: "Sort properties: `createdAt`,
 /// `endedAt`. Default sort: `createdAt` descending."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VtcCallSortProperty {
     /// Sort by `createdAt`.
     CreatedAt,
     /// Sort by `endedAt`.
     EndedAt,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(VtcCallSortProperty, "a sort property string",
+    "createdAt" => CreatedAt,
+    "endedAt" => EndedAt,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `VTCCall/query`.
 ///
@@ -159,14 +166,21 @@ pub struct VtcParticipantFilterCondition {
 /// Sort property for `VTCParticipant/query`: "Sort properties: `joinedAt`,
 /// `displayName`. Default sort: `joinedAt` ascending."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VtcParticipantSortProperty {
     /// Sort by `joinedAt`.
     JoinedAt,
     /// Sort by `displayName`.
     DisplayName,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(VtcParticipantSortProperty, "a sort property string",
+    "joinedAt" => JoinedAt,
+    "displayName" => DisplayName,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `VTCParticipant/query`.
 ///
@@ -249,12 +263,18 @@ pub struct VtcLivestreamFilterCondition {
 /// Sort property for `VTCRecording/query` and `VTCLivestream/query`: "Sort
 /// properties: `startedAt`. Default sort: `startedAt` descending."
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VtcMediaSortProperty {
     /// Sort by `startedAt`.
     StartedAt,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
 }
+
+impl_string_enum!(VtcMediaSortProperty, "a sort property string",
+    "startedAt" => StartedAt,
+);
 
 /// RFC 8620 §5.5 `Comparator` for `VTCRecording/query` and
 /// `VTCLivestream/query`.
@@ -332,8 +352,11 @@ mod tests {
         assert_eq!(c.property, VtcCallSortProperty::EndedAt);
         // RFC 8620 §5.5 isAscending "default: true".
         assert!(c.is_ascending);
-        assert!(
-            serde_json::from_value::<VtcCallComparator>(json!({"property": "subject"})).is_err()
+        assert_eq!(
+            serde_json::from_value::<VtcCallComparator>(json!({"property": "subject"}))
+                .unwrap()
+                .property,
+            VtcCallSortProperty::Other("subject".to_owned())
         );
     }
 
@@ -369,10 +392,14 @@ mod tests {
             assert_eq!(c.property, want);
             assert!(c.is_ascending);
         }
-        assert!(serde_json::from_value::<VtcParticipantComparator>(
-            json!({"property": "speakerTimeMs"})
-        )
-        .is_err());
+        assert_eq!(
+            serde_json::from_value::<VtcParticipantComparator>(
+                json!({"property": "speakerTimeMs"})
+            )
+            .unwrap()
+            .property,
+            VtcParticipantSortProperty::Other("speakerTimeMs".to_owned())
+        );
     }
 
     #[test]
@@ -415,8 +442,11 @@ mod tests {
             serde_json::from_value(json!({"property": "startedAt"})).unwrap();
         assert_eq!(c.property, VtcMediaSortProperty::StartedAt);
         assert!(c.is_ascending);
-        assert!(
-            serde_json::from_value::<VtcMediaComparator>(json!({"property": "stoppedAt"})).is_err()
+        assert_eq!(
+            serde_json::from_value::<VtcMediaComparator>(json!({"property": "stoppedAt"}))
+                .unwrap()
+                .property,
+            VtcMediaSortProperty::Other("stoppedAt".to_owned())
         );
     }
 }

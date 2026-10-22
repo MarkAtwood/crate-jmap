@@ -7,7 +7,10 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_contacts_types::{ContactCardComparator, ContactCardFilter, ContactCardFilterCondition};
+use jmap_contacts_types::{
+    ContactCardComparator, ContactCardComparatorProperty, ContactCardFilter,
+    ContactCardFilterCondition,
+};
 use jmap_types::query::Filter;
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -183,8 +186,8 @@ async fn contact_card_query_changes_with_filter_sort_upto_calculatetotal() {
     let up_to = jmap_types::Id::from("CC-100");
     let mut cond = ContactCardFilterCondition::default();
     cond.in_address_book = Some(jmap_types::Id::from("ab-1"));
-    let mut cmp = ContactCardComparator::default();
-    cmp.property = "uid".into();
+    let mut cmp =
+        ContactCardComparator::new(ContactCardComparatorProperty::Other("uid".to_owned()));
     cmp.is_ascending = true;
     sc.contact_card_query_changes(
         &since,

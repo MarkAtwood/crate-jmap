@@ -20,7 +20,7 @@
 //! | [`task_list`] | [`TaskList`], [`TaskRights`], [`TaskListRole`] |
 //! | [`task`] | [`Task`], [`TaskProgress`], [`Checklist`], [`CheckItem`], [`Comment`], [`Person`], [`TaskFilterCondition`] |
 //! | [`notification`] | [`TaskNotification`], [`NotificationType`], [`TaskNotificationFilterCondition`] |
-//! | [`filter`] | [`TaskComparator`], [`TaskNotificationComparator`] |
+//! | [`filter`] | [`TaskComparator`], [`TaskComparatorProperty`], [`TaskNotificationComparator`], [`TaskNotificationComparatorProperty`] |
 //! | [`capability`] | [`TasksCapability`], [`TasksAccountCapability`], URI constants, extension capabilities |
 
 #![forbid(unsafe_code)]
@@ -59,7 +59,10 @@ pub use capability::{
     JMAP_TASKS_ASSIGNEES_URI, JMAP_TASKS_CUSTOMTIMEZONES_URI, JMAP_TASKS_MULTILINGUAL_URI,
     JMAP_TASKS_RECURRENCES_URI, JMAP_TASKS_URI,
 };
-pub use filter::{TaskComparator, TaskNotificationComparator};
+pub use filter::{
+    TaskComparator, TaskComparatorProperty, TaskNotificationComparator,
+    TaskNotificationComparatorProperty,
+};
 pub use jmap_jscalendar_types::{
     AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
     OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone, TimeZoneRule,

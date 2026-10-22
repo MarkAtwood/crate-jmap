@@ -1604,3 +1604,44 @@ fn task_rights_may_set_metadata_typed_and_optional() {
     assert_eq!(r.may_set_metadata, None);
     assert_eq!(serde_json::to_value(&r).unwrap(), without);
 }
+
+// ─── Comparators ─────────────────────────────────────────────────────────────
+
+/// draft-ietf-jmap-tasks-06 §4.13: Task/query "is the \"CalendarEvent/query\"
+/// method", whose sort properties are `start`, `uid`, `recurrenceId`,
+/// `created`, `updated` (draft-ietf-jmap-calendars-26 §5.11.2). A name not
+/// listed survives as `Other` and re-encodes to the same JSON.
+#[test]
+fn task_comparator_sort_properties() {
+    use jmap_tasks_types::{TaskComparator, TaskComparatorProperty as P};
+    for (wire, want) in [
+        ("start", P::Start),
+        ("uid", P::Uid),
+        ("recurrenceId", P::RecurrenceId),
+        ("created", P::Created),
+        ("updated", P::Updated),
+    ] {
+        let c: TaskComparator =
+            serde_json::from_value(serde_json::json!({ "property": wire })).unwrap();
+        assert_eq!(c.property, want);
+        assert!(c.is_ascending);
+    }
+    let wire = serde_json::json!({ "property": "due", "isAscending": false });
+    let c: TaskComparator = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(c.property, P::Other("due".to_owned()));
+    assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+}
+
+/// draft-ietf-jmap-tasks-06 §5.5.2: "The \"created\" property MUST be
+/// supported for sorting." Any other name survives as `Other`.
+#[test]
+fn task_notification_comparator_sort_properties() {
+    use jmap_tasks_types::{TaskNotificationComparator, TaskNotificationComparatorProperty as P};
+    let c: TaskNotificationComparator =
+        serde_json::from_value(serde_json::json!({ "property": "created" })).unwrap();
+    assert_eq!(c.property, P::Created);
+    let wire = serde_json::json!({ "property": "taskId", "isAscending": true });
+    let c: TaskNotificationComparator = serde_json::from_value(wire.clone()).unwrap();
+    assert_eq!(c.property, P::Other("taskId".to_owned()));
+    assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+}

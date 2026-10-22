@@ -18,7 +18,7 @@
 //! | Module | Contents |
 //! |---|---|
 //! | [`calendar`] | [`Calendar`], [`CalendarRights`], [`IncludeInAvailability`], [`CalendarFilterCondition`] |
-//! | [`event`] | [`CalendarEvent`], [`CalendarEventFilterCondition`], [`CalendarEventComparator`] |
+//! | [`event`] | [`CalendarEvent`], [`CalendarEventFilterCondition`], [`CalendarEventComparator`], [`CalendarEventComparatorProperty`] |
 //! | [`jscalendar`] | Module alias re-exporting `jmap-jscalendar-types`: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`] |
 //! | [`notification`] | [`CalendarEventNotification`], [`Person`], [`NotificationType`], [`NotificationFilterCondition`] |
 //! | [`participant_identity`] | [`ParticipantIdentity`] |
@@ -78,7 +78,8 @@ pub use capability::{
     JMAP_PRINCIPALS_AVAILABILITY_URI,
 };
 pub use event::{
-    CalendarEvent, CalendarEventComparator, CalendarEventFilter, CalendarEventFilterCondition,
+    CalendarEvent, CalendarEventComparator, CalendarEventComparatorProperty, CalendarEventFilter,
+    CalendarEventFilterCondition,
 };
 pub use jmap_jscalendar_types::{
     AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,

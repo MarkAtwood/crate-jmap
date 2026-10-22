@@ -82,16 +82,43 @@ pub(crate) fn default_sort(args: &mut Map<String, Value>, default: Value) {
 /// left for the typed decode to reject. Unknown `filter` keys need no check
 /// here: the chat filter types carry `#[serde(deny_unknown_fields)]`, so
 /// the typed decode fails and maps to `unsupportedFilter`.
-pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned>(
+pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned + KnownSort>(
     sort: Option<&Value>,
 ) -> Result<(), JmapError> {
     if let Some(Value::Array(comparators)) = sort {
         for c in comparators {
-            <C as serde::Deserialize>::deserialize(c).map_err(|_| JmapError::unsupported_sort())?;
+            if !<C as serde::Deserialize>::deserialize(c).is_ok_and(|c| c.known()) {
+                return Err(JmapError::unsupported_sort());
+            }
         }
     }
     Ok(())
 }
+
+/// A comparator whose `property` decodes an unknown name to `Other`
+/// (bd JMAP-wf92.11), so [`reject_unsupported_sort`] must check it.
+pub(crate) trait KnownSort {
+    /// `false` when `property` is `Other`, a name the draft does not list.
+    fn known(&self) -> bool;
+}
+
+macro_rules! known_sort {
+    ($($cmp:ty => $prop:path),+ $(,)?) => {$(
+        impl KnownSort for $cmp {
+            fn known(&self) -> bool {
+                !matches!(self.property, $prop(_))
+            }
+        }
+    )+};
+}
+
+known_sort!(
+    jmap_chat_types::query::ChatContactComparator => jmap_chat_types::query::ChatContactComparatorProperty::Other,
+    jmap_chat_types::query::ChatComparator => jmap_chat_types::query::ChatComparatorProperty::Other,
+    jmap_chat_types::query::MessageComparator => jmap_chat_types::query::MessageComparatorProperty::Other,
+    jmap_chat_types::query::SpaceComparator => jmap_chat_types::query::SpaceComparatorProperty::Other,
+    jmap_chat_types::query::CustomEmojiComparator => jmap_chat_types::query::CustomEmojiComparatorProperty::Other,
+);
 
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
