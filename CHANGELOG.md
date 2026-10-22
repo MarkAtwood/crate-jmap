@@ -2657,6 +2657,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-calendars-server**: `CalendarEvent/copy` creates now go through
+  `CalendarsBackend::create_calendar_event` (with default
+  `CalendarEventSetArgs`) instead of the generic `create_object`, so a
+  backend's §5.9 create rules and the draft-ietf-jmap-calendars-33 §5.10
+  rule (non-`public` privacy copied into an account that does not belong
+  to the user → `invalidProperties`) apply to copies (bd JMAP-wf92.24).
 - **jmap-vtc-server**: a `VTCCall/set` `state: "ended"` on a call that
   changed state after the handler read it (a ring answered, a scheduled
   call joined) now ends the call with the `endReason` of its new state
