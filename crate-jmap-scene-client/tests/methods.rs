@@ -211,8 +211,11 @@ async fn scene_asset_query_matches_example() {
         .scene_asset_query(
             Some(&Filter::Condition(cond)),
             Some(&[by_created]),
-            Some(0),
-            Some(25),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(25),
+                ..Default::default()
+            },
         )
         .await
         .expect("SceneAsset/query must succeed");
@@ -357,8 +360,11 @@ async fn scene_object_query_within_radius_matches_example() {
         .scene_object_query(
             Some(&Filter::Condition(cond)),
             Some(&[SceneObjectComparator::new(SceneObjectSortProperty::Name)]),
-            Some(0),
-            Some(25),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(25),
+                ..Default::default()
+            },
         )
         .await
         .expect("SceneObject/query must succeed");
@@ -472,8 +478,11 @@ async fn scene_avatar_query_matches_example() {
             Some(&[SceneAvatarComparator::new(
                 SceneAvatarSortProperty::JoinedAt,
             )]),
-            Some(0),
-            Some(50),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(50),
+                ..Default::default()
+            },
         )
         .await
         .expect("SceneAvatar/query must succeed");

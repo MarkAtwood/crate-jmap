@@ -265,7 +265,7 @@ async fn graph_edge_query_matches_traversal_example() {
     let mut cond = GraphEdgeFilterCondition::new(Id::from("G1"));
     cond.from_id = Some(vec![Id::from("N1")]);
     let resp = make_client(&server)
-        .graph_edge_query(&cond, None, None, None)
+        .graph_edge_query(&cond, None, &jmap_base_client::QueryParams::default())
         .await
         .expect("GraphEdge/query must succeed");
     assert_eq!(resp.ids, vec![Id::from("E1"), Id::from("E2")]);
@@ -292,7 +292,7 @@ async fn graph_node_query_object_uri_matches_projection_example() {
     let mut cond = GraphNodeFilterCondition::new(Id::from("PG1"));
     cond.object_uri = Some(vec!["jmap:email:A1:M42".into()]);
     let resp = make_client(&server)
-        .graph_node_query(&cond, None, None, None)
+        .graph_node_query(&cond, None, &jmap_base_client::QueryParams::default())
         .await
         .expect("GraphNode/query must succeed");
     assert_eq!(resp.ids, vec![Id::from("N9")]);
@@ -380,8 +380,11 @@ async fn graph_query_sends_filter_and_sort() {
         .graph_query(
             Some(&Filter::Condition(cond)),
             Some(&sort),
-            Some(0),
-            Some(10),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(10),
+                ..Default::default()
+            },
         )
         .await
         .expect("Graph/query must succeed");

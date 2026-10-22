@@ -175,23 +175,15 @@ impl super::SessionClient {
         &self,
         filter: Option<&Filter<C>>,
         sort: Option<&[jmap_chat_types::query::SpaceComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-            "filter": serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?,
-        });
+        let mut args = params.to_arguments(account_id);
+        args["filter"] =
+            serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?;
         if let Some(s) = sort {
             args["sort"] =
                 serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
-        }
-        if let Some(p) = position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = limit {
-            args["limit"] = l.into();
         }
         let req = super::build_request("Space/query", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;

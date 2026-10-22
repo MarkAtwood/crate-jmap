@@ -224,9 +224,14 @@ async fn email_query_sends_typed_not_operator() {
         Operator::Not,
         vec![Filter::Condition(seen), Filter::Condition(from)],
     ));
-    sc.email_query(Some(&filter), None, None, None, None)
-        .await
-        .expect("email_query: must succeed");
+    sc.email_query(
+        Some(&filter),
+        None,
+        &jmap_base_client::QueryParams::default(),
+        None,
+    )
+    .await
+    .expect("email_query: must succeed");
 
     assert_eq!(
         sent_filter(&server).await,
@@ -268,9 +273,14 @@ async fn email_query_sends_metadata_02_section_6_7_filter() {
             Filter::Condition(contains),
         ],
     ));
-    sc.email_query(Some(&filter), None, None, None, None)
-        .await
-        .expect("email_query: must succeed");
+    sc.email_query(
+        Some(&filter),
+        None,
+        &jmap_base_client::QueryParams::default(),
+        None,
+    )
+    .await
+    .expect("email_query: must succeed");
 
     assert_eq!(
         sent_filter(&server).await,
@@ -286,6 +296,47 @@ async fn email_query_sends_metadata_02_section_6_7_filter() {
                     }
                 }
             ]
+        })
+    );
+}
+
+/// `QueryParams` window arguments and `collapseThreads` reach the wire
+/// under their RFC names.
+///
+/// Oracle: RFC 8620 §5.5 names `anchor` ("Id|null"), `anchorOffset`
+/// ("Int", "This MAY be negative"), `limit` and `calculateTotal`;
+/// RFC 8621 §4.4 adds `collapseThreads`. Expected JSON written by hand.
+#[tokio::test]
+async fn email_query_sends_anchor_window_and_collapse_threads() {
+    let server = mount_email_query().await;
+    let sc = helpers::make_client(&server);
+
+    let params = jmap_base_client::QueryParams {
+        anchor: Some(Id::from("EM-42")),
+        anchor_offset: Some(-2),
+        limit: Some(10),
+        calculate_total: Some(true),
+        ..Default::default()
+    };
+    sc.email_query(None::<&EmailFilter>, None, &params, Some(true))
+        .await
+        .expect("email_query: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    assert_eq!(
+        body["methodCalls"][0][1],
+        json!({
+            "accountId": "A13824",
+            "anchor": "EM-42",
+            "anchorOffset": -2,
+            "limit": 10,
+            "calculateTotal": true,
+            "collapseThreads": true
         })
     );
 }

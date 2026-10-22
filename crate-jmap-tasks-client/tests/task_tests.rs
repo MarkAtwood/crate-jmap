@@ -381,7 +381,15 @@ async fn task_query_with_filter() {
     let mut cond = TaskFilterCondition::default();
     cond.after = Some(UTCDate::from("2026-01-01T00:00:00Z"));
     let resp = sc
-        .task_query(Some(&Filter::Condition(cond)), None, Some(0), Some(20))
+        .task_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(20),
+                ..Default::default()
+            },
+        )
         .await
         .expect("task_query_with_filter: must succeed");
 

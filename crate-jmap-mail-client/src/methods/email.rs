@@ -233,18 +233,10 @@ impl super::SessionClient {
     /// Query Email IDs with optional filter and sort (RFC 8621 §4.4 — Email/query).
     ///
     /// Pass `filter: None` and `sort: None` to return all Emails with
-    /// server-default ordering. Use `position` and `limit` for pagination.
+    /// server-default ordering. Use `params`
+    /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5) for
+    /// pagination.
     /// Pass `collapse_threads: Some(true)` to return at most one email per thread.
-    ///
-    /// # Numeric parameter spec magic-values (RFC 8620 §5.5)
-    ///
-    /// - `position: Some(0)` selects the first item (zero-indexed); the
-    ///   spec also accepts negative values, but `u64` does not represent
-    ///   them — pass `None` to omit and use the server default of `0`.
-    /// - `limit: Some(0)` is wire-legal but means "server's default
-    ///   cap", NOT "zero results"; the server is free to return its
-    ///   default page size. Pass `None` to omit (server applies its
-    ///   default), or `Some(n)` with `n > 0` for an explicit cap.
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -274,14 +266,11 @@ impl super::SessionClient {
         &self,
         filter: Option<&Filter<C>>,
         sort: Option<&[EmailComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
         collapse_threads: Option<bool>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-        });
+        let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
             args["filter"] = serde_json::to_value(f).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
@@ -295,12 +284,6 @@ impl super::SessionClient {
                     "email_query: serializing sort failed: {e}"
                 ))
             })?;
-        }
-        if let Some(p) = position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = limit {
-            args["limit"] = l.into();
         }
         if let Some(ct) = collapse_threads {
             args["collapseThreads"] = ct.into();

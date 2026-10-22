@@ -324,7 +324,12 @@ async fn filenode_query_with_depth_and_filter() {
     let mut cond = FileNodeFilterCondition::default();
     cond.parent_id = Some(Id::from("dir1"));
     let resp = sc
-        .filenode_query(Some(&Filter::Condition(cond)), None, None, None, Some(2u64))
+        .filenode_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            &jmap_base_client::QueryParams::default(),
+            Some(2u64),
+        )
         .await
         .expect("filenode_query_with_depth_and_filter: must succeed");
 

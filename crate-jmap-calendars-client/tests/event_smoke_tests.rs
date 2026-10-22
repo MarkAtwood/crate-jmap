@@ -246,7 +246,16 @@ async fn calendar_event_query_filter_sort_expand_recurrences_passthrough() {
     let sort = vec![comparator];
     let filter = Filter::Condition(filter);
     let _ = sc
-        .calendar_event_query(Some(&filter), Some(&sort), Some(0), Some(10), Some(true))
+        .calendar_event_query(
+            Some(&filter),
+            Some(&sort),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(10),
+                ..Default::default()
+            },
+            Some(true),
+        )
         .await
         .expect("calendar_event_query: must succeed");
 
@@ -334,7 +343,12 @@ async fn calendar_event_query_no_args_omits_optional_keys() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .calendar_event_query(None::<&CalendarEventFilter>, None, None, None, None)
+        .calendar_event_query(
+            None::<&CalendarEventFilter>,
+            None,
+            &jmap_base_client::QueryParams::default(),
+            None,
+        )
         .await
         .expect("calendar_event_query: must succeed");
 
@@ -722,9 +736,14 @@ async fn calendar_event_query_not_filter_wire_shape() {
             "limit": null
         }),
         async |sc| {
-            sc.calendar_event_query(Some(&filter), None, None, None, None)
-                .await
-                .expect("calendar_event_query: must succeed");
+            sc.calendar_event_query(
+                Some(&filter),
+                None,
+                &jmap_base_client::QueryParams::default(),
+                None,
+            )
+            .await
+            .expect("calendar_event_query: must succeed");
         },
     )
     .await;
@@ -931,9 +950,14 @@ async fn calendar_event_query_metadata_condition_wire_shape() {
             "limit": null
         }),
         async |sc| {
-            sc.calendar_event_query(Some(&filter), None, None, None, None)
-                .await
-                .expect("calendar_event_query: must succeed");
+            sc.calendar_event_query(
+                Some(&filter),
+                None,
+                &jmap_base_client::QueryParams::default(),
+                None,
+            )
+            .await
+            .expect("calendar_event_query: must succeed");
         },
     )
     .await;

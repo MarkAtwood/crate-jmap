@@ -70,7 +70,11 @@ async fn vtc_participant_query_finds_own_record_in_hosting_account() {
 
     let sc = helpers::make_shared_client(&server, "alice-account", "bob-account");
     let resp = sc
-        .vtc_participant_query(Some(&Filter::Condition(cond)), None, None, None)
+        .vtc_participant_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("VTCParticipant/query must succeed");
     assert_eq!(
@@ -401,7 +405,11 @@ async fn vtc_participant_query_sends_filter_and_sort() {
 
     let sc = helpers::make_client(&server, "bob-account");
     let resp = sc
-        .vtc_participant_query(Some(&Filter::Condition(cond)), Some(&[sort]), None, None)
+        .vtc_participant_query(
+            Some(&Filter::Condition(cond)),
+            Some(&[sort]),
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("VTCParticipant/query must succeed");
     assert_eq!(

@@ -100,7 +100,11 @@ async fn for_account_targets_named_chat_account() {
         .for_account(SHARED_CHAT_ACCOUNT)
         .expect("chat-capable account must be accepted");
     shared
-        .chat_query(None::<&ChatFilter>, None, None, None, None, None, None)
+        .chat_query(
+            None::<&ChatFilter>,
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("chat_query on shared account must succeed");
 
@@ -176,11 +180,10 @@ async fn batch_chat_query_get_sends_rfc8620_result_reference() {
         .chat_query_get(
             None::<&ChatFilter>,
             None,
-            None,
-            Some(10),
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams {
+                limit: Some(10),
+                ..Default::default()
+            },
             None,
         )
         .expect("chat_query_get must build");
@@ -268,11 +271,7 @@ async fn batch_two_pairs_reference_their_own_queries() {
         .chat_query_get(
             None::<&ChatFilter>,
             None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
             Some(&["id", "name"]),
         )
         .expect("chat pair must build");
@@ -280,11 +279,10 @@ async fn batch_two_pairs_reference_their_own_queries() {
         .message_query_get(
             Some(&msg_filter),
             None,
-            None,
-            Some(50),
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams {
+                limit: Some(50),
+                ..Default::default()
+            },
             Some(&["id", "body"]),
         )
         .expect("message pair must build");
@@ -344,11 +342,7 @@ async fn batch_uses_for_account_target() {
         .chat_query_get(
             None::<&ChatFilter>,
             None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
             None,
         )
         .expect("chat pair must build");
@@ -392,11 +386,7 @@ async fn batch_invalid_result_reference_is_per_call() {
         .chat_query_get(
             None::<&ChatFilter>,
             None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
             None,
         )
         .expect("chat pair must build");
@@ -430,11 +420,7 @@ async fn batch_message_query_get_rejects_unscoped_query() {
     match batch.message_query_get(
         None::<&MessageFilter>,
         None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        &jmap_base_client::QueryParams::default(),
         None,
     ) {
         Err(jmap_base_client::ClientError::InvalidArgument(_)) => {}

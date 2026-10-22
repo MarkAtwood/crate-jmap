@@ -298,8 +298,11 @@ async fn custom_emoji_query_filter_space_id_serialises() {
         .custom_emoji_query(
             Some(&jmap_types::query::Filter::Condition(cond)),
             None,
-            Some(0),
-            Some(100),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(100),
+                ..Default::default()
+            },
         )
         .await
         .expect("custom_emoji_query: must succeed");

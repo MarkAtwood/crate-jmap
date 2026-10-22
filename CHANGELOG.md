@@ -1309,6 +1309,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-base-client** and every extension client: each
+  `*_query` method (and chat `Batch::chat_query_get` /
+  `message_query_get`) takes `params: &QueryParams` in place of the
+  `position` / `limit` (and, on `chat_query` / `message_query`,
+  `anchor` / `anchor_offset` / `calculate_total`) arguments.
+  `jmap_base_client::QueryParams` carries the RFC 8620 §5.5 window
+  arguments `position` (now `i64`: the RFC type is `Int`, negative
+  values count from the end), `anchor`, `anchorOffset`, `limit` and
+  `calculateTotal`, plus an `extra` map for vendor arguments, so every
+  `/query` method can page by anchor and request a total. Type-specific
+  arguments (`collapseThreads`, `expandRecurrences`, `depth`) stay
+  separate parameters. Migrate `x_query(f, s, Some(0), Some(50))` to
+  `x_query(f, s, &QueryParams { position: Some(0), limit: Some(50),
+  ..Default::default() })`.
 - **BREAKING** **jmap-base-client**: `ClientError::MethodError` is now
   the tuple variant `MethodError(jmap_types::JmapError)`, replacing
   `MethodError { error_type: String, description }`. The typed

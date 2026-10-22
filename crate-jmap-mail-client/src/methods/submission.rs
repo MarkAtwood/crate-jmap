@@ -129,11 +129,8 @@ impl super::SessionClient {
     /// not `"sendAt"` (which is an object field).  Callers constructing the sort
     /// argument should use `"sentAt"` as the property name.
     ///
-    /// `position` and `limit` follow the same RFC 8620 §5.5 magic-value
-    /// semantics as
-    /// [`SessionClient::email_query`](crate::methods::SessionClient::email_query):
-    /// `position: Some(0)` is the first item (zero-indexed); `limit:
-    /// Some(0)` means "server's default cap", NOT "zero results".
+    /// `params` selects the result window
+    /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5).
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -162,13 +159,10 @@ impl super::SessionClient {
         &self,
         filter: Option<&Filter<C>>,
         sort: Option<serde_json::Value>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-        });
+        let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
             args["filter"] = serde_json::to_value(f).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
@@ -178,12 +172,6 @@ impl super::SessionClient {
         }
         if let Some(s) = sort {
             args["sort"] = s;
-        }
-        if let Some(p) = position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = limit {
-            args["limit"] = l.into();
         }
         let req = super::build_request("EmailSubmission/query", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;

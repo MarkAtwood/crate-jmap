@@ -203,9 +203,13 @@ async fn vtc_livestream_query_sends_filter_and_sort() {
     cond.platform = Some("youtube".into());
     let sort = VtcMediaComparator::new(VtcMediaSortProperty::StartedAt);
     let sc = helpers::make_client(&server, "bob-account");
-    sc.vtc_livestream_query(Some(&Filter::Condition(cond)), Some(&[sort]), None, None)
-        .await
-        .expect("VTCLivestream/query must succeed");
+    sc.vtc_livestream_query(
+        Some(&Filter::Condition(cond)),
+        Some(&[sort]),
+        &jmap_base_client::QueryParams::default(),
+    )
+    .await
+    .expect("VTCLivestream/query must succeed");
     assert_eq!(
         helpers::sent_invocation(&server).await,
         json!(["VTCLivestream/query", {

@@ -738,7 +738,11 @@ async fn message_query_rejects_text_and_thread_root_filters() {
     for (name, cond) in [("text", text), ("threadRootId", thread)] {
         let filter = MessageFilter::Condition(cond);
         match sc
-            .message_query(Some(&filter), None, None, None, None, None, None)
+            .message_query(
+                Some(&filter),
+                None,
+                &jmap_base_client::QueryParams::default(),
+            )
             .await
         {
             Err(ClientError::MethodError(e)) => {
@@ -758,11 +762,7 @@ async fn message_ids(sc: &SessionClient, chat_id: &Id, ascending: bool) -> Vec<I
     sc.message_query(
         Some(&MessageFilter::Condition(cond)),
         Some(&[sort]),
-        None,
-        None,
-        None,
-        None,
-        None,
+        &jmap_base_client::QueryParams::default(),
     )
     .await
     .expect("Message/query")

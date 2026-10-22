@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut by_name = PrincipalFilterCondition::default();
     by_name.name = Some("Alice".into());
     let filter = Filter::Condition(by_name);
-    let query = sharing.principal_query(Some(&filter), None, None, None).await?;
+    let query = sharing.principal_query(Some(&filter), None, &jmap_base_client::QueryParams::default()).await?;
     println!("found {} principal(s)", query.ids.len());
 
     // 6. Fetch share notifications.

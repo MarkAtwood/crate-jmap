@@ -305,8 +305,11 @@ async fn vtc_call_query_sends_filter_and_sort() {
         .vtc_call_query(
             Some(&Filter::Condition(cond)),
             Some(&[sort]),
-            Some(0),
-            Some(20),
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(20),
+                ..Default::default()
+            },
         )
         .await
         .expect("VTCCall/query must succeed");
@@ -478,7 +481,7 @@ async fn vtc_call_query_in_hosting_account_sends_its_account_id() {
 
     let sc = helpers::make_shared_client(&server, "alice-account", "bob-account");
     assert_eq!(sc.vtc_account_id().expect("target"), "bob-account");
-    sc.vtc_call_query(None, None, None, None)
+    sc.vtc_call_query(None, None, &jmap_base_client::QueryParams::default())
         .await
         .expect("VTCCall/query must succeed");
     assert_eq!(

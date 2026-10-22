@@ -68,6 +68,7 @@ pub mod blob;
 pub mod client;
 pub mod error;
 pub mod push;
+pub mod query;
 pub mod request;
 pub mod sse;
 pub mod ws;
@@ -90,6 +91,7 @@ pub use error::{
     WebSocketError,
 };
 pub use push::StateChange;
+pub use query::QueryParams;
 pub use request::{
     AccountInfo, AccountName, JmapRequestBuilder, JmapUrl, JmapUrlTemplate, Session, Username,
     WebSocketCapability,

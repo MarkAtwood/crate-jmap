@@ -46,7 +46,11 @@ async fn principal_query_with_filter() {
     let mut cond = PrincipalFilterCondition::default();
     cond.type_ = Some(PrincipalType::Individual);
     let resp = sc
-        .principal_query(Some(&Filter::Condition(cond)), None, None, None)
+        .principal_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            &jmap_base_client::QueryParams::default(),
+        )
         .await
         .expect("principal_query_with_filter: must succeed");
 

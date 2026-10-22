@@ -122,18 +122,10 @@ impl super::SessionClient {
         &self,
         filter: Option<&GraphFilter>,
         sort: Option<&[GraphComparator]>,
-        position: Option<u64>,
-        limit: Option<u64>,
+        params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
-        self.standard_query(
-            "Graph/query",
-            super::USING_GRAPH,
-            filter,
-            sort,
-            position,
-            limit,
-        )
-        .await
+        self.standard_query("Graph/query", super::USING_GRAPH, filter, sort, params)
+            .await
     }
 
     /// `Graph/queryChanges` (draft-atwood-jmap-graph-00 L256-L265; RFC 8620 §5.6).

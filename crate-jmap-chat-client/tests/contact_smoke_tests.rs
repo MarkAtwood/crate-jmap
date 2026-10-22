@@ -288,8 +288,7 @@ async fn chat_contact_query_filter_presence_sort_serialise() {
         .chat_contact_query(
             Some(&jmap_types::query::Filter::Condition(cond)),
             Some(&sort),
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
         )
         .await
         .expect("chat_contact_query: must succeed");
@@ -545,8 +544,7 @@ async fn chat_contact_query_filter_identity_serialise() {
         .chat_contact_query(
             Some(&jmap_types::query::Filter::Condition(cond)),
             None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
         )
         .await
         .expect("chat_contact_query: must succeed");

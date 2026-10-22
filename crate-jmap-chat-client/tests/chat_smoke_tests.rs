@@ -276,11 +276,11 @@ async fn chat_query_empty_filter_sends_null() {
         .chat_query(
             None::<&query::ChatFilter>,
             None,
-            Some(0),
-            Some(50),
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams {
+                position: Some(0),
+                limit: Some(50),
+                ..Default::default()
+            },
         )
         .await
         .expect("chat_query: must succeed");
@@ -319,11 +319,7 @@ async fn chat_query_filter_muted_serializes() {
         .chat_query(
             Some(&Filter::Condition(cond)),
             None,
-            None,
-            None,
-            None,
-            None,
-            None,
+            &jmap_base_client::QueryParams::default(),
         )
         .await
         .expect("chat_query: must succeed");
@@ -364,11 +360,12 @@ async fn chat_query_anchor_offset_calculate_total_serialize() {
         .chat_query(
             None::<&query::ChatFilter>,
             None,
-            None,
-            None,
-            Some(&anchor),
-            Some(-1),
-            Some(true),
+            &jmap_base_client::QueryParams {
+                anchor: Some(anchor.clone()),
+                anchor_offset: Some(-1),
+                calculate_total: Some(true),
+                ..Default::default()
+            },
         )
         .await
         .expect("chat_query: must succeed");
@@ -421,11 +418,7 @@ async fn chat_query_sends_metadata_condition_leaf() {
     sc.chat_query(
         Some(&Filter::Condition(cond)),
         None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        &jmap_base_client::QueryParams::default(),
     )
     .await
     .expect("chat_query: must succeed");

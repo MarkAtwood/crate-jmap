@@ -84,7 +84,7 @@ from the bound session.
 | `calendar_event_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
 | `calendar_event_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<CalendarEvent>` |
 | `calendar_event_copy` | `(params: CalendarEventCopyParams, create: BTreeMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
-| `calendar_event_query` | `(filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, position: Option<u64>, limit: Option<u64>, expand_recurrences: Option<bool>)` | `QueryResponse` |
+| `calendar_event_query` | `(filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, params: &QueryParams, expand_recurrences: Option<bool>)` | `QueryResponse` |
 | `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>)` | `QueryChangesResponse` |
 | `calendar_event_parse` | `(blob_ids: &[Id], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |
 
@@ -95,7 +95,7 @@ from the bound session.
 | `calendar_event_notification_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<CalendarEventNotification>` |
 | `calendar_event_notification_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
 | `calendar_event_notification_set` | `(destroy: Option<&[Id]>)` | `SetResponse` |
-| `calendar_event_notification_query` | `(filter: Option<&Filter<C>>, sort: Option<&[serde_json::Value]>, position: Option<u64>, limit: Option<u64>)` | `QueryResponse` |
+| `calendar_event_notification_query` | `(filter: Option<&Filter<C>>, sort: Option<&[serde_json::Value]>, params: &QueryParams)` | `QueryResponse` |
 | `calendar_event_notification_query_changes` | `(since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[serde_json::Value]>, up_to_id: Option<&Id>, calculate_total: Option<bool>)` | `QueryChangesResponse` |
 
 ### ParticipantIdentity

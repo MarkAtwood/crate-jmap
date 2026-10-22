@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     in_book.in_address_book = Some(Id::from("ab-id-here"));
     let filter = Filter::Condition(in_book);
     let query = contacts
-        .contact_card_query(Some(&filter), None, None, None)
+        .contact_card_query(Some(&filter), None, &jmap_base_client::QueryParams::default())
         .await?;
     println!("found {} card(s)", query.ids.len());
 
