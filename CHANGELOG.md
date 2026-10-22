@@ -2292,6 +2292,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** `jmap_tasks_server::TasksBackend::enforce_is_draft_atomically`.
+  `Task/set` no longer pre-fetches the Task to reject an `isDraft: true`
+  patch; every backend's `update_object` MUST reject a patch that sets
+  `isDraft: true` on a Task whose stored value is not `true` with
+  `invalidProperties` naming `isDraft` (draft-tasks-06 §4), as
+  `MemoryBackend` already does (bd:JMAP-h47t.29).
 - **BREAKING** The `ClosureHandler` re-export from jmap-mail-server,
   -calendars-server, -chat-server, -chat-mimi-server, -contacts-server,
   -filenode-server, -graph-server, -scene-server, -sharing-server,

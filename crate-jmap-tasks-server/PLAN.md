@@ -224,12 +224,12 @@ The handler computes these by calling a helper that converts `start`/`due` +
 `timeZone` to UTC. The backend stores `start`, `due`, and `timeZone`; it never
 stores `utcStart` or `utcDue`. The helper is in `src/helpers.rs`.
 
-### 7. Task/set: isDraft restrictions enforced in the handler
+### 7. Task/set: isDraft restrictions enforced in the backend
 
 Draft-tasks-06 §4: "This may only be set to true upon creation. Once set to
-false, the value cannot be updated to true." The handler validates this rule
-when processing update patches. The backend stores whatever the handler passes
-through.
+false, the value cannot be updated to true." `TasksBackend::update_object`
+rejects the patch with `invalidProperties` naming `isDraft`, atomically with
+the write; the handler does not pre-check it (bd:JMAP-h47t.29).
 
 ### 8. Per-user properties in shared TaskLists
 

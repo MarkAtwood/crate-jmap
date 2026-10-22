@@ -831,7 +831,10 @@ landed in bd:JMAP-ga0q.1.
   NO permission checking. Defense-in-depth handler-side pre-checks
   are allowed but the backend MUST re-verify atomically with the
   mutation. A handler that "trusts" a handler-side check and skips
-  the backend re-check is a bug.
+  the backend re-check is a bug. Do not add backend opt-in flags that
+  choose between handler and backend enforcement of an invariant; the
+  backend always enforces it (bd:JMAP-h47t.29 removed
+  `TasksBackend::enforce_is_draft_atomically`).
 - **Identity is a foundation concept, not an extension feature.**
   Decide once in `jmap-server`; every extension inherits. Future
   extensions that need richer caller info (groups, claims, roles,

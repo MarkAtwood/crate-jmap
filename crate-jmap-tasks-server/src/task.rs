@@ -262,48 +262,9 @@ pub async fn handle_task_set<B: TasksBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            // isDraft immutability check (draft-tasks-06 §4 (isDraft paragraph)):
-            // once set to false, isDraft MUST NOT be updated back to true.
-            // We enforce this at the handler layer by fetching the current task.
-            //
-            // Fast-path: if the backend reports that it enforces this invariant
-            // atomically in update_object (via enforce_is_draft_atomically()),
-            // skip the pre-fetch get_objects call — the backend will return
-            // InvalidProperties directly.  This saves one backend round-trip per
-            // update that sets isDraft:true when the backend self-enforces.
-            if patch_val.get("isDraft").and_then(|v| v.as_bool()) == Some(true)
-                && !backend.enforce_is_draft_atomically()
-            {
-                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-                let task_id = Id::from(id_str.as_str());
-                match backend
-                    .get_objects::<Task>(caller, &account_id, Some(&[task_id]), None)
-                    .await
-                {
-                    Ok((tasks, _)) => {
-                        // draft-tasks-06 §4: isDraft "may only be set to true
-                        // upon creation", so reject unless it is already true
-                        // (absent counts: a prior null patch must not reopen it).
-                        if tasks.first().is_some_and(|t| t.is_draft != Some(true)) {
-                            not_updated.insert(
-                                id_str,
-                                json!({
-                                    "type": "invalidProperties",
-                                    "properties": ["isDraft"]
-                                }),
-                            );
-                            continue;
-                        }
-                        // Already a draft, or task not found: let the backend
-                        // handle it.
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
-
+            // isDraft immutability (draft-tasks-06 §4 isDraft paragraph) is
+            // enforced by the backend in update_object, atomically with the
+            // write (TasksBackend::update_object, bd:JMAP-h47t.29).
             let id = Id::from(id_str.as_str());
 
             // Route to the per-user update path when every patch key targets
@@ -1395,64 +1356,5 @@ mod tests {
             0,
             "empty patch must NOT route to update_task_per_user"
         );
-    }
-
-    // ── isDraft fast-path (enforce_is_draft_atomically) ──────────────────────
-
-    /// Oracle: when enforce_is_draft_atomically() returns true, the handler
-    /// skips the get_objects pre-fetch and delegates isDraft enforcement to
-    /// update_object.  The backend here accepts the patch (no InvalidProperties),
-    /// so the handler must not inject a pre-rejection.
-    ///
-    /// This test uses MockBackend which has enforce_is_draft_atomically() = false
-    /// by default.  We verify the fast-path flag is wired correctly by confirming
-    /// the existing behaviour is unchanged when the flag is false (pre-fetch runs).
-    #[tokio::test]
-    async fn set_is_draft_revert_rejected_with_prefetch() {
-        // Verify the pre-fetch path still works (enforce_is_draft_atomically = false).
-        let mut backend = MockBackend::new_with_account("acc1");
-        backend.seed_task("acc1", "t1", false); // published task
-
-        let args = json!({
-            "accountId": "acc1",
-            "update": { "t1": { "isDraft": true } }
-        });
-        let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
-
-        // Pre-fetch detected isDraft=false → rejects with invalidProperties.
-        let not_updated = resp["notUpdated"].as_object().expect("notUpdated");
-        assert_eq!(
-            not_updated["t1"]["type"], "invalidProperties",
-            "pre-fetch path must reject isDraft revert: {resp}"
-        );
-        assert_eq!(not_updated["t1"]["properties"][0], "isDraft");
-    }
-
-    /// Oracle: draft-tasks-06 §4 — isDraft "may only be set to true upon
-    /// creation." A task whose isDraft is absent (e.g. after a prior
-    /// `{"isDraft": null}` patch) MUST NOT be updated to true; the pre-fetch
-    /// path rejects it exactly like a false → true revert.
-    #[tokio::test]
-    async fn set_is_draft_true_rejected_when_current_is_absent() {
-        let mut backend = MockBackend::new_with_account("acc1");
-        // Seeds "task1" with no isDraft property.
-        backend.add_task_list_with_task("acc1", "list1");
-
-        let args = json!({
-            "accountId": "acc1",
-            "update": { "task1": { "isDraft": true } }
-        });
-        let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
-
-        let not_updated = resp["notUpdated"].as_object().expect("notUpdated");
-        assert_eq!(
-            not_updated["task1"]["type"], "invalidProperties",
-            "pre-fetch path must reject absent → true: {resp}"
-        );
-        assert_eq!(not_updated["task1"]["properties"][0], "isDraft");
     }
 }

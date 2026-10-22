@@ -563,9 +563,8 @@ async fn task_notification_set_unknown_account_returns_account_not_found() {
 // "Permission enforcement: backend canonical" requires the backend to
 // re-verify atomically; the reference MemoryBackend models that.
 //
-// This test exercises Task/set end-to-end. MemoryBackend now returns
-// enforce_is_draft_atomically() = true, so the handler skips its pre-fetch
-// path and the rejection comes from the backend (not the handler).
+// This test exercises Task/set end-to-end. The handler does not pre-check
+// isDraft, so the rejection comes from the backend (bd:JMAP-h47t.29).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -602,6 +601,37 @@ async fn task_set_isdraft_revert_rejected_by_memory_backend() {
         err["properties"][0], "isDraft",
         "isDraft must be listed in properties: {resp}"
     );
+}
+
+// Oracle: draft-ietf-jmap-tasks-06 §4 (isDraft paragraph) — "This may only
+// be set to true upon creation." A Task stored without isDraft is not a
+// draft, so a patch to true is invalidProperties from the backend.
+#[tokio::test]
+async fn task_set_isdraft_true_on_absent_rejected_by_memory_backend() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "Task",
+        "t1",
+        json!({
+            "id": "t1",
+            "@type": "Task",
+            "uid": "t1-uid",
+            "title": "Task without isDraft"
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "update": { "t1": { "isDraft": true } }
+    });
+    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed at the top level");
+
+    let err = &resp["notUpdated"]["t1"];
+    assert_eq!(err["type"], "invalidProperties", "absent -> true: {resp}");
+    assert_eq!(err["properties"], json!(["isDraft"]), "{resp}");
 }
 
 // ---------------------------------------------------------------------------

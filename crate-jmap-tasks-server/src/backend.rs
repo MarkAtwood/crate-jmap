@@ -138,6 +138,12 @@ pub trait TasksBackend: JmapBackend {
     ///   includes changing a server-set property, though "it is not an
     ///   error to include a server-set property in an update as long as
     ///   the value is identical to the current value on the server."
+    /// - A Task patch whose result has `isDraft: true` when the stored
+    ///   value is not `true` (false, or absent after a `null` patch) is
+    ///   `invalidProperties` naming `isDraft`: draft-tasks-06 §4 "This may
+    ///   only be set to true upon creation." The `Task/set` handler does
+    ///   not pre-check this; the backend is the only enforcement point, in
+    ///   the same critical section that applies the patch.
     ///
     /// # Atomicity
     ///
@@ -279,68 +285,6 @@ pub trait TasksBackend: JmapBackend {
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>>,
     > + Send;
-
-    /// Declares which side of the draft-tasks-06 §4 (`isDraft` paragraph)
-    /// immutability invariant enforcement contract this backend honours.
-    ///
-    /// This is a **correctness-handover contract**, not a performance flag.
-    /// The invariant is: once a Task transitions to `isDraft: false`, the
-    /// value MUST NOT be updated back to `true`. Exactly one of the handler
-    /// or the backend is responsible for rejecting such a revert with
-    /// [`SetErrorType::InvalidProperties`](crate::SetErrorType::InvalidProperties) (`properties: ["isDraft"]`); this
-    /// method tells the handler which side owns enforcement on this backend.
-    ///
-    /// # Returning `false` (default)
-    ///
-    /// The handler in `Task/set` performs a `get_objects` pre-fetch on every
-    /// update that contains `isDraft: true`, inspects the current value, and
-    /// rejects the revert before calling [`Self::update_object`]. The backend
-    /// is then free to apply the patch verbatim — it will never receive a
-    /// spec-violating patch.
-    ///
-    /// # Returning `true`
-    ///
-    /// Implementor commits to **atomically rejecting** any update whose
-    /// post-patch `isDraft` is `true` when the stored value is not `true`
-    /// (including a `null` reset followed by `true`) inside
-    /// [`Self::update_object`] (and
-    /// [`Self::update_task_per_user`] if applicable), in the same critical
-    /// section as the read-and-write that applies the patch. The handler
-    /// skips its pre-fetch and forwards the raw patch.
-    ///
-    /// **Returning `true` without actually performing the atomic re-check is
-    /// a spec violation that silently corrupts data.** The pre-fetch
-    /// fast-path is removed under the assumption the backend will catch
-    /// the revert; if it does not, draft-tasks-06 §4 immutability is broken
-    /// with no client-visible signal. Workspace test-integrity rules
-    /// (`AGENTS.md` "Permission enforcement: backend canonical") make the
-    /// backend the canonical enforcement point regardless of which value
-    /// is returned here — a `true` return value is opting OUT of the
-    /// handler's defense-in-depth pre-check, not opting INTO enforcement
-    /// the handler would otherwise do alone.
-    ///
-    /// # Performance is a side effect
-    ///
-    /// The handler's pre-fetch costs one extra `get_objects` round-trip per
-    /// update that contains `isDraft: true`. Returning `true` eliminates
-    /// that round-trip. This is real, but the reason to return `true` is
-    /// that the backend genuinely enforces the invariant atomically — the
-    /// round-trip saving alone is not a sufficient reason to flip the flag.
-    ///
-    /// # Reference impl
-    ///
-    /// The `memory` feature's `MemoryBackend` returns `true` and enforces
-    /// the revert atomically in [`Self::update_object`] under the same lock
-    /// that applies the patch. See `memory.rs` for the shape a production
-    /// backend should mirror.
-    ///
-    /// # Default
-    ///
-    /// `false` — pre-fetch is always performed. Safe default for backends
-    /// that have not yet wired atomic isDraft re-checking.
-    fn enforce_is_draft_atomically(&self) -> bool {
-        false
-    }
 
     /// Compute `utcStart` and `utcDue` for a [`Task`](jmap_tasks_types::Task) by converting the task's
     /// `start`/`due` local-time fields and time zone into UTC (draft-tasks-06 §4,

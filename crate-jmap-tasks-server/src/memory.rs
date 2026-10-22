@@ -519,9 +519,9 @@ impl JmapBackend for MemoryBackend {
     /// Callers that want "all objects in this account" pass
     /// `filter = None`, `sort = None`.
     ///
-    /// Mirrors the reference-impl correctness teaching applied to
-    /// [`TasksBackend::enforce_is_draft_atomically`] (bd:JMAP-h47t.4): the
-    /// demo backend models the spec invariant rather than the spec-violating
+    /// Mirrors the reference-impl correctness teaching applied to the
+    /// isDraft re-check in `update_object` (bd:JMAP-h47t.4): the demo
+    /// backend models the spec invariant rather than the spec-violating
     /// shortcut.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
@@ -837,12 +837,9 @@ impl TasksBackend for MemoryBackend {
         // paragraph): "This may only be set to true upon creation." Compare
         // the effective post-patch value against the stored one so that any
         // path to true (including a null patch followed by true) is rejected.
-        // The handler at task.rs pre-fetches and rejects this same transition
-        // when `enforce_is_draft_atomically()` returns false, but workspace
-        // AGENTS.md "Permission enforcement: backend canonical" requires the
-        // backend to also re-verify atomically with the mutation. A reference
-        // impl that relied on the handler-only check would teach consumers a
-        // foot-gun.
+        // The handler does not pre-check this (bd:JMAP-h47t.29): workspace
+        // AGENTS.md "Permission enforcement: backend canonical" makes the
+        // backend the only enforcement point, atomically with the mutation.
         if O::TYPE_NAME == "Task"
             && !was_draft
             && current.get("isDraft").and_then(|v| v.as_bool()) == Some(true)
@@ -947,11 +944,5 @@ impl TasksBackend for MemoryBackend {
         Ok(inner
             .aux_ref(account_id.as_ref())
             .is_some_and(|a| a.task_list_refcount.contains_key(task_list_id)))
-    }
-
-    /// MemoryBackend self-enforces the isDraft invariant atomically in
-    /// `update_object`, so the handler's pre-fetch fast-path is unnecessary.
-    fn enforce_is_draft_atomically(&self) -> bool {
-        true
     }
 }
