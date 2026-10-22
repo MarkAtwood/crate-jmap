@@ -1324,6 +1324,12 @@ wire behaviour that a conforming peer can observe.
   **jmap-graph-client**: every `*_set` method (including
   `graph_node_op_set`, a standard `/set` per draft-atwood-jmap-graph-edit-00
   L206) takes a trailing `if_in_state: Option<&State>`.
+- **BREAKING** **jmap-chat-client**: every per-operation `/set` method
+  (`chat_*`, `message_*`, `space_*`, `space_ban_*`, `space_invite_*`,
+  `chat_contact_*`, `custom_emoji_*` `create` / `update` / `destroy`,
+  `read_position_update`, `presence_status_update` and
+  `push_subscription_*`) and **jmap-chat-mimi-client**
+  `key_package_set` take a trailing `if_in_state: Option<&State>`.
 - **BREAKING** **jmap-base-client** and every extension client: each
   `*_query` method (and chat `Batch::chat_query_get` /
   `message_query_get`) takes `params: &QueryParams` in place of the

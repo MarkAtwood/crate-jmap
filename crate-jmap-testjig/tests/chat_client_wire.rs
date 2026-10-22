@@ -60,14 +60,17 @@ fn created_id(resp: &SetResponse, key: &str) -> Id {
 async fn create_group(sc: &SessionClient, key: &str, name: &str) -> Id {
     let members = [Id::from("contact-bob")];
     let resp = sc
-        .chat_create(&ChatCreateInput::Group {
-            client_id: Some(key),
-            name,
-            member_ids: &members,
-            description: None,
-            avatar_blob_id: None,
-            message_expiry_seconds: None,
-        })
+        .chat_create(
+            &ChatCreateInput::Group {
+                client_id: Some(key),
+                name,
+                member_ids: &members,
+                description: None,
+                avatar_blob_id: None,
+                message_expiry_seconds: None,
+            },
+            None,
+        )
         .await
         .expect("Chat/set group create");
     created_id(&resp, key)
@@ -93,7 +96,10 @@ async fn send(sc: &SessionClient, chat_id: &Id, key: &str, body: &str) -> Id {
         burn_on_read: None,
         expires_after_read_seconds: None,
     };
-    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let resp = sc
+        .message_create(&input, None)
+        .await
+        .expect("Message/set create");
     created_id(&resp, key)
 }
 
@@ -146,10 +152,13 @@ async fn chat_create_direct_and_group_round_trip() {
     let alice = Id::from("contact-alice");
 
     let direct = sc
-        .chat_create(&ChatCreateInput::Direct {
-            client_id: Some("d1"),
-            contact_id: &alice,
-        })
+        .chat_create(
+            &ChatCreateInput::Direct {
+                client_id: Some("d1"),
+                contact_id: &alice,
+            },
+            None,
+        )
         .await
         .expect("Chat/set direct create");
     let direct_id = created_id(&direct, "d1");
@@ -191,10 +200,13 @@ async fn chat_create_direct_and_group_round_trip() {
     assert_eq!(members, expected);
 
     let dup = sc
-        .chat_create(&ChatCreateInput::Direct {
-            client_id: Some("d2"),
-            contact_id: &alice,
-        })
+        .chat_create(
+            &ChatCreateInput::Direct {
+                client_id: Some("d2"),
+                contact_id: &alice,
+            },
+            None,
+        )
         .await
         .expect("Chat/set duplicate direct create");
     let err = dup
@@ -228,7 +240,10 @@ async fn chat_update_member_patch_keys() {
         add_members: Some(&add),
         ..Default::default()
     };
-    let resp = sc.chat_update(&group_id, &patch).await.expect("addMembers");
+    let resp = sc
+        .chat_update(&group_id, &patch, None)
+        .await
+        .expect("addMembers");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
         "addMembers rejected: {resp:?}"
@@ -253,7 +268,7 @@ async fn chat_update_member_patch_keys() {
         ..Default::default()
     };
     let resp = sc
-        .chat_update(&group_id, &patch)
+        .chat_update(&group_id, &patch, None)
         .await
         .expect("updateMemberRoles");
     let err = resp
@@ -292,7 +307,10 @@ async fn last_admin_leave_closes_group() {
         remove_members: Some(&me),
         ..Default::default()
     };
-    let resp = sc.chat_update(&group_id, &patch).await.expect("leave");
+    let resp = sc
+        .chat_update(&group_id, &patch, None)
+        .await
+        .expect("leave");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
         "leave rejected: {resp:?}"
@@ -322,7 +340,10 @@ async fn last_admin_leave_closes_group() {
         burn_on_read: None,
         expires_after_read_seconds: None,
     };
-    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let resp = sc
+        .message_create(&input, None)
+        .await
+        .expect("Message/set create");
     let err = resp
         .not_created
         .as_ref()
@@ -331,7 +352,7 @@ async fn last_admin_leave_closes_group() {
     assert_eq!(err.error_type.to_string(), "forbidden");
 
     let resp = sc
-        .chat_destroy(std::slice::from_ref(&group_id))
+        .chat_destroy(std::slice::from_ref(&group_id), None)
         .await
         .expect("Chat/set destroy");
     assert_eq!(
@@ -362,7 +383,10 @@ async fn chat_typing_unknown_or_left_chat_is_invalid_arguments() {
         remove_members: Some(&me),
         ..Default::default()
     };
-    let resp = sc.chat_update(&group_id, &patch).await.expect("leave");
+    let resp = sc
+        .chat_update(&group_id, &patch, None)
+        .await
+        .expect("leave");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
         "leave rejected: {resp:?}"
@@ -418,7 +442,10 @@ async fn message_create_query_get_round_trip() {
         burn_on_read: Some(true),
         expires_after_read_seconds: None,
     };
-    let resp = sc.message_create(&reply).await.expect("Message/set reply");
+    let resp = sc
+        .message_create(&reply, None)
+        .await
+        .expect("Message/set reply");
     let third = created_id(&resp, "m3");
 
     let ids = message_ids(&sc, &chat_id, true).await;
@@ -512,7 +539,10 @@ async fn message_create_keeps_optional_properties() {
         burn_on_read: None,
         expires_after_read_seconds: Some(30),
     };
-    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let resp = sc
+        .message_create(&input, None)
+        .await
+        .expect("Message/set create");
     let id = created_id(&resp, "m1");
 
     let got = sc.message_get(&[id], None).await.expect("Message/get");
@@ -543,7 +573,7 @@ async fn message_create_keeps_optional_properties() {
         expires_after_read_seconds: None,
     };
     let resp = sc
-        .message_create(&empty_topic)
+        .message_create(&empty_topic, None)
         .await
         .expect("Message/set create");
     let err = resp
@@ -588,7 +618,10 @@ async fn message_create_rejects_fields_forbidden_by_body_type() {
         expires_after_read_seconds: None,
     };
 
-    let resp = sc.message_create(&e2ee).await.expect("Message/set create");
+    let resp = sc
+        .message_create(&e2ee, None)
+        .await
+        .expect("Message/set create");
     let err = resp
         .not_created
         .as_ref()
@@ -633,7 +666,10 @@ async fn message_create_rejects_body_over_max_body_bytes() {
         expires_after_read_seconds: None,
     };
 
-    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let resp = sc
+        .message_create(&input, None)
+        .await
+        .expect("Message/set create");
     let err = resp
         .not_created
         .as_ref()
@@ -685,7 +721,10 @@ async fn message_unsupported_body_type_is_invalid_properties() {
         expires_after_read_seconds: None,
     };
 
-    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let resp = sc
+        .message_create(&input, None)
+        .await
+        .expect("Message/set create");
     let err = resp
         .not_created
         .as_ref()
@@ -702,7 +741,10 @@ async fn message_unsupported_body_type_is_invalid_properties() {
         body_type: Some(html),
         ..Default::default()
     };
-    let resp = sc.message_update(&msg_id, &patch).await.expect("edit");
+    let resp = sc
+        .message_update(&msg_id, &patch, None)
+        .await
+        .expect("edit");
     let err = resp
         .not_updated
         .as_ref()
@@ -813,7 +855,7 @@ async fn reactions_add_then_remove() {
         ..Default::default()
     };
     let resp = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("add reaction");
     assert!(
@@ -843,7 +885,7 @@ async fn reactions_add_then_remove() {
         ..Default::default()
     };
     let resp = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("remove reaction");
     assert!(
@@ -879,7 +921,10 @@ async fn message_edit_after_delete_is_forbidden() {
         deleted_at: Some(&deleted_at),
         ..Default::default()
     };
-    let resp = sc.message_update(&msg_id, &patch).await.expect("delete");
+    let resp = sc
+        .message_update(&msg_id, &patch, None)
+        .await
+        .expect("delete");
     assert!(
         resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
         "{resp:?}"
@@ -889,7 +934,10 @@ async fn message_edit_after_delete_is_forbidden() {
         body: Some("rewritten"),
         ..Default::default()
     };
-    let resp = sc.message_update(&msg_id, &patch).await.expect("edit");
+    let resp = sc
+        .message_update(&msg_id, &patch, None)
+        .await
+        .expect("edit");
     let err = resp
         .not_updated
         .as_ref()
@@ -922,7 +970,7 @@ async fn read_position_update_round_trip() {
         .find(|p| p.chat_id == chat_id)
         .expect("read position for the chat");
     let resp = sc
-        .read_position_update(&rp.id, &msg_id)
+        .read_position_update(&rp.id, &msg_id, None)
         .await
         .expect("ReadPosition/set update");
     assert!(
@@ -970,12 +1018,15 @@ async fn space_join_rejects_banned_caller() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput {
-            client_id: Some("s0"),
-            name: "Lobby",
-            description: None,
-            icon_blob_id: None,
-        })
+        .space_create(
+            &SpaceCreateInput {
+                client_id: Some("s0"),
+                name: "Lobby",
+                description: None,
+                icon_blob_id: None,
+            },
+            None,
+        )
         .await
         .expect("Space/set create");
     let space_id = created_id(&resp, "s0");
@@ -984,7 +1035,7 @@ async fn space_join_rejects_banned_caller() {
         ..Default::default()
     };
     let resp = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set update");
     assert!(
@@ -1000,7 +1051,7 @@ async fn space_join_rejects_banned_caller() {
         expires_at: None,
     };
     let resp = sc
-        .space_ban_create(&ban)
+        .space_ban_create(&ban, None)
         .await
         .expect("SpaceBan/set create");
     created_id(&resp, "b0");
@@ -1020,12 +1071,15 @@ async fn space_join_unknown_or_private_space_is_not_permitted() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput {
-            client_id: Some("s0"),
-            name: "Private",
-            description: None,
-            icon_blob_id: None,
-        })
+        .space_create(
+            &SpaceCreateInput {
+                client_id: Some("s0"),
+                name: "Private",
+                description: None,
+                icon_blob_id: None,
+            },
+            None,
+        )
         .await
         .expect("Space/set create");
     let private_id = created_id(&resp, "s0");
@@ -1034,7 +1088,7 @@ async fn space_join_unknown_or_private_space_is_not_permitted() {
         ..Default::default()
     };
     let resp = sc
-        .space_update(&private_id, &patch)
+        .space_update(&private_id, &patch, None)
         .await
         .expect("Space/set update");
     assert!(
@@ -1068,12 +1122,15 @@ async fn space_add_roles_round_trips_each_color_representation() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput {
-            client_id: Some("s0"),
-            name: "Palette",
-            description: None,
-            icon_blob_id: None,
-        })
+        .space_create(
+            &SpaceCreateInput {
+                client_id: Some("s0"),
+                name: "Palette",
+                description: None,
+                icon_blob_id: None,
+            },
+            None,
+        )
         .await
         .expect("Space/set create");
     let space_id = created_id(&resp, "s0");
@@ -1106,7 +1163,7 @@ async fn space_add_roles_round_trips_each_color_representation() {
         ..Default::default()
     };
     let resp = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set update");
     assert!(
@@ -1155,12 +1212,15 @@ async fn space_add_categories_moves_channel_into_new_category() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput {
-            client_id: Some("s0"),
-            name: "Layout",
-            description: None,
-            icon_blob_id: None,
-        })
+        .space_create(
+            &SpaceCreateInput {
+                client_id: Some("s0"),
+                name: "Layout",
+                description: None,
+                icon_blob_id: None,
+            },
+            None,
+        )
         .await
         .expect("Space/set create");
     let space_id = created_id(&resp, "s0");
@@ -1176,7 +1236,7 @@ async fn space_add_categories_moves_channel_into_new_category() {
         ..Default::default()
     };
     let resp = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set addChannels");
     assert!(
@@ -1207,7 +1267,7 @@ async fn space_add_categories_moves_channel_into_new_category() {
         ..Default::default()
     };
     let resp = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set addCategories");
     assert!(
@@ -1249,12 +1309,15 @@ async fn space_add_categories_name_only_appends_empty_category() {
     let sc = client.with_chat_session(session);
 
     let resp = sc
-        .space_create(&SpaceCreateInput {
-            client_id: Some("s0"),
-            name: "Layout",
-            description: None,
-            icon_blob_id: None,
-        })
+        .space_create(
+            &SpaceCreateInput {
+                client_id: Some("s0"),
+                name: "Layout",
+                description: None,
+                icon_blob_id: None,
+            },
+            None,
+        )
         .await
         .expect("Space/set create");
     let space_id = created_id(&resp, "s0");
@@ -1281,7 +1344,7 @@ async fn space_add_categories_name_only_appends_empty_category() {
         ..Default::default()
     };
     let resp = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set addCategories");
     assert!(

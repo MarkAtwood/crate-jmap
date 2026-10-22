@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use helpers::{assert_using, sent, serve};
 use jmap_chat_mimi_types::{KeyMaterialClientCode, KeyMaterialUserCode, KeyPackageCreate};
-use jmap_types::Id;
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
 
@@ -40,7 +40,7 @@ async fn key_package_set_matches_draft_example() {
         KeyPackageCreate::new(KP.parse().unwrap()).with_last_resort(false),
     )]);
     let resp = helpers::make_client(&server, true)
-        .key_package_set(&create, &[])
+        .key_package_set(&create, &[], None)
         .await
         .expect("KeyPackage/set");
     assert_eq!(resp.new_state.as_ref(), "s8");
@@ -75,7 +75,7 @@ async fn key_package_set_destroy_only() {
     )
     .await;
     let resp = helpers::make_client(&server, true)
-        .key_package_set(&BTreeMap::new(), &[Id::from("kp42")])
+        .key_package_set(&BTreeMap::new(), &[Id::from("kp42")], None)
         .await
         .expect("KeyPackage/set");
     assert_eq!(resp.destroyed.expect("destroyed")[0].as_ref(), "kp42");
@@ -85,6 +85,41 @@ async fn key_package_set_destroy_only() {
     assert_eq!(
         call,
         json!(["KeyPackage/set", { "accountId": "u1", "destroy": ["kp42"] }, "r1"])
+    );
+}
+
+#[tokio::test]
+async fn key_package_set_sends_if_in_state() {
+    // Oracle: RFC 8620 §5.3: "ifInState: `String|null` ... If supplied,
+    // the string must match the current state; otherwise, the method will
+    // be aborted and a `stateMismatch` error returned."
+    let server = serve(
+        "KeyPackage/set",
+        json!({
+            "accountId": "u1",
+            "oldState": "s8",
+            "newState": "s9",
+            "destroyed": ["kp42"]
+        }),
+    )
+    .await;
+    helpers::make_client(&server, true)
+        .key_package_set(
+            &BTreeMap::new(),
+            &[Id::from("kp42")],
+            Some(&State::from("s8")),
+        )
+        .await
+        .expect("KeyPackage/set");
+
+    let (_, call) = sent(&server).await;
+    assert_eq!(
+        call,
+        json!([
+            "KeyPackage/set",
+            { "accountId": "u1", "ifInState": "s8", "destroy": ["kp42"] },
+            "r1"
+        ])
     );
 }
 
@@ -105,7 +140,7 @@ async fn key_package_set_over_quota_is_not_created() {
     .await;
     let create = BTreeMap::from([("k1".to_owned(), KeyPackageCreate::new(KP.parse().unwrap()))]);
     let resp = helpers::make_client(&server, true)
-        .key_package_set(&create, &[])
+        .key_package_set(&create, &[], None)
         .await
         .expect("a SetError is not a method error");
     assert!(resp.created.is_none());

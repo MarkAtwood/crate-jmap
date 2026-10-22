@@ -95,6 +95,10 @@ impl super::SessionClient {
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -108,6 +112,7 @@ impl super::SessionClient {
     pub async fn space_ban_create(
         &self,
         input: &SpaceBanCreateInput<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut create_obj = serde_json::json!({
@@ -121,10 +126,13 @@ impl super::SessionClient {
             create_obj["expiresAt"] = ea.as_ref().into();
         }
         let client_id = super::resolve_client_id(input.client_id);
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "create": { client_id: create_obj },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("SpaceBan/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -135,6 +143,10 @@ impl super::SessionClient {
     /// Fields of `patch` left at `Patch::Keep` are omitted from the patch
     /// and left unchanged server-side. Requires `"ban"` permission in the
     /// Space (server-enforced).
+    ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
     ///
     /// # Errors
     ///
@@ -152,6 +164,7 @@ impl super::SessionClient {
         &self,
         id: &Id,
         patch: &SpaceBanPatch<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
@@ -171,10 +184,13 @@ impl super::SessionClient {
         }
         // PatchObject is #[serde(transparent)]; see `presence_status_update`.
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "update": { id.as_ref(): patch_value },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("SpaceBan/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -183,6 +199,10 @@ impl super::SessionClient {
     /// Destroy SpaceBan objects (RFC 8620 §5.3 / SpaceBan/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
     ///
     /// # Errors
     ///
@@ -199,6 +219,7 @@ impl super::SessionClient {
     pub async fn space_ban_destroy(
         &self,
         ids: &[Id],
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -206,10 +227,13 @@ impl super::SessionClient {
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "destroy": ids,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("SpaceBan/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

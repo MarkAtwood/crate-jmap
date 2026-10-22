@@ -14,7 +14,7 @@ use jmap_chat_mimi_types::{
     RoomCreateRequest, RoomCreateResponse, RoomSendRequest, RoomSendResponse, RoomUnbindRequest,
     RoomUnbindResponse, RoomUpdateRequest, RoomUpdateResponse, JMAP_CHAT_MIMI_URI,
 };
-use jmap_types::{GetResponse, Id, SetResponse};
+use jmap_types::{GetResponse, Id, SetResponse, State};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -136,12 +136,20 @@ impl SessionClient {
     /// There is no `update`: the server "MUST reject every update". A
     /// rejected create (`invalidProperties`, `overQuota`) is in the
     /// response's `not_created`, not an error here.
+    ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
     pub async fn key_package_set(
         &self,
         create: &BTreeMap<String, KeyPackageCreate>,
         destroy: &[Id],
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse<KeyPackageCreated>, jmap_base_client::ClientError> {
         let mut args = serde_json::json!({ "accountId": self.mimi_account_id()? });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         if !create.is_empty() {
             args["create"] = serde_json::to_value(create)
                 .map_err(jmap_base_client::ClientError::from_serialize)?;

@@ -290,7 +290,7 @@ async fn space_destroy_threads_ids() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("space-doomed")];
     let _ = sc
-        .space_destroy(&ids)
+        .space_destroy(&ids, None)
         .await
         .expect("space_destroy: must succeed");
 
@@ -311,7 +311,7 @@ async fn space_destroy_rejects_empty_ids() {
     let sc = helpers::make_client(&server);
     let empty: [Id; 0] = [];
     let err = sc
-        .space_destroy(&empty)
+        .space_destroy(&empty, None)
         .await
         .expect_err("space_destroy must reject empty ids");
     match err {
@@ -463,7 +463,7 @@ async fn space_create_serializes_create_object() {
         icon_blob_id: None,
     };
     let _ = sc
-        .space_create(&input)
+        .space_create(&input, None)
         .await
         .expect("space_create: must succeed");
 
@@ -495,7 +495,7 @@ async fn space_create_rejects_empty_name() {
         icon_blob_id: None,
     };
     let err = sc
-        .space_create(&bad)
+        .space_create(&bad, None)
         .await
         .expect_err("space_create must reject empty name");
     match err {
@@ -647,7 +647,7 @@ async fn space_update_patch_full_member_management_serialises() {
     };
 
     let _ = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("space_update: must succeed");
 
@@ -708,7 +708,7 @@ async fn space_update_empty_member_slices_omit_keys() {
         ..Default::default()
     };
     let _ = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("space_update: must succeed");
 
@@ -906,7 +906,7 @@ async fn space_update_roles_accept_all_color_representations() {
         ..Default::default()
     };
     let _ = sc
-        .space_update(&space_id, &patch)
+        .space_update(&space_id, &patch, None)
         .await
         .expect("space_update: must succeed");
 

@@ -292,6 +292,10 @@ impl super::SessionClient {
     /// [`super::SessionClient::space_update`] with
     /// [`super::SpacePatch::add_channels`] to create a Channel.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -312,6 +316,7 @@ impl super::SessionClient {
     pub async fn chat_create(
         &self,
         input: &ChatCreateInput<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let (create_obj, client_id_opt) = match input {
@@ -356,10 +361,13 @@ impl super::SessionClient {
             }
         };
         let client_id = super::resolve_client_id(client_id_opt);
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "create": { client_id: create_obj },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("Chat/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -375,6 +383,10 @@ impl super::SessionClient {
     /// If all fields are `Keep`/`None`, an empty patch is sent — RFC 8620 §5.3
     /// permits this; the server treats it as a no-op but still returns the chat
     /// in `updated`.
+    ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
     ///
     /// # Errors
     ///
@@ -396,6 +408,7 @@ impl super::SessionClient {
         &self,
         id: &Id,
         patch: &ChatPatch<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
@@ -491,10 +504,13 @@ impl super::SessionClient {
         // #[serde(transparent)]; the typed boundary documents that this
         // value is a JMAP patch, not arbitrary JSON.
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "update": { id.as_ref(): patch_value },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("Chat/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -504,6 +520,10 @@ impl super::SessionClient {
     ///
     /// Permanently removes the listed Chat IDs from the account.
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
     ///
     /// # Errors
     ///
@@ -522,6 +542,7 @@ impl super::SessionClient {
     pub async fn chat_destroy(
         &self,
         ids: &[Id],
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -529,10 +550,13 @@ impl super::SessionClient {
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "destroy": ids,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("Chat/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

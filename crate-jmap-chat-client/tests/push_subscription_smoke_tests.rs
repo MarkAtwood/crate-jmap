@@ -53,7 +53,7 @@ async fn push_subscription_create_without_chat_push_uses_core_only() {
         chat_push: None,
     };
     let resp = sc
-        .push_subscription_create(&input)
+        .push_subscription_create(&input, None)
         .await
         .expect("push_subscription_create: must succeed");
     let created = resp.created.expect("created must be present");
@@ -127,7 +127,7 @@ async fn push_subscription_create_with_chat_push_declares_extension() {
         chat_push: Some(&chat_push_entries),
     };
     let _ = sc
-        .push_subscription_create(&input)
+        .push_subscription_create(&input, None)
         .await
         .expect("push_subscription_create: must succeed");
 
@@ -170,7 +170,7 @@ async fn push_subscription_create_empty_device_id_or_url_rejected() {
         chat_push: None,
     };
     let err = sc
-        .push_subscription_create(&bad_device)
+        .push_subscription_create(&bad_device, None)
         .await
         .expect_err("must reject empty device_client_id");
     match err {
@@ -193,7 +193,7 @@ async fn push_subscription_create_empty_device_id_or_url_rejected() {
         chat_push: None,
     };
     let err = sc
-        .push_subscription_create(&bad_url)
+        .push_subscription_create(&bad_url, None)
         .await
         .expect_err("must reject empty url");
     match err {
@@ -232,7 +232,7 @@ async fn push_subscription_create_duplicate_chat_push_account_id_rejected() {
         chat_push: Some(&chat_push),
     };
     let err = sc
-        .push_subscription_create(&input)
+        .push_subscription_create(&input, None)
         .await
         .expect_err("must reject duplicate accountId");
     match err {
@@ -281,7 +281,7 @@ async fn push_subscription_update_verification_and_types_serialises() {
         ..Default::default()
     };
     let _ = sc
-        .push_subscription_update(&id, &patch)
+        .push_subscription_update(&id, &patch, None)
         .await
         .expect("push_subscription_update: must succeed");
 
@@ -341,7 +341,7 @@ async fn push_subscription_update_clear_emits_nulls_and_declares_chat_push() {
         ..Default::default()
     };
     let _ = sc
-        .push_subscription_update(&id, &patch)
+        .push_subscription_update(&id, &patch, None)
         .await
         .expect("push_subscription_update: must succeed");
 
@@ -390,7 +390,7 @@ async fn push_subscription_update_expires_set_emits_value() {
         ..Default::default()
     };
     let _ = sc
-        .push_subscription_update(&id, &patch)
+        .push_subscription_update(&id, &patch, None)
         .await
         .expect("push_subscription_update: must succeed");
 
@@ -413,7 +413,7 @@ async fn push_subscription_update_empty_id_rejected() {
     let empty_id = Id::from("");
     let patch = jmap_chat_client::methods::PushSubscriptionPatch::default();
     let err = sc
-        .push_subscription_update(&empty_id, &patch)
+        .push_subscription_update(&empty_id, &patch, None)
         .await
         .expect_err("must reject empty id");
     match err {
@@ -448,7 +448,7 @@ async fn push_subscription_destroy_threads_ids_and_rejects_empty() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("ps-1")];
     let _ = sc
-        .push_subscription_destroy(&ids)
+        .push_subscription_destroy(&ids, None)
         .await
         .expect("push_subscription_destroy: must succeed");
 
@@ -469,7 +469,7 @@ async fn push_subscription_destroy_threads_ids_and_rejects_empty() {
     // Empty-slice guard.
     let empty: [Id; 0] = [];
     let err = sc
-        .push_subscription_destroy(&empty)
+        .push_subscription_destroy(&empty, None)
         .await
         .expect_err("must reject empty ids");
     match err {

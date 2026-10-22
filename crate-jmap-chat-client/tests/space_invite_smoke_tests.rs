@@ -191,7 +191,7 @@ async fn space_invite_create_serialises_optionals_and_omits_code() {
         max_uses: Some(25),
     };
     let _ = sc
-        .space_invite_create(&input)
+        .space_invite_create(&input, None)
         .await
         .expect("space_invite_create: must succeed");
 
@@ -242,7 +242,7 @@ async fn space_invite_create_serialises_minimal_object() {
         max_uses: None,
     };
     let _ = sc
-        .space_invite_create(&input)
+        .space_invite_create(&input, None)
         .await
         .expect("space_invite_create: must succeed");
 
@@ -280,7 +280,7 @@ async fn space_invite_destroy_threads_ids_and_rejects_empty() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("si-doomed")];
     let _ = sc
-        .space_invite_destroy(&ids)
+        .space_invite_destroy(&ids, None)
         .await
         .expect("space_invite_destroy: must succeed");
 
@@ -289,7 +289,7 @@ async fn space_invite_destroy_threads_ids_and_rejects_empty() {
 
     let empty: [Id; 0] = [];
     let err = sc
-        .space_invite_destroy(&empty)
+        .space_invite_destroy(&empty, None)
         .await
         .expect_err("must reject empty ids");
     match err {

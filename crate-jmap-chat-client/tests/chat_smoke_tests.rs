@@ -575,7 +575,7 @@ async fn chat_create_direct_serializes_kind_and_contact_id() {
         contact_id: &contact_id,
     };
     let resp = sc
-        .chat_create(&input)
+        .chat_create(&input, None)
         .await
         .expect("chat_create: must succeed");
     let created = resp.created.expect("created must be present");
@@ -610,7 +610,7 @@ async fn chat_create_group_empty_name_rejected_before_send() {
         message_expiry_seconds: None,
     };
     let err = sc
-        .chat_create(&input)
+        .chat_create(&input, None)
         .await
         .expect_err("chat_create with empty group name must error");
     match err {
@@ -654,7 +654,7 @@ async fn chat_update_patch_muted_serializes() {
         ..Default::default()
     };
     let _ = sc
-        .chat_update(&chat_id, &patch)
+        .chat_update(&chat_id, &patch, None)
         .await
         .expect("chat_update: must succeed");
 
@@ -693,7 +693,7 @@ async fn chat_update_patch_struct_update_syntax_serializes() {
         ..Default::default()
     };
     let _ = sc
-        .chat_update(&chat_id, &patch)
+        .chat_update(&chat_id, &patch, None)
         .await
         .expect("chat_update: must succeed");
 
@@ -729,7 +729,7 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
         ..Default::default()
     };
     let _ = sc
-        .chat_update(&chat_id, &patch)
+        .chat_update(&chat_id, &patch, None)
         .await
         .expect("chat_update: must succeed");
 
@@ -764,7 +764,7 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
         ..Default::default()
     };
     let _ = sc
-        .chat_update(&chat_id, &patch)
+        .chat_update(&chat_id, &patch, None)
         .await
         .expect("chat_update: must succeed");
 
@@ -788,7 +788,7 @@ async fn chat_destroy_threads_ids() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("chat-doomed")];
     let resp = sc
-        .chat_destroy(&ids)
+        .chat_destroy(&ids, None)
         .await
         .expect("chat_destroy: must succeed");
     assert_eq!(
@@ -819,7 +819,7 @@ async fn chat_destroy_rejects_empty_ids() {
     let sc = helpers::make_client(&server);
     let empty: [Id; 0] = [];
     let err = sc
-        .chat_destroy(&empty)
+        .chat_destroy(&empty, None)
         .await
         .expect_err("chat_destroy must reject empty ids");
     match err {
@@ -857,7 +857,7 @@ async fn chat_update_patch_name_description_avatar_serialises() {
         ..Default::default()
     };
     let _ = sc
-        .chat_update(&chat_id, &patch)
+        .chat_update(&chat_id, &patch, None)
         .await
         .expect("chat_update: must succeed");
 
@@ -919,7 +919,7 @@ async fn chat_update_patch_add_and_remove_members_serialises() {
         ..Default::default()
     };
     let _ = sc
-        .chat_update(&chat_id, &patch)
+        .chat_update(&chat_id, &patch, None)
         .await
         .expect("chat_update: must succeed");
 
@@ -978,7 +978,7 @@ async fn chat_update_patch_update_member_roles_serialises() {
         ..Default::default()
     };
     let _ = sc
-        .chat_update(&chat_id, &patch)
+        .chat_update(&chat_id, &patch, None)
         .await
         .expect("chat_update: must succeed");
 

@@ -207,7 +207,7 @@ async fn chat_contact_update_blocked_patch_serialises() {
         ..Default::default()
     };
     let _ = sc
-        .chat_contact_update(&id, &patch)
+        .chat_contact_update(&id, &patch, None)
         .await
         .expect("chat_contact_update: must succeed");
 
@@ -243,7 +243,7 @@ async fn chat_contact_update_display_name_clear_emits_null() {
         ..Default::default()
     };
     let _ = sc
-        .chat_contact_update(&id, &patch)
+        .chat_contact_update(&id, &patch, None)
         .await
         .expect("chat_contact_update: must succeed");
 
@@ -504,7 +504,7 @@ async fn chat_contact_create_sends_only_identity() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .chat_contact_create("alice@example.com")
+        .chat_contact_create("alice@example.com", None)
         .await
         .expect("chat_contact_create: must succeed");
 

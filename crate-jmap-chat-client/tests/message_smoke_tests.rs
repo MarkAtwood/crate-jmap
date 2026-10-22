@@ -604,7 +604,7 @@ async fn message_create_serializes_create_object() {
         expires_after_read_seconds: None,
     };
     let resp = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect("message_create: must succeed");
     let created = resp.created.expect("created must be present");
@@ -680,7 +680,7 @@ async fn message_create_rate_limited_surfaces_as_error() {
         expires_after_read_seconds: None,
     };
     let err = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect_err("message_create must surface rateLimit as error");
     match err {
@@ -760,7 +760,7 @@ async fn message_create_rate_limit_without_hint_retries_now() {
     let now = || chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let before = now();
     let err = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect_err("message_create must surface rateLimit without a hint as error");
     let after = now();
@@ -821,7 +821,7 @@ async fn message_create_legacy_rate_limited_is_not_created_not_error() {
         expires_after_read_seconds: None,
     };
     let set_resp = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect("legacy rateLimited must not map to ClientError::RateLimited");
     let err = set_resp
@@ -876,7 +876,7 @@ async fn message_create_rate_limit_malformed_retry_after_is_unexpected() {
         expires_after_read_seconds: None,
     };
     let err = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect_err("malformed serverRetryAfter must be an error");
     assert!(
@@ -902,7 +902,7 @@ async fn message_update_body_patch_serializes() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -939,7 +939,7 @@ async fn message_update_reaction_add_uses_json_pointer_patch_key() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -972,7 +972,7 @@ async fn message_update_reaction_remove_emits_null_patch_value() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1005,7 +1005,7 @@ async fn message_update_reaction_id_with_json_pointer_chars_rejected() {
         ..Default::default()
     };
     let err = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect_err("message_update must reject JSON Pointer special chars");
     match err {
@@ -1042,7 +1042,7 @@ async fn message_destroy_threads_ids() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("msg-1")];
     let _ = sc
-        .message_destroy(&ids)
+        .message_destroy(&ids, None)
         .await
         .expect("message_destroy: must succeed");
 
@@ -1059,7 +1059,7 @@ async fn message_destroy_rejects_empty_ids() {
     let sc = helpers::make_client(&server);
     let empty: [Id; 0] = [];
     let err = sc
-        .message_destroy(&empty)
+        .message_destroy(&empty, None)
         .await
         .expect_err("message_destroy must reject empty ids");
     match err {
@@ -1109,7 +1109,7 @@ async fn message_update_with_read_disposition_displayed_serialises_correctly() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1145,7 +1145,7 @@ async fn message_update_with_read_disposition_deleted_serialises_correctly() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1177,7 +1177,7 @@ async fn message_update_with_read_disposition_processed_serialises_correctly() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1213,7 +1213,7 @@ async fn message_update_with_read_disposition_other_serialises_correctly() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1247,7 +1247,7 @@ async fn message_update_without_read_disposition_omits_field() {
     };
     // patch.read_disposition deliberately left as None.
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1278,7 +1278,7 @@ async fn message_update_read_disposition_without_read_at_rejected() {
         ..Default::default()
     };
     let err = sc
-        .message_update(&Id::from("msg-1"), &patch)
+        .message_update(&Id::from("msg-1"), &patch, None)
         .await
         .expect_err("message_update must reject read_disposition without read_at");
     assert!(
@@ -1401,7 +1401,7 @@ async fn message_create_with_body_type_rich_serialises_correct_wire_string() {
         expires_after_read_seconds: None,
     };
     let _ = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect("message_create: must succeed");
 
@@ -1436,7 +1436,7 @@ async fn message_update_with_body_type_other_round_trips_wire_string() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1541,7 +1541,7 @@ async fn message_update_broadcast_mentions_emits_wire_key() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1569,7 +1569,7 @@ async fn message_update_broadcast_mentions_none_omits_wire_key() {
     let patch = jmap_chat_client::methods::MessagePatch::default();
     // broadcast_mentions is None by default.
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1599,7 +1599,7 @@ async fn message_update_broadcast_mentions_empty_vec_emits_empty_array() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
@@ -1742,7 +1742,7 @@ async fn message_create_serializes_all_optional_properties() {
         expires_after_read_seconds: Some(30),
     };
     let _ = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect("message_create: must succeed");
 
@@ -1797,7 +1797,7 @@ async fn message_create_omits_unset_optional_properties() {
         expires_after_read_seconds: None,
     };
     let _ = sc
-        .message_create(&input)
+        .message_create(&input, None)
         .await
         .expect("message_create: must succeed");
 
@@ -1831,7 +1831,7 @@ async fn message_update_mentions_emits_wire_key() {
         ..Default::default()
     };
     let _ = sc
-        .message_update(&msg_id, &patch)
+        .message_update(&msg_id, &patch, None)
         .await
         .expect("message_update: must succeed");
 
