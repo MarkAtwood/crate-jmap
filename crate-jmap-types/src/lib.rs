@@ -53,7 +53,8 @@ pub use error::{JmapError, MethodErrorType};
 pub use id::{Date, Id, State, UTCDate, ValidationError};
 pub use jmap_uri::{JmapUri, JmapUriError};
 pub use methods::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse,
+    AddedItem, ChangesResponse, CopyResponse, GetResponse, PartialObject, QueryChangesResponse,
+    QueryResponse, SetResponse,
 };
 pub use patch::PatchObject;
 pub use push::{PushKeys, PushSubscription, PushVerification, StateChange, Urgency};
