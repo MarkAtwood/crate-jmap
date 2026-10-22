@@ -571,15 +571,15 @@ pub(crate) mod test_support {
             true
         }
 
-        async fn copy_contact_card(
+        async fn copy_object<O: SetObject + Send + Sync>(
             &self,
             _caller: &(),
             _from_account_id: &Id,
             _to_account_id: &Id,
-            card: ContactCard,
-        ) -> Result<(Id, ContactCard), BackendSetError<Self::Error>> {
+            obj: O,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
             *self.copy_called.lock().unwrap() = true;
-            Ok((Id::from("copied-id-1"), card))
+            Ok((Id::from("copied-id-1"), obj))
         }
 
         async fn address_book_has_contents(

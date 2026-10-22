@@ -425,22 +425,31 @@ pub trait MailBackend: JmapBackend {
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<jmap_mail_types::Email, Self::Error>> + Send;
 
-    /// Copy an Email from one account to another (RFC 8620 §6.3).
+    /// Store `obj`, a record read from `from_account_id`, as a new record in
+    /// `to_account_id`, for `/copy` (RFC 8620 §5.4).
     ///
-    /// Returns the new id and the created Email in `to_account_id`.
-    #[allow(clippy::too_many_arguments)]
-    fn copy_email(
+    /// The handler has already applied the request's overrides; for
+    /// `Email/copy` (RFC 8621 §4.7) that is `mailboxIds`, any given
+    /// `keywords` and `receivedAt`, and the `threadId` assigned in
+    /// `to_account_id`. The backend assigns the new `id`, makes every blob
+    /// the record references available in `to_account_id`, stores it and
+    /// records the create in the state and change log as
+    /// [`create_object`](Self::create_object) does. Returns the new id and
+    /// the stored record.
+    ///
+    /// # Errors
+    ///
+    /// As for [`create_object`](Self::create_object): a
+    /// [`BackendSetError::SetError`] is reported for that copy (for example
+    /// `forbidden` without write access to `to_account_id`).
+    fn copy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
         from_account_id: &jmap_types::Id,
-        email_id: &jmap_types::Id,
         to_account_id: &jmap_types::Id,
-        mailbox_ids: &[jmap_types::Id],
-        keywords: &[jmap_mail_types::Keyword],
-        received_at: Option<&jmap_types::UTCDate>,
-    ) -> impl std::future::Future<
-        Output = Result<(jmap_types::Id, jmap_mail_types::Email), BackendSetError<Self::Error>>,
-    > + Send;
+        obj: O,
+    ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
+           + Send;
 
     /// Return search snippets for the given Email ids (RFC 8621 §5.9 — `SearchSnippet/get`).
     fn search_snippets(

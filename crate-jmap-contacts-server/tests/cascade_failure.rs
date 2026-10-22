@@ -18,7 +18,6 @@ use jmap_contacts_server::{
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
     SetObject,
 };
-use jmap_contacts_types::ContactCard;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, State};
 use serde_json::{json, Value};
@@ -185,15 +184,15 @@ impl ContactsBackend for FailingBackend {
         self.inner.supports_type::<O>(caller, account_id)
     }
 
-    async fn copy_contact_card(
+    async fn copy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &(),
         from_account_id: &Id,
         to_account_id: &Id,
-        card: ContactCard,
-    ) -> Result<(Id, ContactCard), BackendSetError<MemoryError>> {
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
         self.inner
-            .copy_contact_card(caller, from_account_id, to_account_id, card)
+            .copy_object(caller, from_account_id, to_account_id, obj)
             .await
     }
 

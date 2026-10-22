@@ -646,27 +646,15 @@ async fn search_snippet_get_capability_gated() {
             self.0.parse_email(&(), account_id, blob_id).await
         }
 
-        async fn copy_email(
+        async fn copy_object<O: jmap_mail_server::SetObject + Send + Sync>(
             &self,
             _caller: &(),
             from_account_id: &Id,
-            email_id: &Id,
             to_account_id: &Id,
-            mailbox_ids: &[Id],
-            keywords: &[jmap_mail_types::Keyword],
-            received_at: Option<&jmap_types::UTCDate>,
-        ) -> Result<(Id, jmap_mail_types::Email), jmap_mail_server::BackendSetError<Self::Error>>
-        {
+            obj: O,
+        ) -> Result<(Id, O), jmap_mail_server::BackendSetError<Self::Error>> {
             self.0
-                .copy_email(
-                    &(),
-                    from_account_id,
-                    email_id,
-                    to_account_id,
-                    mailbox_ids,
-                    keywords,
-                    received_at,
-                )
+                .copy_object(&(), from_account_id, to_account_id, obj)
                 .await
         }
 
@@ -4119,6 +4107,67 @@ async fn email_copy_with_keywords_succeeds() {
         emails[0].keywords.contains_key(keyword::SEEN),
         "$seen must be on the copied email"
     );
+}
+
+/// Oracle: RFC 8620 §5.4 /copy — "When creating the copy, any other
+/// properties included are used instead of the current value for that
+/// record property." A copy that omits `keywords` keeps the source's
+/// keywords and subject; an unknown source id is `notFound`.
+#[tokio::test]
+async fn email_copy_without_keywords_keeps_source_keywords() {
+    use jmap_mail_server::handle_email_copy;
+
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("src"));
+    backend.register_account(&Id::from("dst"));
+    let src_account = Id::from("src");
+    let dst_account = Id::from("dst");
+
+    let blob_id = Id::from("blob-copy-keep-kw");
+    backend.store_blob(&blob_id, b"Subject: keep keywords\r\n\r\nbody".to_vec());
+    let seen = jmap_mail_types::Keyword::from("$seen");
+    let (src_id, _) = backend
+        .import_email(
+            &(),
+            &src_account,
+            &blob_id,
+            &[Id::from("inbox")],
+            &[seen],
+            None,
+        )
+        .await
+        .expect("import source email");
+
+    let args = serde_json::json!({
+        "accountId": dst_account.as_ref(),
+        "fromAccountId": src_account.as_ref(),
+        "create": {
+            "c1": { "id": src_id.as_ref(), "mailboxIds": { "archive": true } },
+            "c2": { "id": "no-such-email", "mailboxIds": { "archive": true } }
+        }
+    });
+    let HandlerOutput { primary: resp, .. } = handle_email_copy(&backend, &(), args, "call-keep")
+        .await
+        .expect("Email/copy must not return a JmapError");
+
+    assert_eq!(resp["notCreated"]["c2"]["type"], "notFound", "{resp}");
+    let new_id = Id::from(resp["created"]["c1"]["id"].as_str().expect("c1 created"));
+    let (emails, _) = backend
+        .get_objects::<jmap_mail_types::Email>(&(), &dst_account, Some(&[new_id]), None)
+        .await
+        .expect("get_objects");
+    let copied = serde_json::to_value(&emails[0]).expect("serialize");
+    assert_eq!(
+        copied["keywords"],
+        serde_json::json!({ "$seen": true }),
+        "{copied}"
+    );
+    assert_eq!(
+        copied["mailboxIds"],
+        serde_json::json!({ "archive": true }),
+        "{copied}"
+    );
+    assert_eq!(copied["subject"], "keep keywords", "{copied}");
 }
 
 /// Oracle: Email/copy with malformed receivedAt (not RFC 8620 §1.4 UTCDate

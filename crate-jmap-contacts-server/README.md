@@ -108,17 +108,17 @@ pub trait ContactsBackend: JmapBackend {
     /// Not called internally — used by the session capability builder.
     fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 
-    /// Copy a ContactCard from one account to another.
-    /// Called by ContactCard/copy. The card has already been fetched from
-    /// from_account_id; the backend must store it in to_account_id and
-    /// return the newly assigned (id, card).
-    fn copy_contact_card(
+    /// Store a record read from from_account_id as a new record in
+    /// to_account_id (RFC 8620 §5.4 /copy). Called by ContactCard/copy
+    /// after the handler fetched and patched the card; returns the newly
+    /// assigned (id, record).
+    fn copy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
         from_account_id: &Id,
         to_account_id: &Id,
-        card: ContactCard,
-    ) -> impl Future<Output = Result<(Id, ContactCard), BackendSetError<Self::Error>>> + Send;
+        obj: O,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
 
     /// Check whether an AddressBook has any ContactCards in it.
     /// Called by AddressBook/set destroy processing when onDestroyRemoveContents
@@ -222,7 +222,7 @@ transitively through any ContactCard mutation:
    book the card belongs to.** A card that lives in two AddressBooks
    can only be destroyed by a caller with `mayDelete` on both.
 
-8. **`copy_contact_card` requires `mayWrite` on every destination
+8. **`copy_object::<ContactCard>` requires `mayWrite` on every destination
    AddressBook**, and `mayRead` on the source card's AddressBooks.
    Reject the destination half with a `forbidden` SetError;
    `notFound` on the source half if the caller cannot see the source
@@ -305,7 +305,7 @@ request. Patches follow RFC 8620 §5.3 JSON Pointer semantics:
 - `/` within a segment is encoded as `~1`; `~` is encoded as `~0`.
 - Setting a path to `null` removes that property from the card.
 
-The patched card is then passed to `copy_contact_card` for storage in the
+The patched card is then passed to `copy_object` for storage in the
 destination account.
 
 ## Capability URI
@@ -342,7 +342,7 @@ Backends that don't need an auth identity use `type CallerCtx = ();` and a
 
 ## Gotchas
 
-- `address_book_has_contents` and `copy_contact_card` must be implemented by
+- `address_book_has_contents` and `copy_object` must be implemented by
   the backend; no default implementation ships with this crate.
 - The `onSuccessSetIsDefault` re-fetch (`get_objects` after the update) is O(N)
   in the number of address books. Backends with many books should implement the

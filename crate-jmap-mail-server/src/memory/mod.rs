@@ -1633,79 +1633,53 @@ impl MailBackend for MemoryBackend {
     }
 
     // -----------------------------------------------------------------------
-    // copy_email
+    // copy_object
     // -----------------------------------------------------------------------
 
-    async fn copy_email(
+    /// Blob ids are shared across accounts in this backend, so a copied
+    /// Email keeps its `blobId`. A copied Email also joins its `threadId`
+    /// in the destination, creating the Thread when it is new.
+    async fn copy_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &(),
-        from_account_id: &Id,
-        email_id: &Id,
+        _from_account_id: &Id,
         to_account_id: &Id,
-        mailbox_ids: &[Id],
-        keywords: &[Keyword],
-        received_at: Option<&UTCDate>,
-    ) -> Result<(Id, Email), BackendSetError<Self::Error>> {
-        // Look up source email.
-        let src_val = {
-            let inner = self.inner.lock().unwrap();
-            inner
-                .objects_ref("Email", from_account_id.as_ref())
-                .and_then(|s| s.get(email_id))
-                .cloned()
-                .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?
-        };
-
-        let src_email: Email = serde_json::from_value(src_val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("deserialize source email: {e}")))
-        })?;
-
-        // Assign thread in destination account.
-        let thread_id = {
-            let inner = self.inner.lock().unwrap();
-            assign_thread_inner(
-                &inner,
-                to_account_id,
-                src_email.in_reply_to.as_deref().unwrap_or(&[]),
-                src_email.references.as_deref().unwrap_or(&[]),
-            )
-        };
-
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let new_id = Id::from(uuid::Uuid::new_v4().to_string());
-        let mailbox_map: BTreeMap<Id, bool> =
-            mailbox_ids.iter().map(|id| (id.clone(), true)).collect();
-        let kw_map: BTreeMap<Keyword, bool> = keywords.iter().map(|k| (k.clone(), true)).collect();
-
-        let mut new_email = Email::new(
-            new_id.clone(),
-            src_email.blob_id.clone(),
-            thread_id.clone(),
-            mailbox_map,
-            src_email.size,
-            received_at
-                .cloned()
-                .unwrap_or_else(|| src_email.received_at.clone()),
-        );
-        new_email.keywords = kw_map;
-        new_email.subject = src_email.subject.clone();
-        new_email.message_id = src_email.message_id.clone();
-        new_email.in_reply_to = src_email.in_reply_to.clone();
-        new_email.references = src_email.references.clone();
-        new_email.from = src_email.from.clone();
-        new_email.to = src_email.to.clone();
-        new_email.cc = src_email.cc.clone();
-        new_email.preview = src_email.preview.clone();
-
-        let email_val = serde_json::to_value(&new_email).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("serialize copied email: {e}")))
+        let mut val = serde_json::to_value(&obj).map_err(|e| {
+            BackendSetError::Other(MemoryError::new(format!("serialize copied object: {e}")))
         })?;
-        let thread_val = serde_json::json!({
-            "id": thread_id.to_string(),
-            "emailIds": [new_id.to_string()]
-        });
+        if let serde_json::Value::Object(map) = &mut val {
+            map.insert(
+                "id".to_owned(),
+                serde_json::Value::String(new_id.to_string()),
+            );
+        }
+        let stored: O = O::deserialize(&val).map_err(|e| {
+            BackendSetError::Other(MemoryError::new(format!("deserialize copied object: {e}")))
+        })?;
+        let thread_id = (O::TYPE_NAME == Email::TYPE_NAME)
+            .then(|| val.get("threadId").and_then(|v| v.as_str()).map(Id::from))
+            .flatten();
 
-        {
-            let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().unwrap();
+        inner
+            .objects_mut(O::TYPE_NAME, to_account_id.as_ref())
+            .insert(new_id.clone(), val);
+        let new_state = inner.bump_state(O::TYPE_NAME, to_account_id.as_ref());
+        inner
+            .change_log
+            .entry((O::TYPE_NAME, to_account_id.to_string()))
+            .or_default()
+            .push(ChangeEntry {
+                new_state,
+                created: vec![new_id.clone()],
+                updated: vec![],
+                destroyed: vec![],
+            });
+
+        if let Some(thread_id) = thread_id {
             let thread_existed = inner
                 .objects_ref("Thread", to_account_id.as_ref())
                 .is_some_and(|s| s.contains_key(&thread_id));
@@ -1717,50 +1691,32 @@ impl MailBackend for MemoryBackend {
                         arr.push(serde_json::Value::String(new_id.to_string()));
                     }
                 })
-                .or_insert(thread_val);
-
-            inner
-                .objects_mut("Email", to_account_id.as_ref())
-                .insert(new_id.clone(), email_val);
-
+                .or_insert_with(|| {
+                    serde_json::json!({ "id": thread_id.to_string(), "emailIds": [new_id.to_string()] })
+                });
             // Re-sort the thread's emailIds by receivedAt ascending (RFC 8621 §3).
             if thread_existed {
                 inner.sort_thread_email_ids(to_account_id.as_ref(), &thread_id);
             }
-
-            let new_email_state = inner.bump_state("Email", to_account_id.as_ref());
-            inner
-                .change_log
-                .entry(("Email", to_account_id.to_string()))
-                .or_default()
-                .push(ChangeEntry {
-                    new_state: new_email_state,
-                    created: vec![new_id.clone()],
-                    updated: vec![],
-                    destroyed: vec![],
-                });
             let new_thread_state = inner.bump_state("Thread", to_account_id.as_ref());
+            let (created, updated) = if thread_existed {
+                (vec![], vec![thread_id])
+            } else {
+                (vec![thread_id], vec![])
+            };
             inner
                 .change_log
                 .entry(("Thread", to_account_id.to_string()))
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_thread_state,
-                    created: if thread_existed {
-                        vec![]
-                    } else {
-                        vec![thread_id.clone()]
-                    },
-                    updated: if thread_existed {
-                        vec![thread_id]
-                    } else {
-                        vec![]
-                    },
+                    created,
+                    updated,
                     destroyed: vec![],
                 });
         }
 
-        Ok((new_id, new_email))
+        Ok((new_id, stored))
     }
 
     // -----------------------------------------------------------------------

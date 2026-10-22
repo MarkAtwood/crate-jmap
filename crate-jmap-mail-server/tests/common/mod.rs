@@ -255,26 +255,15 @@ impl MailBackend for FaultyBackend {
         self.inner.parse_email(&(), account_id, blob_id).await
     }
 
-    async fn copy_email(
+    async fn copy_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &(),
         from_account_id: &Id,
-        email_id: &Id,
         to_account_id: &Id,
-        mailbox_ids: &[Id],
-        keywords: &[jmap_mail_types::Keyword],
-        received_at: Option<&UTCDate>,
-    ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         self.inner
-            .copy_email(
-                &(),
-                from_account_id,
-                email_id,
-                to_account_id,
-                mailbox_ids,
-                keywords,
-                received_at,
-            )
+            .copy_object(&(), from_account_id, to_account_id, obj)
             .await
     }
 

@@ -2442,12 +2442,17 @@ pub async fn handle_email_copy<B: MailBackend>(
         };
 
         // keywords: String[Boolean] wire format — validate RFC 8621 §4.1.1 syntax.
-        let keywords: Vec<Keyword> = match parse_keywords_field(&entry) {
-            Ok(kws) => kws,
-            Err(err) => {
-                not_created.insert(copy_id, err);
-                continue;
-            }
+        // RFC 8620 §5.4: "any other properties included are used instead of
+        // the current value", so an absent `keywords` keeps the source's.
+        let keywords: Option<Vec<Keyword>> = match entry.get("keywords") {
+            None => None,
+            Some(_) => match parse_keywords_field(&entry) {
+                Ok(kws) => Some(kws),
+                Err(err) => {
+                    not_created.insert(copy_id, err);
+                    continue;
+                }
+            },
         };
 
         // receivedAt may be overridden during copy (RFC 8621 §4.7).
@@ -2461,16 +2466,52 @@ pub async fn handle_email_copy<B: MailBackend>(
             }
         };
 
-        match backend
-            .copy_email(
+        let mut email = match backend
+            .get_objects::<Email>(
                 caller,
                 &from_account_id,
-                &source_id,
-                &account_id,
-                &mailbox_ids,
-                &keywords,
-                received_at.as_ref(),
+                Some(std::slice::from_ref(&source_id)),
+                None,
             )
+            .await
+        {
+            Ok((mut found, _)) if !found.is_empty() => found.swap_remove(0),
+            Ok(_) => {
+                not_created.insert(copy_id, json!({ "type": "notFound" }));
+                continue;
+            }
+            Err(e) => {
+                not_created.insert(copy_id, server_fail_value_from_backend(&e));
+                continue;
+            }
+        };
+        email.mailbox_ids = mailbox_ids.into_iter().map(|id| (id, true)).collect();
+        if let Some(keywords) = keywords {
+            email.keywords = keywords.into_iter().map(|k| (k, true)).collect();
+        }
+        if let Some(received_at) = received_at {
+            email.received_at = received_at;
+        }
+        // The thread is per account (RFC 8621 §3): assign it in the
+        // destination, as Email/set create does.
+        email.thread_id = match assign_thread(
+            backend,
+            caller,
+            &account_id,
+            email.in_reply_to.as_deref().unwrap_or(&[]),
+            email.references.as_deref().unwrap_or(&[]),
+        )
+        .await
+        {
+            Ok(thread_id) => thread_id,
+            Err(e) => {
+                not_created.insert(copy_id, server_fail_value_from_backend(&e));
+                continue;
+            }
+        };
+
+        match backend
+            .copy_object(caller, &from_account_id, &account_id, email)
             .await
         {
             Ok((new_id, new_email)) => {

@@ -517,7 +517,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             }
 
             match backend
-                .copy_contact_card(caller, &from_account_id, &to_account_id, card)
+                .copy_object(caller, &from_account_id, &to_account_id, card)
                 .await
             {
                 Ok((_new_id, copied_obj)) => {
@@ -893,12 +893,12 @@ mod tests {
         );
     }
 
-    /// Oracle: ContactCard/copy calls copy_contact_card on the backend.
+    /// Oracle: ContactCard/copy calls copy_object on the backend.
     ///
     /// Source: RFC 9610 §3.4 — copy must succeed when both accounts exist
     /// and the source card is found.
     #[tokio::test]
-    async fn copy_calls_backend_copy_contact_card() {
+    async fn copy_calls_backend_copy_object() {
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_account("acc2");
         backend.add_contact_card("acc1", "card1");

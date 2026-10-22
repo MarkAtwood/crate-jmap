@@ -1135,13 +1135,13 @@ impl ContactsBackend for MemoryBackend {
         matches!(O::TYPE_NAME, "AddressBook" | "ContactCard")
     }
 
-    async fn copy_contact_card(
+    async fn copy_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &(),
         from_account_id: &Id,
         to_account_id: &Id,
-        card: jmap_contacts_types::ContactCard,
-    ) -> Result<(Id, jmap_contacts_types::ContactCard), BackendSetError<Self::Error>> {
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
 
         if !inner.known_accounts.contains(from_account_id.as_ref()) {
@@ -1156,8 +1156,8 @@ impl ContactsBackend for MemoryBackend {
 
         let new_id = Id::from(uuid::Uuid::new_v4().to_string());
 
-        let mut val = serde_json::to_value(&card).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("serialize copied card: {e}")))
+        let mut val = serde_json::to_value(&obj).map_err(|e| {
+            BackendSetError::Other(MemoryError::new(format!("serialize copied object: {e}")))
         })?;
         if let Some(map) = val.as_object_mut() {
             map.insert(
@@ -1165,21 +1165,22 @@ impl ContactsBackend for MemoryBackend {
                 serde_json::Value::String(new_id.as_ref().to_owned()),
             );
         }
-        let stored: jmap_contacts_types::ContactCard = serde_json::from_value(val.clone())
-            .map_err(|e| {
-                BackendSetError::Other(MemoryError::new(format!("deserialize copied card: {e}")))
-            })?;
+        let stored: O = O::deserialize(&val).map_err(|e| {
+            BackendSetError::Other(MemoryError::new(format!("deserialize copied object: {e}")))
+        })?;
 
-        let new_state = inner.bump_state("ContactCard", to_account_id.as_ref());
+        let new_state = inner.bump_state(O::TYPE_NAME, to_account_id.as_ref());
         // bd:JMAP-ic0j.74 — copy is a create on the destination account;
-        // feed the new value to the incremental index updater before
+        // feed a new ContactCard to the incremental index updater before
         // moving `val` into storage.
-        inner.apply_contact_card_index_delta(to_account_id.as_ref(), None, Some(&val));
+        if O::TYPE_NAME == "ContactCard" {
+            inner.apply_contact_card_index_delta(to_account_id.as_ref(), None, Some(&val));
+        }
         inner
-            .objects_mut("ContactCard", to_account_id.as_ref())
+            .objects_mut(O::TYPE_NAME, to_account_id.as_ref())
             .insert(new_id.clone(), val);
         inner
-            .change_log_mut("ContactCard", to_account_id.as_ref())
+            .change_log_mut(O::TYPE_NAME, to_account_id.as_ref())
             .push(ChangeEntry {
                 new_state,
                 created: vec![new_id.clone()],
