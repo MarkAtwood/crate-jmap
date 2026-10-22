@@ -73,13 +73,13 @@
 //! - `jmap_base_client::Session::supports_cid() -> bool` — checks
 //!   the session-level capability map for `urn:ietf:params:jmap:cid`.
 //!
-//! The [`CidCapability`] value-object shape (draft §3) lives in
-//! the [`capability`] module alongside [`JMAP_CID_URI`].
+//! The [`CidCapability`] value-object shape (draft §3) lives at the
+//! crate root alongside [`JMAP_CID_URI`].
 
 #![forbid(unsafe_code)]
 
 pub mod blobext;
-pub mod capability;
+mod capability;
 pub mod cidv1;
 pub mod digest;
 

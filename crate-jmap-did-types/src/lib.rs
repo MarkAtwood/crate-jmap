@@ -55,7 +55,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod capability;
+mod capability;
 pub mod did;
 mod jcs;
 pub mod key;

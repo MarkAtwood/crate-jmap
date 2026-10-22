@@ -100,7 +100,7 @@
 
 pub mod addressbook;
 pub mod backend;
-pub mod capability;
+mod capability;
 pub mod card;
 mod collision;
 

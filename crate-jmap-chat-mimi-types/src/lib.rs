@@ -50,7 +50,7 @@
 #![forbid(unsafe_code)]
 
 pub mod base64url;
-pub mod capability;
+mod capability;
 pub mod convert;
 pub mod groupinfo;
 pub mod keymaterial;

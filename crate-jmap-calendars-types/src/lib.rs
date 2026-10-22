@@ -22,7 +22,7 @@
 //! | [`jscalendar`] | Module alias re-exporting `jmap-jscalendar-types`: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`] |
 //! | [`notification`] | [`CalendarEventNotification`], [`Person`], [`NotificationType`], [`NotificationFilterCondition`] |
 //! | [`participant_identity`] | [`ParticipantIdentity`] |
-//! | [`capability`] | [`CalendarsCapability`], [`CalendarsAccountCapability`], URI constants |
+//! | Crate root | [`CalendarsCapability`], [`CalendarsAccountCapability`], URI constants |
 //!
 //! The JSCalendar sub-object types (RFC 8984) live in the dedicated
 //! `jmap-jscalendar-types` crate so `jmap-tasks-types` can also consume
@@ -36,7 +36,7 @@
 pub mod availability;
 pub mod backend;
 pub mod calendar;
-pub mod capability;
+mod capability;
 pub mod event;
 pub mod notification;
 pub mod participant_identity;

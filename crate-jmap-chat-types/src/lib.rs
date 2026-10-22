@@ -106,7 +106,7 @@
 
 pub mod backend;
 pub mod calendars;
-pub mod capability;
+mod capability;
 pub mod chat;
 pub mod clearable;
 pub mod contact;
