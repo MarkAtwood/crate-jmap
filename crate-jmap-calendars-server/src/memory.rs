@@ -374,6 +374,7 @@ impl Inner {
 /// they are the *reason* production deployments override the backend
 /// trait rather than reusing `MemoryBackend`.
 #[derive(Clone, Default)]
+#[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
 }

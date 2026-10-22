@@ -164,6 +164,7 @@ impl Inner {
 /// distinct state per case), construct a new instance with
 /// [`Self::new`] / [`Self::default`] rather than calling `.clone()`.
 #[derive(Clone, Default)]
+#[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
 }

@@ -236,6 +236,7 @@ impl Inner {
 /// crypto provider `C`.
 ///
 /// `Clone` is a cheap `Arc` clone: every clone shares the same state.
+#[non_exhaustive]
 pub struct MemoryBackend<C> {
     crypto: Arc<C>,
     inner: Arc<Mutex<Inner>>,
