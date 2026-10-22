@@ -1970,7 +1970,7 @@ mod tests {
     /// the "create" patch), the server MUST reject the copy with an
     /// invalidProperties SetError." The mock enforces that rule only in
     /// `create_calendar_event`, so this also pins that /copy routes its
-    /// creates there. A public copy into the same account still succeeds.
+    /// creates there. A public copy into the foreign account still succeeds.
     #[tokio::test]
     async fn copy_non_public_event_into_foreign_account_is_invalid_properties() {
         let backend = MockBackend::new_with_account("shared");

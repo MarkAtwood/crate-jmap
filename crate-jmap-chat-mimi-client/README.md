@@ -59,3 +59,8 @@ assert!(group_info_names_hub_sender(&group_info, &verified.hub_sender));
 
 `jmap-types`, `jmap-base-client`, `jmap-chat-mimi-types`, `serde`,
 `serde_json`, crates.io `openmls =0.9.1` and `tls_codec =0.5.0`.
+
+`openmls` is a public dependency, re-exported as
+`jmap_chat_mimi_client::openmls`; use that path rather than pinning your
+own copy. A new `openmls` minor version means a major release of this
+crate.

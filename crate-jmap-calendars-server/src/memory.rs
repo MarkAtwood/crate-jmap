@@ -21,8 +21,10 @@
 //! implemented — the trait's default implementations are inherited.
 //! The same holds for the §5.9 uid/privacy rule
 //! (`CalendarsBackend::privacy_conflicts`) and the §5.10 private-copy
-//! rule (`CalendarsBackend::may_copy_calendar_event`): both fail open,
-//! since this backend has no account-ownership model.
+//! rule (`CalendarsBackend::may_copy_calendar_event`): both fail open.
+//! The §5.10 rule needs an account-ownership model, which this backend
+//! does not have; the §5.9 rule could be computed from the stored
+//! events but is left unimplemented to keep the reference backend small.
 //!
 //! # Feature flag and API stability
 //!

@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// `#[non_exhaustive]` and a `match` outside this crate needs a wildcard
 /// arm:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0004
 /// use jmap_chat_client::RsvpStatus;
 /// fn f(s: RsvpStatus) -> u8 {
 ///     match s {

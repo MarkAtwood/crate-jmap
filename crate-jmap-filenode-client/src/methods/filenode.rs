@@ -67,7 +67,7 @@ pub struct FileNodeGetParams {
 /// in -14, `"unchanged"` in -16), so this enum is `#[non_exhaustive]` and
 /// a `match` outside this crate needs a wildcard arm:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0004
 /// use jmap_filenode_client::FileNodeOnExists;
 /// fn f(o: FileNodeOnExists) -> u8 {
 ///     match o {

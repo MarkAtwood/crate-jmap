@@ -125,6 +125,11 @@ Controls what happens when a new node's name collides with an existing sibling:
 |---|---|---|
 | `Replace` | `"replace"` | Destroy the existing node and create the new one in its place |
 | `Rename` | `"rename"` | Suffix the new node's name (e.g. `"report-1.pdf"`) to avoid the collision |
+| `Newest` | `"newest"` | Replace the existing node only if the incoming item has a strictly later `modified`; otherwise reject with `alreadyExists` |
+| `Unchanged` | `"unchanged"` | Replace the existing node only if the `ifUnchangedBy` precondition (JMAP-CONDITIONAL, passed via `extra`) holds; otherwise reject. A server without JMAP-CONDITIONAL rejects it with `invalidArguments` |
+
+`FileNodeOnExists` is `#[non_exhaustive]` because the `onExists` value set
+has grown across draft revisions; a `match` on it needs a wildcard arm.
 
 When `onExists` is absent, the server defaults to returning an `alreadyExists` SetError
 with `existingId` pointing to the conflicting node.

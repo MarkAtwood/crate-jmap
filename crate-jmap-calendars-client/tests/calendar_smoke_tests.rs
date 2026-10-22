@@ -664,3 +664,35 @@ async fn calendar_set_default_only_change() {
         })
     );
 }
+
+/// Oracle: `calendar_set`'s documented contract — "at least one of
+/// create, update, destroy or params.on_success_set_is_default must be
+/// Some". A call that sets only `onDestroyRemoveEvents` or `extra` changes
+/// nothing (draft-ietf-jmap-calendars-33 §4.4: `onDestroyRemoveEvents`
+/// only qualifies a destroy), so it is refused before any request is sent.
+#[tokio::test]
+async fn calendar_set_without_changes_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+    let mut extra = serde_json::Map::new();
+    extra.insert("vendorFlag".into(), json!(true));
+    for params in [
+        None,
+        Some(CalendarSetParams {
+            on_destroy_remove_events: Some(true),
+            extra,
+            ..Default::default()
+        }),
+    ] {
+        let err = sc
+            .calendar_set(None, None, None, None, params)
+            .await
+            .expect_err("an all-None calendar_set must be refused");
+        assert!(
+            matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
+            "expected InvalidArgument, got {err:?}"
+        );
+    }
+    let reqs = server.received_requests().await.expect("recording enabled");
+    assert!(reqs.is_empty(), "no request may be sent: {reqs:?}");
+}

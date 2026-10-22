@@ -1385,6 +1385,19 @@ wire behaviour that a conforming peer can observe.
   `isAscending` or other malformed field is now `invalidArguments`
   instead of being read as ascending (RFC 8620 §5.5). An unknown
   property is still `unsupportedSort` (bd JMAP-wf92.25).
+- **jmap-sharing-server**, **jmap-filenode-server**,
+  **jmap-calendars-server**: the generic `/query` and `/queryChanges`
+  handlers for ShareNotification, FileNode and CalendarEventNotification
+  decode
+  `sort` as the typed comparator, so a malformed comparator (e.g.
+  `"sort": [5]`) is now `invalidArguments`; it used to be accepted as
+  opaque JSON (RFC 8620 §5.5; bd JMAP-wf92.25, JMAP-skk9.13).
+- **BREAKING** **jmap-calendars-types**:
+  `Calendar::default_alerts_with_time` and
+  `Calendar::default_alerts_without_time` are
+  `Option<BTreeMap<Id, serde_json::Value>>` (were keyed by `String`),
+  matching `Id[Alert]|null` in draft-ietf-jmap-calendars-33 §4 and
+  `TaskList` in jmap-tasks-types (bd JMAP-skk9.13).
 
 - **jmap-metadata-server**: **BREAKING** `value_depth` returns `u64`
   and `exceeds_max_depth` takes `max_depth: u64`, matching

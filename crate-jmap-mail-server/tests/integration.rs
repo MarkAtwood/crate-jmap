@@ -14501,3 +14501,21 @@ async fn search_snippet_get_unknown_filter_key_returns_unsupported_filter() {
         .expect_err("unknown filter key must be refused");
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
+
+/// Oracle: RFC 8620 §5.5 — Comparator `isAscending` is a `Boolean`, and
+/// "invalidArguments": "One of the arguments is of the wrong type or is
+/// otherwise invalid". A string
+/// `isAscending` is refused, not read as ascending.
+#[tokio::test]
+async fn mailbox_query_non_boolean_is_ascending_returns_invalid_arguments() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "sort": [{ "property": "name", "isAscending": "yes" }],
+    });
+    let err = handle_mailbox_query(&backend, &(), args)
+        .await
+        .expect_err("non-boolean isAscending must be refused");
+    assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
+}
