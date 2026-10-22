@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_jscalendar_types::LocalDateTime;
+use jmap_jscalendar_types::{Duration, LocalDateTime};
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
@@ -78,8 +78,8 @@ pub struct TasksRecurrencesCapability {}
 #[serde(rename_all = "camelCase")]
 pub struct TasksRecurrencesAccountCapability {
     /// Maximum duration over which the server will expand recurrences
-    /// (ISO 8601 Duration string).
-    pub max_expanded_query_duration: String,
+    /// (draft-tasks-06 §1.6.2: "maxExpandedQueryDuration: Duration").
+    pub max_expanded_query_duration: Duration,
 }
 
 /// Session-level capability for the assignees extension (draft-tasks-06 §1.6.3).

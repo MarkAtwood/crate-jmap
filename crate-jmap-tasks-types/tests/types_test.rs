@@ -786,7 +786,7 @@ fn tasks_recurrences_account_capability_roundtrip() {
     let json = r#"{"maxExpandedQueryDuration":"P365D"}"#;
     let cap: TasksRecurrencesAccountCapability =
         serde_json::from_str(json).expect("must deserialize");
-    assert_eq!(cap.max_expanded_query_duration, "P365D");
+    assert_eq!(cap.max_expanded_query_duration.as_ref(), "P365D");
     let out = serde_json::to_string(&cap).expect("must serialize");
     let recovered: TasksRecurrencesAccountCapability =
         serde_json::from_str(&out).expect("must re-deserialize");
