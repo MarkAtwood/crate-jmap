@@ -233,16 +233,6 @@ impl SetObject for crate::TaskList {
     type Patch = PatchObject;
 }
 
-// The filter is untyped JSON, so the generic handlers cannot reject an
-// unknown key; the backend must answer it with RFC 8620 §5.5
-// `unsupportedFilter` itself.
-// draft-ietf-jmap-tasks-06 defines no TaskList/query, so there are no
-// sort properties to type either.
-impl QueryObject for crate::TaskList {
-    type Filter = serde_json::Value;
-    type Comparator = serde_json::Value;
-}
-
 impl JmapObject for crate::Task {
     const TYPE_NAME: &'static str = "Task";
     type Property = TaskProperty;

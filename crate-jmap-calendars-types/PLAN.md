@@ -465,8 +465,7 @@ the policy applied in their home crate.
 
 Out of scope:
 
-- Filter and comparator algebra (`CalendarFilterCondition`,
-  `CalendarEventFilterCondition`, `CalendarEventComparator`,
+- Filter and comparator algebra (`CalendarEventFilterCondition`, `CalendarEventComparator`,
   `NotificationFilterCondition`) — silent-drop of an unknown filter
   clause is a query-correctness bug. The existing rustdoc on each of
   these types already documents the IETF-track and pre-IETF escape paths

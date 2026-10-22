@@ -17,7 +17,7 @@
 //!
 //! | Module | Contents |
 //! |---|---|
-//! | `calendar` | [`Calendar`], [`CalendarRights`], [`IncludeInAvailability`], [`CalendarFilterCondition`] |
+//! | `calendar` | [`Calendar`], [`CalendarRights`], [`IncludeInAvailability`] |
 //! | `event` | [`CalendarEvent`], [`CalendarEventFilterCondition`], [`CalendarEventComparator`], [`CalendarEventComparatorProperty`] |
 //! | `jmap-jscalendar-types` | Re-exported: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`] |
 //! | `notification` | [`CalendarEventNotification`], [`Person`], [`NotificationType`], [`NotificationFilterCondition`], [`CalendarEventNotificationComparator`], [`CalendarEventNotificationComparatorProperty`] |
@@ -43,9 +43,7 @@ mod participant_identity;
 // ── Top-level re-exports ──────────────────────────────────────────────────────
 
 pub use availability::{BusyPeriod, BusyStatus};
-pub use calendar::{
-    Calendar, CalendarFilter, CalendarFilterCondition, CalendarRights, IncludeInAvailability,
-};
+pub use calendar::{Calendar, CalendarRights, IncludeInAvailability};
 pub use capability::{
     CalendarsAccountCapability, CalendarsCapability, CalendarsParseCapability,
     PrincipalCalendarsCapability, PrincipalsAvailabilityAccountCapability,

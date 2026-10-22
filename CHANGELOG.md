@@ -1794,10 +1794,10 @@ wire behaviour that a conforming peer can observe.
 - **BREAKING** Every typed `/query` comparator `property` is a typed enum
   with an `Other(String)` catch-all, the `jmap-mail-types`
   `ComparatorProperty` shape (bd JMAP-wf92.11). Comparators that are
-  still untyped `serde_json::Value` are out of scope: Calendar and
-  ParticipantIdentity (jmap-calendars-types), Principal
-  (jmap-sharing-types) and TaskList (jmap-tasks-types); bd JMAP-wf92.25
-  typed the others. **jmap-calendars-types**:
+  still untyped `serde_json::Value` are out of scope: Principal
+  (jmap-sharing-types); bd JMAP-wf92.25 typed the others, and bd
+  JMAP-w9ox.1 removed the Calendar, ParticipantIdentity and TaskList
+  `QueryObject` impls. **jmap-calendars-types**:
   `CalendarEventComparatorProperty` (draft-ietf-jmap-calendars-26
   §5.11.2). **jmap-tasks-types**: `TaskComparatorProperty`
   (draft-ietf-jmap-tasks-06 §4.13) and `TaskNotificationComparatorProperty`
@@ -2671,6 +2671,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-calendars-types**, **jmap-tasks-types**: the
+  `QueryObject` impls for `Calendar`, `ParticipantIdentity` and
+  `TaskList`, and `CalendarFilterCondition` with its `CalendarFilter`
+  alias. draft-ietf-jmap-calendars-33 lists only `/get`, `/changes` and
+  `/set` for Calendar and ParticipantIdentity (§3, §4), and
+  draft-ietf-jmap-tasks-06 the same for TaskList (§3), so no
+  `QueryParams<'_, Calendar>` call has a method to reach, and the
+  `name`/`isSubscribed` filter was a wire shape no spec defines. These
+  types are now only `JmapObject`/`GetObject`/`SetObject`, like the
+  query-less jmap-mail-types objects (bd JMAP-w9ox.1).
 - **BREAKING** Every remaining public module path of the extension
   types crates (jmap-calendars-types, -chat-federation-types,
   -chat-mimi-types, -chat-types, -cid-types, -contacts-types,
