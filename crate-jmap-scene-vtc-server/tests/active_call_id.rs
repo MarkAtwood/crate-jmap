@@ -10,7 +10,7 @@ mod common;
 use common::*;
 use jmap_types::Id;
 use jmap_vtc_server::end_call;
-use jmap_vtc_types::CallEndReason;
+use jmap_vtc_types::{CallEndReason, CallState};
 use serde_json::{json, Value};
 
 /// A moderator ends the call through `VTCCall/set` (vtc L444: "A
@@ -62,6 +62,7 @@ async fn auto_end_clears_bound_region_with_state_change() {
         &OWNER.to_owned(),
         &Id::from(ACCOUNT),
         &Id::from(call_id.as_str()),
+        &[CallState::Active],
         CallEndReason::Timeout,
     )
     .await

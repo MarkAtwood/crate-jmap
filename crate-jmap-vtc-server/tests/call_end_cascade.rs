@@ -14,7 +14,7 @@ use jmap_vtc_server::{
     end_call, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_livestream_get,
     handle_vtc_recording_get, handle_vtc_recording_set, BackendSetError, SetErrorType,
 };
-use jmap_vtc_types::{CallEndReason, VtcEvent};
+use jmap_vtc_types::{CallEndReason, CallState, VtcEvent};
 use serde_json::{json, Value};
 
 /// The server's own caller context for a server-initiated end.
@@ -226,6 +226,7 @@ async fn server_end_cascades_through_rooms_and_recordings() {
         &SERVER.to_owned(),
         &Id::from(ACCOUNT),
         &Id::from(parent.as_str()),
+        &[CallState::Active],
         CallEndReason::Timeout,
     )
     .await
@@ -263,6 +264,7 @@ async fn server_end_refuses_an_ended_or_unknown_call() {
         &caller,
         &account,
         &Id::from(id.as_str()),
+        &[CallState::Active],
         CallEndReason::Timeout,
     )
     .await
@@ -278,6 +280,7 @@ async fn server_end_refuses_an_ended_or_unknown_call() {
         &caller,
         &account,
         &Id::from("nope"),
+        &[CallState::Active],
         CallEndReason::Timeout,
     )
     .await

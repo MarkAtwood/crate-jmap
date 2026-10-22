@@ -35,7 +35,7 @@ use serde_json::{json, Map, Value};
 use std::time::SystemTime;
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
-use crate::call::{deliver_call_end, end_call, ring_deadline, set_call_state};
+use crate::call::{deliver_call_end, end_call, is_state_refusal, ring_deadline, set_call_state};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
     fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
@@ -1085,15 +1085,19 @@ async fn call_transitions<B: VtcBackend>(
         // with `endReason: "declined"`."
         let targets = call_participants(backend, caller, account_id, &call.id).await?;
         let mut targets = targets.iter().filter_map(|p| p.call_response.as_ref());
+        // `call` may be stale, so the end applies only while the stored
+        // call is still `"ringing"`.
         if targets.all(|r| *r == CallResponse::Declined) {
-            end(
+            end_call(
                 backend,
                 caller,
                 account_id,
                 &call.id,
+                &[CallState::Ringing],
                 CallEndReason::Declined,
             )
-            .await?;
+            .await
+            .map_err(backend_set_error_value)?;
         }
     }
     if effects.left {
@@ -1116,6 +1120,9 @@ async fn call_transitions<B: VtcBackend>(
 ///   "completed"`, or `"cancelled"` if the call was still `"ringing"`. A
 ///   room call stays `"active"` when it empties". The end goes through
 ///   [`end_call`], which delivers the `"cancelled"` `VTCCallEndEvent`.
+///   The reason follows the stored state when the end applies, not
+///   `call.state`: a call answered since `call` was read ends
+///   `"completed"`.
 /// - Otherwise, when the last moderator leaves, "the server SHOULD grant
 ///   `"moderator"` to the remaining authenticated participant (non-null
 ///   `userId`) who joined earliest".
@@ -1143,12 +1150,33 @@ pub async fn after_leave<B: VtcBackend>(
         .collect();
     if active.is_empty() {
         if matches!(call.call_type, CallType::Ring | CallType::Scheduled) {
-            let reason = if call.state == CallState::Ringing {
-                CallEndReason::Cancelled
-            } else {
-                CallEndReason::Completed
-            };
-            end_call(backend, caller, account_id, &call.id, reason).await?;
+            if call.state == CallState::Ringing {
+                let from = [CallState::Ringing];
+                match end_call(
+                    backend,
+                    caller,
+                    account_id,
+                    &call.id,
+                    &from,
+                    CallEndReason::Cancelled,
+                )
+                .await
+                {
+                    Err(BackendSetError::SetError(e)) if is_state_refusal(&e) => {}
+                    ended => return ended,
+                }
+            }
+            // §State Machine has no transition back to `"ringing"`.
+            let from = [CallState::Creating, CallState::Pending, CallState::Active];
+            end_call(
+                backend,
+                caller,
+                account_id,
+                &call.id,
+                &from,
+                CallEndReason::Completed,
+            )
+            .await?;
         }
         return Ok(());
     }
@@ -1170,17 +1198,4 @@ pub async fn after_leave<B: VtcBackend>(
             .await?;
     }
     Ok(())
-}
-
-/// [`end_call`] with its error as SetError JSON.
-async fn end<B: VtcBackend>(
-    backend: &B,
-    caller: &B::CallerCtx,
-    account_id: &Id,
-    call_id: &Id,
-    reason: CallEndReason,
-) -> Result<(), Value> {
-    end_call(backend, caller, account_id, call_id, reason)
-        .await
-        .map_err(backend_set_error_value)
 }
