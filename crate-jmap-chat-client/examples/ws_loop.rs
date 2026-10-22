@@ -10,8 +10,8 @@
 //! session, then drives the read loop through
 //! [`jmap_chat_client::ChatWsExt::next_chat_frame`] — the chat-aware
 //! extension trait that promotes typed `WsFrame` variants into
-//! [`jmap_chat_client::ChatWsFrame`] (adds `ChatTyping` / `ChatPresence`
-//! over the base set).
+//! [`jmap_chat_client::ChatWsFrame`] (types `ChatTyping` / `ChatPresence`
+//! and passes every other frame through as `Other`).
 //!
 //! Run with:
 //!
@@ -23,6 +23,7 @@
 
 use futures::SinkExt;
 use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::WsFrame;
 use jmap_chat_client::{ChatWsExt, ChatWsFrame};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -84,12 +85,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let frame = frame?;
         count += 1;
         match &frame {
-            ChatWsFrame::Response(r) => println!(
+            ChatWsFrame::Other(WsFrame::Response(r)) => println!(
                 "frame #{count}: Response — {} method responses, session_state={:?}",
                 r.method_responses.len(),
                 r.session_state
             ),
-            ChatWsFrame::StateChange(sc) => println!(
+            ChatWsFrame::Other(WsFrame::StateChange(sc)) => println!(
                 "frame #{count}: StateChange — {} account(s) changed",
                 sc.changed.len()
             ),

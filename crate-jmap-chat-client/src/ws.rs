@@ -9,83 +9,53 @@
 
 use jmap_base_client::{ClientError, WsFrame, WsSession};
 use jmap_chat_types::{ChatPresenceEvent, ChatStreamEnable, ChatTypingEvent, EphemeralMessage};
+use serde::Deserialize as _;
 
-/// A parsed frame from the JMAP Chat WebSocket, including chat-specific variants.
+/// A frame from the JMAP WebSocket, with the Chat ephemeral events typed.
 ///
-/// Marked `#[non_exhaustive]` because the spec may define additional `@type`
-/// values in future revisions.
+/// `#[non_exhaustive]`, so new Chat event types stay semver-additive.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum ChatWsFrame {
-    /// RFC 8620 §7.1 StateChange — one or more object types have changed state.
-    StateChange(jmap_base_client::StateChange),
-    /// RFC 8887 Response — reply to a JMAP request sent on this connection.
-    Response(jmap_types::JmapResponse),
-    /// Ephemeral typing indicator (draft-atwood-jmap-chat-wss-00).
+    /// `ChatTypingEvent`: a typing indicator.
     /// Delivered only after a `ChatStreamEnable` subscription has been sent.
     ChatTyping(ChatTypingEvent),
-    /// Ephemeral presence update (draft-atwood-jmap-chat-wss-00).
+    /// `ChatPresenceEvent`: a presence update.
     /// Delivered only after a `ChatStreamEnable` subscription has been sent.
     ChatPresence(ChatPresenceEvent),
-    /// Unrecognized `@type` — ignored per forward-compatibility rules
-    /// (clients SHOULD ignore unknown message types per RFC 8887 §4.3.1).
+    /// Any other frame, unchanged.
     ///
-    /// Also produced when a known chat type fails to deserialize — `type_name`
-    /// will be `"ChatTypingEvent"` or `"ChatPresenceEvent"` in that case.
-    Unknown {
-        /// The unknown-frame discriminant value. Possible sources:
-        /// - The verbatim `@type` string from the underlying
-        ///   [`WsFrame::Unknown`] when the chat-side parser does not
-        ///   recognise it (typical: future chat-extension events).
-        /// - `"<no @type>"` (the literal string) when the underlying
-        ///   `WsFrame::Unknown` itself reported an absent `@type` field —
-        ///   that sentinel originates in `jmap-base-client` and
-        ///   propagates through unchanged.
-        /// - `"ChatTypingEvent"` or `"ChatPresenceEvent"` when a known
-        ///   chat-event type failed payload deserialization (see the
-        ///   parent variant's doc comment above).
-        /// - `"<unknown>"` when the underlying [`WsFrame`] is a future
-        ///   non-`Unknown` variant added by `jmap-base-client` after
-        ///   `parse_chat_ws_frame` was last updated.
-        ///
-        /// Callers wishing to distinguish "server sent JSON without
-        /// `@type`" from "this parser doesn't recognise the value"
-        /// must match on the literal strings; the field intentionally
-        /// flattens both cases into one `String` to keep the variant
-        /// shape stable across future spec edits.
-        type_name: String,
-    },
+    /// Chat events "are interleaved with `StateChange` and `Response`
+    /// frames on the same WebSocket connection"
+    /// (draft-atwood-jmap-chat-wss-00 L165), so those arrive here typed,
+    /// as does the `RequestError` that reports a failed
+    /// `ChatStreamEnable` (L192); a client "SHOULD silently ignore" an
+    /// unrecognized `@type` (L304). A Chat event whose body does not
+    /// parse also arrives here, as [`WsFrame::Unknown`] with its `@type`
+    /// and raw JSON.
+    Other(WsFrame),
 }
 
 /// Promote a base-client [`WsFrame`] to a [`ChatWsFrame`].
 ///
-/// - `StateChange` and `Response` are forwarded unchanged.
-/// - `Unknown { type_name: "ChatTypingEvent", raw }` → tries `serde_json::from_value`
-///   into [`ChatTypingEvent`]; on failure produces `Unknown` (not an error).
-/// - `Unknown { type_name: "ChatPresenceEvent", raw }` → same for [`ChatPresenceEvent`].
-/// - All other `Unknown` frames are forwarded as `ChatWsFrame::Unknown`.
+/// A [`WsFrame::Unknown`] whose `@type` is `ChatTypingEvent` or
+/// `ChatPresenceEvent` and whose body parses becomes the matching typed
+/// variant; every other frame becomes [`ChatWsFrame::Other`]. One
+/// malformed frame never fails the connection.
 pub fn parse_chat_ws_frame(frame: WsFrame) -> ChatWsFrame {
-    match frame {
-        WsFrame::StateChange(sc) => ChatWsFrame::StateChange(sc),
-        WsFrame::Response(r) => ChatWsFrame::Response(r),
-        WsFrame::Unknown { type_name, raw } => match type_name.as_str() {
-            "ChatTypingEvent" => serde_json::from_value::<ChatTypingEvent>(raw)
-                .map(ChatWsFrame::ChatTyping)
-                .unwrap_or_else(|_| ChatWsFrame::Unknown {
-                    type_name: "ChatTypingEvent".to_owned(),
-                }),
-            "ChatPresenceEvent" => serde_json::from_value::<ChatPresenceEvent>(raw)
-                .map(ChatWsFrame::ChatPresence)
-                .unwrap_or_else(|_| ChatWsFrame::Unknown {
-                    type_name: "ChatPresenceEvent".to_owned(),
-                }),
-            _ => ChatWsFrame::Unknown { type_name },
-        },
-        // WsFrame is #[non_exhaustive]: forward any future base-client variants as Unknown.
-        _ => ChatWsFrame::Unknown {
-            type_name: "<unknown>".to_owned(),
-        },
-    }
+    let WsFrame::Unknown { type_name, raw } = &frame else {
+        return ChatWsFrame::Other(frame);
+    };
+    let parsed = match type_name.as_str() {
+        "ChatTypingEvent" => ChatTypingEvent::deserialize(raw)
+            .map(ChatWsFrame::ChatTyping)
+            .ok(),
+        "ChatPresenceEvent" => ChatPresenceEvent::deserialize(raw)
+            .map(ChatWsFrame::ChatPresence)
+            .ok(),
+        _ => None,
+    };
+    parsed.unwrap_or(ChatWsFrame::Other(frame))
 }
 
 /// Extension trait adding JMAP Chat ephemeral-event methods to [`WsSession`].
@@ -119,7 +89,8 @@ pub trait ChatWsExt: sealed::Sealed {
     /// Success is silent; failure arrives later as a `RequestError` frame.
     /// Set [`ChatStreamEnable::id`] to correlate it: the error carries that
     /// value as its `requestId`, readable with
-    /// [`jmap_base_client::WsFrame::request_id`]. A client that sends
+    /// [`jmap_base_client::WsFrame::request_id`] on the
+    /// [`ChatWsFrame::Other`] frame. A client that sends
     /// several control messages in succession SHOULD give each an `id`
     /// (draft-atwood-jmap-chat-wss-00 §ChatStreamEnable, L186 and L192).
     ///
@@ -192,7 +163,7 @@ mod tests {
         }
     }
 
-    /// Oracle: StateChange is forwarded unchanged.
+    /// Oracle: StateChange is forwarded unchanged in `Other`.
     /// Wire format from RFC 8620 §7.1.1.
     #[test]
     fn parse_state_change_forwarded() {
@@ -202,7 +173,7 @@ mod tests {
                 .expect("test fixture must deserialize");
         let frame = parse_chat_ws_frame(WsFrame::StateChange(sc));
         match frame {
-            ChatWsFrame::StateChange(got) => {
+            ChatWsFrame::Other(WsFrame::StateChange(got)) => {
                 assert_eq!(
                     got.changed
                         .get(&Id::from("acc1"))
@@ -252,32 +223,67 @@ mod tests {
         }
     }
 
-    /// Oracle: Unknown { ChatTypingEvent } with malformed JSON degrades to Unknown.
-    /// A bad server frame must not kill the entire WebSocket session.
+    /// Oracle: Unknown { ChatTypingEvent } with malformed JSON degrades to
+    /// `Other(Unknown)` with its raw JSON intact. A bad server frame must
+    /// not kill the entire WebSocket session.
     #[test]
-    fn parse_chat_typing_malformed_degrades_to_unknown() {
+    fn parse_chat_typing_malformed_keeps_raw() {
         let frame = WsFrame::Unknown {
             type_name: "ChatTypingEvent".to_owned(),
             raw: serde_json::json!({"missing": "required fields"}),
         };
         let got = parse_chat_ws_frame(frame);
         match got {
-            ChatWsFrame::Unknown { type_name } => {
+            ChatWsFrame::Other(WsFrame::Unknown { type_name, raw }) => {
                 assert_eq!(type_name, "ChatTypingEvent");
+                assert_eq!(raw, serde_json::json!({"missing": "required fields"}));
             }
-            other => panic!("expected Unknown, got {other:?}"),
+            other => panic!("expected Other(Unknown), got {other:?}"),
         }
     }
 
-    /// Oracle: Unknown with unrecognized type_name is forwarded as Unknown.
-    /// RFC 8887 §4.3.1: clients SHOULD ignore unknown message types.
+    /// Oracle: Unknown with unrecognized type_name is forwarded unchanged.
+    /// draft-atwood-jmap-chat-wss-00 L304: a client "SHOULD silently ignore"
+    /// an unrecognized `@type`, so the caller gets the frame to drop.
     #[test]
     fn parse_unknown_type_forwarded() {
         let frame = unknown_frame("FutureEvent", r#"{"@type":"FutureEvent","foo":"bar"}"#);
         let got = parse_chat_ws_frame(frame);
         match got {
-            ChatWsFrame::Unknown { type_name } => assert_eq!(type_name, "FutureEvent"),
-            other => panic!("expected Unknown, got {other:?}"),
+            ChatWsFrame::Other(WsFrame::Unknown { type_name, raw }) => {
+                assert_eq!(type_name, "FutureEvent");
+                assert_eq!(raw["foo"], "bar");
+            }
+            other => panic!("expected Other(Unknown), got {other:?}"),
+        }
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-wss-00 L186 and L194 — a
+    /// `ChatStreamEnable` with an empty `dataTypes` gets "a `RequestError`
+    /// frame ... with a `type` of
+    /// `"urn:ietf:params:jmap:error:invalidArguments"`" that "carries this
+    /// value as its `requestId`". The frame below is hand-written from that
+    /// text and RFC 8887 §4.3.4; the caller must see it typed.
+    #[test]
+    fn parse_request_error_forwarded_typed() {
+        let err: jmap_base_client::WsRequestError = serde_json::from_str(
+            r#"{"@type":"RequestError","requestId":"enable-1",
+                "type":"urn:ietf:params:jmap:error:invalidArguments","status":400}"#,
+        )
+        .expect("test fixture must deserialize");
+        match parse_chat_ws_frame(WsFrame::RequestError(err)) {
+            ChatWsFrame::Other(frame @ WsFrame::RequestError(_)) => {
+                assert_eq!(frame.request_id(), Some("enable-1"));
+                let WsFrame::RequestError(e) = frame else {
+                    unreachable!("matched RequestError above")
+                };
+                assert_eq!(
+                    e.problem_type,
+                    "urn:ietf:params:jmap:error:invalidArguments"
+                );
+                assert_eq!(e.status, Some(400));
+            }
+            other => panic!("expected Other(RequestError), got {other:?}"),
         }
     }
 

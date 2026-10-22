@@ -1309,6 +1309,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-client**: `ChatWsFrame` takes the
+  `VtcWsFrame` / `SceneWsFrame` / `GraphEditWsFrame` shape:
+  `ChatTyping`, `ChatPresence` and `Other(WsFrame)`. The `StateChange`,
+  `Response` and `Unknown { type_name }` variants are removed; those
+  frames arrive in `Other` unchanged. A `RequestError` (the failure
+  report for `ChatStreamEnable`, draft-atwood-jmap-chat-wss-00 L192)
+  now reaches the caller as `Other(WsFrame::RequestError)` with its
+  `requestId` and Problem Details, instead of `Unknown { type_name:
+  "<unknown>" }`, and a malformed Chat event keeps its raw JSON in
+  `Other(WsFrame::Unknown)` (bd JMAP-wf92.12, JMAP-yt1w.44).
 - **BREAKING** Every `/query` comparator `property` is a typed enum with
   an `Other(String)` catch-all, the `jmap-mail-types`
   `ComparatorProperty` shape (bd JMAP-wf92.11). **jmap-calendars-types**:
