@@ -5,9 +5,8 @@
 //! [`handle_peer_deliver`] runs the draft's §New Message Validation steps
 //! over a [`FederationBackend`], which is a [`ChatBackend`] plus the few
 //! things federation needs that the chat backend does not carry: the
-//! authenticated peer, the `@everyone` permission floor, attachment
-//! fetching, Chat records whose id the peer chose, and typing events
-//! forwarded to the owner's clients.
+//! authenticated peer, attachment fetching, Chat records whose id the
+//! peer chose, and typing events forwarded to the owner's clients.
 //!
 //! The identity resolution, peer check and placeholder creation here are
 //! shared with the other `Peer/*` handlers of this crate.
