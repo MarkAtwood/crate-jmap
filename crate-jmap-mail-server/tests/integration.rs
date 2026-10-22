@@ -14,9 +14,9 @@ use jmap_mail_server::{
     handle_email_query_changes, handle_email_set, handle_identity_changes, handle_identity_get,
     handle_identity_set, handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query,
     handle_mailbox_query_changes, handle_mailbox_set, handle_search_snippet_get,
-    handle_submission_get, handle_submission_query, handle_submission_set, handle_thread_changes,
-    handle_thread_get, handle_vacation_get, handle_vacation_set, JmapBackend, JmapObject,
-    MailBackend, SetErrorType,
+    handle_submission_get, handle_submission_query, handle_submission_query_changes,
+    handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
+    handle_vacation_set, JmapBackend, JmapObject, MailBackend, SetErrorType,
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_server::{HandlerOutput, QueryChangesParams, QueryParams};
@@ -5338,6 +5338,146 @@ async fn submission_query_invalid_filter_json() {
         err.error_type.to_string(),
         "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.5 types `sort` as `Comparator[]|null`, so `[5]` is
+/// "of the wrong type" and EmailSubmission/query and
+/// EmailSubmission/queryChanges return invalidArguments (RFC 8620 §3.6.2:
+/// "One of the arguments is of the wrong type or is otherwise invalid").
+#[tokio::test]
+async fn submission_query_malformed_sort_rejected() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+
+    let err = handle_submission_query(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sort": [5] }),
+    )
+    .await
+    .expect_err("EmailSubmission/query sort:[5] must fail");
+    assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
+
+    let err = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sinceQueryState": "0",
+            "sort": [5],
+        }),
+    )
+    .await
+    .expect_err("EmailSubmission/queryChanges sort:[5] must fail");
+    assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
+}
+
+/// Oracle: RFC 8621 §7.3 lists only "emailId", "threadId" and "sentAt" as
+/// EmailSubmission sort properties, and RFC 8620 §5.5 defines
+/// unsupportedSort as: "The "sort" is syntactically valid, but it includes
+/// a property the server does not support sorting on". `identityId` is not
+/// in the §7.3 list.
+#[tokio::test]
+async fn submission_query_unknown_sort_property_unsupported() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+
+    let err = handle_submission_query(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sort": [{ "property": "identityId" }],
+        }),
+    )
+    .await
+    .expect_err("EmailSubmission/query sort by identityId must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    let err = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sinceQueryState": "0",
+            "sort": [{ "property": "identityId" }],
+        }),
+    )
+    .await
+    .expect_err("EmailSubmission/queryChanges sort by identityId must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+}
+
+/// Oracle: RFC 8621 §7.3 "sentAt" and "threadId" sorts. Three submissions
+/// are stored with hand-written sendAt / threadId values whose orders
+/// differ, so the expected id order follows from those literals alone.
+#[tokio::test]
+async fn submission_query_honors_sort() {
+    use jmap_mail_types::{EmailSubmission, UndoStatus};
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+
+    // (creation key, sendAt, threadId)
+    let rows = [
+        ("s1", "2025-03-01T00:00:00Z", "t-b"),
+        ("s2", "2025-01-01T00:00:00Z", "t-c"),
+        ("s3", "2025-02-01T00:00:00Z", "t-a"),
+    ];
+    let mut ids: Vec<String> = Vec::new();
+    for (key, send_at, thread) in rows {
+        let make = |id: &Id| {
+            EmailSubmission::new(
+                id.clone(),
+                Id::from("identity"),
+                Id::from(format!("email-{key}")),
+                Id::from(thread),
+                jmap_types::UTCDate::from(send_at),
+                UndoStatus::Final,
+            )
+        };
+        let (id, _) = backend
+            .create_object::<EmailSubmission, _>(&(), &account_id, key, make)
+            .await
+            .expect("create submission");
+        ids.push(id.as_ref().to_owned());
+    }
+    let (s1, s2, s3) = (ids[0].as_str(), ids[1].as_str(), ids[2].as_str());
+
+    let query = |sort: serde_json::Value| {
+        let backend = &backend;
+        async move {
+            let HandlerOutput { primary, .. } = handle_submission_query(
+                backend,
+                &(),
+                serde_json::json!({ "accountId": "account1", "sort": sort }),
+            )
+            .await
+            .expect("EmailSubmission/query with a §7.3 sort must succeed");
+            primary["ids"]
+                .as_array()
+                .expect("ids")
+                .iter()
+                .map(|v| v.as_str().expect("id string").to_owned())
+                .collect::<Vec<String>>()
+        }
+    };
+
+    assert_eq!(
+        query(serde_json::json!([{ "property": "sentAt" }])).await,
+        [s2, s3, s1],
+        "sentAt ascending"
+    );
+    assert_eq!(
+        query(serde_json::json!([{ "property": "sentAt", "isAscending": false }])).await,
+        [s1, s3, s2],
+        "sentAt descending"
+    );
+    assert_eq!(
+        query(serde_json::json!([{ "property": "threadId" }])).await,
+        [s3, s1, s2],
+        "threadId ascending"
     );
 }
 

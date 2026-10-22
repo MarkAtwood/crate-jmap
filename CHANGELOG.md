@@ -2794,6 +2794,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-mail-server**: `EmailSubmission/query` and
+  `EmailSubmission/queryChanges` now decode `sort` as
+  `EmailSubmissionComparator[]` and pass it to the backend instead of
+  ignoring it. A malformed `sort` (e.g. `[5]`) is `invalidArguments` and
+  a property outside RFC 8621 §7.3's `emailId`/`threadId`/`sentAt` is
+  `unsupportedSort` (RFC 8620 §5.5); `MemoryBackend` orders
+  EmailSubmission query results by those comparators (bd JMAP-skk9.15).
 - **jmap-calendars-server**: `CalendarEvent/copy` creates now go through
   `CalendarsBackend::create_calendar_event` (with default
   `CalendarEventSetArgs`) instead of the generic `create_object`, so a

@@ -34,8 +34,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_mail_types::{
-    Address, Delivered, DeliveryStatus, Displayed, Email, EmailSubmission, EmailSubmissionFilter,
-    Envelope, Identity, UndoStatus,
+    Address, Delivered, DeliveryStatus, Displayed, Email, EmailSubmission,
+    EmailSubmissionComparator, EmailSubmissionComparatorProperty, EmailSubmissionFilter, Envelope,
+    Identity, UndoStatus,
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
@@ -135,6 +136,31 @@ pub async fn handle_submission_changes<B: MailBackend>(
 // EmailSubmission/query
 // ---------------------------------------------------------------------------
 
+/// Decode the `sort` argument of `EmailSubmission/query` and
+/// `EmailSubmission/queryChanges`.
+///
+/// RFC 8621 §7.3 defines `emailId`, `threadId` and `sentAt` as the
+/// EmailSubmission comparator properties; any other property decodes as
+/// [`EmailSubmissionComparatorProperty::Other`] and is unsupportedSort
+/// (RFC 8620 §5.5). A malformed comparator is invalidArguments. An absent
+/// or null `sort` yields an empty vector.
+fn submission_sort_arg(
+    args: &serde_json::Map<String, Value>,
+) -> Result<Vec<EmailSubmissionComparator>, JmapError> {
+    let sort: Vec<EmailSubmissionComparator> = match args.get("sort") {
+        None | Some(Value::Null) => return Ok(vec![]),
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
+    };
+    if sort
+        .iter()
+        .any(|c| matches!(c.property, EmailSubmissionComparatorProperty::Other(_)))
+    {
+        return Err(JmapError::unsupported_sort());
+    }
+    Ok(sort)
+}
+
 /// Handle an `EmailSubmission/query` method call (RFC 8621 §7.3).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
@@ -198,6 +224,9 @@ pub async fn handle_submission_query<B: MailBackend>(
         })?,
     };
 
+    let sort_values = submission_sort_arg(&args)?;
+    let sort_slice = (!sort_values.is_empty()).then_some(sort_values.as_slice());
+
     let filter: Option<EmailSubmissionFilter> = filter_arg(&mut args)?;
 
     // When anchor is present, fetch the full result set to resolve it.
@@ -208,7 +237,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                 .query_objects::<EmailSubmission>(
                     caller,
                     &account_id,
-                    QueryParams::new().filter(filter.as_ref()),
+                    QueryParams::new().filter(filter.as_ref()).sort(sort_slice),
                 )
                 .await
                 .map_err(JmapError::from)?;
@@ -241,6 +270,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                     &account_id,
                     QueryParams::new()
                         .filter(filter.as_ref())
+                        .sort(sort_slice)
                         .limit(limit)
                         .position(position),
                 )
@@ -321,11 +351,17 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
+    // RFC 8620 §5.6: `sort` is "The sort argument that was used with
+    // Foo/query", so it decodes and validates exactly as in
+    // handle_submission_query.
+    let sort_values = submission_sort_arg(&args)?;
+
     let result = backend
         .query_changes::<EmailSubmission>(
             caller,
             &account_id,
             QueryChangesParams::new(&since_query_state)
+                .sort((!sort_values.is_empty()).then_some(sort_values.as_slice()))
                 .max_changes(max_changes)
                 .up_to_id(up_to_id.as_ref()),
         )
