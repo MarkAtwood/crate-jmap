@@ -182,7 +182,7 @@ async fn space_ban_create_serialises_full_object() {
         expires_at: Some(&expires_at),
     };
     let _ = sc
-        .space_ban_create(&input)
+        .space_ban_create(&input, None)
         .await
         .expect("space_ban_create: must succeed");
 
@@ -218,7 +218,7 @@ async fn space_ban_destroy_threads_ids_and_rejects_empty() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("sb-doomed")];
     let _ = sc
-        .space_ban_destroy(&ids)
+        .space_ban_destroy(&ids, None)
         .await
         .expect("space_ban_destroy: must succeed");
 
@@ -227,7 +227,7 @@ async fn space_ban_destroy_threads_ids_and_rejects_empty() {
 
     let empty: [Id; 0] = [];
     let err = sc
-        .space_ban_destroy(&empty)
+        .space_ban_destroy(&empty, None)
         .await
         .expect_err("must reject empty ids");
     match err {
@@ -258,7 +258,7 @@ async fn space_ban_update_patch_serialises_reason_and_expires_at() {
         expires_at: jmap_chat_client::methods::Patch::Set(&expires_at),
     };
     let _ = sc
-        .space_ban_update(&id, &patch)
+        .space_ban_update(&id, &patch, None)
         .await
         .expect("space_ban_update: must succeed");
 
@@ -284,7 +284,7 @@ async fn space_ban_update_patch_serialises_reason_and_expires_at() {
         ..Default::default()
     };
     let _ = sc
-        .space_ban_update(&id, &clear)
+        .space_ban_update(&id, &clear, None)
         .await
         .expect("space_ban_update: must succeed");
     let args = recorded_args(&server).await;

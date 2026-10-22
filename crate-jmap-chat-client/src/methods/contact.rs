@@ -100,6 +100,10 @@ impl super::SessionClient {
     /// assigns `id` and sets the other server-set properties. A ULID is
     /// generated as the creation id.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -115,13 +119,17 @@ impl super::SessionClient {
     pub async fn chat_contact_create(
         &self,
         identity: &str,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let client_id = super::resolve_client_id(None);
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "create": { client_id: { "identity": identity } },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("ChatContact/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -132,6 +140,10 @@ impl super::SessionClient {
     /// Supports `blocked` (Boolean) and `displayName` (nullable String).
     /// Create is [`Self::chat_contact_create`]; destroy is not supported
     /// by spec and the server returns `forbidden`.
+    ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
     ///
     /// # Errors
     ///
@@ -151,6 +163,7 @@ impl super::SessionClient {
         &self,
         id: &Id,
         patch: &ChatContactPatch<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
@@ -168,10 +181,13 @@ impl super::SessionClient {
         // serializing. Wire bytes are unchanged because PatchObject is
         // #[serde(transparent)]; the typed boundary documents the contract.
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "update": { id.as_ref(): patch_value },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("ChatContact/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

@@ -60,6 +60,10 @@ impl super::SessionClient {
     ///
     /// `create` and `destroy` are forbidden by the spec; only `update` is issued.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -74,14 +78,18 @@ impl super::SessionClient {
         &self,
         read_position_id: &Id,
         last_read_message_id: &Id,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "update": {
                 read_position_id.as_ref(): { "lastReadMessageId": last_read_message_id }
             },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("ReadPosition/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -160,6 +168,10 @@ impl super::SessionClient {
     /// Fields absent from `patch` (i.e. `Patch::Keep` or `None`) are omitted from
     /// the patch and left unchanged server-side.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
@@ -178,6 +190,7 @@ impl super::SessionClient {
         &self,
         id: &Id,
         patch: &PresenceStatusPatch<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
@@ -215,10 +228,13 @@ impl super::SessionClient {
         // serializing. Wire bytes are unchanged because PatchObject is
         // #[serde(transparent)]; the typed boundary documents the contract.
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "update": { id.as_ref(): patch_value },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("PresenceStatus/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -279,6 +295,10 @@ impl super::SessionClient {
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -311,6 +331,7 @@ impl super::SessionClient {
     pub async fn push_subscription_create(
         &self,
         input: &PushSubscriptionCreateInput<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<PushSubscriptionCreateResponse, jmap_base_client::ClientError> {
         if input.device_client_id.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -342,9 +363,12 @@ impl super::SessionClient {
             let chat_push_map = build_chat_push_map(cp, "push_subscription_create")?;
             create_obj["chatPush"] = serde_json::Value::Object(chat_push_map);
         }
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "create": { client_id: create_obj }
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         // RFC 8620 §3.3: only declare the chatPush capability when it is actually used.
         let using = if has_chat_push {
             super::USING_CHAT_PUSH
@@ -371,6 +395,10 @@ impl super::SessionClient {
     /// `urn:ietf:params:jmap:chat:push`; otherwise only
     /// `urn:ietf:params:jmap:core` is declared (RFC 8620 §3.3).
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -391,6 +419,7 @@ impl super::SessionClient {
         &self,
         id: &Id,
         patch: &PushSubscriptionPatch<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         // Defence-in-depth: typed &Id does not prevent empty Id values.
         if id.as_ref().is_empty() {
@@ -437,9 +466,12 @@ impl super::SessionClient {
         }
 
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "update": { id.as_ref(): patch_value }
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let using = if patch.chat_push.is_keep() {
             super::USING_CORE
         } else {
@@ -463,6 +495,10 @@ impl super::SessionClient {
     /// `deviceClientId`. This client does not enforce that rule; the server
     /// may reject the call.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -476,6 +512,7 @@ impl super::SessionClient {
     pub async fn push_subscription_destroy(
         &self,
         ids: &[Id],
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -483,9 +520,12 @@ impl super::SessionClient {
             ));
         }
         let api_url = self.api_url();
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "destroy": ids,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("PushSubscription/set", args, super::USING_CORE);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

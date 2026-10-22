@@ -95,6 +95,10 @@ impl super::SessionClient {
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -108,6 +112,7 @@ impl super::SessionClient {
     pub async fn space_invite_create(
         &self,
         input: &SpaceInviteCreateInput<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut obj = serde_json::json!({ "spaceId": input.space_id });
@@ -121,10 +126,13 @@ impl super::SessionClient {
             obj["maxUses"] = mu.into();
         }
         let client_id = super::resolve_client_id(input.client_id);
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "create": { client_id: obj },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("SpaceInvite/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -133,6 +141,10 @@ impl super::SessionClient {
     /// Destroy SpaceInvite objects (RFC 8620 §5.3 / SpaceInvite/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
     ///
     /// # Errors
     ///
@@ -149,6 +161,7 @@ impl super::SessionClient {
     pub async fn space_invite_destroy(
         &self,
         ids: &[Id],
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -156,10 +169,13 @@ impl super::SessionClient {
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "destroy": ids,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("SpaceInvite/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

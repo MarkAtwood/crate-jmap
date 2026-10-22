@@ -133,7 +133,7 @@ async fn read_position_update_serialises_last_read_message_id() {
     let rp_id = Id::from("rp-1");
     let msg_id = Id::from("msg-42");
     let _ = sc
-        .read_position_update(&rp_id, &msg_id)
+        .read_position_update(&rp_id, &msg_id, None)
         .await
         .expect("read_position_update: must succeed");
 

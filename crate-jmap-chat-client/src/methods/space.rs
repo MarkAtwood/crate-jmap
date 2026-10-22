@@ -115,6 +115,10 @@ impl super::SessionClient {
     /// Permanently removes the listed Space IDs from the account.
     /// `ids` must be non-empty; the guard fires before any network call.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -130,6 +134,7 @@ impl super::SessionClient {
     pub async fn space_destroy(
         &self,
         ids: &[Id],
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -137,10 +142,13 @@ impl super::SessionClient {
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "destroy": ids,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("Space/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -279,6 +287,10 @@ impl super::SessionClient {
     /// The server maps the creation key to the server-assigned Space id in
     /// `SetResponse.created`.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -296,6 +308,7 @@ impl super::SessionClient {
     pub async fn space_create(
         &self,
         input: &SpaceCreateInput<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if input.name.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -311,10 +324,13 @@ impl super::SessionClient {
         if let Some(b) = input.icon_blob_id {
             create_obj["iconBlobId"] = b.as_ref().into();
         }
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "create": { client_id: create_obj },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("Space/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -380,6 +396,10 @@ impl super::SessionClient {
     /// categories (`addCategories`, `removeCategories`, `updateCategories`,
     /// `manage_channels`).
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
+    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
+    /// `stateMismatch` unless its current state matches.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -403,6 +423,7 @@ impl super::SessionClient {
         &self,
         id: &Id,
         patch: &SpacePatch<'_>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
@@ -681,10 +702,13 @@ impl super::SessionClient {
         // serializing. Wire bytes are unchanged because PatchObject is
         // #[serde(transparent)]; the typed boundary documents the contract.
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "update": { id.as_ref(): patch_value },
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request("Space/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

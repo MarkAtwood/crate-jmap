@@ -193,7 +193,7 @@ async fn custom_emoji_create_serialises_with_and_without_space_id() {
         space_id: Some(&space_id),
     };
     let _ = sc
-        .custom_emoji_create(&input)
+        .custom_emoji_create(&input, None)
         .await
         .expect("custom_emoji_create: must succeed");
 
@@ -219,7 +219,7 @@ async fn custom_emoji_create_empty_name_rejected_before_send() {
         space_id: None,
     };
     let err = sc
-        .custom_emoji_create(&input)
+        .custom_emoji_create(&input, None)
         .await
         .expect_err("must reject empty name");
     match err {
@@ -252,7 +252,7 @@ async fn custom_emoji_destroy_threads_ids_and_rejects_empty() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("ce-doomed")];
     let _ = sc
-        .custom_emoji_destroy(&ids)
+        .custom_emoji_destroy(&ids, None)
         .await
         .expect("custom_emoji_destroy: must succeed");
 
@@ -262,7 +262,7 @@ async fn custom_emoji_destroy_threads_ids_and_rejects_empty() {
     // Empty-slice guard.
     let empty: [Id; 0] = [];
     let err = sc
-        .custom_emoji_destroy(&empty)
+        .custom_emoji_destroy(&empty, None)
         .await
         .expect_err("must reject empty ids");
     match err {
@@ -514,7 +514,7 @@ async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
         blob_id: Some(&blob),
     };
     let resp = sc
-        .custom_emoji_update(&id, &patch)
+        .custom_emoji_update(&id, &patch, None)
         .await
         .expect("custom_emoji_update: must succeed");
     assert!(
@@ -543,7 +543,7 @@ async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
         ..Default::default()
     };
     let _ = sc
-        .custom_emoji_update(&id, &name_only)
+        .custom_emoji_update(&id, &name_only, None)
         .await
         .expect("custom_emoji_update: must succeed");
     let args = recorded_args(&server).await;

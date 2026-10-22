@@ -164,7 +164,7 @@ async fn presence_status_update_patch_serialises_fields() {
         ..Default::default()
     };
     let _ = sc
-        .presence_status_update(&id, &patch)
+        .presence_status_update(&id, &patch, None)
         .await
         .expect("presence_status_update: must succeed");
 
@@ -217,7 +217,7 @@ async fn presence_status_update_expires_at_clear_emits_null() {
         ..Default::default()
     };
     let _ = sc
-        .presence_status_update(&id, &patch)
+        .presence_status_update(&id, &patch, None)
         .await
         .expect("presence_status_update: must succeed");
 
@@ -252,7 +252,7 @@ async fn presence_status_update_expires_at_set_emits_value() {
         ..Default::default()
     };
     let _ = sc
-        .presence_status_update(&id, &patch)
+        .presence_status_update(&id, &patch, None)
         .await
         .expect("presence_status_update: must succeed");
 
