@@ -30,7 +30,7 @@ pub struct ContactsCapability {}
 pub struct ContactsAccountCapability {
     /// Maximum number of AddressBooks that can be assigned to a single
     /// ContactCard.  `null` means no limit.
-    pub max_address_books_per_card: Option<u32>,
+    pub max_address_books_per_card: Option<u64>,
     /// `true` if the user may create an AddressBook in this account.
     pub may_create_address_book: bool,
 }
