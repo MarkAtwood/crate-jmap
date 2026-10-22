@@ -27,7 +27,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-chat-mimi-
 
 | Decision | Choice |
 |---|---|
-| MLS library | crates.io `openmls =0.9.1` (`extensions-draft`) and `tls_codec =0.5.0`; never a git fork (bd:JMAP-6k5d.1) |
+| MLS library | crates.io `openmls =0.9.2` (`extensions-draft`) and `tls_codec =0.5.0`; never a git fork (bd:JMAP-6k5d.1) |
 | Crypto provider | supplied by the backend (`MimiBackend::Crypto`); `openmls_rust_crypto` is a dev-dependency only |
 | Account-wide rules | in `MimiBackend::create_key_package`, atomic with the insert |
 | KeyPackage hand-out | in `MimiBackend::claim_key_packages`, atomic; compatibility via `KeyMaterialRequirements::fit` |

@@ -64,7 +64,7 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 # MSRV is 1.91 per bd:JMAP-6k5d.2 (raised from 1.88, bd:JMAP-ulfy): openmls
-# 0.9.1, openmls_traits 0.6.0 and openmls_serialization_helpers 0.1.0, used by
+# 0.9.2, openmls_traits 0.6.0 and openmls_serialization_helpers 0.1.0, used by
 # jmap-chat-mimi-server, declare rust-version 1.91.0. One workspace MSRV keeps
 # every crate on a single, CI-verified floor.
 rust-version = "1.91"

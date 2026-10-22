@@ -27,7 +27,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-chat-mimi-
 
 | Decision | Choice |
 |---|---|
-| MLS library | crates.io `openmls =0.9.1` (`extensions-draft`) and `tls_codec =0.5.0`; never a git fork (bd:JMAP-6k5d.1) |
+| MLS library | crates.io `openmls =0.9.2` (`extensions-draft`) and `tls_codec =0.5.0`; never a git fork (bd:JMAP-6k5d.1) |
 | Crypto provider | supplied by the caller; `openmls_rust_crypto` is a dev-dependency only |
 | Wire types | from `jmap-chat-mimi-types`; never redefined here |
 | GroupInfoResponse signature | VerifyWithLabel over the received TBS octets, never a re-encoding |

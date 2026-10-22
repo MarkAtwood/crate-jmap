@@ -2801,6 +2801,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-mimi-server, jmap-chat-mimi-client**: pin `openmls =0.9.2`
+  (was `=0.9.1`) for GHSA-94v4-rg25-x625 (removed leaves reappear when an
+  external commit truncates and regrows the ratchet tree) and
+  GHSA-p276-g3f3-wwgh (rejected private messages advance the sender
+  ratchet). The companion crates stay at 0.6.0 and MSRV stays 1.91. The
+  GREASE KeyPackage fix (openmls#2162) is not in 0.9.2, so that limitation
+  remains (bd:JMAP-6k5d.9).
 - **jmap-mail-server**: the reference `MemoryBackend` sorts a stored
   `EmailSubmission` that fails to deserialize after every valid one in
   `EmailSubmission/query`, so the sort comparator is a total order

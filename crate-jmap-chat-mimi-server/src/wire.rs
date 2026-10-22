@@ -177,7 +177,7 @@ pub(crate) struct UpdateRequest {
 /// `GroupInfoOption` and `RatchetTreeOption`, and for a proposal
 /// `MLSMessage moreProposals<V>`, kept as opaque octets.
 // ponytail: a SemiPrivateMessage (draft-mahy-mls-semiprivatemessage)
-// handshake does not parse, because openmls 0.9.1 does not decode that
+// handshake does not parse, because openmls 0.9.2 does not decode that
 // wire format; supporting it needs an openmls that does.
 pub(crate) fn update_request(bytes: &[u8]) -> Result<UpdateRequest, String> {
     let (message, rest) = read::<MlsMessageIn>(bytes, "proposalOrCommit")?;

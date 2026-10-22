@@ -118,7 +118,7 @@ returns `may_update_room_chat`, `may_create_room_message` and
 
 ## Gotchas
 
-- MSRV 1.91, set by `openmls` 0.9.1.
+- MSRV 1.91, set by `openmls` 0.9.2.
 - `openmls` and `openmls_rust_crypto` are public dependencies, re-exported
   as `jmap_chat_mimi_server::openmls` and
   `jmap_chat_mimi_server::openmls_rust_crypto`; use those paths rather
@@ -128,7 +128,7 @@ returns `may_update_room_chat`, `may_create_room_message` and
   build, for example a storage crate. This crate turns it on in `openmls`, which turns
   it on in `openmls_traits`, and a storage crate built without it then
   fails to compile.
-- openmls 0.9.1 rejects a KeyPackage that carries a GREASE extension
+- openmls 0.9.2 rejects a KeyPackage that carries a GREASE extension
   (RFC 9420 §13.5) with `UnsupportedExtension`, so such a KeyPackage is
   refused with `invalidProperties` naming `keyPackage` (bd:JMAP-6k5d.9).
 - openmls checks the leaf node lifetime against the system clock and also
@@ -147,7 +147,7 @@ returns `may_update_room_chat`, `may_create_room_message` and
   one.
 - The KeyMaterialRequest and GroupInfoRequest signatures are not
   verified; the draft does not ask the provider to, and the hub does.
-- The UpdateRequest handshake must be a PublicMessage: openmls 0.9.1 does
+- The UpdateRequest handshake must be a PublicMessage: openmls 0.9.2 does
   not decode a SemiPrivateMessage.
 - A hub response that does not parse is `serverFail`, not
   `invalidArguments`.

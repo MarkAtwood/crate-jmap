@@ -151,7 +151,7 @@ pub fn notify_from_hub(room_id: &str, sender_uri: &str) -> bool {
 /// Welcome, or when its `timestamp` does not fit a ULID (48 bits) or a
 /// four-digit-year `UTCDate`.
 // ponytail: a SemiPrivateMessage (draft-mahy-mls-semiprivatemessage)
-// handshake does not parse, because openmls 0.9.1 does not decode that
+// handshake does not parse, because openmls 0.9.2 does not decode that
 // wire format; supporting it needs an openmls that does.
 pub fn parse_fanout_messages(body: &[u8]) -> Result<Vec<Fanout>, FanoutParseError> {
     if body.is_empty() {
