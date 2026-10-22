@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use super::{
     ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
 };
+use jmap_filenode_types::FileNodeComparator;
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
@@ -563,7 +564,7 @@ impl super::SessionClient {
     pub async fn filenode_query<C: Serialize>(
         &self,
         filter: Option<&Filter<C>>,
-        sort: Option<serde_json::Value>,
+        sort: Option<&[FileNodeComparator]>,
         params: &jmap_base_client::QueryParams,
         depth: Option<u64>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
@@ -577,7 +578,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "filenode_query: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(d) = depth {
             args["depth"] = d.into();
@@ -632,7 +637,7 @@ impl super::SessionClient {
         since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<&Filter<C>>,
-        sort: Option<serde_json::Value>,
+        sort: Option<&[FileNodeComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -655,7 +660,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "filenode_query_changes: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

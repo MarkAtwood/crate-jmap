@@ -179,7 +179,13 @@ async fn share_notification_query_changes_with_filter_sort_upto_calculatetotal()
         &since,
         None,
         Some(&Filter::Condition(cond)),
-        Some(json!([{ "property": "created", "isAscending": false }])),
+        Some(&[{
+            let mut c = jmap_sharing_types::ShareNotificationComparator::new(
+                jmap_sharing_types::ShareNotificationComparatorProperty::Created,
+            );
+            c.is_ascending = false;
+            c
+        }]),
         Some(&up_to),
         Some(true),
     )

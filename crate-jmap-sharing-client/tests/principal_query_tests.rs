@@ -173,7 +173,7 @@ async fn principal_query_changes_with_filter_sort_upto_calculatetotal() {
         &since,
         None,
         Some(&Filter::Condition(cond)),
-        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&[json!({ "property": "name", "isAscending": true })]),
         Some(&up_to),
         Some(true),
     )

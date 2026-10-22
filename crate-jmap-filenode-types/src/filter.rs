@@ -1,8 +1,8 @@
 //! draft-ietf-jmap-filenode-16 §3.2.5 — FileNode/query filter condition.
 //!
-//! Provides [`FileNodeFilterCondition`].
+//! Provides [`FileNodeFilterCondition`] and [`FileNodeComparator`].
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-16 §3.2.5).
@@ -153,3 +153,124 @@ pub struct FileNodeFilterCondition {
 ///
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
 pub type FileNodeFilter = jmap_types::query::Filter<FileNodeFilterCondition>;
+
+/// The property to sort by in a [`FileNodeComparator`].
+///
+/// draft-ietf-jmap-filenode-16 §3.2.5 adds the `tree` and `nodeType` sort
+/// properties; the §1 capability example lists `name`, `mediaType`,
+/// `size`, `created` and `modified` as well. A server advertises what it
+/// supports in `fileNodeQuerySortOptions`. Unknown names are kept in
+/// [`Other`](FileNodeComparatorProperty::Other) so they round-trip; a
+/// server answers one it does not support with `unsupportedSort`
+/// (RFC 8620 §5.5).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FileNodeComparatorProperty {
+    /// Sort by `name`.
+    Name,
+    /// Sort by `mediaType`.
+    MediaType,
+    /// Sort by `size`.
+    Size,
+    /// Sort by `created`.
+    Created,
+    /// Sort by `modified`.
+    Modified,
+    /// Sort by `@type`: Directories, then symlinks, then files, then any
+    /// other `@type` by value (§3.2.5).
+    NodeType,
+    /// Sort by name, with each Directory followed by its children sorted
+    /// the same way (§3.2.5).
+    Tree,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(FileNodeComparatorProperty, "a FileNode sort property string",
+    "name"      => Name,
+    "mediaType" => MediaType,
+    "size"      => Size,
+    "created"   => Created,
+    "modified"  => Modified,
+    "nodeType"  => NodeType,
+    "tree"      => Tree,
+);
+
+/// Comparator for `FileNode/query` (draft-ietf-jmap-filenode-16 §3.2.5).
+///
+/// Build one with [`FileNodeComparator::new`]; the struct is
+/// `#[non_exhaustive]`. It carries no flatten-extras field: backends
+/// dispatch on `property`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileNodeComparator {
+    /// The property to sort by.
+    pub property: FileNodeComparatorProperty,
+
+    /// If `true`, sort ascending; if `false`, sort descending (default `true`).
+    #[serde(default = "default_ascending")]
+    pub is_ascending: bool,
+
+    /// A collation identifier (RFC 4790) to use when comparing strings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl FileNodeComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: FileNodeComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
+fn default_ascending() -> bool {
+    true
+}
+
+#[cfg(test)]
+mod comparator_tests {
+    use super::*;
+
+    /// Oracle: the `fileNodeQuerySortOptions` example in
+    /// draft-ietf-jmap-filenode-16 §1 ("name", "mediaType", "size",
+    /// "created", "modified", "nodeType", "tree"); every listed name is a
+    /// known variant and re-serializes unchanged.
+    #[test]
+    fn spec_example_sort_options_are_known_variants() {
+        let want = [
+            ("name", FileNodeComparatorProperty::Name),
+            ("mediaType", FileNodeComparatorProperty::MediaType),
+            ("size", FileNodeComparatorProperty::Size),
+            ("created", FileNodeComparatorProperty::Created),
+            ("modified", FileNodeComparatorProperty::Modified),
+            ("nodeType", FileNodeComparatorProperty::NodeType),
+            ("tree", FileNodeComparatorProperty::Tree),
+        ];
+        for (wire, variant) in want {
+            let json = serde_json::json!({"property": wire, "isAscending": true});
+            let c: FileNodeComparator = serde_json::from_value(json.clone()).expect("must parse");
+            assert_eq!(c.property, variant);
+            assert_eq!(serde_json::to_value(&c).unwrap(), json);
+        }
+    }
+
+    /// Oracle: hand-written JSON; RFC 8620 §5.5 defaults `isAscending` to
+    /// true, and an unknown property survives as `Other`.
+    #[test]
+    fn unknown_property_is_other_and_ascending_defaults_true() {
+        let c: FileNodeComparator =
+            serde_json::from_str(r#"{"property":"blobId"}"#).expect("must parse");
+        assert_eq!(
+            c.property,
+            FileNodeComparatorProperty::Other("blobId".to_owned())
+        );
+        assert!(c.is_ascending);
+    }
+}

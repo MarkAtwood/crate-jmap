@@ -218,7 +218,7 @@ impl SetObject for crate::Mailbox {
 
 impl QueryObject for crate::Mailbox {
     type Filter = crate::MailboxFilterCondition;
-    type Comparator = serde_json::Value;
+    type Comparator = crate::MailboxComparator;
 }
 
 impl JmapObject for crate::Thread {
@@ -268,7 +268,7 @@ impl SetObject for crate::EmailSubmission {
 
 impl QueryObject for crate::EmailSubmission {
     type Filter = crate::EmailSubmissionFilter;
-    type Comparator = serde_json::Value;
+    type Comparator = crate::EmailSubmissionComparator;
 }
 
 impl JmapObject for crate::VacationResponse {

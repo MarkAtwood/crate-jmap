@@ -73,6 +73,8 @@ impl SetObject for crate::Principal {
 
 impl QueryObject for crate::Principal {
     type Filter = crate::PrincipalFilterCondition;
+    // RFC 9670 §2.4 names no Principal sort properties, so there is no
+    // typed property enum to give this comparator.
     type Comparator = serde_json::Value;
 }
 
@@ -89,5 +91,5 @@ impl SetObject for crate::ShareNotification {
 
 impl QueryObject for crate::ShareNotification {
     type Filter = crate::ShareNotificationFilterCondition;
-    type Comparator = serde_json::Value;
+    type Comparator = crate::ShareNotificationComparator;
 }

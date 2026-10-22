@@ -18,6 +18,7 @@
 
 use std::collections::BTreeMap;
 
+use jmap_mail_types::query::EmailSubmissionComparator;
 use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
@@ -125,9 +126,9 @@ impl super::SessionClient {
     /// Query EmailSubmission IDs with optional filter and sort
     /// (RFC 8621 §7.3 — EmailSubmission/query).
     ///
-    /// The sort property for this object type is `"sentAt"` (RFC 8621 §7.3, line 4513),
-    /// not `"sendAt"` (which is an object field).  Callers constructing the sort
-    /// argument should use `"sentAt"` as the property name.
+    /// The sort property for this object type is `"sentAt"` (RFC 8621 §7.3),
+    /// not `"sendAt"` (which is an object field); use
+    /// [`EmailSubmissionComparatorProperty::SentAt`](jmap_mail_types::query::EmailSubmissionComparatorProperty::SentAt).
     ///
     /// `params` selects the result window
     /// ([`QueryParams`](jmap_base_client::QueryParams), RFC 8620 §5.5).
@@ -158,7 +159,7 @@ impl super::SessionClient {
     pub async fn email_submission_query<C: Serialize>(
         &self,
         filter: Option<&Filter<C>>,
-        sort: Option<serde_json::Value>,
+        sort: Option<&[EmailSubmissionComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
@@ -171,7 +172,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_submission_query: serializing sort failed: {e}"
+                ))
+            })?;
         }
         let req = super::build_request("EmailSubmission/query", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;
@@ -229,7 +234,7 @@ impl super::SessionClient {
         since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<&Filter<C>>,
-        sort: Option<serde_json::Value>,
+        sort: Option<&[EmailSubmissionComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -252,7 +257,11 @@ impl super::SessionClient {
             })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_submission_query_changes: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

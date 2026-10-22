@@ -23,7 +23,10 @@
 
 use std::collections::HashSet;
 
-use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxFilterCondition};
+use jmap_mail_types::{
+    Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxComparator,
+    MailboxComparatorProperty, MailboxFilterCondition,
+};
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
@@ -143,37 +146,25 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
 /// Decode the `sort` argument of `Mailbox/query` and `Mailbox/queryChanges`.
 ///
 /// RFC 8621 §2.3 defines `name` and `sortOrder` as the Mailbox comparator
-/// properties; any other property is unsupportedSort (RFC 8620 §5.5). The
-/// comparators are returned in the wire shape Mailbox uses
-/// (`Mailbox::Comparator = serde_json::Value`), and the backend decodes each
-/// `{property, isAscending}` object internally. An absent or null `sort`
-/// yields an empty vector.
-fn mailbox_sort_arg(args: &serde_json::Map<String, Value>) -> Result<Vec<Value>, JmapError> {
-    match args.get("sort") {
-        None | Some(Value::Null) => Ok(vec![]),
-        Some(Value::Array(arr)) => arr
-            .iter()
-            .map(|comp| {
-                let prop = comp
-                    .get("property")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        JmapError::invalid_arguments("sort comparator missing 'property'")
-                    })?;
-                if !matches!(prop, "name" | "sortOrder") {
-                    return Err(JmapError::unsupported_sort());
-                }
-                let asc = comp
-                    .get("isAscending")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-                Ok(json!({"property": prop, "isAscending": asc}))
-            })
-            .collect(),
-        _ => Err(JmapError::invalid_arguments(
-            "sort must be an array or null",
-        )),
+/// properties; any other property decodes as
+/// [`MailboxComparatorProperty::Other`] and is unsupportedSort (RFC 8620
+/// §5.5). A malformed comparator is invalidArguments. An absent or null
+/// `sort` yields an empty vector.
+fn mailbox_sort_arg(
+    args: &serde_json::Map<String, Value>,
+) -> Result<Vec<MailboxComparator>, JmapError> {
+    let sort: Vec<MailboxComparator> = match args.get("sort") {
+        None | Some(Value::Null) => return Ok(vec![]),
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
+    };
+    if sort
+        .iter()
+        .any(|c| matches!(c.property, MailboxComparatorProperty::Other(_)))
+    {
+        return Err(JmapError::unsupported_sort());
     }
+    Ok(sort)
 }
 
 /// Handle a `Mailbox/query` method call (RFC 8621 §2.3).

@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Identifies the entity that made a permission change (RFC 9670 §3).
@@ -160,10 +160,93 @@ pub struct ShareNotificationFilterCondition {
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
 pub type ShareNotificationFilter = jmap_types::query::Filter<ShareNotificationFilterCondition>;
 
+/// The property to sort by in a [`ShareNotificationComparator`]
+/// (RFC 9670 §3.4.2: "The "created" property MUST be supported for
+/// sorting.").
+///
+/// Unknown property names are preserved in
+/// [`Other`](ShareNotificationComparatorProperty::Other) so they
+/// round-trip; a server cannot sort by one it does not know (RFC 8620 §5.5
+/// `unsupportedSort`).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ShareNotificationComparatorProperty {
+    /// Sort by `created`.
+    Created,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(ShareNotificationComparatorProperty, "a ShareNotification sort property string",
+    "created" => Created,
+);
+
+/// Comparator for `ShareNotification/query` (RFC 9670 §3.4.2).
+///
+/// Build one with [`ShareNotificationComparator::new`]; the struct is
+/// `#[non_exhaustive]`. It carries no flatten-extras field: backends
+/// dispatch on `property`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareNotificationComparator {
+    /// The property to sort by.
+    pub property: ShareNotificationComparatorProperty,
+
+    /// If `true`, sort ascending; if `false`, sort descending (default `true`).
+    #[serde(default = "default_ascending")]
+    pub is_ascending: bool,
+
+    /// A collation identifier (RFC 4790) to use when comparing strings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl ShareNotificationComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: ShareNotificationComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
+fn default_ascending() -> bool {
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Oracle: RFC 9670 §3.4.2 names "created" as the sort property;
+    /// RFC 8620 §5.5 makes `isAscending` default to true.
+    #[test]
+    fn comparator_created_decodes_from_rfc_name() {
+        let c: ShareNotificationComparator =
+            serde_json::from_value(json!({"property": "created"})).expect("must parse");
+        assert_eq!(c.property, ShareNotificationComparatorProperty::Created);
+        assert!(c.is_ascending);
+    }
+
+    /// Oracle: hand-written JSON; an unknown property survives as `Other`
+    /// and re-serializes unchanged (AGENTS.md comparator rule).
+    #[test]
+    fn comparator_unknown_property_round_trips() {
+        let wire = json!({"property": "objectType", "isAscending": false});
+        let c: ShareNotificationComparator =
+            serde_json::from_value(wire.clone()).expect("must parse");
+        assert_eq!(
+            c.property,
+            ShareNotificationComparatorProperty::Other("objectType".to_owned())
+        );
+        assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+    }
 
     /// Oracle: hand-written from RFC 9670 §3 field descriptions.
     fn rfc_notification_new_share_json() -> serde_json::Value {

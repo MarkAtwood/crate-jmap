@@ -361,6 +361,132 @@ impl EmailComparator {
     }
 }
 
+// ---------------------------------------------------------------------------
+// MailboxComparator (RFC 8621 §2.3) and EmailSubmissionComparator (§7.3)
+// ---------------------------------------------------------------------------
+
+/// The property to sort by in a [`MailboxComparator`].
+///
+/// RFC 8621 §2.3: "The following Mailbox properties MUST be supported for
+/// sorting: "sortOrder" "name"". Unknown names are kept in
+/// [`Other`](MailboxComparatorProperty::Other) so they round-trip; a server
+/// answers one it does not support with `unsupportedSort` (RFC 8620 §5.5).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MailboxComparatorProperty {
+    /// Sort by `sortOrder`.
+    SortOrder,
+    /// Sort by `name`.
+    Name,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(MailboxComparatorProperty, "a Mailbox sort property string",
+    "sortOrder" => SortOrder,
+    "name"      => Name,
+);
+
+/// Sort comparator for `Mailbox/query` (RFC 8621 §2.3).
+///
+/// Out of scope for extras preservation for the same reason as
+/// [`EmailComparator`]: backends dispatch on `property`.
+///
+/// Build one with [`MailboxComparator::new`]; the struct is
+/// `#[non_exhaustive]`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MailboxComparator {
+    /// The property to sort by.
+    pub property: MailboxComparatorProperty,
+
+    /// If `true`, sort ascending; if `false`, sort descending.
+    /// Defaults to `true` per RFC 8620 §5.5.
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
+    pub is_ascending: bool,
+
+    /// Collation algorithm (e.g. `"i;unicode-casemap"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl MailboxComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: MailboxComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
+/// The property to sort by in an [`EmailSubmissionComparator`].
+///
+/// RFC 8621 §7.3: "The following EmailSubmission properties MUST be
+/// supported for sorting: "emailId" "threadId" "sentAt"". Unknown names
+/// are kept in [`Other`](EmailSubmissionComparatorProperty::Other) so they
+/// round-trip; a server answers one it does not support with
+/// `unsupportedSort` (RFC 8620 §5.5).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum EmailSubmissionComparatorProperty {
+    /// Sort by `emailId`.
+    EmailId,
+    /// Sort by `threadId`.
+    ThreadId,
+    /// Sort by `sentAt`.
+    SentAt,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(EmailSubmissionComparatorProperty, "an EmailSubmission sort property string",
+    "emailId"  => EmailId,
+    "threadId" => ThreadId,
+    "sentAt"   => SentAt,
+);
+
+/// Sort comparator for `EmailSubmission/query` (RFC 8621 §7.3).
+///
+/// Out of scope for extras preservation for the same reason as
+/// [`EmailComparator`]: backends dispatch on `property`.
+///
+/// Build one with [`EmailSubmissionComparator::new`]; the struct is
+/// `#[non_exhaustive]`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailSubmissionComparator {
+    /// The property to sort by.
+    pub property: EmailSubmissionComparatorProperty,
+
+    /// If `true`, sort ascending; if `false`, sort descending.
+    /// Defaults to `true` per RFC 8620 §5.5.
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
+    pub is_ascending: bool,
+
+    /// Collation algorithm (e.g. `"i;ascii-casemap"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl EmailSubmissionComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: EmailSubmissionComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
 fn bool_true() -> bool {
     true
 }
@@ -579,6 +705,65 @@ mod tests {
         assert_eq!(ids, ["trash-id", "spam-id"]);
         let back = serde_json::to_string(&c).expect("serialize");
         assert_eq!(back, json);
+    }
+
+    // ---------------------------------------------------------------------------
+    // MailboxComparator / EmailSubmissionComparator tests
+    // ---------------------------------------------------------------------------
+
+    /// Oracle: the RFC 8621 §2.3 sort-property names "sortOrder" and
+    /// "name", and the RFC 8620 §5.5 `isAscending` default of true.
+    #[test]
+    fn mailbox_comparator_rfc8621_properties() {
+        let c: MailboxComparator =
+            serde_json::from_str(r#"{"property":"sortOrder"}"#).expect("must parse");
+        assert_eq!(c.property, MailboxComparatorProperty::SortOrder);
+        assert!(c.is_ascending);
+        let c: MailboxComparator =
+            serde_json::from_str(r#"{"property":"name","isAscending":false}"#).expect("must parse");
+        assert_eq!(c.property, MailboxComparatorProperty::Name);
+        assert!(!c.is_ascending);
+        assert_eq!(
+            serde_json::to_value(&c).unwrap(),
+            serde_json::json!({"property":"name","isAscending":false})
+        );
+    }
+
+    /// Oracle: hand-written JSON; an unknown property survives as `Other`
+    /// and re-serializes byte-for-byte (AGENTS.md comparator rule).
+    #[test]
+    fn mailbox_comparator_unknown_property_round_trips() {
+        let json = serde_json::json!({"property":"totalEmails"});
+        let c: MailboxComparator = serde_json::from_value(json.clone()).expect("must parse");
+        assert_eq!(
+            c.property,
+            MailboxComparatorProperty::Other("totalEmails".to_owned())
+        );
+        assert_eq!(serde_json::to_value(&c).unwrap(), json);
+    }
+
+    /// Oracle: the RFC 8621 §7.3 sort-property names "emailId",
+    /// "threadId" and "sentAt".
+    #[test]
+    fn email_submission_comparator_rfc8621_properties() {
+        for (wire, want) in [
+            ("emailId", EmailSubmissionComparatorProperty::EmailId),
+            ("threadId", EmailSubmissionComparatorProperty::ThreadId),
+            ("sentAt", EmailSubmissionComparatorProperty::SentAt),
+        ] {
+            let json = serde_json::json!({ "property": wire });
+            let c: EmailSubmissionComparator =
+                serde_json::from_value(json.clone()).expect("must parse");
+            assert_eq!(c.property, want);
+            assert!(c.is_ascending);
+            assert_eq!(serde_json::to_value(&c).unwrap(), json);
+        }
+        let c: EmailSubmissionComparator =
+            serde_json::from_str(r#"{"property":"undoStatus"}"#).expect("must parse");
+        assert_eq!(
+            c.property,
+            EmailSubmissionComparatorProperty::Other("undoStatus".to_owned())
+        );
     }
 
     // ---------------------------------------------------------------------------

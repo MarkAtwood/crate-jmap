@@ -66,5 +66,5 @@ impl SetObject for crate::FileNode {
 
 impl QueryObject for crate::FileNode {
     type Filter = crate::FileNodeFilterCondition;
-    type Comparator = serde_json::Value;
+    type Comparator = crate::FileNodeComparator;
 }

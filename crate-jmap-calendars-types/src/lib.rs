@@ -20,7 +20,7 @@
 //! | [`calendar`] | [`Calendar`], [`CalendarRights`], [`IncludeInAvailability`], [`CalendarFilterCondition`] |
 //! | [`event`] | [`CalendarEvent`], [`CalendarEventFilterCondition`], [`CalendarEventComparator`], [`CalendarEventComparatorProperty`] |
 //! | [`jscalendar`] | Module alias re-exporting `jmap-jscalendar-types`: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`] |
-//! | [`notification`] | [`CalendarEventNotification`], [`Person`], [`NotificationType`], [`NotificationFilterCondition`] |
+//! | [`notification`] | [`CalendarEventNotification`], [`Person`], [`NotificationType`], [`NotificationFilterCondition`], [`CalendarEventNotificationComparator`], [`CalendarEventNotificationComparatorProperty`] |
 //! | [`participant_identity`] | [`ParticipantIdentity`] |
 //! | Crate root | [`CalendarsCapability`], [`CalendarsAccountCapability`], URI constants |
 //!
@@ -87,7 +87,8 @@ pub use jmap_jscalendar_types::{
     VirtualLocation,
 };
 pub use notification::{
-    CalendarAlert, CalendarEventNotification, NotificationFilter, NotificationFilterCondition,
+    CalendarAlert, CalendarEventNotification, CalendarEventNotificationComparator,
+    CalendarEventNotificationComparatorProperty, NotificationFilter, NotificationFilterCondition,
     NotificationType, Person,
 };
 pub use participant_identity::ParticipantIdentity;

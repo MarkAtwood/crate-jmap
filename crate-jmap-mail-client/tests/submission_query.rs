@@ -214,11 +214,15 @@ async fn email_submission_query_changes_with_filter_and_sort() {
     let up_to = jmap_types::Id::from("ES-100");
     let mut cond = EmailSubmissionFilterCondition::default();
     cond.undo_status = Some(UndoStatus::Pending);
+    let mut sent_desc = jmap_mail_types::EmailSubmissionComparator::new(
+        jmap_mail_types::EmailSubmissionComparatorProperty::SentAt,
+    );
+    sent_desc.is_ascending = false;
     sc.email_submission_query_changes(
         &since,
         None,
         Some(&Filter::Condition(cond)),
-        Some(json!([{"property": "sentAt", "isAscending": false}])),
+        Some(&[sent_desc]),
         Some(&up_to),
         Some(true),
     )

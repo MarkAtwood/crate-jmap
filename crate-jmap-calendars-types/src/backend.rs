@@ -225,6 +225,8 @@ impl SetObject for crate::Calendar {
 
 impl QueryObject for crate::Calendar {
     type Filter = crate::CalendarFilterCondition;
+    // draft-ietf-jmap-calendars-33 defines no Calendar/query, so there are
+    // no sort properties to type.
     type Comparator = serde_json::Value;
 }
 
@@ -261,7 +263,7 @@ impl SetObject for crate::CalendarEventNotification {
 
 impl QueryObject for crate::CalendarEventNotification {
     type Filter = crate::NotificationFilterCondition;
-    type Comparator = serde_json::Value;
+    type Comparator = crate::CalendarEventNotificationComparator;
 }
 
 impl JmapObject for crate::ParticipantIdentity {
@@ -278,6 +280,8 @@ impl SetObject for crate::ParticipantIdentity {
 // The filter is untyped JSON, so the generic handlers cannot reject an
 // unknown key; the backend must answer it with RFC 8620 §5.5
 // `unsupportedFilter` itself.
+// draft-ietf-jmap-calendars-33 defines no ParticipantIdentity/query, so
+// there are no sort properties to type either.
 impl QueryObject for crate::ParticipantIdentity {
     type Filter = serde_json::Value;
     type Comparator = serde_json::Value;

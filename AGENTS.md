@@ -609,10 +609,11 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   answers it with `unsupportedSort` (RFC 8620 §5.5) and never sorts by
   it. Server handlers that pre-check `sort` must reject `Other`
   explicitly, since it no longer fails the typed decode. Comparators
-  still typed `serde_json::Value` (Calendar, CalendarEventNotification,
-  ParticipantIdentity, Mailbox, EmailSubmission, Principal,
-  ShareNotification, TaskList, FileNode) are outside this rule until
-  they get a typed comparator.
+  still typed `serde_json::Value` are outside this rule: Calendar,
+  ParticipantIdentity and TaskList (their specs define no `/query`) and
+  Principal (RFC 9670 §2.4 names no sort property) (bd:JMAP-wf92.25).
+  Client `sort` arguments take `Option<&[O::Comparator]>`, the
+  `email_query` shape, for every type.
 
   Vendors who need filterable extras have two paths:
 

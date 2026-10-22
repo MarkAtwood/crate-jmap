@@ -43,7 +43,8 @@ pub use capability::{
     PrincipalsCapability, PrincipalsOwnerCapability, JMAP_PRINCIPALS_OWNER_URI, JMAP_PRINCIPALS_URI,
 };
 pub use notification::{
-    ChangedBy, ShareNotification, ShareNotificationFilter, ShareNotificationFilterCondition,
+    ChangedBy, ShareNotification, ShareNotificationComparator, ShareNotificationComparatorProperty,
+    ShareNotificationFilter, ShareNotificationFilterCondition,
 };
 pub use principal::{Principal, PrincipalFilter, PrincipalFilterCondition, PrincipalType};
 

@@ -198,12 +198,15 @@ async fn mailbox_query_filter_passthrough() {
         vec![Filter::Condition(role), Filter::Condition(subscribed)],
     ));
     let sort = json!([
-        { "property": "name", "isAscending": true }
+        { "property": "name", "isAscending": false }
     ]);
+    let mut name_desc =
+        jmap_mail_types::MailboxComparator::new(jmap_mail_types::MailboxComparatorProperty::Name);
+    name_desc.is_ascending = false;
     let _ = sc
         .mailbox_query(
             Some(&typed),
-            Some(sort.clone()),
+            Some(&[name_desc]),
             &jmap_base_client::QueryParams {
                 position: Some(0),
                 limit: Some(50),
@@ -226,7 +229,10 @@ async fn mailbox_query_filter_passthrough() {
         args["filter"], filter,
         "typed AND filter must serialize to the RFC 8620 §5.5 FilterOperator shape"
     );
-    assert_eq!(args["sort"], sort, "sort must be passed through verbatim");
+    assert_eq!(
+        args["sort"], sort,
+        "sort must serialize to the RFC 8620 §5.5 Comparator shape"
+    );
     assert_eq!(args["position"], json!(0), "position mismatch");
     assert_eq!(args["limit"], json!(50), "limit mismatch");
 }
@@ -320,7 +326,9 @@ async fn mailbox_query_changes_with_filter_sort_upto_calculatetotal() {
         &since,
         None,
         Some(&Filter::Condition(role)),
-        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&[jmap_mail_types::MailboxComparator::new(
+            jmap_mail_types::MailboxComparatorProperty::Name,
+        )]),
         Some(&up_to),
         Some(true),
     )
