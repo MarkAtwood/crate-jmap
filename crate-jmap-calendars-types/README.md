@@ -14,7 +14,6 @@ JSCalendar ([RFC 8984]).
 | `Calendar` | `calendar` | draft §4 |
 | `CalendarRights` | `calendar` | draft §4 |
 | `IncludeInAvailability` | `calendar` | draft §4 |
-| `CalendarFilterCondition` | `calendar` | draft §4.5 |
 | `CalendarEvent` | `event` | draft §5, RFC 8984 §2.1, §4, §5.1 |
 | `CalendarEventFilterCondition` | `event` | draft §5.11.1 |
 | `CalendarEventComparator` | `event` | draft §5.11.2 |
@@ -75,9 +74,8 @@ Capability URI string constants: `JMAP_CALENDARS_URI`,
 
 ## Filter extensibility
 
-Filter and comparator types in this crate — `CalendarFilterCondition`,
-`CalendarEventFilterCondition`, `CalendarEventComparator`,
-`NotificationFilterCondition`, and the generic `Filter<T>` / `Operator`
+Filter and comparator types in this crate — `CalendarEventFilterCondition`,
+`CalendarEventComparator`, `NotificationFilterCondition`, and the generic `Filter<T>` / `Operator`
 re-exported from `jmap-types` — are **intentionally not extensible** via
 vendor "extras" fields. A filter clause the server does not understand
 silently breaks query correctness: the client gets the wrong set of records

@@ -28,16 +28,6 @@ fn assert_strict<T: DeserializeOwned>(known: Value, typo: Value) {
     }
 }
 
-/// Calendar properties `name` and `isSubscribed`
-/// (draft-ietf-jmap-calendars-33 §4).
-#[test]
-fn calendar_filter_condition_is_strict() {
-    assert_strict::<jmap_calendars_types::CalendarFilterCondition>(
-        json!({ "name": "Work", "isSubscribed": true }),
-        json!({ "is_subscribed": true }),
-    );
-}
-
 /// draft-ietf-jmap-calendars-33 §5.11.1 FilterCondition: `inCalendar`,
 /// `title`.
 #[test]
