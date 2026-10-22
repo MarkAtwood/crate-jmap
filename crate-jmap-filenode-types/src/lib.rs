@@ -25,10 +25,10 @@ pub use filter::{
     FileNodeComparator, FileNodeComparatorProperty, FileNodeFilter, FileNodeFilterCondition,
 };
 
-/// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
+/// Generic filter algebra from `jmap-types` (RFC 8620 §5.5).
 ///
 /// Re-exported here so callers of `jmap-filenode-types` do not need a
 /// direct dependency on `jmap-types`. Mirrors the same root
 /// re-exports in `jmap-mail-types`, the workspace canonical
 /// extension-types template.
-pub use jmap_types::query::{Filter, FilterOperator, Operator};
+pub use jmap_types::{Filter, FilterOperator, Operator};

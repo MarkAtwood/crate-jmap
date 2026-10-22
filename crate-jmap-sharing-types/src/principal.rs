@@ -169,13 +169,13 @@ pub struct PrincipalFilterCondition {
 
 /// Concrete filter type for Principal/query (RFC 9670 §5.2).
 ///
-/// Alias for `jmap_types::query::Filter<PrincipalFilterCondition>`
+/// Alias for `jmap_types::Filter<PrincipalFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.
 /// Mirrors the canonical [`jmap_mail_types::EmailFilter`] shape from the
 /// workspace canonical extension-types template.
 ///
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
-pub type PrincipalFilter = jmap_types::query::Filter<PrincipalFilterCondition>;
+pub type PrincipalFilter = jmap_types::Filter<PrincipalFilterCondition>;
 
 #[cfg(test)]
 mod tests {

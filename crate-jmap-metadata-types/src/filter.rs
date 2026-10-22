@@ -14,7 +14,7 @@
 //! standalone `MetadataFilterCondition`. The typed per-type filter
 //! structs in the extension-types crates (e.g. `EmailFilterCondition`)
 //! do not carry these fields (bd JMAP-ua37.4). Clients send them either
-//! as a `jmap_types::query::Filter<WithMetadata<C>>`, which the
+//! as a `jmap_types::Filter<WithMetadata<C>>`, which the
 //! extension clients' `/query` and `/queryChanges` methods accept, or in
 //! a `serde_json::Value` filter tree built with `jmap-metadata-client`'s
 //! condition builders.
@@ -82,7 +82,7 @@ impl MetadataTextMatch {
 /// below." `base` is the data type's own condition (for example
 /// `jmap_mail_types::EmailFilterCondition`); its fields are
 /// flattened into the same JSON object as the metadata fields. Use it as
-/// the leaf of a `jmap_types::query::Filter<WithMetadata<C>>` and pass that
+/// the leaf of a `jmap_types::Filter<WithMetadata<C>>` and pass that
 /// to the extension client's `/query` or `/queryChanges` method; the
 /// conditions compose with `AND` / `OR` / `NOT` as usual (§3.6, RFC 8620
 /// §5.5).
@@ -93,7 +93,7 @@ impl MetadataTextMatch {
 /// `Deserialize`: `#[serde(flatten)]` cannot be combined with
 /// `#[serde(deny_unknown_fields)]`, and decoding a filter without that
 /// check lets a misspelt key decode as a match-all condition (see the
-/// `jmap_types::query::Filter` rustdoc).
+/// `jmap_types::Filter` rustdoc).
 ///
 /// # Example
 ///

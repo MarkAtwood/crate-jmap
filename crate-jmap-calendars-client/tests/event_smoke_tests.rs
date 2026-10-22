@@ -22,7 +22,7 @@ use jmap_calendars_types::{
     CalendarEventFilterCondition,
 };
 use jmap_metadata_types::{MetadataTextMatch, WithMetadata};
-use jmap_types::query::{Filter, FilterOperator, Operator};
+use jmap_types::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
 
 // CalendarEventGetParams, CalendarEventFilterCondition, and

@@ -440,13 +440,13 @@ pub struct CalendarEventFilterCondition {
 /// Concrete filter type for CalendarEvent/query
 /// (draft-ietf-jmap-calendars-33 §5.11).
 ///
-/// Alias for `jmap_types::query::Filter<CalendarEventFilterCondition>`
+/// Alias for `jmap_types::Filter<CalendarEventFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.
 /// Mirrors the canonical [`jmap_mail_types::EmailFilter`] shape from the
 /// workspace canonical extension-types template.
 ///
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
-pub type CalendarEventFilter = jmap_types::query::Filter<CalendarEventFilterCondition>;
+pub type CalendarEventFilter = jmap_types::Filter<CalendarEventFilterCondition>;
 
 /// The property to sort by in a [`CalendarEventComparator`]
 /// (draft-ietf-jmap-calendars-33 §5.11.2: "The following properties MUST

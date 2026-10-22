@@ -21,7 +21,7 @@ sub-types re-exported at its crate root).
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_contacts_client::{JmapContactsExt, AddressBookSetParams};
 use jmap_contacts_types::{ContactCard, ContactCardFilterCondition};
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use jmap_types::{Id, State};
 use serde_json::json;
 

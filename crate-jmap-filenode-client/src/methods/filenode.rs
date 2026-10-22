@@ -14,7 +14,7 @@ use super::{
     ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
 };
 use jmap_filenode_types::FileNodeComparator;
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 //! This method accepts only `destroy` to prevent constructing invalid requests.
 
 use jmap_calendars_types::CalendarEventNotificationComparator;
-use jmap_types::{query::Filter, Id, State};
+use jmap_types::{Filter, Id, State};
 use serde::Serialize;
 
 use super::{

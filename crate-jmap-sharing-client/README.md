@@ -20,7 +20,7 @@ shape. Depends on `jmap-base-client` for transport and session, and on
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_sharing_client::JmapSharingExt;
 use jmap_sharing_types::PrincipalFilterCondition;
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use jmap_types::Id;
 
 #[tokio::main]

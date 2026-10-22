@@ -25,7 +25,7 @@
 mod helpers;
 
 use jmap_mail_types::EmailFilterCondition;
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};

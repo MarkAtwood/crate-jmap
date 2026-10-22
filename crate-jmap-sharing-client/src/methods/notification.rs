@@ -13,7 +13,7 @@
 //! This method accepts only `destroy` to prevent constructing invalid requests.
 
 use jmap_sharing_types::ShareNotificationComparator;
-use jmap_types::{query::Filter, Id, State};
+use jmap_types::{Filter, Id, State};
 use serde::Serialize;
 
 use super::{

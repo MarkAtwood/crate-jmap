@@ -130,7 +130,7 @@ impl ResultReference {
 /// be silently ignored.
 ///
 /// ```compile_fail
-/// use jmap_types::resultref::Argument;
+/// use jmap_types::Argument;
 /// // serde_json::Value does not implement Sealed — this must not compile.
 /// let _: Argument<serde_json::Value> = Argument::Value(serde_json::Value::Null);
 /// ```

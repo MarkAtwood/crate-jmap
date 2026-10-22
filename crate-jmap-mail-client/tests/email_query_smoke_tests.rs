@@ -14,7 +14,7 @@ mod helpers;
 use jmap_mail_types::Keyword;
 use jmap_mail_types::{ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition};
 use jmap_metadata_types::{MetadataTextMatch, WithMetadata};
-use jmap_types::query::{Filter, FilterOperator, Operator};
+use jmap_types::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};

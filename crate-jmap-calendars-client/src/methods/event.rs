@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use jmap_calendars_types::CalendarEventComparator;
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{

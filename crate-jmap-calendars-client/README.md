@@ -116,7 +116,7 @@ from the bound session.
 and `jmap_types::UTCDate`. `UTCDate` enforces RFC 8620 §1.4 format
 validation at construction time via `UTCDate::new_validated`.
 
-`filter` is a `jmap_types::query::Filter<C>` (RFC 8620 §5.5 `AND` / `OR` /
+`filter` is a `jmap_types::Filter<C>` (RFC 8620 §5.5 `AND` / `OR` /
 `NOT` over conditions of type `C: Serialize`). `C` is normally the crate's
 `*FilterCondition`; use `jmap_metadata_types::WithMetadata<C>` to add
 draft-ietf-jmap-metadata-04 §3.6 conditions. When passing `None`, name the

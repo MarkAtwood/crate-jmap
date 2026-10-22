@@ -23,7 +23,7 @@ use helpers::{
     set_response, CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID,
 };
 use jmap_metadata_types::WithMetadata;
-use jmap_types::query::{Filter, FilterOperator, Operator};
+use jmap_types::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;

@@ -383,7 +383,7 @@ async fn space_query_filter_is_public_serializes() {
     cond.is_public = Some(true);
     let _ = sc
         .space_query(
-            Some(&jmap_types::query::Filter::Condition(cond)),
+            Some(&jmap_types::Filter::Condition(cond)),
             None,
             &jmap_base_client::QueryParams::default(),
         )

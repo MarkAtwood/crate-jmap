@@ -37,7 +37,7 @@
 use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
-pub use jmap_types::query::{Filter, FilterOperator, Operator};
+pub use jmap_types::{Filter, FilterOperator, Operator};
 
 fn default_true() -> bool {
     true

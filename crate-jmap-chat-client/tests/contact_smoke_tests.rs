@@ -285,7 +285,7 @@ async fn chat_contact_query_filter_presence_sort_serialise() {
     )];
     let _ = sc
         .chat_contact_query(
-            Some(&jmap_types::query::Filter::Condition(cond)),
+            Some(&jmap_types::Filter::Condition(cond)),
             Some(&sort),
             &jmap_base_client::QueryParams::default(),
         )
@@ -541,7 +541,7 @@ async fn chat_contact_query_filter_identity_serialise() {
     cond.identity = Some("alice@example.com".to_owned());
     let _ = sc
         .chat_contact_query(
-            Some(&jmap_types::query::Filter::Condition(cond)),
+            Some(&jmap_types::Filter::Condition(cond)),
             None,
             &jmap_base_client::QueryParams::default(),
         )

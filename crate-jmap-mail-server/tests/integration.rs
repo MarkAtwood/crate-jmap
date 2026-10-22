@@ -13724,7 +13724,7 @@ fn mailbox_filter_condition_serde_roundtrip_lossless() {
 #[test]
 fn email_filter_serde_roundtrip_lossless() {
     use jmap_mail_types::{EmailFilter, EmailFilterCondition};
-    use jmap_types::query::{Filter, FilterOperator, Operator};
+    use jmap_types::{Filter, FilterOperator, Operator};
 
     // Bare Condition variant.
     let mut cond = EmailFilterCondition::default();
@@ -13763,7 +13763,7 @@ fn email_filter_serde_roundtrip_lossless() {
 #[test]
 fn email_submission_filter_serde_roundtrip_lossless() {
     use jmap_mail_types::{EmailSubmissionFilter, EmailSubmissionFilterCondition};
-    use jmap_types::query::Filter;
+    use jmap_types::Filter;
 
     let mut cond = EmailSubmissionFilterCondition::default();
     cond.identity_ids = Some(vec![Id::from("id1")]);

@@ -39,7 +39,7 @@ assert!(properties.contains(&"metadata"));
 
 // Compose a metadata condition with the type's own conditions (§3.6).
 // An extension client's `*_query` method takes it as
-// `jmap_types::query::Filter::Condition(filter)`; for a typed tree, use
+// `jmap_types::Filter::Condition(filter)`; for a typed tree, use
 // `jmap_metadata_types::WithMetadata<C>` leaves instead.
 let filter = json!({
     "operator": "AND",
@@ -67,7 +67,7 @@ assert_eq!(
 - **Typed filters.** The extension-types `FilterCondition` structs
   carry no metadata fields (bd JMAP-ua37.4). The extension clients'
   `*_query` / `*_query_changes` methods take a generic
-  `jmap_types::query::Filter<C>`, so a typed tree uses
+  `jmap_types::Filter<C>`, so a typed tree uses
   `jmap_metadata_types::WithMetadata<C>` leaves and an untyped one is
   passed as `Filter::Condition(value)`.
 

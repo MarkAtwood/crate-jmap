@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AccessPolicy, PhysicsMode, Position, ViewHint};
 
-pub use jmap_types::query::{Filter, FilterOperator, Operator};
+pub use jmap_types::{Filter, FilterOperator, Operator};
 
 /// The `withinRadius` spatial filter: position inside a sphere
 /// (draft-atwood-jmap-scene-00 §Spatial Filters).

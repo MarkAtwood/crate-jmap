@@ -12,7 +12,7 @@
 //! [`SetErrorType::RateLimit`](jmap_types::SetErrorType::RateLimit) (wire `"rateLimit"`)
 //! and surfaces it as `ClientError::RateLimited`.
 
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{

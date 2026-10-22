@@ -43,7 +43,7 @@ use serde_json::{Map, Value};
 /// A JMAP `PatchObject` (RFC 8620 §5.3) — a String → JSON map describing
 /// the changes to apply to a record during `*/set` `update`.
 ///
-/// See the [module documentation](crate::patch) for the path-key semantics
+/// See the module documentation for the path-key semantics
 /// and null-leaf removal rule.
 ///
 /// # Wire format

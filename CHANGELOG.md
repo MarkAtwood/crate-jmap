@@ -2615,6 +2615,11 @@ wire behaviour that a conforming peer can observe.
   root is the single public path, so name `jmap_mail_types::Email`, not
   `jmap_mail_types::email::Email`, and `jmap_mail_types::SEEN`, not
   `jmap_mail_types::keyword::SEEN` (bd JMAP-wf92.23).
+- **BREAKING** **jmap-types**: the `backend`, `error`, `id`, `jmap_uri`,
+  `methods`, `patch`, `push`, `query`, `resultref`, `set_error` and
+  `wire` module paths. The modules are private and every item keeps its
+  crate-root path, so name `jmap_types::Filter`, not
+  `jmap_types::query::Filter` (bd JMAP-wf92.23).
 - **BREAKING** The `jmap_calendars_types::jscalendar`,
   `jmap_tasks_types::jscalendar` and `jmap_contacts_types::jscontact`
   alias modules. They re-exported exactly the names already at each

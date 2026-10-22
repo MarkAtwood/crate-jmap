@@ -4,14 +4,14 @@
 //! Email/query — and the [`EmailFilter`] type alias for convenience.
 //!
 //! The generic [`Filter`], [`FilterOperator`], and [`Operator`] types used here
-//! are defined in `jmap-types::query` (RFC 8620 §5.5).
+//! are defined in `jmap-types` (RFC 8620 §5.5).
 
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 use crate::keyword::Keyword;
 
-pub use jmap_types::query::{Filter, FilterOperator, Operator};
+pub use jmap_types::{Filter, FilterOperator, Operator};
 
 /// Concrete filter type for Email/query (RFC 8621 §4.4).
 pub type EmailFilter = Filter<EmailFilterCondition>;

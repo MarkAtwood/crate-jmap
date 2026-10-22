@@ -13,7 +13,7 @@ pub mod task_notification;
 // Response types (RFC 8620 §5)
 // ---------------------------------------------------------------------------
 //
-// Re-exported from `jmap-types::methods` so all `jmap-*-client` crates share
+// Re-exported from `jmap-types` so all `jmap-*-client` crates share
 // one canonical set of /get, /set, /changes, /query, /queryChanges shapes.
 // The wire format is identical to the previous local definitions.
 

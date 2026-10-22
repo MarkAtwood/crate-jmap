@@ -295,7 +295,7 @@ async fn custom_emoji_query_filter_space_id_serialises() {
     cond.space_id = Some(Id::from("space-eng"));
     let _ = sc
         .custom_emoji_query(
-            Some(&jmap_types::query::Filter::Condition(cond)),
+            Some(&jmap_types::Filter::Condition(cond)),
             None,
             &jmap_base_client::QueryParams {
                 position: Some(0),

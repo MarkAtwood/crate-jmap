@@ -10,7 +10,7 @@ mod helpers;
 
 use jmap_tasks_types::{LocalDateTime, TaskComparator, TaskComparatorProperty};
 use jmap_tasks_types::{TaskFilter, TaskFilterCondition};
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};

@@ -2,7 +2,7 @@
 //!
 //! Spec: JMAP Chat draft §5 (ChatContact/get, /changes, /set, /query, /queryChanges).
 
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{

@@ -5,7 +5,7 @@
 //! chat, etc.) returns one of these shapes. Centralising them here avoids
 //! drift between the seven `jmap-*-client` crates that previously each
 //! defined their own copies. [`SetResponse`] carries [`SetError`] values,
-//! defined in [`crate::set_error`].
+//! defined in `set_error`.
 //!
 //! All types use camelCase JSON via `#[serde(rename_all = "camelCase")]` and
 //! are marked `#[non_exhaustive]` so future RFC errata or extensions can add

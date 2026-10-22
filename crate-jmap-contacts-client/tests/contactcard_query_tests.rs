@@ -11,7 +11,7 @@ use jmap_contacts_types::{
     ContactCardComparator, ContactCardComparatorProperty, ContactCardFilter,
     ContactCardFilterCondition,
 };
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

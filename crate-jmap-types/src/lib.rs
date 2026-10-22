@@ -30,17 +30,17 @@
 
 #![forbid(unsafe_code)]
 
-pub mod backend;
-pub mod error;
-pub mod id;
-pub mod jmap_uri;
-pub mod methods;
-pub mod patch;
-pub mod push;
-pub mod query;
-pub mod resultref;
-pub mod set_error;
-pub mod wire;
+mod backend;
+mod error;
+mod id;
+mod jmap_uri;
+mod methods;
+mod patch;
+mod push;
+mod query;
+mod resultref;
+mod set_error;
+mod wire;
 
 // `string_enum` is a private module that hosts the [`impl_string_enum!`]
 // declarative macro. The macro itself is `#[macro_export]`-ed, so it is

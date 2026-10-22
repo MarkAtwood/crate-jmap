@@ -5,7 +5,7 @@
 //! expose a typed API that only allows destroy to avoid client-side confusion.
 
 use jmap_tasks_types::TaskNotificationComparator;
-use jmap_types::{query::Filter, Id, State};
+use jmap_types::{Filter, Id, State};
 use serde::Serialize;
 
 use super::{
