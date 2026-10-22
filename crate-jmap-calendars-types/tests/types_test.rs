@@ -588,8 +588,14 @@ fn calendar_event_filter_condition_wire_names() {
         fc.in_calendar.as_ref().map(|id| id.as_ref()),
         Some("cal-001")
     );
-    assert_eq!(fc.after.as_deref(), Some("2024-01-01T00:00:00"));
-    assert_eq!(fc.before.as_deref(), Some("2024-12-31T23:59:59"));
+    assert_eq!(
+        fc.after.as_ref().map(AsRef::as_ref),
+        Some("2024-01-01T00:00:00")
+    );
+    assert_eq!(
+        fc.before.as_ref().map(AsRef::as_ref),
+        Some("2024-12-31T23:59:59")
+    );
     assert_eq!(fc.text.as_deref(), Some("meeting"));
     assert_eq!(fc.title.as_deref(), Some("team"));
     assert!(fc.description.is_none());

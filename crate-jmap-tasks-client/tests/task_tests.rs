@@ -9,9 +9,9 @@
 mod helpers;
 
 use jmap_tasks_types::task::{TaskFilter, TaskFilterCondition};
-use jmap_tasks_types::{TaskComparator, TaskComparatorProperty};
+use jmap_tasks_types::{LocalDateTime, TaskComparator, TaskComparatorProperty};
 use jmap_types::query::Filter;
-use jmap_types::{Id, State, UTCDate};
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -381,7 +381,7 @@ async fn task_query_with_filter() {
 
     let sc = helpers::make_client(&server);
     let mut cond = TaskFilterCondition::default();
-    cond.after = Some(UTCDate::from("2026-01-01T00:00:00Z"));
+    cond.after = Some(LocalDateTime::from("2026-01-01T00:00:00"));
     let resp = sc
         .task_query(
             Some(&Filter::Condition(cond)),
@@ -408,8 +408,8 @@ async fn task_query_with_filter() {
     let args = &body["methodCalls"][0][1];
     assert_eq!(
         args["filter"]["after"],
-        json!("2026-01-01T00:00:00Z"),
-        "filter.after must be '2026-01-01T00:00:00Z' on the wire"
+        json!("2026-01-01T00:00:00"),
+        "filter.after must be the LocalDateTime '2026-01-01T00:00:00' on the wire"
     );
     assert_eq!(args["position"], json!(0), "position must be 0 on the wire");
     assert_eq!(args["limit"], json!(20), "limit must be 20 on the wire");

@@ -1338,6 +1338,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-tasks-types**, **jmap-calendars-types**: **BREAKING**
+  `TaskFilterCondition.after` / `before` (was `Option<UTCDate>`) and
+  `CalendarEventFilterCondition.after` / `before` (was `Option<String>`) are
+  `Option<LocalDateTime>`. draft-ietf-jmap-calendars-33 §5.11.1 types both as
+  LocalDateTime in the `timeZone` argument, and Task/query is that method
+  (draft-ietf-jmap-tasks-06 §4.13). `UTCDate` required a trailing `Z`, so a
+  spec-conforming Task filter failed to deserialize (bd JMAP-skk9.6).
+
 - **jmap-chat-types**, **jmap-chat-server**: **BREAKING**
   `ChatPushCapability.supported_urgency_values` is `Vec<jmap_types::Urgency>`
   and `BuiltPush.urgency` is `jmap_types::Urgency`, both previously the open

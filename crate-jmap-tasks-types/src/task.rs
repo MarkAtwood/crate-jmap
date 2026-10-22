@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 
+use jmap_jscalendar_types::LocalDateTime;
 use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
@@ -576,13 +577,17 @@ pub struct TaskFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    /// Task `due` date must be on or after this UTCDate.
+    /// Task `due` date must be on or after this `LocalDateTime`,
+    /// interpreted in the query's `timeZone` argument (Task/query is
+    /// CalendarEvent/query: draft-ietf-jmap-tasks-06 §4.13,
+    /// draft-ietf-jmap-calendars-33 §5.11.1).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub after: Option<UTCDate>,
+    pub after: Option<LocalDateTime>,
 
-    /// Task `due` date must be before this UTCDate.
+    /// Task `due` date must be before this `LocalDateTime`, interpreted
+    /// in the query's `timeZone` argument.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub before: Option<UTCDate>,
+    pub before: Option<LocalDateTime>,
 
     /// If true/false, filter by whether the task is a draft.
     #[serde(skip_serializing_if = "Option::is_none")]

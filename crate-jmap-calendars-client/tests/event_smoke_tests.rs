@@ -238,8 +238,8 @@ async fn calendar_event_query_filter_sort_expand_recurrences_passthrough() {
     let sc = helpers::make_client(&server);
     let mut filter = CalendarEventFilterCondition::default();
     filter.in_calendar = Some(Id::from("cal-1"));
-    filter.after = Some("2024-06-01T00:00:00".to_owned());
-    filter.before = Some("2024-07-01T00:00:00".to_owned());
+    filter.after = Some("2024-06-01T00:00:00".into());
+    filter.before = Some("2024-07-01T00:00:00".into());
     filter.text = Some("standup".to_owned());
     let mut comparator = CalendarEventComparator::new(CalendarEventComparatorProperty::Start);
     comparator.is_ascending = false;
