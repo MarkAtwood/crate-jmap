@@ -12,8 +12,8 @@ use common::MemoryBackend;
 use jmap_server::HandlerOutput;
 use jmap_tasks_server::{
     handle_task_changes, handle_task_get, handle_task_list_changes, handle_task_list_get,
-    handle_task_list_set, handle_task_notification_set, handle_task_query,
-    handle_task_query_changes, handle_task_set,
+    handle_task_list_set, handle_task_notification_query, handle_task_notification_set,
+    handle_task_query, handle_task_query_changes, handle_task_set,
 };
 use serde_json::{json, Value};
 
@@ -669,6 +669,46 @@ async fn task_query_with_filter_fails_loud_on_memory_backend() {
          approximation of RFC 8620 §5.5 unsupportedFilter when the backend \
          cannot signal it directly): {err:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Test: Task/query and TaskNotification/query against MemoryBackend with
+// an operator tree answer `unsupportedFilter`, not `serverFail`.
+//
+// Oracle: RFC 8620 §5.5 types `filter` as
+// "FilterOperator|FilterCondition|null" and says "A server MUST reject the
+// call with an `unsupportedFilter` error if it cannot process the given
+// filter." The reference MemoryBackend evaluates no FilterOperator, even
+// one wrapping its supported `taskListId` condition
+// (draft-ietf-jmap-tasks-06 §4) or the TaskNotification `taskIds`
+// condition (§5.5.1).
+//
+// Bead: JMAP-skk9.2.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
+    backend.seed_object("acc1", "Task", "t1", task_fixture("t1", "tl1", "Buy milk"));
+
+    let args = json!({
+        "accountId": "acc1",
+        "filter": { "operator": "AND", "conditions": [ { "taskListId": "tl1" } ] }
+    });
+    let err = handle_task_query(&backend, &(), args)
+        .await
+        .expect_err("Task/query with an operator tree must be rejected");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
+
+    let args = json!({
+        "accountId": "acc1",
+        "filter": { "operator": "NOT", "conditions": [ { "taskIds": ["t1"] } ] }
+    });
+    let err = handle_task_notification_query(&backend, &(), args)
+        .await
+        .expect_err("TaskNotification/query with an operator tree must be rejected");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
 // ---------------------------------------------------------------------------

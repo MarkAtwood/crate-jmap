@@ -1391,8 +1391,9 @@ wire behaviour that a conforming peer can observe.
   `Filter::Condition`. The default `FileNodeBackend::query_subtree`
   passes `Filter::Condition`. An operator tree is no longer
   `unsupportedFilter`; the Mail, Calendars (`inCalendar`), Contacts and
-  FileNode `MemoryBackend`s evaluate `AND`/`OR`/`NOT`, while the Tasks
-  and Sharing ones keep their documented filter limits.
+  FileNode `MemoryBackend`s evaluate `AND`/`OR`/`NOT`, the Tasks one
+  answers an operator tree with `unsupportedFilter` (not `serverFail`),
+  and the Sharing one keeps its documented filter limits.
   `CalendarEvent/query` with `expandRecurrences: true` still requires a
   single FilterCondition with `before` and `after`
   (draft-ietf-jmap-calendars-33 §5.11) and answers an operator tree with
