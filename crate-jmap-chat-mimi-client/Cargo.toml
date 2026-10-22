@@ -18,7 +18,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 # MLS parsing and labeled signature verification, crates.io only, the same
 # pins as jmap-chat-mimi-server (bd:JMAP-6k5d.1).
-openmls = { version = "=0.9.1", features = ["extensions-draft"] }
+openmls = { version = "=0.9.2", features = ["extensions-draft"] }
 tls_codec = { version = "=0.5.0", features = ["mls"] }
 
 [dev-dependencies]

@@ -26,8 +26,8 @@ base64 = "0.22"
 # MLS parsing and verification, crates.io only (bd:JMAP-6k5d.1). The
 # `extensions-draft` feature carries the app_data_dictionary extension that
 # marks last-resort KeyPackages (draft-atwood-jmap-chat-mimi-00 §KeyPackage
-# Object Fields). openmls 0.9.1 sets the workspace MSRV of 1.91.
-openmls = { version = "=0.9.1", features = ["extensions-draft"] }
+# Object Fields). openmls 0.9.2 sets the workspace MSRV of 1.91.
+openmls = { version = "=0.9.2", features = ["extensions-draft"] }
 tls_codec = { version = "=0.5.0", features = ["mls", "derive"] }
 # Throwaway storage for openmls PublicGroup::from_external, which checks the
 # Room/create GroupInfo signature and tree hash (bd:JMAP-6k5d.4).
