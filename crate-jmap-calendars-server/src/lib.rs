@@ -826,7 +826,8 @@ pub(crate) mod test_support {
         // noSupportedScheduleMethods SetError per draft-ietf-jmap-calendars-33
         // §5.9, §10.8.2. When sendSchedulingMessages is false the mock falls
         // through to the generic create/update/destroy_object path used by
-        // every other test in this file.
+        // every other test in this file; creates first reject a non-public
+        // privacy in a foreign account (§5.9, §5.10).
         async fn create_calendar_event<F>(
             &self,
             caller: &(),
@@ -843,8 +844,25 @@ pub(crate) mod test_support {
                     SetErrorType::from("noSupportedScheduleMethods"),
                 )));
             }
-            self.create_object(caller, account_id, create_id, build)
-                .await
+            // §5.9 / §5.10: privacy MUST be "public" in an account that does
+            // not belong to the user.
+            let event = build(&Id::from("pending"));
+            let foreign = self
+                .foreign_accounts
+                .lock()
+                .unwrap()
+                .contains(account_id.as_ref());
+            if foreign && event.privacy.as_deref().is_some_and(|p| p != "public") {
+                let mut err = SetError::new(SetErrorType::InvalidProperties);
+                err.properties = Some(vec!["privacy".to_owned()]);
+                return Err(BackendSetError::SetError(err));
+            }
+            self.create_object(caller, account_id, create_id, move |id: &Id| {
+                let mut event = event;
+                event.id = Some(id.clone());
+                event
+            })
+            .await
         }
 
         async fn update_calendar_event(

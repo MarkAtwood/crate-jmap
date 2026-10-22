@@ -348,6 +348,18 @@ pub trait CalendarsBackend: JmapBackend {
     /// The same rules apply to
     /// [`update_calendar_event`](Self::update_calendar_event).
     ///
+    /// `CalendarEvent/copy` creates go through this method too, with
+    /// [`CalendarEventSetArgs::default()`]. For those the backend also
+    /// enforces §5.10: "If the account being copied into does not belong
+    /// to the user and the "privacy" property of the event to be created
+    /// would be anything other than "public" (whether inherited from the
+    /// event being copied or set explicitly in the "create" patch), the
+    /// server MUST reject the copy with an invalidProperties SetError."
+    /// Return that as `BackendSetError::SetError` and the handler reports
+    /// it under `notCreated`. The same §5.9 rule ("privacy" MUST NOT be
+    /// anything other than "public" in a calendar that does not belong to
+    /// the user) covers `CalendarEvent/set` creates.
+    ///
     /// Receives the per-call [`CalendarEventSetArgs`] in addition to the
     /// builder of the event being created, which the backend calls as for
     /// [`create_object`](Self::create_object). When `args.send_scheduling_messages` is `true`, the

@@ -913,8 +913,18 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 event.id = Some(id.clone());
                 event
             };
+            // The copy is a CalendarEvent create in the destination account,
+            // so it takes the same backend path as CalendarEvent/set creates
+            // (§5.9 create rules, §5.10 destination privacy rule). /copy has
+            // no sendSchedulingMessages argument, hence the default args.
             match backend
-                .create_object::<CalendarEvent, _>(caller, &account_id, &create_id, build)
+                .create_calendar_event(
+                    caller,
+                    &account_id,
+                    &create_id,
+                    build,
+                    &CalendarEventSetArgs::default(),
+                )
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -1863,6 +1873,50 @@ mod tests {
                 .primary;
             assert!(resp["created"]["c1"].is_object(), "{from}/{id}: {resp}");
         }
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.10 — "If the account being
+    /// copied into does not belong to the user and the "privacy" property
+    /// of the event to be created would be anything other than "public"
+    /// (whether inherited from the event being copied or set explicitly in
+    /// the "create" patch), the server MUST reject the copy with an
+    /// invalidProperties SetError." The mock enforces that rule only in
+    /// `create_calendar_event`, so this also pins that /copy routes its
+    /// creates there. A public copy into the same account still succeeds.
+    #[tokio::test]
+    async fn copy_non_public_event_into_foreign_account_is_invalid_properties() {
+        let backend = MockBackend::new_with_account("shared");
+        for (id, privacy) in [("priv", "private"), ("pub", "public")] {
+            backend.seed_object(
+                "own",
+                "CalendarEvent",
+                id,
+                json!({ "id": id, "privacy": privacy, "calendarIds": { "cal1": true } }),
+            );
+        }
+        backend.mark_foreign("shared");
+        let copy = |create: Value| json!({ "accountId": "shared", "fromAccountId": "own", "create": { "c1": create } });
+
+        for create in [
+            json!({ "id": "priv" }),
+            json!({ "id": "pub", "privacy": "secret" }),
+        ] {
+            let resp = handle_calendar_event_copy(&backend, &(), copy(create.clone()), "c0")
+                .await
+                .expect("no method-level error")
+                .primary;
+            assert_eq!(
+                resp["notCreated"]["c1"],
+                json!({ "type": "invalidProperties", "properties": ["privacy"] }),
+                "{create}: {resp}"
+            );
+        }
+
+        let resp = handle_calendar_event_copy(&backend, &(), copy(json!({ "id": "pub" })), "c0")
+            .await
+            .expect("no method-level error")
+            .primary;
+        assert!(resp["created"]["c1"].is_object(), "{resp}");
     }
 
     /// Oracle: CalendarEvent/set create with client-supplied "id" → notCreated
