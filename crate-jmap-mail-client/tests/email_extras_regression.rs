@@ -15,7 +15,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_mail_client::methods::{EmailGetParams, EmailParseParams};
+use jmap_mail_client::{EmailGetParams, EmailParseParams};
 use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};

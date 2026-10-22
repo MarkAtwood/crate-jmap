@@ -326,7 +326,7 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Patch<T> {
 /// `SetResponse`-shaped `created` / `notCreated` / `updated` maps
 /// returned by methods that use a per-call client id. For example,
 /// after `blob_convert` callers look up the converted blob via
-/// `response.created.as_ref().and_then(|m| m.get(jmap_chat_client::methods::CALL_ID))`.
+/// `response.created.as_ref().and_then(|m| m.get(jmap_chat_client::CALL_ID))`.
 pub const CALL_ID: &str = "r1";
 
 /// Capability URIs for standard JMAP Chat method calls (RFC 8620 §3.3).
@@ -429,7 +429,7 @@ pub(crate) fn resolve_client_id(id: Option<&str>) -> String {
 /// in-flight calls. When ordering matters between method calls (e.g.
 /// a `Foo/set` followed by a `Foo/changes` that must observe the new
 /// state), use a single JMAP batch request with `ResultReference`s
-/// rather than two separate `SessionClient` calls (see [`batch::Batch`]
+/// rather than two separate `SessionClient` calls (see [`Batch`](crate::Batch)
 /// for the typed query-then-get case).
 ///
 /// All public async methods on `SessionClient` are cancel-safe at

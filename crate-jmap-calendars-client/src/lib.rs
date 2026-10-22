@@ -19,14 +19,15 @@
 
 #![forbid(unsafe_code)]
 
-pub mod methods;
+mod methods;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
-    AddedItem, CalendarEventCopyParams, CalendarEventGetParams, CalendarEventParseResponse,
-    CalendarEventSetParams, CalendarSetParams, ChangesResponse, CopyResponse, GetResponse,
-    PartialObject, ParticipantIdentitySetParams, PrincipalGetAvailabilityResponse,
-    QueryChangesResponse, QueryResponse, SessionClient, SetError, SetResponse,
+    AddedItem, CalendarEventCopyParams, CalendarEventGetParams, CalendarEventParseParams,
+    CalendarEventParseResponse, CalendarEventSetParams, CalendarSetParams, ChangesResponse,
+    CopyResponse, GetResponse, PartialObject, ParticipantIdentitySetParams,
+    PrincipalGetAvailabilityParams, PrincipalGetAvailabilityResponse, QueryChangesResponse,
+    QueryResponse, SessionClient, SetError, SetResponse,
 };
 
 /// Extension trait adding JMAP Calendars methods to [`jmap_base_client::JmapClient`].
@@ -56,7 +57,7 @@ pub trait JmapCalendarsExt: sealed::Sealed {
     /// `urn:ietf:params:jmap:calendars` or whose `primaryAccounts` map
     /// has no entry for the calendars capability. The constructor
     /// performs no up-front validation and never fails — its return
-    /// type is the infallible [`methods::SessionClient`], not a
+    /// type is the infallible [`SessionClient`], not a
     /// `Result`.
     ///
     /// Capability and primary-account validation is deferred to every

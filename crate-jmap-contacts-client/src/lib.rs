@@ -19,7 +19,7 @@
 
 #![forbid(unsafe_code)]
 
-pub mod methods;
+mod methods;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
@@ -52,7 +52,7 @@ pub trait JmapContactsExt: sealed::Sealed {
     /// `urn:ietf:params:jmap:contacts` or whose `primaryAccounts` map
     /// has no entry for the contacts capability. The constructor
     /// performs no up-front validation and never fails — its return
-    /// type is the infallible [`methods::SessionClient`], not a
+    /// type is the infallible [`SessionClient`], not a
     /// `Result`.
     ///
     /// Capability and primary-account validation is deferred to every

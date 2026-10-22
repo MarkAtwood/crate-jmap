@@ -21,13 +21,13 @@
 
 #![forbid(unsafe_code)]
 
-pub mod calendars;
-pub mod methods;
-pub mod session;
-pub mod sse;
-pub mod types;
-pub mod utils;
-pub mod ws;
+mod calendars;
+mod methods;
+mod session;
+mod sse;
+mod types;
+mod utils;
+mod ws;
 
 pub use calendars::{own_participant_key, rsvp_patch, RsvpStatus};
 pub use jmap_base_client::ClientError;
@@ -36,24 +36,28 @@ pub use methods::batch::{Batch, BatchResponse, CallHandle};
 pub use methods::blob::{BlobConvertResponse, BlobLookupEntry, BlobLookupResponse, BlobObject};
 pub use methods::quota::Quota;
 pub use methods::{
-    AddMemberInput, AddedItem, ChangesResponse, ChatContactPatch, ChatCreateInput, ChatPatch,
-    CustomEmojiCreateInput, CustomEmojiPatch, GetResponse, MessageCreateInput, MessagePatch,
-    PartialObject, Patch, PresenceStatusPatch, PushSubscriptionCreateInput,
-    PushSubscriptionCreateResponse, PushSubscriptionPatch, QueryChangesResponse, QueryResponse,
-    ReactionChange, SessionClient, SetError, SetResponse, SpaceAddCategoryInput,
-    SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput, SpaceBanCreateInput,
-    SpaceBanPatch, SpaceCreateInput, SpaceInviteCreateInput, SpaceJoinInput, SpaceJoinResponse,
-    SpacePatch, SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
-    SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput,
+    server_retry_after, AddMemberInput, AddedItem, ChangesResponse, ChatContactPatch,
+    ChatCreateInput, ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch, GetResponse,
+    MessageCreateInput, MessagePatch, PartialObject, Patch, PresenceStatusPatch,
+    PushSubscriptionCreateInput, PushSubscriptionCreateResponse, PushSubscriptionPatch,
+    QueryChangesResponse, QueryResponse, ReactionChange, ServerRetryAfterError, SessionClient,
+    SetError, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput,
+    SpaceAddRoleInput, SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput,
+    SpaceInviteCreateInput, SpaceJoinInput, SpaceJoinResponse, SpacePatch,
+    SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
+    SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput, CALL_ID,
 };
-pub use session::{ChatCapability, ChatFilenodeCapability, ChatPushCapability, ChatSessionExt};
+pub use session::{
+    ChatCapability, ChatCapabilityRole, ChatFilenodeCapability, ChatPushCapability, ChatSessionExt,
+    Endpoint,
+};
 pub use sse::{parse_chat_sse_block, ChatSseEvent, ChatSseFrame};
 pub use types::{ChatMemberRole, QuotaResourceType, QuotaScope};
 pub use utils::{
     broadcast_mentions_from_spans, format_receipt_timestamp, format_receipt_timestamp_at,
     mentions_from_spans, TypingIndicators, TYPING_DECAY,
 };
-pub use ws::{ChatWsExt, ChatWsFrame};
+pub use ws::{parse_chat_ws_frame, ChatWsExt, ChatWsFrame};
 
 /// Extension trait adding JMAP Chat methods to [`jmap_base_client::JmapClient`].
 ///
@@ -79,7 +83,7 @@ pub trait JmapChatExt: sealed::Sealed {
     /// `urn:ietf:params:jmap:chat` or whose `primaryAccounts` map has
     /// no entry for the chat capability. The constructor performs no
     /// up-front validation and never fails — its return type is the
-    /// infallible [`methods::SessionClient`], not a `Result`.
+    /// infallible [`SessionClient`], not a `Result`.
     ///
     /// Capability and primary-account validation is deferred to every
     /// individual method call on the returned [`SessionClient`]. If

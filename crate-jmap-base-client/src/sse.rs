@@ -133,7 +133,7 @@ fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
 /// Try to parse a StateChange payload; returns `None` on any parse failure.
 ///
 /// The `@type` discriminator (RFC 8620 §7.1) is optional here but, when
-/// present, must be `"StateChange"`; [`push::StateChange`]'s deserializer
+/// present, must be `"StateChange"`; [`StateChange`]'s deserializer
 /// consumes it so it never lands in `extra`. Any remaining unknown top-level
 /// keys are captured in `StateChange.extra` per the workspace
 /// extras-preservation policy.

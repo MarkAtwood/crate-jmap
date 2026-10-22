@@ -35,8 +35,8 @@
 
 #![forbid(unsafe_code)]
 
-pub mod methods;
-pub mod ws;
+mod methods;
+mod ws;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{

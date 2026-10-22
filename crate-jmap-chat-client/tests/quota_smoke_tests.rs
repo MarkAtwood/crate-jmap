@@ -57,7 +57,7 @@ async fn quota_get_sends_ids_null_and_declares_quota_capability() {
 }
 
 /// `Quota/get` decode coverage: a populated Quota wire object must
-/// round-trip through the [`jmap_chat_client::methods::Quota`]
+/// round-trip through the [`jmap_chat_client::Quota`]
 /// `Deserialize` impl with every required field plus the optional
 /// triplet (`warn_limit`, `soft_limit`, `description`).
 ///
@@ -97,15 +97,12 @@ async fn quota_get_decodes_populated_quota() {
     assert_eq!(q.id.as_ref(), "Q1", "id mismatch");
     assert_eq!(q.name, "Message Storage", "name mismatch");
     assert!(
-        matches!(q.scope, jmap_chat_client::types::QuotaScope::Account),
+        matches!(q.scope, jmap_chat_client::QuotaScope::Account),
         "scope 'account' must deserialise to QuotaScope::Account, got {:?}",
         q.scope
     );
     assert!(
-        matches!(
-            q.resource_type,
-            jmap_chat_client::types::QuotaResourceType::Octets
-        ),
+        matches!(q.resource_type, jmap_chat_client::QuotaResourceType::Octets),
         "resource_type 'octets' must deserialise to QuotaResourceType::Octets, got {:?}",
         q.resource_type
     );
@@ -154,7 +151,7 @@ async fn quota_scope_other_round_trips_unknown_wire_string() {
     let resp = sc.quota_get().await.expect("quota_get: must succeed");
     let q = &resp.list[0];
     match &q.scope {
-        jmap_chat_client::types::QuotaScope::Other(s) => {
+        jmap_chat_client::QuotaScope::Other(s) => {
             assert_eq!(
                 s, "siteCustom-tier-A",
                 "Other(_) must preserve the unknown wire string verbatim"
@@ -198,7 +195,7 @@ async fn quota_resource_type_other_round_trips_unknown_wire_string() {
     let resp = sc.quota_get().await.expect("quota_get: must succeed");
     let q = &resp.list[0];
     match &q.resource_type {
-        jmap_chat_client::types::QuotaResourceType::Other(s) => {
+        jmap_chat_client::QuotaResourceType::Other(s) => {
             assert_eq!(
                 s, "vendorUnit-decibels",
                 "Other(_) must preserve the unknown wire string verbatim"

@@ -22,8 +22,8 @@
 //! NOT FOR PRODUCTION — single connection, no retry, no auth, no TLS.
 
 use futures::SinkExt;
-use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_base_client::WsFrame;
+use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_chat_client::{ChatWsExt, ChatWsFrame};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;

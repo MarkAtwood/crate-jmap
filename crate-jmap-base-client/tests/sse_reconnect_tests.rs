@@ -3,11 +3,11 @@
 use std::time::Duration;
 
 use futures::StreamExt as _;
-use jmap_base_client::auth::{DefaultTransport, NoneAuth};
-use jmap_base_client::client::{ClientConfig, JmapClient};
-use jmap_base_client::error::ClientError;
-use jmap_base_client::sse::SseEvent;
+use jmap_base_client::ClientError;
+use jmap_base_client::SseEvent;
 use jmap_base_client::SseReconnectPolicy;
+use jmap_base_client::{ClientConfig, JmapClient};
+use jmap_base_client::{DefaultTransport, NoneAuth};
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

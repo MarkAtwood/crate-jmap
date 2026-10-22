@@ -31,6 +31,13 @@ wire behaviour that a conforming peer can observe.
   vtc `/query` filters and comparators (`WithinRadius`, `WithinBounds`,
   `VtcCallFilter`, ...). Each crate also re-exports `Filter`,
   `FilterOperator` and `Operator` at its root.
+- **jmap-base-client**, **jmap-calendars-client**, **jmap-chat-client**:
+  crate-root re-exports for the items that had only a module path
+  (bd JMAP-wf92.23): `HttpErrorKind`, `WebSocketErrorKind`,
+  `connect_ws_with_limit`, `DEFAULT_WS_MAX_MESSAGE_BYTES`;
+  `CalendarEventParseParams`, `PrincipalGetAvailabilityParams`;
+  `CALL_ID`, `server_retry_after`, `ServerRetryAfterError`,
+  `parse_chat_ws_frame`, `ChatCapabilityRole`, `Endpoint`.
 
 - **jmap-chat-mimi-server**: `pub use openmls;` and
   `pub use openmls_rust_crypto;` (now a normal dependency);
@@ -2625,6 +2632,18 @@ wire behaviour that a conforming peer can observe.
   path, so name `jmap_server::JmapBackend` and `jmap_server::handle_get`,
   not `jmap_server::backend::JmapBackend` or
   `jmap_server::handlers::handle_get` (bd JMAP-wf92.23).
+- **BREAKING** The public module paths of the client crates:
+  jmap-base-client `auth`, `blob`, `client`, `error`, `push`, `query`,
+  `request`, `sse`, `ws`; jmap-chat-client `calendars`, `methods`
+  (including `methods::batch`, `methods::blob`, `methods::quota`),
+  `session`, `sse`, `types`, `utils`, `ws`; the `methods` module of
+  jmap-calendars-, -chat-mimi-, -contacts-, -filenode-, -graph-, -mail-,
+  -scene-, -sharing-, -tasks- and -vtc-client; and the `ws` module of
+  jmap-graph-, -scene- and -vtc-client. The modules are private and the
+  crate root is the single public path, so name
+  `jmap_base_client::BearerAuth`, not `jmap_base_client::auth::BearerAuth`,
+  and `jmap_chat_client::Batch`, not `jmap_chat_client::methods::batch::Batch`
+  (bd JMAP-wf92.23).
 - **BREAKING** The `jmap_calendars_types::jscalendar`,
   `jmap_tasks_types::jscalendar` and `jmap_contacts_types::jscontact`
   alias modules. They re-exported exactly the names already at each

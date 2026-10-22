@@ -63,8 +63,8 @@ mod common;
 
 use base64::prelude::*;
 use common::log_capture::LogCapture;
-use jmap_base_client::auth::{BasicAuth, BearerAuth};
 use jmap_base_client::{AccountName, Username};
+use jmap_base_client::{BasicAuth, BearerAuth};
 
 /// Sanity check: the [`LogCapture`] harness actually captures the
 /// output of `tracing::*` calls emitted while it is installed.

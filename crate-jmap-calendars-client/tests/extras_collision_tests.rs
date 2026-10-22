@@ -14,7 +14,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_calendars_client::methods::{
+use jmap_calendars_client::{
     CalendarEventGetParams, CalendarEventParseParams, PrincipalGetAvailabilityParams,
 };
 use jmap_types::{Id, UTCDate};

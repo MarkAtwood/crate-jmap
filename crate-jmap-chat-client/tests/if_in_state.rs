@@ -10,13 +10,13 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_chat_client::methods::{
+use jmap_chat_client::BodyType;
+use jmap_chat_client::{
     ChatContactPatch, ChatCreateInput, ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch,
     MessageCreateInput, MessagePatch, PresenceStatusPatch, PushSubscriptionCreateInput,
     PushSubscriptionPatch, SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput,
     SpaceInviteCreateInput, SpacePatch,
 };
-use jmap_chat_client::BodyType;
 use jmap_types::{Id, State, UTCDate};
 use serde_json::{json, Value};
 use wiremock::matchers::method;

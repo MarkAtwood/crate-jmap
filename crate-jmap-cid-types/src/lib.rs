@@ -67,7 +67,7 @@
 //! advertisement check live in `jmap-base-client` (landed under
 //! closed beads bd:JMAP-v9py.13 and bd:JMAP-v9py.14):
 //!
-//! - `jmap_base_client::blob::BlobUploadResponse.sha256:
+//! - `jmap_base_client::BlobUploadResponse.sha256:
 //!   Option<jmap_cid_types::Sha256>` — typed digest carried on the
 //!   blob upload response when the server advertises CID.
 //! - `jmap_base_client::Session::supports_cid() -> bool` — checks

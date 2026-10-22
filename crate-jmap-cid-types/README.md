@@ -138,7 +138,7 @@ decodes to 32 bytes; anything else is a `Sha256Base64Error`.
 
 - Blob upload-response and Session-capability wiring live in
   `jmap-base-client`, not here.
-  `jmap_base_client::blob::BlobUploadResponse.sha256:
+  `jmap_base_client::BlobUploadResponse.sha256:
   Option<jmap_cid_types::Sha256>` is the typed binding for the
   upload-response `sha256` field; `Session::supports_cid()` is the
   helper that checks the capability map. This crate is the

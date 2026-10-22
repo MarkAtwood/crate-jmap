@@ -15,8 +15,8 @@
 
 use futures::SinkExt as _;
 use futures::StreamExt as _;
-use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_base_client::WsFrame;
+use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use tokio::net::TcpListener;
 
 /// Oracle: bd:JMAP-6r7c.31 — `WsSession::split()` returns owning halves

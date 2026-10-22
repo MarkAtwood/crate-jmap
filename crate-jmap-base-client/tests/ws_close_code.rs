@@ -12,8 +12,8 @@
 //! connection because it has received a message that violates its policy."
 
 use futures::StreamExt as _;
-use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_base_client::ClientError;
+use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
