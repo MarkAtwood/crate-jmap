@@ -456,7 +456,7 @@ async fn message_create_query_get_round_trip() {
         "query must return exactly the chat's messages"
     );
 
-    let got = sc.message_get(&ids, None).await.expect("Message/get");
+    let got = sc.message_get(Some(&ids), None).await.expect("Message/get");
     let by_id = |id: &Id| {
         got.list
             .iter()
@@ -543,7 +543,10 @@ async fn message_create_keeps_optional_properties() {
         .expect("Message/set create");
     let id = created_id(&resp, "m1");
 
-    let got = sc.message_get(&[id], None).await.expect("Message/get");
+    let got = sc
+        .message_get(Some(&[id]), None)
+        .await
+        .expect("Message/get");
     let msg = &got.list[0];
     assert_eq!(msg.attachments, stored);
     assert_eq!(msg.mentions, mentions);
@@ -862,7 +865,7 @@ async fn reactions_add_then_remove() {
     );
 
     let got = sc
-        .message_get(std::slice::from_ref(&msg_id), None)
+        .message_get(Some(std::slice::from_ref(&msg_id)), None)
         .await
         .expect("Message/get");
     let reaction = got.list[0]
@@ -891,7 +894,10 @@ async fn reactions_add_then_remove() {
         "{resp:?}"
     );
 
-    let got = sc.message_get(&[msg_id], None).await.expect("Message/get");
+    let got = sc
+        .message_get(Some(&[msg_id]), None)
+        .await
+        .expect("Message/get");
     assert!(
         got.list[0].reactions.is_empty(),
         "{:?}",
@@ -943,7 +949,10 @@ async fn message_edit_after_delete_is_forbidden() {
         .unwrap_or_else(|| panic!("edit of a deleted Message must be rejected: {resp:?}"));
     assert_eq!(err.error_type.to_string(), "forbidden");
 
-    let got = sc.message_get(&[msg_id], None).await.expect("Message/get");
+    let got = sc
+        .message_get(Some(&[msg_id]), None)
+        .await
+        .expect("Message/get");
     assert_eq!(got.list[0].body, "");
 }
 

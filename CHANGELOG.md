@@ -1338,6 +1338,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-client**: **BREAKING** `SessionClient::message_get` takes
+  `ids: Option<&[Id]>` (was `&[Id]`), like `email_get` and every other
+  client `*_get`; wrap existing arguments in `Some(..)`. The client no
+  longer rejects empty `ids` with `InvalidArgument`: `None` omits `ids`
+  so the server returns all Messages (RFC 8620 §5.1;
+  draft-atwood-jmap-chat-00 §Message/get "Standard JMAP `/get`"), and
+  the server enforces `maxObjectsInGet` (bd JMAP-skk9.10).
 - **BREAKING** `#[non_exhaustive]` on `jmap_chat_client::RsvpStatus`
   (RFC 8984 §4.4.6 `participationStatus` is registry-extensible) and
   `jmap_filenode_client::FileNodeOnExists` (the `onExists` value set

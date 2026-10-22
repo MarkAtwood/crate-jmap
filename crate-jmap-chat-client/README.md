@@ -68,7 +68,7 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `message_get` | `ids: &[Id], properties: Option<&[&str]>` | `GetResponse<Message>` |
+| `message_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Message>` |
 | `message_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `message_query` | `filter: Option<&Filter<C>>, sort: Option<&[MessageComparator]>, params: &QueryParams` | `QueryResponse` |
 | `message_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[MessageComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
