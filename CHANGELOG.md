@@ -1373,6 +1373,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-client**: **BREAKING** `ChatPatch.receipt_sharing` is
+  `Patch<bool>` (was `Option<bool>`), like `mute_until` and
+  `message_expiry_seconds`. `Patch::Clear` sends `receiptSharing: null`,
+  which removes the per-Chat override so the account-level
+  `PresenceStatus.receiptSharing` applies again
+  (draft-atwood-jmap-chat-00 §Chat "When absent, the account-level
+  preference applies"); `Some(b)` becomes `Patch::Set(b)` and `None`
+  becomes `Patch::Keep` (bd JMAP-w9ox.2).
 - **jmap-contacts-types**: **BREAKING**
   `ContactsAccountCapability.max_address_books_per_card` is
   `Option<u64>` (was `Option<u32>`). RFC 9610 §1.4.1 types it
