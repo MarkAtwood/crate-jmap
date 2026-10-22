@@ -1334,7 +1334,7 @@ wire behaviour that a conforming peer can observe.
   `JMAP_VACATIONRESPONSE_URI` to match jmap-mail-types. Values are
   unchanged.
 - **BREAKING** `#[non_exhaustive]` on `jmap_server::BackendQueryError`,
-  `jmap_mime::JmapBodyFields`, `jmap_jscalendar_types::TypeTagMismatch`,
+  `jmap_mime::JmapBodyFields`,
   `jmap_chat_filenode_server::{RootCheckError, TreeDestroyError}`,
   `jmap_chat_federation_server::DeliveryFailure`,
   `jmap_peer_auth::{IdentityBinding, SignatureHeaders}`,
@@ -2299,6 +2299,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** The jmap-jscalendar-types constructors (`new` on `NDay`,
+  `RecurrenceRule`, `Location`, `VirtualLocation`, `Link`, `Relation`,
+  `Participant`, `OffsetTrigger`, `AbsoluteTrigger`, `Alert`,
+  `TimeZoneRule` and `TimeZone`; `Link::with_href` and
+  `Link::with_blob_id`; `Default` for `Location`, `Link` and `Relation`),
+  matching jmap-jscontact-types and the workspace rule that values are
+  built by deserializing JSON (bd:JMAP-sgrr.27, bd:JMAP-ops7.34).
+- **BREAKING** The jmap-jscalendar-types validators: the
+  `TypeDiscriminator` trait and its impls, `TypeTagMismatch`,
+  `Link::validate_source` / `LinkSourceError`,
+  `Participant::validate_roles` / `ParticipantRolesError` and
+  `TimeZoneRule::validate_recurrence_overrides_empty` /
+  `RecurrenceOverridesError`. Neither RFC sub-type crate ships validators;
+  consumers check RFC 8984 invariants themselves (bd:JMAP-ops7.38).
 - **BREAKING** `jmap_tasks_server::TasksBackend::enforce_is_draft_atomically`.
   `Task/set` no longer pre-fetches the Task to reject an `isDraft: true`
   patch; every backend's `update_object` MUST reject a patch that sets

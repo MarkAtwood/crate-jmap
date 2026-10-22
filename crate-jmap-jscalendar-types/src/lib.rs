@@ -85,80 +85,6 @@ use serde::{Deserialize, Serialize};
 // `TimeZoneRule.recurrence_overrides`.
 pub use jmap_types::{Id, PatchObject, UTCDate};
 
-// ── Type-tag discriminator ────────────────────────────────────────────────────
-
-/// Mismatch between an object's `at_type` wire string and the
-/// RFC 8984-mandated discriminator literal for its Rust type.
-///
-/// Returned by [`TypeDiscriminator::validate_at_type`].  RFC 8984 marks
-/// every `@type` discriminator as `(mandatory)` and assigns a specific
-/// string literal per type (e.g. `"NDay"`, `"Participant"`,
-/// `"OffsetTrigger"`).  Deserialize itself does NOT enforce the match
-/// so that round-trip preservation of unfamiliar payloads still works;
-/// consumers that need strict input validation call
-/// `validate_at_type()` after deserializing.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypeTagMismatch {
-    /// The literal the Rust type expects (e.g. `"NDay"`).
-    pub expected: &'static str,
-    /// The literal carried in the deserialized value's `at_type` field.
-    pub actual: String,
-}
-
-impl std::fmt::Display for TypeTagMismatch {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "JSCalendar @type mismatch: expected {:?}, got {:?}",
-            self.expected, self.actual
-        )
-    }
-}
-
-impl std::error::Error for TypeTagMismatch {}
-
-/// Wire-format type-tag discriminator for JSCalendar sub-objects
-/// (RFC 8984).
-///
-/// Each implementing struct names its mandatory `@type` wire literal in
-/// the [`Self::TYPE_TAG`] associated const.  The default
-/// [`Self::validate_at_type`] method compares the carried `at_type`
-/// field against that literal.
-///
-/// Deserialize is deliberately permissive — it does NOT enforce the
-/// match, so an object carrying a vendor-extended or future-spec
-/// `@type` value can still be deserialized for round-trip preservation
-/// per RFC 8984's preserve-mandate.  Consumers needing strict input
-/// validation MUST call `validate_at_type()` explicitly after
-/// deserializing.
-pub trait TypeDiscriminator {
-    /// The mandatory `@type` wire literal for this Rust type per
-    /// RFC 8984.  Example: `"NDay"` for [`NDay`], `"Participant"` for
-    /// [`Participant`].
-    const TYPE_TAG: &'static str;
-
-    /// The `at_type` field value carried by this instance.  Implementors
-    /// just return `&self.at_type`.
-    fn at_type(&self) -> &str;
-
-    /// Validate that the carried `at_type` matches the RFC 8984
-    /// mandatory discriminator literal for this Rust type.
-    ///
-    /// Default implementation compares against [`Self::TYPE_TAG`].
-    /// Returns `Err(TypeTagMismatch)` on mismatch; `Ok(())` otherwise.
-    fn validate_at_type(&self) -> Result<(), TypeTagMismatch> {
-        if self.at_type() == Self::TYPE_TAG {
-            Ok(())
-        } else {
-            Err(TypeTagMismatch {
-                expected: Self::TYPE_TAG,
-                actual: self.at_type().to_owned(),
-            })
-        }
-    }
-}
-
 // ── Scalar wrappers ───────────────────────────────────────────────────────────
 
 /// A date-time string without a timezone offset (RFC 8984 §1.4.5).
@@ -418,27 +344,6 @@ pub struct NDay {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-impl NDay {
-    /// Construct a new `NDay` with the mandatory `day` value
-    /// (RFC 8984 §4.3.3).  `at_type` is set to `"NDay"`; all optional
-    /// fields default to `None` / empty.
-    pub fn new(day: impl Into<String>) -> Self {
-        Self {
-            at_type: "NDay".to_owned(),
-            day: day.into(),
-            nth_of_period: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl TypeDiscriminator for NDay {
-    const TYPE_TAG: &'static str = "NDay";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 /// A recurrence rule as defined in RFC 8984 §4.3.3.
 ///
 /// Used in `recurrenceRules` and `excludedRecurrenceRules` of a
@@ -529,45 +434,6 @@ pub struct RecurrenceRule {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-impl RecurrenceRule {
-    /// Construct a new `RecurrenceRule` with the mandatory `frequency`
-    /// value (RFC 8984 §4.3.3).  `at_type` is set to `"RecurrenceRule"`;
-    /// all optional fields default to `None`.
-    ///
-    /// `frequency` MUST be one of `"yearly"`, `"monthly"`, `"weekly"`,
-    /// `"daily"`, `"hourly"`, `"minutely"`, `"secondly"` per the spec —
-    /// not enforced at construction time.
-    pub fn new(frequency: impl Into<String>) -> Self {
-        Self {
-            at_type: "RecurrenceRule".to_owned(),
-            frequency: frequency.into(),
-            interval: None,
-            rscale: None,
-            skip: None,
-            first_day_of_week: None,
-            by_day: None,
-            by_month_day: None,
-            by_month: None,
-            by_year_day: None,
-            by_week_no: None,
-            by_hour: None,
-            by_minute: None,
-            by_second: None,
-            by_set_position: None,
-            count: None,
-            until: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl TypeDiscriminator for RecurrenceRule {
-    const TYPE_TAG: &'static str = "RecurrenceRule";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 // ── Location and VirtualLocation ─────────────────────────────────────────────
 
 /// A physical or virtual location associated with an event (RFC 8984 §4.2.5).
@@ -620,37 +486,6 @@ pub struct Location {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-impl Location {
-    /// Construct a new `Location` (RFC 8984 §4.2.5) with `at_type` set to
-    /// `"Location"` and all optional fields defaulted to `None`.
-    pub fn new() -> Self {
-        Self {
-            at_type: "Location".to_owned(),
-            name: None,
-            description: None,
-            location_types: None,
-            relative_to: None,
-            time_zone: None,
-            coordinates: None,
-            links: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl Default for Location {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TypeDiscriminator for Location {
-    const TYPE_TAG: &'static str = "Location";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 /// An online meeting or virtual location (RFC 8984 §4.2.6).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -693,29 +528,6 @@ pub struct VirtualLocation {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-impl VirtualLocation {
-    /// Construct a new `VirtualLocation` with the mandatory `uri` value
-    /// (RFC 8984 §4.2.6).  `at_type` is set to `"VirtualLocation"`; all
-    /// optional fields default to `None`.
-    pub fn new(uri: impl Into<String>) -> Self {
-        Self {
-            at_type: "VirtualLocation".to_owned(),
-            name: None,
-            description: None,
-            uri: uri.into(),
-            features: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl TypeDiscriminator for VirtualLocation {
-    const TYPE_TAG: &'static str = "VirtualLocation";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 // ── Link ─────────────────────────────────────────────────────────────────────
 
 /// An attachment, image, or URL associated with an event (RFC 8984 §1.4.11).
@@ -734,11 +546,11 @@ impl TypeDiscriminator for VirtualLocation {
 /// `Option` so that partial deserialization (e.g. of an in-flight update
 /// where only one half has been populated) succeeds.  Encoding the
 /// invariant via `enum LinkSource { Href, BlobId, Both }` would be a
-/// breaking API change blocking partial constructors and is deliberately
-/// deferred until consumer evidence warrants it.
+/// breaking API change and is deliberately deferred until consumer
+/// evidence warrants it.
 ///
-/// Consumers that need to validate the invariant on inbound data SHOULD
-/// call [`Link::validate_source`].
+/// Consumers that need to validate the invariant on inbound data check it
+/// themselves; validation lives outside this crate (bd:JMAP-ops7.38).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -816,111 +628,6 @@ pub struct Link {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// Error returned by [`Link::validate_source`] when the source invariant
-/// (RFC 8984 §1.4.11 + JMAP Calendars draft §5.3) is violated.
-///
-/// Currently the only failure mode is "neither `href` nor `blob_id` is
-/// set"; the type is `#[non_exhaustive]` so additional variants can be
-/// added without breaking matches.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LinkSourceError {
-    /// Neither `href` nor `blob_id` is set.  Per RFC 8984 §1.4.11
-    /// `href` is mandatory; per JMAP Calendars draft §5.3 a
-    /// `blob_id` may substitute.  At least one of the two MUST be
-    /// present.
-    Missing,
-}
-
-impl std::fmt::Display for LinkSourceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LinkSourceError::Missing => f.write_str(
-                "Link has neither href nor blobId set; RFC 8984 §1.4.11 and \
-                 JMAP Calendars draft §5.3 require at least one",
-            ),
-        }
-    }
-}
-
-impl std::error::Error for LinkSourceError {}
-
-impl Link {
-    /// Construct an empty `Link` (RFC 8984 §1.4.11) with `at_type` set
-    /// to `"Link"` and all optional fields defaulted to `None`.
-    ///
-    /// Note: the returned `Link` does NOT satisfy the source invariant
-    /// (at least one of `href`/`blob_id` MUST be set); callers are
-    /// expected to set one of them before serializing.  Use
-    /// [`Link::validate_source`] to check.
-    pub fn new() -> Self {
-        Self {
-            at_type: "Link".to_owned(),
-            href: None,
-            content_type: None,
-            size: None,
-            rel: None,
-            display: None,
-            cid: None,
-            title: None,
-            blob_id: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-
-    /// Construct a `Link` from an `href` URI string (the RFC 8984 §1.4.11
-    /// happy path).
-    pub fn with_href(href: impl Into<String>) -> Self {
-        Self {
-            href: Some(href.into()),
-            ..Self::new()
-        }
-    }
-
-    /// Construct a `Link` referencing a JMAP blob by id (JMAP Calendars
-    /// draft §5.3).
-    pub fn with_blob_id(blob_id: Id) -> Self {
-        Self {
-            blob_id: Some(blob_id),
-            ..Self::new()
-        }
-    }
-
-    /// Validate the source invariant: at least one of `href` or
-    /// `blob_id` MUST be present.
-    ///
-    /// Combined contract from RFC 8984 §1.4.11 (`href` mandatory) and
-    /// the JMAP Calendars draft (draft-ietf-jmap-calendars-26 §5.3,
-    /// `blob_id` may substitute for `href`).  Both fields MAY be set
-    /// simultaneously — that is permitted, only the "neither set"
-    /// case fails.
-    ///
-    /// This is an opt-in check.  Deserialization itself does NOT enforce
-    /// the invariant so that partial Links (e.g. in-flight updates)
-    /// round-trip cleanly; consumers that need a wire-validity check on
-    /// inbound data call this method.
-    pub fn validate_source(&self) -> Result<(), LinkSourceError> {
-        if self.href.is_none() && self.blob_id.is_none() {
-            Err(LinkSourceError::Missing)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl Default for Link {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TypeDiscriminator for Link {
-    const TYPE_TAG: &'static str = "Link";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 // ── Relation ─────────────────────────────────────────────────────────────────
 
 /// A relationship between this object and another, identified by UID
@@ -948,31 +655,6 @@ pub struct Relation {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
-}
-
-impl Relation {
-    /// Construct an empty `Relation` (RFC 8984 §1.4.10) with `at_type`
-    /// set to `"Relation"` and all optional fields defaulted to `None`.
-    pub fn new() -> Self {
-        Self {
-            at_type: "Relation".to_owned(),
-            relation: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl Default for Relation {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TypeDiscriminator for Relation {
-    const TYPE_TAG: &'static str = "Relation";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
 }
 
 // ── Participant ───────────────────────────────────────────────────────────────
@@ -1015,8 +697,8 @@ pub struct Participant {
     ///
     /// RFC 8984 §4.4.6: "At least one role MUST be specified for the
     /// participant".  The non-empty mandate is NOT enforced by the type
-    /// system or by deserialize; use [`Participant::validate_roles`]
-    /// for an opt-in check.
+    /// system or by deserialize; consumers check it themselves
+    /// (bd:JMAP-ops7.38).
     pub roles: BTreeMap<String, bool>,
 
     /// Id of the location this participant is associated with.
@@ -1148,98 +830,6 @@ pub struct Participant {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// Error returned by [`Participant::validate_roles`] when the
-/// RFC 8984 §4.4.6 non-empty-roles invariant is violated.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParticipantRolesError {
-    /// The `roles` map is empty.  RFC 8984 §4.4.6 says
-    /// "At least one role MUST be specified for the participant".
-    Empty,
-}
-
-impl std::fmt::Display for ParticipantRolesError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParticipantRolesError::Empty => f.write_str(
-                "Participant.roles is empty; RFC 8984 §4.4.6 requires at \
-                 least one role",
-            ),
-        }
-    }
-}
-
-impl std::error::Error for ParticipantRolesError {}
-
-impl Participant {
-    /// Construct a new `Participant` with the mandatory `roles` map
-    /// (RFC 8984 §4.4.6).  `at_type` is set to `"Participant"`; all
-    /// optional fields default to `None`.
-    ///
-    /// Per RFC 8984 §4.4.6 the `roles` map MUST be non-empty: "At least
-    /// one role MUST be specified for the participant".  This
-    /// constructor accepts any `BTreeMap`, including an empty one — the
-    /// non-empty mandate is not enforced at construction time so that
-    /// partial in-flight values round-trip cleanly.  Callers SHOULD
-    /// populate at least one role entry before serializing.  Use
-    /// [`Participant::validate_roles`] to check.
-    pub fn new(roles: BTreeMap<String, bool>) -> Self {
-        Self {
-            at_type: "Participant".to_owned(),
-            name: None,
-            email: None,
-            description: None,
-            send_to: None,
-            kind: None,
-            roles,
-            location_id: None,
-            language: None,
-            participation_status: None,
-            participation_comment: None,
-            expect_reply: None,
-            schedule_agent: None,
-            calendar_address: None,
-            invited_by: None,
-            delegated_to: None,
-            delegated_from: None,
-            member_of: None,
-            links: None,
-            schedule_sequence: None,
-            schedule_updated: None,
-            schedule_status: None,
-            schedule_force_send: None,
-            sent_by: None,
-            progress: None,
-            progress_updated: None,
-            percent_complete: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl Participant {
-    /// Validate the RFC 8984 §4.4.6 non-empty-roles invariant.
-    ///
-    /// Returns `Err(ParticipantRolesError::Empty)` when `roles` is
-    /// empty; `Ok(())` otherwise.  Opt-in check — deserialize does NOT
-    /// enforce the mandate so that partial in-flight Participant values
-    /// round-trip cleanly.
-    pub fn validate_roles(&self) -> Result<(), ParticipantRolesError> {
-        if self.roles.is_empty() {
-            Err(ParticipantRolesError::Empty)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl TypeDiscriminator for Participant {
-    const TYPE_TAG: &'static str = "Participant";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 // ── Alert ─────────────────────────────────────────────────────────────────────
 
 /// A trigger time given as an offset from the event start or end
@@ -1273,27 +863,6 @@ pub struct OffsetTrigger {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-impl OffsetTrigger {
-    /// Construct a new `OffsetTrigger` with the mandatory `offset` value
-    /// (RFC 8984 §4.5.2).  `at_type` is set to `"OffsetTrigger"`;
-    /// `relative_to` defaults to `None` (the spec default is `"start"`).
-    pub fn new(offset: SignedDuration) -> Self {
-        Self {
-            at_type: "OffsetTrigger".to_owned(),
-            offset,
-            relative_to: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl TypeDiscriminator for OffsetTrigger {
-    const TYPE_TAG: &'static str = "OffsetTrigger";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 /// A trigger time given as an absolute UTC date-time (RFC 8984 §4.5.2).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1317,25 +886,6 @@ pub struct AbsoluteTrigger {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
-}
-
-impl AbsoluteTrigger {
-    /// Construct a new `AbsoluteTrigger` with the mandatory `when` value
-    /// (RFC 8984 §4.5.2).  `at_type` is set to `"AbsoluteTrigger"`.
-    pub fn new(when: UTCDate) -> Self {
-        Self {
-            at_type: "AbsoluteTrigger".to_owned(),
-            when,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl TypeDiscriminator for AbsoluteTrigger {
-    const TYPE_TAG: &'static str = "AbsoluteTrigger";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
 }
 
 /// Alert trigger — either offset-based, absolute, or an unknown future type
@@ -1488,29 +1038,6 @@ pub struct Alert {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-impl Alert {
-    /// Construct a new `Alert` with the mandatory `trigger` value
-    /// (RFC 8984 §4.5.2).  `at_type` is set to `"Alert"`; all optional
-    /// fields default to `None`.
-    pub fn new(trigger: AlertTrigger) -> Self {
-        Self {
-            at_type: "Alert".to_owned(),
-            trigger,
-            acknowledged: None,
-            related_to: None,
-            action: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl TypeDiscriminator for Alert {
-    const TYPE_TAG: &'static str = "Alert";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 // ── TimeZone / TimeZoneRule ───────────────────────────────────────────────────
 
 /// A STANDARD or DAYLIGHT sub-component of a [`TimeZone`] (RFC 8984 §4.7.2).
@@ -1557,9 +1084,8 @@ pub struct TimeZoneRule {
     ///
     /// The type permits non-empty PatchObject values that the wire spec
     /// forbids — this is deliberate for round-trip preservation of
-    /// in-flight data.  Use
-    /// [`TimeZoneRule::validate_recurrence_overrides_empty`] for an
-    /// opt-in check that every value is the empty patch.
+    /// in-flight data.  Consumers check that every value is the empty
+    /// patch themselves (bd:JMAP-ops7.38).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_overrides: Option<BTreeMap<LocalDateTime, PatchObject>>,
 
@@ -1578,95 +1104,6 @@ pub struct TimeZoneRule {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
-}
-
-impl TimeZoneRule {
-    /// Construct a new `TimeZoneRule` with the three mandatory fields
-    /// (RFC 8984 §4.7.2).  `at_type` is set to `"TimeZoneRule"`; all
-    /// optional fields default to `None`.
-    ///
-    /// `offset_from` / `offset_to` MUST be a valid signed offset string
-    /// (`±HHMM` or `±HHMMSS`) per the spec — not enforced at
-    /// construction time.  Accepts anything `Into<UTCOffset>`, which
-    /// includes `&str` and `String` via the newtype's `From` impls.
-    pub fn new(
-        start: LocalDateTime,
-        offset_from: impl Into<UTCOffset>,
-        offset_to: impl Into<UTCOffset>,
-    ) -> Self {
-        Self {
-            at_type: "TimeZoneRule".to_owned(),
-            start,
-            offset_from: offset_from.into(),
-            offset_to: offset_to.into(),
-            recurrence_rules: None,
-            recurrence_overrides: None,
-            names: None,
-            comments: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-/// Error returned by [`TimeZoneRule::validate_recurrence_overrides_empty`]
-/// when the RFC 8984 §4.7.2 "PatchObject value MUST be the empty patch"
-/// constraint is violated.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RecurrenceOverridesError {
-    /// At least one entry in `recurrence_overrides` carries a
-    /// non-empty PatchObject value.  RFC 8984 §4.7.2 requires every
-    /// value to be the empty patch (`{}`).
-    NonEmptyPatch {
-        /// The wire-format key (LocalDateTime string) of the offending
-        /// entry.
-        key: String,
-    },
-}
-
-impl std::fmt::Display for RecurrenceOverridesError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RecurrenceOverridesError::NonEmptyPatch { key } => write!(
-                f,
-                "TimeZoneRule.recurrenceOverrides[{key:?}] carries a non-empty \
-                 PatchObject; RFC 8984 §4.7.2 requires the empty patch"
-            ),
-        }
-    }
-}
-
-impl std::error::Error for RecurrenceOverridesError {}
-
-impl TimeZoneRule {
-    /// Validate the RFC 8984 §4.7.2 constraint on
-    /// `recurrence_overrides`: every PatchObject value MUST be the
-    /// empty patch (`{}`).
-    ///
-    /// Returns `Ok(())` if `recurrence_overrides` is `None`, an empty
-    /// map, or contains only empty-patch values.  Returns
-    /// `Err(RecurrenceOverridesError::NonEmptyPatch { key })` naming
-    /// the first offending entry's wire key.  Opt-in check —
-    /// deserialize itself does NOT enforce the constraint.
-    pub fn validate_recurrence_overrides_empty(&self) -> Result<(), RecurrenceOverridesError> {
-        if let Some(map) = &self.recurrence_overrides {
-            for (k, v) in map {
-                if !v.as_map().is_empty() {
-                    return Err(RecurrenceOverridesError::NonEmptyPatch {
-                        key: k.as_ref().to_owned(),
-                    });
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-impl TypeDiscriminator for TimeZoneRule {
-    const TYPE_TAG: &'static str = "TimeZoneRule";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
 }
 
 /// A time-zone definition embedded in `CalendarEvent.timeZones` or
@@ -1725,37 +1162,6 @@ pub struct TimeZone {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-impl TimeZone {
-    /// Construct a new `TimeZone` with the mandatory `tz_id` value
-    /// (RFC 8984 §4.7.2).  `at_type` is set to `"TimeZone"`; all
-    /// optional fields default to `None`.
-    ///
-    /// Per RFC 8984 §4.7.2 a valid TimeZone MUST define at least one
-    /// transition rule in `standard` or `daylight`; this constructor
-    /// does not enforce that — callers are expected to populate at
-    /// least one of them before serializing.
-    pub fn new(tz_id: impl Into<String>) -> Self {
-        Self {
-            at_type: "TimeZone".to_owned(),
-            tz_id: tz_id.into(),
-            updated: None,
-            url: None,
-            valid_until: None,
-            aliases: None,
-            standard: None,
-            daylight: None,
-            extra: serde_json::Map::new(),
-        }
-    }
-}
-
-impl TypeDiscriminator for TimeZone {
-    const TYPE_TAG: &'static str = "TimeZone";
-    fn at_type(&self) -> &str {
-        &self.at_type
-    }
-}
-
 #[cfg(test)]
 mod tests {
     //! Wire-format regression tests for the newtype-typed temporal fields
@@ -1769,99 +1175,6 @@ mod tests {
     //! `{"0": …}` on the wire.
     use super::*;
     use serde_json::json;
-
-    /// Oracle: `TypeDiscriminator::validate_at_type` enforces the
-    /// RFC 8984-mandated `@type` literal.  Hostile input carrying a
-    /// wrong `@type` (e.g. `{"@type": "NotNDay", "day": "mo"}`)
-    /// deserializes successfully for round-trip preservation but
-    /// `validate_at_type` rejects with `TypeTagMismatch`.
-    /// (bd:JMAP-mno4.15)
-    #[test]
-    fn validate_at_type_rejects_wrong_discriminator() {
-        // NDay with hostile @type — deserialize succeeds, validate
-        // rejects.
-        let raw = json!({"@type": "NotNDay", "day": "mo"});
-        let bad: NDay = serde_json::from_value(raw).unwrap();
-        assert_eq!(bad.day, "mo"); // payload survived for round-trip
-        let err = bad.validate_at_type().expect_err("expected mismatch");
-        assert_eq!(err.expected, "NDay");
-        assert_eq!(err.actual, "NotNDay");
-
-        // Constructor-built value passes validate_at_type.
-        let good = NDay::new("mo");
-        assert!(good.validate_at_type().is_ok());
-
-        // Spot-check a few other types: constructor-built passes,
-        // wrong-tag input fails.
-        let bad_loc: Location =
-            serde_json::from_value(json!({"@type": "Place", "name": "HQ"})).unwrap();
-        assert_eq!(bad_loc.validate_at_type().unwrap_err().expected, "Location");
-        assert!(Location::new().validate_at_type().is_ok());
-
-        let bad_alert: Alert = serde_json::from_value(json!({
-            "@type": "Notification",
-            "trigger": {"@type": "OffsetTrigger", "offset": "-PT5M"}
-        }))
-        .unwrap();
-        assert_eq!(bad_alert.validate_at_type().unwrap_err().expected, "Alert");
-    }
-
-    /// Oracle: every `new` constructor sets `at_type` to the wire
-    /// discriminator literal mandated by RFC 8984.  Round-trips through
-    /// serde_json::to_value reproduces the discriminator on the wire as
-    /// `"@type": "<TypeName>"`, matching the spec text verbatim.
-    /// (bd:JMAP-mno4.10)
-    #[test]
-    fn constructors_set_at_type_to_wire_discriminator() {
-        // Cases (constructed_value, expected_wire_discriminator).
-        let nday = NDay::new("mo");
-        let rule = RecurrenceRule::new("weekly");
-        let loc = Location::new();
-        let vloc = VirtualLocation::new("https://example.com/m");
-        let link = Link::with_href("https://example.com/x");
-        let rel = Relation::new();
-        let mut roles = BTreeMap::new();
-        roles.insert("attendee".to_owned(), true);
-        let part = Participant::new(roles);
-        let off = OffsetTrigger::new(SignedDuration::from("-PT15M"));
-        let abs = AbsoluteTrigger::new(UTCDate::from("2024-06-15T08:45:00Z"));
-        let alert = Alert::new(AlertTrigger::OffsetTrigger(off.clone()));
-        let rule_in_tz =
-            TimeZoneRule::new(LocalDateTime::from("1970-01-01T00:00:00"), "+0000", "+0000");
-        let tz = TimeZone::new("Etc/UTC");
-
-        for (val, expected_tag) in [
-            (serde_json::to_value(&nday).unwrap(), "NDay"),
-            (serde_json::to_value(&rule).unwrap(), "RecurrenceRule"),
-            (serde_json::to_value(&loc).unwrap(), "Location"),
-            (serde_json::to_value(&vloc).unwrap(), "VirtualLocation"),
-            (serde_json::to_value(&link).unwrap(), "Link"),
-            (serde_json::to_value(&rel).unwrap(), "Relation"),
-            (serde_json::to_value(&part).unwrap(), "Participant"),
-            (serde_json::to_value(&off).unwrap(), "OffsetTrigger"),
-            (serde_json::to_value(&abs).unwrap(), "AbsoluteTrigger"),
-            (serde_json::to_value(&alert).unwrap(), "Alert"),
-            (serde_json::to_value(&rule_in_tz).unwrap(), "TimeZoneRule"),
-            (serde_json::to_value(&tz).unwrap(), "TimeZone"),
-        ] {
-            assert_eq!(
-                val["@type"], expected_tag,
-                "constructor must set @type to {expected_tag}; got {val:?}"
-            );
-        }
-    }
-
-    /// Oracle: `Link::with_blob_id` and `Link::with_href` both satisfy
-    /// the source invariant.
-    #[test]
-    fn link_constructors_satisfy_source_invariant() {
-        let with_href = Link::with_href("https://example.com");
-        let with_blob = Link::with_blob_id(Id::from("Ge682d5d7aad50b3a4f"));
-        let empty = Link::new();
-        assert!(with_href.validate_source().is_ok());
-        assert!(with_blob.validate_source().is_ok());
-        assert_eq!(empty.validate_source(), Err(LinkSourceError::Missing));
-    }
 
     /// Oracle: the three scalar newtypes (`LocalDateTime`, `Duration`,
     /// `SignedDuration`) format via `std::fmt::Display` as the bare wire
@@ -2075,41 +1388,6 @@ mod tests {
         assert_eq!(back["acmeCorpMeetingId"], "meet-42");
     }
 
-    /// Oracle: `Link::validate_source` accepts a Link with `href` only,
-    /// `blob_id` only, or both; rejects a Link with neither.  Combined
-    /// RFC 8984 §1.4.11 + JMAP Calendars draft §5.3 contract.
-    #[test]
-    fn link_validate_source_enforces_invariant() {
-        // href only — accepted (pure RFC 8984 case).
-        let href_only: Link = serde_json::from_value(json!({
-            "@type": "Link",
-            "href": "https://example.com/x"
-        }))
-        .unwrap();
-        assert!(href_only.validate_source().is_ok());
-
-        // blob_id only — accepted (JMAP Calendars §5.3 case).
-        let blob_only: Link = serde_json::from_value(json!({
-            "@type": "Link",
-            "blobId": "Ge682d5d7aad50b3a4f7180a7ed9276476485ea52"
-        }))
-        .unwrap();
-        assert!(blob_only.validate_source().is_ok());
-
-        // Both — accepted (server-stored blob with public-fetch URL).
-        let both: Link = serde_json::from_value(json!({
-            "@type": "Link",
-            "href": "https://example.com/x",
-            "blobId": "Ge682d5d7aad50b3a4f7180a7ed9276476485ea52"
-        }))
-        .unwrap();
-        assert!(both.validate_source().is_ok());
-
-        // Neither — rejected.
-        let neither: Link = serde_json::from_value(json!({"@type": "Link"})).unwrap();
-        assert_eq!(neither.validate_source(), Err(LinkSourceError::Missing));
-    }
-
     /// `Link.extra` captures vendor fields and preserves them.
     #[test]
     fn link_preserves_vendor_extras() {
@@ -2143,24 +1421,6 @@ mod tests {
         );
         let back = serde_json::to_value(&r).unwrap();
         assert_eq!(back["acmeCorpDirection"], "outbound");
-    }
-
-    /// Oracle: `Participant::validate_roles` enforces the RFC 8984
-    /// §4.4.6 non-empty-roles mandate.  Empty `roles` deserializes
-    /// cleanly (for round-trip preservation) but `validate_roles`
-    /// rejects.  (bd:JMAP-mno4.16)
-    #[test]
-    fn participant_validate_roles_rejects_empty() {
-        // Empty roles — deserialize succeeds, validate rejects.
-        let raw_empty = json!({"@type": "Participant", "roles": {}});
-        let p_empty: Participant = serde_json::from_value(raw_empty).unwrap();
-        assert_eq!(p_empty.validate_roles(), Err(ParticipantRolesError::Empty));
-
-        // Non-empty roles — validate accepts.
-        let mut roles = BTreeMap::new();
-        roles.insert("attendee".to_owned(), true);
-        let p_good = Participant::new(roles);
-        assert!(p_good.validate_roles().is_ok());
     }
 
     /// Oracle: the five RFC 8984 §4.4.6 fields that bd:JMAP-mno4.1 added
@@ -2364,52 +1624,6 @@ mod tests {
         assert_eq!(back, raw, "round-trip must preserve wire shape");
     }
 
-    /// Oracle: `TimeZoneRule::validate_recurrence_overrides_empty`
-    /// enforces the RFC 8984 §4.7.2 empty-patch constraint.  A
-    /// non-empty PatchObject value deserializes cleanly (for
-    /// round-trip preservation) but the validator names the offending
-    /// key.  (bd:JMAP-mno4.18)
-    #[test]
-    fn time_zone_rule_validate_recurrence_overrides_rejects_non_empty() {
-        // None: validate passes trivially.
-        let none_rule =
-            TimeZoneRule::new(LocalDateTime::from("1970-01-01T00:00:00"), "+0000", "+0000");
-        assert!(none_rule.validate_recurrence_overrides_empty().is_ok());
-
-        // All empty: validate passes.
-        let raw_ok = json!({
-            "@type": "TimeZoneRule",
-            "start": "1970-01-01T00:00:00",
-            "offsetFrom": "+0000",
-            "offsetTo": "+0000",
-            "recurrenceOverrides": {
-                "1990-04-01T02:00:00": {},
-                "1991-04-07T02:00:00": {}
-            }
-        });
-        let ok_rule: TimeZoneRule = serde_json::from_value(raw_ok).unwrap();
-        assert!(ok_rule.validate_recurrence_overrides_empty().is_ok());
-
-        // One non-empty: validate names the offender.
-        let raw_bad = json!({
-            "@type": "TimeZoneRule",
-            "start": "1970-01-01T00:00:00",
-            "offsetFrom": "+0000",
-            "offsetTo": "+0000",
-            "recurrenceOverrides": {
-                "1990-04-01T02:00:00": {},
-                "1991-04-07T02:00:00": {"acmeCorp": "shouldnt-be-here"}
-            }
-        });
-        let bad_rule: TimeZoneRule = serde_json::from_value(raw_bad).unwrap();
-        let err = bad_rule.validate_recurrence_overrides_empty().unwrap_err();
-        match err {
-            RecurrenceOverridesError::NonEmptyPatch { key } => {
-                assert_eq!(key, "1991-04-07T02:00:00");
-            }
-        }
-    }
-
     /// Oracle: `TimeZoneRule.recurrenceOverrides` is a `LocalDateTime[PatchObject]`
     /// map; per RFC 8984 §4.7.2 the patch object MUST be the empty `{}`.
     /// This test verifies the typed map deserializes and the empty-patch
@@ -2610,7 +1824,6 @@ mod tests {
     /// preserved end-to-end rather than silently normalised. The serde-
     /// default mechanism is the same across all 12 sub-types; a single
     /// representative test (Participant) covers the contract uniformly.
-    /// `validate_at_type()` is the strict-input path callers opt into.
     #[test]
     fn participant_at_type_explicit_value_round_trips_verbatim() {
         let raw = json!({
@@ -2622,8 +1835,6 @@ mod tests {
         assert_eq!(p.at_type, "AcmeCorpParticipant");
         let back = serde_json::to_value(&p).unwrap();
         assert_eq!(back["@type"], "AcmeCorpParticipant");
-        // The strict-input path surfaces the mismatch when callers opt in.
-        assert!(p.validate_at_type().is_err());
     }
 
     /// A parent object (Alert wrapping OffsetTrigger; representative of
@@ -2664,8 +1875,13 @@ mod tests {
     /// maps serialize in sorted key order. Expected bytes are hand-written.
     #[test]
     fn recurrence_overrides_serialize_in_sorted_key_order() {
-        let mut rule =
-            TimeZoneRule::new(LocalDateTime::from("2024-01-01T00:00:00"), "+0100", "+0200");
+        let mut rule: TimeZoneRule = serde_json::from_value(json!({
+            "@type": "TimeZoneRule",
+            "start": "2024-01-01T00:00:00",
+            "offsetFrom": "+0100",
+            "offsetTo": "+0200"
+        }))
+        .expect("TimeZoneRule must deserialize");
         let mut overrides = BTreeMap::new();
         overrides.insert(
             LocalDateTime::from("2024-06-01T00:00:00"),
