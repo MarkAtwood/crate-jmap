@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
-use super::{AddressBookSetParams, ChangesResponse, GetResponse, SetResponse};
+use super::{AddressBookSetParams, ChangesResponse, GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
     /// Fetch AddressBook objects by IDs (RFC 9610 §2.1).
@@ -159,7 +159,7 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<AddressBookSetParams>,
-    ) -> Result<SetResponse<jmap_contacts_types::AddressBook>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "address_book_set: at least one of create, update, destroy must be Some \
