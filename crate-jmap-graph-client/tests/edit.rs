@@ -150,8 +150,8 @@ async fn graph_node_op_set_matches_submitting_example() {
         }])
     );
     let created = resp.created.expect("created must be present");
-    assert_eq!(created["o1"]["seq"], json!(42));
-    assert_eq!(created["o1"]["id"], json!("P42"));
+    assert_eq!(created["o1"].extra["seq"], json!(42));
+    assert_eq!(created["o1"].id, Some(Id::from("P42")));
 }
 
 /// L426-L429 "Loading a node": the `GraphNodeOp/query` filter

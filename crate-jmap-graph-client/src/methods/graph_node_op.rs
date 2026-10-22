@@ -15,7 +15,7 @@ use jmap_graph_types::GraphNodeOp;
 use jmap_types::{Id, State};
 
 use super::{
-    ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse,
+    ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse, SetResponse,
     USING_GRAPH_EDIT,
 };
 
@@ -105,7 +105,7 @@ impl super::SessionClient {
         &self,
         create: serde_json::Value,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set(
             "GraphNodeOp/set",
             USING_GRAPH_EDIT,
