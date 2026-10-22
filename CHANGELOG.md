@@ -1309,6 +1309,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-graph-types**: `GraphEditStreamEnable::data_types`
+  is `Vec<GraphEditDataType>` (`Ops`, `Cursors`, `Other(String)`), not
+  `Vec<String>`, and `GraphEditStreamEnable::new` takes that type
+  (draft-atwood-jmap-graph-edit-00 §GraphEditStreamEnable, jmap-chat-spec
+  29e9a41 L301-307). Unrecognized values still decode, as `Other`, since
+  they "are ignored" rather than rejected.
+- **BREAKING** **jmap-vtc-types**: `VtcStreamEnable::event_types` is
+  `Option<Vec<VtcEventType>>`, one variant per `VTC_EVENT_TYPES` value
+  plus `Other(String)` for the unrecognized values the server "MUST
+  silently ignore" (draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable,
+  jmap-chat-spec 29e9a41 L221).
+- **BREAKING** **jmap-types**: `GetResponse::not_found` is `Vec<Id>`, not
+  `Option<Vec<Id>>` (RFC 8620 §5.1 `notFound: Id[]`). A `null` or absent
+  `notFound` still decodes, as empty; it always encodes as an array.
 - **BREAKING** **jmap-chat-types**: `Message::body_type` and
   `MessageRevision::body_type` are `BodyType`, not `String`
   (draft-atwood-jmap-chat-00 §Message, §MessageRevision, jmap-chat-spec

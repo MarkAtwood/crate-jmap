@@ -315,6 +315,6 @@ mod tests {
         assert_eq!(resp.account_id, "acc1");
         assert_eq!(resp.list.len(), 1);
         assert_eq!(resp.list[0].name, "Personal");
-        assert!(resp.not_found.is_none());
+        assert!(resp.not_found.is_empty());
     }
 }

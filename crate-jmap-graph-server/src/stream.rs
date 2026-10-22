@@ -87,7 +87,7 @@ impl GraphEditSubscription {
     /// [`GraphEditStreamEnable::id`] as `requestId` when the client sent
     /// one; the returned [`JmapError`] carries the short name.
     pub fn replace_with(&mut self, enable: &GraphEditStreamEnable) -> Result<(), JmapError> {
-        let has = |t: &str| enable.data_types.iter().any(|d| d == t);
+        let has = |t: &str| enable.data_types.iter().any(|d| d.as_str() == t);
         let (ops, cursors) = (has(DATA_TYPE_OPS), has(DATA_TYPE_CURSORS));
         if !ops && !cursors {
             return Err(JmapError::invalid_arguments(

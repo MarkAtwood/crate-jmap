@@ -134,7 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         resp.account_id,
         resp.state.as_ref(),
         resp.list.len(),
-        resp.not_found.as_ref().map_or(0, Vec::len),
+        resp.not_found.len(),
     );
     println!(
         "{:<10} {:<10} {:<10} {:>8} {:>8}",

@@ -178,7 +178,7 @@ async fn key_package_get_by_ids() {
     assert_eq!(resp.list.len(), 1);
     assert_eq!(resp.list[0].key_package_ref.as_str(), KP_REF);
     assert!(!resp.list[0].last_resort);
-    assert_eq!(resp.not_found.expect("notFound")[0].as_ref(), "kp9");
+    assert_eq!(resp.not_found[0].as_ref(), "kp9");
 
     let (using, call) = sent(&server).await;
     assert_using(&using);

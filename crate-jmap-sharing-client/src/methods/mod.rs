@@ -293,10 +293,7 @@ mod tests {
         assert_eq!(resp.account_id, "acc1");
         assert_eq!(resp.state, "s42");
         assert!(resp.list.is_empty());
-        assert_eq!(
-            resp.not_found.as_deref(),
-            Some(["missing1".into()].as_slice())
-        );
+        assert_eq!(resp.not_found, [jmap_types::Id::from("missing1")]);
     }
 
     /// Oracle: ChangesResponse deserializes from RFC 8620 §5.2 shape.

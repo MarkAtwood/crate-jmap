@@ -492,7 +492,7 @@ mod tests {
         assert_eq!(resp.account_id, "acc1");
         assert_eq!(resp.state, "s7");
         assert_eq!(resp.list.len(), 1);
-        assert!(resp.not_found.is_none());
+        assert!(resp.not_found.is_empty());
     }
 
     /// Oracle: SetResponse<ContactCard> deserializes with created entry.

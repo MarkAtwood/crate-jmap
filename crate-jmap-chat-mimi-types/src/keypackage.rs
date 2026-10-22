@@ -353,7 +353,7 @@ mod tests {
         let resp: GetResponse<KeyPackage> = serde_json::from_value(raw).unwrap();
         assert_eq!(resp.list.len(), 1);
         assert_eq!(resp.list[0].id.as_ref(), "kp42");
-        assert_eq!(resp.not_found.unwrap()[0].as_ref(), "kp9");
+        assert_eq!(resp.not_found[0].as_ref(), "kp9");
     }
 
     #[test]

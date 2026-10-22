@@ -6,7 +6,7 @@
 //! dispatches on it, as [`VtcEvent`](crate::VtcEvent) does for the
 //! server→client events.
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::event::{
@@ -31,6 +31,70 @@ pub const VTC_EVENT_TYPES: &[&str] = &[
     RECORDING_STATE,
 ];
 
+/// One [`VtcStreamEnable::event_types`] value
+/// (draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable); the recognized values
+/// are [`VTC_EVENT_TYPES`].
+///
+/// "Unrecognized values in `eventTypes` that appear alongside recognized
+/// values MUST be silently ignored", so any other string deserializes to
+/// [`Other`](Self::Other) and serializes back unchanged rather than failing
+/// the frame.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum VtcEventType {
+    /// `"VTCRingEvent"`.
+    Ring,
+    /// `"VTCCallEndEvent"`.
+    CallEnd,
+    /// `"VTCGatewaySignal"`.
+    GatewaySignal,
+    /// `"VTCParticipantEvent"`.
+    Participant,
+    /// `"VTCMediaStateEvent"`.
+    MediaState,
+    /// `"VTCActiveSpeakerEvent"`.
+    ActiveSpeaker,
+    /// `"VTCUnmuteRequestEvent"`.
+    UnmuteRequest,
+    /// `"VTCRecordingStateEvent"`.
+    RecordingState,
+    /// Any value this version does not recognize.
+    ///
+    /// **Forging caveat**: `Other("VTCRingEvent".into())` is unequal to
+    /// [`Ring`](Self::Ring) on `PartialEq` but serializes to the same wire
+    /// string. Reserve `Other(s)` for unrecognized strings; compare wire
+    /// equality via [`as_str`](Self::as_str).
+    Other(String),
+}
+
+impl VtcEventType {
+    /// The wire string for this event type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Ring => RING,
+            Self::CallEnd => CALL_END,
+            Self::GatewaySignal => GATEWAY_SIGNAL,
+            Self::Participant => PARTICIPANT,
+            Self::MediaState => MEDIA_STATE,
+            Self::ActiveSpeaker => ACTIVE_SPEAKER,
+            Self::UnmuteRequest => UNMUTE_REQUEST,
+            Self::RecordingState => RECORDING_STATE,
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(VtcEventType, "a VTCStreamEnable eventTypes string",
+    "VTCRingEvent" => Ring,
+    "VTCCallEndEvent" => CallEnd,
+    "VTCGatewaySignal" => GatewaySignal,
+    "VTCParticipantEvent" => Participant,
+    "VTCMediaStateEvent" => MediaState,
+    "VTCActiveSpeakerEvent" => ActiveSpeaker,
+    "VTCUnmuteRequestEvent" => UnmuteRequest,
+    "VTCRecordingStateEvent" => RecordingState,
+);
+
 /// Client→server: start or replace the ephemeral VTC event subscription on
 /// this WebSocket connection (draft-atwood-jmap-vtc-wss-00
 /// §VTCStreamEnable).
@@ -52,9 +116,10 @@ pub struct VtcStreamEnable {
     #[serde(default)]
     pub call_ids: Option<Vec<Id>>,
     /// Event type names to receive; `None` means all. Recognized values
-    /// are [`VTC_EVENT_TYPES`]; other values are kept verbatim.
+    /// are [`VTC_EVENT_TYPES`]; other values are kept verbatim in
+    /// [`VtcEventType::Other`].
     #[serde(default)]
-    pub event_types: Option<Vec<String>>,
+    pub event_types: Option<Vec<VtcEventType>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -162,9 +227,9 @@ mod tests {
         assert_eq!(
             e.event_types.unwrap(),
             [
-                "VTCParticipantEvent",
-                "VTCMediaStateEvent",
-                "VTCActiveSpeakerEvent"
+                VtcEventType::Participant,
+                VtcEventType::MediaState,
+                VtcEventType::ActiveSpeaker
             ]
         );
     }
@@ -218,7 +283,10 @@ mod tests {
             "eventTypes": ["VTCRingEvent", "VTCCaptionEvent"]
         }));
         assert!(matches!(msg, VtcStreamMessage::Enable(ref e)
-            if e.event_types.as_deref() == Some(&["VTCRingEvent".to_owned(), "VTCCaptionEvent".to_owned()][..])));
+            if e.event_types.as_deref() == Some(&[
+                VtcEventType::Ring,
+                VtcEventType::Other("VTCCaptionEvent".to_owned()),
+            ][..])));
     }
 
     #[test]
@@ -243,6 +311,27 @@ mod tests {
         // examples.
         let msg = round_trip(json!({"@type": "VTCStreamDisable"}));
         assert_eq!(msg, VtcStreamMessage::Disable(VtcStreamDisable::default()));
+    }
+
+    #[test]
+    fn draft_event_types_decode_to_recognized_variants() {
+        // Oracle: draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable "Recognized
+        // values are" the eight strings below; none may land in `Other`.
+        for wire in [
+            "VTCRingEvent",
+            "VTCCallEndEvent",
+            "VTCGatewaySignal",
+            "VTCParticipantEvent",
+            "VTCMediaStateEvent",
+            "VTCActiveSpeakerEvent",
+            "VTCUnmuteRequestEvent",
+            "VTCRecordingStateEvent",
+        ] {
+            let t: VtcEventType = serde_json::from_value(json!(wire)).unwrap();
+            assert!(!matches!(t, VtcEventType::Other(_)), "{wire}");
+            assert_eq!(t.as_str(), wire);
+            assert_eq!(serde_json::to_value(&t).unwrap(), json!(wire));
+        }
     }
 
     #[test]

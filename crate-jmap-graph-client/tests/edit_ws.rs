@@ -12,7 +12,7 @@ use futures::{SinkExt as _, StreamExt as _};
 use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_base_client::{WsFrame, WsSession};
 use jmap_graph_client::{GraphEditWsExt, GraphEditWsFrame};
-use jmap_graph_types::edit::GraphEditStreamEnable;
+use jmap_graph_types::edit::{GraphEditDataType, GraphEditStreamEnable};
 use jmap_types::Id;
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -127,7 +127,7 @@ async fn enable_receive_and_disable() {
 
     let mut enable = GraphEditStreamEnable::new(
         vec![Id::from("N1")],
-        vec!["ops".to_owned(), "cursors".to_owned()],
+        vec![GraphEditDataType::Ops, GraphEditDataType::Cursors],
     );
     enable.id = Some("sub1".to_owned());
     ws.send_graph_edit_stream_enable(&enable).await.unwrap();

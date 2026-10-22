@@ -316,7 +316,7 @@ async fn batch_two_pairs_reference_their_own_queries() {
     assert_eq!(resp.get(&chat_q).expect("t0").query_state.as_ref(), "cq-1");
     assert_eq!(
         resp.get(&chat_g).expect("t1").not_found,
-        Some(vec![Id::from("chat-1")])
+        vec![Id::from("chat-1")]
     );
     assert_eq!(resp.get(&msg_q).expect("t2").query_state.as_ref(), "mq-1");
     assert_eq!(resp.get(&msg_g).expect("t3").state.as_ref(), "ms-1");

@@ -449,7 +449,7 @@ async fn graph_node_get_decodes_node() {
     assert_eq!(resp.list[0].graph_id, Id::from("G1"));
     assert_eq!(resp.list[0].blob_id, Some(Id::from("B7f3")));
     assert_eq!(resp.list[0].media_type.as_deref(), Some("text/markdown"));
-    assert_eq!(resp.not_found, Some(vec![Id::from("N404")]));
+    assert_eq!(resp.not_found, vec![Id::from("N404")]);
 
     let (_, call) = sent_call(&server).await;
     assert_eq!(
