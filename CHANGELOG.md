@@ -1309,6 +1309,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-client**: `message_query` and
+  `Batch::message_query_get` with `sort: None` omit `sort` instead of
+  sending `receivedAt` descending, so the server applies the draft
+  default: `receivedAt` ascending when `chatId` is present, descending
+  when absent (draft-atwood-jmap-chat-00 §Message/query, jmap-chat-spec
+  29e9a41 L1295). This matches `message_query_changes`. Callers that
+  relied on newest-first must pass a descending `receivedAt` comparator
+  (bd JMAP-v4g4).
 - **BREAKING** **jmap-chat-client**: `ChatWsFrame` takes the
   `VtcWsFrame` / `SceneWsFrame` / `GraphEditWsFrame` shape:
   `ChatTyping`, `ChatPresence` and `Other(WsFrame)`. The `StateChange`,

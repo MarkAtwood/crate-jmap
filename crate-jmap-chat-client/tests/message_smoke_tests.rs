@@ -298,8 +298,11 @@ async fn message_query_requires_chat_id_or_has_mention() {
 }
 
 /// `Message/query` with `chat_id` set must serialize a filter object
-/// containing `chatId` and, with `sort: None`, emit the default
-/// descending sort by `receivedAt`.
+/// containing `chatId` and, with `sort: None`, omit `sort` so the server
+/// default applies. Oracle: draft-atwood-jmap-chat-00 §Message/query
+/// (jmap-chat-spec 29e9a41 L1295): "Default sort: `receivedAt` ascending
+/// when `chatId` is present; `receivedAt` descending when `chatId` is
+/// absent."; RFC 8620 §5.5 lists `sort` as optional.
 #[tokio::test]
 async fn message_query_chat_id_and_default_sort() {
     let server = MockServer::start().await;
@@ -331,13 +334,9 @@ async fn message_query_chat_id_and_default_sort() {
         json!({ "chatId": "chat-1" }),
         "filter must contain chatId only"
     );
-    // Default sort: receivedAt descending (isAscending=false). Spec
-    // §Message: `sentAt` "MUST NOT be used for ordering"; `receivedAt` is
-    // "Authoritative for ordering".
-    assert_eq!(
-        args["sort"],
-        json!([{ "property": "receivedAt", "isAscending": false }]),
-        "default sort must be receivedAt descending"
+    assert!(
+        args.get("sort").is_none(),
+        "sort: None must omit sort so the server default applies, got {args}"
     );
 }
 
