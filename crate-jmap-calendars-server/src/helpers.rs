@@ -3,7 +3,7 @@
 use jmap_types::{Id, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{CalendarsBackend, SetDefaultResult};
+use crate::{CalendarsBackend, SetDefaultResult};
 use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{
@@ -94,7 +94,7 @@ where
     })))
 }
 
-/// Serialize a [`crate::backend::SetError`] to a JSON value for inclusion in
+/// Serialize a [`crate::SetError`] to a JSON value for inclusion in
 /// `notCreated`/`notUpdated`/`notDestroyed` maps.
 ///
 /// `SetError` (re-exported from `jmap-server`) uses `#[derive(Serialize)]` on
@@ -103,7 +103,7 @@ where
 /// `serverFail`. A `serverFail` description carrying a serde error string is
 /// not something any client knows to look at, and the fallback would also
 /// hide a real bug if a future custom `Serialize` impl ever did fail.
-pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
+pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 

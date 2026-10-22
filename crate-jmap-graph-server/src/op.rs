@@ -21,12 +21,12 @@ use jmap_types::{Id, JmapError};
 use serde::Deserialize as _;
 use serde_json::{json, Map, Value};
 
-use crate::backend::{GraphBackend, JmapBackend, SetError, SetErrorType};
 use crate::edit::base64url_len;
 use crate::helpers::{
     backend_set_error_value, fetch_one, forbidden, handle_get_visible, handle_set, invalid,
     listed_in, readable_rights, set_error_value, to_map, SetOps,
 };
+use crate::{GraphBackend, JmapBackend, SetError, SetErrorType};
 
 /// The server-set properties of a GraphNodeOp.
 const SERVER_SET: &[&str] = &["id", "graphId", "seq", "created", "createdBy"];

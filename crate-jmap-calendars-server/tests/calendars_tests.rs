@@ -564,3 +564,14 @@ async fn calendar_event_query_non_id_anchor_is_invalid_arguments() {
 
     assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
+
+/// draft-ietf-jmap-calendars-26 L3224 (IANA registration):
+/// "Capability Name:  urn:ietf:params:jmap:calendars". The constant is
+/// declared in jmap-calendars-types and re-exported at this crate's root.
+#[test]
+fn capability_uri_calendars_matches_draft() {
+    assert_eq!(
+        jmap_calendars_server::JMAP_CALENDARS_URI,
+        "urn:ietf:params:jmap:calendars"
+    );
+}

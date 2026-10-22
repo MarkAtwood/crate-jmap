@@ -13,10 +13,10 @@ use jmap_server::{extract_account_id, server_fail_from_backend, HandlerOutput};
 use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{Map, Value};
 
-use crate::backend::{HubReply, MimiBackend, MimiEndpoint};
 use crate::fanout::{parse_fanout_messages, utc_date_from_millis};
 use crate::handout::KeyMaterialRequirements;
 use crate::wire::{self, SubmitResponse, UpdateResponse};
+use crate::{HubReply, MimiBackend, MimiEndpoint};
 
 fn bad(description: &str) -> JmapError {
     JmapError::invalid_arguments(description)

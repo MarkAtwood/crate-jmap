@@ -33,13 +33,13 @@ use jmap_calendars_types::{CalendarEvent, ParticipantIdentity};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{
-    BackendSetError, CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs,
-    CalendarsBackend, QueryCalendarEventsError,
-};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, set_error_value, SetAccumulators,
+};
+use crate::{
+    BackendSetError, CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs,
+    CalendarsBackend, QueryCalendarEventsError,
 };
 use jmap_server::{
     bool_arg, filter_arg, query_anchor_args, server_fail_from_backend,
@@ -1822,7 +1822,7 @@ mod tests {
         };
         use jmap_types::{Id, PatchObject, State};
 
-        use crate::backend::{
+        use crate::{
             CalendarEventQueryArgs, CalendarsBackend, CalendarsLimits, QueryCalendarEventsError,
         };
 
@@ -1846,7 +1846,7 @@ mod tests {
             pub query_calendar_events_count: Arc<Mutex<u32>>,
             /// Optional override for the `CalendarsLimits` returned by
             /// `limits()`. `None` returns the default cap (365 days).
-            pub limits_override: Arc<Mutex<Option<crate::backend::CalendarsLimits>>>,
+            pub limits_override: Arc<Mutex<Option<crate::CalendarsLimits>>>,
         }
 
         impl TrackingBackend {
@@ -2046,8 +2046,8 @@ mod tests {
                 _account_id: &jmap_types::Id,
                 blob_ids: &[jmap_types::Id],
                 _properties: Option<&[String]>,
-            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
-                Ok(crate::backend::CalendarEventParseResult {
+            ) -> Result<crate::CalendarEventParseResult, Self::Error> {
+                Ok(crate::CalendarEventParseResult {
                     parsed: std::collections::BTreeMap::new(),
                     not_found: vec![],
                     not_parsable: blob_ids.to_vec(),
@@ -2063,10 +2063,8 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<
-                Vec<jmap_calendars_types::BusyPeriod>,
-                crate::backend::AvailabilityError<Self::Error>,
-            > {
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+            {
                 Ok(vec![])
             }
         }
@@ -2148,7 +2146,7 @@ mod tests {
         let backend = routing::TrackingBackend::new();
         // Override the cap to 7 days.
         *backend.limits_override.lock().unwrap() = Some(
-            crate::backend::CalendarsLimits::default()
+            crate::CalendarsLimits::default()
                 .with_max_expanded_query_duration_seconds(7 * 24 * 60 * 60),
         );
         // 14-day window > overridden 7-day cap; < default 365-day cap.
@@ -2906,7 +2904,7 @@ mod tests {
                 _account_id: &jmap_types::Id,
                 _blob_ids: &[jmap_types::Id],
                 _properties: Option<&[String]>,
-            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+            ) -> Result<crate::CalendarEventParseResult, Self::Error> {
                 Err(FaultyError(CANARY))
             }
 
@@ -2919,13 +2917,9 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<
-                Vec<jmap_calendars_types::BusyPeriod>,
-                crate::backend::AvailabilityError<Self::Error>,
-            > {
-                Err(crate::backend::AvailabilityError::Other(FaultyError(
-                    CANARY,
-                )))
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+            {
+                Err(crate::AvailabilityError::Other(FaultyError(CANARY)))
             }
         }
 
@@ -2952,7 +2946,7 @@ mod tests {
     /// oracle above for the `CalendarEvent/parse` path.
     #[tokio::test]
     async fn parse_other_error_is_redacted_on_the_wire() {
-        use crate::backend::CalendarEventParseResult;
+        use crate::CalendarEventParseResult;
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
             JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
@@ -3139,13 +3133,9 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<
-                Vec<jmap_calendars_types::BusyPeriod>,
-                crate::backend::AvailabilityError<Self::Error>,
-            > {
-                Err(crate::backend::AvailabilityError::Other(FaultyError(
-                    CANARY,
-                )))
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+            {
+                Err(crate::AvailabilityError::Other(FaultyError(CANARY)))
             }
         }
 

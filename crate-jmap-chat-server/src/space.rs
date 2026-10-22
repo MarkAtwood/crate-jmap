@@ -37,16 +37,16 @@ use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
-use crate::backend::{
-    BackendSetError, ChatBackend, ChatLimits, InviteJoinRefusal, SetError, SetErrorType,
-    SpacePatchOp,
-};
 use crate::helpers::{
     count_add_ops, default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set,
     extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string,
     optional_arg, reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType};
+use crate::{
+    BackendSetError, ChatBackend, ChatLimits, InviteJoinRefusal, SetError, SetErrorType,
+    SpacePatchOp,
+};
 use jmap_server::{
     query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
     QueryParams,

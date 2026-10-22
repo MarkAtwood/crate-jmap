@@ -30,11 +30,11 @@ use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, TasksBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
+use crate::{BackendSetError, TasksBackend};
 use jmap_server::{
     server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };

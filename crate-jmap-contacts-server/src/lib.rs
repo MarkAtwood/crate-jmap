@@ -30,10 +30,10 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod addressbook;
-pub mod backend;
+mod backend;
 pub mod card;
 mod helpers;
 /// In-memory reference implementation of [`ContactsBackend`].
@@ -46,15 +46,16 @@ pub mod memory;
 pub use addressbook::{
     handle_address_book_changes, handle_address_book_get, handle_address_book_set,
 };
-pub use backend::{
-    AddedItem, AddressBookProperty, BackendChangesError, BackendQueryError, BackendSetError,
-    ChangesResult, ContactCardProperty, ContactsBackend, GetObject, JmapBackend, JmapObject,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
-    SetErrorType, SetObject,
-};
+pub use backend::ContactsBackend;
 pub use card::{
     handle_contact_card_changes, handle_contact_card_copy, handle_contact_card_get,
     handle_contact_card_query, handle_contact_card_query_changes, handle_contact_card_set,
+};
+pub use jmap_contacts_types::backend::{AddressBookProperty, ContactCardProperty};
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 
 /// Capability URI for the JMAP for Contacts extension (RFC 9610 §1.4.1).
@@ -69,18 +70,11 @@ pub use card::{
 /// under the "JMAP Capabilities" registry; revisions to the contacts
 /// spec keep the same string.
 ///
-/// Declared as a local `pub const` (not re-exported from
-/// `jmap-contacts-types`) to match the canonical jmap-mail-server
-/// pattern (`JMAP_MAIL_URI`, `JMAP_SUBMISSION_URI`,
-/// `JMAP_VACATION_RESPONSE_URI` at `crate-jmap-mail-server/src/lib.rs`)
-/// and to decouple this crate's public API from the types crate's
-/// public-symbol set (bd:JMAP-qz9v.32).
-///
 /// ```
 /// use jmap_contacts_server::JMAP_CONTACTS_URI;
 /// assert_eq!(JMAP_CONTACTS_URI, "urn:ietf:params:jmap:contacts");
 /// ```
-pub const JMAP_CONTACTS_URI: &str = "urn:ietf:params:jmap:contacts";
+pub use jmap_contacts_types::JMAP_CONTACTS_URI;
 
 // ---------------------------------------------------------------------------
 // register_contacts_handlers — the main entry point for consumers
@@ -186,19 +180,6 @@ where
     });
 }
 
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
-///
-/// Re-exported so the [`register_contacts_handlers`] macro body can name
-/// `ClosureHandler` without a fully-qualified path. **Stability**: this
-/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
-/// into this crate's public surface — a breaking change to that type
-/// upstream is a breaking change here. Consumers needing a closure handler
-/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
-/// re-export is retained primarily for the in-crate macro and for
-/// backward-compatible spelling of the existing handler-registration
-/// pattern.
-pub use jmap_server::ClosureHandler;
-
 // ---------------------------------------------------------------------------
 // test_support — in-memory mock backend used by inline tests
 // ---------------------------------------------------------------------------
@@ -224,7 +205,7 @@ pub(crate) mod test_support {
     };
     use jmap_types::{Id, State};
 
-    use crate::backend::ContactsBackend;
+    use crate::ContactsBackend;
 
     /// Minimal error type for the mock backend.
     ///

@@ -17,7 +17,7 @@ use openmls::prelude::{
 use serde_json::{json, Map, Value};
 use tls_codec::{Deserialize as _, Serialize as _};
 
-use crate::backend::{BackendSetError, MimiBackend, NewKeyPackage, SetError, SetErrorType};
+use crate::{BackendSetError, MimiBackend, NewKeyPackage, SetError, SetErrorType};
 
 /// An `invalidProperties` SetError naming `property`.
 fn invalid(property: &str, description: &str) -> SetError {

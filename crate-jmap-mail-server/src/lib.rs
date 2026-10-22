@@ -41,20 +41,11 @@
 
 #![forbid(unsafe_code)]
 
-/// Capability URI for JMAP Mail (RFC 8621 §1.3).
-pub const JMAP_MAIL_URI: &str = "urn:ietf:params:jmap:mail";
-
-/// Capability URI for JMAP Mail Submission (RFC 8621 §1.3).
-pub const JMAP_SUBMISSION_URI: &str = "urn:ietf:params:jmap:submission";
-
-/// Capability URI for JMAP Vacation Response (RFC 8621 §1.3).
-pub const JMAP_VACATION_RESPONSE_URI: &str = "urn:ietf:params:jmap:vacationresponse";
-
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 pub mod email;
 #[cfg(feature = "mdn")]
 pub mod mdn;
@@ -86,18 +77,22 @@ pub mod submission;
 pub mod thread;
 pub mod vacation;
 
-pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-    EmailProperty, EmailSubmissionProperty, GetObject, IdentityProperty, JmapBackend, JmapObject,
-    MailBackend, MailboxProperty, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SearchSnippetProperty, SetError, SetErrorType, SetObject, ThreadProperty,
-    VacationResponseProperty,
-};
+pub use backend::MailBackend;
 pub use email::{
     handle_email_changes, handle_email_copy, handle_email_get, handle_email_import,
     handle_email_parse, handle_email_query, handle_email_query_changes, handle_email_set,
 };
 pub use identity::{handle_identity_changes, handle_identity_get, handle_identity_set};
+pub use jmap_mail_types::backend::{
+    EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
+    SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
+};
+pub use jmap_mail_types::{JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI};
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
+};
 pub use mailbox::{
     handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes,
     handle_mailbox_set,
@@ -275,19 +270,6 @@ where
         handle_vacation_set(&*b, &ctx, a).await
     });
 }
-
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
-///
-/// Re-exported so the [`register_mail_handlers`] macro body can name
-/// `ClosureHandler` without a fully-qualified path. **Stability**: this
-/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
-/// into this crate's public surface — a breaking change to that type
-/// upstream is a breaking change here. Consumers needing a closure handler
-/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
-/// re-export is retained primarily for the in-crate macro and for
-/// backward-compatible spelling of the existing handler-registration
-/// pattern.
-pub use jmap_server::ClosureHandler;
 
 // ---------------------------------------------------------------------------
 // register_mdn_handlers — MDN extension entry point (feature = "mdn")

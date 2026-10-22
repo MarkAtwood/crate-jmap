@@ -27,11 +27,11 @@ use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox, Mailbox
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
     finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
+use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
     bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
     QueryChangesParams, QueryParams,

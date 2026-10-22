@@ -13,12 +13,12 @@ use jmap_graph_types::{Graph, GraphCapability, GraphRights};
 use jmap_types::{Id, JmapError};
 use serde_json::{json, Map, Value};
 
-use crate::backend::GraphBackend;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
     handle_get_visible, handle_set, invalid, listed_in, mistyped, not_found, patched,
     patched_properties, reject_unsupported_sort, to_map, SetOps, TypeCheck,
 };
+use crate::GraphBackend;
 use jmap_server::{now_utc_string, HandlerOutput};
 
 /// `id`, `created`, `updated` and `myRights` are server-set.

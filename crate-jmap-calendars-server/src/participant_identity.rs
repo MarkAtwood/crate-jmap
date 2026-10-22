@@ -24,11 +24,11 @@ use jmap_calendars_types::ParticipantIdentity;
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, CalendarsBackend};
 use crate::helpers::{
     apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
+use crate::{BackendSetError, CalendarsBackend};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------

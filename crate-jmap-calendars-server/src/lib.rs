@@ -30,9 +30,9 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
-pub mod backend;
+mod backend;
 pub mod calendar;
 pub mod event;
 pub mod event_notification;
@@ -47,12 +47,9 @@ pub mod participant_identity;
 pub mod principal;
 
 pub use backend::{
-    AddedItem, AvailabilityError, BackendChangesError, BackendQueryError, BackendSetError,
-    CalendarEventGetArgs, CalendarEventNotificationProperty, CalendarEventParseResult,
-    CalendarEventProperty, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarProperty,
-    CalendarsBackend, CalendarsLimits, ChangesResult, GetObject, JmapBackend, JmapObject,
-    ParticipantIdentityProperty, QueryCalendarEventsError, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetDefaultResult, SetError, SetErrorType, SetObject,
+    AvailabilityError, CalendarEventGetArgs, CalendarEventParseResult, CalendarEventQueryArgs,
+    CalendarEventSetArgs, CalendarsBackend, CalendarsLimits, QueryCalendarEventsError,
+    SetDefaultResult,
 };
 pub use calendar::{handle_calendar_changes, handle_calendar_get, handle_calendar_set};
 pub use event::{
@@ -65,21 +62,22 @@ pub use event_notification::{
     handle_calendar_event_notification_query, handle_calendar_event_notification_query_changes,
     handle_calendar_event_notification_set,
 };
+pub use jmap_calendars_types::backend::{
+    CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,
+    ParticipantIdentityProperty,
+};
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
+};
 pub use participant_identity::{
     handle_participant_identity_changes, handle_participant_identity_get,
     handle_participant_identity_set,
 };
 pub use principal::handle_principal_get_availability;
 
-/// Capability URI for JMAP Calendars (draft-ietf-jmap-calendars-26 §1.5.1).
-///
-/// Defined as a local `const` rather than re-exported from
-/// `jmap_calendars_types` (bd:JMAP-ic0j.30): the URI string is normative
-/// and constant per the draft, so locking calendars-server's published API
-/// to the upstream crate's const SHAPE (renames, moves, removal) is
-/// unnecessary. Matches the canonical `jmap-mail-server` pattern at
-/// `crate-jmap-mail-server/src/lib.rs:45` (`pub const JMAP_MAIL_URI`).
-pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
+pub use jmap_calendars_types::JMAP_CALENDARS_URI;
 
 // ---------------------------------------------------------------------------
 // register_calendars_handlers — the main entry point for consumers
@@ -262,19 +260,6 @@ where
     });
 }
 
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
-///
-/// Re-exported so the [`register_calendars_handlers`] macro body can name
-/// `ClosureHandler` without a fully-qualified path. **Stability**: this
-/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
-/// into this crate's public surface — a breaking change to that type
-/// upstream is a breaking change here. Consumers needing a closure handler
-/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
-/// re-export is retained primarily for the in-crate macro and for
-/// backward-compatible spelling of the existing handler-registration
-/// pattern.
-pub use jmap_server::ClosureHandler;
-
 // ---------------------------------------------------------------------------
 // test_support — in-memory mock backend used by inline tests
 // ---------------------------------------------------------------------------
@@ -300,7 +285,7 @@ pub(crate) mod test_support {
     };
     use jmap_types::{Id, State};
 
-    use crate::backend::{
+    use crate::{
         CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
         QueryCalendarEventsError,
     };
@@ -964,10 +949,10 @@ pub(crate) mod test_support {
             _caller: &(),
             account_id: &Id,
             calendar_id: &Id,
-        ) -> Result<crate::backend::SetDefaultResult, Self::Error> {
+        ) -> Result<crate::SetDefaultResult, Self::Error> {
             let mut guard = self.state.lock().unwrap();
             let Some(acct) = guard.get_mut(account_id.as_ref()) else {
-                return Ok(crate::backend::SetDefaultResult::default());
+                return Ok(crate::SetDefaultResult::default());
             };
             let exists = acct
                 .objects
@@ -975,10 +960,10 @@ pub(crate) mod test_support {
                 .map(|m| m.contains_key(calendar_id))
                 .unwrap_or(false);
             if !exists {
-                return Ok(crate::backend::SetDefaultResult::default());
+                return Ok(crate::SetDefaultResult::default());
             }
             let previous = acct.default_calendar.replace(calendar_id.clone());
-            Ok(crate::backend::SetDefaultResult {
+            Ok(crate::SetDefaultResult {
                 new_default: Some(calendar_id.clone()),
                 previous_default: previous,
             })
@@ -991,10 +976,10 @@ pub(crate) mod test_support {
             _caller: &(),
             account_id: &Id,
             identity_id: &Id,
-        ) -> Result<crate::backend::SetDefaultResult, Self::Error> {
+        ) -> Result<crate::SetDefaultResult, Self::Error> {
             let mut guard = self.state.lock().unwrap();
             let Some(acct) = guard.get_mut(account_id.as_ref()) else {
-                return Ok(crate::backend::SetDefaultResult::default());
+                return Ok(crate::SetDefaultResult::default());
             };
             let exists = acct
                 .objects
@@ -1002,12 +987,12 @@ pub(crate) mod test_support {
                 .map(|m| m.contains_key(identity_id))
                 .unwrap_or(false);
             if !exists {
-                return Ok(crate::backend::SetDefaultResult::default());
+                return Ok(crate::SetDefaultResult::default());
             }
             let previous = acct
                 .default_participant_identity
                 .replace(identity_id.clone());
-            Ok(crate::backend::SetDefaultResult {
+            Ok(crate::SetDefaultResult {
                 new_default: Some(identity_id.clone()),
                 previous_default: previous,
             })
@@ -1021,8 +1006,8 @@ pub(crate) mod test_support {
             _account_id: &jmap_types::Id,
             blob_ids: &[jmap_types::Id],
             _properties: Option<&[String]>,
-        ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
-            Ok(crate::backend::CalendarEventParseResult {
+        ) -> Result<crate::CalendarEventParseResult, Self::Error> {
+            Ok(crate::CalendarEventParseResult {
                 parsed: std::collections::BTreeMap::new(),
                 not_found: vec![],
                 not_parsable: blob_ids.to_vec(),
@@ -1038,10 +1023,8 @@ pub(crate) mod test_support {
             _utc_end: &jmap_types::UTCDate,
             _show_details: bool,
             _event_properties: Option<&[String]>,
-        ) -> Result<
-            Vec<jmap_calendars_types::BusyPeriod>,
-            crate::backend::AvailabilityError<Self::Error>,
-        > {
+        ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+        {
             Ok(vec![])
         }
     }

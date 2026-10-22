@@ -33,8 +33,8 @@ use jmap_mail_types::{
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{find_immutable_patch_key, set_error_value};
+use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].

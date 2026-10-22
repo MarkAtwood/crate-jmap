@@ -43,11 +43,11 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 
-use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
     finalize_set_response, set_error_value, SetAccumulators,
 };
+use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
     filter_arg, resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend,
     take_bool_arg, HandlerOutput,
@@ -64,7 +64,7 @@ use jmap_server::{
 /// `SieveScript/validate` needs raw UTF-8 bytes for the script blob.
 /// [`SieveBackend::get_sieve_blob`] exposes this at the trait level.
 ///
-/// [`MailBackend`]: crate::backend::MailBackend
+/// [`MailBackend`]: crate::MailBackend
 /// [`register_sieve_handlers`]: crate::register_sieve_handlers
 pub trait SieveBackend: jmap_server::JmapBackend {
     /// Fetch raw bytes for a script blob by ID.

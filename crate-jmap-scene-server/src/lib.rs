@@ -102,11 +102,11 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod asset;
 pub mod avatar;
-pub mod backend;
+mod backend;
 pub mod ephemeral;
 mod helpers;
 pub mod interact;
@@ -128,16 +128,17 @@ pub use avatar::{
     handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_avatar_query,
     handle_scene_avatar_query_changes, handle_scene_avatar_set,
 };
-pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, BindingTarget,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
-};
+pub use backend::{BindingTarget, SceneBackend};
 pub use ephemeral::{
     should_deliver, validate_interaction, RegionScope, SceneEphemeralSubscription,
     SceneStreamFilter,
 };
 pub use interact::handle_scene_object_interact;
+pub use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
+};
 pub use object::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,
     handle_scene_object_query_changes, handle_scene_object_set,
@@ -150,10 +151,6 @@ pub use region::{
 
 /// Capability URI for `urn:ietf:params:jmap:scene`.
 pub use jmap_scene_types::JMAP_SCENE_URI;
-
-/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`],
-/// re-exported for the registration macro.
-pub use jmap_server::ClosureHandler;
 
 /// Register the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` and
 /// `SceneAvatar/*` method handlers with `dispatcher`.

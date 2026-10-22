@@ -32,13 +32,13 @@ use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     default_sort, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     now_utc_string, reject_unsupported_sort, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
+use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 /// `Chat/set` update keys that change a group Chat's member list
@@ -547,7 +547,7 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 /// - `channel` chats are `forbidden` on create and destroy (managed via
 ///   `Space/set` `addChannels` / `removeChannels`).
 /// - a group create whose membership exceeds
-///   [`ChatLimits::max_group_chat_members`](crate::backend::ChatLimits::max_group_chat_members)
+///   [`ChatLimits::max_group_chat_members`](crate::ChatLimits::max_group_chat_members)
 ///   is `overQuota`.
 /// - an update key outside §Chat/set "Updating a Chat" is
 ///   `invalidProperties`; `name`, `description` and `avatarBlobId` updates

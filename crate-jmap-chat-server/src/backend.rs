@@ -8,23 +8,17 @@
 //! supertrait. Only write operations are here.
 //!
 //! Marker traits and property selector enums live in `jmap-types` and
-//! `jmap-chat-types` respectively; they are re-exported here for convenience.
+//! `jmap-chat-types` respectively; the crate root re-exports the ones an
+//! impl needs.
 
-pub use jmap_chat_types::backend::{
-    ChatContactProperty, ChatProperty, MessageProperty, ReadPositionProperty, SpaceProperty,
-};
-pub use jmap_chat_types::space_set::{SpaceMetadataPatch, SpacePatchOp};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
-};
+use jmap_chat_types::space_set::SpacePatchOp;
+use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetError, SetErrorType, SetObject};
 
 // ---------------------------------------------------------------------------
 // Space/set structural-mutation result
 // ---------------------------------------------------------------------------
 
-/// The outcome of a single [`SpacePatchOp`] applied by
+/// The outcome of a single [`SpacePatchOp`](crate::SpacePatchOp) applied by
 /// [`ChatBackend::apply_space_patch`].
 ///
 /// `op_index` is the zero-based index of the op within the input `Vec`, used
@@ -1174,7 +1168,7 @@ pub trait ChatBackend: JmapBackend {
     /// (`addRoles`, `removeRoles`, `addMembers`, …) rather than RFC 8620
     /// JSON Pointer patches. The handler in `space::handle_space_set`
     /// parses the wire object, unfolds each array entry into a
-    /// [`SpacePatchOp`] value, then calls this method with the resulting
+    /// [`SpacePatchOp`](crate::SpacePatchOp) value, then calls this method with the resulting
     /// ordered `Vec`.
     ///
     /// # Ordering and atomicity
@@ -1412,7 +1406,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// The handler decodes the wire patch's metadata-key subset
     /// (`name`, `description`, `iconBlobId`, `isPublic`,
-    /// `isPubliclyPreviewable`) into a [`SpaceMetadataPatch`],
+    /// `isPubliclyPreviewable`) into a [`SpaceMetadataPatch`](crate::SpaceMetadataPatch),
     /// stripping structural mutation keys (`addRoles` etc.) before
     /// building it. Each field is `Option<_>`; nullable target fields
     /// use `Option<Clearable<T>>` so the backend can distinguish
@@ -1507,7 +1501,7 @@ pub trait ChatBackend: JmapBackend {
     /// `invalidProperties`. On `create`, a non-null value is stored in
     /// [`jmap_chat_types::Space::extra`] through `create_object`. In an
     /// `update` patch, the key travels in
-    /// [`SpaceMetadataPatch::extra`] through
+    /// [`SpaceMetadataPatch::extra`](crate::SpaceMetadataPatch::extra) through
     /// [`Self::apply_space_metadata_patch`], so it is subject to that
     /// method's `manage_space` gate; a `null` value removes the property
     /// (RFC 7396). `Space/get` returns stored values like any other

@@ -58,12 +58,12 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::backend::{CalendarsBackend, SetDefaultResult};
 use crate::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
     QueryResult, SetError, SetErrorType, SetObject,
 };
+use crate::{CalendarsBackend, SetDefaultResult};
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
 
@@ -1185,8 +1185,8 @@ impl CalendarsBackend for MemoryBackend {
         _account_id: &jmap_types::Id,
         blob_ids: &[jmap_types::Id],
         _properties: Option<&[String]>,
-    ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
-        Ok(crate::backend::CalendarEventParseResult {
+    ) -> Result<crate::CalendarEventParseResult, Self::Error> {
+        Ok(crate::CalendarEventParseResult {
             parsed: std::collections::BTreeMap::new(),
             not_found: vec![],
             not_parsable: blob_ids.to_vec(),
@@ -1202,8 +1202,7 @@ impl CalendarsBackend for MemoryBackend {
         _utc_end: &jmap_types::UTCDate,
         _show_details: bool,
         _event_properties: Option<&[String]>,
-    ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::backend::AvailabilityError<Self::Error>>
-    {
+    ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>> {
         Ok(vec![])
     }
 }
@@ -1485,7 +1484,7 @@ mod seed_object_validation_tests {
 #[cfg(test)]
 mod limits_default_tests {
     use super::*;
-    use crate::backend::CalendarsLimits;
+    use crate::CalendarsLimits;
 
     /// Oracle (bd:JMAP-ic0j.31): the default
     /// [`CalendarsBackend::limits`] impl returns

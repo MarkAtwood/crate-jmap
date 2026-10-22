@@ -57,11 +57,11 @@ use jmap_vtc_types::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::{call_already_active_on_chat, StatefulObject};
 use crate::query::{
     call_matches, compare_calls, compare_livestreams, compare_participants, compare_recordings,
     livestream_matches, participant_matches, recording_matches,
 };
+use crate::{call_already_active_on_chat, StatefulObject};
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,

@@ -5,7 +5,7 @@ use serde_json::{json, Map, Value};
 
 use jmap_scene_types::{SceneAvatar, SceneObject, SceneRegion};
 
-use crate::backend::{BackendSetError, SceneBackend, SetError, SetErrorType};
+use crate::{BackendSetError, SceneBackend, SetError, SetErrorType};
 use jmap_server::{
     enforce_max_objects_in_get, not_found_json, optional_arg, serialize_value,
     server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,

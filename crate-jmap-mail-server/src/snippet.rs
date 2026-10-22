@@ -23,8 +23,8 @@ use jmap_types::{Id, JmapError};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::MailBackend;
 use crate::helpers::extract_account_id;
+use crate::MailBackend;
 use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 /// Handle a `SearchSnippet/get` method call (RFC 8621 §5.1).

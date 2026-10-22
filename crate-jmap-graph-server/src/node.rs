@@ -14,7 +14,6 @@ use jmap_graph_types::{GraphCapability, GraphNode, GraphRights};
 use jmap_types::{Id, JmapError};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{EditLog, GraphBackend, JmapBackend};
 use crate::edit::check_node_edit;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
@@ -22,6 +21,7 @@ use crate::helpers::{
     invalid, is_uri, listed_in, mistyped, not_found, patched, patched_properties, readable_rights,
     set_error_value, string_or_null, to_map, SetOps, TypeCheck,
 };
+use crate::{EditLog, GraphBackend, JmapBackend};
 use jmap_server::{now_utc_string, HandlerOutput};
 
 /// The server-set properties of a GraphNode and a GraphEdge (`createdBy`,

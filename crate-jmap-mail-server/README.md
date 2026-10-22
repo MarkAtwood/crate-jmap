@@ -284,9 +284,11 @@ Backends that don't need an auth identity use `type CallerCtx = ();` and a
 Include these in your Session object's `capabilities` map:
 
 ```rust
-pub const JMAP_MAIL_URI: &str            = "urn:ietf:params:jmap:mail";
-pub const JMAP_SUBMISSION_URI: &str      = "urn:ietf:params:jmap:submission";
-pub const JMAP_VACATION_RESPONSE_URI: &str = "urn:ietf:params:jmap:vacationresponse";
+// Declared in jmap-mail-types and re-exported here:
+use jmap_mail_server::{JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI};
+assert_eq!(JMAP_MAIL_URI, "urn:ietf:params:jmap:mail");
+assert_eq!(JMAP_SUBMISSION_URI, "urn:ietf:params:jmap:submission");
+assert_eq!(JMAP_VACATIONRESPONSE_URI, "urn:ietf:params:jmap:vacationresponse");
 ```
 
 Which URIs to advertise depends on which object types your backend supports.
