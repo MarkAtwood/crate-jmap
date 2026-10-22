@@ -514,7 +514,7 @@ pub async fn should_push<B: ChatBackend>(
     if !owner_is_member(backend, caller, account_id, &chat).await? {
         return Ok(false);
     }
-    let bypass = is_plaintext(&msg.body_type) && !mention_scopes(msg, owner).is_empty();
+    let bypass = is_plaintext(msg.body_type.as_str()) && !mention_scopes(msg, owner).is_empty();
     let muted = match &chat.mute_until {
         Some(until) => mute_active(until),
         None => chat.muted,

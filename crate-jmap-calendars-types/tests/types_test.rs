@@ -11,7 +11,7 @@
 //! `r##"..."##` raw string delimiters because `"#` would terminate `r#"..."#`.
 
 use jmap_calendars_types::{
-    Alert, AlertTrigger, BusyPeriod, Calendar, CalendarAlert, CalendarEvent,
+    Alert, AlertTrigger, BusyPeriod, BusyStatus, Calendar, CalendarAlert, CalendarEvent,
     CalendarEventFilterCondition, CalendarEventNotification, CalendarRights,
     CalendarsAccountCapability, CalendarsCapability, IncludeInAvailability, Link, Participant,
     ParticipantIdentity, Person, PrincipalCalendarsCapability, VirtualLocation, JMAP_CALENDARS_URI,
@@ -995,7 +995,7 @@ fn busy_period_full_deserialize() {
     let bp: BusyPeriod = serde_json::from_str(json).expect("BusyPeriod deserialize");
     assert_eq!(bp.utc_start, "2024-06-15T09:00:00Z");
     assert_eq!(bp.utc_end, "2024-06-15T10:00:00Z");
-    assert_eq!(bp.busy_status.as_deref(), Some("confirmed"));
+    assert_eq!(bp.busy_status, BusyStatus::Confirmed);
     assert!(bp.event.is_some(), "event must be deserialized");
     assert_eq!(bp.event.as_ref().unwrap()["title"], "Team meeting");
     assert!(bp.account_id.is_some(), "accountId must be present");
@@ -1017,7 +1017,7 @@ fn busy_period_no_detail_access() {
     let bp: BusyPeriod = serde_json::from_str(json).expect("BusyPeriod minimal deserialize");
     assert_eq!(bp.utc_start, "2024-06-15T14:00:00Z");
     assert_eq!(bp.utc_end, "2024-06-15T15:30:00Z");
-    assert_eq!(bp.busy_status.as_deref(), Some("unavailable"));
+    assert_eq!(bp.busy_status, BusyStatus::Unavailable);
     assert!(bp.event.is_none());
     assert!(bp.account_id.is_none());
 
@@ -1073,6 +1073,48 @@ fn busy_period_wire_names() {
         "wire key must be busyStatus"
     );
     assert!(obj.contains_key("accountId"), "wire key must be accountId");
+}
+
+/// An absent `busyStatus` takes the draft default.
+///
+/// Oracle: draft-ietf-jmap-calendars-33 §2.2, `busyStatus`:
+/// "String (default: "unavailable")".
+#[test]
+fn busy_period_absent_busy_status_defaults_to_unavailable() {
+    let json = r#"{
+        "utcStart": "2024-06-15T14:00:00Z",
+        "utcEnd": "2024-06-15T15:30:00Z"
+    }"#;
+    let bp: BusyPeriod = serde_json::from_str(json).expect("deserialize");
+    assert_eq!(bp.busy_status, BusyStatus::Unavailable);
+}
+
+/// `busyStatus` is a closed set: a value outside it is rejected.
+///
+/// Oracle: draft-ietf-jmap-calendars-33 §2.2, `busyStatus`: "This MUST be
+/// one of" "confirmed", "tentative", "unavailable". `"busy"` is not.
+#[test]
+fn busy_period_rejects_unknown_busy_status() {
+    let json = r#"{
+        "utcStart": "2024-06-15T14:00:00Z",
+        "utcEnd": "2024-06-15T15:30:00Z",
+        "busyStatus": "busy"
+    }"#;
+    assert!(serde_json::from_str::<BusyPeriod>(json).is_err());
+}
+
+/// Each `busyStatus` variant serializes to the draft's wire string.
+///
+/// Oracle: draft-ietf-jmap-calendars-33 §2.2 value list.
+#[test]
+fn busy_status_wire_strings() {
+    for (v, wire) in [
+        (BusyStatus::Confirmed, "confirmed"),
+        (BusyStatus::Tentative, "tentative"),
+        (BusyStatus::Unavailable, "unavailable"),
+    ] {
+        assert_eq!(serde_json::to_value(v).unwrap(), serde_json::json!(wire));
+    }
 }
 
 // ─── PrincipalCalendarsCapability (calendars-26 §2.1) ────────────────────────

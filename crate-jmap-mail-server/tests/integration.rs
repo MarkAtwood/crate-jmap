@@ -9801,6 +9801,43 @@ async fn conformance_mailbox_query_filter_role() {
     );
 }
 
+/// Oracle: RFC 8621 §2.3 — the filter `role` is `String|null` and "The
+/// Mailbox role must match the given value exactly", so filter={role: null}
+/// returns only mailboxes whose role is null. In the seed data only inbox
+/// has a role.
+#[tokio::test]
+async fn conformance_mailbox_query_filter_role_null() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "filter": { "role": null },
+    });
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+        .await
+        .expect("Mailbox/query with filter.role=null must not error");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+
+    assert!(
+        !ids.contains(&seed.mailbox["inbox"].as_ref()),
+        "inbox has a role and must NOT match role=null; got ids={ids:?}"
+    );
+    for name in ["folderA", "folderB", "child1", "child2"] {
+        assert!(
+            ids.contains(&seed.mailbox[name].as_ref()),
+            "{name} has no role and must match role=null; got ids={ids:?}"
+        );
+    }
+}
+
 /// Oracle: `MemoryBackend::query_objects::<Mailbox>` honors `MailboxFilterCondition`
 /// directly (no handler involvement). Verifies the contract that production
 /// backends must honor — filter + sort + paginate are pushed all the way into

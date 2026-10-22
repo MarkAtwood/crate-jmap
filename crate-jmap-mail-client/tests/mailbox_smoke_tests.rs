@@ -15,7 +15,7 @@
 mod helpers;
 
 use jmap_mail_client::MailboxSetParams;
-use jmap_mail_types::mailbox::MailboxFilterCondition;
+use jmap_mail_types::mailbox::{MailboxFilterCondition, MailboxRole};
 use jmap_mail_types::query::MailboxFilter;
 use jmap_types::query::{Filter, FilterOperator, Operator};
 use serde_json::json;
@@ -190,7 +190,7 @@ async fn mailbox_query_filter_passthrough() {
         ]
     });
     let mut role = MailboxFilterCondition::default();
-    role.role = Some("inbox".into());
+    role.role = Some(Some(MailboxRole::Inbox));
     let mut subscribed = MailboxFilterCondition::default();
     subscribed.is_subscribed = Some(true);
     let typed = Filter::Operator(FilterOperator::new(
@@ -315,7 +315,7 @@ async fn mailbox_query_changes_with_filter_sort_upto_calculatetotal() {
     let since = jmap_types::State::from("qs1");
     let up_to = jmap_types::Id::from("MB-100");
     let mut role = MailboxFilterCondition::default();
-    role.role = Some("inbox".into());
+    role.role = Some(Some(MailboxRole::Inbox));
     sc.mailbox_query_changes(
         &since,
         None,

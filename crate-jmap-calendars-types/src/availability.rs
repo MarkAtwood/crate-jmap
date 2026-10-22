@@ -5,6 +5,25 @@
 use jmap_types::UTCDate;
 use serde::{Deserialize, Serialize};
 
+/// The `busyStatus` of a [`BusyPeriod`] (draft-ietf-jmap-calendars-33
+/// §2.2): `String (default: "unavailable")` that "MUST be one of" the
+/// three values below, so any other string fails to deserialize.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BusyStatus {
+    /// `"confirmed"` — "The event status is "confirmed" and the
+    /// Principal's "participationStatus" is "accepted"."
+    Confirmed,
+    /// `"tentative"` — "The event status is "tentative" or the
+    /// Principal's "participationStatus" is "tentative"."
+    Tentative,
+    /// `"unavailable"` — "The Principal is not available for scheduling
+    /// at this time for any other reason." The default.
+    #[default]
+    Unavailable,
+}
+
 /// A single busy period returned by `Principal/getAvailability`
 /// (draft-ietf-jmap-calendars-26 §2.2).
 ///
@@ -17,8 +36,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// - `utc_start` / `utc_end` — inclusive/exclusive UTC date-time bounds of the
 ///   busy period; both are always present.
-/// - `busy_status` — hint about the kind of busy time: `"confirmed"`,
-///   `"tentative"`, or `"unavailable"` (default).  May be `null`.
+/// - `busy_status` — the kind of busy time; [`BusyStatus::Unavailable`]
+///   when absent on the wire.
 /// - `event` — the underlying [`crate::CalendarEvent`] if the requesting user
 ///   has the right to see it, otherwise `null`.
 /// - `account_id` — the JMAP account id of the calendar containing this event;
@@ -41,12 +60,10 @@ pub struct BusyPeriod {
     /// See [`utc_start`](Self::utc_start) for the typing rationale.
     pub utc_end: UTCDate,
 
-    /// Characterisation of the busy time.
-    ///
-    /// One of `"confirmed"`, `"tentative"`, or `"unavailable"` (the default
-    /// when absent or null).  Clients SHOULD handle unknown values gracefully.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub busy_status: Option<String>,
+    /// Characterisation of the busy time; an absent `busyStatus`
+    /// deserializes as [`BusyStatus::Unavailable`], the draft's default.
+    #[serde(default)]
+    pub busy_status: BusyStatus,
 
     /// The underlying event, if the requester has read access.
     ///

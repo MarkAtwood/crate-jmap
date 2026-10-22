@@ -476,7 +476,7 @@ async fn message_create_query_get_round_trip() {
 
     let m1 = by_id(&first);
     assert_eq!(m1.body, "first");
-    assert_eq!(m1.body_type, "text/plain");
+    assert_eq!(m1.body_type, BodyType::Plain);
     assert_eq!(m1.chat_id, chat_id);
     assert_eq!(
         m1.sender_id.as_ref(),

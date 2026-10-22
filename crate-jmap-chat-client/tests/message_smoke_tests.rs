@@ -192,7 +192,11 @@ async fn message_get_decodes_populated_message() {
     assert_eq!(msg.sender_id.as_ref(), TEST_ACCOUNT_ID, "senderId mismatch");
     assert_eq!(msg.chat_id.as_ref(), "chat-1", "chatId mismatch");
     assert_eq!(msg.body, "Hello, world!", "body mismatch");
-    assert_eq!(msg.body_type, "text/plain", "bodyType mismatch");
+    assert_eq!(
+        msg.body_type,
+        jmap_chat_client::BodyType::Plain,
+        "bodyType mismatch"
+    );
     assert!(
         matches!(
             msg.delivery_state,

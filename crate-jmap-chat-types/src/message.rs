@@ -51,7 +51,7 @@ impl_string_enum!(DeliveryState, "a delivery state string",
 /// string equality across two values requires matching on `as_str()`, not on
 /// `PartialEq`.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BodyType {
     /// `"text/plain"` — unformatted UTF-8 text.
     Plain,
@@ -452,7 +452,7 @@ pub struct MessageRevision {
     /// The `body` property (draft-atwood-jmap-chat-00 §4.5).
     pub body: String,
     /// The `bodyType` property (draft-atwood-jmap-chat-00 §4.5).
-    pub body_type: String,
+    pub body_type: BodyType,
     /// The `editedAt` property (draft-atwood-jmap-chat-00 §4.5).
     pub edited_at: UTCDate,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -510,7 +510,7 @@ pub struct Message {
     /// The `body` property (draft-atwood-jmap-chat-00 §4.11).
     pub body: String,
     /// The `bodyType` property (draft-atwood-jmap-chat-00 §4.11).
-    pub body_type: String,
+    pub body_type: BodyType,
     /// The `attachments` property (draft-atwood-jmap-chat-00 §4.11).
     pub attachments: Vec<Attachment>,
     /// The `mentions` property (draft-atwood-jmap-chat-00 §4.11).
@@ -668,7 +668,7 @@ impl Message {
         sender_id: Id,
         chat_id: Id,
         body: impl Into<String>,
-        body_type: impl Into<String>,
+        body_type: impl Into<BodyType>,
         sent_at: UTCDate,
         received_at: UTCDate,
         delivery_state: DeliveryState,
@@ -1158,7 +1158,7 @@ mod tests {
         }"#;
         let rev: MessageRevision = serde_json::from_str(json).expect("deserialize MessageRevision");
         assert_eq!(rev.body, "original text");
-        assert_eq!(rev.body_type, "text/plain");
+        assert_eq!(rev.body_type, BodyType::Plain);
         assert_eq!(rev.edited_at.as_ref(), "2026-01-05T12:00:00Z");
 
         let roundtrip = serde_json::to_string(&rev).expect("serialize");
