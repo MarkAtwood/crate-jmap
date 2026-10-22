@@ -21,7 +21,7 @@ authenticates requests and fetches blobs.
 | `handle_peer_subscribe_presence`, `handle_peer_unsubscribe_presence` | §Peer/subscribePresence, §Peer/unsubscribePresence: `subscriberId` check, owner presence with `"invisible"` as `"offline"`, granted TTL |
 | `handle_peer_presence` | §Peer/presence "Receiver Behavior": ChatContact `presence`, `lastActiveAt`, `statusText`, `statusEmoji` update, blocked contacts dropped silently, then `forward_presence` |
 | `FederationPresenceBackend` | A `FederationBackend` that also keeps presence subscriptions and forwards presence events to the owner's clients; only deployments offering the optional methods implement it |
-| `FederationBackend` | A `ChatBackend` that also supplies the `AuthenticatedPeer`, the `@everyone` permission floor, attachment fetching (`FetchedBlob`), fresh Message ids, Chats under a peer-chosen id, and typing events forwarded to the owner's clients |
+| `FederationBackend` | A `ChatBackend` that also supplies the `AuthenticatedPeer`, attachment fetching (`FetchedBlob`), fresh Message ids, Chats under a peer-chosen id, and typing events forwarded to the owner's clients |
 
 ## What it's for
 

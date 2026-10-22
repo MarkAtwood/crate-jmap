@@ -7,9 +7,9 @@
 //! Validation steps 1 to 14, §Edit and Reaction Validation, and the
 //! direct-chat race of §Direct Chat Simultaneous Initiation. It runs over
 //! a [`FederationBackend`], a `jmap_chat_server::ChatBackend` that also
-//! names the authenticated peer ([`AuthenticatedPeer`]), the `@everyone`
-//! permission floor, attachment fetching ([`FetchedBlob`]), and direct
-//! Chats stored under a peer-chosen id.
+//! names the authenticated peer ([`AuthenticatedPeer`]), attachment
+//! fetching ([`FetchedBlob`]), and direct Chats stored under a peer-chosen
+//! id.
 //!
 //! ## Peer/receipt, Peer/typing, Peer/retract, Peer/groupUpdate
 //!
