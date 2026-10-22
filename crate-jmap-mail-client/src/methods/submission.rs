@@ -22,8 +22,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, EmailSubmissionSetParams, GetResponse, QueryChangesResponse, QueryResponse,
-    SetResponse,
+    ChangesResponse, EmailSubmissionSetParams, GetResponse, PartialObject, QueryChangesResponse,
+    QueryResponse, SetResponse,
 };
 
 impl super::SessionClient {
@@ -284,6 +284,10 @@ impl super::SessionClient {
     ///   Email objects to destroy when the submission is created successfully
     ///   (RFC 8621 §7.5).
     ///
+    /// Each `created` / `updated` value is a [`PartialObject`]: RFC 8620 §5.3
+    /// returns only the properties the client did not send (the server-set
+    /// `id`, plus any property the server defaulted).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -304,7 +308,7 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<EmailSubmissionSetParams>,
-    ) -> Result<SetResponse<jmap_mail_types::EmailSubmission>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "email_submission_set: at least one of create, update, destroy must be Some \

@@ -22,12 +22,13 @@ use jmap_types::{Id, State};
 // ---------------------------------------------------------------------------
 //
 // Re-exported from `jmap-types::methods` so all `jmap-*-client` crates share
-// one canonical set of /get, /set, /changes, /query, /queryChanges shapes.
+// one canonical set of /get, /set, /copy, /changes, /query, /queryChanges
+// shapes.
 // The wire format is identical to the previous local definitions.
 
 pub use jmap_types::{
-    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
-    SetResponse,
+    AddedItem, ChangesResponse, CopyResponse, GetResponse, PartialObject, QueryChangesResponse,
+    QueryResponse, SetError, SetResponse,
 };
 
 // ---------------------------------------------------------------------------

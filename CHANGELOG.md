@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-types**: `SearchSnippetGetResponse`, the RFC 8621 §5.1
+  `SearchSnippet/get` response (`accountId`, `list`, nullable
+  `notFound`).
 - **jmap-types**: `PartialObject` (`id: Option<Id>` plus a flattened
   `extra` map) for the partial objects a server echoes in `/set`
   `created` / `updated` and `/copy` `created` (RFC 8620 §5.3, §5.4), and
@@ -1316,6 +1319,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-client**: **BREAKING** `email_set`, `mailbox_set`,
+  `identity_set`, `email_submission_set` and `vacation_response_set`
+  return `SetResponse<PartialObject>` instead of `SetResponse<Email>`
+  etc., and `email_copy` returns `CopyResponse<PartialObject>`. RFC 8620
+  §5.3 / §5.4 `created` values carry only the properties the client did
+  not send, so spec-conformant responses (e.g. the RFC 8621 §7 Email/set
+  example) failed to parse as full objects. `search_snippet_get` returns
+  `SearchSnippetGetResponse` instead of `serde_json::Value`.
+  `CopyResponse` and `PartialObject` are re-exported.
 - **BREAKING** The calendars crates move from draft-ietf-jmap-calendars-26
   to draft-ietf-jmap-calendars-33. **jmap-calendars-types**:
   `PrincipalCalendarsCapability::calendar_address` is `Option<String>`,

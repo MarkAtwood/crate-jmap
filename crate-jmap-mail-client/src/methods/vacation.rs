@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
-use super::{GetResponse, SetResponse};
+use super::{GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
     /// Fetch the VacationResponse singleton for the account (RFC 8621 §8).
@@ -117,6 +117,9 @@ impl super::SessionClient {
     /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
     /// `stateMismatch` unless its current state matches.
     ///
+    /// Each `updated` value is a [`PartialObject`] holding only the
+    /// properties the server changed beyond the patch (RFC 8620 §5.3).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -134,7 +137,7 @@ impl super::SessionClient {
         &self,
         update: Option<BTreeMap<Id, PatchObject>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse<jmap_mail_types::VacationResponse>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,

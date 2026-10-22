@@ -1,7 +1,8 @@
 //! RFC 8621 §5 SearchSnippet object.
 //!
 //! Provides [`SearchSnippet`] — a highlighted text excerpt returned by
-//! `SearchSnippet/get` for each matched [`crate::Email`].
+//! `SearchSnippet/get` for each matched [`crate::Email`] — and
+//! [`SearchSnippetGetResponse`], the `SearchSnippet/get` response.
 
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
@@ -49,6 +50,29 @@ impl SearchSnippet {
     }
 }
 
+/// RFC 8621 §5.1 — `SearchSnippet/get` response.
+///
+/// Not a standard RFC 8620 §5.1 `/get` response: there is no `state`, and
+/// `notFound` is `Id[]|null`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchSnippetGetResponse {
+    /// The account used for the call.
+    pub account_id: Id,
+    /// One snippet per requested Email id, in no particular order.
+    pub list: Vec<SearchSnippet>,
+    /// Requested Email ids the server could not find, or `None` if all
+    /// were found.
+    pub not_found: Option<Vec<Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -75,5 +99,51 @@ mod tests {
         );
         let back = serde_json::to_value(&snip).unwrap();
         assert_eq!(back["acmeCorpRelevanceScore"], 0.87);
+    }
+
+    /// Oracle: the RFC 8621 §5.2 example response (page 71), with the
+    /// line break inside the second preview joined and the third snippet,
+    /// which the RFC cuts off with `...`, left out.
+    #[test]
+    fn search_snippet_get_response_parses_rfc8621_example() {
+        let raw = json!({
+            "accountId": "ue150411c",
+            "list": [{
+                "emailId": "M44200ec123de277c0c1ce69c",
+                "subject": null,
+                "preview": null
+            }, {
+                "emailId": "M7bcbcb0b58d7729686e83d99",
+                "subject": "The <mark>Foo</mark>sball competition",
+                "preview": "...year the <mark>foo</mark>sball competition will be held in the Stadium de ..."
+            }],
+            "notFound": null
+        });
+        let resp: SearchSnippetGetResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(resp.account_id.as_ref(), "ue150411c");
+        assert_eq!(resp.list.len(), 2);
+        assert_eq!(resp.list[0].subject, None);
+        assert_eq!(
+            resp.list[1].subject.as_deref(),
+            Some("The <mark>Foo</mark>sball competition")
+        );
+        assert_eq!(resp.not_found, None);
+        assert!(resp.extra.is_empty());
+    }
+
+    /// RFC 8621 §5.1: `notFound` lists requested ids that were not found;
+    /// unknown response properties land in `extra`.
+    #[test]
+    fn search_snippet_get_response_not_found_and_extras() {
+        let raw = json!({
+            "accountId": "A1",
+            "list": [],
+            "notFound": ["M9"],
+            "filter": { "text": "foo" }
+        });
+        let resp: SearchSnippetGetResponse = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(resp.not_found, Some(vec![Id::from("M9")]));
+        assert_eq!(resp.extra["filter"], json!({ "text": "foo" }));
+        assert_eq!(serde_json::to_value(&resp).unwrap(), raw);
     }
 }

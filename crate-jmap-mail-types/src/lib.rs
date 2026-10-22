@@ -85,7 +85,7 @@ pub use query::{
     ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter,
     Filter, FilterOperator, MailboxFilter, Operator,
 };
-pub use snippet::SearchSnippet;
+pub use snippet::{SearchSnippet, SearchSnippetGetResponse};
 pub use submission::{
     Address, Delivered, DeliveryStatus, Displayed, EmailSubmission, EmailSubmissionFilterCondition,
     Envelope, UndoStatus,

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
-use super::{ChangesResponse, GetResponse, SetResponse};
+use super::{ChangesResponse, GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
     /// Fetch Identity objects by IDs (RFC 8621 §6.1 — Identity/get).
@@ -122,6 +122,10 @@ impl super::SessionClient {
     /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
     /// `stateMismatch` unless its current state matches.
     ///
+    /// Each `created` / `updated` value is a [`PartialObject`]: RFC 8620 §5.3
+    /// returns only the properties the client did not send (the server-set
+    /// `id`, plus any property the server defaulted).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -141,7 +145,7 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
-    ) -> Result<SetResponse<jmap_mail_types::Identity>, jmap_base_client::ClientError> {
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "identity_set: at least one of create, update, destroy must be Some \
