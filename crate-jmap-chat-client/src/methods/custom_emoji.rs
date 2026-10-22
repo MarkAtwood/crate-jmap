@@ -3,7 +3,7 @@
 //! Spec: JMAP Chat draft §4.16 (CustomEmoji/get, /changes, /set, /query, /queryChanges)
 //! Capability: urn:ietf:params:jmap:chat
 
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{

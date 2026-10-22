@@ -87,8 +87,9 @@ const REDACTED: &str = "[REDACTED]";
 /// A state change push notification (RFC 8620 §7.1).
 ///
 /// Sent by the server over SSE, WebSocket, or to a [`PushSubscription`] URL.
-/// The wire form always carries `"@type": "StateChange"`; see the
-/// [module docs](self) for how the discriminant is handled.
+/// The wire form always carries `"@type": "StateChange"` (RFC 8620 §7.1):
+/// serialize always emits it; deserialize rejects any other value, accepts
+/// its absence and never leaves it in `extra`.
 ///
 /// # `extra` equality is feature-flag-dependent (bd:JMAP-6r7c.43)
 ///
@@ -237,8 +238,9 @@ impl fmt::Debug for PushKeys {
 
 /// The object pushed to a new subscription's URL (RFC 8620 §7.2.2).
 ///
-/// The wire form always carries `"@type": "PushVerification"`; see the
-/// [module docs](self) for how the discriminant is handled. The `Debug` impl
+/// The wire form always carries `"@type": "PushVerification"` (RFC 8620
+/// §7.2.2): serialize always emits it; deserialize rejects any other value,
+/// accepts its absence and never leaves it in `extra`. The `Debug` impl
 /// redacts `verificationCode`.
 #[non_exhaustive]
 #[derive(Clone, PartialEq, Eq)]

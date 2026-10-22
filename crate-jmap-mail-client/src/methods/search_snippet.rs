@@ -15,7 +15,7 @@
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
 use jmap_mail_types::SearchSnippetGetResponse;
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use jmap_types::Id;
 use serde::Serialize;
 

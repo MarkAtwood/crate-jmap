@@ -16,7 +16,7 @@ use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, set_update_response,
     MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, TEST_ACCOUNT_ID,
 };
-use jmap_types::query::{Filter, FilterOperator, Operator};
+use jmap_types::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::MockServer;

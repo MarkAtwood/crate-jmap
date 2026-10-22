@@ -11,7 +11,7 @@ mod helpers;
 
 use jmap_mail_client::EmailCopyParams;
 use jmap_mail_types::EmailFilterCondition;
-use jmap_types::{query::Filter, Id};
+use jmap_types::{Filter, Id};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

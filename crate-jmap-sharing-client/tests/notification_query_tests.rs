@@ -8,7 +8,7 @@
 mod common;
 
 use jmap_sharing_types::{ShareNotificationFilter, ShareNotificationFilterCondition};
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use jmap_types::State;
 use serde_json::json;
 use wiremock::matchers::{method, path};

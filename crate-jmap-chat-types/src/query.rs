@@ -3,7 +3,7 @@
 //! §Message/query, §Space/query, §CustomEmoji/query; RFC 8620 §5.5).
 //!
 //! The generic [`Filter`], [`FilterOperator`], and [`Operator`] types are
-//! re-exported from `jmap-types::query`.
+//! re-exported from `jmap-types`.
 //!
 //! # Excluded from extras preservation
 //!
@@ -41,7 +41,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ChatKind, Presence};
 
-pub use jmap_types::query::{Filter, FilterOperator, Operator};
+pub use jmap_types::{Filter, FilterOperator, Operator};
 
 /// Filter for `ChatContact/query`.
 pub type ChatContactFilter = Filter<ChatContactFilterCondition>;

@@ -152,13 +152,13 @@ pub struct ShareNotificationFilterCondition {
 
 /// Concrete filter type for ShareNotification/query (RFC 9670 §6.2).
 ///
-/// Alias for `jmap_types::query::Filter<ShareNotificationFilterCondition>`
+/// Alias for `jmap_types::Filter<ShareNotificationFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.
 /// Mirrors the canonical [`jmap_mail_types::EmailFilter`] shape from the
 /// workspace canonical extension-types template.
 ///
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
-pub type ShareNotificationFilter = jmap_types::query::Filter<ShareNotificationFilterCondition>;
+pub type ShareNotificationFilter = jmap_types::Filter<ShareNotificationFilterCondition>;
 
 /// The property to sort by in a [`ShareNotificationComparator`]
 /// (RFC 9670 §3.4.2: "The "created" property MUST be supported for

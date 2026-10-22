@@ -14,7 +14,7 @@
 mod helpers;
 
 use jmap_calendars_types::{NotificationFilter, NotificationFilterCondition, NotificationType};
-use jmap_types::query::{Filter, FilterOperator, Operator};
+use jmap_types::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::matchers::{method, path};

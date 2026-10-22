@@ -8,7 +8,7 @@ mod helpers;
 
 use std::collections::BTreeMap;
 
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use jmap_vtc_types::RecordingState;
 use jmap_vtc_types::{VtcMediaComparator, VtcMediaSortProperty, VtcRecordingFilterCondition};
 use serde_json::json;

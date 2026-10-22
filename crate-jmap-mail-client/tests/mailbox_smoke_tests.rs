@@ -17,7 +17,7 @@ mod helpers;
 use jmap_mail_client::MailboxSetParams;
 use jmap_mail_types::MailboxFilter;
 use jmap_mail_types::{MailboxFilterCondition, MailboxRole};
-use jmap_types::query::{Filter, FilterOperator, Operator};
+use jmap_types::{Filter, FilterOperator, Operator};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

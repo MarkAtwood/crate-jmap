@@ -16,14 +16,14 @@ pub mod scene_region;
 
 use std::collections::BTreeMap;
 
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use serde::{de::DeserializeOwned, Serialize};
 
 // ---------------------------------------------------------------------------
 // Response types (RFC 8620 §5)
 // ---------------------------------------------------------------------------
 //
-// Re-exported from `jmap-types::methods` so all `jmap-*-client` crates share
+// Re-exported from `jmap-types` so all `jmap-*-client` crates share
 // one canonical set of /get, /set, /changes, /query, /queryChanges shapes.
 
 pub use jmap_types::{

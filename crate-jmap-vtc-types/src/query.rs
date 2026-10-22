@@ -31,7 +31,7 @@ use crate::{
     CallRole, CallState, CallType, JoinMethod, LivestreamState, LobbyState, RecordingState,
 };
 
-pub use jmap_types::query::{Filter, FilterOperator, Operator};
+pub use jmap_types::{Filter, FilterOperator, Operator};
 
 /// Filter for `VTCCall/query`.
 pub type VtcCallFilter = Filter<VtcCallFilterCondition>;

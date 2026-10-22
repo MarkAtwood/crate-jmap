@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use jmap_tasks_types::TaskComparator;
-use jmap_types::{query::Filter, Id, PatchObject, State};
+use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{

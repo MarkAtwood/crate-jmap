@@ -255,13 +255,13 @@ pub struct NotificationFilterCondition {
 /// Concrete filter type for CalendarEventNotification/query
 /// (draft-ietf-jmap-calendars-33 §6).
 ///
-/// Alias for `jmap_types::query::Filter<NotificationFilterCondition>`
+/// Alias for `jmap_types::Filter<NotificationFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.
 /// Mirrors the canonical [`jmap_mail_types::EmailFilter`] shape from the
 /// workspace canonical extension-types template.
 ///
 /// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
-pub type NotificationFilter = jmap_types::query::Filter<NotificationFilterCondition>;
+pub type NotificationFilter = jmap_types::Filter<NotificationFilterCondition>;
 
 /// The property to sort by in a [`CalendarEventNotificationComparator`]
 /// (draft-ietf-jmap-calendars-33 §7.4.2: "The "created" property MUST be

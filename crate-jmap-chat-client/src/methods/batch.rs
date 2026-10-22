@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use jmap_types::{Invocation, JmapRequest, JmapResponse, ResultReference};
 
-use jmap_types::query::Filter;
+use jmap_types::Filter;
 use serde::Serialize;
 
 use super::{GetResponse, QueryResponse};
