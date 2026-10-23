@@ -1401,6 +1401,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**, **jmap-filenode-server**: the `MailBackend` and
+  `FileNodeBackend` trait docs gain a "Permission enforcement (backend
+  canonical)" section (bd JMAP-510h.44). It names `principal_id` as the only
+  identity seam and maps each write to the RFC 8621 §2 or
+  draft-ietf-jmap-filenode-16 `myRights` it needs. It also states that
+  handlers do no authorization, so a backend that follows the rustdoc alone
+  enforces ACLs. Docs only; no API change.
 - **workspace**: every crate moves to Rust edition 2024 (bd JMAP-i3cz),
   unlocking let-chains. MSRV stays 1.91 (edition 2024 needs 1.85), and the
   public API is unchanged. The source was migrated with
