@@ -134,6 +134,7 @@ async fn changes_omit_invites_hidden_from_caller() {
         let HandlerOutput { primary: set, .. } = handle_invite_set(
             &backend,
             &Id::from("owner"),
+            &std::collections::BTreeMap::new(),
             json!({ "accountId": ACCOUNT_ID, "create": { "i0": { "spaceId": SPACE_ID } } }),
         )
         .await

@@ -35,7 +35,7 @@ use serde_json::{Value, json};
 use crate::chat::record_unread_count_changes;
 use crate::outbound::{OutboundEvent, ReactionAction};
 use crate::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use subtle::ConstantTimeEq;
 
 use crate::helpers::{PropType, mistyped_create_props};
@@ -44,6 +44,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, iso8601_before, not_found_json,
     now_utc_string, optional_arg, reject_unsupported_sort, serialize_value, set_error_value,
 };
+use crate::helpers::{parents_first, resolved_create};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, filter_arg, is_client_updatable,
     query_anchor_args, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
@@ -1013,6 +1014,10 @@ async fn shares_receipts<B: ChatBackend>(
     }
 }
 
+/// The Message create properties that hold the id of another record, which a
+/// client may set to a `#creationId` reference (RFC 8620 §5.3).
+const MESSAGE_ID_PROPERTIES: &[&str] = &["chatId", "replyTo", "threadRootId"];
+
 /// Handle a `Message/set` method call (draft-atwood-jmap-chat-00 §Message).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -1028,9 +1033,17 @@ async fn shares_receipts<B: ChatBackend>(
 ///   are server-set and rejected in updates.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `chatId`, `replyTo` or `threadRootId` that is a `#creationId`
+/// reference names a record created earlier in the request and resolves
+/// against `created_ids` (pass [`jmap_server::CallContext::created_ids`]) or
+/// against a create of this call, which runs replied-to messages first (RFC
+/// 8620 §5.3). An unknown reference is `invalidProperties` naming the
+/// property.
 pub async fn handle_message_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -1064,7 +1077,18 @@ pub async fn handle_message_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         let mut delivered_chat_ids: Vec<Id> = Vec::new();
-        for (create_id, obj_val) in create_map {
+        // RFC 8620 §5.3: creates of this call join the request-wide map so
+        // later creates in this call can reference them.
+        let mut created_ids = created_ids.clone();
+        for (create_id, obj_val) in parents_first(create_map, &["replyTo", "threadRootId"]) {
+            let resolved = match resolved_create(obj_val, MESSAGE_ID_PROPERTIES, &created_ids) {
+                Ok(v) => v,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    continue;
+                }
+            };
+            let obj_val = &resolved;
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Message>) {
                 not_created.insert(create_id.clone(), set_error_value(&err));
                 continue;
@@ -1530,8 +1554,9 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .create_object::<Message, _>(caller, &account_id, create_id, build)
                 .await
             {
-                Ok((_server_id, created_obj)) => {
+                Ok((server_id, created_obj)) => {
                     mutated = true;
+                    created_ids.insert(Id::from(create_id.as_str()), server_id);
                     delivered_chat_ids.push(created_obj.chat_id.clone());
                     // draft-atwood-jmap-chat-00 §Message/set: the server
                     // sets the server-assigned fields "then enqueues the
@@ -2220,6 +2245,7 @@ mod tests {
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": {
@@ -2261,6 +2287,7 @@ mod tests {
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": {
@@ -2293,6 +2320,7 @@ mod tests {
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": {
@@ -2333,6 +2361,7 @@ mod tests {
         let HandlerOutput { primary: resp, .. } = crate::chat::handle_chat_set(
             backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": { "c0": { "kind": "group", "name": "test-group" } }
@@ -2412,6 +2441,7 @@ mod tests {
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": {
@@ -2448,6 +2478,7 @@ mod tests {
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": {
@@ -2482,6 +2513,7 @@ mod tests {
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": {
@@ -2520,6 +2552,7 @@ mod tests {
         } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": {
@@ -2548,6 +2581,7 @@ mod tests {
         } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "update": {

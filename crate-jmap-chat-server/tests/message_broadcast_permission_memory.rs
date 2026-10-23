@@ -76,9 +76,10 @@ async fn message_set(backend: &MemoryBackend, body: Value) -> Value {
         unreachable!("both are object literals");
     };
     args_map.extend(body_map);
-    let HandlerOutput { primary: resp, .. } = handle_message_set(backend, &(), args)
-        .await
-        .expect("Message/set");
+    let HandlerOutput { primary: resp, .. } =
+        handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("Message/set");
     resp
 }
 

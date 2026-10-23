@@ -41,6 +41,7 @@ async fn update(backend: &MemoryBackend, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { CHAT: patch } }),
     )
     .await

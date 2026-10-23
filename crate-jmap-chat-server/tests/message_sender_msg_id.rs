@@ -40,6 +40,7 @@ async fn create_m1(backend: &MemoryBackend) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m1": {

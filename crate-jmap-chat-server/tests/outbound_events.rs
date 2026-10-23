@@ -174,6 +174,7 @@ async fn message_update(backend: &MemoryBackend, id: &str, patch: Value) -> Valu
     let HandlerOutput { primary, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
     )
     .await
@@ -185,7 +186,9 @@ async fn chat_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
-        handle_chat_set(backend, &(), args).await.expect("Chat/set");
+        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("Chat/set");
     primary
 }
 
@@ -538,6 +541,7 @@ async fn create_reports_one_new_message() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c": {
@@ -589,6 +593,7 @@ async fn rejected_create_reports_nothing() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c": {

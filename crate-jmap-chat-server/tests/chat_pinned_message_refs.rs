@@ -56,6 +56,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str, extra: Value) ->
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": msg } }),
     )
     .await
@@ -69,7 +70,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str, extra: Value) ->
 async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
-    handle_message_set(backend, &(), args)
+    handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
         .await
         .expect("Message/set")
         .primary
@@ -79,6 +80,7 @@ async fn set_pins(backend: &MemoryBackend, pins: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { CHAT: { "pinnedMessageIds": pins } },

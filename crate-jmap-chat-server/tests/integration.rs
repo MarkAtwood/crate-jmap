@@ -187,6 +187,7 @@ async fn chat_set_create_group() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -209,6 +210,7 @@ async fn chat_set_create_direct_with_contact_id() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -230,6 +232,7 @@ async fn chat_set_create_direct_missing_contact_id() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -256,6 +259,7 @@ async fn chat_set_create_channel_missing_space_id() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -277,6 +281,7 @@ async fn chat_set_create_missing_kind() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -306,6 +311,7 @@ async fn chat_set_create_unknown_kind_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -362,6 +368,7 @@ async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &chat_id: patch }
@@ -411,6 +418,7 @@ async fn chat_set_update_readonly_field_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -438,6 +446,7 @@ async fn chat_set_destroy() {
     } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [chat_id] }),
     )
     .await
@@ -454,6 +463,7 @@ async fn chat_set_if_in_state_mismatch() {
     let err = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "ifInState": "999",
@@ -509,6 +519,7 @@ async fn chat_changes_after_create() {
     handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "group", "name": "G" } }
@@ -556,6 +567,7 @@ async fn chat_query_with_calculate_total() {
     handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group", "name": "G" } } }),
     )
     .await
@@ -597,6 +609,7 @@ async fn chat_query_changes_after_create() {
     handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group", "name": "G" } } }),
     )
     .await
@@ -636,6 +649,7 @@ async fn chat_query_changes_reports_updated_id_in_removed_and_added() {
     let HandlerOutput { primary: upd, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &chat_id: { "name": "Renamed" } }
@@ -1097,6 +1111,7 @@ async fn message_set_create_missing_chat_id() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "body": "Hello" } }
@@ -1120,6 +1135,7 @@ async fn message_set_create_success() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -1147,6 +1163,7 @@ async fn message_set_update_readonly_field() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -1159,6 +1176,7 @@ async fn message_set_update_readonly_field() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -1179,9 +1197,7 @@ async fn message_get_returns_created() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
 
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "Test body", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -1217,6 +1233,7 @@ async fn message_changes_after_create() {
     handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "Hi", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -1243,9 +1260,7 @@ async fn message_query_order() {
     common::seed_group_chat(&backend, "c1");
 
     for i in 0..3u32 {
-        handle_message_set(
-            &backend,
-            &(),
+        handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": { format!("m{i}"): { "chatId": "c1", "body": format!("msg {i}"), "sentAt": "2024-01-01T00:00:00Z" } }
@@ -1274,9 +1289,7 @@ async fn message_set_update_body_injects_edited_at() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
 
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -1295,6 +1308,7 @@ async fn message_set_update_body_injects_edited_at() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "body": "edited" } }
@@ -1328,9 +1342,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
 
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "hello", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -1349,6 +1361,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "deletedForAll": true } }
@@ -1428,6 +1441,7 @@ async fn message_set_update_delete_for_all_purges_content() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedForAll": true } }
@@ -1518,6 +1532,7 @@ async fn message_set_update_local_delete_purges_content() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedAt": "2024-01-03T00:00:00Z" } }
@@ -1564,6 +1579,7 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedForAll": true } }
@@ -1607,6 +1623,7 @@ async fn message_set_update_edit_rejects_other_sender() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "body": "rewritten", "bodyType": "text/plain" } }
@@ -1647,6 +1664,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedAt": "2024-01-03T00:00:00Z" } }
@@ -1662,6 +1680,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -1692,9 +1711,7 @@ async fn message_set_update_mark_as_read() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
 
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "read me", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -1714,6 +1731,7 @@ async fn message_set_update_mark_as_read() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": read_ts } }
@@ -1744,9 +1762,7 @@ async fn message_set_update_mark_as_read() {
 async fn message_set_read_at_defaults_disposition() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -1754,9 +1770,7 @@ async fn message_set_read_at_defaults_disposition() {
         .expect("id")
         .to_owned();
 
-    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z" } } }),
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
@@ -1784,9 +1798,7 @@ async fn message_set_read_at_defaults_disposition() {
 async fn message_set_explicit_disposition_preserved() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -1794,9 +1806,7 @@ async fn message_set_explicit_disposition_preserved() {
         .expect("id")
         .to_owned();
 
-    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "deleted" } } }),
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
@@ -1823,9 +1833,7 @@ async fn message_set_explicit_disposition_preserved() {
 async fn message_set_extension_disposition_stored_as_is() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -1833,9 +1841,7 @@ async fn message_set_extension_disposition_stored_as_is() {
         .expect("id")
         .to_owned();
 
-    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "voice-listened" } } }),
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
@@ -1862,9 +1868,7 @@ async fn message_set_extension_disposition_stored_as_is() {
 async fn message_set_no_read_at_no_disposition_injected() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -1872,9 +1876,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
         .expect("id")
         .to_owned();
 
-    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "body": "edited text" } } }),
     )
     .await
@@ -1909,9 +1911,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
 async fn message_set_lone_read_disposition_is_invalid_properties() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -1929,6 +1929,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
         } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
         )
         .await
@@ -1963,9 +1964,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
 async fn message_set_unsupported_body_type_is_invalid_properties() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": {
             "bad": { "chatId": "c1", "body": "hi", "bodyType": "text/html", "sentAt": "2026-01-01T00:00:00Z" },
             "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" }
@@ -1982,9 +1981,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
         .expect("id")
         .to_owned();
 
-    let HandlerOutput { primary: update_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "bodyType": "text/html" } } }),
     )
     .await
@@ -2015,9 +2012,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
 async fn message_set_read_at_null_clears_read_disposition() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -2040,6 +2035,7 @@ async fn message_set_read_at_null_clears_read_disposition() {
         } = handle_message_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
         )
         .await
@@ -2082,6 +2078,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2115,6 +2112,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
@@ -2181,6 +2179,7 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2207,6 +2206,7 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "body": "edited body" } }
@@ -2245,6 +2245,7 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2270,6 +2271,7 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
@@ -2326,6 +2328,7 @@ async fn message_set_burn_on_read_spares_senders_own_copy() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "own": { "readAt": "2024-01-02T00:00:00Z" } }
@@ -2362,6 +2365,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2390,6 +2394,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": serde_json::Value::Null } }
@@ -2428,6 +2433,7 @@ async fn memory_backend_expire_message_direct_call() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2558,6 +2564,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2585,6 +2592,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
@@ -2662,6 +2670,7 @@ async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_displ
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2719,6 +2728,7 @@ async fn chat_set_direct_recheck_read_failure_rolls_back_create() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -2783,6 +2793,7 @@ async fn chat_set_direct_recheck_and_rollback_failure_advances_state() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
@@ -2839,6 +2850,7 @@ async fn chat_set_direct_lost_race_new_state_matches_get() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
@@ -2893,6 +2905,7 @@ async fn chat_set_direct_lost_race_cleanup_failure_new_state_matches_get() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
@@ -3121,6 +3134,7 @@ async fn message_set_create_no_slow_mode_on_memory_backend() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3164,6 +3178,7 @@ async fn message_set_create_slow_mode_rejects_with_retry_after() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3212,6 +3227,7 @@ async fn message_set_create_tracking_backend_default_allows() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3246,6 +3262,7 @@ async fn message_set_create_slow_mode_skipped_when_validation_fails() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3279,9 +3296,7 @@ async fn message_set_create_with_reply_to() {
     common::seed_group_chat(&backend, "c1");
 
     // Create the message that will be replied to.
-    let HandlerOutput { primary: first_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: first_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -3298,6 +3313,7 @@ async fn message_set_create_with_reply_to() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3336,6 +3352,7 @@ async fn message_set_create_with_malformed_expiry_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3373,6 +3390,7 @@ async fn message_set_create_with_past_expiry_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3413,6 +3431,7 @@ async fn message_set_past_expiry_set_error_matches_draft() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3448,6 +3467,7 @@ async fn message_set_create_with_malformed_sent_at_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3489,6 +3509,7 @@ async fn position_set_create_with_malformed_last_read_at_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -3521,9 +3542,7 @@ async fn position_set_create_with_malformed_last_read_at_rejected() {
 async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
     let backend = MemoryBackend::new();
     common::seed_group_chat(&backend, "c1");
-    let HandlerOutput { primary: create_resp, .. } = handle_message_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "react to me", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -3542,6 +3561,7 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3592,6 +3612,7 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -3610,6 +3631,7 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3674,6 +3696,7 @@ async fn message_set_update_reaction_remove_others_rejected_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3749,6 +3772,7 @@ async fn message_set_update_reaction_modify_others_rejected_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3775,6 +3799,7 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -3793,6 +3818,7 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3819,6 +3845,7 @@ async fn message_set_update_reaction_non_object_value_rejected() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -3837,6 +3864,7 @@ async fn message_set_update_reaction_non_object_value_rejected() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3862,6 +3890,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -3880,6 +3909,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3898,6 +3928,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -3939,6 +3970,7 @@ async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -3957,6 +3989,7 @@ async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
     } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6687,6 +6720,7 @@ async fn position_set_create_missing_chat_id() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "rp0": { "lastReadMessageId": "m1" } }
@@ -6709,6 +6743,7 @@ async fn position_set_create_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "rp0": { "chatId": "c1" } }
@@ -6733,6 +6768,7 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     let HandlerOutput { primary: first, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "rp0": { "chatId": "c1" } }
@@ -6747,6 +6783,7 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "rp1": { "chatId": "c1" } }
@@ -6777,6 +6814,7 @@ async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -6815,6 +6853,7 @@ async fn position_set_update_chat_id_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { rp_id: { "chatId": "c2" } }
@@ -6880,6 +6919,7 @@ async fn chat_set_backend_error_maps_to_server_fail() {
     let err = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group" } } }),
     )
     .await
@@ -6901,6 +6941,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
     let HandlerOutput { primary: resp1, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -6923,6 +6964,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
     let HandlerOutput { primary: resp2, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -6952,6 +6994,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
     let HandlerOutput { primary: resp1, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "u1" } }
@@ -6964,6 +7007,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
     let HandlerOutput { primary: resp2, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "c1": { "kind": "direct", "contactId": "u2" } }
@@ -6991,9 +7035,7 @@ async fn accounts_are_isolated() {
     backend.register_account(&a1);
     backend.register_account(&a2);
 
-    handle_chat_set(
-        &backend,
-        &(),
+    handle_chat_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group", "name": "A's group" } } }),
     )
     .await
@@ -7080,6 +7122,7 @@ async fn invite_set_create_missing_space_id() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "i0": { "maxUses": 5 } }
@@ -7103,6 +7146,7 @@ async fn invite_set_create_with_malformed_expiry_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -7131,6 +7175,7 @@ async fn invite_set_create_success() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "i0": { "spaceId": "s1" } }
@@ -7159,6 +7204,7 @@ async fn invite_set_update_forbidden() {
     } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "i0": { "spaceId": "s1" } } }),
     )
     .await
@@ -7172,6 +7218,7 @@ async fn invite_set_update_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &invite_id: { "maxUses": 99 } }
@@ -7201,6 +7248,7 @@ async fn invite_get_returns_created() {
     } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "i0": { "spaceId": "s2", "maxUses": 10 } } }),
     )
     .await
@@ -7263,6 +7311,7 @@ async fn emoji_set_create_missing_name() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "blobId": "b1" } }
@@ -7287,6 +7336,7 @@ async fn emoji_set_create_invalid_name() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "name": "UPPERCASE!", "blobId": "b1" } }
@@ -7312,6 +7362,7 @@ async fn emoji_set_create_success() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "name": "party-blob_2", "blobId": "b1" } }
@@ -7338,6 +7389,7 @@ async fn emoji_get_returns_created() {
     } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "name": "rocket", "blobId": "b99" } }
@@ -7382,6 +7434,7 @@ async fn emoji_set_create_server_global_no_authz_block() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "name": "smile", "blobId": "b1" } }
@@ -7412,6 +7465,7 @@ async fn emoji_set_create_space_scoped_no_authz_block() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -7440,6 +7494,7 @@ async fn emoji_set_create_authz_denied_returns_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "name": "blocked", "blobId": "b1" } }
@@ -7490,6 +7545,7 @@ async fn emoji_set_update_authz_denied_returns_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "emoji1": { "name": "renamed" } }
@@ -7531,6 +7587,7 @@ async fn emoji_set_destroy_authz_denied_returns_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "destroy": ["emoji1"]
@@ -7566,6 +7623,7 @@ async fn emoji_set_update_missing_id_does_not_consult_gate() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "ghost": { "name": "ghost" } }
@@ -7615,6 +7673,7 @@ async fn ban_set_create_missing_space_id() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b0": { "userId": "u2" } }
@@ -7638,6 +7697,7 @@ async fn ban_set_create_with_malformed_expiry_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -7670,6 +7730,7 @@ async fn ban_set_create_missing_user_id() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b0": { "spaceId": "s1" } }
@@ -7692,6 +7753,7 @@ async fn ban_set_create_success() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b0": { "spaceId": "s1", "userId": "u2" } }
@@ -7719,6 +7781,7 @@ async fn ban_get_returns_created() {
     } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b0": { "spaceId": "s1", "userId": "u3", "reason": "spam" } }
@@ -8031,6 +8094,7 @@ async fn space_join_via_invite_code_success() {
     } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "i0": { "spaceId": space_id } }
@@ -8143,6 +8207,7 @@ async fn space_join_invite_code_from_other_account_not_found() {
     } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "a1",
             "create": { "i0": { "spaceId": space_id } }
@@ -8298,6 +8363,7 @@ async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "b0": ban } }),
     )
     .await
@@ -8363,6 +8429,7 @@ async fn space_join_via_invite_banned_forbidden() {
     } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "i0": { "spaceId": space_id } }
@@ -8450,6 +8517,7 @@ async fn message_set_create_body_too_large() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": long_body } }
@@ -8473,6 +8541,7 @@ async fn emoji_set_create_name_too_long() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "name": long_name, "blobId": "b1" } }
@@ -8520,6 +8589,7 @@ async fn invite_set_create_max_uses_zero() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "i0": { "spaceId": "s1", "maxUses": 0 } }
@@ -8544,6 +8614,7 @@ async fn ban_set_create_reason_too_long() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b0": { "spaceId": "s1", "userId": "u1", "reason": long_reason } }

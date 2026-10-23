@@ -121,6 +121,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m": {
@@ -492,6 +493,7 @@ async fn create_broadcast_message(backend: &MemoryBackend) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m": {

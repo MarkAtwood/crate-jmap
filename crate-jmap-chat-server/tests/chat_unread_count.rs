@@ -144,6 +144,7 @@ async fn set_last_read(backend: &MemoryBackend, rp: &str, patch: Value) -> Value
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { rp: patch } }),
     )
     .await
@@ -291,6 +292,7 @@ async fn chat_destroy_destroys_its_read_position() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["g"] }),
     )
     .await
@@ -457,9 +459,10 @@ async fn chats_updated_since(backend: &MemoryBackend, since: &str) -> Vec<Value>
 async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
-    let HandlerOutput { primary: resp, .. } = handle_message_set(backend, &(), args)
-        .await
-        .expect("Message/set");
+    let HandlerOutput { primary: resp, .. } =
+        handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("Message/set");
     resp
 }
 

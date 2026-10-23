@@ -42,6 +42,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
     )
     .await
@@ -79,6 +80,7 @@ async fn created_message_sender_id_is_account_id() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }

@@ -21,6 +21,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m": {
@@ -65,6 +66,7 @@ async fn create_in_existing_chat_still_succeeds() {
     let HandlerOutput { primary: chat, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }

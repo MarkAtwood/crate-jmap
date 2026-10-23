@@ -56,9 +56,14 @@ async fn set(backend: &IdentityBackend, body: Value) -> Value {
         unreachable!("both are object literals");
     };
     args_map.extend(body_map);
-    let HandlerOutput { primary: resp, .. } = handle_invite_set(backend, &Id::from("owner"), args)
-        .await
-        .expect("SpaceInvite/set");
+    let HandlerOutput { primary: resp, .. } = handle_invite_set(
+        backend,
+        &Id::from("owner"),
+        &std::collections::BTreeMap::new(),
+        args,
+    )
+    .await
+    .expect("SpaceInvite/set");
     resp
 }
 

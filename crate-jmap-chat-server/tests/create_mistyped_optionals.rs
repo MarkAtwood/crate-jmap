@@ -35,6 +35,7 @@ async fn ban_rejects_non_string_reason_and_expires_at() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "spaceId": "s", "userId": "u", "reason": 42, "expiresAt": 5 })),
     )
     .await
@@ -48,6 +49,7 @@ async fn invite_rejects_negative_max_uses() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "spaceId": "s", "maxUses": -1 })),
     )
     .await
@@ -61,6 +63,7 @@ async fn invite_rejects_max_uses_above_unsigned_int_range() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "spaceId": "s", "maxUses": 9_007_199_254_740_992_u64 })),
     )
     .await
@@ -74,6 +77,7 @@ async fn invite_rejects_non_string_default_channel_and_expires_at() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "spaceId": "s", "defaultChannelId": 7, "expiresAt": true })),
     )
     .await
@@ -92,6 +96,7 @@ async fn invite_accepts_max_unsigned_int_max_uses() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "spaceId": space_id, "maxUses": 9_007_199_254_740_991_u64 })),
     )
     .await
@@ -146,6 +151,7 @@ async fn chat_rejects_mistyped_optionals() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({
             "kind": "group",
             "name": ["G"],
@@ -168,6 +174,7 @@ async fn chat_rejects_non_string_contact_and_space_ids() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "kind": "direct", "contactId": 3, "spaceId": false })),
     )
     .await
@@ -181,6 +188,7 @@ async fn message_rejects_mistyped_optionals() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({
             "chatId": "x",
             "body": "hi",
@@ -212,6 +220,7 @@ async fn emoji_rejects_non_string_space_id() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "name": "party", "blobId": "b", "spaceId": 9 })),
     )
     .await

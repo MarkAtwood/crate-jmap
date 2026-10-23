@@ -46,8 +46,16 @@ fn one_account_backend() -> (MemoryBackend, Id) {
     (backend, account_id)
 }
 
+/// The `ids` form calls a `/set` handler that takes `created_ids`, with
+/// an empty map.
 macro_rules! over_limit_test {
+    (ids $name:ident, $handler:ident, $shape:expr) => {
+        over_limit_test!(@ $name, $handler, $shape, [&std::collections::BTreeMap::new(),]);
+    };
     ($name:ident, $handler:ident, $shape:expr) => {
+        over_limit_test!(@ $name, $handler, $shape, []);
+    };
+    (@ $name:ident, $handler:ident, $shape:expr, [$($ids:tt)*]) => {
         #[tokio::test]
         async fn $name() {
             let (backend, account_id) = one_account_backend();
@@ -56,7 +64,7 @@ macro_rules! over_limit_test {
             for (k, v) in $shape {
                 args.insert(k.into(), v);
             }
-            let err = $handler(&backend, &(), Value::Object(args))
+            let err = $handler(&backend, &(), $($ids)* Value::Object(args))
                 .await
                 .expect_err(concat!(
                     "501-entry batch must trip maxObjectsInSet cap (",
@@ -71,13 +79,13 @@ macro_rules! over_limit_test {
 }
 
 over_limit_test!(
-    chat_set_over_limit,
+    ids chat_set_over_limit,
     handle_chat_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );
 
 over_limit_test!(
-    message_set_over_limit,
+    ids message_set_over_limit,
     handle_message_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );
@@ -89,7 +97,7 @@ over_limit_test!(
 );
 
 over_limit_test!(
-    position_set_over_limit,
+    ids position_set_over_limit,
     handle_position_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );
@@ -107,7 +115,7 @@ over_limit_test!(
 );
 
 over_limit_test!(
-    emoji_set_over_limit,
+    ids emoji_set_over_limit,
     handle_emoji_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );
@@ -116,13 +124,13 @@ over_limit_test!(
 // after consumption rather than re-created in bulk). Cap counts apply
 // uniformly across create/update/destroy.
 over_limit_test!(
-    invite_set_over_limit,
+    ids invite_set_over_limit,
     handle_invite_set,
     [("destroy", destroy_array_of_size(DEFAULT_CAP + 1))]
 );
 
 over_limit_test!(
-    ban_set_over_limit,
+    ids ban_set_over_limit,
     handle_ban_set,
     [("destroy", destroy_array_of_size(DEFAULT_CAP + 1))]
 );

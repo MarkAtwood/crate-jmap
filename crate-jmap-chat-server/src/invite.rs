@@ -24,12 +24,13 @@
 //! rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use jmap_chat_types::{Space, SpaceInvite};
 use jmap_types::{Id, JmapError, State, UTCDate};
 use serde_json::{Value, json};
 
+use crate::helpers::resolved_create;
 use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
@@ -215,9 +216,15 @@ pub async fn handle_invite_changes<B: ChatBackend>(
 /// for the invite's Space.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `spaceId` or `defaultChannelId` that is a `#creationId` reference
+/// names a record created earlier in the request and resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3); an unknown reference is `invalidProperties` naming the property.
 pub async fn handle_invite_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -250,6 +257,15 @@ pub async fn handle_invite_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            let resolved =
+                match resolved_create(obj_val, &["spaceId", "defaultChannelId"], created_ids) {
+                    Ok(v) => v,
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        continue;
+                    }
+                };
+            let obj_val = &resolved;
             if let Some(err) = obj_val
                 .as_object()
                 .and_then(reject_server_set::<SpaceInvite>)

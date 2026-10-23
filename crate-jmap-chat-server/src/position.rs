@@ -29,11 +29,14 @@
 //! rejections) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
+use std::collections::BTreeMap;
+
 use jmap_chat_types::ReadPosition;
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{Value, json};
 
 use crate::chat::record_unread_count_changes;
+use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
@@ -157,9 +160,14 @@ pub async fn handle_position_changes<B: ChatBackend>(
 /// - Every successful update sets `lastReadAt` to the current time.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `lastReadMessageId` that is a `#creationId` reference names a record created earlier in the request and resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3); an unknown reference is `invalidProperties` naming the property.
 pub async fn handle_position_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -205,7 +213,7 @@ pub async fn handle_position_set<B: ChatBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -213,6 +221,10 @@ pub async fn handle_position_set<B: ChatBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_refs(&mut patch_val, &["lastReadMessageId"], created_ids) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             // §ReadPosition: `id` and `lastReadAt` are server-set, `chatId`
             // is immutable.

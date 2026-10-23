@@ -53,6 +53,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
@@ -136,6 +137,7 @@ async fn create(backend: &MemoryBackend, obj: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": obj } }),
     )
     .await
@@ -397,6 +399,7 @@ async fn reply_destroy_lists_parent_updated() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [B] }),
     )
     .await
@@ -421,6 +424,7 @@ async fn read_position_update_lists_thread_root_updated() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { "rp1": { "lastReadMessageId": C } },

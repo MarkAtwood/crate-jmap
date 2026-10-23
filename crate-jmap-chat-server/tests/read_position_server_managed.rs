@@ -18,6 +18,7 @@ async fn create_group<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
@@ -35,6 +36,7 @@ async fn send<B: ChatBackend<CallerCtx = ()>>(backend: &B, chat_id: &str, key: &
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { key: { "chatId": chat_id, "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -108,6 +110,7 @@ async fn read_position_set_create_and_destroy_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "rp0": { "chatId": "c-other" } },

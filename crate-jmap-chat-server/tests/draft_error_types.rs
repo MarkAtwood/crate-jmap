@@ -19,6 +19,7 @@ async fn chat_set_create_channel_is_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -50,6 +51,7 @@ async fn message_set_create_over_long_body_is_too_large() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": {

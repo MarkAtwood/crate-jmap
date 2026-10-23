@@ -24,6 +24,7 @@ async fn create_as(backend: &IdentityBackend, caller: &str, create: Value) -> Va
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(caller),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "g": create } }),
     )
     .await

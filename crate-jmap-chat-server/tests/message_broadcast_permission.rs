@@ -59,6 +59,7 @@ async fn create_on<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": message } }),
     )
     .await
@@ -70,6 +71,7 @@ async fn update(backend: &TrackingBackend, msg_id: &str, patch: Value) -> Value 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id: patch } }),
     )
     .await
@@ -121,6 +123,7 @@ async fn edit_retaining_broadcast_mentions_is_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend.inner(),
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: {

@@ -93,6 +93,7 @@ async fn create_invite_as(backend: &IdentityBackend, caller: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         backend,
         &Id::from(caller),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "i": { "spaceId": SPACE_ID } } }),
     )
     .await
@@ -173,6 +174,7 @@ async fn closed_space_rejects_channel_message_create() {
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &Id::from("u-regular"),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": { "m": {

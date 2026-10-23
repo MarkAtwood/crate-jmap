@@ -27,6 +27,7 @@ async fn group_of_three(backend: &IdentityBackend) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(ACCOUNT_ID),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "Team", "memberIds": ["bob", "carol"] } },
@@ -69,6 +70,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(caller),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { chat_id: patch } }),
     )
     .await

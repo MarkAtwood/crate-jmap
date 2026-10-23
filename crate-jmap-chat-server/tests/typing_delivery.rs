@@ -216,6 +216,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": RECIPIENT,
             "update": { &channel_id: { "receiveTypingIndicators": false } }

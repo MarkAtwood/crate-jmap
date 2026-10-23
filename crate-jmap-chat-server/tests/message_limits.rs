@@ -33,6 +33,7 @@ async fn create_group<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
@@ -60,6 +61,7 @@ async fn create<B: ChatBackend<CallerCtx = ()>>(
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": obj } }),
     )
     .await
