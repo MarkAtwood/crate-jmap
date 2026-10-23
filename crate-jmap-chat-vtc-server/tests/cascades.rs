@@ -364,3 +364,79 @@ async fn space_ban_of_last_moderator_hands_on_the_role() {
     assert_eq!(role("P-owner"), "participant");
     assert_eq!(get_call(&backend, &call).await["state"], "active");
 }
+
+/// vtc L966 (jmap-chat-spec 6c38e2f): "When the last active participant
+/// leaves a ring or scheduled call, the server transitions the VTCCall to
+/// `"ended"` with `endReason: "completed"`, or `"cancelled"` if the call
+/// was still `"ringing"`." Here the banned initiator is the only joined
+/// participant of a ringing ring call; the callee never answered.
+#[tokio::test]
+async fn space_ban_of_ringing_initiator_cancels_ring_call() {
+    let backend = bound_with_space();
+    let mut call = active_space_call("C-ring", "ring");
+    call["state"] = json!("ringing");
+    call["initiatorId"] = json!(BOB);
+    call["scheduledStartAt"] = Value::Null;
+    backend.seed_vtc_object("VTCCall", call);
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-bob", "C-ring", BOB, json!("2026-01-01T00:00:00Z")),
+    );
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-alice", "C-ring", ALICE, Value::Null),
+    );
+
+    let events = eject_banned_user(
+        &backend.vtc,
+        &OWNER.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from(SPACE),
+        BOB,
+    )
+    .await
+    .expect("eject");
+
+    assert_eq!(events.len(), 1);
+    let call = get_call(&backend, "C-ring").await;
+    assert_eq!(call["state"], "ended");
+    assert_eq!(call["endReason"], "cancelled");
+}
+
+/// vtc L506 (jmap-chat-spec 6c38e2f): "For all call types, `"ended"` is a
+/// terminal state. The server MUST NOT transition a call out of
+/// `"ended"`." vtc L1663 applies the ban to "active calls", so a
+/// participant record left open in an ended call bound to the Space is
+/// not ejected, and the ban does not fail on it.
+#[tokio::test]
+async fn space_ban_skips_ended_calls() {
+    let backend = bound_with_space();
+    let mut call = active_space_call("C-done", "scheduled");
+    call["state"] = json!("ended");
+    call["endedAt"] = json!("2026-01-01T01:00:00Z");
+    call["endReason"] = json!("completed");
+    call["activeParticipantCount"] = json!(0);
+    backend.seed_vtc_object("VTCCall", call);
+    backend.seed_vtc_object(
+        "VTCParticipant",
+        participant("P-bob", "C-done", BOB, json!("2026-01-01T00:00:00Z")),
+    );
+    let before = vtc_state(&backend).await;
+
+    let events = eject_banned_user(
+        &backend.vtc,
+        &OWNER.to_owned(),
+        &Id::from(ACCOUNT),
+        &Id::from(SPACE),
+        BOB,
+    )
+    .await
+    .expect("eject");
+
+    assert!(events.is_empty());
+    assert_eq!(left_at(&backend, "P-bob").await, Value::Null);
+    assert_eq!(vtc_updated_since(&backend, &before).await, json!([]));
+    let call = get_call(&backend, "C-done").await;
+    assert_eq!(call["state"], "ended");
+    assert_eq!(call["endReason"], "completed");
+}
