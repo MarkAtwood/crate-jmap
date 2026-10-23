@@ -2507,6 +2507,12 @@ wire behaviour that a conforming peer can observe.
   `Category`, matching draft §Space/set `addCategories` ("optional
   `position` (UnsignedInt) and `channelIds` (String[])"). Backends no longer
   receive a placeholder `id`.
+- **BREAKING** **jmap-chat-types**, **jmap-chat-server**:
+  `SpacePatchOp::AddRole` now carries the new `RoleCreate` (`name`,
+  `permissions`, `position`, optional `color`) instead of `SpaceRole`,
+  matching draft §Space/set `addRoles` ("Server assigns ULIDs"). Backends
+  no longer receive a placeholder `id`; they mint the role id (bd
+  JMAP-liqs).
 
 - **BREAKING** **jmap-tasks-server**: `memory::MemoryError` is now
   `#[non_exhaustive]` and matches the canonical `jmap-mail-server` shape:

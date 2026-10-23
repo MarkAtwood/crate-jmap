@@ -177,7 +177,7 @@ pub use rich::{RichBody, Span, SpanType};
 pub use space::{Category, ChatPermission, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 pub use space_set::{
     CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch,
-    RolePatch, SpaceMetadataPatch, SpacePatchOp,
+    RoleCreate, RolePatch, SpaceMetadataPatch, SpacePatchOp,
 };
 pub use tasks::{
     JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY, TASK_CHAT_ID_PROPERTY, TaskMetadata,

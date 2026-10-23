@@ -8989,23 +8989,22 @@ async fn space_set_count_limits_create_only_unaffected() {
 #[tokio::test]
 async fn apply_space_patch_direct_call_enforces_roles_cap() {
     use jmap_chat_server::SpacePatchOp;
-    use jmap_chat_types::SpaceRole;
+    use jmap_chat_types::RoleCreate;
 
     let backend = MemoryBackend::new();
     // Tight cap: only 0 roles allowed.
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 1024, 1024, 1024)));
     let space_id = make_space(&backend, "Direct Caller Cap Test").await;
 
-    // Construct one AddRole op via JSON since SpaceRole is
+    // Construct one AddRole op via JSON since RoleCreate is
     // #[non_exhaustive]. Without the backend-canonical cap enforcement,
     // this op would land successfully.
-    let role: SpaceRole = serde_json::from_value(json!({
-        "id": "placeholder",
+    let role: RoleCreate = serde_json::from_value(json!({
         "name": "admin",
         "permissions": ["manage_space"],
         "position": 10
     }))
-    .expect("deserialize SpaceRole");
+    .expect("deserialize RoleCreate");
     let ops = vec![SpacePatchOp::AddRole(role)];
 
     let result = backend
@@ -9178,13 +9177,12 @@ async fn apply_space_patch_direct_call_overquota_description_does_not_leak_count
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
     let space_id = make_space(&backend, "Direct Leak Canary").await;
 
-    let role_to_add = serde_json::from_value::<jmap_chat_types::SpaceRole>(json!({
-        "id": "role-creation-1",
+    let role_to_add = serde_json::from_value::<jmap_chat_types::RoleCreate>(json!({
         "name": "Moderator",
         "permissions": [],
         "position": 1,
     }))
-    .expect("SpaceRole deserialize");
+    .expect("RoleCreate deserialize");
     let ops = vec![SpacePatchOp::AddRole(role_to_add)];
 
     let result = backend

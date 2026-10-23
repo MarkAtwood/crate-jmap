@@ -3502,12 +3502,17 @@ fn apply_add_role(
         _ => unreachable!("apply_add_role called with non-AddRole variant"),
     };
 
-    // Server-assign a fresh RoleId, replacing the placeholder `id` per the
-    // `SpacePatchOp::AddRole` doc comment (draft §Space/set `addRoles`:
-    // "Server assigns ULIDs"); see `create_object` for the uuid v4 ceiling.
+    // Mint a fresh RoleId (draft §Space/set `addRoles`: "Server assigns
+    // ULIDs"); see `create_object` for the uuid v4 ceiling. Inserting it
+    // after serializing overrides any client `id` carried in `extra`.
     let new_id = Id::from(uuid::Uuid::new_v4().to_string());
-    let mut role = role;
-    role.id = new_id.clone();
+    let mut stored = serde_json::to_value(&role).map_err(|e| {
+        SetError::new(SetErrorType::Forbidden)
+            .with_description(format!("internal: serialize RoleCreate: {e}"))
+    })?;
+    if let Some(fields) = stored.as_object_mut() {
+        fields.insert("id".to_owned(), serde_json::Value::from(new_id.as_ref()));
+    }
 
     let mut space_val = inner
         .objects_ref("Space", account_id)
@@ -3523,10 +3528,7 @@ fn apply_add_role(
                 .with_description("internal: Space.roles not an array")
         })?;
 
-    roles.push(serde_json::to_value(&role).map_err(|e| {
-        SetError::new(SetErrorType::Forbidden)
-            .with_description(format!("internal: serialize SpaceRole: {e}"))
-    })?);
+    roles.push(stored);
 
     inner
         .objects_mut("Space", account_id)
