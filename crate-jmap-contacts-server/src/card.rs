@@ -377,11 +377,11 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let (to_account_id, mut args) = extract_account_id(args)?;
 
-    let from_account_id = args
-        .get("fromAccountId")
-        .and_then(|v| v.as_str())
-        .map(Id::from)
-        .ok_or_else(|| JmapError::invalid_arguments("fromAccountId is required"))?;
+    let from_account_id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,
+        None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
+    };
 
     // RFC 8620 §5.4: fromAccountId MUST differ from accountId. Without
     // this check, a same-account /copy fetches and re-inserts the same

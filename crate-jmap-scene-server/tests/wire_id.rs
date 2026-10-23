@@ -32,3 +32,17 @@ async fn scene_asset_set_rejects_malformed_update_and_destroy_ids() {
     assert_invalid_id(&resp["notUpdated"]["bad id"], &resp);
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
 }
+
+/// draft-atwood-jmap-scene-00 §SceneAsset/set: `invalidProperties` covers
+/// a `blobId` "whether the blobId is malformed or well-formed but absent".
+#[tokio::test]
+async fn scene_asset_set_rejects_malformed_blob_id() {
+    let backend = backend();
+    let args = json!({
+        "create": { "a0": { "blobId": "bad id", "mediaType": "model/gltf-binary" } }
+    });
+    let resp = call!(handle_scene_asset_set, &backend, ALICE, args);
+    let entry = &resp["notCreated"]["a0"];
+    assert_eq!(entry["type"], "invalidProperties", "{resp}");
+    assert_eq!(entry["properties"], json!(["blobId"]), "{resp}");
+}

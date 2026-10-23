@@ -1417,10 +1417,16 @@ wire behaviour that a conforming peer can observe.
   elements fail with `invalidProperties` (`properties: ["id"]`); Id-typed
   create and patch properties (for example `spaceId`, `userId`, `chatId`,
   `parentId`, `blobId`, `regionId`, `visualRef`, `callId`,
-  `parentCallId`, `nodeId`, `/copy` `id`) fail with `invalidProperties`
-  naming them; the `fromAccountId`, `chatId`, Space/join `spaceId` and
+  `parentCallId`, `nodeId`, `graphId`, Chat `memberIds`, `contactId`,
+  `avatarBlobId` and `pinnedMessageIds`, Message `replyTo` and
+  `threadRootId`, SpaceInvite `defaultChannelId`, `/copy` `id`) fail with
+  `invalidProperties` naming them; the CalendarEvent/copy and
+  ContactCard/copy `fromAccountId`, `chatId`, Space/join `spaceId` and
   `Principal/getAvailability` `id` arguments are `invalidArguments`. A
   malformed `onSuccessSetIsDefault` id is skipped like an unknown one.
+  Read-only lookups that run before `accountId` validation (Message/changes
+  `filter.chatId`, the Graph and VTC `accountId` pre-checks) are unchanged:
+  a malformed value there matches nothing.
 - **jmap-calendars-server**: **BREAKING** `AvailabilityError` and
   `QueryCalendarEventsError` are removed. `get_availability` and
   `query_calendar_events` return `jmap_server::BackendQueryError<Self::Error>`,

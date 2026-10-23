@@ -108,8 +108,15 @@ pub(crate) async fn create_graph_id<B: GraphBackend>(
     account_id: &Id,
     m: &Map<String, Value>,
 ) -> Result<Id, Value> {
-    let Some(graph_id) = m.get("graphId").and_then(Value::as_str).map(Id::from) else {
-        return Err(invalid(&["graphId"], "graphId is required"));
+    let Some(graph_id) = m
+        .get("graphId")
+        .and_then(Value::as_str)
+        .and_then(|s| Id::new_validated(s).ok())
+    else {
+        return Err(invalid(
+            &["graphId"],
+            "graphId is required and must be an Id",
+        ));
     };
     let rights = readable_rights(backend, caller, account_id, &graph_id)
         .await?

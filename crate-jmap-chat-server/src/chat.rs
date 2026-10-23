@@ -783,7 +783,19 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 match obj_val.get("memberIds") {
                     None => Some(Vec::new()),
                     Some(v) => match serde_json::from_value::<Vec<String>>(v.clone()) {
-                        Ok(ids) => Some(ids.into_iter().map(Id::from).collect()),
+                        Ok(ids) => {
+                            match ids
+                                .iter()
+                                .map(|s| jmap_server::parse_wire_id(s, "memberIds"))
+                                .collect::<Result<Vec<Id>, _>>()
+                            {
+                                Ok(ids) => Some(ids),
+                                Err(err) => {
+                                    not_created.insert(create_id.clone(), set_error_value(&err));
+                                    continue;
+                                }
+                            }
+                        }
                         Err(_) => {
                             not_created.insert(
                                 create_id.clone(),
@@ -840,10 +852,16 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 continue;
             }
 
-            let contact_id: Option<Id> = obj_val
-                .get("contactId")
-                .and_then(|v| v.as_str())
-                .map(Id::from);
+            let contact_id: Option<Id> = match obj_val.get("contactId").and_then(|v| v.as_str()) {
+                Some(s) => match jmap_server::parse_wire_id(s, "contactId") {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        continue;
+                    }
+                },
+                None => None,
+            };
             let name: Option<String> = obj_val
                 .get("name")
                 .and_then(|v| v.as_str())
@@ -863,10 +881,16 @@ pub async fn handle_chat_set<B: ChatBackend>(
 
             // "Optional at creation: `description` (String), `avatarBlobId`
             // (String), `messageExpirySeconds` (UnsignedInt)."
-            let avatar_blob_id = obj_val
-                .get("avatarBlobId")
-                .and_then(Value::as_str)
-                .map(Id::from);
+            let avatar_blob_id = match obj_val.get("avatarBlobId").and_then(Value::as_str) {
+                Some(s) => match jmap_server::parse_wire_id(s, "avatarBlobId") {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        continue;
+                    }
+                },
+                None => None,
+            };
             let message_expiry_seconds =
                 obj_val.get("messageExpirySeconds").and_then(Value::as_u64);
             let build = |id: &Id| {
@@ -1233,10 +1257,20 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // needing strictness re-checks inside its update transaction.
             if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds") {
                 if let Some(stored) = &stored {
-                    let added: Vec<Id> = new_pins
+                    let pins = match new_pins
                         .iter()
                         .filter_map(Value::as_str)
-                        .map(Id::from)
+                        .map(|s| jmap_server::parse_wire_id(s, "pinnedMessageIds"))
+                        .collect::<Result<Vec<Id>, _>>()
+                    {
+                        Ok(pins) => pins,
+                        Err(err) => {
+                            not_updated.insert(id_str, set_error_value(&err));
+                            continue;
+                        }
+                    };
+                    let added: Vec<Id> = pins
+                        .into_iter()
                         .filter(|pin| !stored.pinned_message_ids.contains(pin))
                         .collect();
                     if !added.is_empty() {
@@ -1324,11 +1358,15 @@ pub async fn handle_chat_set<B: ChatBackend>(
         // not supported; the server MUST return a SetError of type
         // `forbidden`." An id that does not resolve is left for
         // destroy_object to surface `notFound`.
-        let mut ids: Vec<Id> = destroy_arr
-            .iter()
-            .filter_map(Value::as_str)
-            .map(Id::from)
-            .collect();
+        let mut ids: Vec<Id> = Vec::new();
+        for raw in destroy_arr.iter().filter_map(Value::as_str) {
+            match jmap_server::parse_wire_id(raw, "id") {
+                Ok(id) => ids.push(id),
+                Err(err) => {
+                    not_destroyed.insert(raw.to_owned(), set_error_value(&err));
+                }
+            }
+        }
         // A failed read is per-id `serverFail`, not a method error: the
         // creates and updates above are already committed, and a method
         // `serverFail` means "The method call made no changes to the

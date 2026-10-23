@@ -13,7 +13,7 @@
 mod common;
 
 use common::MemoryBackend;
-use jmap_calendars_server::handle_calendar_set;
+use jmap_calendars_server::{handle_calendar_event_set, handle_calendar_set};
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -41,5 +41,18 @@ async fn calendar_set_rejects_malformed_update_and_destroy_ids() {
         .expect("/set must not fail as a method")
         .primary;
     assert_invalid_id(&resp["notUpdated"]["bad id"], &resp);
+    assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
+}
+
+#[tokio::test]
+async fn calendar_event_set_rejects_malformed_destroy_id() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+    let args = json!({ "accountId": account_id.as_ref(), "destroy": ["bad id"] });
+    let resp = handle_calendar_event_set(&backend, &(), args)
+        .await
+        .expect("/set must not fail as a method")
+        .primary;
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
 }

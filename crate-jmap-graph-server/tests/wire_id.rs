@@ -12,7 +12,7 @@
 mod common;
 
 use common::*;
-use jmap_graph_server::handle_graph_set;
+use jmap_graph_server::{handle_graph_node_set, handle_graph_set};
 use serde_json::{json, Value};
 
 /// Asserts the hand-written RFC 8620 §5.3 SetError for a malformed id.
@@ -31,4 +31,17 @@ async fn graph_set_rejects_malformed_update_and_destroy_ids() {
     let resp = call!(handle_graph_set, &backend, ALICE, args);
     assert_invalid_id(&resp["notUpdated"]["bad id"], &resp);
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
+}
+
+/// draft-atwood-jmap-graph-00 §GraphNode/set: "On create, `graphId` is
+/// required"; a malformed Id fails the create with `invalidProperties`
+/// naming `graphId`.
+#[tokio::test]
+async fn graph_node_set_rejects_malformed_graph_id() {
+    let backend = backend();
+    let args = json!({ "create": { "n": { "graphId": "bad id" } } });
+    let resp = call!(handle_graph_node_set, &backend, ALICE, args);
+    let entry = &resp["notCreated"]["n"];
+    assert_eq!(entry["type"], "invalidProperties", "{resp}");
+    assert_eq!(entry["properties"], json!(["graphId"]), "{resp}");
 }

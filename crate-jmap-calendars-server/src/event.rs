@@ -410,21 +410,22 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     // silently skipping it, which would produce a misleading response.
     // Checked before anything is applied so the method-level error leaves
     // the account unchanged.
-    let destroys: Vec<Id> = match args.remove("destroy") {
-        Some(Value::Array(destroy_arr)) => {
-            if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-                return Err(JmapError::invalid_arguments(format!(
-                    "destroy: every element must be a string Id; got {bad}"
-                )));
-            }
-            destroy_arr
-                .iter()
-                .filter_map(Value::as_str)
-                .map(Id::from)
-                .collect()
+    let mut destroys: Vec<Id> = Vec::new();
+    if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
+        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(format!(
+                "destroy: every element must be a string Id; got {bad}"
+            )));
         }
-        _ => Vec::new(),
-    };
+        for raw in destroy_arr.iter().filter_map(Value::as_str) {
+            match jmap_server::parse_wire_id(raw, "id") {
+                Ok(id) => destroys.push(id),
+                Err(err) => {
+                    not_destroyed.insert(raw.to_owned(), set_error_value(&err));
+                }
+            }
+        }
+    }
 
     // Validate every create and update first: draft-ietf-jmap-calendars-33
     // §5.9's uid/privacy rule is judged on the account "after applying all

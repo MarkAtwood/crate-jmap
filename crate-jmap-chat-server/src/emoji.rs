@@ -366,10 +366,16 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             };
 
             // spaceId is optional
-            let space_id: Option<Id> = obj_val
-                .get("spaceId")
-                .and_then(|v| v.as_str())
-                .map(Id::from);
+            let space_id: Option<Id> = match obj_val.get("spaceId").and_then(|v| v.as_str()) {
+                Some(s) => match jmap_server::parse_wire_id(s, "spaceId") {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        continue;
+                    }
+                },
+                None => None,
+            };
 
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_ref());

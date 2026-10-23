@@ -312,10 +312,17 @@ pub async fn handle_invite_set<B: ChatBackend>(
                 }
             }
 
-            let default_channel_id: Option<Id> = obj_val
-                .get("defaultChannelId")
-                .and_then(|v| v.as_str())
-                .map(Id::from);
+            let default_channel_id: Option<Id> =
+                match obj_val.get("defaultChannelId").and_then(|v| v.as_str()) {
+                    Some(s) => match jmap_server::parse_wire_id(s, "defaultChannelId") {
+                        Ok(id) => Some(id),
+                        Err(err) => {
+                            not_created.insert(create_id.clone(), set_error_value(&err));
+                            continue;
+                        }
+                    },
+                    None => None,
+                };
 
             // expiresAt is a UTCDate per RFC 8620 §1.4. Validate the wire
             // shape via UTCDate::new_validated; a malformed value produces
