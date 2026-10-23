@@ -308,7 +308,7 @@ pub jmap_calendars_types::CalendarEvent::at_type: core::option::Option<alloc::st
 pub jmap_calendars_types::CalendarEvent::base_event_id: core::option::Option<jmap_types::id::Id>
 pub jmap_calendars_types::CalendarEvent::blob_id: core::option::Option<jmap_types::id::Id>
 pub jmap_calendars_types::CalendarEvent::calendar_ids: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, bool>>
-pub jmap_calendars_types::CalendarEvent::categories: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::categories: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
 pub jmap_calendars_types::CalendarEvent::color: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEvent::created: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_calendars_types::CalendarEvent::description: core::option::Option<alloc::string::String>
@@ -323,7 +323,7 @@ pub jmap_calendars_types::CalendarEvent::icalendar: core::option::Option<serde_j
 pub jmap_calendars_types::CalendarEvent::id: core::option::Option<jmap_types::id::Id>
 pub jmap_calendars_types::CalendarEvent::is_draft: core::option::Option<bool>
 pub jmap_calendars_types::CalendarEvent::is_origin: core::option::Option<bool>
-pub jmap_calendars_types::CalendarEvent::keywords: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::keywords: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
 pub jmap_calendars_types::CalendarEvent::links: core::option::Option<serde_json::value::Value>
 pub jmap_calendars_types::CalendarEvent::locale: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEvent::localizations: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
@@ -342,7 +342,7 @@ pub jmap_calendars_types::CalendarEvent::recurrence_id_time_zone: core::option::
 pub jmap_calendars_types::CalendarEvent::recurrence_overrides: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
 pub jmap_calendars_types::CalendarEvent::recurrence_rules: core::option::Option<serde_json::value::Value>
 pub jmap_calendars_types::CalendarEvent::related_to: core::option::Option<serde_json::value::Value>
-pub jmap_calendars_types::CalendarEvent::reply_to: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::reply_to: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
 pub jmap_calendars_types::CalendarEvent::request_status: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEvent::sent_by: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEvent::sequence: core::option::Option<u64>

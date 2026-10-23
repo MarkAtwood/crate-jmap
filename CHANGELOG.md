@@ -1594,6 +1594,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-types**: **BREAKING** `CalendarEvent.keywords` and
+  `categories` are `Option<BTreeMap<String, bool>>` and `reply_to` is
+  `Option<BTreeMap<String, String>>`, not `Option<serde_json::Value>`,
+  matching RFC 8984 §4.2.10, §4.2.11 and §4.4.4 and the jmap-tasks-types
+  `Task` fields. Values of the wrong JSON type now fail to deserialize
+  (bd JMAP-qf6b).
 - **jmap-graph-server**: **BREAKING** `search::GraphView::new` returns
   `Result<GraphView, JmapError>`: a node or edge that fails to serialize
   is a `serverFail`, not a panic (bd JMAP-ic0j.38).

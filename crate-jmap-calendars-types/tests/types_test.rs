@@ -239,6 +239,43 @@ fn calendar_event_scalar_fields() {
     assert_eq!(ev.color.as_deref(), Some("red"));
 }
 
+/// `keywords`, `categories` and `replyTo` decode as typed maps.
+/// Oracle: RFC 8984 §4.2.10 `keywords: String[Boolean]`, §4.2.11
+/// `categories: String[Boolean]`, §4.4.4 `replyTo: String[String]`;
+/// a non-Boolean keyword value does not match the declared type.
+#[test]
+fn calendar_event_keywords_categories_reply_to_typed() {
+    let ev: CalendarEvent = serde_json::from_str(
+        r#"{
+            "keywords": { "work": true },
+            "categories": { "http://example.com/cat/meeting": true },
+            "replyTo": { "imip": "mailto:organizer@example.com" }
+        }"#,
+    )
+    .expect("CalendarEvent deserialize");
+
+    assert_eq!(
+        ev.keywords.as_ref().and_then(|m| m.get("work")),
+        Some(&true)
+    );
+    assert_eq!(
+        ev.categories
+            .as_ref()
+            .and_then(|m| m.get("http://example.com/cat/meeting")),
+        Some(&true)
+    );
+    assert_eq!(
+        ev.reply_to
+            .as_ref()
+            .and_then(|m| m.get("imip"))
+            .map(String::as_str),
+        Some("mailto:organizer@example.com")
+    );
+
+    let bad = serde_json::from_str::<CalendarEvent>(r#"{ "keywords": { "work": "yes" } }"#);
+    assert!(bad.is_err(), "non-Boolean keyword value must be rejected");
+}
+
 /// CalendarEvent with recurrenceOverrides round-trips through the typed
 /// `BTreeMap<String, PatchObject>` envelope.
 /// Oracle: RFC 8984 §4.3.2 recurrenceOverrides description.
