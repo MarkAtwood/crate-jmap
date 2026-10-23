@@ -56,6 +56,8 @@ pub jmap_contacts_types::ContactCardComparatorProperty::NameSurname
 pub jmap_contacts_types::ContactCardComparatorProperty::NameSurname2
 pub jmap_contacts_types::ContactCardComparatorProperty::Other(alloc::string::String)
 pub jmap_contacts_types::ContactCardComparatorProperty::Updated
+impl jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_contacts_types::ContactCardComparatorProperty
 pub fn jmap_contacts_types::ContactCardComparatorProperty::clone(&self) -> jmap_contacts_types::ContactCardComparatorProperty
 impl core::cmp::Eq for jmap_contacts_types::ContactCardComparatorProperty
@@ -125,8 +127,10 @@ pub jmap_contacts_types::AddressBook::extra: serde_json::map::Map<alloc::string:
 pub jmap_contacts_types::AddressBook::id: jmap_types::id::Id
 pub jmap_contacts_types::AddressBook::is_default: bool
 pub jmap_contacts_types::AddressBook::is_subscribed: bool
+pub jmap_contacts_types::AddressBook::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_contacts_types::AddressBook::my_rights: jmap_contacts_types::AddressBookRights
 pub jmap_contacts_types::AddressBook::name: alloc::string::String
+pub jmap_contacts_types::AddressBook::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_contacts_types::AddressBook::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_contacts_types::AddressBookRights>>
 pub jmap_contacts_types::AddressBook::sort_order: u32
 impl jmap_contacts_types::AddressBook
@@ -206,6 +210,7 @@ pub jmap_contacts_types::ContactCard::links: core::option::Option<serde_json::va
 pub jmap_contacts_types::ContactCard::localizations: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
 pub jmap_contacts_types::ContactCard::media: core::option::Option<serde_json::value::Value>
 pub jmap_contacts_types::ContactCard::members: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_contacts_types::ContactCard::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_contacts_types::ContactCard::name: core::option::Option<serde_json::value::Value>
 pub jmap_contacts_types::ContactCard::nicknames: core::option::Option<serde_json::value::Value>
 pub jmap_contacts_types::ContactCard::notes: core::option::Option<serde_json::value::Value>
@@ -214,6 +219,7 @@ pub jmap_contacts_types::ContactCard::organizations: core::option::Option<serde_
 pub jmap_contacts_types::ContactCard::personal_info: core::option::Option<serde_json::value::Value>
 pub jmap_contacts_types::ContactCard::phones: core::option::Option<serde_json::value::Value>
 pub jmap_contacts_types::ContactCard::preferred_languages: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_contacts_types::ContactCard::prod_id: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCard::related_to: core::option::Option<serde_json::value::Value>
 pub jmap_contacts_types::ContactCard::scheduling_addresses: core::option::Option<serde_json::value::Value>
@@ -272,6 +278,9 @@ pub jmap_contacts_types::ContactCardFilterCondition::email: core::option::Option
 pub jmap_contacts_types::ContactCardFilterCondition::has_member: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCardFilterCondition::in_address_book: core::option::Option<jmap_types::id::Id>
 pub jmap_contacts_types::ContactCardFilterCondition::kind: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_contacts_types::ContactCardFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_contacts_types::ContactCardFilterCondition::name: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCardFilterCondition::name_given: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCardFilterCondition::name_surname: core::option::Option<alloc::string::String>
@@ -281,10 +290,15 @@ pub jmap_contacts_types::ContactCardFilterCondition::note: core::option::Option<
 pub jmap_contacts_types::ContactCardFilterCondition::online_service: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCardFilterCondition::organization: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCardFilterCondition::phone: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_contacts_types::ContactCardFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_contacts_types::ContactCardFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCardFilterCondition::uid: core::option::Option<alloc::string::String>
 pub jmap_contacts_types::ContactCardFilterCondition::updated_after: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_contacts_types::ContactCardFilterCondition::updated_before: core::option::Option<jmap_types::id::UTCDate>
+impl jmap_contacts_types::ContactCardFilterCondition
+pub fn jmap_contacts_types::ContactCardFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_contacts_types::ContactCardFilterCondition
 pub fn jmap_contacts_types::ContactCardFilterCondition::clone(&self) -> jmap_contacts_types::ContactCardFilterCondition
 impl core::default::Default for jmap_contacts_types::ContactCardFilterCondition

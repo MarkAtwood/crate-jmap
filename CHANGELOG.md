@@ -14,6 +14,37 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-contacts-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
+  AddressBook and ContactCard (the types -04 §4.1 names for contacts).
+  `handle_address_book_set`, `handle_contact_card_set`,
+  `handle_address_book_changes` and `handle_contact_card_changes` take the
+  request's `using` list as a new last argument
+  (`register_contacts_handlers` passes `CallContext::using`), with the
+  same `/changes` and `/set` checks as jmap-mail-server. Creates store the
+  `metadata` they carry. The in-memory backend opts a type in with
+  `MemoryBackend::with_metadata_info("AddressBook" | "ContactCard", info)`
+  (panics for other types or `supportsPrivate: true`); nothing is enabled
+  by default. An opted-in ContactCard evaluates the -04 §3.6
+  shared-metadata conditions on `ContactCard/query` in any leaf of the
+  filter tree. Opted-in types validate writes in -04 §3.2 rule order
+  (request-only `invalidPatch`, `notFound`, `forbidden` without
+  `maySetMetadata` on the AddressBook, or on every AddressBook of the
+  card before and after the update and in the `addressBookIds` of a
+  create, then namespace and `maxDepth` checks), store an update's
+  `metadata: null` as `{}`, leave ContactCard `updated` alone (-04 §3.1),
+  and drop metadata-only updates from `/changes` under
+  `ignoreMetadataOnlyChanges` without counting them toward `maxChanges`.
+  AddressBooks demoted by the single-default rule are logged as a
+  separate change, so they count toward `maxChanges` on their own. A type
+  that is not opted in rejects metadata writes with `invalidProperties`
+  and metadata filters with `unsupportedFilter` (bd JMAP-s4kp.5).
+- **jmap-contacts-types**: **BREAKING** draft-ietf-jmap-metadata-04 fields
+  on AddressBook and ContactCard: typed `metadata` and `privateMetadata`
+  (`Option<Map<String, Value>>`, -04 §2; `null` decodes as absent, a
+  non-object fails), classified `CLIENT_SETTABLE` and counted by
+  `validate_extras`. `ContactCardFilterCondition` carries the six -04
+  §3.6 conditions as leaf fields, with `has_metadata_condition`;
+  `deny_unknown_fields` still rejects any other key (bd JMAP-s4kp.5).
 - **jmap-tasks-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
   TaskList and Task (TaskList has the -04 §4.1 rights object, and a Task
   takes the right from its TaskList). `handle_task_list_set`,

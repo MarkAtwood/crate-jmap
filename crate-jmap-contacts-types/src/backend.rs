@@ -120,6 +120,9 @@ impl GetObject for crate::AddressBook {}
 
 /// RFC 9610 §2 (rfc9610.txt:167, 191, 221): `id` is "(immutable;
 /// server-set)"; `isDefault` and `myRights` are "(server-set)".
+///
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::AddressBook {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &["id", "isDefault", "myRights"];
@@ -129,6 +132,8 @@ impl SetObject for crate::AddressBook {
         "sortOrder",
         "isSubscribed",
         "shareWith",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
@@ -145,6 +150,9 @@ impl GetObject for crate::ContactCard {}
 /// RFC 9610 §3 (rfc9610.txt:305): `id` is "(immutable; server-set)".
 /// `addressBookIds` and the RFC 9553 Card properties carry neither
 /// attribute.
+///
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::ContactCard {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &["id"];
@@ -180,6 +188,8 @@ impl SetObject for crate::ContactCard {
         "keywords",
         "notes",
         "personalInfo",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
@@ -218,6 +228,8 @@ mod tests {
             is_subscribed: true,
             share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
             my_rights: rights(),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
@@ -260,6 +272,8 @@ mod tests {
             keywords: Some(BTreeMap::from([("k".into(), true)])),
             notes: v(),
             personal_info: v(),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

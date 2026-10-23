@@ -2018,6 +2018,8 @@ version = "0.3.0"
 dependencies = [
  "jmap-contacts-server",
  "jmap-contacts-types",
+ "jmap-metadata-server",
+ "jmap-metadata-types",
  "jmap-server",
  "jmap-types",
  "serde",
@@ -2031,6 +2033,7 @@ name = "jmap-contacts-types"
 version = "0.3.0"
 dependencies = [
  "jmap-jscontact-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",

@@ -71,7 +71,7 @@ async fn address_book_set_over_limit_create_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_address_book_set(&backend, &(), args)
+    let err = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect_err("501-entry AddressBook/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
@@ -90,7 +90,7 @@ async fn contact_card_set_over_limit_destroy_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "destroy": destroy_array_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+    let err = handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect_err("501-entry ContactCard/set destroy batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
@@ -113,7 +113,7 @@ async fn address_book_set_at_limit_passes_cap_check() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP),
     });
-    let result = handle_address_book_set(&backend, &(), args).await;
+    let result = handle_address_book_set(&backend, &(), args, &[]).await;
     if let Err(ref err) = result {
         assert_ne!(
             err.error_type.to_string(),

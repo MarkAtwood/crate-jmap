@@ -16,8 +16,9 @@
 //! and `jmap_chat_types`' `ChatFilterCondition`,
 //! `MessageFilterCondition` and `SpaceFilterCondition` (bd JMAP-s4kp.2)
 //! and `jmap_calendars_types`' `CalendarEventFilterCondition` (bd
-//! JMAP-s4kp.3) and `jmap_tasks_types`' `TaskFilterCondition` (bd
-//! JMAP-s4kp.4) carry these fields directly; the other typed per-type filter structs
+//! JMAP-s4kp.3), `jmap_tasks_types`' `TaskFilterCondition` (bd
+//! JMAP-s4kp.4) and `jmap_contacts_types`' `ContactCardFilterCondition`
+//! (bd JMAP-s4kp.5) carry these fields directly; the other typed per-type filter structs
 //! do not yet (bd JMAP-ua37.4). Clients send them either
 //! as a `jmap_types::Filter<WithMetadata<C>>`, which the
 //! extension clients' `/query` and `/queryChanges` methods accept, or in
@@ -85,11 +86,12 @@ impl MetadataTextMatch {
 /// §3.6: "For each data type listed in dataTypes, the FilterCondition
 /// object for Foo/query is extended with the optional fields defined
 /// below." `base` is the data type's own condition (for example
-/// `jmap_contacts_types::ContactCardFilterCondition`; the Email and
+/// `jmap_filenode_types::FileNodeFilterCondition`; the Email and
 /// Mailbox conditions in `jmap_mail_types`, the Chat, Message and Space
 /// conditions in `jmap_chat_types`, the CalendarEvent condition in
-/// `jmap_calendars_types` and the Task condition in `jmap_tasks_types`
-/// already carry the six fields, so they need no wrapper); its fields are
+/// `jmap_calendars_types`, the Task condition in `jmap_tasks_types` and
+/// the ContactCard condition in `jmap_contacts_types` already carry the
+/// six fields, so they need no wrapper); its fields are
 /// flattened into the same JSON object as the metadata fields. Use it as
 /// the leaf of a `jmap_types::Filter<WithMetadata<C>>` and pass that
 /// to the extension client's `/query` or `/queryChanges` method; the

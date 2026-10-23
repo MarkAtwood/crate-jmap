@@ -34,6 +34,8 @@ const ADDRESS_BOOK_TYPED_FIELDS: &[&str] = &[
     "isSubscribed",
     "shareWith",
     "myRights",
+    "metadata",
+    "privateMetadata",
 ];
 
 /// Access rights a principal holds on an AddressBook (RFC 9610 §2).
@@ -133,6 +135,20 @@ pub struct AddressBook {
     pub share_with: Option<BTreeMap<Id, AddressBookRights>>,
     /// ACL rights the authenticated user has on this AddressBook; server-set.
     pub my_rights: AddressBookRights,
+
+    /// Shared metadata, keyed by namespace identifier
+    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+
+    /// The authenticated user's own metadata, keyed by namespace
+    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// handling as `metadata`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

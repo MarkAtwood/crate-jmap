@@ -32,7 +32,8 @@ use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
 use crate::helpers::{
-    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response,
 };
 use crate::{ContactsBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -85,13 +86,20 @@ pub async fn handle_address_book_get<B: ContactsBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_address_book_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<AddressBook, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<AddressBook, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -121,11 +129,18 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 ///   are resolved to the server-assigned id.  Any error from this patch is
 ///   silently ignored per §2.3.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_address_book_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -218,6 +233,13 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
             // `AddressBook.id` is required, so the parse fills it with "",
             // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
             // of 255 octets"); `build` overwrites it with the minted id.
@@ -301,6 +323,10 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             };
             if let Some(err) = reject_read_only_patch::<AddressBook>(patch.as_map(), None) {
                 not_updated.insert(id_str, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -629,7 +655,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["ab-nonempty"]
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -664,7 +690,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["ab-anything"]
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -702,7 +728,7 @@ mod tests {
             "onDestroyRemoveContents": true,
             "destroy": ["ab-nonempty"]
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -746,7 +772,7 @@ mod tests {
             "onDestroyRemoveContents": true,
             "destroy": ["ab-nonempty"]
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -777,9 +803,10 @@ mod tests {
     async fn changes_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_changes(&backend, &(), args)
-            .await
-            .expect("must not error for known account");
+        let HandlerOutput { primary: resp, .. } =
+            handle_address_book_changes(&backend, &(), args, &[])
+                .await
+                .expect("must not error for known account");
         assert_eq!(resp["accountId"], "acc1");
     }
 
@@ -795,7 +822,7 @@ mod tests {
             "destroy": [],
             "onSuccessSetIsDefault": "book1"
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -820,7 +847,7 @@ mod tests {
             "accountId": "acc1",
             "onSuccessSetIsDefault": null
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -849,7 +876,7 @@ mod tests {
             "accountId": "acc1",
             "onSuccessSetIsDefault": {"wrong": "type"}
         });
-        let err = handle_address_book_set(&backend, &(), args)
+        let err = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect_err("malformed onSuccessSetIsDefault must be rejected, not silently dropped");
         assert_eq!(
@@ -872,7 +899,7 @@ mod tests {
                 "accountId": "acc1",
                 "onSuccessSetIsDefault": bad_value,
             });
-            let err = handle_address_book_set(&backend, &(), args)
+            let err = handle_address_book_set(&backend, &(), args, &[])
                 .await
                 .expect_err("non-string-non-null onSuccessSetIsDefault must be rejected");
             assert_eq!(
@@ -900,7 +927,7 @@ mod tests {
             "accountId": "acc1",
             "onSuccessSetIsDefault": "book2"
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -945,7 +972,7 @@ mod tests {
             "create": { "c1": {} },   // missing required name → invalidProperties
             "onSuccessSetIsDefault": "book1"
         });
-        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 

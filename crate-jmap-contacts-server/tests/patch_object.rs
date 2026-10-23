@@ -67,7 +67,7 @@ fn seeded_backend() -> MemoryBackend {
 /// Send `ContactCard/set` with `update: { "card1": patch }`.
 async fn update_card1(backend: &MemoryBackend, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "card1": patch } });
-    handle_contact_card_set(backend, &(), &std::collections::BTreeMap::new(), args)
+    handle_contact_card_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("/set must succeed at the method level")
         .primary
@@ -186,7 +186,7 @@ async fn update_address_book_sort_order_null_resets_to_default() {
     backend.seed_object(&Id::from("acc1"), "AddressBook", &Id::from("ab1"), ab1);
 
     let args = json!({ "accountId": "acc1", "update": { "ab1": { "sortOrder": null } } });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed at the method level");
     assert!(
@@ -211,7 +211,7 @@ async fn update_address_book_sort_order_null_resets_to_default() {
 async fn address_book_required_name_null_is_invalid_properties() {
     let backend = seeded_backend();
     let args = json!({ "accountId": "acc1", "update": { "ab1": { "name": null } } });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("AddressBook/set must succeed at the method level");
     assert_eq!(
