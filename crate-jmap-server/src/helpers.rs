@@ -720,6 +720,48 @@ pub fn apply_jmap_patch(
     Ok(())
 }
 
+/// Check the RFC 8620 §5.3 PatchObject errors that `patch` alone
+/// determines, without the object it applies to.
+///
+/// A server whose spec orders these before other checks calls this
+/// first; draft-ietf-jmap-metadata-04 §3.2 says "Patch errors that can
+/// be determined from the request alone (for example, two paths where
+/// one is a prefix of the other) MUST be reported with "invalidPatch"
+/// before rule 1 is evaluated". [`apply_patch_object`] runs the same
+/// check, so calling both is redundant but harmless.
+///
+/// # Errors
+///
+/// Returns [`PatchPathError::InvalidEscape`] for a key with a `~` not
+/// followed by `0` or `1`, [`PatchPathError::DepthExceeded`] for an
+/// entry over the `MAX_MERGE_PATCH_DEPTH` cap, and
+/// [`PatchPathError::PrefixConflict`] when the decoded pointer of one key
+/// is a whole-segment prefix of another (`"alerts"` and
+/// `"alerts/1/offset"` conflict; `"alert"` and `"alerts/x"` do not).
+pub fn check_patch_paths(patch: &Map<String, Value>) -> Result<(), PatchPathError> {
+    let mut pointers = patch
+        .iter()
+        .map(|(k, v)| {
+            let segments = k
+                .split('/')
+                .map(decode_pointer_token)
+                .collect::<Result<Vec<_>, _>>()?;
+            if segments.len() > MAX_MERGE_PATCH_DEPTH
+                || nests_deeper_than(v, MAX_MERGE_PATCH_DEPTH - segments.len())
+            {
+                return Err(PatchPathError::DepthExceeded);
+            }
+            Ok(segments)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    // Sorted, a pointer that prefixes any other also prefixes its successor.
+    pointers.sort_unstable();
+    if pointers.windows(2).any(|w| w[1].starts_with(&w[0])) {
+        return Err(PatchPathError::PrefixConflict);
+    }
+    Ok(())
+}
+
 /// Apply a whole RFC 8620 §5.3 PatchObject to `target`.
 ///
 /// Each entry is applied with [`apply_jmap_patch`]. The value at each
@@ -729,9 +771,7 @@ pub fn apply_jmap_patch(
 ///
 /// # Errors
 ///
-/// Returns [`PatchPathError::PrefixConflict`] when the decoded pointer of
-/// one key is a whole-segment prefix of another (`"alerts"` and
-/// `"alerts/1/offset"` conflict; `"alert"` and `"alerts/x"` do not), and
+/// Returns any error [`check_patch_paths`] returns for `patch`, and
 /// otherwise any error [`apply_jmap_patch`] returns for an entry.
 ///
 /// # Mutation contract
@@ -741,19 +781,7 @@ pub fn apply_patch_object(
     target: &mut Map<String, Value>,
     patch: &Map<String, Value>,
 ) -> Result<(), PatchPathError> {
-    let mut pointers = patch
-        .keys()
-        .map(|k| {
-            k.split('/')
-                .map(decode_pointer_token)
-                .collect::<Result<Vec<_>, _>>()
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    // Sorted, a pointer that prefixes any other also prefixes its successor.
-    pointers.sort_unstable();
-    if pointers.windows(2).any(|w| w[1].starts_with(&w[0])) {
-        return Err(PatchPathError::PrefixConflict);
-    }
+    check_patch_paths(patch)?;
     let mut patched = target.clone();
     for (path, value) in patch {
         apply_jmap_patch(&mut patched, path, value.clone())?;

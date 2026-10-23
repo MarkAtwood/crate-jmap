@@ -191,8 +191,10 @@ fn metadata_target(key: &str) -> Option<(&str, Option<&str>)> {
 /// is not an object, and `null` on create (§3.2: "A value of null for
 /// either property MUST be rejected"; in an update "null is equivalent
 /// to {}"). The caller still owns rule 1 (`notFound`, then `forbidden`
-/// without `maySetMetadata`), patch errors (`invalidPatch`), and, after
-/// applying the write, rule 4 through [`check_metadata_depth`].
+/// without `maySetMetadata`), patch errors (`invalidPatch`: those the
+/// request alone determines before rule 1, those that depend on the
+/// stored value after this check and before rule 4), and, after applying
+/// the write, rule 4 through [`check_metadata_depth`].
 ///
 /// # Errors
 ///

@@ -98,7 +98,9 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
+use jmap_server::{
+    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+};
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
 
@@ -1606,6 +1608,18 @@ impl MailBackend for MemoryBackend {
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         let patch_val: serde_json::Value = serde_json::to_value(patch)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
+        let invalid_patch = |e: PatchPathError| {
+            BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+            ))
+        };
+        // draft-ietf-jmap-metadata-04 §3.2: "Patch errors that can be
+        // determined from the request alone (for example, two paths where
+        // one is a prefix of the other) MUST be reported with
+        // "invalidPatch" before rule 1 is evaluated."
+        if let serde_json::Value::Object(patch_map) = &patch_val {
+            check_patch_paths(patch_map).map_err(invalid_patch)?;
+        }
 
         let mut inner = self.inner.lock().unwrap();
         // draft-ietf-jmap-metadata-04 §3.2 rule 1: "If the user cannot read
@@ -1663,11 +1677,9 @@ impl MailBackend for MemoryBackend {
                     .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
             }
             let before = patched.clone();
-            apply_patch_object(&mut patched, &patch_map).map_err(|e| {
-                BackendSetError::SetError(Box::new(
-                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                ))
-            })?;
+            // The value-dependent patch errors (missing parent, path through
+            // an array) land here, after rule 3 and before rule 4 (-04 §3.2).
+            apply_patch_object(&mut patched, &patch_map).map_err(invalid_patch)?;
             if let Some(info) = &metadata_info {
                 // -04 §3.2: "In an update, null is equivalent to {}"; the
                 // patch removed the property instead.

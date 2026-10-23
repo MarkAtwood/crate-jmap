@@ -556,6 +556,51 @@ async fn missing_object_is_not_found_before_forbidden() {
     );
 }
 
+/// -04 §3.2: "Patch errors that can be determined from the request alone
+/// (for example, two paths where one is a prefix of the other) MUST be
+/// reported with "invalidPatch" before rule 1 is evaluated." Each patch
+/// below would otherwise fail rule 1 (`notFound`, `forbidden`) or rule 2
+/// (`privateMetadata` is unsupported here).
+#[tokio::test]
+async fn request_only_patch_error_precedes_rule_1() {
+    let backend = backend();
+    let locked = mailbox_fixture(&backend, "locked", false).await;
+    let open = mailbox_fixture(&backend, "open", true).await;
+    let email = create_email(&backend, &open, json!({})).await;
+
+    for id in [locked.as_str(), "nope"] {
+        let resp = mailbox_set(
+            &backend,
+            json!({ "update": { id: {
+                "metadata": { NS: {} },
+                "metadata/acme.example.com/k": 1
+            } } }),
+            &using(),
+        )
+        .await;
+        assert_eq!(
+            resp["notUpdated"][id]["type"],
+            json!("invalidPatch"),
+            "{resp}"
+        );
+    }
+
+    let resp = email_set(
+        &backend,
+        json!({ "update": { &email: {
+            "privateMetadata": {},
+            "privateMetadata/x": 1
+        } } }),
+        &using(),
+    )
+    .await;
+    assert_eq!(
+        resp["notUpdated"][&email]["type"],
+        json!("invalidPatch"),
+        "{resp}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // /changes (-04 §3, §3.3)
 // ---------------------------------------------------------------------------
