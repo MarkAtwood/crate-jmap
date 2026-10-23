@@ -24,13 +24,19 @@
 //! activation side effects in `SieveScript/set` are applied inline, not
 //! as separate invocations.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
-//! `unsupportedFilter`, `unsupportedSort` — per RFC 8620 §3.6 and §5).
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
+//!   `maxObjectsInSet`;
+//! - `/set`: `stateMismatch`;
+//! - `/query`: `unsupportedFilter`, `anchorNotFound`.
+//!
 //! Per-target failures inside `/set` (including the `invalidSieve` and
-//! `sieveIsActive` Sieve-specific SetError types defined by RFC 9661)
-//! surface in the `notCreated` / `notUpdated` / `notDestroyed` maps
-//! within `Ok((Value, ...))`, not as `Err`.
+//! `sieveIsActive` Sieve-specific SetError types defined by RFC 9661) surface
+//! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
+//! `Ok((Value, ...))`, not as `Err`.
 
 /// IANA-registered JMAP Sieve error type for script validation failures.
 pub(crate) const SIEVE_ERR_INVALID: &str = "invalidSieve";

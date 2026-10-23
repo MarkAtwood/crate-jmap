@@ -17,12 +17,18 @@
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`
-//! — per RFC 8620 §3.6 and §5). Per-target failures inside `/set`
-//! (singleton-create rejection, singleton-destroy rejection, non-singleton
-//! id rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
-//! maps within `Ok((Value, ...))`, not as `Err`.
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
+//!   `maxObjectsInSet`;
+//! - `/set`: `stateMismatch`.
+//!
+//! Per-target failures inside `/set` (singleton-create rejection,
+//! singleton-destroy rejection, non-singleton id rejection) surface in the
+//! `notCreated` / `notUpdated` / `notDestroyed` maps within
+//! `Ok((Value, ...))`, not as `Err`.
 
 use jmap_mail_types::VacationResponse;
 use jmap_types::{Id, JmapError, PatchObject};
