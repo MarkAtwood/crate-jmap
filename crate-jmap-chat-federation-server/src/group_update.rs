@@ -13,8 +13,8 @@ use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Map, Value};
 
 use crate::deliver::{
-    authenticate, check_account, get_chat, set_failure, sha256_hex_matches, valid_media_type,
-    Commit, Identities, Who,
+    authenticate, check_account, get_chat, set_failure, sha256_matches, valid_media_type, Commit,
+    Identities, Who,
 };
 use crate::FederationBackend;
 
@@ -211,7 +211,7 @@ async fn fetch_avatar<B: FederationBackend>(
         return None;
     }
     let blob = backend.fetch_avatar(caller, account_id, &avatar).await?;
-    (blob.size == avatar.size && sha256_hex_matches(&avatar.sha256, &blob.sha256))
+    (blob.size == avatar.size && sha256_matches(&avatar.sha256, &blob.sha256))
         .then_some(blob.blob_id)
 }
 

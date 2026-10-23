@@ -729,17 +729,12 @@ async fn create_attachments<B: ChatBackend>(
 }
 
 /// draft-atwood-jmap-chat-00 §Attachment and §Input Validation:
-/// `filename` holds no `/`, `\` or null byte, `contentType` is a
-/// syntactically valid MIME type, and `sha256` is lowercase hex.
+/// `filename` holds no `/`, `\` or null byte and `contentType` is a
+/// syntactically valid MIME type. `sha256` is lowercase hex by its type.
 ///
 /// `size` and `sha256` are checked against the blob in [`check_attachments`].
 fn valid_attachment(a: &Attachment) -> bool {
-    !a.filename.contains(['/', '\\', '\0'])
-        && valid_media_type(&a.content_type)
-        && a.sha256.len() == 64
-        && a.sha256
-            .bytes()
-            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    !a.filename.contains(['/', '\\', '\0']) && valid_media_type(&a.content_type)
 }
 
 /// Enforce the size limit and blob checks on a `Message/set` create's
@@ -778,7 +773,10 @@ async fn check_attachments<B: ChatBackend>(
         {
             Ok(Ok(None)) => {}
             Ok(Ok(Some(blob))) => {
-                if blob.size != a.size || !sha256_hex_matches(&a.sha256, &blob.sha256) {
+                // Constant-time digest comparison (compliance tests §14.13:
+                // "Verify that blob hash comparison uses constant-time
+                // comparison").
+                if blob.size != a.size || !bool::from(a.sha256.to_bytes().ct_eq(&blob.sha256)) {
                     return Some(json!({
                         "type": "invalidProperties",
                         "properties": ["attachments"],
@@ -794,23 +792,6 @@ async fn check_attachments<B: ChatBackend>(
         }
     }
     None
-}
-
-/// Whether the 64-hex-digit `hex` encodes `digest`. The digest comparison
-/// is constant-time (compliance tests §14.13: "Verify that blob hash
-/// comparison uses constant-time comparison").
-fn sha256_hex_matches(hex: &str, digest: &[u8; 32]) -> bool {
-    let mut decoded = [0u8; 32];
-    for (i, out) in decoded.iter_mut().enumerate() {
-        let Some(byte) = hex
-            .get(2 * i..2 * i + 2)
-            .and_then(|pair| u8::from_str_radix(pair, 16).ok())
-        else {
-            return false;
-        };
-        *out = byte;
-    }
-    hex.len() == 64 && bool::from(decoded.ct_eq(digest))
 }
 
 /// RFC 2045 §5.1 `type "/" subtype`, each an RFC 2045 `token`.

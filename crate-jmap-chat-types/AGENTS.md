@@ -116,7 +116,7 @@ This crate must stay congruent with two siblings at all times:
 1. Before touching any type that wraps or uses `Id`, `State`, `UTCDate`, or `Date`: read `~/PROJECT/crate-jmap-types/src/id.rs` to confirm the current API.
 2. Before adding new public structs: check how `~/PROJECT/crate-jmap-mail-types/` models analogous types — copy the pattern, not the content.
 3. If a change here would break `jmap-mail-types` conventions, stop and flag it to the user.
-4. Do not introduce a dependency that `jmap-mail-types` does not also have, without explicit user approval.
+4. Do not introduce a dependency that `jmap-mail-types` does not also have, without explicit user approval. Approved exceptions: `jmap-did-types`, and `jmap-cid-types` for the typed `Attachment.sha256` digest (Mark, 2026-10-22, bd:JMAP-tzvc).
 
 **Check congruence with:**
 ```bash
@@ -131,7 +131,7 @@ diff <(cd ../crate-jmap-types && cargo metadata --no-deps --format-version 1 | j
 |---|---|
 | Async | None — sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Dependencies | jmap-types, serde, serde_json only |
+| Dependencies | jmap-types, jmap-did-types, jmap-cid-types, serde, serde_json only |
 | Field names | Must match spec drafts exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from spec examples — never from code under test |
@@ -149,7 +149,7 @@ diff <(cd ../crate-jmap-types && cargo metadata --no-deps --format-version 1 | j
 
 - Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
-- Do not add dependencies beyond jmap-types, serde, serde_json
+- Do not add dependencies beyond jmap-types, jmap-did-types, jmap-cid-types, serde, serde_json
 - Do not add async, tokio, or axum
 - Do not add method handler logic — types only
 - Do not add fields or types not present in the spec drafts unless explicitly directed

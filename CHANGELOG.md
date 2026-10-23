@@ -1385,6 +1385,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-types**, **jmap-chat-federation-types**: **BREAKING**
+  `Attachment.sha256` is `jmap_cid_types::Sha256`,
+  `AttachmentCreate.sha256` is `Option<Sha256>`, and `PeerAvatar.sha256`
+  is `Sha256` (`PeerAvatar::new` takes a `Sha256`), the same typed
+  digest FileNode carries. Both crates now depend on `jmap-cid-types`. A
+  digest that is not 64 lowercase hex characters (draft-atwood-jmap-chat-00
+  §Attachment) is rejected at deserialize; `Message/set` and
+  `Peer/deliver` answer it with the same `invalidProperties` and
+  `invalidArguments` errors as before (bd JMAP-tzvc).
 - **jmap-base-client** and every `jmap-*-client` crate: **BREAKING**
   account and blob ids are typed `jmap_types::Id` on the client side, as
   they already are in server backend traits and in `BlobUploadResponse`.

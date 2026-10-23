@@ -1,5 +1,6 @@
 //! Chat message, attachments, reactions, and delivery state types.
 
+use jmap_cid_types::Sha256;
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -124,29 +125,12 @@ pub struct Attachment {
     pub content_type: String,
     /// The `size` property (draft-atwood-jmap-chat-00 §4.1).
     pub size: u64,
-    /// SHA-256 digest of the attachment content, hex-encoded: exactly 64 lowercase hex characters.
-    ///
-    /// Kept as `String` rather than `jmap_cid_types::Sha256` for
-    /// canonical-template parity with `jmap-mail-types`, the
-    /// workspace-canonical extension-types crate, whose
-    /// dependency set is the same three crates (jmap-types, serde,
-    /// serde_json) as this one. Adopting `jmap_cid_types::Sha256`
-    /// here without first propagating the dep into the canonical
-    /// would diverge from the canonical-template rule documented
-    /// in the per-crate AGENTS.md ("Do not introduce a dependency
-    /// that `jmap-mail-types` does not also have, without explicit
-    /// user approval.").
-    ///
-    /// The workspace-architectural question of whether to take a
-    /// hard dep on `jmap-cid-types` from every extension-types crate
-    /// that carries a content hash on the wire is tracked
-    /// separately. Until that lands, consumers MUST validate this
-    /// field's shape themselves: exactly 64 lowercase hex
-    /// characters (`[0-9a-f]{64}`) per the spec. A `String`
-    /// without validation is a known trust-the-wire posture; the
-    /// failure mode is a silent-acceptance bug if a consumer
-    /// forgets the validation step.
-    pub sha256: String,
+    /// The `sha256` property: SHA-256 digest of the attachment content
+    /// as 64 lowercase hex characters (draft-atwood-jmap-chat-00 §4.1).
+    /// Typed as [`Sha256`], the same wire shape FileNode uses
+    /// (draft-atwood-jmap-cid-00 §2), so a malformed digest is rejected
+    /// at deserialize.
+    pub sha256: Sha256,
     /// The `id` of a FileNode in the Space's file tree that this
     /// attachment links to (draft-atwood-jmap-chat-filenode-00
     /// §Attachment Link). Only meaningful when the
@@ -186,8 +170,7 @@ pub struct Attachment {
 /// stored or returned attachment is an [`Attachment`].
 ///
 /// Absent fields are omitted on serialization. `sha256`, when present,
-/// is 64 lowercase hex characters per draft-atwood-jmap-chat-00
-/// §Attachment and is not validated here (see [`Attachment::sha256`]).
+/// is validated at deserialize (see [`Attachment::sha256`]).
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -204,9 +187,10 @@ pub struct AttachmentCreate {
     /// The `size` property (draft-atwood-jmap-chat-00 §4.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
-    /// The `sha256` property, hex-encoded (draft-atwood-jmap-chat-00 §4.1).
+    /// The `sha256` property (draft-atwood-jmap-chat-00 §4.1). See
+    /// [`Attachment::sha256`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sha256: Option<String>,
+    pub sha256: Option<Sha256>,
     /// The `filenodeId` property (draft-atwood-jmap-chat-filenode-00
     /// §filenodeId). See [`Attachment::filenode_id`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -985,6 +969,33 @@ mod tests {
         let p: Attachment = serde_json::from_value(plain.clone()).unwrap();
         assert!(p.filenode_id.is_none() && p.thumbnail_blob_id.is_none());
         assert_eq!(serde_json::to_value(&p).unwrap(), plain);
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Attachment — `sha256` is
+    /// "Lowercase hex SHA-256 of blob content". The SHA-256 of "abc"
+    /// (FIPS 180-2 Appendix B.1) parses on both Attachment and
+    /// AttachmentCreate; its uppercase form and a 63-character prefix do
+    /// not.
+    #[test]
+    fn attachment_sha256_must_be_lowercase_hex() {
+        let abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        let with = |sha256: &str| {
+            serde_json::json!({
+                "blobId": "b1",
+                "filename": "a.txt",
+                "contentType": "text/plain",
+                "size": 3,
+                "sha256": sha256
+            })
+        };
+        let a: Attachment = serde_json::from_value(with(abc)).unwrap();
+        assert_eq!(a.sha256.as_str(), abc);
+        let c: AttachmentCreate = serde_json::from_value(with(abc)).unwrap();
+        assert_eq!(c.sha256.as_ref().map(|d| d.as_str()), Some(abc));
+        for bad in [abc.to_uppercase(), abc[..63].to_owned()] {
+            assert!(serde_json::from_value::<Attachment>(with(&bad)).is_err());
+            assert!(serde_json::from_value::<AttachmentCreate>(with(&bad)).is_err());
+        }
     }
 
     /// Oracle: draft-atwood-jmap-chat-filenode-00 §filenodeId — "When

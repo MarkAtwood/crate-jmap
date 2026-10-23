@@ -662,6 +662,22 @@ async fn step10_invalid_attachment_metadata_is_rejected_before_fetch() {
     assert!(fed.messages().await.is_empty());
 }
 
+/// chat-00 §Attachment: `sha256` is "Lowercase hex SHA-256 of blob
+/// content". fed §New-Message Validation rejects a malformed Attachment
+/// with `invalidArguments`, and nothing is fetched for a rejected message.
+#[tokio::test]
+async fn malformed_attachment_sha256_is_rejected_before_fetch() {
+    let fed = Fed::new();
+    let mut m = message("M1");
+    m["attachments"] = json!([abc_attachment("a.txt", &ABC_SHA256.to_uppercase())]);
+    assert_error(
+        fed.deliver(deliver_args(LOW, "direct", m)).await,
+        "invalidArguments",
+    );
+    assert!(fed.fetched.lock().expect("lock").is_empty());
+    assert!(fed.messages().await.is_empty());
+}
+
 /// fed L412: "Fetch each attachment blob from its `fetchUrl`; verify the
 /// byte count against `size` and the content against `sha256`. Reject
 /// with `invalidArguments` if either check fails."

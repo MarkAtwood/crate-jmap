@@ -28,6 +28,7 @@ use jmap_chat_types::{
     BroadcastMention, Chat, ChatContact, ChatKind, ChatPermission, ChatTypingEvent, DeliveryState,
     Mention, Message, MessageAction, Space, SpaceBan, BROADCAST_MENTION_SCOPES,
 };
+use jmap_cid_types::Sha256;
 use jmap_peer_auth::{bind_identity, IdentityBinding, PeerDomain};
 use jmap_server::{now_utc_string, serialize_value, server_fail_from_backend, HandlerOutput};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
@@ -1074,8 +1075,8 @@ fn encrypted_conflict(m: &PeerMessage) -> Option<&'static str> {
 }
 
 /// Step 10: each attachment's `filename`, `contentType` and `size` per
-/// draft-atwood-jmap-chat-00 §Attachment, plus the `sha256` form step 11
-/// compares against. `size` is bounded by `maxAttachmentBytes` before any
+/// draft-atwood-jmap-chat-00 §Attachment. The `sha256` form step 11
+/// compares against is enforced by its type at deserialize. `size` is bounded by `maxAttachmentBytes` before any
 /// fetch (draft-atwood-jmap-chat-00 §Denial of Service: "Enforce
 /// `maxBodyBytes` and `maxAttachmentBytes` at parse time, before any
 /// fetch or storage").
@@ -1090,14 +1091,10 @@ fn check_attachments(attachments: &[PeerAttachment], limits: &ChatLimits) -> Res
         let a = &a.attachment;
         let valid = !a.filename.contains(['/', '\\', '\0'])
             && valid_media_type(&a.content_type)
-            && a.size <= limits.max_attachment_bytes
-            && a.sha256.len() == 64
-            && a.sha256
-                .bytes()
-                .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+            && a.size <= limits.max_attachment_bytes;
         if !valid {
             return Err(JmapError::invalid_arguments(format!(
-                "attachment {} has an invalid filename, contentType, size or sha256",
+                "attachment {} has an invalid filename, contentType or size",
                 a.blob_id
             )));
         }
@@ -1161,20 +1158,10 @@ fn is_before(a: &UTCDate, b: &UTCDate) -> bool {
     }
 }
 
-/// Whether the 64-hex-digit `hex` encodes `digest`, compared in constant
-/// time as `Message/set` compares attachment digests.
-pub(crate) fn sha256_hex_matches(hex: &str, digest: &[u8; 32]) -> bool {
-    let mut decoded = [0u8; 32];
-    for (i, out) in decoded.iter_mut().enumerate() {
-        let Some(byte) = hex
-            .get(2 * i..2 * i + 2)
-            .and_then(|pair| u8::from_str_radix(pair, 16).ok())
-        else {
-            return false;
-        };
-        *out = byte;
-    }
-    hex.len() == 64 && bool::from(decoded.ct_eq(digest))
+/// Whether `sha256` is `digest`, compared in constant time as
+/// `Message/set` compares attachment digests.
+pub(crate) fn sha256_matches(sha256: &Sha256, digest: &[u8; 32]) -> bool {
+    bool::from(sha256.to_bytes().ct_eq(digest))
 }
 
 /// Steps 8 to 14 for a new message, then the store.
@@ -1231,8 +1218,7 @@ async fn deliver_message<B: FederationBackend>(
             .fetch_attachment(ctx.caller, ctx.account_id, a)
             .await
             .map_err(|e| server_fail_from_backend(&e))??;
-        if blob.size != a.attachment.size || !sha256_hex_matches(&a.attachment.sha256, &blob.sha256)
-        {
+        if blob.size != a.attachment.size || !sha256_matches(&a.attachment.sha256, &blob.sha256) {
             return Err(JmapError::invalid_arguments(format!(
                 "attachment {} does not match the fetched blob's size or sha256",
                 a.attachment.blob_id
