@@ -10,6 +10,8 @@
 //!   change. The names date from -02; every pinned example is unchanged
 //!   in -04.
 
+mod common;
+
 use jmap_metadata_types::{
     is_registered_namespace, is_valid_namespace, is_vendor_namespace, DataTypeMetadataInfo,
     MetadataTextMatch, WithMetadata, JMAP_METADATA_URI,
@@ -32,12 +34,7 @@ fn capability_uri_matches_draft_02() {
 #[test]
 fn data_type_metadata_info_draft_02_section_6_1() {
     // Oracle: §6.1 example — the FileNode entry (registered namespace only).
-    let json = r#"{
-        "namespaces": ["photography"],
-        "supportsVendorNamespaces": false,
-        "supportsPrivate": false,
-        "maxDepth": 3
-    }"#;
+    let json = &common::fixture("data_type_metadata_info_draft_02_section_6_1.json");
     let info: DataTypeMetadataInfo = serde_json::from_str(json).unwrap();
     assert_eq!(info.namespaces, vec!["photography"]);
     assert!(!info.supports_vendor_namespaces);
@@ -49,12 +46,7 @@ fn data_type_metadata_info_draft_02_section_6_1() {
 fn data_type_metadata_info_draft_02_full_support() {
     // Oracle: hand-written from §1.2.1 field descriptions.
     // Vendor namespaces allowed, private metadata allowed, no depth limit.
-    let json = r#"{
-        "namespaces": ["photography", "workflow"],
-        "supportsVendorNamespaces": true,
-        "supportsPrivate": true,
-        "maxDepth": null
-    }"#;
+    let json = &common::fixture("data_type_metadata_info_draft_02_full_support.json");
     let info: DataTypeMetadataInfo = serde_json::from_str(json).unwrap();
     assert_eq!(info.namespaces, vec!["photography", "workflow"]);
     assert!(info.supports_vendor_namespaces);
@@ -66,7 +58,7 @@ fn data_type_metadata_info_draft_02_full_support() {
 fn data_type_metadata_info_defaults() {
     // Oracle: §1.2.1 says namespaces defaults to [], booleans default
     // to false. An empty object should deserialize with all defaults.
-    let json = r#"{ "maxDepth": null }"#;
+    let json = &common::fixture("data_type_metadata_info_defaults.json");
     let info: DataTypeMetadataInfo = serde_json::from_str(json).unwrap();
     assert!(info.namespaces.is_empty());
     assert!(!info.supports_vendor_namespaces);
@@ -76,12 +68,7 @@ fn data_type_metadata_info_defaults() {
 
 #[test]
 fn data_type_metadata_info_round_trip() {
-    let json = r#"{
-        "namespaces": ["photography"],
-        "supportsVendorNamespaces": true,
-        "supportsPrivate": false,
-        "maxDepth": 5
-    }"#;
+    let json = &common::fixture("data_type_metadata_info_round_trip.json");
     let info: DataTypeMetadataInfo = serde_json::from_str(json).unwrap();
     let serialized = serde_json::to_value(&info).unwrap();
     let reparsed: DataTypeMetadataInfo = serde_json::from_value(serialized).unwrap();
@@ -91,12 +78,7 @@ fn data_type_metadata_info_round_trip() {
 #[test]
 fn data_type_metadata_info_max_depth_null_round_trips() {
     // maxDepth: null means no server-enforced limit.
-    let json = r#"{
-        "namespaces": [],
-        "supportsVendorNamespaces": false,
-        "supportsPrivate": false,
-        "maxDepth": null
-    }"#;
+    let json = &common::fixture("data_type_metadata_info_max_depth_null_round_trips.json");
     let info: DataTypeMetadataInfo = serde_json::from_str(json).unwrap();
     assert_eq!(info.max_depth, None);
     let reser = serde_json::to_value(&info).unwrap();
@@ -110,10 +92,7 @@ fn data_type_metadata_info_max_depth_null_round_trips() {
 #[test]
 fn metadata_text_match_draft_02_section_6_7() {
     // Oracle: §6.7 example — filtering by text match.
-    let json = r#"{
-        "path": "acme.example.com/memo",
-        "value": "follow up"
-    }"#;
+    let json = &common::fixture("metadata_text_match_draft_02_section_6_7.json");
     let m: MetadataTextMatch = serde_json::from_str(json).unwrap();
     assert_eq!(m.path, "acme.example.com/memo");
     assert_eq!(m.value, "follow up");
@@ -121,7 +100,7 @@ fn metadata_text_match_draft_02_section_6_7() {
 
 #[test]
 fn metadata_text_match_round_trip() {
-    let json = r#"{"path": "photography/album", "value": "sunset"}"#;
+    let json = &common::fixture("metadata_text_match_round_trip.json");
     let m: MetadataTextMatch = serde_json::from_str(json).unwrap();
     let reser = serde_json::to_value(&m).unwrap();
     let reparsed: MetadataTextMatch = serde_json::from_value(reser).unwrap();
@@ -131,7 +110,7 @@ fn metadata_text_match_round_trip() {
 #[test]
 fn metadata_text_match_namespace_only_path() {
     // §3.6: path can be just a namespace (no key suffix).
-    let json = r#"{"path": "photography", "value": "beach"}"#;
+    let json = &common::fixture("metadata_text_match_namespace_only_path.json");
     let m: MetadataTextMatch = serde_json::from_str(json).unwrap();
     assert_eq!(m.path, "photography");
     assert_eq!(m.value, "beach");

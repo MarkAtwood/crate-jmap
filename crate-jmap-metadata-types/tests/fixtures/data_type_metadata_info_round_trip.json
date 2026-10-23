@@ -1,0 +1,6 @@
+{
+        "namespaces": ["photography"],
+        "supportsVendorNamespaces": true,
+        "supportsPrivate": false,
+        "maxDepth": 5
+    }
