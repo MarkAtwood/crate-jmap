@@ -4,10 +4,10 @@
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.2
 //! /changes, §5.3 /set, §5.5 /query, §5.6 /queryChanges). Every
 //! `SceneAsset`, `SceneRegion`, `SceneObject` and `SceneAvatar` method
-//! bound here is a standard method of one of those five shapes
-//! (draft-atwood-jmap-scene-00 §Methods), so the five request builders
-//! live here once and the per-type sub-modules bind them to a method name,
-//! a filter type and a comparator type.
+//! bound here except `SceneObject/interact` is a standard method of one of
+//! those five shapes (draft-atwood-jmap-scene-00 §Methods), so the five
+//! request builders live here once and the per-type sub-modules bind them
+//! to a method name, a filter type and a comparator type.
 
 pub mod scene_asset;
 pub mod scene_avatar;

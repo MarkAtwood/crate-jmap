@@ -40,7 +40,9 @@ let nearby = sc
 # Ok(()) }
 ```
 
-`SceneObject/interact` is not bound yet.
+`scene_object_interact` calls `SceneObject/interact` (§SceneObject/interact)
+and reports which interactions the server accepted; the WebSocket
+`SceneInteractionEvent` frame below returns no result.
 
 ## What it's for
 

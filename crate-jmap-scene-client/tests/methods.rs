@@ -12,11 +12,11 @@ use jmap_base_client::ClientError;
 use jmap_scene_client::{JmapSceneExt, SessionClient};
 use jmap_scene_types::{
     Filter, SceneAssetComparator, SceneAssetFilterCondition, SceneAssetSortProperty,
-    SceneAvatarComparator, SceneAvatarFilterCondition, SceneAvatarSortProperty,
+    SceneAvatarComparator, SceneAvatarFilterCondition, SceneAvatarSortProperty, SceneInteraction,
     SceneObjectComparator, SceneObjectFilterCondition, SceneObjectSortProperty,
     SceneRegionComparator, SceneRegionSortProperty, WithinRadius,
 };
-use jmap_types::{Id, PatchObject, State, UTCDate};
+use jmap_types::{Id, PatchObject, SetErrorType, State, UTCDate};
 use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -435,6 +435,89 @@ async fn scene_object_query_within_radius_matches_example() {
     );
     assert_eq!(resp.query_state, State::from("qstate-obj-18"));
     assert_eq!(resp.total, Some(2));
+}
+
+/// draft-atwood-jmap-scene-00 L2067-L2114, the `SceneObject/interact`
+/// example request and its response ("the second object has
+/// `interactable: false`").
+#[tokio::test]
+async fn scene_object_interact_matches_example() {
+    let server = MockServer::start().await;
+    respond(
+        &server,
+        "SceneObject/interact",
+        json!({
+            "accountId": "acct-001",
+            "accepted": ["i0"],
+            "notAccepted": {
+                "i1": {
+                    "type": "forbidden",
+                    "description": "The object is not interactable."
+                }
+            }
+        }),
+    )
+    .await;
+
+    let region = Id::from("01J5ABC0000000000000000001");
+    let click = SceneInteraction::new(
+        region.clone(),
+        Id::from("01J5QBJ0000000000000000002"),
+        "click".to_owned(),
+    );
+    let mut grab = SceneInteraction::new(
+        region,
+        Id::from("01J5QBJ0000000000000000003"),
+        "grab".to_owned(),
+    );
+    grab.data = Some(serde_json::Map::from_iter([(
+        "hand".to_owned(),
+        json!("left"),
+    )]));
+
+    let sc = make_client(&server, "acct-001");
+    let resp = sc
+        .scene_object_interact(BTreeMap::from([
+            ("i0".to_owned(), click),
+            ("i1".to_owned(), grab),
+        ]))
+        .await
+        .expect("SceneObject/interact must succeed");
+
+    let body = sent_request(&server).await;
+    assert_eq!(
+        body["using"],
+        json!(["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:scene"])
+    );
+    assert_eq!(
+        json!([body["methodCalls"][0][0], body["methodCalls"][0][1]]),
+        json!(["SceneObject/interact", {
+            "accountId": "acct-001",
+            "interactions": {
+                "i0": {
+                    "regionId": "01J5ABC0000000000000000001",
+                    "objectId": "01J5QBJ0000000000000000002",
+                    "action": "click",
+                    "data": null
+                },
+                "i1": {
+                    "regionId": "01J5ABC0000000000000000001",
+                    "objectId": "01J5QBJ0000000000000000003",
+                    "action": "grab",
+                    "data": {"hand": "left"}
+                }
+            }
+        }])
+    );
+    assert_eq!(resp.account_id, Id::from("acct-001"));
+    assert_eq!(resp.accepted, Some(vec!["i0".to_owned()]));
+    let not_accepted = resp.not_accepted.expect("notAccepted must be present");
+    assert_eq!(not_accepted.len(), 1);
+    assert_eq!(not_accepted["i1"].error_type, SetErrorType::Forbidden);
+    assert_eq!(
+        not_accepted["i1"].description.as_deref(),
+        Some("The object is not interactable.")
+    );
 }
 
 /// draft-atwood-jmap-scene-00 L2130-L2230, "A user enters a region by

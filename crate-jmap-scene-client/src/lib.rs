@@ -2,8 +2,9 @@
 //!
 //! [`JmapSceneExt`] binds the `/get`, `/changes`, `/set`, `/query` and
 //! `/queryChanges` methods of `SceneAsset`, `SceneRegion`, `SceneObject`
-//! and `SceneAvatar` (draft-atwood-jmap-scene-00 §Methods) on top of
-//! `jmap-base-client`. Wire types come from `jmap-scene-types`.
+//! and `SceneAvatar`, and `SceneObject/interact` (draft-atwood-jmap-scene-00
+//! §Methods) on top of `jmap-base-client`. Wire types come from
+//! `jmap-scene-types`.
 //!
 //! ```rust,no_run
 //! # use jmap_scene_client::JmapSceneExt;
