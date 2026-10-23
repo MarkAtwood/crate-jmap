@@ -619,15 +619,13 @@ impl JmapBackend for MemoryBackend {
         // it cannot process the given filter"), since this backend evaluates
         // no FilterOperator.
         //
-        // Type-identity roundtrip (Pattern G, see jmap-mail-server memory): the
-        // generic `O::Filter` is the concrete `TaskFilter`,
-        // `TaskNotificationFilter` or (TaskList) `Value` here, so
-        // `to_value(&f)` is infallible. A future custom-serde change that
-        // breaks the roundtrip surfaces as a panic rather than silently
-        // dropping the filter.
+        // The generic `O::Filter` is the concrete `TaskFilter`,
+        // `TaskNotificationFilter` or (TaskList) `Value` here. A serializer
+        // failure surfaces as serverFail rather than a panic or a silently
+        // dropped filter (see the jmap-mail-server memory backend).
         let mut in_task_list: Option<Id> = None;
         if let Some(f) = filter {
-            let v = serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+            let v = jmap_server::serialize_value(f).map_err(BackendQueryError::Method)?;
             if v.get("operator").is_some() {
                 return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
             }

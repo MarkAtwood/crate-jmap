@@ -92,12 +92,6 @@ where
     })))
 }
 
-/// Serialize a [`SetError`] to a JSON value for inclusion in
-/// `notCreated`/`notUpdated`/`notDestroyed` maps.
-pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
-    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
-}
-
 /// Resolve an Id-typed property value that may be a `#creationId`
 /// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
 ///
