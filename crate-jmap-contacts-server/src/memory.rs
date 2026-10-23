@@ -692,10 +692,9 @@ impl JmapBackend for MemoryBackend {
         // Filter + sort dispatch.
         //
         // For ContactCard (the only type with a registered `*/query` handler
-        // per RFC 9610), decode the typed filter and comparator list via the
-        // canonical Pattern G type-identity roundtrip (`expect()` per
-        // bc79c70 — silent drop would return ALL cards, a query-correctness
-        // bug), then evaluate the RFC 8620 §5.5 filter tree with
+        // per RFC 9610), decode the typed filter and comparator list via a
+        // type-identity roundtrip (a failure is serverFail, never a silent
+        // drop that would return ALL cards), then evaluate the RFC 8620 §5.5 filter tree with
         // `Filter::matches` over `contact_card_matches_filter` and sort with
         // `compare_contact_cards_by_property` from this module.
         //
@@ -703,22 +702,20 @@ impl JmapBackend for MemoryBackend {
         // objects in the store; RFC 9610 does not define a queryable
         // AddressBook, so this branch is defensive only.
         let mut ids: Vec<Id> = if O::TYPE_NAME == "ContactCard" {
-            // Pattern G: type-identity roundtrip. When O::TYPE_NAME ==
-            // "ContactCard" the generic O::Filter is necessarily
-            // ContactCardFilter (see
-            // the QueryObject impl in jmap-contacts-types src/backend.rs), so both
-            // halves of this serde roundtrip are infallible. `.expect()`
-            // surfaces a future custom-serde regression instead of
-            // silently dropping the filter (which would return ALL cards
-            // when the client expected a filtered subset — bd:JMAP-qz9v.3).
-            let card_filter: Option<ContactCardFilter> = filter.map(|f| {
-                let v =
-                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
-                serde_json::from_value(v).expect(
-                    "type-identity roundtrip on ContactCardFilter is infallible: \
-                     the JSON came from Serialize on the same concrete type",
-                )
-            });
+            // Type-identity roundtrip. When O::TYPE_NAME == "ContactCard" the
+            // generic O::Filter is necessarily ContactCardFilter (see the
+            // QueryObject impl in jmap-contacts-types src/backend.rs). A
+            // failure of either half means that dispatch has drifted; it
+            // surfaces as serverFail rather than a panic or a silently
+            // dropped filter (bd:JMAP-qz9v.3, bd:JMAP-ic0j.38).
+            let card_filter: Option<ContactCardFilter> = filter
+                .map(|f| {
+                    let v = jmap_server::serialize_value(f).map_err(BackendQueryError::Method)?;
+                    serde_json::from_value(v).map_err(|e| {
+                        BackendQueryError::Method(jmap_types::JmapError::server_fail(e.to_string()))
+                    })
+                })
+                .transpose()?;
 
             // Decode each comparator into (property, isAscending) via JSON
             // roundtrip. Unknown properties produce Ordering::Equal in the

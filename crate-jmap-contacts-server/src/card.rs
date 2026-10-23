@@ -38,7 +38,7 @@ use serde_json::{Value, json};
 use crate::ContactsBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    resolve_map_key_refs, set_error_value,
+    resolve_map_key_refs,
 };
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, reject_read_only_patch,
@@ -155,11 +155,11 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 .as_object()
                 .and_then(reject_server_set::<ContactCard>)
             {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             if let Err(err) = resolve_map_key_refs(&mut obj_val, "addressBookIds", created_ids) {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             // `ContactCard.id` is optional, so the create parses without
@@ -185,11 +185,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
                     not_created.insert(create_id, backend_set_error_value(e));
@@ -206,12 +202,12 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_map_key_refs(&mut patch_val, "addressBookIds", created_ids) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -229,7 +225,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 }
             };
             if let Some(err) = reject_read_only_patch::<ContactCard>(patch.as_map(), None) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -239,11 +235,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -279,7 +271,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, set_error_value(&err));
+                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -440,7 +432,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_copied.insert(create_id, set_error_value(&err));
+                    not_copied.insert(create_id, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -475,8 +467,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             // invalidProperties SetError per RFC 8620 §5.3 rather than
             // silently using the un-patched card and claiming success.
             if let Value::Object(spec_obj) = &spec_val {
-                let mut card_val = serde_json::to_value(&card)
-                    .expect("derive(Serialize) on plain data is infallible");
+                let mut card_val = jmap_server::serialize_value(&card)?;
                 if let Value::Object(ref mut merged_map) = card_val {
                     let mut patch = spec_obj.clone();
                     patch.remove("id");
@@ -512,8 +503,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                     mutated = true;
                     copied.insert(
                         create_id.clone(),
-                        serde_json::to_value(&copied_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
+                        jmap_server::serialize_value(&copied_obj)?,
                     );
                     copied_source_ids.push((create_id, source_id));
                 }
