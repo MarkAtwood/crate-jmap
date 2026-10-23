@@ -27,10 +27,6 @@ fn b64(bytes: &[u8]) -> Base64Url {
         .expect("the base64url engine emits only base64url characters")
 }
 
-fn output(response: Result<Value, serde_json::Error>) -> HandlerOutput {
-    HandlerOutput::new(response.expect("derive(Serialize) on plain data is infallible"))
-}
-
 /// `accountId` after checking that the account exists, and the other
 /// arguments.
 async fn account<B: MimiBackend>(
@@ -240,7 +236,7 @@ pub async fn handle_key_material_fetch<B: MimiBackend>(
             clients,
         )
     };
-    Ok(output(serde_json::to_value(response)))
+    Ok(HandlerOutput::new(jmap_server::serialize_value(response)?))
 }
 
 /// Handle `Room/update` (draft-atwood-jmap-chat-mimi-00 §Room/update).
@@ -328,7 +324,7 @@ pub async fn handle_room_update<B: MimiBackend>(
             r
         }
     };
-    Ok(output(serde_json::to_value(response)))
+    Ok(HandlerOutput::new(jmap_server::serialize_value(response)?))
 }
 
 /// Handle `Room/send` (draft-atwood-jmap-chat-mimi-00 §Room/send).
@@ -402,7 +398,7 @@ pub async fn handle_room_send<B: MimiBackend>(
             r
         }
     };
-    Ok(output(serde_json::to_value(response)))
+    Ok(HandlerOutput::new(jmap_server::serialize_value(response)?))
 }
 
 /// Handle `Room/unbind` (draft-atwood-jmap-chat-mimi-00 §Room/unbind).
@@ -424,9 +420,9 @@ pub async fn handle_room_unbind<B: MimiBackend>(
     {
         return Err(bad("no Chat in the account has that roomId"));
     }
-    Ok(output(serde_json::to_value(RoomUnbindResponse::new(
-        account_id,
-    ))))
+    Ok(HandlerOutput::new(jmap_server::serialize_value(
+        RoomUnbindResponse::new(account_id),
+    )?))
 }
 
 /// Handle `GroupInfo/fetch` (draft-atwood-jmap-chat-mimi-00
@@ -470,9 +466,7 @@ pub async fn handle_group_info_fetch<B: MimiBackend>(
         2 => GroupInfoCode::NotAuthorized,
         _ => GroupInfoCode::NoSuchRoom,
     };
-    Ok(output(serde_json::to_value(GroupInfoFetchResponse::new(
-        account_id,
-        status,
-        b64(&reply.body),
-    ))))
+    Ok(HandlerOutput::new(jmap_server::serialize_value(
+        GroupInfoFetchResponse::new(account_id, status, b64(&reply.body)),
+    )?))
 }
