@@ -19,6 +19,10 @@
 //!   [`VerifiedGroupInfoResponse`], [`GroupInfoResponseError`] — the
 //!   checks a client SHOULD make on a `GroupInfo/fetch` response before an
 //!   external join (draft §GroupInfo/fetch).
+//! - [`decrypt_group_info_and_tree`], [`GroupInfoAndTree`],
+//!   [`RatchetTreeOption`], [`PendingProposal`] — decrypting and parsing
+//!   the response's GroupInfo, ratchet tree option and pending proposals
+//!   (draft-ietf-mimi-protocol-06 §5.6).
 //!
 //! MLS structures are parsed and verified with crates.io `openmls`; the
 //! caller supplies the `OpenMlsCrypto` provider.
@@ -64,7 +68,8 @@ mod membership;
 mod methods;
 
 pub use group_info::{
-    GroupInfoResponseError, VerifiedGroupInfoResponse, group_info_names_hub_sender,
+    GroupInfoAndTree, GroupInfoResponseError, PendingProposal, RatchetTreeOption,
+    VerifiedGroupInfoResponse, decrypt_group_info_and_tree, group_info_names_hub_sender,
     verify_group_info_response,
 };
 pub use jmap_base_client::ClientError;

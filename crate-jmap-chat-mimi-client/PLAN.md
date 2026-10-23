@@ -9,6 +9,7 @@ of `jmap-chat-mimi-types` and `jmap-base-client`.
 |---|---|---|
 | JMAP-6k5d.8 | Crate scaffold, Room/* and GroupInfo/fetch bindings, `account_has_left`, GroupInfoResponse checks | landed |
 | JMAP-6k5d.12 | KeyPackage/get, KeyPackage/set and KeyMaterial/fetch bindings | landed |
+| JMAP-6k5d.13 | Decrypt and parse the GroupInfoResponse GroupInfoRatchetTreeTBE | landed |
 
 ## Decisions
 
@@ -36,6 +37,15 @@ of `jmap-chat-mimi-types` and `jmap-base-client`.
   GroupContext extensions (RFC 9420 §12.1.8.1) of an unverified
   `VerifiableGroupInfo`; openmls verifies the GroupInfo signature at the
   external join.
-- Decrypting `encrypted_groupinfo_and_tree` (HPKE with the client's
-  `groupInfoPublicKey` private key) and parsing the GroupInfo, ratchet tree
-  option and pending proposals inside it is left to the caller for now.
+- `decrypt_group_info_and_tree` opens `encrypted_groupinfo_and_tree` with
+  RFC 9420 §5.1.3 DecryptWithLabel ("GroupInfo and ratchet_tree
+  encryption", context `room_id`) under the HPKE algorithms of the
+  response's `cipher_suite`, the only suite draft-ietf-mimi-protocol-06
+  §5.6 puts in front of the ciphertext. openmls keeps its
+  `decrypt_with_label` crate-private, so the EncryptContext is built here
+  and passed to `OpenMlsCrypto::hpke_open`.
+- A `full` RatchetTreeOption parses as openmls `RatchetTreeIn`, the
+  `ratchet_tree` extension encoding (`optional<Node>` entries) that
+  draft-mahy-mls-ratchet-tree-options-04 §3 says `full` carries; its
+  struct writes `Node ratchet_tree<V>`, but its prose says "the complete
+  `ratchet_tree` extension". An `httpsUrl` that is not UTF-8 is malformed.
