@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::chat::ChannelPermission;
 use crate::clearable::{Clearable, some_clearable};
-use crate::space::SpaceRole;
+use crate::space::ChatPermission;
 
 /// Per-entry input for `addMembers` (draft-atwood-jmap-chat-00 §Space/set).
 ///
@@ -44,7 +44,7 @@ use crate::space::SpaceRole;
 /// inline `SpacePatchOp::AddMember { user_id, role_ids }` variant;
 /// this struct exists so that all four `Add*` variants of
 /// [`SpacePatchOp`] are uniformly `Add*(<Create>)`, in parity with
-/// [`SpaceRole`] / [`ChannelCreate`] / [`CategoryCreate`] for roles,
+/// [`RoleCreate`] / [`ChannelCreate`] / [`CategoryCreate`] for roles,
 /// channels, and categories respectively. The normalization lets
 /// unified visitors over `SpacePatchOp` pattern-match
 /// `AddMember(create)` the same way they match the other Add
@@ -149,6 +149,35 @@ pub struct CategoryCreate {
     /// optional; absent means no channels).
     #[serde(default)]
     pub channel_ids: Vec<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Per-entry input for `addRoles` (draft-atwood-jmap-chat-00 §Space/set).
+///
+/// The draft: "Each entry: `name` (String), `permissions` (String[]),
+/// `position` (UnsignedInt), and optionally `color` [...] Server assigns
+/// ULIDs." This struct carries only that client-supplied subset of
+/// [`crate::SpaceRole`]; the backend mints the role `id`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoleCreate {
+    /// The `name` property (draft-atwood-jmap-chat-00 §Space/set — required).
+    pub name: String,
+    /// The `color` property (draft-atwood-jmap-chat-00 §Space/set — optional).
+    ///
+    /// Kept as raw JSON, as for [`crate::SpaceRole::color`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<serde_json::Value>,
+    /// The `permissions` property (draft-atwood-jmap-chat-00 §Space/set — required).
+    pub permissions: Vec<ChatPermission>,
+    /// The `position` property (draft-atwood-jmap-chat-00 §Space/set — required).
+    pub position: u64,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -435,27 +464,18 @@ impl SpaceMetadataPatch {
 /// This is a Rust internal representation; it has no wire form of its own.
 /// The wire form is the pluralized patch object as defined in the draft.
 /// Round-trip JSON tests exist for the contained payload types
-/// ([`SpaceRole`], [`CategoryCreate`], [`ChannelCreate`], [`RolePatch`],
+/// ([`RoleCreate`], [`CategoryCreate`], [`ChannelCreate`], [`RolePatch`],
 /// [`MemberPatch`], [`ChannelPatch`], [`CategoryPatch`]) — see this module's
 /// test section.
-///
-/// For `Add*` variants whose payload is a server-stored type with a
-/// server-assigned `id` ([`SpaceRole`]), the input value
-/// carries a placeholder `id`; the server replaces it with a real id
-/// before storing.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum SpacePatchOp {
     /// Add a new role to the Space (one entry from wire key `addRoles`).
     ///
-    /// The contained [`SpaceRole`]'s `id` is a **client-side
-    /// placeholder**. The backend MUST mint its own server-assigned id
-    /// (the reference implementation uses a ULID) and surface it via
-    /// the per-op result. Clients SHOULD treat the placeholder as
-    /// opaque and rely on the returned id for subsequent references.
-    /// Backends that honor the client-supplied id break server-side
-    /// id minting and are spec-noncompliant.
-    AddRole(SpaceRole),
+    /// The entry carries no `id`: the backend mints the server-assigned
+    /// id (draft: "Server assigns ULIDs") and surfaces it via the per-op
+    /// result.
+    AddRole(RoleCreate),
     /// Remove a role from the Space (one entry from wire key `removeRoles`).
     ///
     /// Members holding only the removed role are demoted to `@everyone`.
@@ -698,6 +718,30 @@ mod tests {
         assert_eq!(c.channel_ids, vec![Id::from("ch1"), Id::from("ch2")]);
     }
 
+    // Oracle: spec §Space/set addRoles — "Each entry: `name` (String),
+    // `permissions` (String[]), `position` (UnsignedInt), and optionally
+    // `color` [...] Server assigns ULIDs." An entry with no `id` parses.
+    #[test]
+    fn role_create_without_id() {
+        let r: RoleCreate = serde_json::from_str(
+            r##"{"name":"Mod","permissions":["manage_roles"],"position":2,"color":"#ff0000"}"##,
+        )
+        .expect("deserialize RoleCreate");
+        assert_eq!(r.name, "Mod");
+        assert_eq!(r.permissions, vec![ChatPermission::ManageRoles]);
+        assert_eq!(r.position, 2);
+        assert_eq!(r.color, Some(serde_json::json!("#ff0000")));
+        assert!(r.extra.is_empty());
+    }
+
+    // Oracle: spec §Space/set addRoles — `name`, `permissions` and
+    // `position` are not marked optional.
+    #[test]
+    fn role_create_requires_position() {
+        let r = serde_json::from_str::<RoleCreate>(r#"{"name":"Mod","permissions":[]}"#);
+        assert!(r.is_err(), "missing position must not parse: {r:?}");
+    }
+
     // Oracle: spec §Space/set top-level metadata mutation — every field
     // round-trips, including the Clearable null-vs-set distinction.
     #[test]
@@ -774,11 +818,10 @@ mod tests {
     // Compile-only: SpacePatchOp enum has all 12 variants and constructs cleanly.
     #[test]
     fn space_patch_op_variant_construction() {
-        let role = SpaceRole {
-            id: Id::from("placeholder"),
+        let role = RoleCreate {
             name: "Test".to_owned(),
             color: None,
-            permissions: vec![crate::ChatPermission::Other("chat:read".to_owned())],
+            permissions: vec![ChatPermission::Other("chat:read".to_owned())],
             position: 1,
             extra: serde_json::Map::new(),
         };

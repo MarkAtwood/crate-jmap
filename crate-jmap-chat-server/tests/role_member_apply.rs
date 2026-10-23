@@ -79,6 +79,60 @@ async fn owner_without_member_entry_cannot_add_roles() {
 // Criterion 1: permission gating against caller's effective permissions
 // ---------------------------------------------------------------------------
 
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set `addRoles`: "Each
+/// entry: `name` (String), `permissions` (String[]), `position`
+/// (UnsignedInt) [...] Server assigns ULIDs." An entry without `id` is
+/// accepted, and an `id` a client sends anyway is not stored: the role
+/// gets a server-assigned id.
+#[tokio::test]
+async fn add_role_stores_server_assigned_id() {
+    let backend = IdentityBackend::new();
+    let caller = Id::from(ACCOUNT_ID);
+    seed_with_admin(&backend, ACCOUNT_ID);
+
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
+        &backend,
+        &caller,
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { SPACE_ID: { "addRoles": [
+                { "name": "NoId", "permissions": [], "position": 10 },
+                { "id": "client-chosen", "name": "WithId", "permissions": [], "position": 20 }
+            ]}}
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+    assert!(
+        resp["notUpdated"][SPACE_ID].is_null(),
+        "addRoles must succeed: {resp:?}"
+    );
+
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
+        &backend,
+        &caller,
+        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+    )
+    .await
+    .expect("Space/get");
+    let roles = get_resp["list"][0]["roles"]
+        .as_array()
+        .expect("roles array");
+    for name in ["NoId", "WithId"] {
+        let role = roles
+            .iter()
+            .find(|r| r["name"] == name)
+            .unwrap_or_else(|| panic!("role {name} stored: {roles:?}"));
+        let id = role["id"].as_str().expect("role id is a string");
+        assert!(
+            !id.is_empty() && id != "client-chosen" && id != "r-admin",
+            "role {name} must carry a fresh server-assigned id, got {id:?}"
+        );
+    }
+}
+
 /// Oracle: bd:JMAP-g7wu.2.4.3 criterion 1. A caller who is not a
 /// member of the Space has no effective permissions; their Role/Member
 /// ops are rejected with `forbidden`.

@@ -203,10 +203,11 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jmap_chat_types::Clearable;
     use jmap_chat_types::{
-        CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
+        CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RoleCreate,
+        RolePatch,
     };
-    use jmap_chat_types::{Clearable, SpaceRole};
     use jmap_types::Id;
 
     // Oracle for the spec-line → permission mapping: draft-atwood-jmap-chat-00
@@ -216,16 +217,15 @@ mod tests {
     // asserts the slice returned by the helper matches the table in the
     // rustdoc.
     //
-    // `SpaceRole`, `CategoryCreate`, and `ChannelCreate` are `#[non_exhaustive]`
+    // `RoleCreate`, `CategoryCreate`, and `ChannelCreate` are `#[non_exhaustive]`
     // without `Default`, so they are constructed via `serde_json::from_value`
     // from hand-written JSON shaped after draft-atwood-jmap-chat-00 §4.12
     // and §Space/set. This satisfies the workspace
     // independent-oracle rule: the JSON is hand-typed from the spec, not
     // derived from the code under test.
 
-    fn role_fixture() -> SpaceRole {
+    fn role_fixture() -> RoleCreate {
         serde_json::from_value(serde_json::json!({
-            "id": "r1",
             "name": "Moderator",
             "permissions": ["chat:read"],
             "position": 0

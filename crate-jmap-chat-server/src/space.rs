@@ -31,7 +31,9 @@ use jmap_chat_types::SPEC_PERMISSION_NAMES;
 use jmap_chat_types::{
     CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
 };
-use jmap_chat_types::{Chat, ChatKind, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
+use jmap_chat_types::{
+    Chat, ChatKind, RoleCreate, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole,
+};
 use jmap_chat_types::{SpaceComparator, SpaceFilter};
 use jmap_types::{Id, JmapError, PatchObject, SetObject, UTCDate};
 use serde_json::{Value, json};
@@ -146,14 +148,7 @@ fn parse_structural_entries(key: StructuralKey, value: Value) -> Result<Vec<Spac
     for (idx, entry) in arr.into_iter().enumerate() {
         let op = match key {
             StructuralKey::AddRoles => {
-                // Draft §Space/set addRoles entries carry no `id` ("Server
-                // assigns ULIDs"); fill the placeholder `SpacePatchOp::AddRole`
-                // documents, which the backend replaces before storing.
-                let mut entry = entry;
-                if let Value::Object(fields) = &mut entry {
-                    fields.insert("id".to_owned(), Value::String(String::new()));
-                }
-                SpacePatchOp::AddRole(parse_entry::<SpaceRole>(canonical, idx, entry)?)
+                SpacePatchOp::AddRole(parse_entry::<RoleCreate>(canonical, idx, entry)?)
             }
             StructuralKey::RemoveRoles => {
                 SpacePatchOp::RemoveRole(parse_id_entry(canonical, idx, entry)?)
