@@ -16,8 +16,8 @@
 //! For the standard `/get`, `/changes`, `/query`, `/queryChanges`,
 //! `/set`, `/import`, and `/parse` handlers in this module the vector
 //! is **always empty**. `handle_email_copy` is the one exception: it MAY
-//! emit `Email/set` follow-up invocations when `onSuccessDestroyOriginal`
-//! is true or `onSuccessUpdateOriginal` is non-null (RFC 8620 §5.4).
+//! emit an `Email/set` follow-up invocation when `onSuccessDestroyOriginal`
+//! is true (RFC 8620 §5.4).
 //!
 //! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
 //! §3.6.2 and §5):
@@ -2381,16 +2381,15 @@ pub async fn handle_email_parse<B: MailBackend>(
 /// map of creationId → object, optional `onSuccessDestroyOriginal`,
 /// optional `destroyFromIfInState`); the returned `Value` is the §5.4
 /// `/copy` response shape (`fromAccountId`, `accountId`, `oldState`,
-/// `newState`, `created` / `notCreated` maps). RFC 8621 §4.7 adds
-/// `onSuccessUpdateOriginal` to the standard request.
+/// `newState`, `created` / `notCreated` maps). RFC 8621 §4.7 adds no
+/// arguments: it is "a standard "/copy" method as described in \[RFC8620\],
+/// Section 5.4".
 ///
 /// Copies one or more emails from `fromAccountId` into the current account.
-/// Supports `onSuccessDestroyOriginal`, `destroyFromIfInState` and
-/// `onSuccessUpdateOriginal`.
+/// Supports `onSuccessDestroyOriginal` and `destroyFromIfInState`.
 ///
-/// Returns `(response_args, extra_invocations)`. Extra invocations are
-/// generated when `onSuccessDestroyOriginal: true` or `onSuccessUpdateOriginal`
-/// is non-null, per RFC 8620 §6.3. If `destroyFromIfInState` does not match
+/// Returns `(response_args, extra_invocations)`. An extra invocation is
+/// generated when `onSuccessDestroyOriginal` is true, per RFC 8620 §6.3. If `destroyFromIfInState` does not match
 /// the source account's Email state, the single extra invocation is an
 /// `error` of type `stateMismatch` and the originals are left untouched.
 pub async fn handle_email_copy<B: MailBackend>(
@@ -2593,23 +2592,14 @@ pub async fn handle_email_copy<B: MailBackend>(
         "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
     });
 
-    // Execute onSuccess* side effects and build a single implicit Email/set
+    // Execute onSuccessDestroyOriginal and build a single implicit Email/set
     // response (RFC 8620 §6.3).
     //
     // The dispatcher appends extra invocations verbatim to methodResponses, so
     // we must build the full response object here — not request args.
     let mut extra: Vec<Invocation> = Vec::new();
 
-    let on_success_update_original: Option<serde_json::Map<String, Value>> =
-        match args.remove("onSuccessUpdateOriginal") {
-            Some(Value::Object(m)) => Some(m),
-            Some(Value::Null) | None => None,
-            _ => None,
-        };
-
-    if (on_success_destroy_original || on_success_update_original.is_some())
-        && !copied_source_ids.is_empty()
-    {
+    if on_success_destroy_original && !copied_source_ids.is_empty() {
         let email_old_state = backend
             .get_state::<Email>(caller, &from_account_id)
             .await
@@ -2618,8 +2608,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         // RFC 8620 §5.4: `destroyFromIfInState` "is passed on as the
         // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
         // mismatch aborts that whole call with a method-level stateMismatch
-        // error in place of the Email/set response. Nothing is destroyed and no
-        // onSuccessUpdateOriginal patch is applied.
+        // error in place of the Email/set response. Nothing is destroyed.
         if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str)
             && if_in_state != email_old_state.as_ref()
         {
@@ -2633,73 +2622,17 @@ pub async fn handle_email_copy<B: MailBackend>(
 
         let mut email_destroyed: Vec<Value> = Vec::new();
         let mut email_not_destroyed = serde_json::Map::new();
-        let mut email_updated = serde_json::Map::new();
-        let mut email_not_updated = serde_json::Map::new();
-
-        // onSuccessDestroyOriginal: destroy each successfully copied source email.
-        if on_success_destroy_original {
-            for (_, source_id) in &copied_source_ids {
-                match backend
-                    .destroy_object::<Email>(caller, &from_account_id, source_id)
-                    .await
-                {
-                    Ok(()) => {
-                        email_destroyed.push(Value::String(source_id.as_ref().to_owned()));
-                    }
-                    Err(e) => {
-                        email_not_destroyed
-                            .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
-                    }
+        for (_, source_id) in &copied_source_ids {
+            match backend
+                .destroy_object::<Email>(caller, &from_account_id, source_id)
+                .await
+            {
+                Ok(()) => {
+                    email_destroyed.push(Value::String(source_id.as_ref().to_owned()));
                 }
-            }
-        }
-
-        // onSuccessUpdateOriginal: for each successfully copied email whose copy_id
-        // appears in the map, apply the specified patch to the original.
-        if let Some(mut on_success_update) = on_success_update_original {
-            for (copy_id, source_id) in &copied_source_ids {
-                if let Some(patch_val) = on_success_update.remove(copy_id) {
-                    // Convert wire-format Value into a typed PatchObject.
-                    // RFC 8620 §5.3: a PatchObject must be a JSON Object;
-                    // non-object values produce `invalidPatch`.
-                    let patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                        Ok(p) => p,
-                        Err(e) => {
-                            email_not_updated.insert(
-                                source_id.as_ref().to_owned(),
-                                json!({
-                                    "type": "invalidPatch",
-                                    "description": e.to_string()
-                                }),
-                            );
-                            continue;
-                        }
-                    };
-                    // Apply same immutable-field guard as handle_email_set patches.
-                    if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
-                        email_not_updated
-                            .insert(source_id.as_ref().to_owned(), set_error_value(&err));
-                        continue;
-                    }
-                    match backend
-                        .update_object::<Email>(caller, &from_account_id, source_id, patch)
-                        .await
-                    {
-                        Ok(Some(obj)) => {
-                            email_updated.insert(
-                                source_id.as_ref().to_owned(),
-                                serde_json::to_value(&obj)
-                                    .expect("derive(Serialize) on plain data is infallible"),
-                            );
-                        }
-                        Ok(None) => {
-                            email_updated.insert(source_id.as_ref().to_owned(), Value::Null);
-                        }
-                        Err(e) => {
-                            email_not_updated
-                                .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
-                        }
-                    }
+                Err(e) => {
+                    email_not_destroyed
+                        .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
                 }
             }
         }
@@ -2716,10 +2649,10 @@ pub async fn handle_email_copy<B: MailBackend>(
             "oldState": email_old_state.as_ref(),
             "newState": email_new_state.as_ref(),
             "created": Value::Null,
-            "updated": if email_updated.is_empty() { Value::Null } else { Value::Object(email_updated) },
+            "updated": Value::Null,
             "destroyed": if email_destroyed.is_empty() { Value::Null } else { Value::Array(email_destroyed) },
             "notCreated": Value::Null,
-            "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
+            "notUpdated": Value::Null,
             "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
         });
         extra.push(Invocation::new("Email/set", set_resp, call_id.to_owned()));

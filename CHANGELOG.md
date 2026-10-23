@@ -2985,6 +2985,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-mail-server**: `Email/copy` no longer honours the
+  non-standard `onSuccessUpdateOriginal` argument; it is ignored like any
+  other unknown argument. RFC 8621 §4.7 defines Email/copy as the standard
+  RFC 8620 §5.4 `/copy`, whose only side-effect arguments are
+  `onSuccessDestroyOriginal` and `destroyFromIfInState`. The implicit
+  `Email/set` response is now emitted only for `onSuccessDestroyOriginal`
+  (bd JMAP-sj4m).
 - **BREAKING** **jmap-types**: the `JmapError` constructors `not_found`,
   `over_quota`, `invalid_patch`, `will_destroy`, `invalid_properties`,
   `singleton` and `already_exists`, and the `JmapError.existing_id` field.
