@@ -60,6 +60,7 @@ pub struct FaultyBackend {
     pub inner: MemoryBackend,
     failures:
         std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
+    sieve_blob_fetches: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl FaultyBackend {
@@ -67,7 +68,14 @@ impl FaultyBackend {
         Self {
             inner: MemoryBackend::new(),
             failures: Default::default(),
+            sieve_blob_fetches: Default::default(),
         }
+    }
+
+    /// Number of `SieveBackend::get_sieve_blob` calls made so far.
+    pub fn sieve_blob_fetches(&self) -> usize {
+        self.sieve_blob_fetches
+            .load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Schedule a `BackendSetError::Other` for the next call to `op` on `type_name`.
@@ -281,6 +289,60 @@ impl MailBackend for FaultyBackend {
 
     fn supports_type<O: JmapObject>(&self, _caller: &(), account_id: &Id) -> bool {
         self.inner.supports_type::<O>(&(), account_id)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SieveBackend impl for FaultyBackend (feature = "sieve")
+// ---------------------------------------------------------------------------
+
+/// Counts `get_sieve_blob` calls and injects a fault on
+/// `("SieveScript", "get_sieve_blob")`; everything else delegates.
+#[cfg(feature = "sieve")]
+impl jmap_mail_server::SieveBackend for FaultyBackend {
+    async fn get_sieve_blob(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Option<Vec<u8>>, Self::Error> {
+        self.sieve_blob_fetches
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if self.take_fault("SieveScript", "get_sieve_blob") {
+            return Err(MemoryError::new(format!(
+                "injected get_sieve_blob failure {FAULTY_BACKEND_CANARY}"
+            )));
+        }
+        self.inner.get_sieve_blob(&(), account_id, blob_id).await
+    }
+
+    async fn validate_sieve_script(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        script: &[u8],
+    ) -> Result<Option<String>, Self::Error> {
+        self.inner
+            .validate_sieve_script(&(), account_id, script)
+            .await
+    }
+
+    async fn max_sieve_script_bytes(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+    ) -> Result<Option<u64>, Self::Error> {
+        self.inner.max_sieve_script_bytes(&(), account_id).await
+    }
+
+    async fn max_sieve_scripts_per_account(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+    ) -> Result<usize, Self::Error> {
+        self.inner
+            .max_sieve_scripts_per_account(&(), account_id)
+            .await
     }
 }
 

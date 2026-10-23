@@ -1431,6 +1431,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-mail-server**: `SieveBackend::validate_sieve_script`
+  takes the script bytes (`script: &[u8]`) instead of a `blob_id`. The
+  `SieveScript/set` create and update paths and `SieveScript/validate` now
+  read each script blob once with `get_sieve_blob`, check `maxSizeScript`,
+  then pass the bytes to the parser, instead of fetching the blob a second
+  time inside the backend. The handler now reports a missing blob as
+  `invalidSieve` ("blob not found"); backends no longer handle that case. A
+  backend error while fetching or validating a create or update script is
+  now a per-item `serverFail` rather than a method-level error that dropped
+  creates already persisted in the same call (bd JMAP-j7pa.5).
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
   **jmap-contacts-server**, **jmap-filenode-server**, **jmap-sharing-server**,
   **jmap-graph-server**, **jmap-scene-server**, **jmap-vtc-server**:

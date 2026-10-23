@@ -8,7 +8,9 @@
 
 mod common;
 
-use common::{INVALID_SIEVE_SCRIPT, MemoryBackend, VALID_SIEVE_SCRIPT};
+use common::{
+    FAULTY_BACKEND_CANARY, FaultyBackend, INVALID_SIEVE_SCRIPT, MemoryBackend, VALID_SIEVE_SCRIPT,
+};
 use jmap_mail_server::{
     handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate,
 };
@@ -1292,5 +1294,115 @@ async fn sieve_set_update_null_blob_id_is_invalid_properties() {
     assert_eq!(
         get_resp["list"][0]["blobId"], "valid-script-blob",
         "{get_resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Single blob fetch (bd JMAP-j7pa.5)
+// ---------------------------------------------------------------------------
+
+/// Create, update and validate each read the script blob exactly once,
+/// even with `maxSizeScript` configured (size check plus syntax check).
+///
+/// Oracle: the counting `FaultyBackend` wrapper counts real
+/// `get_sieve_blob` calls; the expected count of one per operation is the
+/// JMAP-j7pa.5 requirement, not derived from the handler.
+#[tokio::test]
+async fn sieve_set_and_validate_fetch_blob_once() {
+    let backend = FaultyBackend::new();
+    let account_id = Id::from("sieve-test-account");
+    backend.inner.register_account(&account_id);
+    backend.inner.set_max_sieve_script_bytes(1024);
+    backend
+        .inner
+        .store_blob(&Id::from("blob-a"), VALID_SIEVE_SCRIPT.to_vec());
+    backend
+        .inner
+        .store_blob(&Id::from("blob-b"), b"discard;".to_vec());
+
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": { "A": { "name": "one", "blobId": "blob-a" } }
+        }),
+    )
+    .await
+    .expect("create must not be a method-level error");
+    let id = resp["created"]["A"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("create must succeed; resp: {resp}"))
+        .to_owned();
+    assert_eq!(backend.sieve_blob_fetches(), 1, "create fetches once");
+
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": { id.clone(): { "blobId": "blob-b" } }
+        }),
+    )
+    .await
+    .expect("update must not be a method-level error");
+    assert!(
+        resp["updated"].get(&id).is_some(),
+        "update must succeed; resp: {resp}"
+    );
+    assert_eq!(backend.sieve_blob_fetches(), 2, "update fetches once");
+
+    let HandlerOutput { primary: resp, .. } = handle_sieve_validate(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": account_id.as_ref(), "blobId": "blob-b" }),
+    )
+    .await
+    .expect("validate must not be a method-level error");
+    assert_eq!(resp["error"], serde_json::Value::Null, "resp: {resp}");
+    assert_eq!(backend.sieve_blob_fetches(), 3, "validate fetches once");
+}
+
+/// A storage failure reading one create's script blob fails only that
+/// create, as a redacted `serverFail`; the other create in the same call
+/// still succeeds.
+///
+/// Oracle: RFC 8620 §5.3 — per-object failures go in `notCreated` with a
+/// SetError; `serverFail` is the RFC 8620 §3.6.1 type for an unexpected
+/// server error. Two creates and a fire-once fault make the result
+/// independent of create order.
+#[tokio::test]
+async fn sieve_set_create_blob_fetch_failure_is_per_item() {
+    let backend = FaultyBackend::new();
+    let account_id = Id::from("sieve-test-account");
+    backend.inner.register_account(&account_id);
+    backend
+        .inner
+        .store_blob(&Id::from("blob-a"), VALID_SIEVE_SCRIPT.to_vec());
+    backend.inject("SieveScript", "get_sieve_blob");
+
+    let HandlerOutput { primary: resp, .. } = handle_sieve_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "A": { "name": "one", "blobId": "blob-a" },
+                "B": { "name": "two", "blobId": "blob-a" }
+            }
+        }),
+    )
+    .await
+    .expect("a blob fetch failure must not be a method-level error");
+
+    let created = resp["created"].as_object().expect("created map");
+    let not_created = resp["notCreated"].as_object().expect("notCreated map");
+    assert_eq!(created.len(), 1, "one create must succeed; resp: {resp}");
+    assert_eq!(not_created.len(), 1, "one create must fail; resp: {resp}");
+    let err = not_created.values().next().expect("one entry");
+    assert_eq!(err["type"], "serverFail", "resp: {resp}");
+    assert!(
+        !resp.to_string().contains(FAULTY_BACKEND_CANARY),
+        "backend error text must not reach the wire; resp: {resp}"
     );
 }

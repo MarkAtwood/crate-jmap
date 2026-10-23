@@ -85,23 +85,26 @@ pub trait SieveBackend: jmap_server::JmapBackend {
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
 
-    /// Validate the content of a Sieve script blob.
+    /// Validate the syntax of a Sieve script.
+    ///
+    /// `script` is the blob content the handler already fetched with
+    /// [`SieveBackend::get_sieve_blob`], so each create, update or validate
+    /// reads the blob once. The handler has already rejected a missing blob
+    /// and one larger than [`SieveBackend::max_sieve_script_bytes`].
     ///
     /// Returns `Ok(None)` if the script is valid, `Ok(Some(description))` if
     /// the script fails validation — the description SHOULD include the line
-    /// number of the first error (per draft §2.6).
+    /// number of the first error (RFC 9661 §2.6).
     ///
-    /// Returns `Err` only for storage failures. If the blob does not exist,
-    /// return `Ok(Some("blob not found"))`.
+    /// # Errors
     ///
-    /// Note: this method validates script syntax only. Script blob size should
-    /// be checked separately using [`SieveBackend::max_sieve_script_bytes`]
-    /// before calling this method.
+    /// `Err` only for backend failures (for example an unavailable parser
+    /// service); an invalid script is `Ok(Some(_))`.
     fn validate_sieve_script(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        blob_id: &jmap_types::Id,
+        script: &[u8],
     ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send;
 
     /// Maximum script size in bytes for this account.
@@ -606,46 +609,20 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 }
             }
 
-            // c. Size check: enforce maxSizeScript before syntax validation.
-            // Per spec §2.4: if the script exceeds the limit, reject with tooLarge.
-            if let Some(max_bytes) = max_script_bytes {
-                match backend.get_sieve_blob(caller, &account_id, &blob_id).await {
-                    Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
-                        not_created.insert(
-                            creation_id,
-                            set_error_value(
-                                &SetError::new(SetErrorType::TooLarge).with_description(format!(
-                                    "script exceeds maxSizeScript limit of {max_bytes} bytes"
-                                )),
-                            ),
-                        );
-                        continue;
-                    }
-                    Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
-                    Err(e) => {
-                        not_created.insert(creation_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
+            // c. Fetch the script once; check maxSizeScript, then syntax.
+            match check_script(backend, caller, &account_id, &blob_id, max_script_bytes).await {
+                Ok(None) => {}
+                Ok(Some(err)) => {
+                    not_created.insert(creation_id, set_error_value(&err));
+                    continue;
+                }
+                Err(e) => {
+                    not_created.insert(creation_id, server_fail_value_from_backend(&e));
+                    continue;
                 }
             }
 
-            // d. Validate the Sieve script syntax.
-            if let Some(err_desc) = backend
-                .validate_sieve_script(caller, &account_id, &blob_id)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?
-            {
-                not_created.insert(
-                    creation_id,
-                    set_error_value(
-                        &SetError::new(SetErrorType::from(SIEVE_ERR_INVALID))
-                            .with_description(err_desc),
-                    ),
-                );
-                continue;
-            }
-
-            // e. Build SieveScript object — is_active always false on creation.
+            // d. Build SieveScript object — is_active always false on creation.
             let script_name = name.clone();
             let build = move |id: &Id| {
                 let mut script = SieveScript::new(id.clone(), blob_id, false);
@@ -653,13 +630,13 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 script
             };
 
-            // f. Persist via backend.
+            // e. Persist via backend.
             match backend
                 .create_object::<SieveScript, _>(caller, &account_id, &creation_id, build)
                 .await
             {
                 Ok((assigned_id, created_obj)) => {
-                    // g. Record creation_id → assigned_id for onSuccessActivateScript.
+                    // f. Record creation_id → assigned_id for onSuccessActivateScript.
                     created_id_map.insert(creation_id.clone(), assigned_id.clone());
                     created_id_reverse_map.insert(assigned_id, creation_id.clone());
 
@@ -771,46 +748,19 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     }
                 };
 
-                // Size check: enforce maxSizeScript before syntax validation (spec §2.4).
-                if let Some(max_bytes) = max_script_bytes {
-                    match backend
-                        .get_sieve_blob(caller, &account_id, &new_blob_id)
-                        .await
-                    {
-                        Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
-                            not_updated.insert(
-                                id_str,
-                                set_error_value(
-                                    &SetError::new(SetErrorType::TooLarge).with_description(
-                                        format!(
-                                        "script exceeds maxSizeScript limit of {max_bytes} bytes"
-                                    ),
-                                    ),
-                                ),
-                            );
-                            continue;
-                        }
-                        Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
-                        }
-                    }
-                }
-
-                if let Some(err_desc) = backend
-                    .validate_sieve_script(caller, &account_id, &new_blob_id)
+                // Fetch the script once; check maxSizeScript, then syntax.
+                match check_script(backend, caller, &account_id, &new_blob_id, max_script_bytes)
                     .await
-                    .map_err(|e| server_fail_from_backend(&e))?
                 {
-                    not_updated.insert(
-                        id_str,
-                        set_error_value(
-                            &SetError::new(SetErrorType::from(SIEVE_ERR_INVALID))
-                                .with_description(err_desc),
-                        ),
-                    );
-                    continue;
+                    Ok(None) => {}
+                    Ok(Some(err)) => {
+                        not_updated.insert(id_str, set_error_value(&err));
+                        continue;
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
                 }
             }
 
@@ -1156,6 +1106,38 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 // SieveScript/validate handler
 // ---------------------------------------------------------------------------
 
+/// Fetch a script blob once and check it for create, update and validate.
+///
+/// Returns `Ok(None)` when the script is acceptable, or the [`SetError`]
+/// to report: `invalidSieve` for a missing blob or bad syntax, `tooLarge`
+/// when it exceeds `max_bytes` (the `maxSizeScript` limit, RFC 9661 §2.4).
+/// The size check runs before the backend parser sees the bytes.
+async fn check_script<B: SieveBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    blob_id: &Id,
+    max_bytes: Option<u64>,
+) -> Result<Option<SetError>, B::Error> {
+    let Some(script) = backend.get_sieve_blob(caller, account_id, blob_id).await? else {
+        return Ok(Some(
+            SetError::new(SetErrorType::from(SIEVE_ERR_INVALID)).with_description("blob not found"),
+        ));
+    };
+    if let Some(max) = max_bytes
+        && script.len() as u64 > max
+    {
+        return Ok(Some(
+            SetError::new(SetErrorType::TooLarge)
+                .with_description(format!("script exceeds maxSizeScript limit of {max} bytes")),
+        ));
+    }
+    Ok(backend
+        .validate_sieve_script(caller, account_id, &script)
+        .await?
+        .map(|desc| SetError::new(SetErrorType::from(SIEVE_ERR_INVALID)).with_description(desc)))
+}
+
 /// Handle a `SieveScript/validate` method call (RFC 9661 §2.6).
 ///
 /// `args` is the RFC 9661 §2.6 `SieveScript/validate` request shape
@@ -1188,44 +1170,21 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // Step 4: Enforce maxSizeScript before delegating to the backend's parser.
-    // Mirrors the set-path size-check (sieve.rs:505-529 create, 680-705 update);
-    // the trait doc on validate_sieve_script (sieve.rs:68-70) tells implementors
-    // size is checked at the handler layer.
+    // Step 4: Fetch the script once; enforce maxSizeScript (the same check
+    // as the set paths), then delegate syntax validation to the backend.
     let max_script_bytes: Option<u64> = backend
         .max_sieve_script_bytes(caller, &account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
-    if let Some(max_bytes) = max_script_bytes {
-        match backend.get_sieve_blob(caller, &account_id, &blob_id).await {
-            Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
-                let resp = json!({
-                    "accountId": account_id.as_ref(),
-                    "error": json!({
-                        "type": "tooLarge",
-                        "description": format!(
-                            "script exceeds maxSizeScript limit of {max_bytes} bytes"
-                        ),
-                    }),
-                });
-                return Ok(HandlerOutput::new(resp));
-            }
-            Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
-            Err(e) => return Err(server_fail_from_backend(&e)),
-        }
-    }
-
-    // Step 5: Delegate validation to the backend.
-    let validation_error = backend
-        .validate_sieve_script(caller, &account_id, &blob_id)
+    let rejection = check_script(backend, caller, &account_id, &blob_id, max_script_bytes)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    // Step 6: Build response — "error" field MUST be present as null when valid
+    // Step 5: Build response — "error" field MUST be present as null when valid
     // (RFC 9661 §2.6).
-    let error_value = match validation_error {
+    let error_value = match rejection {
         None => Value::Null,
-        Some(desc) => json!({ "type": SIEVE_ERR_INVALID, "description": desc }),
+        Some(err) => set_error_value(&err),
     };
     let resp = json!({
         "accountId": account_id.as_ref(),
