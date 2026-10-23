@@ -2803,6 +2803,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-types**: the `JmapError` constructors `not_found`,
+  `over_quota`, `invalid_patch`, `will_destroy`, `invalid_properties`,
+  `singleton` and `already_exists`, and the `JmapError.existing_id` field.
+  RFC 8620 §5.3 and §5.4 define these types as SetErrors, not method-level
+  errors; build them with `SetError` instead. `too_large` and `rate_limit`
+  stay, because draft-ietf-jmap-calendars §2.2 defines them as
+  `Principal/getAvailability` method errors. A method-level `notFound`
+  (same draft) is `JmapError::custom("notFound")` (bd JMAP-q5n7).
 - **BREAKING** **jmap-calendars-types**, **jmap-tasks-types**: the
   `QueryObject` impls for `Calendar`, `ParticipantIdentity` and
   `TaskList`, and `CalendarFilterCondition` with its `CalendarFilter`

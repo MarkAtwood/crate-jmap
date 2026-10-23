@@ -190,7 +190,6 @@ impl From<JmapError> for RequestError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Id;
     use http::StatusCode;
 
     // -----------------------------------------------------------------------
@@ -403,18 +402,12 @@ mod tests {
             JmapError::unknown_method(),
             JmapError::invalid_arguments("x"),
             JmapError::invalid_result_reference(),
-            JmapError::not_found(),
             JmapError::account_not_found(),
             JmapError::account_not_supported_by_method(),
             JmapError::account_read_only(),
             JmapError::request_too_large(),
-            JmapError::singleton(),
-            JmapError::will_destroy(),
-            JmapError::invalid_patch(),
-            JmapError::invalid_properties(),
             JmapError::too_large(),
             JmapError::rate_limit(),
-            JmapError::over_quota(),
             JmapError::state_mismatch(),
             JmapError::cannot_calculate_changes(),
             JmapError::anchor_not_found(),
@@ -423,7 +416,6 @@ mod tests {
             JmapError::too_many_changes_with_limit(100),
             JmapError::from_account_not_found(),
             JmapError::from_account_not_supported_by_method(),
-            JmapError::already_exists(Id::from("existing-1")),
             JmapError::custom("customErrorType"),
         ];
         for err in &errors {

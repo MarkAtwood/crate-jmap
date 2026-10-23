@@ -791,14 +791,14 @@ mod tests {
     #[tokio::test]
     async fn handler_returns_error() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("Foo/get", Arc::new(ErrorHandler(JmapError::not_found())));
+        d.register("Foo/get", Arc::new(ErrorHandler(JmapError::forbidden())));
         let req = single_call("Foo/get", json!({}), "c2");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
         let Invocation {
             arguments: args, ..
         } = &resp.method_responses[0];
-        assert_eq!(args["type"], "notFound");
+        assert_eq!(args["type"], "forbidden");
     }
 
     /// Oracle (bd:JMAP-yt1w.30): RFC 8620 §5.3 (rfc8620.txt L2166-2170):

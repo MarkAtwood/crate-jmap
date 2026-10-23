@@ -397,10 +397,10 @@ deserializes its arguments into `T`. Returns `ClientError::MethodNotFound` if
 the call ID is absent. Returns `ClientError::MethodError` if the server
 returned a JMAP `"error"` response for that call (RFC 8620 §3.6.2), or
 `ClientError::Parse` if that error object has no `type` (§3.6.2: it "MUST
-have a type property") or a `type`, `description`, `existingId` or `limit`
+have a type property") or a `type`, `description` or `limit`
 that is not of its RFC 8620 type (such as a string or negative `limit`). `MethodError`
-carries a `jmap_types::JmapError` (`type`, `description`, `existingId`,
-`limit`); to read any other properties of the error object, call
+carries a `jmap_types::JmapError` (`type`, `description`, `limit`); to read
+any other properties of the error object, call
 `method_error_details(&resp, call_id)`, which returns the full error
 object as a `serde_json::Map`.
 

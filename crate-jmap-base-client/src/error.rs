@@ -689,11 +689,11 @@ pub enum ClientError {
     /// (e.g. `serverFail` may be retried; `invalidArguments` is not).
     ///
     /// The payload keeps every property [`jmap_types::JmapError`] models
-    /// (`type`, `description`, `existingId`, `limit`), so for example a
+    /// (`type`, `description`, `limit`), so for example a
     /// `tooManyChanges` error's `limit` reaches the caller.
     /// [`method_error_details`](crate::method_error_details) returns any
     /// other properties. An error object whose `type` is missing, or whose
-    /// `type`, `description`, `existingId` or `limit` is not of its RFC 8620
+    /// `type`, `description` or `limit` is not of its RFC 8620
     /// type (for example a string or negative `limit`), is
     /// [`ClientError::Parse`]: RFC 8620 §3.6.2 says it "MUST have a type
     /// property".
