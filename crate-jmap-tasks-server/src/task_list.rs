@@ -285,7 +285,8 @@ pub async fn handle_task_list_set<B: TasksBackend>(
         // (JMAP-wlip.1).
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
+                "destroy: every element must be a string Id; got {}",
+                jmap_server::json_type_name(bad)
             )));
         }
         for id_val in destroy_arr {

@@ -1199,7 +1199,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         // silently skipping it, which would produce a misleading response.
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
+                "destroy: every element must be a string Id; got {}",
+                jmap_server::json_type_name(bad)
             )));
         }
         for id_val in destroy_arr {
@@ -4593,5 +4594,24 @@ mod tests {
             "the renamed name MUST appear in the response (§3.2.3 MUST), \
              not the backend's echoed name: {resp}"
         );
+    }
+
+    /// RFC 8620 §5.3 types `destroy` as "Id[]|null", so an object element
+    /// is "invalidArguments: One of the arguments is of the wrong type"
+    /// (§3.6.2). The description names only the JSON type: §3.6.1 reserves
+    /// it for "unstructured English text suitable for displaying to a
+    /// developer", so the client-supplied value is never echoed
+    /// (bd JMAP-zegc).
+    #[tokio::test]
+    async fn set_non_string_destroy_element_does_not_echo_value() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let args = json!({ "accountId": "acc1", "destroy": [{ "note": "CANARY-zegc" }] });
+        let err = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect_err("non-string destroy element must be a method error");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
+        let desc = err.description.as_deref().unwrap_or_default();
+        assert!(desc.contains("got object"), "{desc}");
+        assert!(!desc.contains("CANARY"), "{desc}");
     }
 }

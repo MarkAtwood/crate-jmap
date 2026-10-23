@@ -137,7 +137,7 @@ fn parse_structural_entries(key: StructuralKey, value: Value) -> Result<Vec<Spac
         other => {
             return Err(format!(
                 "{canonical} must be a JSON array, got {}",
-                json_value_kind(&other)
+                jmap_server::json_type_name(&other)
             ));
         }
     };
@@ -243,7 +243,7 @@ fn parse_id_entry(canonical: &'static str, idx: usize, entry: Value) -> Result<I
         Value::String(s) => Id::new_validated(s).map_err(|e| format!("{canonical}[{idx}]: {e}")),
         other => Err(format!(
             "{canonical}[{idx}] must be a string Id, got {}",
-            json_value_kind(&other)
+            jmap_server::json_type_name(&other)
         )),
     }
 }
@@ -261,7 +261,7 @@ fn parse_update_entry<P: serde::de::DeserializeOwned>(
         other => {
             return Err(format!(
                 "{canonical}[{idx}] must be a JSON object, got {}",
-                json_value_kind(&other)
+                jmap_server::json_type_name(&other)
             ));
         }
     };
@@ -275,7 +275,7 @@ fn parse_update_entry<P: serde::de::DeserializeOwned>(
         other => {
             return Err(format!(
                 "{canonical}[{idx}].id must be a string, got {}",
-                json_value_kind(&other)
+                jmap_server::json_type_name(&other)
             ));
         }
     };
@@ -296,7 +296,7 @@ fn parse_add_member_entry(
         other => {
             return Err(format!(
                 "{canonical}[{idx}] must be a JSON object, got {}",
-                json_value_kind(&other)
+                jmap_server::json_type_name(&other)
             ));
         }
     };
@@ -310,7 +310,7 @@ fn parse_add_member_entry(
         other => {
             return Err(format!(
                 "{canonical}[{idx}].id must be a string, got {}",
-                json_value_kind(&other)
+                jmap_server::json_type_name(&other)
             ));
         }
     };
@@ -325,18 +325,6 @@ fn parse_add_member_entry(
         ));
     }
     Ok((user_id, role_ids))
-}
-
-/// Stringify a `serde_json::Value`'s top-level kind for error messages.
-fn json_value_kind(v: &Value) -> &'static str {
-    match v {
-        Value::Null => "null",
-        Value::Bool(_) => "boolean",
-        Value::Number(_) => "number",
-        Value::String(_) => "string",
-        Value::Array(_) => "array",
-        Value::Object(_) => "object",
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -612,7 +600,8 @@ pub async fn handle_space_query<B: ChatBackend>(
             Some(n) => Some(n),
             None => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "limit: expected a non-negative integer, got {v}"
+                    "limit: expected a non-negative integer, got {}",
+                    jmap_server::json_type_name(&v)
                 )));
             }
         },
@@ -621,7 +610,10 @@ pub async fn handle_space_query<B: ChatBackend>(
     let position: i64 = match args.remove("position") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+            JmapError::invalid_arguments(format!(
+                "position: expected an integer, got {}",
+                jmap_server::json_type_name(&v)
+            ))
         })?,
     };
 
@@ -1356,7 +1348,8 @@ pub async fn handle_space_set<B: ChatBackend>(
         // silently skipping it, which would produce a misleading response.
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
+                "destroy: every element must be a string Id; got {}",
+                jmap_server::json_type_name(bad)
             )));
         }
         for id_val in destroy_arr {

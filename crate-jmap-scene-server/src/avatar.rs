@@ -210,7 +210,8 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
             .collect::<Result<_, _>>()
             .map_err(|bad| {
                 JmapError::invalid_arguments(format!(
-                    "destroy: every element must be a string Id; got {bad}"
+                    "destroy: every element must be a string Id; got {}",
+                    jmap_server::json_type_name(bad)
                 ))
             })?;
         // "Servers MUST return `forbidden` for destroy operations on

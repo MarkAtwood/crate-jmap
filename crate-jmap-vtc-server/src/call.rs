@@ -226,7 +226,8 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
             .collect::<Result<_, _>>()
             .map_err(|bad| {
                 JmapError::invalid_arguments(format!(
-                    "destroy: every element must be a string Id; got {bad}"
+                    "destroy: every element must be a string Id; got {}",
+                    jmap_server::json_type_name(bad)
                 ))
             })?;
         for id_str in ids {

@@ -358,7 +358,8 @@ pub async fn handle_contact_set<B: ChatBackend>(
         // silently skipping it, which would produce a misleading response.
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
+                "destroy: every element must be a string Id; got {}",
+                jmap_server::json_type_name(bad)
             )));
         }
         for id_val in destroy_arr {
@@ -425,7 +426,8 @@ pub async fn handle_contact_query<B: ChatBackend>(
             Some(n) => Some(n),
             None => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "limit: expected a non-negative integer, got {v}"
+                    "limit: expected a non-negative integer, got {}",
+                    jmap_server::json_type_name(&v)
                 )));
             }
         },
@@ -434,7 +436,10 @@ pub async fn handle_contact_query<B: ChatBackend>(
     let position: i64 = match args.remove("position") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+            JmapError::invalid_arguments(format!(
+                "position: expected an integer, got {}",
+                jmap_server::json_type_name(&v)
+            ))
         })?,
     };
 

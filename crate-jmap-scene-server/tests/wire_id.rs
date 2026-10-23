@@ -46,3 +46,22 @@ async fn scene_asset_set_rejects_malformed_blob_id() {
     assert_eq!(entry["type"], "invalidProperties", "{resp}");
     assert_eq!(entry["properties"], json!(["blobId"]), "{resp}");
 }
+
+/// RFC 8620 §5.3 types `destroy` as "Id[]|null", so an object element is
+/// "invalidArguments: One of the arguments is of the wrong type" (§3.6.2).
+/// The description names only the JSON type: §3.6.1 reserves it for
+/// "unstructured English text suitable for displaying to a developer", so
+/// the client-supplied value is never echoed (bd JMAP-zegc).
+#[tokio::test]
+async fn scene_asset_set_non_string_destroy_element_does_not_echo_value() {
+    let backend = backend();
+    let mut args = json!({ "destroy": [{ "note": "CANARY-zegc" }] });
+    args["accountId"] = json!(ACCOUNT);
+    let err = handle_scene_asset_set(&backend, &ALICE.to_owned(), args)
+        .await
+        .expect_err("non-string destroy element must be a method error");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
+    let desc = err.description.as_deref().unwrap_or_default();
+    assert!(desc.contains("got object"), "{desc}");
+    assert!(!desc.contains("CANARY"), "{desc}");
+}

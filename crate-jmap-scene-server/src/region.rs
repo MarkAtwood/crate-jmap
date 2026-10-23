@@ -120,7 +120,8 @@ fn check_access_policy_filter(filter: &Value) -> Result<(), JmapError> {
     match filter.get("accessPolicy") {
         Some(v) if !v.as_str().is_some_and(|p| ACCESS_POLICIES.contains(&p)) => {
             Err(JmapError::invalid_arguments(format!(
-                "filter accessPolicy must be \"public\", \"invite\" or \"space\"; got {v}"
+                "filter accessPolicy must be \"public\", \"invite\" or \"space\"; got {}",
+                jmap_server::json_type_name(v)
             )))
         }
         _ => Ok(()),
@@ -214,7 +215,8 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
             .collect::<Result<_, _>>()
             .map_err(|bad| {
                 JmapError::invalid_arguments(format!(
-                    "destroy: every element must be a string Id; got {bad}"
+                    "destroy: every element must be a string Id; got {}",
+                    jmap_server::json_type_name(bad)
                 ))
             })?;
         for id_str in ids {
