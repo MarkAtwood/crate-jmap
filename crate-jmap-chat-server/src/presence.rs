@@ -32,7 +32,7 @@ use serde_json::{Value, json};
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
+    finalize_set_response, not_found_json, now_utc_string, serialize_value,
 };
 use crate::outbound::OutboundEvent;
 use crate::{ChatBackend, SetError, SetErrorType};
@@ -216,7 +216,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
         for create_id in create_map.keys() {
             not_created.insert(
                 create_id.clone(),
-                set_error_value(&SetError::new(SetErrorType::Forbidden)),
+                serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
@@ -229,7 +229,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -239,7 +239,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
                 .as_object()
                 .and_then(|m| reject_read_only_patch::<PresenceStatus>(m, None))
             {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -281,11 +281,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
             match outcome {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -319,7 +315,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
         for id_str in id_strs {
             not_destroyed.insert(
                 id_str.to_owned(),
-                set_error_value(&SetError::new(SetErrorType::Forbidden)),
+                serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }

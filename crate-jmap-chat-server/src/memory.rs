@@ -1520,7 +1520,7 @@ impl ChatBackend for MemoryBackend {
         space_id: &Id,
         patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
-        let patch_map = space_metadata_patch_to_map(patch);
+        let patch_map = space_metadata_patch_to_map(patch).map_err(BackendSetError::Other)?;
         let mut inner = self.inner.lock().unwrap();
         apply_space_metadata_patch_impl(&mut inner, account_id, space_id, patch_map)
     }
@@ -2565,19 +2565,24 @@ fn apply_space_patch_impl(
 /// JSON value; the typed trait surface is a public-API hygiene
 /// improvement (bd:JMAP-x2gd.39) — the internal merge-patch path is
 /// unchanged.
+///
+/// A serializer failure is a [`MemoryError`] (surfaced as `serverFail`),
+/// not a panic (bd:JMAP-ic0j.38).
 fn space_metadata_patch_to_map(
     patch: jmap_chat_types::SpaceMetadataPatch,
-) -> serde_json::Map<String, serde_json::Value> {
+) -> Result<serde_json::Map<String, serde_json::Value>, MemoryError> {
     // The struct's derive(Serialize) already emits camelCase keys,
     // collapses `Clearable::Clear` to `null`, and skips `None`
     // fields. We just need an Object out of it.
-    match serde_json::to_value(&patch).expect("derive(Serialize) on plain data is infallible") {
+    let value = jmap_server::serialize_value(&patch)
+        .map_err(|_| MemoryError::new("SpaceMetadataPatch serialization failed"))?;
+    Ok(match value {
         serde_json::Value::Object(map) => map,
         // Unreachable: SpaceMetadataPatch serializes as an object
         // (all fields are object-keyed, `extra` is `#[serde(flatten)]`
         // and `SpaceMetadataPatch` itself is a struct).
         _ => serde_json::Map::new(),
-    }
+    })
 }
 
 /// Backend-canonical impl of

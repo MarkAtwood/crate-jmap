@@ -35,7 +35,7 @@ use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set,
     extract_account_id, finalize_set_response, not_found_json, now_utc_string, optional_arg,
-    reject_unsupported_sort, serialize_value, set_error_value,
+    reject_unsupported_sort, serialize_value,
 };
 use crate::{ChatBackend, EmojiSetOp};
 use jmap_server::{
@@ -354,7 +354,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             let resolved = match resolved_create(obj_val, &["spaceId"], created_ids) {
                 Ok(v) => v,
                 Err(err) => {
-                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -363,7 +363,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 .as_object()
                 .and_then(reject_server_set::<CustomEmoji>)
             {
-                not_created.insert(create_id.clone(), set_error_value(&err));
+                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
                 continue;
             }
             // Optional properties: a wrongly-typed value is invalidProperties
@@ -422,7 +422,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 Some(s) => match jmap_server::parse_wire_id(s, "spaceId") {
                     Ok(id) => Some(id),
                     Err(err) => {
-                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                         continue;
                     }
                 },
@@ -445,7 +445,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             {
                 Ok(Ok(())) => {}
                 Ok(Err(set_err)) => {
-                    not_created.insert(create_id.clone(), set_error_value(&set_err));
+                    not_created.insert(create_id.clone(), serde_json::Value::from(&set_err));
                     continue;
                 }
                 Err(e) => {
@@ -471,8 +471,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                     mutated = true;
                     created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
+                        jmap_server::serialize_value(&created_obj)?,
                     );
                 }
                 Err(e) => {
@@ -490,7 +489,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -501,7 +500,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 .as_object()
                 .and_then(|m| reject_read_only_patch::<CustomEmoji>(m, None))
             {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -558,7 +557,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 {
                     Ok(Ok(())) => {}
                     Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, set_error_value(&set_err));
+                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
                         continue;
                     }
                     Err(e) => {
@@ -579,11 +578,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -618,7 +613,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -656,7 +651,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 {
                     Ok(Ok(())) => {}
                     Ok(Err(set_err)) => {
-                        not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
+                        not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&set_err));
                         continue;
                     }
                     Err(e) => {

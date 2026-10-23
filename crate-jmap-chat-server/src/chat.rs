@@ -35,7 +35,7 @@ use serde_json::{Value, json};
 use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, now_utc_string, reject_unsupported_sort, set_error_value,
+    finalize_set_response, now_utc_string, reject_unsupported_sort,
 };
 use crate::helpers::{resolve_refs, resolved_create};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
@@ -646,7 +646,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             let resolved = match resolved_create(obj_val, CHAT_ID_PROPERTIES, created_ids) {
                 Ok(v) => v,
                 Err(err) => {
-                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -720,7 +720,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
                 if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Chat>) {
-                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    not_created.insert(create_id.clone(), serde_json::Value::from(&err));
                     continue;
                 }
             }
@@ -753,11 +753,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     }) {
                         not_created.insert(
                             create_id.clone(),
-                            serde_json::to_value(
+                            serde_json::Value::from(
                                 SetError::new(SetErrorType::AlreadyExists)
                                     .with_existing_id(dup.id.clone()),
-                            )
-                            .expect("derive(Serialize) on plain data is infallible"),
+                            ),
                         );
                         continue;
                     }
@@ -789,11 +788,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         };
                         not_created.insert(
                             create_id.clone(),
-                            serde_json::to_value(
+                            jmap_server::serialize_value(
                                 SetError::new(SetErrorType::AlreadyExists)
                                     .with_existing_id(canonical_id),
-                            )
-                            .expect("derive(Serialize) on plain data is infallible"),
+                            )?,
                         );
                         continue;
                     }
@@ -824,7 +822,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                             {
                                 Ok(ids) => Some(ids),
                                 Err(err) => {
-                                    not_created.insert(create_id.clone(), set_error_value(&err));
+                                    not_created
+                                        .insert(create_id.clone(), serde_json::Value::from(&*err));
                                     continue;
                                 }
                             }
@@ -889,7 +888,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 Some(s) => match jmap_server::parse_wire_id(s, "contactId") {
                     Ok(id) => Some(id),
                     Err(err) => {
-                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                         continue;
                     }
                 },
@@ -918,7 +917,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 Some(s) => match jmap_server::parse_wire_id(s, "avatarBlobId") {
                     Ok(id) => Some(id),
                     Err(err) => {
-                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                         continue;
                     }
                 },
@@ -1059,8 +1058,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     }
                     created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
+                        jmap_server::serialize_value(&created_obj)?,
                     );
                 }
                 Err(e) => {
@@ -1078,12 +1076,12 @@ pub async fn handle_chat_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch_val, CHAT_ID_PROPERTIES, created_ids) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -1150,7 +1148,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 {
                     Ok(Ok(())) => {}
                     Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, set_error_value(&set_err));
+                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
                         continue;
                     }
                     Err(e) => {
@@ -1224,11 +1222,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         for key in MEMBER_PATCH_KEYS {
                             map.remove(*key);
                         }
-                        map.insert(
-                            "members".to_owned(),
-                            serde_json::to_value(members)
-                                .expect("derive(Serialize) on plain data is infallible"),
-                        );
+                        map.insert("members".to_owned(), jmap_server::serialize_value(members)?);
                         // "the server MUST set `closedAt` ({{chat}}) in
                         // the same operation".
                         if closes {
@@ -1236,7 +1230,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         }
                     }
                     Err(set_err) => {
-                        not_updated.insert(id_str, set_error_value(&set_err));
+                        not_updated.insert(id_str, serde_json::Value::from(&*set_err));
                         continue;
                     }
                 }
@@ -1256,7 +1250,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 {
                     Ok(Ok(())) => {}
                     Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, set_error_value(&set_err));
+                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
                         continue;
                     }
                     Err(e) => {
@@ -1287,7 +1281,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 {
                     Ok(pins) => pins,
                     Err(err) => {
-                        not_updated.insert(id_str, set_error_value(&err));
+                        not_updated.insert(id_str, serde_json::Value::from(&*err));
                         continue;
                     }
                 };
@@ -1302,7 +1296,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     {
                         Ok(Ok(())) => {}
                         Ok(Err(set_err)) => {
-                            not_updated.insert(id_str, set_error_value(&set_err));
+                            not_updated.insert(id_str, serde_json::Value::from(&set_err));
                             continue;
                         }
                         Err(e) => {
@@ -1334,11 +1328,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             match outcome {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -1378,7 +1368,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             match jmap_server::parse_wire_id(raw, "id") {
                 Ok(id) => ids.push(id),
                 Err(err) => {
-                    not_destroyed.insert(raw.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(raw.to_owned(), serde_json::Value::from(&*err));
                 }
             }
         }

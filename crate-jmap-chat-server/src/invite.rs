@@ -34,7 +34,7 @@ use crate::helpers::resolved_create;
 use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
+    finalize_set_response, not_found_json, now_utc_string, serialize_value,
 };
 use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -288,7 +288,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
                 match resolved_create(obj_val, &["spaceId", "defaultChannelId"], created_ids) {
                     Ok(v) => v,
                     Err(err) => {
-                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                         continue;
                     }
                 };
@@ -297,7 +297,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
                 .as_object()
                 .and_then(reject_server_set::<SpaceInvite>)
             {
-                not_created.insert(create_id.clone(), set_error_value(&err));
+                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
                 continue;
             }
             // Optional properties: a wrongly-typed value is invalidProperties
@@ -360,7 +360,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
                     Some(s) => match jmap_server::parse_wire_id(s, "defaultChannelId") {
                         Ok(id) => Some(id),
                         Err(err) => {
-                            not_created.insert(create_id.clone(), set_error_value(&err));
+                            not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                             continue;
                         }
                     },
@@ -445,8 +445,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
                     mutated = true;
                     created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
+                        jmap_server::serialize_value(&created_obj)?,
                     );
                 }
                 Err(e) => {
@@ -463,7 +462,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
         for (id_str, _) in update_map {
             not_updated.insert(
                 id_str,
-                set_error_value(&SetError::new(SetErrorType::Forbidden)),
+                serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
@@ -490,7 +489,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -549,7 +548,7 @@ async fn invite_denied<B: ChatBackend>(
         .await
     {
         Ok(Ok(())) => None,
-        Ok(Err(set_err)) => Some(set_error_value(&set_err)),
+        Ok(Err(set_err)) => Some(serde_json::Value::from(&set_err)),
         Err(e) => Some(server_fail_value_from_backend(&e)),
     }
 }
