@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `Dispatcher::dispatch` emits one `tracing::error!` event
+  when a method handler panics, with only the `method` and `call_id` fields
+  (never the panic payload or the arguments), so operators can tell a caught
+  panic from a handler's own `serverFail`. `jmap-server` now depends on
+  `tracing`; the `dispatch` signature is unchanged (bd JMAP-jfia.29).
 - **jmap-server**: `parse_request_bytes(body: &[u8], max_calls)` parses the
   raw HTTP body with `serde_json::from_slice`, maps a parse failure to the
   RFC 8620 §3.6.1 `notJSON` request error, then runs `parse_request`
