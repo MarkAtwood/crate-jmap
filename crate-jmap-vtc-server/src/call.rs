@@ -22,15 +22,15 @@ use serde_json::{Value, json};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::helpers::{
-    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
-    extract_account_id, fetch_one, finalize_set_response, forbidden, invalid, peek_filter,
-    reject_unsupported_sort, set_error_value, state_refused, utc_key,
+    SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
+    finalize_set_response, forbidden, invalid, peek_filter, reject_unsupported_sort,
+    set_error_value, state_refused, utc_key,
 };
 use crate::media::{stop_livestreams, stop_recordings};
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
-    HandlerOutput, now_utc_string, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// Capability URI of draft-atwood-jmap-chat-00, which gates the Chat binding

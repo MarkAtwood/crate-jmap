@@ -34,10 +34,10 @@ use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
 };
-use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
+use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, QueryChangesParams, QueryParams, bool_arg, filter_arg, reject_read_only_patch,
-    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -641,21 +641,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                 .expect("derive(Serialize) on plain data is infallible");
                             created.insert(create_id.clone(), obj_val);
                         }
-                        Err(BackendSetError::SetError(se)) => {
-                            not_created.insert(create_id.clone(), set_error_value(&se));
-                        }
-                        Err(BackendSetError::Other(e)) => {
-                            not_created
-                                .insert(create_id.clone(), server_fail_value_from_backend(&e));
-                        }
-                        Err(_) => {
-                            not_created.insert(
-                                create_id.clone(),
-                                json!({
-                                    "type": "serverFail",
-                                    "description": "unhandled backend error variant",
-                                }),
-                            );
+                        Err(e) => {
+                            not_created.insert(create_id.clone(), backend_set_error_value(e));
                         }
                     }
                 }
@@ -793,20 +780,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         roles_successfully_vacated.insert(role);
                     }
                 }
-                Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(id_str, set_error_value(&se));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -892,20 +867,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                 }
-                Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(id_str, set_error_value(&se));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -1062,20 +1025,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     // subsequent has_child checks do not see it as a child.
                     mailboxes_after_mutations.retain(|m| m.id != id);
                 }
-                Err(BackendSetError::SetError(se)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&se));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }

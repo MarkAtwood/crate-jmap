@@ -16,15 +16,14 @@ use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{Map, Value, json};
 
 use crate::helpers::{
-    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
-    extract_account_id, fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid,
-    normalized_quaternion, not_found, numbers, orientation_ok, reject_unsupported_sort,
-    set_error_value,
+    SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
+    finalize_set_response, forbidden, handle_get_visible, invalid, normalized_quaternion,
+    not_found, numbers, orientation_ok, reject_unsupported_sort, set_error_value,
 };
 use crate::{BindingProperty, BindingTarget, SceneBackend};
 use jmap_server::{
-    HandlerOutput, SetError, SetErrorType, apply_patch_object, now_utc_string,
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    HandlerOutput, SetError, SetErrorType, apply_patch_object, backend_set_error_value,
+    now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
     server_fail_value_from_backend,
 };
 

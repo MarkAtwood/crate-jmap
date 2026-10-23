@@ -33,14 +33,14 @@ use jmap_contacts_types::ContactCard;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{Value, json};
 
+use crate::ContactsBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     set_error_value,
 };
-use crate::{BackendSetError, ContactsBackend};
 use jmap_server::{
-    HandlerOutput, apply_patch_object, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, apply_patch_object, backend_set_error_value, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -178,22 +178,8 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                // BackendSetError is #[non_exhaustive]; name only the kind so
-                // backend error content stays off the wire (bd:JMAP-510h.15).
-                Err(_) => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -246,22 +232,8 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     mutated = true;
                     updated.insert(id_str, Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                // BackendSetError is #[non_exhaustive]; name only the kind so
-                // backend error content stays off the wire (bd:JMAP-510h.15).
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -300,22 +272,8 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                // BackendSetError is #[non_exhaustive]; name only the kind so
-                // backend error content stays off the wire (bd:JMAP-510h.15).
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -542,22 +500,8 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                     );
                     copied_source_ids.push((create_id, source_id));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_copied.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_copied.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                // BackendSetError is #[non_exhaustive]; name only the kind so
-                // backend error content stays off the wire (bd:JMAP-510h.15).
-                Err(_) => {
-                    not_copied.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_copied.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -621,25 +565,8 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 Ok(()) => {
                     destroyed.push(Value::String(source_id.as_ref().to_owned()));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        source_id.as_ref().to_owned(),
-                        server_fail_value_from_backend(&e),
-                    );
-                }
-                // BackendSetError is #[non_exhaustive]; name only the kind so
-                // backend error content stays off the wire (bd:JMAP-510h.15).
-                Err(_) => {
-                    not_destroyed.insert(
-                        source_id.as_ref().to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
                 }
             }
         }

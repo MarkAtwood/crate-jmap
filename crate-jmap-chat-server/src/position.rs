@@ -38,9 +38,9 @@ use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
 };
-use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
+use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, reject_read_only_patch, server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -276,20 +276,8 @@ pub async fn handle_position_set<B: ChatBackend>(
                     updated_ids.push(id);
                     updated.insert(id_str, Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }

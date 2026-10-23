@@ -15,12 +15,14 @@ use serde_json::{Map, Value};
 
 use crate::GraphBackend;
 use crate::helpers::{
-    SetOps, TypeCheck, backend_set_error_value, check_annotations, decode_patch, fetch_one,
-    handle_get_visible, handle_graph_item_query, handle_graph_item_query_changes, handle_set,
-    invalid, mistyped, not_found, patched, patched_properties, set_error_value, to_map,
+    SetOps, TypeCheck, check_annotations, decode_patch, fetch_one, handle_get_visible,
+    handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, mistyped,
+    not_found, patched, patched_properties, set_error_value, to_map,
 };
 use crate::node::{create_graph_id, created_entry, fill_server_set, item_graph_writable, touch};
-use jmap_server::{HandlerOutput, reject_read_only_patch, reject_server_set};
+use jmap_server::{
+    HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
+};
 
 /// The properties with a draft default, echoed in `created` when the
 /// client omits them (RFC 8620 §5.3).

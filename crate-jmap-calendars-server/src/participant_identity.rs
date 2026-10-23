@@ -30,14 +30,14 @@ use jmap_calendars_types::ParticipantIdentity;
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
+use crate::CalendarsBackend;
 use crate::helpers::{
     SetAccumulators, apply_default_change_to_response, enforce_max_objects_in_set,
     extract_account_id, finalize_set_response, resolve_on_success_set_is_default, set_error_value,
 };
-use crate::{BackendSetError, CalendarsBackend};
 use jmap_server::{
-    HandlerOutput, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -186,20 +186,8 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -248,20 +236,8 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                     mutated = true;
                     updated.insert(id_str, Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -296,20 +272,8 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }

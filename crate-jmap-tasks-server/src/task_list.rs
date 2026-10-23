@@ -30,13 +30,13 @@ use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
+use crate::TasksBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     set_error_value,
 };
-use crate::{BackendSetError, TasksBackend};
 use jmap_server::{
-    HandlerOutput, QueryParams, reject_read_only_patch, reject_server_set,
+    HandlerOutput, QueryParams, backend_set_error_value, reject_read_only_patch, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend,
 };
 
@@ -210,14 +210,8 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_created.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -270,14 +264,8 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                     mutated = true;
                     updated.insert(id_str, Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -352,14 +340,8 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -430,10 +412,7 @@ async fn destroy_task_list_tasks<B: TasksBackend>(
         backend
             .destroy_object::<Task>(caller, account_id, task_id)
             .await
-            .map_err(|e| match e {
-                BackendSetError::SetError(set_err) => set_error_value(&set_err),
-                other => server_fail_value_from_backend(&other),
-            })?;
+            .map_err(backend_set_error_value)?;
     }
     Ok(())
 }

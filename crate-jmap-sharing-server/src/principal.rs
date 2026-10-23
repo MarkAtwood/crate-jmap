@@ -30,14 +30,14 @@ use jmap_sharing_types::Principal;
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
+use crate::SharingBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     set_error_value,
 };
-use crate::{BackendSetError, SharingBackend};
 use jmap_server::{
-    HandlerOutput, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -197,20 +197,8 @@ pub async fn handle_principal_set<B: SharingBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -263,20 +251,8 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     mutated = true;
                     updated.insert(id_str, Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -321,20 +297,8 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }

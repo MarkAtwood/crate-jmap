@@ -48,8 +48,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, QueryChangesParams, QueryParams, bool_arg, filter_arg, reject_read_only_patch,
-    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -562,20 +562,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Ok(None) => {
                     updated.insert(id_str.clone(), Value::Null);
                 }
-                Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(id_str.clone(), set_error_value(&se));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str.clone(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str.clone(), backend_set_error_value(e));
                 }
             }
         }
@@ -616,20 +604,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Ok(()) => {
                     destroyed.push(Value::String(id_str.to_owned()));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
@@ -728,24 +704,9 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Ok(None) => {
                         email_updated.insert(email_id.as_ref().to_owned(), Value::Null);
                     }
-                    Err(BackendSetError::SetError(set_err)) => {
+                    Err(e) => {
                         email_not_updated
-                            .insert(email_id.as_ref().to_owned(), set_error_value(&set_err));
-                    }
-                    Err(BackendSetError::Other(e)) => {
-                        email_not_updated.insert(
-                            email_id.as_ref().to_owned(),
-                            server_fail_value_from_backend(&e),
-                        );
-                    }
-                    Err(_) => {
-                        email_not_updated.insert(
-                            email_id.as_ref().to_owned(),
-                            json!({
-                                "type": "serverFail",
-                                "description": "unhandled backend error variant",
-                            }),
-                        );
+                            .insert(email_id.as_ref().to_owned(), backend_set_error_value(e));
                     }
                 }
             }
@@ -768,24 +729,9 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Ok(()) => {
                         email_destroyed.push(Value::String(email_id.as_ref().to_owned()));
                     }
-                    Err(BackendSetError::SetError(set_err)) => {
+                    Err(e) => {
                         email_not_destroyed
-                            .insert(email_id.as_ref().to_owned(), set_error_value(&set_err));
-                    }
-                    Err(BackendSetError::Other(e)) => {
-                        email_not_destroyed.insert(
-                            email_id.as_ref().to_owned(),
-                            server_fail_value_from_backend(&e),
-                        );
-                    }
-                    Err(_) => {
-                        email_not_destroyed.insert(
-                            email_id.as_ref().to_owned(),
-                            json!({
-                                "type": "serverFail",
-                                "description": "unhandled backend error variant",
-                            }),
-                        );
+                            .insert(email_id.as_ref().to_owned(), backend_set_error_value(e));
                     }
                 }
             }

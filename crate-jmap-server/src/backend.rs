@@ -81,6 +81,24 @@ impl<E: std::fmt::Display> BackendSetError<E> {
     }
 }
 
+/// The `notCreated` / `notUpdated` / `notDestroyed` map value for a
+/// backend `/set` failure (RFC 8620 §5.3).
+///
+/// [`BackendSetError::SetError`] serializes verbatim;
+/// [`BackendSetError::Other`] becomes a `serverFail` with the fixed
+/// [`SERVER_FAIL_INTERNAL_DESC`](crate::SERVER_FAIL_INTERNAL_DESC)
+/// description, so the inner error's `Display` text never reaches the
+/// wire (bd:JMAP-jfia.36). Every `*-server` crate maps per-object backend
+/// errors through this one function.
+pub fn backend_set_error_value<E: std::fmt::Display>(err: BackendSetError<E>) -> serde_json::Value {
+    match err {
+        BackendSetError::SetError(se) => {
+            serde_json::to_value(&*se).expect("derive(Serialize) on plain data is infallible")
+        }
+        BackendSetError::Other(e) => crate::handlers::server_fail_value_from_backend(&e),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Backend error envelopes
 // ---------------------------------------------------------------------------
@@ -1105,6 +1123,36 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&se).expect("SetError must serialize"),
             serde_json::json!({"type": "forbidden"})
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.3): a per-object `SetError` is the
+    /// `notCreated`/`notUpdated`/`notDestroyed` map value verbatim
+    /// (hand-written expected JSON).
+    #[test]
+    fn backend_set_error_value_set_error_is_verbatim() {
+        let err: BackendSetError<std::fmt::Error> = BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::NotFound).with_description("gone"),
+        ));
+        assert_eq!(
+            backend_set_error_value(err),
+            serde_json::json!({"type": "notFound", "description": "gone"})
+        );
+    }
+
+    /// Oracle (bd:JMAP-jfia.36): `Other` becomes exactly
+    /// `{"type":"serverFail","description":"internal error"}` and never
+    /// carries the wrapped error's `Display` text (hand-written expected
+    /// JSON, hand-built canary).
+    #[test]
+    fn backend_set_error_value_other_is_redacted_server_fail() {
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-5e7e44";
+        let err: BackendSetError<&str> = BackendSetError::Other(CANARY);
+        let wire = backend_set_error_value(err);
+        assert!(!wire.to_string().contains(CANARY), "leaked: {wire}");
+        assert_eq!(
+            wire,
+            serde_json::json!({"type": "serverFail", "description": "internal error"})
         );
     }
 

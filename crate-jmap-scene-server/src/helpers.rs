@@ -5,7 +5,7 @@ use serde_json::{Map, Value, json};
 
 use jmap_scene_types::{SceneAvatar, SceneObject, SceneRegion};
 
-use crate::{BackendSetError, SceneBackend, SetError, SetErrorType};
+use crate::{SceneBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, enforce_max_objects_in_get, not_found_json, optional_arg, serialize_value,
     server_fail_from_backend, server_fail_value_from_backend,
@@ -141,19 +141,6 @@ pub(crate) fn not_found() -> Value {
 /// An `overQuota` SetError.
 pub(crate) fn over_quota(description: &str) -> Value {
     set_error_value(&SetError::new(SetErrorType::OverQuota).with_description(description))
-}
-
-/// The SetError JSON for a backend `/set` failure; storage errors become
-/// `serverFail` without their `Display` text.
-pub(crate) fn backend_set_error_value<E: std::fmt::Display>(e: BackendSetError<E>) -> Value {
-    match e {
-        BackendSetError::SetError(se) => set_error_value(&se),
-        BackendSetError::Other(e) => server_fail_value_from_backend(&e),
-        _ => json!({
-            "type": "serverFail",
-            "description": "unhandled backend error variant",
-        }),
-    }
 }
 
 /// Fetch one object of type `O`, or `None` if the backend does not have it.

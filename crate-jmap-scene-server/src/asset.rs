@@ -23,13 +23,14 @@ use serde_json::{Map, Value, json};
 
 use crate::SceneBackend;
 use crate::helpers::{
-    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
-    extract_account_id, fetch_one, finalize_set_response, forbidden, invalid, not_found,
-    over_quota, reject_unsupported_sort, set_error_value,
+    SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
+    finalize_set_response, forbidden, invalid, not_found, over_quota, reject_unsupported_sort,
+    set_error_value,
 };
 use jmap_server::{
-    HandlerOutput, SetError, SetErrorType, now_utc_string, reject_read_only_patch,
-    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, SetError, SetErrorType, backend_set_error_value, now_utc_string,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 /// The mandatory-to-implement visual asset media type: "The IANA media

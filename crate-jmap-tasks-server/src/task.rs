@@ -33,14 +33,14 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::TasksBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     set_error_value,
 };
-use crate::{BackendSetError, TasksBackend};
 use jmap_server::{
-    HandlerOutput, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -236,14 +236,8 @@ pub async fn handle_task_set<B: TasksBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_created.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -334,14 +328,8 @@ pub async fn handle_task_set<B: TasksBackend>(
                     mutated = true;
                     updated.insert(id_str, Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -385,14 +373,8 @@ pub async fn handle_task_set<B: TasksBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -629,14 +611,8 @@ pub async fn handle_task_copy<B: TasksBackend>(
                     );
                     copied_source_ids.push((create_id, source_id));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_created.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -696,21 +672,9 @@ pub async fn handle_task_copy<B: TasksBackend>(
                     Ok(()) => {
                         destroyed_arr.push(Value::String(source_id.as_ref().to_owned()));
                     }
-                    Err(BackendSetError::SetError(set_err)) => {
+                    Err(e) => {
                         not_destroyed
-                            .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
-                    }
-                    Err(BackendSetError::Other(e)) => {
-                        not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            server_fail_value_from_backend(&e),
-                        );
-                    }
-                    Err(other) => {
-                        not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            server_fail_value_from_backend(&other),
-                        );
+                            .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
                     }
                 }
             }

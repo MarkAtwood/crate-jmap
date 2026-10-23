@@ -35,9 +35,10 @@ use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
 };
-use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
+use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -405,20 +406,8 @@ pub async fn handle_invite_set<B: ChatBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id.clone(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id.clone(), backend_set_error_value(e));
                 }
             }
         }
@@ -473,20 +462,8 @@ pub async fn handle_invite_set<B: ChatBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }

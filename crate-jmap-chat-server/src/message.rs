@@ -45,8 +45,8 @@ use crate::helpers::{
     now_utc_string, optional_arg, reject_unsupported_sort, serialize_value, set_error_value,
 };
 use jmap_server::{
-    HandlerOutput, QueryParams, filter_arg, is_client_updatable, query_anchor_args,
-    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, QueryParams, backend_set_error_value, filter_arg, is_client_updatable,
+    query_anchor_args, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -1544,20 +1544,8 @@ pub async fn handle_message_set<B: ChatBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id.clone(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id.clone(), backend_set_error_value(e));
                 }
             }
         }
@@ -2079,22 +2067,8 @@ pub async fn handle_message_set<B: ChatBackend>(
             };
             let maybe_updated_obj = match update_outcome {
                 Ok(maybe_obj) => maybe_obj,
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                    continue;
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                     continue;
                 }
             };
@@ -2190,20 +2164,8 @@ pub async fn handle_message_set<B: ChatBackend>(
                     destroyed_chat_ids.extend(chat_of.get(&id).cloned());
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
