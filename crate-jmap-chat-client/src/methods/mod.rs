@@ -1629,4 +1629,73 @@ mod tests {
             Some("C-welcome")
         );
     }
+
+    // ── Patch<T> serde (bd:JMAP-w8fu.14) ───────────────────────────────
+    //
+    // Oracle: RFC 8620 §5.3 PatchObject semantics — a key absent from the
+    // patch leaves the property unchanged, a JSON `null` value resets it
+    // to its default/null, any other value replaces it. Expected JSON is
+    // hand-written below, not produced by the code under test.
+
+    /// A caller-shaped patch struct using the documented field attributes.
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct Probe {
+        #[serde(default, skip_serializing_if = "Patch::is_keep")]
+        nick: Patch<String>,
+    }
+
+    #[test]
+    fn patch_serialize_set_emits_value_and_clear_emits_null() {
+        let set = Probe {
+            nick: Patch::Set("Bob".to_owned()),
+        };
+        let clear = Probe { nick: Patch::Clear };
+        assert_eq!(
+            serde_json::to_value(&set).expect("Set must serialize"),
+            serde_json::json!({ "nick": "Bob" })
+        );
+        assert_eq!(
+            serde_json::to_value(&clear).expect("Clear must serialize"),
+            serde_json::json!({ "nick": null })
+        );
+    }
+
+    #[test]
+    fn patch_serialize_keep_is_omitted_by_skip_attribute() {
+        let keep = Probe { nick: Patch::Keep };
+        assert_eq!(
+            serde_json::to_value(&keep).expect("Keep field must be skipped"),
+            serde_json::json!({})
+        );
+    }
+
+    /// Serializing `Keep` without the skip attribute has no RFC 8620 §5.3
+    /// encoding (it is "key absent", which a value cannot express), so it
+    /// must fail rather than silently emit `null` and clear the property.
+    #[test]
+    fn patch_serialize_bare_keep_is_an_error() {
+        let keep: Patch<String> = Patch::Keep;
+        assert!(serde_json::to_value(&keep).is_err());
+    }
+
+    #[test]
+    fn patch_deserialize_absent_null_and_value() {
+        let absent: Probe =
+            serde_json::from_value(serde_json::json!({})).expect("absent key must deserialize");
+        let null: Probe = serde_json::from_value(serde_json::json!({ "nick": null }))
+            .expect("null must deserialize");
+        let value: Probe = serde_json::from_value(serde_json::json!({ "nick": "Bob" }))
+            .expect("value must deserialize");
+        assert!(matches!(absent.nick, Patch::Keep));
+        assert!(matches!(null.nick, Patch::Clear));
+        assert!(matches!(value.nick, Patch::Set(ref s) if s == "Bob"));
+    }
+
+    /// `ServerRetryAfterError::Malformed` preserves the raw JSON for
+    /// diagnostics (rustdoc contract); its Display must surface it.
+    #[test]
+    fn server_retry_after_error_display_includes_raw_value() {
+        let err = ServerRetryAfterError::Malformed(serde_json::json!(30));
+        assert!(err.to_string().contains("30"), "got {err}");
+    }
 }
