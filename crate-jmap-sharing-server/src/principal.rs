@@ -33,7 +33,6 @@ use serde_json::{Value, json};
 use crate::SharingBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    set_error_value,
 };
 use jmap_server::{
     HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
@@ -150,7 +149,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Principal>) {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             // Deserialize the Principal from the client-provided object.
@@ -191,11 +190,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
                     not_created.insert(create_id, backend_set_error_value(e));
@@ -212,7 +207,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -231,7 +226,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
                 }
             };
             if let Some(err) = reject_read_only_patch::<Principal>(patch.as_map(), None) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -241,11 +236,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -285,7 +276,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, set_error_value(&err));
+                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
