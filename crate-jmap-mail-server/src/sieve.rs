@@ -429,8 +429,13 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 Some(s) => s,
                 None => continue, // unreachable: validated above
             };
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Check existence and isActive before destroying.
             let (existing, not_found_ids) = backend
@@ -552,7 +557,13 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 );
                 continue;
             };
-            let blob_id = Id::from(blob_id_str);
+            let blob_id = match jmap_server::parse_wire_id(blob_id_str, "blobId") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_created.insert(creation_id, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // b. Name validation and uniqueness check (if name is provided and non-null).
             let name: Option<String> = obj_val
@@ -694,7 +705,13 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             .map_err(|e| server_fail_from_backend(&e))?;
 
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -760,7 +777,13 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
             // If the patch includes blobId, check size then validate the new blob.
             if let Some(new_blob_id_str) = patch.as_map().get("blobId").and_then(|v| v.as_str()) {
-                let new_blob_id = Id::from(new_blob_id_str);
+                let new_blob_id = match jmap_server::parse_wire_id(new_blob_id_str, "blobId") {
+                    Ok(id) => id,
+                    Err(err) => {
+                        not_updated.insert(id_str, set_error_value(&err));
+                        continue;
+                    }
+                };
 
                 // Size check: enforce maxSizeScript before syntax validation (spec §2.4).
                 if let Some(max_bytes) = max_script_bytes {
@@ -890,7 +913,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 // Look up in the created map; silently ignore if not found (spec §2.4).
                 created_id_map.get(creation_id).cloned()
             } else {
-                Some(Id::from(activate_ref.as_str()))
+                Id::new_validated(activate_ref.as_str()).ok()
             };
 
             if let Some(ref target_id) = target_id {
@@ -1095,7 +1118,10 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 
     let anchor: Option<Id> = match args.remove("anchor") {
         None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("anchor: {e}")))?,
+        ),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
@@ -1207,7 +1233,8 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
 
     // Step 2: Extract blobId.
     let blob_id: Id = match args.get("blobId").and_then(|v| v.as_str()) {
-        Some(s) => Id::from(s.to_owned()),
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("blobId: {e}")))?,
         None => return Err(JmapError::invalid_arguments("blobId is required")),
     };
 

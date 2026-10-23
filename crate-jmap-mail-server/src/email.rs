@@ -820,8 +820,10 @@ pub async fn handle_email_query<B: MailBackend>(
     // RFC 8620 §5.5: anchor-based pagination overrides position.
     let anchor: Option<Id> = match args.remove("anchor") {
         None | Some(Value::Null) => None,
-        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("anchor: {e}")))?,
+        ),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
@@ -1031,7 +1033,10 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 
     let up_to_id: Option<Id> = match args.remove("upToId") {
         None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("upToId: {e}")))?,
+        ),
         Some(_) => {
             return Err(JmapError::invalid_arguments(
                 "upToId must be a string Id or null",
@@ -1244,7 +1249,13 @@ pub async fn handle_email_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -1317,7 +1328,13 @@ pub async fn handle_email_set<B: MailBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue;
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             match backend
                 .destroy_object::<Email>(caller, &account_id, &id)
@@ -1552,8 +1569,10 @@ fn parse_mailbox_ids(entry: &Value, rfc_ref: &str) -> Result<Vec<Id>, Value> {
         Some(m) => m
             .iter()
             .filter(|(_, v)| v.as_bool() == Some(true))
-            .map(|(k, _)| Id::from(k.as_str()))
-            .collect(),
+            .map(|(k, _)| {
+                jmap_server::parse_wire_id(k, "mailboxIds").map_err(|e| set_error_value(&e))
+            })
+            .collect::<Result<_, _>>()?,
         None => {
             return Err(json!({"type": "invalidProperties", "properties": ["mailboxIds"]}));
         }
@@ -2051,7 +2070,13 @@ pub async fn handle_email_import<B: MailBackend>(
             );
             continue;
         };
-        let blob_id: Id = Id::from(s);
+        let blob_id: Id = match jmap_server::parse_wire_id(s, "blobId") {
+            Ok(id) => id,
+            Err(err) => {
+                not_created.insert(import_id, set_error_value(&err));
+                continue;
+            }
+        };
 
         // Only include mailboxIds whose value is true (RFC 8621 §5.7 requires at least one).
         let mailbox_ids = match parse_mailbox_ids(&entry, "RFC 8621 §5.7") {
@@ -2369,7 +2394,8 @@ pub async fn handle_email_copy<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
-        Some(s) => Id::from(s),
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
     };
 
@@ -2428,7 +2454,13 @@ pub async fn handle_email_copy<B: MailBackend>(
             );
             continue;
         };
-        let source_id: Id = Id::from(s);
+        let source_id: Id = match jmap_server::parse_wire_id(s, "id") {
+            Ok(id) => id,
+            Err(err) => {
+                not_created.insert(copy_id, set_error_value(&err));
+                continue;
+            }
+        };
 
         // Only include mailboxIds whose value is true (RFC 8621 §6.1 requires at least one).
         let mailbox_ids = match parse_mailbox_ids(&entry, "RFC 8621 §6.1") {
