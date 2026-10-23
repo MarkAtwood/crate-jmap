@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `parse_request_bytes(body: &[u8], max_calls)` parses the
+  raw HTTP body with `serde_json::from_slice`, maps a parse failure to the
+  RFC 8620 §3.6.1 `notJSON` request error, then runs `parse_request`
+  (bd JMAP-jfia.21).
 - **jmap-types**: `check_property_classification::<T>()` checks a fully
   populated object against `T`'s `SetObject` property lists, and
   `PushSubscription` implements `JmapObject` and `SetObject`
