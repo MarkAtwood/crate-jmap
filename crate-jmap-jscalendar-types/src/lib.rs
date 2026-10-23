@@ -26,40 +26,39 @@
 //! at the type level without pulling in a heavy parser dependency.  Validation
 //! of internal format is left to the backend.
 //!
-//! ## Spec-driven divergences (deliberate, do not "fix")
+//! ## Design: bare `String` `at_type` (not `Option<String>`)
 //!
-//! Three design choices in this crate look like inconsistency at a glance but
-//! are deliberate spec-compliance decisions; preserve them against future
-//! "consistency" or "simplification" PRs.
+//! Deliberate spec-compliance decision; do not "fix" for consistency.
+//! Diverges from the sibling `jmap-jscontact-types` which uses
+//! `Option<String>`.  Spec authority: RFC 8984 marks every `@type`
+//! discriminator as `(mandatory)` with zero `defaultType` annotations;
+//! RFC 9553 §1.3.4 introduces `defaultType` and permits omitting `@type`
+//! in implied-type positions.  Workspace canonical-templates rule
+//! explicitly permits "differences mandated by the relevant RFC or
+//! draft".  See `PLAN.md` and `bd:JMAP-sgrr.3`.
 //!
-//! 1. **Bare `String` `at_type` (not `Option<String>`).**  Diverges from the
-//!    sibling `jmap-jscontact-types` which uses `Option<String>`.  Spec
-//!    authority: RFC 8984 marks every `@type` discriminator as
-//!    `(mandatory)` with zero `defaultType` annotations; RFC 9553 §1.3.4
-//!    introduces `defaultType` and permits omitting `@type` in
-//!    implied-type positions.  Workspace canonical-templates rule
-//!    explicitly permits "differences mandated by the relevant RFC or
-//!    draft".  See `PLAN.md` and `bd:JMAP-sgrr.3`.
+//! ## Design: `AlertTrigger::Unknown(serde_json::Value)`
 //!
-//! 2. **`AlertTrigger::Unknown(serde_json::Value)`.**  Holds an opaque
-//!    `Value` rather than a typed struct or a `String`.  Spec authority:
-//!    RFC 8984 §4.5.2 "Implementations MUST NOT trigger for trigger types
-//!    they do not understand but MUST preserve them."  A typed
-//!    `Unknown(String)` would discard the inner fields; a typed
-//!    `Unknown { at_type, fields }` would force a schema on what is
-//!    explicitly unschema'd.  The manual `Deserialize` impl is required
-//!    because serde does not support `#[serde(tag = "@type", other)]`
-//!    with non-unit tuple variants.  See [`AlertTrigger`] rustdoc.
+//! Deliberate spec-compliance decision; do not "fix" for consistency.
+//! Holds an opaque `Value` rather than a typed struct or a `String`.
+//! Spec authority: RFC 8984 §4.5.2 "Implementations MUST NOT trigger for
+//! trigger types they do not understand but MUST preserve them."  A typed
+//! `Unknown(String)` would discard the inner fields; a typed
+//! `Unknown { at_type, fields }` would force a schema on what is
+//! explicitly unschema'd.  The manual `Deserialize` impl is required
+//! because serde does not support `#[serde(tag = "@type", other)]` with
+//! non-unit tuple variants.  See [`AlertTrigger`] rustdoc.
 //!
-//! 3. **`serde_json::{Map, Value}` in the public API surface.**  The
-//!    workspace extras-preservation policy mandates a
-//!    `pub extra: serde_json::Map<String, serde_json::Value>` field on
-//!    every wire-format struct, and `AlertTrigger::Unknown` carries a
-//!    raw `Value`.  This locks the crate's major version to
-//!    `serde_json`'s, which is the explicit trade-off: round-trip
-//!    fidelity for vendor / site / private fields outweighs the
-//!    coupling cost.  See `PLAN.md` "Extras-preservation policy" and
-//!    workspace `AGENTS.md`.
+//! ## Design: `serde_json::{Map, Value}` in the public API surface
+//!
+//! Deliberate trade-off; do not "fix" for simplification.  The workspace
+//! extras-preservation policy mandates a
+//! `pub extra: serde_json::Map<String, serde_json::Value>` field on every
+//! wire-format struct, and `AlertTrigger::Unknown` carries a raw `Value`.
+//! This locks the crate's major version to `serde_json`'s, which is the
+//! explicit trade-off: round-trip fidelity for vendor / site / private
+//! fields outweighs the coupling cost.  See `PLAN.md`
+//! "Extras-preservation policy" and workspace `AGENTS.md`.
 //!
 //! ## Test-oracle discipline
 //!
