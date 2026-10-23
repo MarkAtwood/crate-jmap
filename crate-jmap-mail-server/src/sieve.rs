@@ -712,7 +712,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
             // R4: Reject patches to server-set properties: `id` and
             // `isActive` (RFC 9661 §2), which onSuccessActivateScript changes.
-            if let Some(err) = reject_read_only_patch::<SieveScript>(patch.as_map()) {
+            if let Some(err) = reject_read_only_patch::<SieveScript>(patch.as_map(), None) {
                 not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }

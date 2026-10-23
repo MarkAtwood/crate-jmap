@@ -36,7 +36,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, TasksBackend};
 use jmap_server::{
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -149,15 +150,8 @@ pub async fn handle_task_list_set<B: TasksBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
-            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
-            // object" — id is server-assigned. Any present "id" key (even
-            // null) is rejected with invalidProperties:["id"]. Fixed in
-            // JMAP-n22t.
-            if obj_val.get("id").is_some() {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<TaskList>) {
+                not_created.insert(create_id, set_error_value(&err));
                 continue;
             }
             // `TaskList.id` is required, so the parse fills it with "",
@@ -166,6 +160,24 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.insert("id".to_owned(), Value::String(String::new()));
+                    // `myRights` is server-set (draft-ietf-jmap-tasks-06 §3)
+                    // and TaskList requires it, so the server supplies it.
+                    //
+                    // ponytail: the creator holds every right, as the owner of
+                    // a task list in their own account; a backend with finer
+                    // sharing may replace `myRights` in `create_object`.
+                    m.insert(
+                        "myRights".to_owned(),
+                        json!({
+                            "mayReadItems": true,
+                            "mayWriteAll": true,
+                            "mayWriteOwn": true,
+                            "mayUpdatePrivate": true,
+                            "mayRSVP": true,
+                            "mayAdmin": true,
+                            "mayDelete": true,
+                        }),
+                    );
                     Value::Object(m)
                 }
                 other => other,
@@ -232,6 +244,10 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                     continue;
                 }
             };
+            if let Some(err) = reject_read_only_patch::<TaskList>(patch.as_map(), None) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             match backend
                 .update_object::<TaskList>(caller, &account_id, &id, patch)

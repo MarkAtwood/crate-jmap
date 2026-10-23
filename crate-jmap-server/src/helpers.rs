@@ -1111,21 +1111,37 @@ pub fn reject_server_set<O: SetObject>(create: &Map<String, Value>) -> Option<Se
 /// §5.3), and a [`SetObject::IMMUTABLE`] value "MUST NOT change after the
 /// object is created" (RFC 8620 §1.1).
 ///
+/// `current` is the stored object, when the handler has it. RFC 8620 §5.3:
+/// "Any server-set properties MAY be included in the patch if their value is
+/// identical to the current server value", so a key that names the whole
+/// property with its stored value passes. A key with further segments always
+/// changes the property and is rejected.
+///
 /// Returns `None` when the patch names none. Otherwise returns an
 /// `invalidProperties` [`SetError`] whose `properties` lists each property
 /// named, `SERVER_SET` first, then `IMMUTABLE`, each in list order.
 ///
-/// ponytail: rejects the key even when its value equals the stored one,
-/// which RFC 8620 §5.3 allows for a server-set property, because this check
-/// has no stored object. A handler that has it can drop unchanged keys
-/// first, as [`reject_did_bearing_properties`] does.
+/// ponytail: compares the raw first segment, without RFC 6901 `~0`/`~1`
+/// decoding, which is exact for property names with no `~` or `/`. With
+/// `current` `None` an unchanged value is rejected too; a handler that can
+/// fetch the stored object passes it.
 #[must_use]
-pub fn reject_read_only_patch<O: SetObject>(patch: &Map<String, Value>) -> Option<SetError> {
+pub fn reject_read_only_patch<O: SetObject>(
+    patch: &Map<String, Value>,
+    current: Option<&Map<String, Value>>,
+) -> Option<SetError> {
     let rejected: Vec<&str> = O::SERVER_SET
         .iter()
         .chain(O::IMMUTABLE)
         .copied()
-        .filter(|prop| patch.keys().any(|k| k.split('/').next() == Some(*prop)))
+        .filter(|prop| {
+            patch.iter().any(|(k, v)| {
+                k.split('/').next() == Some(*prop)
+                    && !(k == prop
+                        && current
+                            .is_some_and(|stored| stored.get(*prop).unwrap_or(&Value::Null) == v))
+            })
+        })
         .collect();
     (!rejected.is_empty())
         .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
@@ -1203,16 +1219,45 @@ mod tests {
         let ok = json!({"expires": null, "types": ["Email"], "urlX": 1});
         assert_eq!(
             props(reject_read_only_patch::<PushSubscription>(
-                ok.as_object().unwrap()
+                ok.as_object().unwrap(),
+                None
             )),
             None
         );
         let bad = json!({"keys/auth": "a", "id": "p2", "url": "https://y.example/"});
         assert_eq!(
             props(reject_read_only_patch::<PushSubscription>(
-                bad.as_object().unwrap()
+                bad.as_object().unwrap(),
+                None
             )),
             Some(vec!["id".to_owned(), "url".to_owned(), "keys".to_owned()])
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3, "Any server-set properties MAY be included in
+    /// the patch if their value is identical to the current server value
+    /// ... Otherwise, the update MUST be rejected with an
+    /// "invalidProperties" SetError." `keys/auth` points inside `keys`, so
+    /// it changes it even when the leaf value matches.
+    #[test]
+    fn reject_read_only_patch_allows_unchanged_whole_values() {
+        let stored = json!({"id": "p1", "url": "https://x.example/", "keys": {"auth": "a"}});
+        let stored = stored.as_object().unwrap();
+        let same = json!({"id": "p1", "url": "https://x.example/"});
+        assert_eq!(
+            props(reject_read_only_patch::<PushSubscription>(
+                same.as_object().unwrap(),
+                Some(stored)
+            )),
+            None
+        );
+        let changed = json!({"id": "p1", "url": "https://y.example/", "keys/auth": "a"});
+        assert_eq!(
+            props(reject_read_only_patch::<PushSubscription>(
+                changed.as_object().unwrap(),
+                Some(stored)
+            )),
+            Some(vec!["url".to_owned(), "keys".to_owned()])
         );
     }
 

@@ -85,10 +85,11 @@ async fn create_with_cid_sets_sha256_of_blob() {
     assert_eq!(get_one(&backend, id).await["sha256"], SHA256_ABC);
 }
 
-/// L215-217 (as above): the value is the digest of the stored blob, so a
-/// client-supplied `sha256` does not survive.
+/// L215-217 (as above): "the server MUST set this", so `sha256` is
+/// server-set. RFC 8620 §1.1: "The client MUST NOT send this property when
+/// creating", and RFC 8620 §5.3 lists that under `invalidProperties`.
 #[tokio::test]
-async fn create_with_cid_replaces_client_sha256() {
+async fn create_with_cid_rejects_client_sha256() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
 
@@ -97,22 +98,22 @@ async fn create_with_cid_replaces_client_sha256() {
         create_file("blob-abc", json!({ "sha256": SHA256_TWO_BLOCK })),
     )
     .await;
-    assert_eq!(resp["created"]["c1"]["sha256"], SHA256_ABC, "{resp}");
+    assert_eq!(
+        resp["notCreated"]["c1"],
+        json!({ "type": "invalidProperties", "properties": ["sha256"] }),
+        "{resp}"
+    );
 }
 
 /// L206-208: "When a server advertises both `urn:ietf:params:jmap:cid` and
 /// the {{JMAP-FILENODE}} capability, FileNode objects MUST include the
 /// following additional property". Without the capability there is no
-/// `sha256`, whatever the client sent.
+/// `sha256`.
 #[tokio::test]
 async fn create_without_cid_has_no_sha256() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    let resp = set(
-        &backend,
-        create_file("blob-abc", json!({ "sha256": SHA256_ABC })),
-    )
-    .await;
+    let resp = set(&backend, create_file("blob-abc", json!({}))).await;
     let created = &resp["created"]["c1"];
     assert!(created.get("sha256").is_none(), "{resp}");
 
@@ -220,9 +221,9 @@ async fn update_client_sha256_identical_is_accepted() {
 }
 
 /// L212-213: `sha256` "MUST be `null` for directory FileNodes (FileNodes
-/// with no associated blob)", whatever the client sent.
+/// with no associated blob)".
 #[tokio::test]
-async fn create_directory_drops_client_sha256() {
+async fn create_directory_has_no_sha256() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let resp = set(
@@ -231,7 +232,6 @@ async fn create_directory_drops_client_sha256() {
             "@type": "Directory",
             "name": "docs",
             "parentId": null,
-            "sha256": SHA256_ABC,
         } } }),
     )
     .await;

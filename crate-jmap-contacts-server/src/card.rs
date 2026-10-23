@@ -39,7 +39,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, ContactsBackend};
 use jmap_server::{
-    apply_patch_object, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    apply_patch_object, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
 };
 
 // ---------------------------------------------------------------------------
@@ -141,15 +142,11 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
-            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
-            // object" — id is server-assigned. Any present "id" key (even
-            // null) is rejected with invalidProperties:["id"]. ContactCard/copy
-            // is a separate handler and intentionally carries the source id.
-            if obj_val.get("id").is_some() {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(reject_server_set::<ContactCard>)
+            {
+                not_created.insert(create_id, set_error_value(&err));
                 continue;
             }
             // `ContactCard.id` is optional, so the create parses without
@@ -226,6 +223,10 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     continue;
                 }
             };
+            if let Some(err) = reject_read_only_patch::<ContactCard>(patch.as_map(), None) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             match backend
                 .update_object::<ContactCard>(caller, &account_id, &id, patch)

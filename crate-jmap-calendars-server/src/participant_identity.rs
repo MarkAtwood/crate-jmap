@@ -35,7 +35,10 @@ use crate::helpers::{
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
 use crate::{BackendSetError, CalendarsBackend};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // ParticipantIdentity/get
@@ -138,16 +141,20 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj_val) in create_map {
-            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
-            // object" — id is server-assigned. Any present "id" key (even
-            // null) is rejected with invalidProperties:["id"].
-            if obj_val.get("id").is_some() {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
+        for (create_id, mut obj_val) in create_map {
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(reject_server_set::<ParticipantIdentity>)
+            {
+                not_created.insert(create_id, set_error_value(&err));
                 continue;
+            }
+            // `isDefault` is server-set (draft-ietf-jmap-calendars-33 §3) and
+            // `ParticipantIdentity` requires it, so the server supplies it: a
+            // new identity is not the default until `onSuccessSetIsDefault`
+            // makes it one.
+            if let Some(m) = obj_val.as_object_mut() {
+                m.insert("isDefault".to_owned(), Value::Bool(false));
             }
             // `ParticipantIdentity.id` is optional, so the create parses without one
             // and `build` sets the id the backend mints.
@@ -215,6 +222,10 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                     continue;
                 }
             };
+            if let Some(err) = reject_read_only_patch::<ParticipantIdentity>(patch.as_map(), None) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
             match backend
                 .update_object::<ParticipantIdentity>(caller, &account_id, &id, patch)
                 .await

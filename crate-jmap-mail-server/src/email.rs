@@ -1261,7 +1261,7 @@ pub async fn handle_email_set<B: MailBackend>(
             };
 
             // Check for immutable field violations in the patch keys.
-            if let Some(err) = reject_read_only_patch::<Email>(patch.as_map()) {
+            if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
                 not_updated.insert(id_str.clone(), set_error_value(&err));
                 continue;
             }
@@ -2657,7 +2657,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                         }
                     };
                     // Apply same immutable-field guard as handle_email_set patches.
-                    if let Some(err) = reject_read_only_patch::<Email>(patch.as_map()) {
+                    if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
                         email_not_updated
                             .insert(source_id.as_ref().to_owned(), set_error_value(&err));
                         continue;

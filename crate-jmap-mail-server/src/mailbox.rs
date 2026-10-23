@@ -736,7 +736,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // server-set Mailbox property (RFC 8621 §2), or None if the patch is
         // clean. Used in both passes to avoid duplicating the check block.
         let server_set_error = |patch: &PatchObject| -> Option<Value> {
-            reject_read_only_patch::<Mailbox>(patch.as_map()).map(|e| set_error_value(&e))
+            reject_read_only_patch::<Mailbox>(patch.as_map(), None).map(|e| set_error_value(&e))
         };
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---

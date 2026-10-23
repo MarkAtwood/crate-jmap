@@ -7,7 +7,7 @@ use jmap_server::{
     enforce_max_objects_in_set, extract_account_id, server_fail_from_backend,
     server_fail_value_from_backend, HandlerOutput,
 };
-use jmap_types::{Id, JmapError};
+use jmap_types::{Id, JmapError, SetObject};
 use openmls::ciphersuite::hash_ref::make_key_package_ref;
 use openmls::component::{ComponentId, ComponentType};
 use openmls::prelude::{
@@ -151,10 +151,13 @@ fn decode_create(value: Value) -> Result<KeyPackageCreate, SetError> {
     ) {
         return Err(invalid("lastResort", "lastResort must be a Boolean"));
     }
+    // draft-atwood-jmap-chat-mimi-00 §KeyPackage Object Fields: `id` and
+    // `keyPackageRef` are server-set, so only the client-settable properties
+    // may appear.
     let unknown: Vec<&str> = map
         .keys()
         .map(String::as_str)
-        .filter(|k| !matches!(*k, "keyPackage" | "lastResort"))
+        .filter(|k| !KeyPackage::CLIENT_SETTABLE.contains(k))
         .collect();
     if !unknown.is_empty() {
         return Err(SetError::new(SetErrorType::InvalidProperties)

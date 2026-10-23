@@ -378,7 +378,7 @@ pub async fn handle_identity_set<B: MailBackend>(
 
             // RFC 8621 §6: `email` is immutable; `id` and `mayDelete` are
             // server-set.
-            if let Some(err) = reject_read_only_patch::<Identity>(patch.as_map()) {
+            if let Some(err) = reject_read_only_patch::<Identity>(patch.as_map(), None) {
                 not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }

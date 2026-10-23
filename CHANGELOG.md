@@ -19,10 +19,12 @@ wire behaviour that a conforming peer can observe.
   `PushSubscription` implements `JmapObject` and `SetObject`
   (bd JMAP-x2gd.87).
 - **jmap-server**: `reject_server_set::<O>()` and
-  `reject_read_only_patch::<O>()` build the RFC 8620 §5.3
+  `reject_read_only_patch::<O>(patch, current)` build the RFC 8620 §5.3
   `invalidProperties` SetError for a `/set` create carrying a non-null
   server-set property and for an update patch naming a server-set or
-  immutable property, from `O`'s `SetObject` lists (bd JMAP-x2gd.87).
+  immutable property, from `O`'s `SetObject` lists. Given the stored
+  object, `reject_read_only_patch` lets a key repeat its stored value
+  (bd JMAP-x2gd.87).
 - **jmap-types**: `Filter::matches` evaluates an RFC 8620 §5.5
   `FilterOperator` tree (`AND`/`OR`/`NOT`) over a caller's
   per-condition predicate (bd JMAP-skk9.2).
@@ -1399,6 +1401,21 @@ wire behaviour that a conforming peer can observe.
   offending property is listed, and `VacationResponse/set` rejects a patch
   to `id`. The `IMMUTABLE_EMAIL_FIELDS` and Mailbox/Identity read-only
   lists are gone (bd JMAP-x2gd.87).
+- **jmap-calendars-server**, **jmap-contacts-server**,
+  **jmap-tasks-server**, **jmap-filenode-server**,
+  **jmap-sharing-server**: **BREAKING** (wire) `/set` creates reject a
+  non-null server-set property and updates reject a patch to a
+  server-set or immutable property, with `invalidProperties` (RFC 8620
+  §1.1, §5.3), from each type's `SetObject` lists. Calendar, AddressBook,
+  TaskList, ParticipantIdentity and Principal creates no longer require
+  the client to send `isDefault`, `myRights`, `capabilities` or
+  `accounts`; the server supplies them. A client `isOrigin` (CalendarEvent)
+  or `sha256` (FileNode) on create is rejected instead of replaced.
+  AddressBook `isDefault` changes only through `onSuccessSetIsDefault`
+  (RFC 9610 §2), and the book it demotes now appears in `updated`
+  whatever the backend's `update_object` returns (bd JMAP-x2gd.87).
+- **jmap-chat-mimi-server**: `KeyPackage/set` create takes its allowed
+  properties from `KeyPackage::CLIENT_SETTABLE` (bd JMAP-x2gd.87).
 - **jmap-vtc-client**, **jmap-scene-client**, **jmap-graph-client**:
   **BREAKING** every `/query` and `/queryChanges` method (`vtc_call_*`,
   `vtc_participant_*`, `vtc_recording_*`, `vtc_livestream_*`,
