@@ -60,11 +60,90 @@ impl JmapObject for crate::FileNode {
 
 impl GetObject for crate::FileNode {}
 
+/// draft-ietf-jmap-filenode-16 §2 (lines 349, 362, 414, 431, 483): `@type`
+/// is "(immutable)", `id` is "(immutable; server-set)", `changed`,
+/// `myRights` and `size` are "(server-set)". draft-atwood-jmap-cid-00
+/// §FileNode Extension: for `sha256` "the server MUST set this to the
+/// SHA-256 digest of the stored blob content". draft-atwood-jmap-chat-
+/// filenode-00 §The `spaceId` Extension Property: `spaceId` is "Supplied
+/// by the client at creation and treated as immutable thereafter".
 impl SetObject for crate::FileNode {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "changed", "myRights", "size", "sha256"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "@type",
+        "parentId",
+        "name",
+        "created",
+        "modified",
+        "accessed",
+        "isSubscribed",
+        "shareWith",
+        "blobId",
+        "mediaType",
+        "executable",
+        "role",
+        "target",
+        "spaceId",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &["@type", "spaceId"];
 }
 
 impl QueryObject for crate::FileNode {
     type Filter = crate::FileNodeFilter;
     type Comparator = crate::FileNodeComparator;
+}
+
+#[cfg(test)]
+mod tests {
+    use jmap_types::{check_property_classification, Id, UTCDate};
+    use serde_json::{json, Map, Value};
+    use std::collections::BTreeMap;
+
+    fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {
+        serde_json::from_value(v).expect("hand-written fixture deserializes")
+    }
+
+    /// The struct literal makes a new field a compile error here until it is
+    /// set, then a classification failure until the `SetObject` lists name
+    /// it.
+    #[test]
+    fn file_node_properties_are_classified() {
+        let rights = || -> crate::FilesRights {
+            de(json!({
+                "mayRead": true,
+                "mayAddChildren": true,
+                "mayRename": true,
+                "mayDelete": true,
+                "mayModifyContent": true,
+                "mayShare": true,
+            }))
+        };
+        let date = || Some(UTCDate::from("2026-01-01T00:00:00Z"));
+        let obj = crate::FileNode {
+            id: Id::from("f1"),
+            parent_id: Some(Id::from("f0")),
+            node_type: Some(de(json!("File"))),
+            blob_id: Some(Id::from("b1")),
+            target: Some(vec!["f2".into()]),
+            size: Some(1),
+            name: "n".into(),
+            sha256: Some(de(json!(
+                "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+            ))),
+            media_type: Some("text/plain".into()),
+            created: date(),
+            modified: date(),
+            accessed: date(),
+            changed: date(),
+            executable: Some(false),
+            is_subscribed: Some(true),
+            my_rights: Some(rights()),
+            share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
+            role: Some(de(json!("chatspace"))),
+            space_id: Some(Id::from("s1")),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
 }

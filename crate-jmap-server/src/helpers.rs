@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use jmap_types::{Id, JmapError, UTCDate};
+use jmap_types::{Id, JmapError, SetObject, UTCDate};
 
 use crate::backend::{SetError, SetErrorType};
 use serde_json::{Map, Value};
@@ -1079,6 +1079,55 @@ pub fn reject_did_bearing_properties(
         .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
 }
 
+/// Reject a `/set` create that carries a server-set property of `O`.
+///
+/// RFC 8620 §1.1: for a "server-set" property, "The client MUST NOT send
+/// this property when creating a new object of this type."; RFC 8620 §5.3
+/// makes such a record `invalidProperties`.
+///
+/// Returns `None` when `create` carries none of [`SetObject::SERVER_SET`].
+/// Otherwise returns an `invalidProperties` [`SetError`] whose `properties`
+/// lists each one carried, in `SERVER_SET` order.
+#[must_use]
+pub fn reject_server_set<O: SetObject>(create: &Map<String, Value>) -> Option<SetError> {
+    let rejected: Vec<&str> = O::SERVER_SET
+        .iter()
+        .copied()
+        .filter(|prop| create.contains_key(*prop))
+        .collect();
+    (!rejected.is_empty())
+        .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
+}
+
+/// Reject a `/set` update patch that names a server-set or immutable
+/// property of `O`.
+///
+/// A patch key names a property when it equals the property name or starts
+/// with `"<name>/"`, a JSON Pointer inside it (RFC 8620 §5.3). Changing a
+/// [`SetObject::SERVER_SET`] property is `invalidProperties` (RFC 8620
+/// §5.3), and a [`SetObject::IMMUTABLE`] value "MUST NOT change after the
+/// object is created" (RFC 8620 §1.1).
+///
+/// Returns `None` when the patch names none. Otherwise returns an
+/// `invalidProperties` [`SetError`] whose `properties` lists each property
+/// named, `SERVER_SET` first, then `IMMUTABLE`, each in list order.
+///
+/// ponytail: rejects the key even when its value equals the stored one,
+/// which RFC 8620 §5.3 allows for a server-set property, because this check
+/// has no stored object. A handler that has it can drop unchanged keys
+/// first, as [`reject_did_bearing_properties`] does.
+#[must_use]
+pub fn reject_read_only_patch<O: SetObject>(patch: &Map<String, Value>) -> Option<SetError> {
+    let rejected: Vec<&str> = O::SERVER_SET
+        .iter()
+        .chain(O::IMMUTABLE)
+        .copied()
+        .filter(|prop| patch.keys().any(|k| k.split('/').next() == Some(*prop)))
+        .collect();
+    (!rejected.is_empty())
+        .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
+}
+
 /// Resolve an Id-typed value that may be a creation-id reference
 /// (RFC 8620 §5.3).
 ///
@@ -1108,12 +1157,60 @@ mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
         extract_account_id, filter_arg, json_merge_patch, now_utc_string, parse_max_changes,
-        reject_did_bearing_properties, resolve_creation_ref, resolve_query_offset,
-        resolve_query_start, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
-        MAX_MERGE_PATCH_DEPTH,
+        reject_did_bearing_properties, reject_read_only_patch, reject_server_set,
+        resolve_creation_ref, resolve_query_offset, resolve_query_start,
+        utc_date_from_epoch_seconds, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
     };
-    use jmap_types::Id;
+    use jmap_types::{Id, PushSubscription};
     use serde_json::json;
+
+    fn props(e: Option<crate::backend::SetError>) -> Option<Vec<String>> {
+        e.map(|e| {
+            serde_json::from_value(serde_json::to_value(e).unwrap()["properties"].clone()).unwrap()
+        })
+    }
+
+    /// Oracle: RFC 8620 §7.2, `id` is "(immutable; server-set)" and the
+    /// other properties are client-sent. RFC 8620 §1.1: "The client MUST
+    /// NOT send this property when creating".
+    #[test]
+    fn reject_server_set_names_server_set_create_properties() {
+        let ok = json!({"deviceClientId": "d", "url": "https://x.example/"});
+        assert_eq!(
+            props(reject_server_set::<PushSubscription>(
+                ok.as_object().unwrap()
+            )),
+            None
+        );
+        let bad = json!({"id": "p1", "deviceClientId": "d"});
+        assert_eq!(
+            props(reject_server_set::<PushSubscription>(
+                bad.as_object().unwrap()
+            )),
+            Some(vec!["id".to_owned()])
+        );
+    }
+
+    /// Oracle: RFC 8620 §7.2, `id` is server-set, `deviceClientId`, `url`
+    /// and `keys` are "(immutable)", `expires` and `types` carry no
+    /// attribute. `keys/auth` points inside `keys`; `urlX` is another name.
+    #[test]
+    fn reject_read_only_patch_names_server_set_and_immutable_keys() {
+        let ok = json!({"expires": null, "types": ["Email"], "urlX": 1});
+        assert_eq!(
+            props(reject_read_only_patch::<PushSubscription>(
+                ok.as_object().unwrap()
+            )),
+            None
+        );
+        let bad = json!({"keys/auth": "a", "id": "p2", "url": "https://y.example/"});
+        assert_eq!(
+            props(reject_read_only_patch::<PushSubscription>(
+                bad.as_object().unwrap()
+            )),
+            Some(vec!["id".to_owned(), "url".to_owned(), "keys".to_owned()])
+        );
+    }
 
     /// Oracle: RFC 8620 §5.3 — "the client refers to the new record
     /// using its creation id prefixed with a '#'"; the RFC 8620 §5.3

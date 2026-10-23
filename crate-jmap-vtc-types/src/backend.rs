@@ -19,8 +19,42 @@ impl JmapObject for VtcCall {
 
 impl GetObject for VtcCall {}
 
+/// draft-atwood-jmap-vtc-00 §VTCCall Object Fields (lines 393-474): `id`,
+/// `createdAt` and `initiatorId` are "immutable, server-set"; `accountId`,
+/// `endedAt`, `endReason`, `activeParticipantCount` and `breakoutRoomIds`
+/// are "server-set"; `callType` and `parentCallId` are "immutable".
+/// §VTCCall/set also has the server set `state` and `joinUri` on create.
 impl SetObject for VtcCall {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "accountId",
+        "createdAt",
+        "endedAt",
+        "endReason",
+        "initiatorId",
+        "activeParticipantCount",
+        "breakoutRoomIds",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "callType",
+        "state",
+        "subject",
+        "joinUri",
+        "joinPassword",
+        "mediaTypes",
+        "lobbyEnabled",
+        "policy",
+        "parentCallId",
+        "scheduledStartAt",
+        "gatewayPin",
+        "e2eeEnabled",
+        "chatId",
+        "spaceId",
+        "channelId",
+        "calendarEventId",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &["callType", "parentCallId"];
 }
 
 impl QueryObject for VtcCall {
@@ -35,8 +69,28 @@ impl JmapObject for VtcParticipant {
 
 impl GetObject for VtcParticipant {}
 
+/// draft-atwood-jmap-vtc-00 §VTCParticipant Object Fields (lines 329-380):
+/// `id` and `userId` are "immutable, server-set"; `joinedAt` and
+/// `speakerTimeMs` are "server-set"; `callId` is "immutable".
 impl SetObject for VtcParticipant {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "userId", "joinedAt", "speakerTimeMs"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "callId",
+        "displayName",
+        "role",
+        "leftAt",
+        "callResponse",
+        "joinMethod",
+        "gatewayData",
+        "lobbyState",
+        "mediaState",
+        "kickedBy",
+        "e2eeFingerprint",
+        "unmuteRequested",
+        "breakoutCallId",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &["callId"];
 }
 
 impl QueryObject for VtcParticipant {
@@ -51,8 +105,24 @@ impl JmapObject for VtcRecording {
 
 impl GetObject for VtcRecording {}
 
+/// draft-atwood-jmap-vtc-00 §VTCRecording (lines 512-539): `id` is
+/// "immutable, server-set"; `startedAt`, `stoppedAt`, `initiatedBy`,
+/// `blobId`, `size`, `duration` and `mediaType` are "server-set"; `callId`
+/// is "immutable".
 impl SetObject for VtcRecording {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "startedAt",
+        "stoppedAt",
+        "initiatedBy",
+        "blobId",
+        "size",
+        "duration",
+        "mediaType",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["callId", "state"];
+    const IMMUTABLE: &'static [&'static str] = &["callId"];
 }
 
 impl QueryObject for VtcRecording {
@@ -67,11 +137,133 @@ impl JmapObject for VtcLivestream {
 
 impl GetObject for VtcLivestream {}
 
+/// draft-atwood-jmap-vtc-00 §VTCLivestream (lines 546-567): `id` is
+/// "immutable, server-set"; `startedAt` and `stoppedAt` are "server-set";
+/// `callId` is "immutable".
 impl SetObject for VtcLivestream {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "startedAt", "stoppedAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] =
+        &["callId", "state", "platform", "streamUri", "streamKey"];
+    const IMMUTABLE: &'static [&'static str] = &["callId"];
 }
 
 impl QueryObject for VtcLivestream {
     type Filter = VtcLivestreamFilter;
     type Comparator = VtcMediaComparator;
+}
+
+#[cfg(test)]
+mod tests {
+    //! Each test builds a fully populated object with a struct literal, so a
+    //! new field is a compile error here until it is set, then a
+    //! classification failure until the `SetObject` lists name it.
+
+    use super::*;
+    use jmap_types::{check_property_classification, Id, UTCDate};
+    use serde_json::{json, Map, Value};
+
+    fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {
+        serde_json::from_value(v).expect("hand-written fixture deserializes")
+    }
+
+    fn date() -> UTCDate {
+        UTCDate::from("2026-01-01T00:00:00Z")
+    }
+
+    #[test]
+    fn vtc_call_properties_are_classified() {
+        let obj = VtcCall {
+            id: Id::from("c1"),
+            account_id: Some(Id::from("acc")),
+            call_type: de(json!("room")),
+            state: de(json!("active")),
+            created_at: date(),
+            ended_at: Some(date()),
+            end_reason: Some(de(json!("completed"))),
+            initiator_id: "u1".into(),
+            subject: Some("s".into()),
+            join_uri: "https://example.com/j".into(),
+            join_password: Some("p".into()),
+            media_types: vec![de(json!("audio"))],
+            active_participant_count: 1,
+            lobby_enabled: true,
+            policy: Default::default(),
+            parent_call_id: Some(Id::from("c0")),
+            breakout_room_ids: vec![Id::from("c2")],
+            scheduled_start_at: Some(date()),
+            gateway_pin: Some("1".into()),
+            e2ee_enabled: true,
+            chat_id: Some(Some(Id::from("ch"))),
+            space_id: Some(Some(Id::from("sp"))),
+            channel_id: Some(Some(Id::from("cn"))),
+            calendar_event_id: Some(Some(Id::from("ev"))),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn vtc_participant_properties_are_classified() {
+        let obj = VtcParticipant {
+            id: Id::from("p1"),
+            call_id: Id::from("c1"),
+            user_id: Some("u1".into()),
+            display_name: "U".into(),
+            role: de(json!("participant")),
+            joined_at: Some(date()),
+            left_at: Some(date()),
+            call_response: Some(de(json!("accepted"))),
+            join_method: de(json!("webrtc")),
+            gateway_data: Some(Map::new()),
+            lobby_state: Some(de(json!("admitted"))),
+            media_state: de(json!({
+                "audio": true,
+                "video": true,
+                "screen": false,
+                "raisedHand": false,
+            })),
+            speaker_time_ms: 1,
+            kicked_by: Some("u2".into()),
+            e2ee_fingerprint: Some("f".into()),
+            unmute_requested: true,
+            breakout_call_id: Some(Id::from("c2")),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn vtc_recording_properties_are_classified() {
+        let obj = VtcRecording {
+            id: Id::from("r1"),
+            call_id: Id::from("c1"),
+            state: de(json!("recording")),
+            started_at: date(),
+            stopped_at: Some(date()),
+            initiated_by: "u1".into(),
+            blob_id: Some(Id::from("b1")),
+            size: Some(1),
+            duration: Some(1),
+            media_type: Some("video/webm".into()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn vtc_livestream_properties_are_classified() {
+        let obj = VtcLivestream {
+            id: Id::from("l1"),
+            call_id: Id::from("c1"),
+            state: de(json!("live")),
+            platform: Some("p".into()),
+            stream_uri: "rtmp://example.com/s".into(),
+            stream_key: "k".into(),
+            started_at: Some(date()),
+            stopped_at: Some(date()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
 }

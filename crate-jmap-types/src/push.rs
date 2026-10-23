@@ -207,6 +207,31 @@ impl fmt::Debug for PushSubscription {
     }
 }
 
+/// `PushSubscription` has no property selector enum; `PushSubscription/get`
+/// takes property names directly.
+impl crate::JmapObject for PushSubscription {
+    const TYPE_NAME: &'static str = "PushSubscription";
+    type Property = ();
+}
+
+/// Property attributes from RFC 8620 §7.2 (rfc8620.txt:3593, 3597, 3618,
+/// 3623): `id` is "(immutable; server-set)"; `deviceClientId`, `url` and
+/// `keys` are "(immutable)"; `verificationCode`, `expires` and `types`
+/// carry no attribute.
+impl crate::SetObject for PushSubscription {
+    type Patch = crate::PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "deviceClientId",
+        "url",
+        "keys",
+        "verificationCode",
+        "expires",
+        "types",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &["deviceClientId", "url", "keys"];
+}
+
 /// The `keys` object of a [`PushSubscription`] (RFC 8620 §7.2).
 ///
 /// "The object MUST have the following properties: p256dh ... auth", so both
@@ -319,6 +344,27 @@ fn take_field<T: DeserializeOwned, E: serde::de::Error>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every `PushSubscription` property RFC 8620 §7.2 defines is classified
+    /// once. The struct literal makes a new field a compile error here.
+    #[test]
+    fn push_subscription_properties_are_classified() {
+        let sub = PushSubscription {
+            id: Some(Id::from("ps1")),
+            device_client_id: "dev".into(),
+            url: Some("https://push.example.com/x".into()),
+            keys: Some(PushKeys {
+                p256dh: "p".into(),
+                auth: "a".into(),
+                extra: serde_json::Map::new(),
+            }),
+            verification_code: Some("code".into()),
+            expires: Some(UTCDate::from("2026-01-01T00:00:00Z")),
+            types: Some(vec!["Email".into()]),
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(crate::check_property_classification(&sub), Ok(()));
+    }
     use serde_json::json;
 
     /// `StateChange.extra` captures unknown fields on deserialize and
