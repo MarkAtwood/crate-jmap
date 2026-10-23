@@ -11,6 +11,8 @@
 //! `nodeId` and sort by `seq` ascending only; `/query` answers
 //! `opsCompacted` when the result would not be contiguous with `afterSeq`.
 
+use std::collections::BTreeMap;
+
 use jmap_graph_types::{GraphCapability, GraphEditCapability, GraphNode, GraphNodeOp};
 use jmap_graph_types::{
     GraphCursorEvent, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
@@ -195,19 +197,26 @@ pub async fn handle_graph_node_op_query_changes<B: GraphBackend>(
 /// accepted: "The server MUST NOT reject an op because its `baseSeq` is
 /// old." The backend assigns the `seq` ([`GraphBackend::create_object`]);
 /// the `created` entry carries every server-set property.
+///
+/// `nodeId` may be a `#creationId` reference to a GraphNode created earlier
+/// in the request, resolved against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
+/// reference is `invalidProperties` naming `nodeId`.
 pub async fn handle_graph_node_op_set<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     require_edit(backend, caller, &args).await?;
-    handle_set::<OpSet, B>(backend, caller, args).await
+    handle_set::<OpSet, B>(backend, caller, created_ids, args).await
 }
 
 struct OpSet;
 
 impl<B: GraphBackend> SetOps<B> for OpSet {
     type Object = GraphNodeOp;
+    const ID_PROPERTIES: &'static [&'static str] = &["nodeId"];
 
     async fn create(
         backend: &B,

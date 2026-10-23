@@ -32,9 +32,23 @@ pub fn backend() -> MemoryBackend {
 }
 
 /// Run handler `$method` on [`ACCOUNT`] as `$caller` with `$args` (without
-/// `accountId`) and return the response.
+/// `accountId`) and return the response. The `ids` form calls a `/set`
+/// handler that takes `created_ids`, with an empty map.
 #[allow(unused_macros)]
 macro_rules! call {
+    (ids $method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
+        let mut args: serde_json::Value = $args;
+        args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
+        $method(
+            $backend,
+            &jmap_types::Id::from($caller),
+            &std::collections::BTreeMap::new(),
+            args,
+        )
+        .await
+        .expect("method")
+        .primary
+    }};
     ($method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
         let mut args: serde_json::Value = $args;
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
@@ -48,6 +62,19 @@ macro_rules! call {
 /// Like [`call!`], but return the method-level error's `type`.
 #[allow(unused_macros)]
 macro_rules! call_err {
+    (ids $method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
+        let mut args: serde_json::Value = $args;
+        args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
+        let err = $method(
+            $backend,
+            &jmap_types::Id::from($caller),
+            &std::collections::BTreeMap::new(),
+            args,
+        )
+        .await
+        .expect_err("method must fail");
+        serde_json::to_value(&err).expect("JmapError serializes")["type"].clone()
+    }};
     ($method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
         let mut args: serde_json::Value = $args;
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);

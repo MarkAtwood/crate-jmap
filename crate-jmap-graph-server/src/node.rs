@@ -7,6 +7,8 @@
 //! the node's Graph, validates `graphId` and `uri`, and leaves the edge
 //! cascade of a destroy to the backend.
 
+use std::collections::BTreeMap;
+
 use jmap_graph_types::CandidateKind;
 use jmap_graph_types::GraphNodeComparator;
 use jmap_graph_types::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
@@ -274,18 +276,26 @@ pub async fn handle_graph_node_query_changes<B: GraphBackend>(
 /// follow draft-atwood-jmap-graph-edit-00 §GraphNode Extensions and
 /// §Snapshots against the head of the node's edit log
 /// ([`GraphBackend::edit_log`]).
+///
+/// `graphId` may be a `#creationId` reference to a record created
+/// earlier in the request, resolved against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]; draft-atwood-jmap-graph-00
+/// §GraphNode/set, RFC 8620 §5.3); an unknown reference is `invalidProperties`
+/// naming the property.
 pub async fn handle_graph_node_set<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    handle_set::<NodeSet, B>(backend, caller, args).await
+    handle_set::<NodeSet, B>(backend, caller, created_ids, args).await
 }
 
 struct NodeSet;
 
 impl<B: GraphBackend> SetOps<B> for NodeSet {
     type Object = GraphNode;
+    const ID_PROPERTIES: &'static [&'static str] = &["graphId"];
 
     async fn create(
         backend: &B,

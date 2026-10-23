@@ -153,18 +153,34 @@ pub fn register_graph_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, bac
 where
     B: GraphBackend + 'static,
 {
+    // `ids` marks a `/set` handler that resolves `#creationId` references
+    // against `CallContext::created_ids` (RFC 8620 §5.3).
     macro_rules! reg {
         ($method:expr, $handler:ident) => {{
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 Arc::clone(&backend),
                 move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
                     let CallContext {
-                        call_id: _ci,
                         args: a,
                         caller: ctx,
                         ..
                     } = cx;
                     Box::pin(async move { $handler(&*b, &ctx, a).await }) as HandlerFuture
+                },
+            ));
+            dispatcher.register($method, h);
+        }};
+        ($method:expr, $handler:ident, ids) => {{
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+                Arc::clone(&backend),
+                move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+                    let CallContext {
+                        args: a,
+                        caller: ctx,
+                        created_ids: ids,
+                        ..
+                    } = cx;
+                    Box::pin(async move { $handler(&*b, &ctx, &ids, a).await }) as HandlerFuture
                 },
             ));
             dispatcher.register($method, h);
@@ -177,12 +193,12 @@ where
     reg!("Graph/queryChanges", handle_graph_query_changes);
     reg!("GraphNode/get", handle_graph_node_get);
     reg!("GraphNode/changes", handle_graph_node_changes);
-    reg!("GraphNode/set", handle_graph_node_set);
+    reg!("GraphNode/set", handle_graph_node_set, ids);
     reg!("GraphNode/query", handle_graph_node_query);
     reg!("GraphNode/queryChanges", handle_graph_node_query_changes);
     reg!("GraphEdge/get", handle_graph_edge_get);
     reg!("GraphEdge/changes", handle_graph_edge_changes);
-    reg!("GraphEdge/set", handle_graph_edge_set);
+    reg!("GraphEdge/set", handle_graph_edge_set, ids);
     reg!("GraphEdge/query", handle_graph_edge_query);
     reg!("GraphEdge/queryChanges", handle_graph_edge_query_changes);
 }
@@ -200,13 +216,14 @@ pub fn register_graph_edit_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>
 where
     B: GraphBackend + 'static,
 {
+    // `ids` marks a `/set` handler that resolves `#creationId` references
+    // against `CallContext::created_ids` (RFC 8620 §5.3).
     macro_rules! reg {
         ($method:expr, $handler:ident) => {{
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 Arc::clone(&backend),
                 move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
                     let CallContext {
-                        call_id: _ci,
                         args: a,
                         caller: ctx,
                         ..
@@ -216,11 +233,26 @@ where
             ));
             dispatcher.register($method, h);
         }};
+        ($method:expr, $handler:ident, ids) => {{
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+                Arc::clone(&backend),
+                move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+                    let CallContext {
+                        args: a,
+                        caller: ctx,
+                        created_ids: ids,
+                        ..
+                    } = cx;
+                    Box::pin(async move { $handler(&*b, &ctx, &ids, a).await }) as HandlerFuture
+                },
+            ));
+            dispatcher.register($method, h);
+        }};
     }
 
     reg!("GraphNodeOp/get", handle_graph_node_op_get);
     reg!("GraphNodeOp/changes", handle_graph_node_op_changes);
-    reg!("GraphNodeOp/set", handle_graph_node_op_set);
+    reg!("GraphNodeOp/set", handle_graph_node_op_set, ids);
     reg!("GraphNodeOp/query", handle_graph_node_op_query);
     reg!(
         "GraphNodeOp/queryChanges",

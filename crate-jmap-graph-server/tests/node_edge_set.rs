@@ -29,8 +29,7 @@ async fn graph(backend: &MemoryBackend, share_with: Value) -> String {
 }
 
 async fn nodes(backend: &MemoryBackend, caller: &str, create: Value) -> Value {
-    call!(
-        handle_graph_node_set,
+    call!(ids handle_graph_node_set,
         backend,
         caller,
         json!({ "create": create })
@@ -46,7 +45,7 @@ async fn node(backend: &MemoryBackend, graph: &str) -> String {
 }
 
 async fn edges(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
-    call!(handle_graph_edge_set, backend, caller, args)
+    call!(ids handle_graph_edge_set, backend, caller, args)
 }
 
 /// The L367-391 example's node `b` and edge `e`, with the Graph and node
@@ -134,8 +133,7 @@ async fn node_set_needs_may_write() {
 
     let resp = nodes(&backend, BOB, json!({ "x": { "graphId": g } })).await;
     assert_eq!(resp["notCreated"]["x"]["type"], "forbidden", "{resp}");
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         &backend,
         BOB,
         json!({ "update": { (n.clone()): { "mediaType": "text/plain" } }, "destroy": [n] })
@@ -147,8 +145,7 @@ async fn node_set_needs_may_write() {
     assert!(resp["created"]["x"].is_object(), "{resp}");
     // L206: `updatedBy` is "The id of the Principal that last changed the
     // node".
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         &backend,
         CAROL,
         json!({ "update": { (n.clone()): { "mediaType": "text/plain" } } })
@@ -176,8 +173,7 @@ async fn nodes_of_unreadable_graph_are_not_found() {
     assert_eq!(got["notFound"], json!([n]), "{got}");
     let got = call!(handle_graph_node_get, &backend, BOB, json!({ "ids": null }));
     assert_eq!(got["list"], json!([]), "{got}");
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         &backend,
         BOB,
         json!({ "update": { (n.clone()): { "mediaType": null } }, "destroy": [n] })
@@ -219,8 +215,7 @@ async fn graph_id_is_immutable() {
     let g = graph(&backend, Value::Null).await;
     let other = graph(&backend, Value::Null).await;
     let n = node(&backend, &g).await;
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         &backend,
         ALICE,
         json!({ "update": { (n.clone()): { "graphId": other } } })
@@ -352,8 +347,7 @@ async fn node_destroy_cascades_to_its_edges() {
         json!({ "sinceState": "0" })
     )["newState"]
         .clone();
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         &backend,
         ALICE,
         json!({ "destroy": [a] })

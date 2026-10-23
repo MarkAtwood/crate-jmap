@@ -40,7 +40,7 @@ async fn graph_set_rejects_malformed_update_and_destroy_ids() {
 async fn graph_node_set_rejects_malformed_graph_id() {
     let backend = backend();
     let args = json!({ "create": { "n": { "graphId": "bad id" } } });
-    let resp = call!(handle_graph_node_set, &backend, ALICE, args);
+    let resp = call!(ids handle_graph_node_set, &backend, ALICE, args);
     let entry = &resp["notCreated"]["n"];
     assert_eq!(entry["type"], "invalidProperties", "{resp}");
     assert_eq!(entry["properties"], json!(["graphId"]), "{resp}");

@@ -114,7 +114,7 @@ pub async fn handle_graph_set<B: GraphBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    handle_set::<GraphSet, B>(backend, caller, args).await
+    handle_set::<GraphSet, B>(backend, caller, &BTreeMap::new(), args).await
 }
 
 struct GraphSet;

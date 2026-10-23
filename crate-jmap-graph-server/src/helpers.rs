@@ -1,6 +1,6 @@
 //! Private helper utilities for the handler modules.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use jmap_graph_types::{Graph, GraphCapability, GraphEdge, GraphNode, GraphNodeOp, GraphRights};
 use jmap_types::{GetObject, Id, JmapError, JmapObject, PatchObject, State};
@@ -478,6 +478,11 @@ pub(crate) trait SetOps<B: GraphBackend> {
     /// The data type.
     type Object: JmapObject + Send + Sync;
 
+    /// The Id-typed properties a create or update may set to a
+    /// `#creationId` reference (RFC 8620 §5.3); [`handle_set`] resolves
+    /// them before calling [`SetOps::create`] or [`SetOps::update`].
+    const ID_PROPERTIES: &'static [&'static str] = &[];
+
     /// One create.
     fn create(
         backend: &B,
@@ -507,12 +512,46 @@ pub(crate) trait SetOps<B: GraphBackend> {
     ) -> impl std::future::Future<Output = Result<(), Value>> + Send;
 }
 
+/// Replace each `#creationId` value of a top-level `props` entry of `obj`,
+/// a create or an update patch, with the id `created_ids` maps it to
+/// (RFC 8620 §5.3). A literal id is left for the caller to validate.
+///
+/// # Errors
+///
+/// An `invalidProperties` SetError naming the property when a reference
+/// matches no record created earlier in the request.
+fn resolve_creation_refs(
+    obj: &mut Value,
+    props: &[&str],
+    created_ids: &BTreeMap<Id, Id>,
+) -> Result<(), Value> {
+    let Value::Object(m) = obj else {
+        return Ok(());
+    };
+    for p in props {
+        let Some(raw) = m.get(*p).and_then(Value::as_str) else {
+            continue;
+        };
+        let id = jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
+            invalid(
+                &[p],
+                "creation id reference matches no record created earlier in this request",
+            )
+        })?;
+        m.insert((*p).to_owned(), json!(id));
+    }
+    Ok(())
+}
+
 /// RFC 8620 §5.3 `/set`: `ifInState`, then each create, update and
 /// destroy through `S`, then the response with `newState` re-read when
 /// anything changed. Empty maps and arrays serialize as `null`.
+/// `#creationId` values of [`SetOps::ID_PROPERTIES`] resolve against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]).
 pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -549,7 +588,11 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
     let mut not_destroyed = Map::new();
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj) in create_map {
+        for (create_id, mut obj) in create_map {
+            if let Err(e) = resolve_creation_refs(&mut obj, S::ID_PROPERTIES, created_ids) {
+                not_created.insert(create_id, e);
+                continue;
+            }
             match S::create(backend, caller, &account_id, &cap, &create_id, obj).await {
                 Ok(v) => created.insert(create_id, v),
                 Err(e) => not_created.insert(create_id, e),
@@ -557,7 +600,7 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
         }
     }
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch) in update_map {
+        for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -565,6 +608,10 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
                     continue;
                 }
             };
+            if let Err(e) = resolve_creation_refs(&mut patch, S::ID_PROPERTIES, created_ids) {
+                not_updated.insert(id_str, e);
+                continue;
+            }
             match S::update(backend, caller, &account_id, &cap, &id, patch).await {
                 Ok(v) => updated.insert(id_str, v),
                 Err(e) => not_updated.insert(id_str, e),

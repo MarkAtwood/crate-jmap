@@ -42,8 +42,7 @@ async fn graph(backend: &MemoryBackend) -> String {
 }
 
 async fn node(backend: &MemoryBackend, graph: &str, annotations: Value) -> String {
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         backend,
         ALICE,
         json!({ "create": { "n": { "graphId": graph, "annotations": annotations } } })
@@ -55,8 +54,7 @@ async fn node(backend: &MemoryBackend, graph: &str, annotations: Value) -> Strin
 }
 
 async fn edge(backend: &MemoryBackend, graph: &str, from: &str, to: &str, ty: &str) -> String {
-    let resp = call!(
-        handle_graph_edge_set,
+    let resp = call!(ids handle_graph_edge_set,
         backend,
         ALICE,
         json!({ "create": { "e": { "graphId": graph, "fromId": from, "toId": to, "type": ty } } })
