@@ -50,8 +50,9 @@ pub use helpers::{
     apply_jmap_patch, apply_patch_object, bool_arg, enforce_max_objects_in_get,
     enforce_max_objects_in_set, extract_account_id, filter_arg, json_merge_patch, not_found_json,
     now_utc_string, now_utc_string_checked, optional_arg, parse_max_changes, query_anchor_args,
-    reject_did_bearing_properties, resolve_creation_ref, resolve_query_offset, resolve_query_start,
-    serialize_value, take_bool_arg, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
+    reject_did_bearing_properties, reject_read_only_patch, reject_server_set, resolve_creation_ref,
+    resolve_query_offset, resolve_query_start, serialize_value, take_bool_arg,
+    utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
 };
 
 mod parse;

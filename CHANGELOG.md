@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: `check_property_classification::<T>()` checks a fully
+  populated object against `T`'s `SetObject` property lists, and
+  `PushSubscription` implements `JmapObject` and `SetObject`
+  (bd JMAP-x2gd.87).
+- **jmap-server**: `reject_server_set::<O>()` and
+  `reject_read_only_patch::<O>()` build the RFC 8620 §5.3
+  `invalidProperties` SetError for a `/set` create carrying a server-set
+  property and for an update patch naming a server-set or immutable
+  property, from `O`'s `SetObject` lists (bd JMAP-x2gd.87).
 - **jmap-types**: `Filter::matches` evaluates an RFC 8620 §5.5
   `FilterOperator` tree (`AND`/`OR`/`NOT`) over a caller's
   per-condition predicate (bd JMAP-skk9.2).
@@ -1373,6 +1382,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-types** and every types crate: **BREAKING** `SetObject` has
+  three required associated consts, `SERVER_SET`, `CLIENT_SETTABLE` and
+  `IMMUTABLE`, naming each property's RFC 8620 §1.1 attribute from its
+  spec. Every `SetObject` impl in the workspace declares them, and a
+  per-type test fails when a field is in neither or both of `SERVER_SET`
+  and `CLIENT_SETTABLE`. Downstream `SetObject` impls must add them
+  (bd JMAP-x2gd.87).
 - **jmap-vtc-client**, **jmap-scene-client**, **jmap-graph-client**:
   **BREAKING** every `/query` and `/queryChanges` method (`vtc_call_*`,
   `vtc_participant_*`, `vtc_recording_*`, `vtc_livestream_*`,

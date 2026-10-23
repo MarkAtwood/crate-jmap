@@ -67,8 +67,14 @@ impl JmapObject for crate::Principal {
 
 impl GetObject for crate::Principal {}
 
+/// RFC 9670 §2 (rfc9670.txt:257, 287, 292): `id` is "(immutable;
+/// server-set)"; `capabilities` and `accounts` are "(server-set)".
 impl SetObject for crate::Principal {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "capabilities", "accounts"];
+    const CLIENT_SETTABLE: &'static [&'static str] =
+        &["type", "name", "description", "email", "timeZone"];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::Principal {
@@ -85,8 +91,23 @@ impl JmapObject for crate::ShareNotification {
 
 impl GetObject for crate::ShareNotification {}
 
+/// RFC 9670 §3 (rfc9670.txt:405-443): every property is "(immutable;
+/// server-set)"; §3.3: "Only destroy is supported".
 impl SetObject for crate::ShareNotification {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "created",
+        "changedBy",
+        "objectType",
+        "objectAccountId",
+        "objectId",
+        "oldRights",
+        "newRights",
+        "name",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::ShareNotification {
@@ -97,6 +118,51 @@ impl QueryObject for crate::ShareNotification {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jmap_types::{check_property_classification, Id, UTCDate};
+    use serde_json::{json, Map, Value};
+    use std::collections::BTreeMap;
+
+    fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {
+        serde_json::from_value(v).expect("hand-written fixture deserializes")
+    }
+
+    // Each classification test builds a fully populated object with a
+    // struct literal, so a new field is a compile error until it is set,
+    // then a classification failure until the `SetObject` lists name it.
+
+    #[test]
+    fn principal_properties_are_classified() {
+        let obj = crate::Principal {
+            id: Id::from("p1"),
+            principal_type: de(json!("individual")),
+            name: "n".into(),
+            description: Some("d".into()),
+            email: Some("a@example.com".into()),
+            time_zone: Some("Etc/UTC".into()),
+            capabilities: BTreeMap::new(),
+            accounts: Some(BTreeMap::new()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn share_notification_properties_are_classified() {
+        let rights = || Some(BTreeMap::from([("mayRead".to_owned(), true)]));
+        let obj = crate::ShareNotification {
+            id: Id::from("n1"),
+            created: UTCDate::from("2026-01-01T00:00:00Z"),
+            changed_by: de(json!({"name": "A", "email": "a@example.com", "principalId": "p1"})),
+            object_type: "Calendar".into(),
+            object_account_id: Id::from("a1"),
+            object_id: Id::from("c1"),
+            old_rights: rights(),
+            new_rights: rights(),
+            name: "n".into(),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
 
     /// Oracle: RFC 8620 §5.5 (line 2368) types the /query `filter` as
     /// "FilterOperator|FilterCondition|null"; RFC 9670 §2.4 and §3.4 say

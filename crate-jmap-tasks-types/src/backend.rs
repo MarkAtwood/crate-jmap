@@ -229,8 +229,27 @@ impl JmapObject for crate::TaskList {
 
 impl GetObject for crate::TaskList {}
 
+/// draft-ietf-jmap-tasks-06 §3 (lines 383, 496): `id` is "(immutable;
+/// server-set)", `myRights` is "(server-set)".
 impl SetObject for crate::TaskList {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "myRights"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "role",
+        "name",
+        "description",
+        "color",
+        "keywordColors",
+        "categoryColors",
+        "sortOrder",
+        "isSubscribed",
+        "timeZone",
+        "workflowStatuses",
+        "shareWith",
+        "defaultAlertsWithTime",
+        "defaultAlertsWithoutTime",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl JmapObject for crate::Task {
@@ -240,8 +259,71 @@ impl JmapObject for crate::Task {
 
 impl GetObject for crate::Task {}
 
+/// draft-ietf-jmap-tasks-06 §4 (lines 715, 922, 941): `id` and
+/// `baseTaskId` are "(immutable; server-set)", `isOrigin` is
+/// "(server-set)". No other property, JMAP or JSCalendar, carries either
+/// attribute.
 impl SetObject for crate::Task {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "baseTaskId", "isOrigin"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "taskListId",
+        "isDraft",
+        "utcStart",
+        "utcDue",
+        "sortOrder",
+        "workflowStatus",
+        "mayInviteSelf",
+        "mayInviteOthers",
+        "hideAttendees",
+        "@type",
+        "uid",
+        "relatedTo",
+        "prodId",
+        "created",
+        "updated",
+        "sequence",
+        "title",
+        "description",
+        "descriptionContentType",
+        "showWithoutTime",
+        "locations",
+        "virtualLocations",
+        "links",
+        "locale",
+        "keywords",
+        "categories",
+        "color",
+        "recurrenceId",
+        "recurrenceIdTimeZone",
+        "recurrenceRules",
+        "excludedRecurrenceRules",
+        "recurrenceOverrides",
+        "excluded",
+        "priority",
+        "freeBusyStatus",
+        "privacy",
+        "replyTo",
+        "sentBy",
+        "participants",
+        "requestStatus",
+        "useDefaultAlerts",
+        "alerts",
+        "localizations",
+        "timeZone",
+        "timeZones",
+        "due",
+        "start",
+        "estimatedDuration",
+        "percentComplete",
+        "progress",
+        "progressUpdated",
+        "estimatedWork",
+        "impact",
+        "checklists",
+        "comments",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::Task {
@@ -256,8 +338,23 @@ impl JmapObject for crate::TaskNotification {
 
 impl GetObject for crate::TaskNotification {}
 
+/// draft-ietf-jmap-tasks-06 §5.4: "Only destroy is supported; any attempt
+/// to create/update MUST be rejected", so every property is server-set.
 impl SetObject for crate::TaskNotification {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "created",
+        "changedBy",
+        "comment",
+        "type",
+        "taskId",
+        "isDraft",
+        "task",
+        "taskPatch",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::TaskNotification {
@@ -268,6 +365,152 @@ impl QueryObject for crate::TaskNotification {
 #[cfg(test)]
 mod tests {
     use super::{is_per_user_task_property, PER_USER_TASK_PROPERTIES};
+    use jmap_types::{check_property_classification, Id, PatchObject, UTCDate};
+    use serde_json::{json, Map, Value};
+    use std::collections::BTreeMap;
+
+    fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {
+        serde_json::from_value(v).expect("hand-written fixture deserializes")
+    }
+
+    fn rights() -> crate::TaskRights {
+        de(json!({
+            "mayReadItems": true,
+            "mayWriteAll": true,
+            "mayWriteOwn": true,
+            "mayUpdatePrivate": true,
+            "mayRSVP": true,
+            "mayAdmin": true,
+            "mayDelete": true,
+        }))
+    }
+
+    fn date() -> UTCDate {
+        UTCDate::from("2026-01-01T00:00:00Z")
+    }
+
+    // Each classification test builds a fully populated object with a
+    // struct literal, so a new field is a compile error until it is set,
+    // then a classification failure until the `SetObject` lists name it.
+
+    #[test]
+    fn task_list_properties_are_classified() {
+        let colors = || Some(BTreeMap::from([("k".to_owned(), "red".to_owned())]));
+        let obj = crate::TaskList {
+            id: Id::from("l1"),
+            role: Some(de(json!("inbox"))),
+            name: "n".into(),
+            description: Some("d".into()),
+            color: Some("red".into()),
+            keyword_colors: colors(),
+            category_colors: colors(),
+            sort_order: 1,
+            is_subscribed: true,
+            time_zone: Some("Etc/UTC".into()),
+            workflow_statuses: Some(vec!["completed".into()]),
+            share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
+            my_rights: rights(),
+            default_alerts_with_time: Some(BTreeMap::new()),
+            default_alerts_without_time: Some(BTreeMap::new()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn task_properties_are_classified() {
+        let v = || Some(json!({}));
+        let patch = || -> PatchObject { de(json!({"title": "t"})) };
+        let flags = || Some(BTreeMap::from([("k".to_owned(), true)]));
+        let obj = crate::Task {
+            id: Some(Id::from("t1")),
+            task_list_id: Some(Id::from("l1")),
+            is_draft: Some(true),
+            utc_start: Some(date()),
+            utc_due: Some(date()),
+            sort_order: Some(1),
+            workflow_status: Some("completed".into()),
+            base_task_id: Some(Id::from("t0")),
+            is_origin: Some(true),
+            may_invite_self: Some(true),
+            may_invite_others: Some(true),
+            hide_attendees: Some(true),
+            at_type: Some("Task".into()),
+            uid: Some("u".into()),
+            related_to: v(),
+            prod_id: Some("p".into()),
+            created: Some(date()),
+            updated: Some(date()),
+            sequence: Some(1),
+            title: Some("t".into()),
+            description: Some("d".into()),
+            description_content_type: Some("text/plain".into()),
+            show_without_time: Some(true),
+            locations: v(),
+            virtual_locations: v(),
+            links: v(),
+            locale: Some("en".into()),
+            keywords: flags(),
+            categories: flags(),
+            color: Some("red".into()),
+            recurrence_id: Some("2026-01-01T00:00:00".into()),
+            recurrence_id_time_zone: Some("Etc/UTC".into()),
+            recurrence_rules: Some(json!([])),
+            excluded_recurrence_rules: Some(json!([])),
+            recurrence_overrides: Some(BTreeMap::from([("2026-01-02T00:00:00".into(), patch())])),
+            excluded: Some(false),
+            priority: Some(1),
+            free_busy_status: Some("busy".into()),
+            privacy: Some("public".into()),
+            reply_to: Some(BTreeMap::from([(
+                "imip".into(),
+                "mailto:a@example.com".into(),
+            )])),
+            sent_by: Some("mailto:a@example.com".into()),
+            participants: v(),
+            request_status: Some("2.0;Success".into()),
+            use_default_alerts: Some(true),
+            alerts: v(),
+            localizations: Some(BTreeMap::from([("de".into(), patch())])),
+            time_zone: Some("Etc/UTC".into()),
+            time_zones: v(),
+            due: Some("2026-01-02T00:00:00".into()),
+            start: Some("2026-01-01T00:00:00".into()),
+            estimated_duration: Some("PT1H".into()),
+            percent_complete: Some(50),
+            progress: Some(de(json!("in-process"))),
+            progress_updated: Some(date()),
+            estimated_work: Some(1),
+            impact: Some("i".into()),
+            checklists: Some(BTreeMap::from([(
+                Id::from("c1"),
+                de(json!({"title": "c"})),
+            )])),
+            comments: Some(BTreeMap::from([(
+                Id::from("m1"),
+                de(json!({"message": "m"})),
+            )])),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn task_notification_properties_are_classified() {
+        let obj = crate::TaskNotification {
+            id: Id::from("n1"),
+            created: date(),
+            changed_by: de(json!({"name": "A"})),
+            comment: Some("c".into()),
+            notification_type: de(json!("updated")),
+            task_id: Id::from("t1"),
+            is_draft: Some(false),
+            task: Some(json!({})),
+            task_patch: Some(de(json!({"title": "t"}))),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
 
     /// Oracle: draft-ietf-jmap-tasks-06 §4.5.1 "Per-user properties",
     /// quoted verbatim:

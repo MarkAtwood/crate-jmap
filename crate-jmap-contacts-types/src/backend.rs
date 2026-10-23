@@ -118,8 +118,19 @@ impl JmapObject for crate::AddressBook {
 
 impl GetObject for crate::AddressBook {}
 
+/// RFC 9610 §2 (rfc9610.txt:167, 191, 221): `id` is "(immutable;
+/// server-set)"; `isDefault` and `myRights` are "(server-set)".
 impl SetObject for crate::AddressBook {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "isDefault", "myRights"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "name",
+        "description",
+        "sortOrder",
+        "isSubscribed",
+        "shareWith",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 // AddressBook does NOT implement QueryObject — spec has no AddressBook/query.
@@ -131,11 +142,126 @@ impl JmapObject for crate::ContactCard {
 
 impl GetObject for crate::ContactCard {}
 
+/// RFC 9610 §3 (rfc9610.txt:305): `id` is "(immutable; server-set)".
+/// `addressBookIds` and the RFC 9553 Card properties carry neither
+/// attribute.
 impl SetObject for crate::ContactCard {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "addressBookIds",
+        "version",
+        "created",
+        "kind",
+        "language",
+        "members",
+        "prodId",
+        "relatedTo",
+        "uid",
+        "updated",
+        "name",
+        "nicknames",
+        "organizations",
+        "speakToAs",
+        "titles",
+        "emails",
+        "onlineServices",
+        "phones",
+        "preferredLanguages",
+        "calendars",
+        "schedulingAddresses",
+        "addresses",
+        "cryptoKeys",
+        "directories",
+        "links",
+        "media",
+        "localizations",
+        "anniversaries",
+        "keywords",
+        "notes",
+        "personalInfo",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::ContactCard {
     type Filter = crate::ContactCardFilter;
     type Comparator = crate::ContactCardComparator;
+}
+
+#[cfg(test)]
+mod tests {
+    //! Each test builds a fully populated object with a struct literal, so a
+    //! new field is a compile error here until it is set, then a
+    //! classification failure until the `SetObject` lists name it.
+
+    use jmap_types::{check_property_classification, Id, PatchObject, UTCDate};
+    use serde_json::{json, Map, Value};
+    use std::collections::BTreeMap;
+
+    fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {
+        serde_json::from_value(v).expect("hand-written fixture deserializes")
+    }
+
+    fn rights() -> crate::AddressBookRights {
+        de(json!({"mayRead": true, "mayWrite": true, "mayShare": true, "mayDelete": true}))
+    }
+
+    #[test]
+    fn address_book_properties_are_classified() {
+        let obj = crate::AddressBook {
+            id: Id::from("a1"),
+            name: "n".into(),
+            description: Some("d".into()),
+            sort_order: 1,
+            is_default: true,
+            is_subscribed: true,
+            share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
+            my_rights: rights(),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn contact_card_properties_are_classified() {
+        let v = || Some(json!({}));
+        let patch: PatchObject = de(json!({"name/full": "N"}));
+        let obj = crate::ContactCard {
+            id: Some(Id::from("c1")),
+            address_book_ids: Some(BTreeMap::from([(Id::from("a1"), true)])),
+            version: Some("1.0".into()),
+            created: Some(UTCDate::from("2026-01-01T00:00:00Z")),
+            kind: Some("individual".into()),
+            language: Some("en".into()),
+            members: Some(BTreeMap::from([("u2".into(), true)])),
+            prod_id: Some("p".into()),
+            related_to: v(),
+            uid: Some("u".into()),
+            updated: Some(UTCDate::from("2026-01-01T00:00:00Z")),
+            name: v(),
+            nicknames: v(),
+            organizations: v(),
+            speak_to_as: v(),
+            titles: v(),
+            emails: v(),
+            online_services: v(),
+            phones: v(),
+            preferred_languages: v(),
+            calendars: v(),
+            scheduling_addresses: v(),
+            addresses: v(),
+            crypto_keys: v(),
+            directories: v(),
+            links: v(),
+            media: v(),
+            localizations: Some(BTreeMap::from([("de".into(), patch)])),
+            anniversaries: v(),
+            keywords: Some(BTreeMap::from([("k".into(), true)])),
+            notes: v(),
+            personal_info: v(),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
 }

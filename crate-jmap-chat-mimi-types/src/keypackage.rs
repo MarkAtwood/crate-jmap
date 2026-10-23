@@ -190,8 +190,14 @@ impl JmapObject for KeyPackage {
 
 impl GetObject for KeyPackage {}
 
+/// draft-atwood-jmap-chat-mimi-00 §KeyPackage Object Fields: `id` and
+/// `keyPackageRef` are "immutable, server-set"; `keyPackage` and
+/// `lastResort` are "immutable".
 impl SetObject for KeyPackage {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "keyPackageRef"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["keyPackage", "lastResort"];
+    const IMMUTABLE: &'static [&'static str] = &["keyPackage", "lastResort"];
 }
 
 #[cfg(test)]
@@ -206,6 +212,21 @@ mod tests {
     // encoded) and the §Conventions KeyPackageRef example string.
     const KP: &str = "AAEC";
     const KP_REF: &str = "IAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f";
+
+    /// The struct literal makes a new field a compile error here until it is
+    /// set, then a classification failure until the `SetObject` lists name
+    /// it.
+    #[test]
+    fn key_package_properties_are_classified() {
+        let obj = KeyPackage {
+            id: Id::from("kp42"),
+            key_package: serde_json::from_value(json!(KP)).unwrap(),
+            key_package_ref: serde_json::from_value(json!(KP_REF)).unwrap(),
+            last_resort: true,
+            extra: serde_json::Map::new(),
+        };
+        assert_eq!(jmap_types::check_property_classification(&obj), Ok(()));
+    }
 
     fn sample() -> serde_json::Value {
         json!({

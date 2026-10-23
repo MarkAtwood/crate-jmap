@@ -219,8 +219,26 @@ impl JmapObject for crate::Calendar {
 
 impl GetObject for crate::Calendar {}
 
+/// draft-ietf-jmap-calendars-33 §4 (lines 747, 816, 907): `id` is
+/// "(immutable; server-set)"; `isDefault` and `myRights` are
+/// "(server-set)".
 impl SetObject for crate::Calendar {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "isDefault", "myRights"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "name",
+        "description",
+        "color",
+        "sortOrder",
+        "isSubscribed",
+        "isVisible",
+        "includeInAvailability",
+        "defaultAlertsWithTime",
+        "defaultAlertsWithoutTime",
+        "timeZone",
+        "shareWith",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl JmapObject for crate::CalendarEvent {
@@ -230,8 +248,66 @@ impl JmapObject for crate::CalendarEvent {
 
 impl GetObject for crate::CalendarEvent {}
 
+/// draft-ietf-jmap-calendars-33 §5 (lines 1133, 1138, 1151): `id` and
+/// `baseEventId` are "(immutable; server-set)", `isOrigin` is
+/// "(server-set)". No other property, JMAP or JSCalendar, carries either
+/// attribute.
 impl SetObject for crate::CalendarEvent {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "baseEventId", "isOrigin"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "calendarIds",
+        "isDraft",
+        "utcStart",
+        "utcEnd",
+        "useDefaultAlerts",
+        "mayInviteSelf",
+        "mayInviteOthers",
+        "hideAttendees",
+        "blobId",
+        "iCalendar",
+        "@type",
+        "version",
+        "uid",
+        "relatedTo",
+        "prodId",
+        "created",
+        "updated",
+        "sequence",
+        "title",
+        "description",
+        "descriptionContentType",
+        "showWithoutTime",
+        "locations",
+        "virtualLocations",
+        "links",
+        "locale",
+        "keywords",
+        "categories",
+        "color",
+        "recurrenceId",
+        "recurrenceIdTimeZone",
+        "recurrenceRules",
+        "excludedRecurrenceRules",
+        "recurrenceOverrides",
+        "excluded",
+        "priority",
+        "freeBusyStatus",
+        "privacy",
+        "replyTo",
+        "sentBy",
+        "organizerCalendarAddress",
+        "participants",
+        "requestStatus",
+        "alerts",
+        "localizations",
+        "timeZone",
+        "timeZones",
+        "start",
+        "duration",
+        "status",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::CalendarEvent {
@@ -250,8 +326,25 @@ impl GetObject for crate::CalendarEventNotification {}
 /// The `Patch` type is never used in practice; [`PatchObject`] is a
 /// safe placeholder that satisfies the trait bound while keeping the
 /// type-system contract aligned with sibling types (RFC 8620 §5.3).
+///
+/// draft-ietf-jmap-calendars-33 §7.3: "Only destroy is supported; any
+/// attempt to create/update MUST be rejected", so every property is
+/// server-set; `id` (line 2601) is also "(immutable; server-set)".
 impl SetObject for crate::CalendarEventNotification {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "created",
+        "changedBy",
+        "comment",
+        "type",
+        "calendarEventId",
+        "isDraft",
+        "event",
+        "eventPatch",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::CalendarEventNotification {
@@ -266,13 +359,159 @@ impl JmapObject for crate::ParticipantIdentity {
 
 impl GetObject for crate::ParticipantIdentity {}
 
+/// draft-ietf-jmap-calendars-33 §3 (lines 627, 638): `id` is "(immutable;
+/// server-set)", `isDefault` is "(server-set)".
 impl SetObject for crate::ParticipantIdentity {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "isDefault"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["name", "calendarAddress"];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jmap_types::{check_property_classification, Id, UTCDate};
+    use serde_json::{json, Map, Value};
+    use std::collections::BTreeMap;
+
+    fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {
+        serde_json::from_value(v).expect("hand-written fixture deserializes")
+    }
+
+    fn rights() -> crate::CalendarRights {
+        de(json!({
+            "mayReadFreeBusy": true,
+            "mayReadItems": true,
+            "mayWriteAll": true,
+            "mayWriteOwn": true,
+            "mayUpdatePrivate": true,
+            "mayRSVP": true,
+            "mayShare": true,
+            "mayDelete": true,
+        }))
+    }
+
+    fn patch() -> PatchObject {
+        de(json!({"title": "t"}))
+    }
+
+    // Each classification test builds a fully populated object with a
+    // struct literal, so a new field is a compile error until it is set,
+    // then a classification failure until the `SetObject` lists name it.
+
+    #[test]
+    fn calendar_properties_are_classified() {
+        let obj = crate::Calendar {
+            id: Some(Id::from("c1")),
+            name: "n".into(),
+            description: Some("d".into()),
+            color: Some("red".into()),
+            sort_order: 1,
+            is_subscribed: true,
+            is_visible: true,
+            is_default: true,
+            include_in_availability: de(json!("all")),
+            default_alerts_with_time: Some(BTreeMap::new()),
+            default_alerts_without_time: Some(BTreeMap::new()),
+            time_zone: Some("Etc/UTC".into()),
+            share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
+            my_rights: rights(),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn calendar_event_properties_are_classified() {
+        let v = || Some(json!({}));
+        let obj = crate::CalendarEvent {
+            id: Some(Id::from("e1")),
+            base_event_id: Some(Id::from("e0")),
+            calendar_ids: Some(BTreeMap::from([(Id::from("c1"), true)])),
+            is_draft: Some(true),
+            is_origin: Some(true),
+            utc_start: Some(UTCDate::from("2026-01-01T00:00:00Z")),
+            utc_end: Some(UTCDate::from("2026-01-01T01:00:00Z")),
+            use_default_alerts: Some(true),
+            may_invite_self: Some(true),
+            may_invite_others: Some(true),
+            hide_attendees: Some(true),
+            blob_id: Some(Id::from("b1")),
+            icalendar: Some(json!([])),
+            at_type: Some("Event".into()),
+            version: Some("2.0".into()),
+            uid: Some("u".into()),
+            related_to: v(),
+            prod_id: Some("p".into()),
+            created: Some(UTCDate::from("2026-01-01T00:00:00Z")),
+            updated: Some(UTCDate::from("2026-01-01T00:00:00Z")),
+            sequence: Some(1),
+            title: Some("t".into()),
+            description: Some("d".into()),
+            description_content_type: Some("text/plain".into()),
+            show_without_time: Some(true),
+            locations: v(),
+            virtual_locations: v(),
+            links: v(),
+            locale: Some("en".into()),
+            keywords: v(),
+            categories: v(),
+            color: Some("red".into()),
+            recurrence_id: Some("2026-01-01T00:00:00".into()),
+            recurrence_id_time_zone: Some("Etc/UTC".into()),
+            recurrence_rules: Some(json!([])),
+            excluded_recurrence_rules: Some(json!([])),
+            recurrence_overrides: Some(BTreeMap::from([("2026-01-02T00:00:00".into(), patch())])),
+            excluded: Some(false),
+            priority: Some(1),
+            free_busy_status: Some("busy".into()),
+            privacy: Some("public".into()),
+            reply_to: v(),
+            sent_by: Some("mailto:a@example.com".into()),
+            organizer_calendar_address: Some("mailto:a@example.com".into()),
+            participants: v(),
+            request_status: Some("2.0;Success".into()),
+            alerts: v(),
+            localizations: Some(BTreeMap::from([("de".into(), patch())])),
+            time_zone: Some("Etc/UTC".into()),
+            time_zones: v(),
+            start: Some("2026-01-01T00:00:00".into()),
+            duration: Some("PT1H".into()),
+            status: Some("confirmed".into()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn calendar_event_notification_properties_are_classified() {
+        let obj = crate::CalendarEventNotification {
+            id: Id::from("n1"),
+            created: UTCDate::from("2026-01-01T00:00:00Z"),
+            changed_by: de(json!({"name": "A", "email": "a@example.com"})),
+            comment: Some("c".into()),
+            notification_type: de(json!("updated")),
+            calendar_event_id: Id::from("e1"),
+            is_draft: Some(false),
+            event: json!({}),
+            event_patch: Some(patch()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn participant_identity_properties_are_classified() {
+        let obj = crate::ParticipantIdentity {
+            id: Some(Id::from("p1")),
+            name: "A".into(),
+            calendar_address: "mailto:a@example.com".into(),
+            is_default: true,
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
 
     /// Pinning test: the per-user property list MUST match the IANA-registered
     /// set in draft-ietf-jmap-calendars-26 §10.8.2 exactly.

@@ -287,8 +287,43 @@ impl JmapObject for crate::Chat {
 
 impl GetObject for crate::Chat {}
 
+/// draft-atwood-jmap-chat-00 §Chat Object Fields (lines 580-664): `id` and
+/// `createdAt` are "immutable, server-set"; `closedAt`, `lastMessageAt`,
+/// `unreadCount`, `activeCallId` and `activeCallAccountId` are
+/// "server-set"; `kind`, `contactId` and `spaceId` are "immutable".
+/// §Chat/set "Updating a Chat" narrows the update keys further.
 impl SetObject for crate::Chat {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "createdAt",
+        "closedAt",
+        "lastMessageAt",
+        "unreadCount",
+        "activeCallId",
+        "activeCallAccountId",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "kind",
+        "contactId",
+        "name",
+        "description",
+        "avatarBlobId",
+        "members",
+        "spaceId",
+        "categoryId",
+        "position",
+        "topic",
+        "slowModeSeconds",
+        "permissionOverrides",
+        "pinnedMessageIds",
+        "muted",
+        "muteUntil",
+        "receiveTypingIndicators",
+        "receiptSharing",
+        "messageExpirySeconds",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &["kind", "contactId", "spaceId"];
 }
 
 impl QueryObject for crate::Chat {
@@ -303,8 +338,58 @@ impl JmapObject for crate::Message {
 
 impl GetObject for crate::Message {}
 
+/// draft-atwood-jmap-chat-00 §Message Object Fields (lines 683-777): `id`,
+/// `senderMsgId`, `senderId` and `receivedAt` are "immutable,
+/// server-set"; `replyCount`, `unreadReplyCount`, `deliveryState`,
+/// `deliveryReceipts`, `deliveredAt`, `editedAt` and `editHistory` are
+/// "server-set"; `chatId`, `topicId`, `subject`, `senderExpiresAt`,
+/// `burnOnRead` and `expiresAfterReadSeconds` are "immutable".
+/// §Message/set narrows the update keys further.
 impl SetObject for crate::Message {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "senderMsgId",
+        "senderId",
+        "receivedAt",
+        "replyCount",
+        "unreadReplyCount",
+        "deliveryState",
+        "deliveryReceipts",
+        "deliveredAt",
+        "editedAt",
+        "editHistory",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "chatId",
+        "body",
+        "bodyType",
+        "attachments",
+        "mentions",
+        "broadcastMentions",
+        "actions",
+        "reactions",
+        "replyTo",
+        "threadRootId",
+        "topicId",
+        "subject",
+        "sentAt",
+        "senderExpiresAt",
+        "burnOnRead",
+        "expiresAfterReadSeconds",
+        "readAt",
+        "readDisposition",
+        "deletedAt",
+        "deletedForAll",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[
+        "chatId",
+        "topicId",
+        "subject",
+        "senderExpiresAt",
+        "burnOnRead",
+        "expiresAfterReadSeconds",
+    ];
 }
 
 impl QueryObject for crate::Message {
@@ -319,8 +404,25 @@ impl JmapObject for crate::Space {
 
 impl GetObject for crate::Space {}
 
+/// draft-atwood-jmap-chat-00 §Space (lines 868-904): `id` and `createdAt`
+/// are "immutable, server-set"; `memberCount` and `closedAt` are
+/// "server-set". §Space/set "Updating a Space" narrows the update keys
+/// further.
 impl SetObject for crate::Space {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "createdAt", "memberCount", "closedAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "name",
+        "description",
+        "iconBlobId",
+        "roles",
+        "members",
+        "categories",
+        "uncategorizedChannelIds",
+        "isPublic",
+        "isPubliclyPreviewable",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::Space {
@@ -335,8 +437,28 @@ impl JmapObject for crate::ChatContact {
 
 impl GetObject for crate::ChatContact {}
 
+/// draft-atwood-jmap-chat-00 §ChatContact (lines 506-539): `id` is
+/// "immutable, server-set"; `login`, `firstSeenAt`, `lastSeenAt`,
+/// `presence`, `lastActiveAt`, `statusText` and `statusEmoji` are
+/// "server-set"; `identity` is "immutable". draft-atwood-jmap-chat-did-00
+/// §Optional did field: `did` "is server-set". §ChatContact/set narrows
+/// the create and update keys further.
 impl SetObject for crate::ChatContact {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "login",
+        "firstSeenAt",
+        "lastSeenAt",
+        "presence",
+        "lastActiveAt",
+        "statusText",
+        "statusEmoji",
+        "did",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] =
+        &["identity", "displayName", "endpoints", "blocked"];
+    const IMMUTABLE: &'static [&'static str] = &["identity"];
 }
 
 impl QueryObject for crate::ChatContact {
@@ -351,8 +473,14 @@ impl JmapObject for crate::ReadPosition {
 
 impl GetObject for crate::ReadPosition {}
 
+/// draft-atwood-jmap-chat-00 §ReadPosition (lines 995-1004): `id` is
+/// "immutable, server-set", `lastReadAt` is "server-set", `chatId` is
+/// "immutable".
 impl SetObject for crate::ReadPosition {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "lastReadAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["chatId", "lastReadMessageId"];
+    const IMMUTABLE: &'static [&'static str] = &["chatId"];
 }
 
 impl JmapObject for crate::CustomEmoji {
@@ -362,8 +490,14 @@ impl JmapObject for crate::CustomEmoji {
 
 impl GetObject for crate::CustomEmoji {}
 
+/// draft-atwood-jmap-chat-00 §CustomEmoji (lines 917-932): `id`,
+/// `createdBy` and `createdAt` are "immutable, server-set".
+/// §CustomEmoji/set narrows the update keys further.
 impl SetObject for crate::CustomEmoji {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "createdBy", "createdAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["name", "blobId", "spaceId"];
+    const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 impl QueryObject for crate::CustomEmoji {
@@ -378,8 +512,15 @@ impl JmapObject for crate::SpaceInvite {
 
 impl GetObject for crate::SpaceInvite {}
 
+/// draft-atwood-jmap-chat-00 §SpaceInvite (lines 939-963): `id`, `code`,
+/// `createdBy` and `createdAt` are "immutable, server-set"; `uses` is
+/// "server-set"; `spaceId` is "immutable".
 impl SetObject for crate::SpaceInvite {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "code", "createdBy", "uses", "createdAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] =
+        &["spaceId", "defaultChannelId", "expiresAt", "maxUses"];
+    const IMMUTABLE: &'static [&'static str] = &["spaceId"];
 }
 
 impl JmapObject for crate::SpaceBan {
@@ -389,8 +530,14 @@ impl JmapObject for crate::SpaceBan {
 
 impl GetObject for crate::SpaceBan {}
 
+/// draft-atwood-jmap-chat-00 §SpaceBan (lines 970-988): `id`, `bannedBy`
+/// and `createdAt` are "immutable, server-set"; `spaceId` and `userId` are
+/// "immutable".
 impl SetObject for crate::SpaceBan {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "bannedBy", "createdAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["spaceId", "userId", "reason", "expiresAt"];
+    const IMMUTABLE: &'static [&'static str] = &["spaceId", "userId"];
 }
 
 impl JmapObject for crate::PresenceStatus {
@@ -400,6 +547,223 @@ impl JmapObject for crate::PresenceStatus {
 
 impl GetObject for crate::PresenceStatus {}
 
+/// draft-atwood-jmap-chat-00 §PresenceStatus (lines 1013-1031): `id` is
+/// "immutable, server-set", `updatedAt` is "server-set".
 impl SetObject for crate::PresenceStatus {
     type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "updatedAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "presence",
+        "statusText",
+        "statusEmoji",
+        "expiresAt",
+        "receiptSharing",
+    ];
+    const IMMUTABLE: &'static [&'static str] = &[];
+}
+
+#[cfg(test)]
+mod tests {
+    //! Each test builds a fully populated object with a struct literal, so a
+    //! new field is a compile error here until it is set, then a
+    //! classification failure until the `SetObject` lists name it.
+
+    use jmap_types::{check_property_classification, Id, UTCDate};
+    use serde_json::{json, Map, Value};
+    use std::collections::BTreeMap;
+
+    fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {
+        serde_json::from_value(v).expect("hand-written fixture deserializes")
+    }
+
+    fn date() -> UTCDate {
+        UTCDate::from("2026-01-01T00:00:00Z")
+    }
+
+    #[test]
+    fn chat_properties_are_classified() {
+        let obj = crate::Chat {
+            id: Id::from("c1"),
+            kind: de(json!("group")),
+            created_at: date(),
+            unread_count: 1,
+            pinned_message_ids: vec![Id::from("m1")],
+            muted: true,
+            receive_typing_indicators: true,
+            contact_id: Some(Id::from("k1")),
+            name: Some("n".into()),
+            description: Some("d".into()),
+            avatar_blob_id: Some(Id::from("b1")),
+            members: Some(vec![]),
+            space_id: Some(Id::from("s1")),
+            category_id: Some(Id::from("g1")),
+            position: Some(1),
+            topic: Some("t".into()),
+            slow_mode_seconds: Some(1),
+            permission_overrides: Some(vec![]),
+            last_message_at: Some(date()),
+            mute_until: Some(date()),
+            receipt_sharing: Some(true),
+            message_expiry_seconds: Some(1),
+            closed_at: Some(date()),
+            active_call_id: Some(Id::from("v1")),
+            active_call_account_id: Some(Id::from("a1")),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn message_properties_are_classified() {
+        let obj = crate::Message {
+            id: Id::from("m1"),
+            sender_msg_id: Id::from("x1"),
+            sender_id: Id::from("a1"),
+            chat_id: Id::from("c1"),
+            body: "b".into(),
+            body_type: de(json!("text/plain")),
+            attachments: vec![],
+            mentions: vec![],
+            broadcast_mentions: vec![],
+            actions: vec![],
+            reactions: BTreeMap::new(),
+            sent_at: date(),
+            received_at: date(),
+            delivery_state: de(json!("delivered")),
+            reply_to: Some(Id::from("m0")),
+            thread_root_id: Some(Id::from("m0")),
+            reply_count: Some(1),
+            unread_reply_count: Some(1),
+            topic_id: Some("t".into()),
+            subject: Some("s".into()),
+            sender_expires_at: Some(date()),
+            burn_on_read: Some(true),
+            expires_after_read_seconds: Some(1),
+            delivery_receipts: Some(BTreeMap::new()),
+            delivered_at: Some(date()),
+            read_at: Some(date()),
+            read_disposition: Some(de(json!("displayed"))),
+            edited_at: Some(date()),
+            edit_history: Some(vec![]),
+            deleted_at: Some(date()),
+            deleted_for_all: Some(true),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn space_properties_are_classified() {
+        let obj = crate::Space {
+            id: Id::from("s1"),
+            name: "n".into(),
+            description: Some("d".into()),
+            icon_blob_id: Some(Id::from("b1")),
+            roles: vec![],
+            members: vec![],
+            categories: vec![],
+            uncategorized_channel_ids: vec![],
+            created_at: date(),
+            is_public: true,
+            is_publicly_previewable: true,
+            member_count: 1,
+            closed_at: Some(date()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn chat_contact_properties_are_classified() {
+        let obj = crate::ChatContact {
+            id: Id::from("k1"),
+            identity: "u@example.com".into(),
+            login: "u".into(),
+            first_seen_at: date(),
+            last_seen_at: date(),
+            blocked: true,
+            display_name: Some("U".into()),
+            presence: Some(de(json!("online"))),
+            last_active_at: Some(date()),
+            status_text: Some("t".into()),
+            status_emoji: Some("e".into()),
+            endpoints: Some(vec![]),
+            did: Some(de(json!("did:web:example.com"))),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn read_position_properties_are_classified() {
+        let obj = crate::ReadPosition {
+            id: Id::from("r1"),
+            chat_id: Id::from("c1"),
+            last_read_message_id: Some(Id::from("m1")),
+            last_read_at: Some(date()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn custom_emoji_properties_are_classified() {
+        let obj = crate::CustomEmoji {
+            id: Id::from("e1"),
+            name: "n".into(),
+            blob_id: Id::from("b1"),
+            created_by: Id::from("a1"),
+            created_at: date(),
+            space_id: Some(Id::from("s1")),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn space_invite_properties_are_classified() {
+        let obj = crate::SpaceInvite {
+            id: Id::from("i1"),
+            code: "c".into(),
+            space_id: Id::from("s1"),
+            created_by: Id::from("a1"),
+            uses: 1,
+            created_at: date(),
+            default_channel_id: Some(Id::from("c1")),
+            expires_at: Some(date()),
+            max_uses: Some(1),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn space_ban_properties_are_classified() {
+        let obj = crate::SpaceBan {
+            id: Id::from("b1"),
+            space_id: Id::from("s1"),
+            user_id: Id::from("u1"),
+            banned_by: Id::from("a1"),
+            created_at: date(),
+            reason: Some("r".into()),
+            expires_at: Some(date()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
+    fn presence_status_properties_are_classified() {
+        let obj = crate::PresenceStatus {
+            id: Id::from("p1"),
+            presence: de(json!("online")),
+            receipt_sharing: true,
+            updated_at: date(),
+            status_text: Some("t".into()),
+            status_emoji: Some("e".into()),
+            expires_at: Some(date()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
 }

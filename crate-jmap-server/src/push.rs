@@ -19,7 +19,7 @@ use std::{
     time::SystemTime,
 };
 
-use jmap_types::{Id, JmapError, PushSubscription, State, StateChange, UTCDate};
+use jmap_types::{Id, JmapError, PushSubscription, SetObject, State, StateChange, UTCDate};
 use serde_json::{json, Map, Value};
 use subtle::ConstantTimeEq;
 
@@ -27,7 +27,8 @@ use crate::backend::{BackendSetError, JmapBackend, SetError, SetErrorType};
 use crate::handlers::{server_fail_from_backend, server_fail_value_from_backend};
 use crate::helpers::{
     apply_patch_object, enforce_max_objects_in_get, enforce_max_objects_in_set, not_found_json,
-    optional_arg, serialize_value, signed_seconds_since_epoch, utc_date_from_epoch_seconds,
+    optional_arg, reject_server_set, serialize_value, signed_seconds_since_epoch,
+    utc_date_from_epoch_seconds,
 };
 use crate::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
 
@@ -49,10 +50,6 @@ const MAX_OBJECTS_IN_GET: u64 = 500;
 /// ponytail: fixed, for the same reason as [`MAX_OBJECTS_IN_GET`], with the
 /// same upgrade path.
 const MAX_OBJECTS_IN_SET: u64 = 500;
-
-/// The properties a `PushSubscription/set` update may not change (RFC 8620
-/// §7.2, rfc8620.txt:3593, 3597, 3618, 3623: each is marked "immutable").
-const IMMUTABLE_PROPERTIES: [&str; 4] = ["id", "deviceClientId", "url", "keys"];
 
 /// The furthest in the future, in seconds from now, that
 /// `PushSubscription/set` lets `expires` be: 7 days.
@@ -449,10 +446,10 @@ fn validate_create(obj: Value) -> Result<PushSubscription, Value> {
                 .with_description("a create entry must be an object"),
         ));
     };
-    // RFC 8620 §5.3 (rfc8620.txt:2141-2142): "id" may only be set by the
-    // server.
-    if fields.get("id").is_some_and(|v| !v.is_null()) {
-        return Err(invalid_property("id"));
+    // RFC 8620 §1.1 (rfc8620.txt:261-262): the client MUST NOT send a
+    // server-set property when creating.
+    if let Some(err) = reject_server_set::<PushSubscription>(fields) {
+        return Err(set_error_value(&err));
     }
     // RFC 8620 §7.2 (rfc8620.txt:3620-3621): "This MUST begin with
     // "https://"."
@@ -504,9 +501,16 @@ async fn update_one<B: PushSubscriptionBackend>(
             "PushSubscription did not serialize to an object",
         ));
     };
+    let before = target.clone();
     apply_patch_object(&mut target, &patch).map_err(|e| {
         set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
     })?;
+    // RFC 8620 §5.3 (rfc8620.txt:2141-2145): sending an immutable or
+    // server-set property is an error only if the value differs.
+    let changed_read_only = PushSubscription::SERVER_SET
+        .iter()
+        .chain(PushSubscription::IMMUTABLE)
+        .find(|p| before.get(**p) != target.get(**p));
     let mut patched: PushSubscription =
         serde_json::from_value(Value::Object(target)).map_err(|e| {
             set_error_value(
@@ -514,22 +518,10 @@ async fn update_one<B: PushSubscriptionBackend>(
             )
         })?;
 
-    // RFC 8620 §5.3 (rfc8620.txt:2141-2145): sending an immutable or
-    // server-set property is an error only if the value differs.
-    let old = &current.subscription;
-    let changed = [
-        patched.id != old.id,
-        patched.device_client_id != old.device_client_id,
-        patched.url != old.url,
-        patched.keys != old.keys,
-    ];
-    if let Some((property, _)) = IMMUTABLE_PROPERTIES
-        .iter()
-        .zip(changed)
-        .find(|(_, changed)| *changed)
-    {
+    if let Some(property) = changed_read_only {
         return Err(invalid_property(property));
     }
+    let old = &current.subscription;
 
     // RFC 8620 §7.2.2 (rfc8620.txt:3790-3792): "Attempts to update the
     // subscription with an invalid verification code MUST be rejected by
