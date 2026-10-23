@@ -885,6 +885,33 @@ mod tests {
         assert_eq!(serde_json::to_string(&parsed).unwrap(), raw);
     }
 
+    /// `BodyType::as_str` returns the wire MIME string for every variant,
+    /// including the stored string of `Other`. Oracle: the MIME strings
+    /// listed in draft-atwood-jmap-chat-00 §supportedBodyTypes (line 326 at
+    /// spec 6c38e2f); `"application/x-acme"` is a vendor `x-` type outside
+    /// that set.
+    #[test]
+    fn body_type_as_str_returns_wire_string() {
+        assert_eq!(BodyType::Plain.as_str(), "text/plain");
+        assert_eq!(BodyType::Markdown.as_str(), "text/markdown");
+        assert_eq!(BodyType::Rich.as_str(), "application/jmap-chat-rich");
+        assert_eq!(
+            BodyType::Other("application/x-acme".to_owned()).as_str(),
+            "application/x-acme"
+        );
+    }
+
+    /// `Mention::new` serializes to exactly `{"id": <id>}`, the sole
+    /// property draft-atwood-jmap-chat-00 §Mention defines.
+    #[test]
+    fn mention_new_serializes_to_spec_shape() {
+        let m = Mention::new(Id::from("c42"));
+        assert_eq!(
+            serde_json::to_value(&m).unwrap(),
+            serde_json::json!({"id": "c42"})
+        );
+    }
+
     // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
 
     /// `Attachment.extra` captures vendor fields and preserves them.
