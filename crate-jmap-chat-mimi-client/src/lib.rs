@@ -47,6 +47,15 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Re-exported types
+//!
+//! [`ClientError`] is a re-export from `jmap-base-client`, and the
+//! `KeyPackage/get` and `KeyPackage/set` bindings return the `jmap-types`
+//! `GetResponse` and `SetResponse`; none of these is defined here. The
+//! `jmap-*` workspace crates are versioned and released together:
+//! depend on the same version of this crate, `jmap-base-client` and
+//! `jmap-types`.
 
 #![forbid(unsafe_code)]
 
