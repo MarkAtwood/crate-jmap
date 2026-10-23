@@ -10,15 +10,16 @@ mod common;
 use common::MemoryBackend;
 use jmap_server::HandlerOutput;
 use jmap_tasks_server::{handle_task_get, handle_task_set};
+use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// A backend holding Task `t1` with one participant `p1`.
 fn backend_with_participant() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "Task",
-        "t1",
+        &Id::from("t1"),
         json!({
             "id": "t1",
             "@type": "Task",
@@ -150,11 +151,11 @@ async fn prefix_conflict_is_invalid_patch() {
 /// set `updated` therefore reads back the base task's `updated`.
 #[tokio::test]
 async fn per_user_only_patch_keeps_base_updated() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "Task",
-        "t1",
+        &Id::from("t1"),
         json!({
             "id": "t1",
             "@type": "Task",

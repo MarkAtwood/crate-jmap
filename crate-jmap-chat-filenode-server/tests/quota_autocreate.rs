@@ -57,7 +57,7 @@ fn file(id: &str, parent: &str, size: u64) -> FileNode {
 /// 60 bytes in all. Space S2's tree: root `r2` > `f3` (1000 bytes). A
 /// plain top-level directory `plain` > `f4` (1000 bytes).
 fn fixture() -> MemoryBackend {
-    let files = MemoryBackend::new().with_account(ACCOUNT);
+    let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
     for n in [
         space_root("r1", "S1"),
         file("f1", "r1", 30),
@@ -68,7 +68,7 @@ fn fixture() -> MemoryBackend {
         dir("plain", None),
         file("f4", "plain", 1000),
     ] {
-        files.seed_node(ACCOUNT, n);
+        files.seed_node(&Id::from(ACCOUNT), n);
     }
     files
 }
@@ -131,7 +131,7 @@ async fn node_outside_a_space_tree_is_not_checked() {
 /// file tree root (L126), found by the discovery query (L149).
 #[tokio::test]
 async fn auto_created_root_is_the_spaces_root() {
-    let files = MemoryBackend::new().with_account(ACCOUNT);
+    let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
     let (id, root) = create_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("create");
@@ -155,7 +155,7 @@ async fn auto_created_root_is_the_spaces_root() {
 /// `FileNode/changes` responses."
 #[tokio::test]
 async fn auto_created_root_is_in_filenode_changes() {
-    let files = MemoryBackend::new().with_account(ACCOUNT);
+    let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
     let before = handle_filenode_changes(
         &files,
         &(),

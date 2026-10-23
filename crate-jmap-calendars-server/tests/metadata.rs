@@ -55,7 +55,7 @@ fn info() -> DataTypeMetadataInfo {
 
 fn backend() -> MemoryBackend {
     MemoryBackend::new()
-        .with_account(ACCOUNT_ID)
+        .with_account(&Id::from(ACCOUNT_ID))
         .with_metadata_info("Calendar", info())
         .with_metadata_info("CalendarEvent", info())
 }
@@ -294,7 +294,7 @@ async fn invalid_conditions_are_rejected() {
 /// (RFC 8620 §5.5 `unsupportedFilter`).
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_condition() {
-    let backend = MemoryBackend::new().with_account(ACCOUNT_ID);
+    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
     let err = event_query(&backend, json!({ "metadataExists": NS }))
         .await
         .unwrap_err();
@@ -493,7 +493,7 @@ async fn invalid_metadata_writes_are_invalid_properties() {
 /// backend that did not opt in rejects the write.
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
-    let backend = MemoryBackend::new().with_account(ACCOUNT_ID);
+    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
     let resp = calendar_set(
         &backend,
         json!({ "create": { "c": {

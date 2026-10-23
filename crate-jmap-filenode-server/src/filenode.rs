@@ -2457,7 +2457,7 @@ mod tests {
     impl FaultyBackend {
         fn new_with_account(account_id: &str) -> Self {
             Self {
-                inner: MemoryBackend::new().with_account(account_id),
+                inner: MemoryBackend::new().with_account(&Id::from(account_id)),
                 faults: std::sync::Arc::new(std::sync::Mutex::new(FaultState::default())),
             }
         }
@@ -2542,7 +2542,7 @@ mod tests {
         /// same way the no-fault tests do.
         #[allow(dead_code)]
         fn seed_node(&self, account_id: &str, node: FileNode) {
-            self.inner.seed_node(account_id, node);
+            self.inner.seed_node(&Id::from(account_id), node);
         }
 
         /// Running total of `destroy_object` invocations seen by this
@@ -3149,7 +3149,7 @@ mod tests {
     /// jmap-mail-server snippet.rs:35 pattern.
     #[tokio::test]
     async fn all_handlers_gate_on_supports_type_false() {
-        let backend = NoFileNodeBackend(MemoryBackend::new().with_account("acc1"));
+        let backend = NoFileNodeBackend(MemoryBackend::new().with_account(&Id::from("acc1")));
 
         let cases: &[(&str, &dyn Fn(serde_json::Value) -> serde_json::Value)] = &[
             (
@@ -3213,7 +3213,7 @@ mod tests {
     /// FileNode for it.
     #[tokio::test]
     async fn gate_reports_unknown_account_as_account_not_found() {
-        let backend = NoFileNodeBackend(MemoryBackend::new().with_account("acc2"));
+        let backend = NoFileNodeBackend(MemoryBackend::new().with_account(&Id::from("acc2")));
         let cases = [
             "FileNode/get",
             "FileNode/changes",
@@ -3268,8 +3268,8 @@ mod tests {
     async fn gate_is_per_account() {
         let backend = NoFileNodeBackend(
             MemoryBackend::new()
-                .with_account("acc1")
-                .with_account("acc2"),
+                .with_account(&Id::from("acc1"))
+                .with_account(&Id::from("acc2")),
         );
         let HandlerOutput { primary: resp, .. } =
             handle_filenode_get(&backend, &(), json!({"accountId": "acc2", "ids": null}))
@@ -3290,8 +3290,8 @@ mod tests {
     async fn copy_from_unsupported_account_reports_from_side() {
         let backend = NoFileNodeBackend(
             MemoryBackend::new()
-                .with_account("acc1")
-                .with_account("acc2"),
+                .with_account(&Id::from("acc1"))
+                .with_account(&Id::from("acc2")),
         );
         let err = handle_filenode_copy(
             &backend,
@@ -3331,7 +3331,7 @@ mod tests {
     /// Oracle: FileNode/get with known account returns empty list (no nodes seeded).
     #[tokio::test]
     async fn get_known_account_returns_empty_list() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "ids": null });
         let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
             .await
@@ -3348,7 +3348,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-16 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_false_unchanged() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": false });
         let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
             .await
@@ -3361,7 +3361,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-16 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_true_no_nodes() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": true });
         let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
             .await
@@ -3713,7 +3713,7 @@ mod tests {
     /// Oracle: FileNode/changes returns the standard changes response shape.
     #[tokio::test]
     async fn changes_returns_standard_shape() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
         let HandlerOutput { primary: resp, .. } = handle_filenode_changes(&backend, &(), args)
             .await
@@ -3731,7 +3731,7 @@ mod tests {
     /// Oracle: FileNode/query returns standard query response shape.
     #[tokio::test]
     async fn query_returns_standard_shape() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
         let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
@@ -3745,7 +3745,7 @@ mod tests {
     /// Oracle: depth absent → flat query, same result as before.
     #[tokio::test]
     async fn query_depth_absent_flat_query() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
         let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
@@ -3756,7 +3756,7 @@ mod tests {
     /// Oracle: depth=0 → same as absent, no recursion.
     #[tokio::test]
     async fn query_depth_zero_flat_query() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "depth": 0, "filter": null, "sort": null });
         let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
             .await
@@ -4273,7 +4273,7 @@ mod tests {
     /// excludes the node itself by contract (backend.rs §76).
     #[tokio::test]
     async fn set_update_self_parent_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         // No descendants seeded: the only thing the check has to fall
         // back on is the explicit self-parent guard.
         let args = json!({
@@ -4358,7 +4358,7 @@ mod tests {
     /// Oracle: create with missing `name` returns invalidProperties.
     #[tokio::test]
     async fn set_create_missing_name_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -4396,7 +4396,7 @@ mod tests {
     /// invalidProperties naming `@type`, and nothing is created.
     #[tokio::test]
     async fn set_create_without_type_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -4421,7 +4421,7 @@ mod tests {
     /// `"directory"` is not a -16 type name.
     #[tokio::test]
     async fn set_create_unsupported_type_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "accountId": "acc1",
             "create": { "c1": { "@type": "directory", "name": "mydir" } }
@@ -4440,7 +4440,7 @@ mod tests {
     /// and without any File or SymLink property (§3.1).
     #[tokio::test]
     async fn set_create_directory_returns_directory_shape() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -4468,7 +4468,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-16 §3.1.2.
     #[tokio::test]
     async fn set_create_file_without_blobid_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -4507,7 +4507,7 @@ mod tests {
     /// Regression for bd JMAP-510h.7.
     #[tokio::test]
     async fn set_create_file_with_blob_and_target_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -4547,7 +4547,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-16 §3.1.4.
     #[tokio::test]
     async fn set_create_symlink_without_target_returns_invalid_properties() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -4714,7 +4714,7 @@ mod tests {
     /// (bd JMAP-zegc).
     #[tokio::test]
     async fn set_non_string_destroy_element_does_not_echo_value() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "destroy": [{ "note": "CANARY-zegc" }] });
         let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
@@ -4731,7 +4731,7 @@ mod tests {
     /// only the JSON type and never echoes the client value (bd JMAP-zegc).
     #[tokio::test]
     async fn set_invalid_on_exists_does_not_echo_value() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "onExists": { "note": "CANARY-zegc" } });
         let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
@@ -4746,7 +4746,7 @@ mod tests {
     /// same behaviour" as FileNode/set, so the same no-echo rule applies.
     #[tokio::test]
     async fn copy_invalid_on_exists_does_not_echo_value() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({
             "fromAccountId": "acc1",
             "accountId": "acc1",

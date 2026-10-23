@@ -14,6 +14,7 @@ use jmap_contacts_server::{
     handle_contact_card_set,
 };
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use jmap_types::Invocation;
 use serde_json::{Value, json};
 
@@ -60,7 +61,7 @@ fn contact_card_fixture(id: &str, address_book_id: &str, name: &str) -> Value {
 
 #[tokio::test]
 async fn address_book_get_empty_account_returns_empty_list() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "ids": null });
     let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
@@ -80,11 +81,11 @@ async fn address_book_get_empty_account_returns_empty_list() {
 
 #[tokio::test]
 async fn address_book_get_seeded_and_unknown_id() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Contacts"),
     );
 
@@ -109,7 +110,7 @@ async fn address_book_get_seeded_and_unknown_id() {
 
 #[tokio::test]
 async fn address_book_changes_empty_store() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
     let HandlerOutput { primary: resp, .. } = handle_address_book_changes(&backend, &(), args)
@@ -128,11 +129,11 @@ async fn address_book_changes_empty_store() {
 
 #[tokio::test]
 async fn address_book_set_destroy_empty_book_succeeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Contacts"),
     );
 
@@ -155,17 +156,17 @@ async fn address_book_set_destroy_empty_book_succeeds() {
 
 #[tokio::test]
 async fn address_book_set_destroy_with_contents_returns_error() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Contacts"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card1",
+        &Id::from("card1"),
         contact_card_fixture("card1", "ab1", "Alice"),
     );
 
@@ -191,7 +192,7 @@ async fn address_book_set_destroy_with_contents_returns_error() {
 
 #[tokio::test]
 async fn address_book_set_create_with_client_id_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -241,7 +242,7 @@ async fn address_book_set_unknown_account_returns_account_not_found() {
 
 #[tokio::test]
 async fn contact_card_get_empty_account_returns_empty_list() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "ids": null });
     let HandlerOutput { primary: resp, .. } = handle_contact_card_get(&backend, &(), args)
@@ -258,7 +259,7 @@ async fn contact_card_get_empty_account_returns_empty_list() {
 
 #[tokio::test]
 async fn contact_card_query_empty_store_returns_no_ids() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "calculateTotal": true });
     let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
@@ -275,7 +276,7 @@ async fn contact_card_query_empty_store_returns_no_ids() {
 
 #[tokio::test]
 async fn contact_card_changes_empty_store() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
     let HandlerOutput { primary: resp, .. } = handle_contact_card_changes(&backend, &(), args)
@@ -293,11 +294,11 @@ async fn contact_card_changes_empty_store() {
 
 #[tokio::test]
 async fn address_book_set_state_bumps_visible_via_changes() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Contacts"),
     );
 
@@ -340,17 +341,17 @@ fn address_book_fixture_with_default(id: &str, name: &str, is_default: bool) -> 
 
 #[tokio::test]
 async fn address_book_set_on_success_set_is_default_demotes_other_books_in_memory() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture_with_default("ab2", "Second", false),
     );
 
@@ -397,17 +398,17 @@ async fn address_book_set_on_success_set_is_default_demotes_other_books_in_memor
 
 #[tokio::test]
 async fn address_book_set_on_success_set_is_default_records_demoted_books_in_changes() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture_with_default("ab2", "Second", false),
     );
 
@@ -457,17 +458,17 @@ async fn address_book_set_on_success_set_is_default_no_op_does_not_demote() {
     // Setting isDefault:true on a book that is already default must
     // still trigger the invariant pass (idempotent), but the second
     // book stays at isDefault:false either way.
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture_with_default("ab2", "Second", false),
     );
 
@@ -504,11 +505,11 @@ async fn address_book_set_on_success_set_is_default_no_op_does_not_demote() {
 
 #[tokio::test]
 async fn address_book_set_create_set_default_demotes_existing_default() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
 
@@ -548,11 +549,11 @@ async fn address_book_set_create_set_default_demotes_existing_default() {
 
 #[tokio::test]
 async fn address_book_set_create_set_default_records_demoted_in_changes() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
 
@@ -611,17 +612,17 @@ async fn address_book_set_create_set_default_records_demoted_in_changes() {
 
 #[tokio::test]
 async fn address_book_set_on_success_set_is_default_reports_demoted_in_updated_wire() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture_with_default("ab2", "Second", false),
     );
 
@@ -653,11 +654,11 @@ async fn address_book_set_on_success_set_is_default_reports_demoted_in_updated_w
 
 #[tokio::test]
 async fn address_book_set_create_set_default_reports_demoted_in_updated_wire() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
 
@@ -699,17 +700,17 @@ async fn address_book_set_update_no_is_default_change_does_not_pollute_updated()
     // Regression: a regular update that does NOT touch isDefault must not
     // cause `updated` to be populated with unrelated entries by the
     // demotion-detection pass.
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture_with_default("ab1", "First", true),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture_with_default("ab2", "Second", false),
     );
 
@@ -744,11 +745,11 @@ async fn address_book_set_update_no_is_default_change_does_not_pollute_updated()
 
 #[tokio::test]
 async fn contact_card_set_create_with_client_id_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Contacts"),
     );
 
@@ -787,11 +788,11 @@ async fn contact_card_set_create_with_client_id_rejected() {
 /// Oracle: create with addressBookIds absent → invalidProperties.
 #[tokio::test]
 async fn contact_card_create_missing_address_book_ids_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
 
@@ -825,11 +826,11 @@ async fn contact_card_create_missing_address_book_ids_rejected() {
 /// Oracle: create with addressBookIds = {} → invalidProperties.
 #[tokio::test]
 async fn contact_card_create_empty_address_book_ids_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
 
@@ -860,17 +861,17 @@ async fn contact_card_create_empty_address_book_ids_rejected() {
 /// rejected with invalidProperties. The stored card remains untouched.
 #[tokio::test]
 async fn contact_card_update_removing_last_address_book_id_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card1",
+        &Id::from("card1"),
         contact_card_fixture("card1", "ab1", "Alice"),
     );
 
@@ -923,11 +924,11 @@ async fn contact_card_update_removing_last_address_book_id_rejected() {
 /// the second must fail with invalidProperties on uid.
 #[tokio::test]
 async fn contact_card_create_duplicate_uid_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
 
@@ -982,17 +983,17 @@ async fn contact_card_create_duplicate_uid_rejected() {
 /// account (seeded) → invalidProperties.
 #[tokio::test]
 async fn contact_card_create_with_uid_matching_seeded_card_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "seeded",
+        &Id::from("seeded"),
         json!({
             "id": "seeded",
             "@type": "Card",
@@ -1029,24 +1030,24 @@ async fn contact_card_create_with_uid_matching_seeded_card_rejected() {
 #[tokio::test]
 async fn contact_card_same_uid_different_accounts_allowed() {
     let backend = MemoryBackend::new()
-        .with_account("acc1")
-        .with_account("acc2");
+        .with_account(&Id::from("acc1"))
+        .with_account(&Id::from("acc2"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
     backend.seed_object(
-        "acc2",
+        &Id::from("acc2"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture("ab2", "Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-a1",
+        &Id::from("card-a1"),
         json!({
             "id": "card-a1",
             "@type": "Card",
@@ -1082,17 +1083,17 @@ async fn contact_card_same_uid_different_accounts_allowed() {
 /// uses → invalidProperties.
 #[tokio::test]
 async fn contact_card_update_to_duplicate_uid_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-a",
+        &Id::from("card-a"),
         json!({
             "id": "card-a",
             "@type": "Card",
@@ -1102,9 +1103,9 @@ async fn contact_card_update_to_duplicate_uid_rejected() {
         }),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-b",
+        &Id::from("card-b"),
         json!({
             "id": "card-b",
             "@type": "Card",
@@ -1148,17 +1149,17 @@ async fn contact_card_update_to_duplicate_uid_rejected() {
 /// check allows the no-op case.
 #[tokio::test]
 async fn contact_card_update_with_same_uid_succeeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-a",
+        &Id::from("card-a"),
         json!({
             "id": "card-a",
             "@type": "Card",
@@ -1189,17 +1190,17 @@ async fn contact_card_update_with_same_uid_succeeds() {
 /// non-empty state and succeeds.
 #[tokio::test]
 async fn contact_card_update_unrelated_field_preserves_invariant() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card1",
+        &Id::from("card1"),
         contact_card_fixture("card1", "ab1", "Alice"),
     );
 
@@ -1241,17 +1242,17 @@ async fn contact_card_update_unrelated_field_preserves_invariant() {
 /// is required to belong to at least one AddressBook per RFC 9610 §3).
 #[tokio::test]
 async fn address_book_set_destroy_cascade_destroys_exclusive_card() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Only Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-exclusive",
+        &Id::from("card-exclusive"),
         contact_card_fixture("card-exclusive", "ab1", "Alice"),
     );
 
@@ -1294,24 +1295,24 @@ async fn address_book_set_destroy_cascade_destroys_exclusive_card() {
 /// itself persists with the remaining books.
 #[tokio::test]
 async fn address_book_set_destroy_cascade_patches_shared_card() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Book One"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture("ab2", "Book Two"),
     );
     // Card belongs to BOTH ab1 and ab2.
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-shared",
+        &Id::from("card-shared"),
         json!({
             "id": "card-shared",
             "@type": "Card",
@@ -1355,29 +1356,29 @@ async fn address_book_set_destroy_cascade_patches_shared_card() {
 /// shared (patched). All happen in a single cascade.
 #[tokio::test]
 async fn address_book_set_destroy_cascade_mixed_exclusive_and_shared() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Doomed Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture("ab2", "Other Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-exclusive",
+        &Id::from("card-exclusive"),
         contact_card_fixture("card-exclusive", "ab1", "Alice"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-shared",
+        &Id::from("card-shared"),
         json!({
             "id": "card-shared",
             "@type": "Card",
@@ -1428,11 +1429,11 @@ async fn address_book_set_destroy_cascade_mixed_exclusive_and_shared() {
 /// destroys cleanly (the cascade is a no-op when no cards reference it).
 #[tokio::test]
 async fn address_book_set_destroy_cascade_empty_book_proceeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Empty Book"),
     );
 
@@ -1455,17 +1456,17 @@ async fn address_book_set_destroy_cascade_empty_book_proceeds() {
 
 #[tokio::test]
 async fn contact_card_query_filter_by_kind_excludes_non_matches() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Contacts"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-person",
+        &Id::from("card-person"),
         json!({
             "id": "card-person",
             "@type": "Card",
@@ -1477,9 +1478,9 @@ async fn contact_card_query_filter_by_kind_excludes_non_matches() {
         }),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-group",
+        &Id::from("card-group"),
         json!({
             "id": "card-group",
             "@type": "Card",
@@ -1513,20 +1514,20 @@ async fn contact_card_query_filter_by_kind_excludes_non_matches() {
 
 #[tokio::test]
 async fn contact_card_query_sort_by_created_descending() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Contacts"),
     );
     // Seed three cards with chronologically-ordered `created` timestamps
     // but lexicographically-disordered ids (so Id-sort and created-sort
     // produce different orderings — the test fails if sort is ignored).
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "c-zulu",
+        &Id::from("c-zulu"),
         json!({
             "id": "c-zulu",
             "@type": "Card",
@@ -1537,9 +1538,9 @@ async fn contact_card_query_sort_by_created_descending() {
         }),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "c-alpha",
+        &Id::from("c-alpha"),
         json!({
             "id": "c-alpha",
             "@type": "Card",
@@ -1550,9 +1551,9 @@ async fn contact_card_query_sort_by_created_descending() {
         }),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "c-mike",
+        &Id::from("c-mike"),
         json!({
             "id": "c-mike",
             "@type": "Card",
@@ -1596,24 +1597,24 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
     use jmap_contacts_server::handle_contact_card_copy;
 
     let backend = MemoryBackend::new()
-        .with_account("acc1")
-        .with_account("acc2");
+        .with_account(&Id::from("acc1"))
+        .with_account(&Id::from("acc2"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "Source Book"),
     );
     backend.seed_object(
-        "acc2",
+        &Id::from("acc2"),
         "AddressBook",
-        "ab2",
+        &Id::from("ab2"),
         address_book_fixture("ab2", "Destination Book"),
     );
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card-source",
+        &Id::from("card-source"),
         contact_card_fixture("card-source", "ab1", "Source Card"),
     );
 
@@ -1691,16 +1692,16 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
 
 #[tokio::test]
 async fn contact_card_query_evaluates_operator_tree() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     for (id, book, kind) in [
         ("card-a", "ab1", "individual"),
         ("card-b", "ab2", "individual"),
         ("card-c", "ab1", "group"),
     ] {
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            id,
+            &Id::from(id),
             json!({
                 "id": id,
                 "@type": "Card",
@@ -1748,11 +1749,11 @@ async fn contact_card_query_evaluates_operator_tree() {
 /// `invalidProperties`.
 #[tokio::test]
 async fn address_book_set_client_is_default_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "AddressBook",
-        "ab1",
+        &Id::from("ab1"),
         address_book_fixture("ab1", "First"),
     );
     let args = json!({

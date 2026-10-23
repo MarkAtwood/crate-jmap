@@ -18,6 +18,7 @@ use jmap_calendars_server::{
     handle_participant_identity_get, handle_participant_identity_set,
 };
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use serde_json::{Value, json};
 
 // ---------------------------------------------------------------------------
@@ -67,7 +68,7 @@ fn calendar_fixture(id: &str, name: &str) -> Value {
 
 #[tokio::test]
 async fn calendar_get_empty_account_returns_empty_list() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -99,8 +100,13 @@ async fn calendar_get_empty_account_returns_empty_list() {
 
 #[tokio::test]
 async fn calendar_get_seeded_calendar_and_unknown_id() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_object("acc1", "Calendar", "cal1", calendar_fixture("cal1", "Work"));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_object(
+        &Id::from("acc1"),
+        "Calendar",
+        &Id::from("cal1"),
+        calendar_fixture("cal1", "Work"),
+    );
 
     let args = json!({
         "accountId": "acc1",
@@ -133,7 +139,7 @@ async fn calendar_get_seeded_calendar_and_unknown_id() {
 
 #[tokio::test]
 async fn calendar_changes_no_changes_since_current_state() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -174,8 +180,13 @@ async fn calendar_changes_no_changes_since_current_state() {
 
 #[tokio::test]
 async fn calendar_set_destroy_empty_calendar_succeeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_object("acc1", "Calendar", "cal1", calendar_fixture("cal1", "Work"));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_object(
+        &Id::from("acc1"),
+        "Calendar",
+        &Id::from("cal1"),
+        calendar_fixture("cal1", "Work"),
+    );
 
     let args = json!({
         "accountId": "acc1",
@@ -207,13 +218,18 @@ async fn calendar_set_destroy_empty_calendar_succeeds() {
 
 #[tokio::test]
 async fn calendar_set_destroy_with_events_returns_calendar_has_event() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_object("acc1", "Calendar", "cal1", calendar_fixture("cal1", "Work"));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_object(
+        &Id::from("acc1"),
+        "Calendar",
+        &Id::from("cal1"),
+        calendar_fixture("cal1", "Work"),
+    );
     // Seed an event referencing cal1 so calendar_has_events returns true.
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "CalendarEvent",
-        "evt1",
+        &Id::from("evt1"),
         json!({
             "id": "evt1",
             "@type": "Event",
@@ -252,7 +268,7 @@ async fn calendar_set_destroy_with_events_returns_calendar_has_event() {
 
 #[tokio::test]
 async fn calendar_set_create_with_client_id_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -308,7 +324,7 @@ async fn calendar_set_unknown_account_returns_account_not_found() {
 
 #[tokio::test]
 async fn calendar_event_get_empty_account_returns_empty_list() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -336,7 +352,7 @@ async fn calendar_event_get_empty_account_returns_empty_list() {
 
 #[tokio::test]
 async fn calendar_event_query_empty_store_returns_no_ids() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // `calculateTotal: true` so `total` is present in the response per
     // RFC 8620 §5.5 (otherwise the server MAY omit `total`).
@@ -366,7 +382,7 @@ async fn calendar_event_query_empty_store_returns_no_ids() {
 
 #[tokio::test]
 async fn calendar_event_changes_empty_store_empty_result() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -390,7 +406,7 @@ async fn calendar_event_changes_empty_store_empty_result() {
 
 #[tokio::test]
 async fn participant_identity_get_empty_and_set_create_rejects_id() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "ids": null });
     let HandlerOutput { primary: resp, .. } = handle_participant_identity_get(&backend, &(), args)
@@ -423,8 +439,13 @@ async fn participant_identity_get_empty_and_set_create_rejects_id() {
 
 #[tokio::test]
 async fn calendar_set_state_bumps_after_each_mutation() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_object("acc1", "Calendar", "cal1", calendar_fixture("cal1", "Work"));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_object(
+        &Id::from("acc1"),
+        "Calendar",
+        &Id::from("cal1"),
+        calendar_fixture("cal1", "Work"),
+    );
 
     let args = json!({ "accountId": "acc1", "destroy": ["cal1"] });
     let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args, &[])
@@ -458,8 +479,13 @@ async fn calendar_set_state_bumps_after_each_mutation() {
 
 #[tokio::test]
 async fn calendar_event_set_create_with_client_id_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_object("acc1", "Calendar", "cal1", calendar_fixture("cal1", "Work"));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_object(
+        &Id::from("acc1"),
+        "Calendar",
+        &Id::from("cal1"),
+        calendar_fixture("cal1", "Work"),
+    );
 
     let args = json!({
         "accountId": "acc1",
@@ -497,12 +523,12 @@ async fn calendar_event_set_create_with_client_id_invalid_properties() {
 /// `acc1` holding CalendarEvents `e1`..`e4`; `MemoryBackend` returns
 /// query ids in lexical id order, so `e2` is at index 1.
 fn backend_with_four_events() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     for id in ["e1", "e2", "e3", "e4"] {
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            id,
+            &Id::from(id),
             json!({ "id": id, "calendarIds": { "cal1": true } }),
         );
     }
@@ -591,16 +617,16 @@ fn capability_uri_calendars_matches_draft() {
 
 #[tokio::test]
 async fn calendar_event_query_evaluates_operator_tree() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     for (id, calendar_ids) in [
         ("e1", json!({ "cal1": true })),
         ("e2", json!({ "cal2": true })),
         ("e3", json!({ "cal1": true, "cal2": true })),
     ] {
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            id,
+            &Id::from(id),
             json!({ "id": id, "calendarIds": calendar_ids }),
         );
     }
@@ -643,11 +669,11 @@ async fn calendar_event_query_evaluates_operator_tree() {
 
 #[tokio::test]
 async fn calendar_query_rejects_filter_backend_cannot_evaluate() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "CalendarEvent",
-        "e1",
+        &Id::from("e1"),
         json!({ "id": "e1", "calendarIds": { "cal1": true } }),
     );
     for filter in [
@@ -683,7 +709,7 @@ async fn calendar_query_rejects_filter_backend_cannot_evaluate() {
 /// RFC 8620 §5.3: `created` "includes all server-set properties".
 #[tokio::test]
 async fn calendar_set_create_server_set_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let create = |extra: Value| {
         let mut cal = json!({
             "name": "Work",

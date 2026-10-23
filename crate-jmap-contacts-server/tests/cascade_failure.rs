@@ -211,12 +211,12 @@ impl ContactsBackend for FailingBackend {
 /// destroys `ab1` with `onDestroyRemoveContents: true` while `fail` is
 /// forced. Returns the AddressBook/set response and the backend.
 async fn destroy_ab1(fail: Step, books: Value) -> (Value, FailingBackend) {
-    let inner = MemoryBackend::new().with_account("acc1");
+    let inner = MemoryBackend::new().with_account(&Id::from("acc1"));
     for id in ["ab1", "ab2"] {
         inner.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "AddressBook",
-            id,
+            &Id::from(id),
             json!({
                 "id": id,
                 "name": id,
@@ -235,9 +235,9 @@ async fn destroy_ab1(fail: Step, books: Value) -> (Value, FailingBackend) {
         );
     }
     inner.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ContactCard",
-        "card1",
+        &Id::from("card1"),
         json!({
             "id": "card1",
             "@type": "Card",

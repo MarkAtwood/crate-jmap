@@ -51,7 +51,7 @@ impl Fixture {
         chat.register_account(&Id::from(ACCOUNT));
         Self {
             chat,
-            files: FilesMemory::new().with_account(ACCOUNT),
+            files: FilesMemory::new().with_account(&Id::from(ACCOUNT)),
         }
     }
 

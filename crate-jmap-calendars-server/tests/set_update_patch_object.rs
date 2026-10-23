@@ -10,16 +10,17 @@ mod common;
 use common::MemoryBackend;
 use jmap_calendars_server::{handle_calendar_event_get, handle_calendar_event_set};
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// Seed `acc1` with event `ev1` holding one participant and one alert,
 /// and no `locations`.
 fn seeded_backend() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "CalendarEvent",
-        "ev1",
+        &Id::from("ev1"),
         json!({
             "id": "ev1",
             "@type": "Event",
@@ -207,11 +208,11 @@ async fn wrong_typed_sequence_is_invalid_properties() {
 /// not set `updated` therefore reads back the base event's `updated`.
 #[tokio::test]
 async fn per_user_only_patch_keeps_base_updated() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "CalendarEvent",
-        "ev1",
+        &Id::from("ev1"),
         json!({
             "id": "ev1",
             "@type": "Event",

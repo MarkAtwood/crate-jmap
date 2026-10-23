@@ -301,9 +301,15 @@ impl MemoryBackend {
     /// process (e.g. a SIGHUP-driven config reload) must not silently
     /// drop the account's nodes. `HashMap::insert` would have done
     /// exactly that.
-    pub fn with_account(self, account_id: &str) -> Self {
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account(self, account_id: &Id) -> Self {
         debug_assert!(
-            !account_id.is_empty(),
+            !account_id.as_ref().is_empty(),
             "with_account: account_id must not be the empty string \
              (RFC 8620 §1.2, bd:JMAP-dx0s)"
         );
@@ -311,7 +317,7 @@ impl MemoryBackend {
             .lock()
             .unwrap()
             .accounts
-            .entry(account_id.to_owned())
+            .entry(account_id.as_ref().to_owned())
             .or_insert_with(AccountStore::new);
         self
     }
@@ -359,18 +365,71 @@ impl MemoryBackend {
     /// would produce a passing-but-empty backend; the panic surfaces
     /// the setup mistake at the seed call site rather than as a
     /// confusing "fixture vanished" later (bd:JMAP-510h.42).
-    pub fn seed_node(&self, account_id: &str, node: FileNode) {
+    pub fn seed_node(&self, account_id: &Id, node: FileNode) {
         let mut guard = self.inner.lock().unwrap();
-        let store = guard.accounts.get_mut(account_id).unwrap_or_else(|| {
-            panic!(
-                "seed_node: account_id {account_id:?} is not registered. \
+        let store = guard
+            .accounts
+            .get_mut(account_id.as_ref())
+            .unwrap_or_else(|| {
+                panic!(
+                    "seed_node: account_id {account_id:?} is not registered. \
                  Call MemoryBackend::with_account({account_id:?}) before seeding. \
                  Silently dropping the seed would produce a passing-but-empty \
                  backend and a hard-to-debug test failure later."
-            )
-        });
+                )
+            });
         store.sync_counter_with_seeded_id(&node.id);
         store.nodes.insert(node.id.clone(), node);
+    }
+
+    /// Seed a pre-existing object into the store without bumping the
+    /// state counter. Test-fixture setup only. Mirrors
+    /// `jmap_mail_server::memory::MemoryBackend::seed_object`; the
+    /// object is stored through [`Self::seed_node`], whose
+    /// caller-managed invariants apply.
+    ///
+    /// `type_name` is the `TYPE_NAME` of the one type this backend
+    /// stores, `"FileNode"`.
+    ///
+    /// # Panics
+    ///
+    /// If `type_name` is not `"FileNode"`, `value` is not a JSON object
+    /// whose `id` string equals `id`, `value` does not deserialize as a
+    /// [`FileNode`], or `account_id` is not registered (see
+    /// [`Self::seed_node`]).
+    pub fn seed_object(
+        &self,
+        account_id: &Id,
+        type_name: &'static str,
+        id: &Id,
+        value: serde_json::Value,
+    ) {
+        const KNOWN_TYPES: &[&str] = &[FileNode::TYPE_NAME];
+        assert!(
+            KNOWN_TYPES.contains(&type_name),
+            "seed_object: type_name {type_name:?} is not one of the known \
+             TYPE_NAME values {KNOWN_TYPES:?}"
+        );
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!("seed_object: value must be a JSON object with an `id` field, got {value:?}")
+        });
+        let value_id = obj
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must contain an `id` string field; got value = {value:?}"
+                )
+            });
+        assert_eq!(
+            value_id,
+            id.as_ref(),
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?}"
+        );
+        let node: FileNode = serde_json::from_value(value)
+            .unwrap_or_else(|e| panic!("seed_object: value is not a FileNode: {e}"));
+        self.seed_node(account_id, node);
     }
 
     /// Record the SHA-256 digest of blob `blob_id` in an account, as a
@@ -1400,8 +1459,8 @@ mod tests {
     /// pre-existing data.
     #[tokio::test]
     async fn with_account_preserves_existing_account_state() {
-        let backend = MemoryBackend::new().with_account("acc1");
-        backend.seed_node("acc1", make_filenode("n1", "first"));
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        backend.seed_node(&Id::from("acc1"), make_filenode("n1", "first"));
 
         // Confirm the seed landed.
         let (nodes, _missing) = backend
@@ -1412,7 +1471,7 @@ mod tests {
 
         // Re-register the same account id. Pre-fix this destroyed
         // the pre-existing state; post-fix it must be a no-op.
-        let backend = backend.with_account("acc1");
+        let backend = backend.with_account(&Id::from("acc1"));
 
         let (nodes, _missing) = backend
             .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
@@ -1437,7 +1496,7 @@ mod tests {
     /// fixture on the first create call.
     #[tokio::test]
     async fn seed_node_with_collision_shaped_id_bumps_counter() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
         // Seed a fixture using the natural-looking `node-3` shape that a
         // contributor reading the public API (without peeking inside
@@ -1450,8 +1509,8 @@ mod tests {
         // both behaviours.
         let seed_1 = make_filenode("node-1", "fixture-root-1");
         let seed_3 = make_filenode("node-3", "fixture-root-3");
-        backend.seed_node("acc1", seed_1);
-        backend.seed_node("acc1", seed_3);
+        backend.seed_node(&Id::from("acc1"), seed_1);
+        backend.seed_node(&Id::from("acc1"), seed_3);
 
         // Create one new node. Before the fix this allocated "node-1"
         // and overwrote the fixture; after the fix it must allocate
@@ -1529,7 +1588,10 @@ mod tests {
     #[should_panic(expected = "is not registered")]
     async fn seed_node_on_unknown_account_panics() {
         let backend = MemoryBackend::new(); // no with_account
-        backend.seed_node("forgotten-acc", make_filenode("node-1", "fixture"));
+        backend.seed_node(
+            &Id::from("forgotten-acc"),
+            make_filenode("node-1", "fixture"),
+        );
     }
 
     /// Oracle: a seed with a non-matching id (UUID, arbitrary string)
@@ -1537,13 +1599,19 @@ mod tests {
     /// guaranteed not to collide with non-matching seeds.
     #[tokio::test]
     async fn seed_node_with_non_matching_id_leaves_counter_alone() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_node(
-            "acc1",
+            &Id::from("acc1"),
             make_filenode("550e8400-e29b-41d4-a716-446655440000", "uuid-seeded"),
         );
-        backend.seed_node("acc1", make_filenode("hand-picked", "named-seeded"));
-        backend.seed_node("acc1", make_filenode("node-not-a-number", "almost-but-no"));
+        backend.seed_node(
+            &Id::from("acc1"),
+            make_filenode("hand-picked", "named-seeded"),
+        );
+        backend.seed_node(
+            &Id::from("acc1"),
+            make_filenode("node-not-a-number", "almost-but-no"),
+        );
 
         let new_node: FileNode = serde_json::from_value(json!({
             "id": "",
@@ -1586,7 +1654,7 @@ mod tests {
     async fn update_object_applies_path_style_share_with_patch() {
         use jmap_types::PatchObject;
 
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
         // Seed a FileNode with shareWith already populated (one entry, "existing").
         // This makes the path-style mutations exercise both add (new userId)
@@ -1619,7 +1687,7 @@ mod tests {
             "accessed": null
         }))
         .expect("seed FileNode must deserialize");
-        backend.seed_node("acc1", node);
+        backend.seed_node(&Id::from("acc1"), node);
 
         // Patch: add "alice" via path-style; touch unrelated top-level
         // "name" to verify flat patches still work in the new helper.
@@ -1755,15 +1823,90 @@ mod clone_tests {
     }
 }
 
+#[cfg(test)]
+mod fixture_helper_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Hand-written draft-ietf-jmap-filenode Directory node.
+    fn dir_json(id: &str) -> serde_json::Value {
+        json!({
+            "id": id, "name": id, "parentId": null, "role": null,
+            "@type": "Directory", "target": null, "blobId": null, "size": null,
+            "shareWith": null, "myRights": null,
+            "created": "1970-01-01T00:00:00Z", "modified": "1970-01-01T00:00:00Z",
+            "accessed": null
+        })
+    }
+
+    /// A node seeded through `seed_object` is readable and leaves the
+    /// state at its initial value.
+    #[tokio::test]
+    async fn seed_object_is_readable_without_state_change() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new().with_account(&acc);
+        let before = backend.get_state::<FileNode>(&(), &acc).await.unwrap();
+        backend.seed_object(&acc, "FileNode", &Id::from("d1"), dir_json("d1"));
+        let (found, not_found) = backend
+            .get_objects::<FileNode>(&(), &acc, Some(&[Id::from("d1")]), None)
+            .await
+            .unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].id, Id::from("d1"));
+        assert!(not_found.is_empty());
+        assert_eq!(
+            backend.get_state::<FileNode>(&(), &acc).await.unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "not one of the known")]
+    fn seed_object_rejects_unknown_type_name() {
+        let acc = Id::from("acc1");
+        MemoryBackend::new().with_account(&acc).seed_object(
+            &acc,
+            "Filenode",
+            &Id::from("d1"),
+            dir_json("d1"),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "does not match the `id` argument")]
+    fn seed_object_rejects_id_mismatch() {
+        let acc = Id::from("acc1");
+        MemoryBackend::new().with_account(&acc).seed_object(
+            &acc,
+            "FileNode",
+            &Id::from("d1"),
+            dir_json("d2"),
+        );
+    }
+
+    /// `seed_object` stores through `seed_node`, which refuses an
+    /// unregistered account (bd:JMAP-510h.42).
+    #[test]
+    #[should_panic(expected = "is not registered")]
+    fn seed_object_rejects_unregistered_account() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "FileNode",
+            &Id::from("d1"),
+            dir_json("d1"),
+        );
+    }
+}
+
 #[cfg(all(test, debug_assertions))]
 mod empty_account_id_tests {
-    use super::MemoryBackend;
+    use super::{Id, MemoryBackend};
 
     /// Oracle: RFC 8620 §1.2, an Id "is a String of at least 1 and a
     /// maximum of 255 octets in size" (bd:JMAP-dx0s).
     #[test]
     #[should_panic(expected = "account_id must not be the empty string")]
     fn with_account_rejects_empty_id() {
-        let _ = MemoryBackend::new().with_account("");
+        let _ = MemoryBackend::new().with_account(&Id::from(""));
     }
 }

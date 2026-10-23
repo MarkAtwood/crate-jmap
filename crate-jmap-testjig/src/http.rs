@@ -435,7 +435,7 @@ struct ExtensionBackends {
 /// Account registration: five of the seven reference backends
 /// (`mail`, `chat`, `calendars`, `tasks`, `contacts`) expose
 /// `register_account(&Id)` for explicit per-account initialisation;
-/// `filenode` uses a builder-style `with_account(&str)`; `sharing`
+/// `filenode` uses a builder-style `with_account(&Id)`; `sharing`
 /// accepts a slice of account ids at construction via
 /// `new_with_accounts`. The three different shapes pre-date this
 /// slice — a follow-up sweep could normalise them, but `.3` does not
@@ -476,7 +476,8 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     // Uses a builder shape — `with_account` consumes self and returns
     // the seeded backend, which we then wrap in an Arc.
     let filenode = Arc::new(
-        jmap_filenode_server::memory::MemoryBackend::new().with_account(session::ACCOUNT_ID),
+        jmap_filenode_server::memory::MemoryBackend::new()
+            .with_account(&Id::from(session::ACCOUNT_ID)),
     );
     jmap_filenode_server::register_filenode_handlers(dispatcher, Arc::clone(&filenode));
 

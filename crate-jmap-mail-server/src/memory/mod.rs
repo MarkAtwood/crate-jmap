@@ -416,6 +416,92 @@ impl MemoryBackend {
         inner.known_accounts.insert(account_id.as_ref().to_owned());
     }
 
+    /// Register `account_id` as known and return `self`, for
+    /// builder-style fixture setup. Same as [`Self::register_account`].
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account(self, account_id: &Id) -> Self {
+        self.register_account(account_id);
+        self
+    }
+
+    /// Seed a pre-existing object into the store without bumping the
+    /// state counter or recording a change-log entry. Test-fixture setup
+    /// only; registers `account_id` as known.
+    ///
+    /// `type_name` is the `TYPE_NAME` of a type this backend stores:
+    /// `"Mailbox"`, `"Thread"`, `"Email"`, `"Identity"`,
+    /// `"EmailSubmission"`, `"VacationResponse"`, or (with the `sieve`
+    /// feature) `"SieveScript"`. A seeded Email's `messageId` values are
+    /// indexed for `Email/import` duplicate detection. No other derived
+    /// state is touched: Thread `emailIds` and Mailbox counts are the
+    /// fixture's responsibility.
+    ///
+    /// # Panics
+    ///
+    /// If `type_name` is not one of the names above, or `value` is not a
+    /// JSON object whose `id` string equals `id`.
+    pub fn seed_object(
+        &self,
+        account_id: &Id,
+        type_name: &'static str,
+        id: &Id,
+        value: serde_json::Value,
+    ) {
+        const KNOWN_TYPES: &[&str] = &[
+            Mailbox::TYPE_NAME,
+            jmap_mail_types::Thread::TYPE_NAME,
+            Email::TYPE_NAME,
+            jmap_mail_types::Identity::TYPE_NAME,
+            EmailSubmission::TYPE_NAME,
+            jmap_mail_types::VacationResponse::TYPE_NAME,
+            #[cfg(feature = "sieve")]
+            jmap_mail_types::SieveScript::TYPE_NAME,
+        ];
+        assert!(
+            KNOWN_TYPES.contains(&type_name),
+            "seed_object: type_name {type_name:?} is not one of the known \
+             TYPE_NAME values {KNOWN_TYPES:?}"
+        );
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!("seed_object: value must be a JSON object with an `id` field, got {value:?}")
+        });
+        let value_id = obj
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must contain an `id` string field; got value = {value:?}"
+                )
+            });
+        assert_eq!(
+            value_id,
+            id.as_ref(),
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?}"
+        );
+        let account = account_id.as_ref();
+        let mut inner = self.inner.lock().unwrap();
+        if type_name == Email::TYPE_NAME
+            && let Some(msg_ids) = value.get("messageId").and_then(serde_json::Value::as_array)
+        {
+            let index = inner
+                .message_id_index
+                .entry(account.to_owned())
+                .or_default();
+            for msg_id in msg_ids.iter().filter_map(serde_json::Value::as_str) {
+                index.insert(msg_id.to_owned(), id.clone());
+            }
+        }
+        inner
+            .objects_mut(type_name, account)
+            .insert(id.clone(), value);
+    }
+
     /// **Test-only**: set the maximum Sieve script size in bytes for
     /// size-enforcement tests. Production backends should implement
     /// [`SieveBackend::max_sieve_script_bytes`](crate::SieveBackend::max_sieve_script_bytes)
@@ -3361,6 +3447,114 @@ mod clone_tests {
         let a = MemoryBackend::new();
         assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
         assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+    }
+}
+
+#[cfg(test)]
+mod fixture_helper_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// `with_account` makes the account known (RFC 8620 §3.6.2: an
+    /// unknown accountId is `accountNotFound`, so `account_exists` is the
+    /// observable).
+    #[tokio::test]
+    async fn with_account_registers_account() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new().with_account(&acc);
+        assert!(backend.account_exists(&(), &acc).await.unwrap());
+        assert!(
+            !backend
+                .account_exists(&(), &Id::from("acc2"))
+                .await
+                .unwrap()
+        );
+    }
+
+    /// A seeded Mailbox is readable and leaves the state at its initial
+    /// value. Fixture: a hand-written RFC 8621 §2 Mailbox.
+    #[tokio::test]
+    async fn seed_object_is_readable_without_state_change() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new();
+        let before = backend.get_state::<Mailbox>(&(), &acc).await.unwrap();
+        backend.seed_object(
+            &acc,
+            "Mailbox",
+            &Id::from("mb1"),
+            json!({
+                "id": "mb1", "name": "Inbox", "parentId": null, "role": "inbox",
+                "sortOrder": 0, "totalEmails": 0, "unreadEmails": 0,
+                "totalThreads": 0, "unreadThreads": 0,
+                "myRights": {
+                    "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+                    "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+                    "mayRename": true, "mayDelete": true, "maySubmit": true
+                },
+                "isSubscribed": true
+            }),
+        );
+        assert!(backend.account_exists(&(), &acc).await.unwrap());
+        let (found, not_found) = backend
+            .get_objects::<Mailbox>(&(), &acc, Some(&[Id::from("mb1")]), None)
+            .await
+            .unwrap();
+        assert_eq!(found.len(), 1);
+        assert!(not_found.is_empty());
+        assert_eq!(
+            backend.get_state::<Mailbox>(&(), &acc).await.unwrap(),
+            before
+        );
+    }
+
+    /// RFC 8621 §4.8: importing a message whose Message-ID matches an
+    /// existing Email in the account fails with `alreadyExists`. A seeded
+    /// Email's `messageId` must count.
+    #[tokio::test]
+    async fn seeded_email_message_id_blocks_duplicate_import() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new();
+        backend.seed_object(
+            &acc,
+            "Email",
+            &Id::from("e1"),
+            json!({"id": "e1", "messageId": ["dup@example.com"]}),
+        );
+        let blob = Id::from("blob1");
+        backend.store_blob(
+            &blob,
+            b"Message-ID: <dup@example.com>\r\nSubject: x\r\n\r\nbody\r\n".to_vec(),
+        );
+        let err = backend
+            .import_email(&(), &acc, &blob, &[Id::from("mb1")], &[], None)
+            .await
+            .unwrap_err();
+        let BackendSetError::SetError(set_err) = err else {
+            panic!("expected SetError");
+        };
+        assert_eq!(set_err.error_type, SetErrorType::AlreadyExists);
+    }
+
+    #[test]
+    #[should_panic(expected = "not one of the known")]
+    fn seed_object_rejects_unknown_type_name() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "mailbox",
+            &Id::from("m1"),
+            json!({"id": "m1"}),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "does not match the `id` argument")]
+    fn seed_object_rejects_id_mismatch() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "Mailbox",
+            &Id::from("m1"),
+            json!({"id": "other"}),
+        );
     }
 }
 

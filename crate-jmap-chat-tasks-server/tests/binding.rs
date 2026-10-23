@@ -90,10 +90,20 @@ fn task_list_json(id: &str) -> Value {
 /// TaskList `T1` on `A1`, TaskList `T2` on `A2`.
 fn tasks() -> TasksMemory {
     let tasks = TasksMemory::new()
-        .with_account(ACCOUNT)
-        .with_account(OTHER_ACCOUNT);
-    tasks.seed_object(ACCOUNT, "TaskList", "T1", task_list_json("T1"));
-    tasks.seed_object(OTHER_ACCOUNT, "TaskList", "T2", task_list_json("T2"));
+        .with_account(&Id::from(ACCOUNT))
+        .with_account(&Id::from(OTHER_ACCOUNT));
+    tasks.seed_object(
+        &Id::from(ACCOUNT),
+        "TaskList",
+        &Id::from("T1"),
+        task_list_json("T1"),
+    );
+    tasks.seed_object(
+        &Id::from(OTHER_ACCOUNT),
+        "TaskList",
+        &Id::from("T2"),
+        task_list_json("T2"),
+    );
     tasks
 }
 

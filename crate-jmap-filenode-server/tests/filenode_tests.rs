@@ -11,6 +11,7 @@ use jmap_filenode_server::{
 };
 use jmap_filenode_types::FileNode;
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use jmap_types::Invocation;
 use serde_json::json;
 
@@ -43,7 +44,7 @@ fn make_dir(id: &str, name: &str, parent_id: Option<&str>) -> FileNode {
 
 #[tokio::test]
 async fn filenode_set_create_without_type_is_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -83,7 +84,7 @@ async fn filenode_set_create_without_type_is_rejected() {
 
 #[tokio::test]
 async fn filenode_set_create_file_requires_blobid() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Explicitly set @type File but leave blobId null.
     let args = json!({
@@ -130,10 +131,10 @@ async fn filenode_set_create_file_requires_blobid() {
 
 #[tokio::test]
 async fn filenode_set_destroy_leaf_node_succeeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed a leaf node (no children).
-    backend.seed_node("acc1", make_dir("leaf-1", "leafdir", None));
+    backend.seed_node(&Id::from("acc1"), make_dir("leaf-1", "leafdir", None));
 
     let args = json!({
         "accountId": "acc1",
@@ -168,11 +169,14 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
 
 #[tokio::test]
 async fn filenode_set_destroy_parent_node_has_children() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed a parent and a child.
-    backend.seed_node("acc1", make_dir("parent-1", "parent", None));
-    backend.seed_node("acc1", make_dir("child-1", "child", Some("parent-1")));
+    backend.seed_node(&Id::from("acc1"), make_dir("parent-1", "parent", None));
+    backend.seed_node(
+        &Id::from("acc1"),
+        make_dir("child-1", "child", Some("parent-1")),
+    );
 
     // Destroy only the parent; child is not in the destroy list.
     // §3.2.3: if onDestroyRemoveChildren is false, this MUST return nodeHasChildren.
@@ -208,11 +212,14 @@ async fn filenode_set_destroy_parent_node_has_children() {
 
 #[tokio::test]
 async fn filenode_set_destroy_with_remove_children_cascades() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed parent and child.
-    backend.seed_node("acc1", make_dir("parent-2", "parent", None));
-    backend.seed_node("acc1", make_dir("child-2", "child", Some("parent-2")));
+    backend.seed_node(&Id::from("acc1"), make_dir("parent-2", "parent", None));
+    backend.seed_node(
+        &Id::from("acc1"),
+        make_dir("child-2", "child", Some("parent-2")),
+    );
 
     // With onDestroyRemoveChildren=true, both parent and child must be destroyed.
     let args = json!({
@@ -258,12 +265,12 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
 
 #[tokio::test]
 async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Build a three-level tree: A -> B -> C.
-    backend.seed_node("acc1", make_dir("A", "A", None));
-    backend.seed_node("acc1", make_dir("B", "B", Some("A")));
-    backend.seed_node("acc1", make_dir("C", "C", Some("B")));
+    backend.seed_node(&Id::from("acc1"), make_dir("A", "A", None));
+    backend.seed_node(&Id::from("acc1"), make_dir("B", "B", Some("A")));
+    backend.seed_node(&Id::from("acc1"), make_dir("C", "C", Some("B")));
 
     // Destroy {A, B} but NOT C. C is uncovered, so both A and B must
     // appear in notDestroyed with nodeHasChildren.
@@ -329,11 +336,11 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
 
 #[tokio::test]
 async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
-    backend.seed_node("acc1", make_dir("FA", "FA", None));
-    backend.seed_node("acc1", make_dir("FB", "FB", Some("FA")));
-    backend.seed_node("acc1", make_dir("FC", "FC", Some("FB")));
+    backend.seed_node(&Id::from("acc1"), make_dir("FA", "FA", None));
+    backend.seed_node(&Id::from("acc1"), make_dir("FB", "FB", Some("FA")));
+    backend.seed_node(&Id::from("acc1"), make_dir("FC", "FC", Some("FB")));
 
     let args = json!({
         "accountId": "acc1",
@@ -371,7 +378,7 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
 
 #[tokio::test]
 async fn filenode_get_returns_created_node() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Create a node via FileNode/set.
     let set_args = json!({
@@ -430,7 +437,7 @@ async fn filenode_get_returns_created_node() {
 
 #[tokio::test]
 async fn filenode_get_fetch_parents_returns_ancestor() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Create a parent node.
     let HandlerOutput {
@@ -515,7 +522,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
 
 #[tokio::test]
 async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let node_id = create_node(&backend, "acc1", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -549,7 +556,7 @@ async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
 
 #[tokio::test]
 async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Build a parent with two children sharing it.
     let parent_id = create_node(&backend, "acc1", "parent", None, "p1").await;
@@ -593,7 +600,7 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
 
 #[tokio::test]
 async fn filenode_query_depth_one_returns_children() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Create a top-level directory.
     let HandlerOutput {
@@ -671,7 +678,7 @@ async fn filenode_query_depth_one_returns_children() {
 
 #[tokio::test]
 async fn filenode_changes_after_create_shows_in_created_list() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Record state before any creation.
     let pre_state = {
@@ -744,7 +751,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
 
 #[tokio::test]
 async fn filenode_changes_unparseable_since_state_cannot_calculate() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let err = handle_filenode_changes(
         &backend,
@@ -775,7 +782,7 @@ async fn filenode_changes_unparseable_since_state_cannot_calculate() {
 
 #[tokio::test]
 async fn filenode_set_create_replace_with_remove_children_cascades() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed: parent "old_dir" at root, with one child "old_child".
     let HandlerOutput {
@@ -868,7 +875,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
 
 #[tokio::test]
 async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed: parent + child.
     let HandlerOutput {
@@ -968,7 +975,9 @@ async fn create_node(
 
 #[tokio::test]
 async fn filenode_copy_default_collision_returns_already_exists() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     // Pre-seed a collision in the destination.
@@ -1003,7 +1012,9 @@ async fn filenode_copy_default_collision_returns_already_exists() {
 
 #[tokio::test]
 async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     // Pre-seed a collision in the destination.
@@ -1046,7 +1057,9 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
 
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let existing_id = create_node(&backend, "dst", "doc", None, "e").await;
@@ -1098,7 +1111,9 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
 
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     // Pre-seed a colliding directory WITH a child in the destination.
@@ -1163,7 +1178,9 @@ fn destroyed_ids(resp: &serde_json::Value) -> Vec<String> {
 
 #[tokio::test]
 async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let parent = create_node(&backend, "dst", "doc", None, "ep").await;
@@ -1196,13 +1213,15 @@ async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
 
 #[tokio::test]
 async fn filenode_copy_newest_replace_lists_destroyed_id() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     backend.seed_node(
-        "src",
+        &Id::from("src"),
         make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
     );
     backend.seed_node(
-        "dst",
+        &Id::from("dst"),
         make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
     );
 
@@ -1229,7 +1248,9 @@ async fn filenode_copy_newest_replace_lists_destroyed_id() {
 
 #[tokio::test]
 async fn filenode_copy_without_collision_omits_destroyed() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
@@ -1266,17 +1287,19 @@ async fn filenode_copy_without_collision_omits_destroyed() {
 
 #[tokio::test]
 async fn filenode_copy_newest_cascade_lists_all_destroyed_ids() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     backend.seed_node(
-        "src",
+        &Id::from("src"),
         make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
     );
     backend.seed_node(
-        "dst",
+        &Id::from("dst"),
         make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
     );
     backend.seed_node(
-        "dst",
+        &Id::from("dst"),
         make_dir_with_modified("dst-2", "child", Some("dst-1"), "2020-01-01T00:00:00Z"),
     );
 
@@ -1309,13 +1332,15 @@ async fn filenode_copy_newest_cascade_lists_all_destroyed_ids() {
 #[tokio::test]
 async fn filenode_copy_newest_not_later_omits_destroyed() {
     // Equal timestamps: the incoming item is not "strictly later".
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     backend.seed_node(
-        "src",
+        &Id::from("src"),
         make_dir_with_modified("src-1", "doc", None, "2020-01-01T00:00:00Z"),
     );
     backend.seed_node(
-        "dst",
+        &Id::from("dst"),
         make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
     );
 
@@ -1346,7 +1371,9 @@ async fn filenode_copy_replace_with_children_without_flag_omits_destroyed() {
     // L677-682: "if the replaced item is a Directory which has children,
     // then the server MUST respond with a nodeHasChildren error to this
     // action unless onDestroyRemoveChildren is true."
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let parent = create_node(&backend, "dst", "doc", None, "ep").await;
     create_node(&backend, "dst", "child", Some(&parent), "ec").await;
@@ -1374,7 +1401,9 @@ async fn filenode_copy_replace_with_children_without_flag_omits_destroyed() {
 
 #[tokio::test]
 async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
@@ -1427,7 +1456,9 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
 
 #[tokio::test]
 async fn filenode_copy_applies_arbitrary_property_overrides() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     // Source has role=null. The copy supplies role="documents" override.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
@@ -1462,7 +1493,9 @@ async fn filenode_copy_applies_arbitrary_property_overrides() {
 
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_with_flag_cascades() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let existing_parent = create_node(&backend, "dst", "doc", None, "ep").await;
@@ -1528,7 +1561,9 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
 
 #[tokio::test]
 async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     // Seed a source node so the source account is in a non-trivial state.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
@@ -1586,7 +1621,9 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
 
 #[tokio::test]
 async fn filenode_copy_if_from_in_state_match_proceeds() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
@@ -1643,7 +1680,9 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
 
 #[tokio::test]
 async fn filenode_copy_on_success_destroy_original_destroys_source() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     // A single leaf node in src that we will move to dst.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
@@ -1742,7 +1781,9 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
 async fn copy_with_destroy_from_if_in_state(
     destroy_from_if_in_state: Option<&str>,
 ) -> (Vec<jmap_types::Invocation>, bool) {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let get_src = || {
         handle_filenode_get(
@@ -1824,7 +1865,9 @@ async fn filenode_copy_destroy_from_if_in_state_match_destroys_original() {
 
 #[tokio::test]
 async fn filenode_copy_on_success_destroy_original_node_has_children() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     // src has a parent directory with a child; we copy the parent only.
     let src_parent = create_node(&backend, "src", "parent", None, "p").await;
@@ -1895,7 +1938,7 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
 
 #[tokio::test]
 async fn filenode_copy_same_account_under_own_descendant_returns_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Build A -> B in acc1.
     let a_id = create_node(&backend, "acc1", "A", None, "a").await;
@@ -1933,7 +1976,7 @@ async fn filenode_copy_same_account_under_own_descendant_returns_invalid_propert
 
 #[tokio::test]
 async fn filenode_copy_same_account_to_own_id_returns_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let a_id = create_node(&backend, "acc1", "A", None, "a").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
@@ -1970,7 +2013,7 @@ async fn filenode_copy_same_account_to_own_id_returns_invalid_properties() {
 #[tokio::test]
 async fn filenode_copy_unknown_from_account_returns_from_account_not_found() {
     // Only 'dst' is registered; 'src' is unknown.
-    let backend = MemoryBackend::new().with_account("dst");
+    let backend = MemoryBackend::new().with_account(&Id::from("dst"));
 
     let err = handle_filenode_copy(
         &backend,
@@ -1998,7 +2041,7 @@ async fn filenode_copy_unknown_from_account_returns_from_account_not_found() {
 #[tokio::test]
 async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
     // Only 'src' is registered; 'dst' is unknown.
-    let backend = MemoryBackend::new().with_account("src");
+    let backend = MemoryBackend::new().with_account(&Id::from("src"));
 
     let err = handle_filenode_copy(
         &backend,
@@ -2033,7 +2076,7 @@ async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
 
 #[tokio::test]
 async fn filenode_query_role_filter_excludes_non_matching() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
@@ -2080,7 +2123,7 @@ async fn filenode_query_role_filter_excludes_non_matching() {
 
 #[tokio::test]
 async fn filenode_query_body_filter_returns_server_fail() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let _ = create_node(&backend, "acc1", "doc", None, "s").await;
 
     let result = handle_filenode_query(
@@ -2114,7 +2157,7 @@ async fn filenode_query_body_filter_returns_server_fail() {
 
 #[tokio::test]
 async fn filenode_set_state_advances_on_successful_create() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
@@ -2149,7 +2192,7 @@ async fn filenode_set_state_advances_on_successful_create() {
 
 #[tokio::test]
 async fn filenode_set_state_stays_when_all_creates_fail() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // A file node without blobId is invalidProperties per draft §3.1.
     // The whole /set has no successful mutation, so state MUST NOT
@@ -2198,7 +2241,7 @@ async fn filenode_set_state_stays_when_all_creates_fail() {
 
 #[tokio::test]
 async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Mixed batch: one valid directory create (will succeed), one file
     // without blobId (will fail with invalidProperties). State must
@@ -2305,11 +2348,11 @@ fn make_dir_with_modified(
 /// Oracle: incoming modified is strictly later → behaves like "replace".
 #[tokio::test]
 async fn filenode_set_on_exists_newest_incoming_wins() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed an existing directory with an older modified timestamp.
     backend.seed_node(
-        "acc1",
+        &Id::from("acc1"),
         make_dir_with_modified("existing-1", "shared", None, "2020-01-01T00:00:00Z"),
     );
 
@@ -2354,11 +2397,11 @@ async fn filenode_set_on_exists_newest_incoming_wins() {
 /// Oracle: existing modified is later or equal → reject with alreadyExists.
 #[tokio::test]
 async fn filenode_set_on_exists_newest_existing_wins() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed an existing directory with a LATER modified timestamp.
     backend.seed_node(
-        "acc1",
+        &Id::from("acc1"),
         make_dir_with_modified("existing-2", "shared", None, "2025-06-01T00:00:00Z"),
     );
 
@@ -2404,10 +2447,10 @@ async fn filenode_set_on_exists_newest_existing_wins() {
 /// is NOT strictly later (empty == empty), so reject with alreadyExists.
 #[tokio::test]
 async fn filenode_set_on_exists_newest_both_missing_modified() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed a directory with no modified timestamp.
-    backend.seed_node("acc1", make_dir("existing-3", "shared", None));
+    backend.seed_node(&Id::from("acc1"), make_dir("existing-3", "shared", None));
 
     // Create a new node with the same name — also no modified timestamp.
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -2446,16 +2489,18 @@ async fn filenode_set_on_exists_newest_both_missing_modified() {
 /// is strictly later → replace in destination account.
 #[tokio::test]
 async fn filenode_copy_on_exists_newest_incoming_wins() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
 
     // Source node with a LATER modified timestamp.
     backend.seed_node(
-        "src",
+        &Id::from("src"),
         make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
     );
     // Destination node with an OLDER modified timestamp.
     backend.seed_node(
-        "dst",
+        &Id::from("dst"),
         make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
     );
 
@@ -2508,7 +2553,7 @@ async fn filenode_copy_on_exists_newest_incoming_wins() {
 /// MUST return nodeHasChildren — the cascade guard is preserved.
 #[tokio::test]
 async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed: parent "shared" with a child.
     let HandlerOutput {
@@ -2584,7 +2629,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
 /// MUST cascade-destroy children and create the new node.
 #[tokio::test]
 async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed: parent "shared" with a child.
     let HandlerOutput {
@@ -2679,11 +2724,11 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
 /// compared lexicographically without validation.
 #[tokio::test]
 async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     // Seed with a real modified timestamp.
     backend.seed_node(
-        "acc1",
+        &Id::from("acc1"),
         make_dir_with_modified("existing-m", "shared", None, "2020-01-01T00:00:00Z"),
     );
 
@@ -2735,7 +2780,9 @@ async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
 
 #[tokio::test]
 async fn filenode_copy_rejects_invalid_type_overrides() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
@@ -2777,7 +2824,7 @@ async fn filenode_copy_rejects_invalid_type_overrides() {
 
 #[tokio::test]
 async fn filenode_set_unsupported_type_description_names_values() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
@@ -2813,7 +2860,7 @@ async fn filenode_set_unsupported_type_description_names_values() {
 
 #[tokio::test]
 async fn filenode_set_update_rejects_other_type_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
@@ -2868,7 +2915,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
 
 #[tokio::test]
 async fn filenode_set_update_ignores_null_other_type_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -2905,7 +2952,7 @@ async fn filenode_set_update_ignores_null_other_type_properties() {
 // check and ended as serverFail.
 #[tokio::test]
 async fn filenode_set_update_rejects_other_type_pointer_key() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -2934,7 +2981,7 @@ async fn filenode_set_update_rejects_other_type_pointer_key() {
 // control). Regression for bd JMAP-4vf8.18.
 #[tokio::test]
 async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let ptr_id = create_node(&backend, "acc1", "p", None, "p").await;
     let ctl_id = create_node(&backend, "acc1", "c", None, "c").await;
 
@@ -2970,7 +3017,7 @@ async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
 // "invalidProperties" error." Regression for bd JMAP-4vf8.16.
 #[tokio::test]
 async fn filenode_set_update_rejects_type_change() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -3011,7 +3058,7 @@ async fn filenode_set_update_rejects_type_change() {
 // ---------------------------------------------------------------------------
 
 async fn assert_invalid_create_keeps_existing(on_exists: &str) {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let existing_id = create_node(&backend, "acc1", "doc", None, "e").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -3074,7 +3121,7 @@ async fn filenode_set_create_invalid_newest_keeps_existing() {
 
 #[tokio::test]
 async fn filenode_set_create_rejects_other_type_property() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
@@ -3098,7 +3145,7 @@ async fn filenode_set_create_rejects_other_type_property() {
 
 #[tokio::test]
 async fn filenode_set_create_ignores_null_other_type_property() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
@@ -3128,7 +3175,9 @@ async fn filenode_set_create_ignores_null_other_type_property() {
 
 #[tokio::test]
 async fn filenode_copy_rejects_other_type_property() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
@@ -3177,7 +3226,7 @@ async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec
 /// server time."
 #[tokio::test]
 async fn filenode_set_update_null_modified_accessed_sets_server_time() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let old = "2000-01-01T00:00:00Z";
     let ids = create_nodes(
         &backend,
@@ -3222,7 +3271,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
 /// "invalidProperties" error."
 #[tokio::test]
 async fn filenode_set_update_null_type_property_is_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let ids = create_nodes(
         &backend,
         json!({
@@ -3276,7 +3325,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
 /// invalid in some way."
 #[tokio::test]
 async fn filenode_set_update_null_name_is_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let id = create_node(&backend, "acc1", "keep", None, "d").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -3312,7 +3361,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
 /// types executable as "Boolean".
 #[tokio::test]
 async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let ids = create_nodes(
         &backend,
         json!({
@@ -3364,7 +3413,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
 /// "If set to null, the server MUST set it to the current server time."
 #[tokio::test]
 async fn filenode_set_create_null_modified_accessed_sets_server_time() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let before = jmap_server::now_utc_string();
     let ids = create_nodes(
         &backend,
@@ -3403,7 +3452,7 @@ async fn filenode_set_create_null_modified_accessed_sets_server_time() {
 /// this property".
 #[tokio::test]
 async fn filenode_set_update_null_defaulted_resets_to_default() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let old = "2000-01-01T00:00:00Z";
     let ids = create_nodes(
         &backend,
@@ -3473,7 +3522,7 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
 
 #[tokio::test]
 async fn filenode_query_space_id_returns_only_matching_space_root() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
@@ -3567,7 +3616,7 @@ async fn get_space_id(backend: &MemoryBackend, id: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn filenode_set_create_space_id_on_non_root_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
@@ -3597,14 +3646,14 @@ async fn filenode_set_create_space_id_on_non_root_rejected() {
 
 #[tokio::test]
 async fn filenode_set_create_space_root_reports_space_id() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let root = create_space_root(&backend, "S1").await;
     assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L132");
 }
 
 #[tokio::test]
 async fn filenode_set_update_space_id_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let root = create_space_root(&backend, "S1").await;
     for patch in [json!({ "spaceId": "S2" }), json!({ "spaceId": null })] {
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -3628,8 +3677,8 @@ async fn filenode_set_update_space_id_rejected() {
 
 #[tokio::test]
 async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_node("acc1", make_dir("d1", "plain", None));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_node(&Id::from("acc1"), make_dir("d1", "plain", None));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
@@ -3647,7 +3696,7 @@ async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
 
 #[tokio::test]
 async fn filenode_set_update_role_off_space_root_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let root = create_space_root(&backend, "S1").await;
     for patch in [json!({ "role": "documents" }), json!({ "role": null })] {
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -3679,8 +3728,8 @@ async fn filenode_set_update_role_off_space_root_rejected() {
 //          `role`."
 #[tokio::test]
 async fn filenode_set_update_role_to_chatspace_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_node("acc1", make_dir("d1", "plain", None));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_node(&Id::from("acc1"), make_dir("d1", "plain", None));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
@@ -3707,7 +3756,7 @@ async fn filenode_set_update_role_to_chatspace_rejected() {
 
 #[tokio::test]
 async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let root = create_space_root(&backend, "S1").await;
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
@@ -3736,7 +3785,7 @@ async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
 
 #[tokio::test]
 async fn filenode_query_evaluates_operator_tree() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let HandlerOutput {
         primary: set_resp, ..

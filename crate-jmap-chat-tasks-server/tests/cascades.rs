@@ -134,9 +134,19 @@ async fn chat_exists<C: ChatBackend<CallerCtx = ()>>(chat: &C, id: &str) -> bool
 /// updated. A Space bound to another TaskList keeps its binding.
 #[tokio::test]
 async fn task_list_destroy_clears_space_task_list_id() {
-    let tasks = TasksMemory::new().with_account(ACCOUNT);
-    tasks.seed_object(ACCOUNT, "TaskList", "T1", task_list_json("T1"));
-    tasks.seed_object(ACCOUNT, "TaskList", "T2", task_list_json("T2"));
+    let tasks = TasksMemory::new().with_account(&Id::from(ACCOUNT));
+    tasks.seed_object(
+        &Id::from(ACCOUNT),
+        "TaskList",
+        &Id::from("T1"),
+        task_list_json("T1"),
+    );
+    tasks.seed_object(
+        &Id::from(ACCOUNT),
+        "TaskList",
+        &Id::from("T2"),
+        task_list_json("T2"),
+    );
     let chat = chat();
     let bound = create_space(&chat, "T1").await;
     let other = create_space(&chat, "T2").await;
@@ -177,27 +187,37 @@ async fn task_list_destroy_clears_space_task_list_id() {
 /// or none, are unchanged.
 #[tokio::test]
 async fn chat_destroy_clears_task_chat_ids() {
-    let tasks = TasksMemory::new().with_account(ACCOUNT);
-    tasks.seed_object(ACCOUNT, "TaskList", "TL", task_list_json("TL"));
+    let tasks = TasksMemory::new().with_account(&Id::from(ACCOUNT));
     tasks.seed_object(
-        ACCOUNT,
+        &Id::from(ACCOUNT),
+        "TaskList",
+        &Id::from("TL"),
+        task_list_json("TL"),
+    );
+    tasks.seed_object(
+        &Id::from(ACCOUNT),
         "Task",
-        "t1",
+        &Id::from("t1"),
         task_json("t1", json!({ "chatId": "C1" })),
     );
     tasks.seed_object(
-        ACCOUNT,
+        &Id::from(ACCOUNT),
         "Task",
-        "t2",
+        &Id::from("t2"),
         task_json("t2", json!({ "chatId": "C1" })),
     );
     tasks.seed_object(
-        ACCOUNT,
+        &Id::from(ACCOUNT),
         "Task",
-        "t3",
+        &Id::from("t3"),
         task_json("t3", json!({ "chatId": "C2" })),
     );
-    tasks.seed_object(ACCOUNT, "Task", "t4", task_json("t4", json!({})));
+    tasks.seed_object(
+        &Id::from(ACCOUNT),
+        "Task",
+        &Id::from("t4"),
+        task_json("t4", json!({})),
+    );
     let (_, before) = task_get(&tasks).await;
 
     clear_task_chat_ids(&tasks, &(), &Id::from(ACCOUNT), &Id::from("C1"))
@@ -231,12 +251,17 @@ async fn chat_destroy_clears_task_chat_ids() {
 /// `C1` in place ("The Chat persists independently").
 #[tokio::test]
 async fn task_destroy_leaves_its_chat() {
-    let tasks = TasksMemory::new().with_account(ACCOUNT);
-    tasks.seed_object(ACCOUNT, "TaskList", "TL", task_list_json("TL"));
+    let tasks = TasksMemory::new().with_account(&Id::from(ACCOUNT));
     tasks.seed_object(
-        ACCOUNT,
+        &Id::from(ACCOUNT),
+        "TaskList",
+        &Id::from("TL"),
+        task_list_json("TL"),
+    );
+    tasks.seed_object(
+        &Id::from(ACCOUNT),
         "Task",
-        "t1",
+        &Id::from("t1"),
         task_json("t1", json!({ "chatId": "C1" })),
     );
     let chat = chat();

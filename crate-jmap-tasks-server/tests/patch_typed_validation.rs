@@ -14,17 +14,18 @@ use jmap_server::HandlerOutput;
 use jmap_tasks_server::{
     handle_task_get, handle_task_list_get, handle_task_list_set, handle_task_set,
 };
+use jmap_types::Id;
 use serde_json::json;
 
 /// draft-ietf-jmap-tasks-06 line 397: "*name*: String The user-visible name
 /// of the task list." No default is specified, so `null` removes it.
 #[tokio::test]
 async fn task_list_null_name_rejected_and_get_still_succeeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "TaskList",
-        "tl1",
+        &Id::from("tl1"),
         json!({
             "id": "tl1",
             "name": "Chores",
@@ -67,11 +68,11 @@ async fn task_list_null_name_rejected_and_get_still_succeeds() {
 /// free text value of this comment."
 #[tokio::test]
 async fn task_null_comment_message_rejected_and_get_still_succeeds() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "Task",
-        "t1",
+        &Id::from("t1"),
         json!({
             "id": "t1",
             "@type": "Task",
@@ -115,11 +116,11 @@ async fn task_null_comment_message_rejected_and_get_still_succeeds() {
 /// back to true.
 #[tokio::test]
 async fn task_is_draft_null_then_true_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "Task",
-        "t1",
+        &Id::from("t1"),
         json!({
             "id": "t1",
             "@type": "Task",

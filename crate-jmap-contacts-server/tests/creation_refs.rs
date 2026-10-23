@@ -19,6 +19,8 @@ mod common;
 
 use std::sync::Arc;
 
+use jmap_types::Id;
+
 use common::MemoryBackend;
 use jmap_contacts_server::register_contacts_handlers;
 use jmap_server::Dispatcher;
@@ -31,7 +33,7 @@ fn dispatcher() -> Dispatcher<()> {
     let mut dispatcher = Dispatcher::new();
     register_contacts_handlers(
         &mut dispatcher,
-        Arc::new(MemoryBackend::new().with_account(ACCOUNT)),
+        Arc::new(MemoryBackend::new().with_account(&Id::from(ACCOUNT))),
     );
     dispatcher
 }

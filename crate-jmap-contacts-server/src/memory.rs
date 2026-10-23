@@ -384,27 +384,17 @@ impl MemoryBackend {
         Self::default()
     }
 
-    /// Register an account as known even if it has no objects yet.
-    /// Returns `self` for builder-style chaining.
+    /// Register `account_id` as known and return `self`, for
+    /// builder-style fixture setup. Same as [`Self::register_account`]
+    /// (idempotent; the id is stored without RFC 8620 §1.2 validation).
     ///
     /// # Panics
     ///
-    /// In debug builds: panics if `account_id` is the empty string.
-    /// `Id::from("")` is infallible (the [`jmap_types::Id`] newtype
-    /// accepts any `&str`) and would silently register a "phantom"
-    /// account that subsequent `AddressBook/get {accountId: ""}`
-    /// calls would resolve against — useful for nothing, a likely
-    /// copy-paste hazard in tests (bd:JMAP-qz9v.17). The check is
-    /// `debug_assert!` so release builds remain permissive for the
-    /// rare case a test deliberately exercises the empty-id edge.
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
     #[must_use]
-    pub fn with_account(self, account_id: &str) -> Self {
-        debug_assert!(
-            !account_id.is_empty(),
-            "with_account: account_id must not be the empty string \
-             (bd:JMAP-qz9v.17)"
-        );
-        self.register_account(&Id::from(account_id));
+    pub fn with_account(self, account_id: &Id) -> Self {
+        self.register_account(account_id);
         self
     }
 
@@ -422,8 +412,8 @@ impl MemoryBackend {
     ///
     /// # Panics
     ///
-    /// In debug builds: panics if `account_id` is the empty string. See
-    /// [`Self::with_account`] for the rationale (bd:JMAP-qz9v.17).
+    /// In debug builds: panics if `account_id` is the empty string
+    /// (RFC 8620 §1.2, bd:JMAP-qz9v.17).
     #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id) {
         debug_assert!(
@@ -456,65 +446,52 @@ impl MemoryBackend {
     ///   or `json!({"id": "wrong-id"})` that would otherwise surface much
     ///   later as opaque `MemoryError("deserialize ...")` from `get_objects`.
     ///
-    /// bd:JMAP-qz9v.35 (mirrors the canonical jmap-calendars-server pattern
-    /// established by bd:JMAP-ic0j.32 / bd:JMAP-ic0j.69). The fixture-setup
+    /// bd:JMAP-qz9v.35; the signature mirrors
+    /// `jmap_mail_server::memory::MemoryBackend::seed_object`
+    /// (bd:JMAP-9f05). The fixture-setup
     /// contract is documented in two places (this rustdoc + the panic
     /// messages) so a test author who hits the panic at runtime gets
     /// actionable guidance without having to read the source.
     pub fn seed_object(
         &self,
-        account_id: &str,
-        type_name: &str,
-        id: &str,
+        account_id: &Id,
+        type_name: &'static str,
+        id: &Id,
         value: serde_json::Value,
     ) {
-        // Catch typos in `type_name` at the seed boundary rather than
-        // letting them silently corrupt the fixture into a dead namespace.
-        //
-        // The `type_name` parameter is `&str` (not `&'static str`) so test
-        // authors can pass computed values from parameterised fixtures.
-        // The inner storage keys require `&'static str` though, so the
-        // dispatch below rebinds the accepted input to the matching
-        // `&'static str` literal (mirrors jmap-calendars-server).
-        const ADDRESS_BOOK: &str = "AddressBook";
-        const CONTACT_CARD: &str = "ContactCard";
-        const KNOWN_TYPES: &[&str] = &[ADDRESS_BOOK, CONTACT_CARD];
-        let static_type_name: &'static str = match type_name {
-            ADDRESS_BOOK => ADDRESS_BOOK,
-            CONTACT_CARD => CONTACT_CARD,
-            _ => panic!(
-                "seed_object: type_name {type_name:?} is not one of the known \
-                 jmap-contacts-types TYPE_NAME values {KNOWN_TYPES:?}. \
-                 Likely a typo — the lookup would silently store into a dead \
-                 namespace no method reads from."
-            ),
-        };
-
-        // Validate the value's shape at the seed boundary so a malformed
-        // fixture fails fast HERE, not in the get_objects deserialize path.
-        let obj = value.as_object().unwrap_or_else(|| {
-            panic!(
-                "seed_object: value must be a JSON object with an `id` field, \
-                 got {value:?}"
-            )
-        });
-        let value_id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_else(|| {
-            panic!("seed_object: value must contain an `id` string field; got value = {value:?}")
-        });
-        assert_eq!(
-            value_id, id,
-            "seed_object: value's `id` field {value_id:?} does not match the \
-             `id` argument {id:?} — the object would be reachable by the arg \
-             id but its serialized form would carry the value-id, breaking \
-             round-trip"
+        const KNOWN_TYPES: &[&str] = &[
+            jmap_contacts_types::AddressBook::TYPE_NAME,
+            jmap_contacts_types::ContactCard::TYPE_NAME,
+        ];
+        assert!(
+            KNOWN_TYPES.contains(&type_name),
+            "seed_object: type_name {type_name:?} is not one of the known \
+             TYPE_NAME values {KNOWN_TYPES:?}"
         );
-
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!("seed_object: value must be a JSON object with an `id` field, got {value:?}")
+        });
+        let value_id = obj
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must contain an `id` string field; got value = {value:?}"
+                )
+            });
+        assert_eq!(
+            value_id,
+            id.as_ref(),
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?}"
+        );
+        let account_id = account_id.as_ref();
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
         inner
-            .objects_mut(static_type_name, account_id)
-            .insert(Id::from(id), value);
-        if static_type_name == CONTACT_CARD {
+            .objects_mut(type_name, account_id)
+            .insert(id.clone(), value);
+        if type_name == jmap_contacts_types::ContactCard::TYPE_NAME {
             // bd:JMAP-ic0j.74 — `seed_object` bypasses the trait-impl
             // mutators that maintain the incremental reverse index, so
             // fall back to a full rebuild of `address_book_card_counts`.
@@ -2129,11 +2106,11 @@ mod address_book_card_counts_tests {
     /// of exactly 1 under book1, and no entry for any other book.
     #[test]
     fn seed_single_card_single_book_count_is_one() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "card1",
+            &Id::from("card1"),
             serde_json::json!({"id": "card1", "addressBookIds": {"book1": true}}),
         );
         assert_eq!(count(&backend, "acc1", "book1"), 1);
@@ -2144,17 +2121,17 @@ mod address_book_card_counts_tests {
     /// of 2 — verifies the counter accumulates rather than overwriting.
     #[test]
     fn seed_two_cards_same_book_count_is_two() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "card1",
+            &Id::from("card1"),
             serde_json::json!({"id": "card1", "addressBookIds": {"book1": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "card2",
+            &Id::from("card2"),
             serde_json::json!({"id": "card2", "addressBookIds": {"book1": true}}),
         );
         assert_eq!(count(&backend, "acc1", "book1"), 2);
@@ -2166,11 +2143,11 @@ mod address_book_card_counts_tests {
     /// a `Map<Id, bool>`).
     #[test]
     fn seed_card_with_multiple_books_each_gets_one() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "card1",
+            &Id::from("card1"),
             serde_json::json!({
                 "id": "card1",
                 "addressBookIds": {"book1": true, "book2": true}
@@ -2192,23 +2169,23 @@ mod address_book_card_counts_tests {
     /// used elsewhere in this module is itself sound.
     #[test]
     fn seed_then_seed_yields_correct_counts() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "card1",
+            &Id::from("card1"),
             serde_json::json!({"id": "card1", "addressBookIds": {"book1": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "card2",
+            &Id::from("card2"),
             serde_json::json!({"id": "card2", "addressBookIds": {"book2": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "card3",
+            &Id::from("card3"),
             serde_json::json!({"id": "card3", "addressBookIds": {"book2": true, "book3": true}}),
         );
         assert_eq!(count(&backend, "acc1", "book1"), 1);
@@ -2254,21 +2231,21 @@ mod address_book_card_counts_tests {
     /// final equality check fails.
     #[tokio::test]
     async fn incremental_matches_full_rescan_under_mixed_workload() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
         // Seed two cards: one in book1, one in book2. Seed triggers a
         // full rescan, so after this the index is whatever rescan
         // produces.
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "seed1",
+            &Id::from("seed1"),
             serde_json::json!({"id": "seed1", "addressBookIds": {"book1": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "ContactCard",
-            "seed2",
+            &Id::from("seed2"),
             serde_json::json!({"id": "seed2", "addressBookIds": {"book2": true}}),
         );
 
@@ -2338,7 +2315,7 @@ mod address_book_card_counts_tests {
     /// incremental path through both production code branches.
     #[tokio::test]
     async fn create_then_destroy_removes_entry() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let (id, _) = backend
             .create_object::<jmap_contacts_types::ContactCard, _>(
                 &(),
@@ -2366,7 +2343,7 @@ mod address_book_card_counts_tests {
     /// prematurely.
     #[tokio::test]
     async fn create_two_destroy_one_keeps_entry() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let (id1, _) = backend
             .create_object::<jmap_contacts_types::ContactCard, _>(
                 &(),
@@ -2403,7 +2380,7 @@ mod address_book_card_counts_tests {
     /// the entry is removed; book2 count rises to 1.
     #[test]
     fn apply_delta_old_to_new_swaps_book_ids() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let old = serde_json::json!({"addressBookIds": {"book1": true}});
         let new = serde_json::json!({"addressBookIds": {"book2": true}});
 
@@ -2427,7 +2404,7 @@ mod address_book_card_counts_tests {
     /// addressBookIds, the delta is empty and counters are unchanged.
     #[test]
     fn apply_delta_identical_old_new_is_noop() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let v = serde_json::json!({"addressBookIds": {"book1": true, "book2": true}});
 
         // Establish baseline.
@@ -2454,7 +2431,7 @@ mod address_book_card_counts_tests {
     /// RFC 9610 §3, but the helper stays robust.)
     #[test]
     fn apply_delta_value_without_address_book_ids_contributes_nothing() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let bare = serde_json::json!({"id": "card1"}); // no addressBookIds
         let with_ids = serde_json::json!({"addressBookIds": {"book1": true}});
 
@@ -2499,7 +2476,12 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "addressbook", "ab1", json!({"id": "ab1"}));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "addressbook",
+            &Id::from("ab1"),
+            json!({"id": "ab1"}),
+        );
     }
 
     /// Regression for bd:JMAP-qz9v.35: a non-object value panics
@@ -2509,7 +2491,12 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "must be a JSON object")]
     fn seed_object_rejects_non_object_value() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "AddressBook", "ab1", json!(42));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "AddressBook",
+            &Id::from("ab1"),
+            json!(42),
+        );
     }
 
     /// Regression for bd:JMAP-qz9v.35: a value missing the `id` field
@@ -2519,7 +2506,12 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "must contain an `id` string field")]
     fn seed_object_rejects_value_without_id_field() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "AddressBook", "ab1", json!({"name": "Work"}));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "AddressBook",
+            &Id::from("ab1"),
+            json!({"name": "Work"}),
+        );
     }
 
     /// Regression for bd:JMAP-qz9v.35: a value whose `id` field does
@@ -2529,7 +2521,12 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "AddressBook", "ab1", json!({"id": "ab2"}));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "AddressBook",
+            &Id::from("ab1"),
+            json!({"id": "ab2"}),
+        );
     }
 
     /// Positive control: the happy path still works for each of the
@@ -2537,32 +2534,16 @@ mod seed_object_validation_tests {
     #[test]
     fn seed_object_accepts_known_type_names() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "AddressBook", "ab1", json!({"id": "ab1"}));
         backend.seed_object(
-            "acc1",
-            "ContactCard",
-            "card1",
-            json!({"id": "card1", "addressBookIds": {"ab1": true}}),
+            &Id::from("acc1"),
+            "AddressBook",
+            &Id::from("ab1"),
+            json!({"id": "ab1"}),
         );
-    }
-
-    /// Regression for the type_name parameter relaxation (mirrors
-    /// bd:JMAP-ic0j.69 in calendars-server): a non-`'static` `&str`
-    /// (e.g. a `String` slice produced by `format!`) is now accepted.
-    /// The original signature `type_name: &'static str` forced every
-    /// caller to use a string literal; the new signature lets
-    /// parameterised fixtures factor out their type names.
-    #[test]
-    fn seed_object_accepts_non_static_type_name() {
-        let backend = MemoryBackend::new();
-        // Compute the type name at runtime — would have failed to
-        // compile against the previous `&'static str` signature.
-        let prefix = "Contact";
-        let kind = format!("{prefix}Card");
         backend.seed_object(
-            "acc1",
-            &kind,
-            "card1",
+            &Id::from("acc1"),
+            "ContactCard",
+            &Id::from("card1"),
             json!({"id": "card1", "addressBookIds": {"ab1": true}}),
         );
     }

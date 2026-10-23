@@ -452,6 +452,79 @@ impl MemoryBackend {
         inner.known_accounts.insert(account_id.as_ref().to_owned());
     }
 
+    /// Register `account_id` as known and return `self`, for
+    /// builder-style fixture setup. Same as [`Self::register_account`].
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account(self, account_id: &Id) -> Self {
+        self.register_account(account_id);
+        self
+    }
+
+    /// Seed a pre-existing object into the store without bumping the
+    /// state counter or recording a change-log entry. Test-fixture setup
+    /// only; registers `account_id` as known. Mirrors
+    /// `jmap_mail_server::memory::MemoryBackend::seed_object`.
+    ///
+    /// `type_name` is the `TYPE_NAME` of a type this backend stores:
+    /// `"Chat"`, `"Message"`, `"Space"`, `"ChatContact"`, `"ReadPosition"`, `"CustomEmoji"`, `"SpaceInvite"`, `"SpaceBan"`, `"PresenceStatus"`.
+    ///
+    /// # Panics
+    ///
+    /// If `type_name` is not one of the names above, or `value` is not a
+    /// JSON object whose `id` string equals `id`.
+    pub fn seed_object(
+        &self,
+        account_id: &Id,
+        type_name: &'static str,
+        id: &Id,
+        value: serde_json::Value,
+    ) {
+        const KNOWN_TYPES: &[&str] = &[
+            jmap_chat_types::Chat::TYPE_NAME,
+            jmap_chat_types::Message::TYPE_NAME,
+            jmap_chat_types::Space::TYPE_NAME,
+            jmap_chat_types::ChatContact::TYPE_NAME,
+            jmap_chat_types::ReadPosition::TYPE_NAME,
+            jmap_chat_types::CustomEmoji::TYPE_NAME,
+            jmap_chat_types::SpaceInvite::TYPE_NAME,
+            jmap_chat_types::SpaceBan::TYPE_NAME,
+            jmap_chat_types::PresenceStatus::TYPE_NAME,
+        ];
+        assert!(
+            KNOWN_TYPES.contains(&type_name),
+            "seed_object: type_name {type_name:?} is not one of the known \
+             TYPE_NAME values {KNOWN_TYPES:?}"
+        );
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!("seed_object: value must be a JSON object with an `id` field, got {value:?}")
+        });
+        let value_id = obj
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must contain an `id` string field; got value = {value:?}"
+                )
+            });
+        assert_eq!(
+            value_id,
+            id.as_ref(),
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?}"
+        );
+        let account = account_id.as_ref();
+        let mut inner = self.inner.lock().unwrap();
+
+        inner
+            .objects_mut(type_name, account)
+            .insert(id.clone(), value);
+    }
+
     // -------------------------------------------------------------------
     // Test-only helpers
     //
@@ -5759,6 +5832,82 @@ mod clone_tests {
         let a = MemoryBackend::new();
         assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
         assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+    }
+}
+
+#[cfg(test)]
+mod fixture_helper_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// `with_account` makes the account known (RFC 8620 §3.6.2: an
+    /// unknown accountId is `accountNotFound`, so `account_exists` is the
+    /// observable).
+    #[tokio::test]
+    async fn with_account_registers_account() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new().with_account(&acc);
+        assert!(backend.account_exists(&(), &acc).await.unwrap());
+        assert!(
+            !backend
+                .account_exists(&(), &Id::from("acc2"))
+                .await
+                .unwrap()
+        );
+    }
+
+    /// A seeded object is readable, registers its account, and leaves the
+    /// state at its initial value. Fixture: hand-written JSON.
+    #[tokio::test]
+    async fn seed_object_is_readable_without_state_change() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new();
+        let before = backend
+            .get_state::<jmap_chat_types::CustomEmoji>(&(), &acc)
+            .await
+            .unwrap();
+        backend.seed_object(
+            &acc,
+            jmap_chat_types::CustomEmoji::TYPE_NAME,
+            &Id::from("x1"),
+            json!({"id": "x1", "name": "party", "blobId": "b1", "createdBy": "u1", "createdAt": "2026-01-01T00:00:00Z"}),
+        );
+        assert!(backend.account_exists(&(), &acc).await.unwrap());
+        let (found, not_found) = backend
+            .get_objects::<jmap_chat_types::CustomEmoji>(&(), &acc, Some(&[Id::from("x1")]), None)
+            .await
+            .unwrap();
+        assert_eq!(found.len(), 1);
+        assert!(not_found.is_empty());
+        assert_eq!(
+            backend
+                .get_state::<jmap_chat_types::CustomEmoji>(&(), &acc)
+                .await
+                .unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "not one of the known")]
+    fn seed_object_rejects_unknown_type_name() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "NoSuchType",
+            &Id::from("x1"),
+            json!({"id": "x1"}),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "does not match the `id` argument")]
+    fn seed_object_rejects_id_mismatch() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            jmap_chat_types::CustomEmoji::TYPE_NAME,
+            &Id::from("x1"),
+            json!({"id": "other"}),
+        );
     }
 }
 
