@@ -56,7 +56,7 @@ fn seeded_backend() -> MemoryBackend {
 /// Send `ContactCard/set` with `update: { "card1": patch }`.
 async fn update_card1(backend: &MemoryBackend, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "card1": patch } });
-    handle_contact_card_set(backend, &(), args)
+    handle_contact_card_set(backend, &(), &std::collections::BTreeMap::new(), args)
         .await
         .expect("/set must succeed at the method level")
         .primary

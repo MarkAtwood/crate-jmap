@@ -29,6 +29,8 @@
 //! `/copy` call surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
+use std::collections::BTreeMap;
+
 use jmap_contacts_types::ContactCard;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{Value, json};
@@ -36,7 +38,7 @@ use serde_json::{Value, json};
 use crate::ContactsBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    set_error_value,
+    resolve_map_key_refs, set_error_value,
 };
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, reject_read_only_patch,
@@ -95,10 +97,17 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 /// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
 /// maps).
 ///
+/// An `addressBookIds` key, or the id segment of an `addressBookIds/<id>`
+/// patch path, that is a `#creationId` reference names an AddressBook
+/// created earlier in the request and resolves against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3). An unknown
+/// reference is `invalidProperties` naming `addressBookIds`.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -141,11 +150,15 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj_val) in create_map {
+        for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val
                 .as_object()
                 .and_then(reject_server_set::<ContactCard>)
             {
+                not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
+            if let Err(err) = resolve_map_key_refs(&mut obj_val, "addressBookIds", created_ids) {
                 not_created.insert(create_id, set_error_value(&err));
                 continue;
             }
@@ -189,7 +202,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -197,6 +210,10 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_map_key_refs(&mut patch_val, "addressBookIds", created_ids) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -874,9 +891,10 @@ mod tests {
                 }
             }
         });
-        let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+                .await
+                .expect("must not return top-level error");
         let created = &resp["created"];
         assert!(
             created.is_object(),
@@ -1384,7 +1402,7 @@ mod tests {
     async fn set_non_string_destroy_element_does_not_echo_value() {
         let backend = MockBackend::new_with_account("acc");
         let args = json!({ "accountId": "acc", "destroy": [{ "note": "CANARY-zegc" }] });
-        let err = handle_contact_card_set(&backend, &(), args)
+        let err = handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect_err("non-string destroy element must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");

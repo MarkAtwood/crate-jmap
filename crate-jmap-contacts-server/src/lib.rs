@@ -129,8 +129,11 @@ where
     //
     // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
     // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
+    // The optional `$ids` binds `CallContext::created_ids`, the
+    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
+    // use to resolve `#creationId` references.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -139,6 +142,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
+                        $(created_ids: $ids,)?
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -166,8 +170,8 @@ where
     reg!("ContactCard/changes", backend, |b, _ci, a, ctx| {
         handle_contact_card_changes(&*b, &ctx, a).await
     });
-    reg!("ContactCard/set", backend, |b, _ci, a, ctx| {
-        handle_contact_card_set(&*b, &ctx, a).await
+    reg!("ContactCard/set", backend, |b, _ci, a, ctx, ids| {
+        handle_contact_card_set(&*b, &ctx, &ids, a).await
     });
     reg!("ContactCard/copy", backend, |b, ci, a, ctx| {
         handle_contact_card_copy(&*b, &ctx, a, &ci).await
