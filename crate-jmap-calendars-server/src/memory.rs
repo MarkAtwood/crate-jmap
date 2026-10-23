@@ -201,12 +201,12 @@ struct AccountAux {
 /// Shared inner state, behind Arc<Mutex>.
 #[derive(Default)]
 struct Inner {
-    /// `(type_name, account_id)` → `id → serialized object`
-    objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>>,
-    /// `(type_name, account_id)` → current state counter
-    states: HashMap<(&'static str, String), u64>,
-    /// `(type_name, account_id)` → ordered change entries
-    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,
+    /// `type_name` → `account_id` → `id → serialized object`
+    objects: HashMap<&'static str, HashMap<String, HashMap<Id, serde_json::Value>>>,
+    /// `type_name` → `account_id` → current state counter
+    states: HashMap<&'static str, HashMap<String, u64>>,
+    /// `type_name` → `account_id` → ordered change entries
+    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
     /// `account_id` → auxiliary per-account state (defaults, derived indexes)
     aux: HashMap<String, AccountAux>,
     /// Explicitly registered account ids (accounts may exist with no objects yet).
@@ -216,7 +216,8 @@ struct Inner {
 impl Inner {
     fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {
         self.states
-            .get(&(type_name, account_id.to_owned()))
+            .get(type_name)
+            .and_then(|m| m.get(account_id))
             .copied()
             .unwrap_or(0)
     }
@@ -224,7 +225,9 @@ impl Inner {
     fn bump_state(&mut self, type_name: &'static str, account_id: &str) -> u64 {
         let entry = self
             .states
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_insert(0);
         *entry += 1;
         *entry
@@ -237,7 +240,9 @@ impl Inner {
     ) -> &mut HashMap<Id, serde_json::Value> {
         self.known_accounts.insert(account_id.to_owned());
         self.objects
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_default()
     }
 
@@ -246,7 +251,7 @@ impl Inner {
         type_name: &'static str,
         account_id: &str,
     ) -> Option<&HashMap<Id, serde_json::Value>> {
-        self.objects.get(&(type_name, account_id.to_owned()))
+        self.objects.get(type_name).and_then(|m| m.get(account_id))
     }
 
     fn change_log_mut(
@@ -255,7 +260,9 @@ impl Inner {
         account_id: &str,
     ) -> &mut Vec<ChangeEntry> {
         self.change_log
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_default()
     }
 
@@ -280,7 +287,11 @@ impl Inner {
     /// Avoids cloning the CalendarEvent map. bd:JMAP-ic0j.40 / .8.
     fn recompute_calendar_event_counts(&mut self, account_id: &str) {
         let mut counts: HashMap<Id, u32> = HashMap::new();
-        if let Some(map) = self.objects.get(&("CalendarEvent", account_id.to_owned())) {
+        if let Some(map) = self
+            .objects
+            .get("CalendarEvent")
+            .and_then(|m| m.get(account_id))
+        {
             for v in map.values() {
                 if let Some(cal_ids) = v.get("calendarIds").and_then(|c| c.as_object()) {
                     for k in cal_ids.keys() {
@@ -660,7 +671,8 @@ impl JmapBackend for MemoryBackend {
 
         let log = inner
             .change_log
-            .get(&(O::TYPE_NAME, account_id.as_ref().to_owned()))
+            .get(O::TYPE_NAME)
+            .and_then(|m| m.get(account_id.as_ref()))
             .map(Vec::as_slice)
             .unwrap_or(&[]);
 
@@ -1272,9 +1284,16 @@ mod change_log_dedup_tests {
         let mut inner = backend.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
         let max_state = entries.iter().map(|e| e.new_state).max().unwrap_or(0);
-        let key = ("Calendar", account_id.to_owned());
-        inner.change_log.insert(key.clone(), entries);
-        inner.states.insert(key, max_state);
+        inner
+            .change_log
+            .entry("Calendar")
+            .or_default()
+            .insert(account_id.to_owned(), entries);
+        inner
+            .states
+            .entry("Calendar")
+            .or_default()
+            .insert(account_id.to_owned(), max_state);
     }
 
     /// Regression for bd:JMAP-ic0j.15 + bd:JMAP-ic0j.2.
