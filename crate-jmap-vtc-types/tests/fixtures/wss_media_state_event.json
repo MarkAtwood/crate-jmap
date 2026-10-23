@@ -1,0 +1,12 @@
+{
+  "@type": "VTCMediaStateEvent",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
+  "participantId": "01J4XMVQK7NRYS9PPCEHTK4CD0",
+  "mediaState": {
+    "audio": false,
+    "video": true,
+    "screen": false,
+    "raisedHand": false
+  }
+}

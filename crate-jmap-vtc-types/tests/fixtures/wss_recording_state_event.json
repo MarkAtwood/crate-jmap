@@ -1,0 +1,8 @@
+{
+  "@type": "VTCRecordingStateEvent",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
+  "recordingId": "01J4XP2SN9RXVV1SSEGJVT6GH0",
+  "state": "recording",
+  "initiatedBy": "user:bob@example.com"
+}

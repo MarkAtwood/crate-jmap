@@ -1,0 +1,28 @@
+{
+  "created": {
+    "p0": {
+      "id": "01J4XMVQK7NRYS9PPCEHTK4CD0",
+      "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
+      "userId": "user:alice@example.com",
+      "displayName": "Alice Chen",
+      "role": "participant",
+      "joinedAt": "2026-06-05T14:35:22Z",
+      "leftAt": null,
+      "callResponse": null,
+      "joinMethod": "webrtc",
+      "gatewayData": null,
+      "lobbyState": null,
+      "mediaState": {
+        "audio": true,
+        "video": true,
+        "screen": false,
+        "raisedHand": false
+      },
+      "speakerTimeMs": 0,
+      "kickedBy": null,
+      "e2eeFingerprint": null,
+      "unmuteRequested": false,
+      "breakoutCallId": null
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "@type": "VTCCallPush",
+  "accountId": "alice-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+  "callType": "ring"
+}
