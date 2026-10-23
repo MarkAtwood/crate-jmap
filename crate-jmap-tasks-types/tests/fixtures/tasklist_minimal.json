@@ -1,0 +1,15 @@
+{
+        "id": "minid",
+        "name": "Minimal List",
+        "sortOrder": 0,
+        "isSubscribed": false,
+        "myRights": {
+            "mayReadItems": false,
+            "mayWriteAll": false,
+            "mayWriteOwn": false,
+            "mayUpdatePrivate": false,
+            "mayRSVP": false,
+            "mayAdmin": false,
+            "mayDelete": false
+        }
+    }

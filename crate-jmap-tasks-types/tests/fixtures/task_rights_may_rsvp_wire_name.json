@@ -1,0 +1,9 @@
+{
+        "mayReadItems": false,
+        "mayWriteAll": false,
+        "mayWriteOwn": false,
+        "mayUpdatePrivate": false,
+        "mayRSVP": true,
+        "mayAdmin": false,
+        "mayDelete": false
+    }

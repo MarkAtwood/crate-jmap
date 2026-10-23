@@ -1,0 +1,7 @@
+{
+        "accountId": "acc001",
+        "mayShareWith": true,
+        "sendTo": {
+            "imip": "mailto:alice@example.com"
+        }
+    }
