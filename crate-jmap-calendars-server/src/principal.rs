@@ -137,7 +137,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
                 "list": list_json,
             })))
         }
-        Err(AvailabilityError::NotFound) => Err(JmapError::not_found()),
+        Err(AvailabilityError::NotFound) => Err(JmapError::custom("notFound")),
         Err(AvailabilityError::Forbidden) => Err(JmapError::forbidden()),
         Err(AvailabilityError::TooLarge) => Err(JmapError::too_large()),
         Err(AvailabilityError::RateLimit) => Err(JmapError::rate_limit()),

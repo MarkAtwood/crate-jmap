@@ -1,7 +1,6 @@
 //! RFC 8620 §3.6 JMAP method-level error type ([`JmapError`],
 //! [`MethodErrorType`]).
 
-use crate::Id;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -120,9 +119,6 @@ pub struct JmapError {
     /// Human-readable description. Omitted from JSON when `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// The id of the existing record. Only set for `"alreadyExists"` (RFC 8620 §5.4 MUST).
-    #[serde(rename = "existingId", skip_serializing_if = "Option::is_none")]
-    pub existing_id: Option<Id>,
     /// Maximum `maxChanges` value the server will accept. Only set for `"tooManyChanges"` (RFC 8620 §9.6.1 MUST).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
@@ -144,7 +140,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::InvalidArguments,
             description: Some(desc.into()),
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -155,18 +150,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::Forbidden,
             description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
-    /// RFC 8620 §5.3 — "notFound"
-    pub fn not_found() -> Self {
-        Self {
-            error_type: MethodErrorType::from("notFound"),
-            description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -177,7 +160,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::AccountNotFound,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -188,7 +170,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::AccountNotSupportedByMethod,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -199,7 +180,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::AccountReadOnly,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -210,7 +190,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::ServerUnavailable,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -221,7 +200,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::ServerFail,
             description: Some(desc.into()),
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -232,7 +210,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::ServerPartialFail,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -243,7 +220,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::UnknownMethod,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -254,7 +230,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::InvalidResultReference,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -265,7 +240,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::CannotCalculateChanges,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -276,18 +250,18 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::StateMismatch,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
     }
 
-    /// RFC 8620 §5.3 — "tooLarge"
+    /// "tooLarge" — a method-level error of `Principal/getAvailability`
+    /// (draft-ietf-jmap-calendars §2.2); RFC 8620 §5.3 defines it only as
+    /// a SetError.
     pub fn too_large() -> Self {
         Self {
             error_type: MethodErrorType::from("tooLarge"),
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -298,73 +272,18 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::RequestTooLarge,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
     }
 
-    /// RFC 8620 §5.3 — "overQuota"
-    pub fn over_quota() -> Self {
-        Self {
-            error_type: MethodErrorType::from("overQuota"),
-            description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
-    /// RFC 8620 §5.3 — "rateLimit"
+    /// "rateLimit" — a method-level error of `Principal/getAvailability`
+    /// (draft-ietf-jmap-calendars §2.2); RFC 8620 §5.3 defines it only as
+    /// a SetError.
     pub fn rate_limit() -> Self {
         Self {
             error_type: MethodErrorType::from("rateLimit"),
             description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
-    /// RFC 8620 §5.3 — "invalidPatch"
-    pub fn invalid_patch() -> Self {
-        Self {
-            error_type: MethodErrorType::from("invalidPatch"),
-            description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
-    /// RFC 8620 §5.3 — "willDestroy"
-    pub fn will_destroy() -> Self {
-        Self {
-            error_type: MethodErrorType::from("willDestroy"),
-            description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
-    /// RFC 8620 §5.3 — "invalidProperties"
-    pub fn invalid_properties() -> Self {
-        Self {
-            error_type: MethodErrorType::from("invalidProperties"),
-            description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
-    /// RFC 8620 §5.3 — "singleton"
-    pub fn singleton() -> Self {
-        Self {
-            error_type: MethodErrorType::from("singleton"),
-            description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -375,7 +294,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::UnsupportedFilter,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -386,21 +304,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::AnchorNotFound,
             description: None,
-            existing_id: None,
-            limit: None,
-            limit_name: None,
-        }
-    }
-
-    /// RFC 8620 §5.4 — "alreadyExists"
-    ///
-    /// `existing_id` is the id of the record that already exists in the target account.
-    /// Per RFC 8620 §5.4, this field MUST be present on the SetError object.
-    pub fn already_exists(existing_id: Id) -> Self {
-        Self {
-            error_type: MethodErrorType::from("alreadyExists"),
-            description: None,
-            existing_id: Some(existing_id),
             limit: None,
             limit_name: None,
         }
@@ -411,7 +314,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::FromAccountNotFound,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -422,7 +324,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::FromAccountNotSupportedByMethod,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -433,7 +334,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::UnsupportedSort,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -447,7 +347,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::TooManyChanges,
             description: None,
-            existing_id: None,
             limit: Some(limit),
             limit_name: None,
         }
@@ -460,7 +359,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::NotJson,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -473,7 +371,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::NotRequest,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -492,7 +389,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::Limit,
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: Some(limit_name.into()),
         }
@@ -513,7 +409,6 @@ impl JmapError {
         Self {
             error_type: MethodErrorType::UnknownCapability,
             description: Some(uri.into()),
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -528,7 +423,6 @@ impl JmapError {
         Self {
             error_type: error_type.into(),
             description: None,
-            existing_id: None,
             limit: None,
             limit_name: None,
         }
@@ -563,14 +457,6 @@ mod tests {
             !json.contains("\"description\""),
             "None description must be omitted"
         );
-    }
-
-    #[test]
-    fn not_found_type_string() {
-        let e = JmapError::not_found();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"notFound\""));
-        assert!(!json.contains("\"description\""));
     }
 
     #[test]
@@ -661,45 +547,10 @@ mod tests {
     }
 
     #[test]
-    fn over_quota_type_string() {
-        let e = JmapError::over_quota();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"overQuota\""));
-    }
-
-    #[test]
     fn rate_limit_type_string() {
         let e = JmapError::rate_limit();
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"rateLimit\""));
-    }
-
-    #[test]
-    fn invalid_patch_type_string() {
-        let e = JmapError::invalid_patch();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"invalidPatch\""));
-    }
-
-    #[test]
-    fn will_destroy_type_string() {
-        let e = JmapError::will_destroy();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"willDestroy\""));
-    }
-
-    #[test]
-    fn invalid_properties_type_string() {
-        let e = JmapError::invalid_properties();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"invalidProperties\""));
-    }
-
-    #[test]
-    fn singleton_type_string() {
-        let e = JmapError::singleton();
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"singleton\""));
     }
 
     #[test]
@@ -714,17 +565,6 @@ mod tests {
         let e = JmapError::anchor_not_found();
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"anchorNotFound\""));
-    }
-
-    // Oracle: RFC 8620 §5.4 — alreadyExists MUST include existingId of type Id.
-    #[test]
-    fn already_exists_includes_existing_id() {
-        let e = JmapError::already_exists(Id::from("abc123"));
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"alreadyExists\""));
-        assert!(json.contains("\"existingId\""));
-        assert!(json.contains("\"abc123\""));
-        assert!(!json.contains("\"description\""));
     }
 
     #[test]

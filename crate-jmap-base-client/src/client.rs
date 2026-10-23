@@ -1155,7 +1155,7 @@ pub struct SubscribeEventsSessionParams<'a> {
 /// call_id exists. Returns [`ClientError::MethodError`] if any invocation
 /// with the matching call_id is a JMAP `"error"` response (RFC 8620 §3.6.2),
 /// or [`ClientError::Parse`] if that error object has no string `type` or a
-/// malformed `description`, `existingId` or `limit`.
+/// malformed `description` or `limit`.
 ///
 /// # Multiple invocations sharing a call_id
 ///
