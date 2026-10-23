@@ -29,7 +29,11 @@ use crate::helpers::{
     finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::{BackendSetError, MailBackend};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_mail_types::Identity;
+use jmap_server::{
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
+};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -219,6 +223,10 @@ pub async fn handle_identity_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Identity>) {
+                not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             // Validate: email must be present and non-empty.
             let email = match obj_val.get("email").and_then(|v| v.as_str()) {
                 Some(s) if !s.is_empty() => s.to_owned(),
@@ -368,28 +376,10 @@ pub async fn handle_identity_set<B: MailBackend>(
                 }
             };
 
-            // Reject patches that include immutable or server-set fields.
-            // RFC 8621 §6.3: email is immutable; id and mayDelete are server-set.
-            // Use find_immutable_patch_key-style logic: check exact match AND
-            // sub-path prefix ("email/subfield" must be rejected as well as "email").
-            const IDENTITY_READONLY: &[&str] = &["email", "id", "mayDelete"];
-            let bad_props: Vec<&str> = patch
-                .as_map()
-                .keys()
-                .filter_map(|k| {
-                    IDENTITY_READONLY.iter().copied().find(|&f| {
-                        k == f || (k.starts_with(f) && k.as_bytes().get(f.len()) == Some(&b'/'))
-                    })
-                })
-                .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": bad_props,
-                    }),
-                );
+            // RFC 8621 §6: `email` is immutable; `id` and `mayDelete` are
+            // server-set.
+            if let Some(err) = reject_read_only_patch::<Identity>(patch.as_map()) {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 

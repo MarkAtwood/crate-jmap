@@ -43,13 +43,13 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    find_immutable_patch_key, not_found_json, now_utc_string, serialize_value, set_error_value,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
+    now_utc_string, serialize_value, set_error_value,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
-    QueryChangesParams, QueryParams,
+    bool_arg, filter_arg, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, QueryChangesParams, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -701,14 +701,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                     }
                 };
                 // Apply same immutable-field guard as handle_email_set patches.
-                if let Some(bad_field) = find_immutable_patch_key(&patch) {
-                    email_not_updated.insert(
-                        email_id.as_ref().to_owned(),
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": [bad_field],
-                        }),
-                    );
+                if let Some(err) = reject_read_only_patch::<Email>(patch.as_map()) {
+                    email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
                     continue;
                 }
                 match backend
@@ -865,6 +859,12 @@ async fn process_create<B: MailBackend>(
     create_id: &str,
     create_args: &Value,
 ) -> Result<Value, CreateError> {
+    if let Some(err) = create_args
+        .as_object()
+        .and_then(reject_server_set::<EmailSubmission>)
+    {
+        return Err(CreateError::SetError(err));
+    }
     // --- identityId ---
     let identity_id_str = create_args
         .get("identityId")

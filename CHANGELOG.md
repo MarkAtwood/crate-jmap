@@ -20,9 +20,9 @@ wire behaviour that a conforming peer can observe.
   (bd JMAP-x2gd.87).
 - **jmap-server**: `reject_server_set::<O>()` and
   `reject_read_only_patch::<O>()` build the RFC 8620 §5.3
-  `invalidProperties` SetError for a `/set` create carrying a server-set
-  property and for an update patch naming a server-set or immutable
-  property, from `O`'s `SetObject` lists (bd JMAP-x2gd.87).
+  `invalidProperties` SetError for a `/set` create carrying a non-null
+  server-set property and for an update patch naming a server-set or
+  immutable property, from `O`'s `SetObject` lists (bd JMAP-x2gd.87).
 - **jmap-types**: `Filter::matches` evaluates an RFC 8620 §5.5
   `FilterOperator` tree (`AND`/`OR`/`NOT`) over a caller's
   per-condition predicate (bd JMAP-skk9.2).
@@ -1389,6 +1389,16 @@ wire behaviour that a conforming peer can observe.
   per-type test fails when a field is in neither or both of `SERVER_SET`
   and `CLIENT_SETTABLE`. Downstream `SetObject` impls must add them
   (bd JMAP-x2gd.87).
+- **jmap-mail-server**: **BREAKING** (wire) `Email/set`, `Mailbox/set`,
+  `Identity/set`, `EmailSubmission/set` and `SieveScript/set` reject a
+  create carrying a non-null server-set property (e.g. Email `size`,
+  EmailSubmission `sendAt`, Identity `mayDelete`) with `invalidProperties`
+  instead of ignoring it (RFC 8620 §1.1, §5.3). Update patches are checked
+  through `jmap_server::reject_read_only_patch`, so a key pointing inside
+  a server-set property (`myRights/mayDelete`) is rejected too, every
+  offending property is listed, and `VacationResponse/set` rejects a patch
+  to `id`. The `IMMUTABLE_EMAIL_FIELDS` and Mailbox/Identity read-only
+  lists are gone (bd JMAP-x2gd.87).
 - **jmap-vtc-client**, **jmap-scene-client**, **jmap-graph-client**:
   **BREAKING** every `/query` and `/queryChanges` method (`vtc_call_*`,
   `vtc_participant_*`, `vtc_recording_*`, `vtc_livestream_*`,

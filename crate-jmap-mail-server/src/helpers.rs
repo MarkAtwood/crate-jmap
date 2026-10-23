@@ -1,7 +1,7 @@
 //! Private helper utilities — re-exported from jmap_server.
 use std::collections::HashSet;
 
-use jmap_types::{Id, JmapError, JmapObject, PatchObject, State};
+use jmap_types::{Id, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
 use crate::MailBackend;
@@ -55,75 +55,6 @@ pub(crate) fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value 
 /// derive-Serialize type with no custom logic cannot fail.
 pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
-}
-
-/// Immutable Email fields (RFC 8621 §5.5.4).
-///
-/// A patch key that equals or starts with `"<field>/"` for any of these names
-/// is rejected with `invalidProperties`.
-const IMMUTABLE_EMAIL_FIELDS: &[&str] = &[
-    "id",
-    "blobId",
-    "threadId",
-    "size",
-    "receivedAt",
-    "messageId",
-    "inReplyTo",
-    "references",
-    "sender",
-    "from",
-    "to",
-    "cc",
-    "bcc",
-    "replyTo",
-    "subject",
-    "sentAt",
-    "bodyStructure",
-    "bodyValues",
-    "textBody",
-    "htmlBody",
-    "attachments",
-    "hasAttachment",
-    "preview",
-    "headers",
-];
-
-/// Return the first patch key that names an immutable Email field, if any.
-///
-/// Used by `handle_email_set` and the `onSuccess*` side-effect paths in
-/// `handle_email_copy` and `handle_submission_set` to enforce RFC 8621 §5.5.4.
-///
-/// A patch key violates immutability if it equals an immutable field name, or
-/// starts with `"<field>/"` (JSON Merge Patch sub-path syntax).
-///
-/// `IMMUTABLE_EMAIL_FIELDS` has 21 entries; a linear scan is simpler and fast
-/// enough that a static `HashSet` adds no benefit.
-pub(crate) fn find_immutable_patch_key(patch: &PatchObject) -> Option<&'static str> {
-    let map = patch.as_map();
-    for key in map.keys() {
-        for &field in IMMUTABLE_EMAIL_FIELDS {
-            // Exact match, or sub-path "field/..." — both are immutable.
-            //
-            // The byte-index check `key.as_bytes().get(field.len()) == Some(&b'/')`
-            // is the correct, zero-allocation way to distinguish three cases
-            // (using `field = "messageId"` as the example):
-            //
-            //   "messageId"    → exact match            → blocked (== check above)
-            //   "messageId/0"  → sub-path               → blocked (starts_with + byte check)
-            //   "messageIdX"   → coincidental prefix    → allowed
-            //
-            // Two simpler-looking alternatives are both wrong:
-            //   `key.starts_with(field)` alone would block "messageIdX" (false positive).
-            //   `key.starts_with(&format!("{field}/"))` is correct but allocates a
-            //   String on every iteration — avoidable given we only need the one byte.
-            if key == field
-                || (key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/'))
-            {
-                return Some(field);
-            }
-        }
-    }
-    None
 }
 
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.

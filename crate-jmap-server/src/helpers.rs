@@ -1085,15 +1085,18 @@ pub fn reject_did_bearing_properties(
 /// this property when creating a new object of this type."; RFC 8620 §5.3
 /// makes such a record `invalidProperties`.
 ///
-/// Returns `None` when `create` carries none of [`SetObject::SERVER_SET`].
-/// Otherwise returns an `invalidProperties` [`SetError`] whose `properties`
-/// lists each one carried, in `SERVER_SET` order.
+/// A `null` value asserts nothing and is treated as absent.
+///
+/// Returns `None` when `create` carries none of [`SetObject::SERVER_SET`]
+/// with a non-null value. Otherwise returns an `invalidProperties`
+/// [`SetError`] whose `properties` lists each one carried, in `SERVER_SET`
+/// order.
 #[must_use]
 pub fn reject_server_set<O: SetObject>(create: &Map<String, Value>) -> Option<SetError> {
     let rejected: Vec<&str> = O::SERVER_SET
         .iter()
         .copied()
-        .filter(|prop| create.contains_key(*prop))
+        .filter(|prop| create.get(*prop).is_some_and(|v| !v.is_null()))
         .collect();
     (!rejected.is_empty())
         .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
@@ -1172,10 +1175,11 @@ mod tests {
 
     /// Oracle: RFC 8620 §7.2, `id` is "(immutable; server-set)" and the
     /// other properties are client-sent. RFC 8620 §1.1: "The client MUST
-    /// NOT send this property when creating".
+    /// NOT send this property when creating". A null `id` is treated as
+    /// absent.
     #[test]
     fn reject_server_set_names_server_set_create_properties() {
-        let ok = json!({"deviceClientId": "d", "url": "https://x.example/"});
+        let ok = json!({"id": null, "deviceClientId": "d", "url": "https://x.example/"});
         assert_eq!(
             props(reject_server_set::<PushSubscription>(
                 ok.as_object().unwrap()
