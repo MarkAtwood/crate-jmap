@@ -318,6 +318,57 @@ impl std::fmt::Display for SetError {
     }
 }
 
+/// Build the RFC 8620 §5.3 wire object for a [`SetError`] without going
+/// through `serde_json::to_value`, so `/set` handlers can fill
+/// `notCreated` / `notUpdated` / `notDestroyed` with no fallible step
+/// (bd:JMAP-ic0j.38).
+///
+/// The result equals the derived `Serialize` output: absent optional
+/// fields are omitted and each [`SetError::extra`] entry is merged at the
+/// top level.
+impl From<&SetError> for serde_json::Value {
+    fn from(e: &SetError) -> Self {
+        fn strings(v: &[impl AsRef<str>]) -> serde_json::Value {
+            serde_json::Value::Array(
+                v.iter()
+                    .map(|s| serde_json::Value::String(s.as_ref().to_owned()))
+                    .collect(),
+            )
+        }
+        let mut m = serde_json::Map::new();
+        m.insert("type".into(), e.error_type.as_str().into());
+        if let Some(d) = &e.description {
+            m.insert("description".into(), d.as_str().into());
+        }
+        if let Some(p) = &e.properties {
+            m.insert("properties".into(), strings(p));
+        }
+        if let Some(id) = &e.existing_id {
+            m.insert("existingId".into(), id.as_ref().into());
+        }
+        if let Some(n) = e.max_recipients {
+            m.insert("maxRecipients".into(), n.into());
+        }
+        if let Some(r) = &e.invalid_recipients {
+            m.insert("invalidRecipients".into(), strings(r));
+        }
+        if let Some(ids) = &e.not_found {
+            m.insert("notFound".into(), strings(ids));
+        }
+        if let Some(n) = e.max_size {
+            m.insert("maxSize".into(), n.into());
+        }
+        m.extend(e.extra.iter().map(|(k, v)| (k.clone(), v.clone())));
+        serde_json::Value::Object(m)
+    }
+}
+
+impl From<SetError> for serde_json::Value {
+    fn from(e: SetError) -> Self {
+        Self::from(&e)
+    }
+}
+
 /// The machine-readable type for a [`SetError`] (RFC 8620 §5.3 and RFC 8621).
 ///
 /// # Variant policy
@@ -769,6 +820,80 @@ mod tests {
                 !matches!(deserialized, SetErrorType::Other(_)),
                 "Deserialize of {expected_wire:?} fell through to Other; \
                  Display has an arm but Deserialize visitor doesn't"
+            );
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "invalidProperties: The record given is
+    /// invalid in some way. ... The SetError object SHOULD also have a
+    /// property called "properties" of type String[] that lists all the
+    /// properties that were invalid." Hand-written expected wire object;
+    /// absent optional fields must not appear.
+    #[test]
+    fn value_from_set_error_matches_rfc8620_invalid_properties() {
+        let err = SetError::new(SetErrorType::InvalidProperties)
+            .with_properties(["name", "parentId"])
+            .with_description("bad");
+        let expected = serde_json::json!({
+            "type": "invalidProperties",
+            "description": "bad",
+            "properties": ["name", "parentId"]
+        });
+        assert_eq!(serde_json::Value::from(&err), expected);
+        assert_eq!(serde_json::Value::from(err), expected);
+    }
+
+    /// Oracle: RFC 8621 §7.5 — "tooManyRecipients ... A "maxRecipients"
+    /// UnsignedInt property MUST also be present", "invalidRecipients ...
+    /// An "invalidRecipients" property MUST also be present ... a list of
+    /// the invalid addresses", "tooLarge ... A "maxSize" UnsignedInt
+    /// property MUST be present"; RFC 8620 §5.4 "alreadyExists ... an
+    /// "existingId" property"; RFC 8621 §4.6 blobNotFound "notFound"
+    /// property. Every typed field plus an extension field (JMAP Chat
+    /// `serverRetryAfter`) against a hand-written object.
+    #[test]
+    fn value_from_set_error_matches_rfc8621_fields_and_extras() {
+        let err = SetError::new("rateLimited")
+            .with_existing_id(Id::from("obj-7"))
+            .with_max_recipients(50)
+            .with_invalid_recipients(["bad@", "no@no"])
+            .with_not_found(vec![Id::from("blob-1"), Id::from("blob-2")])
+            .with_max_size(10_485_760)
+            .with_extra(
+                "serverRetryAfter",
+                serde_json::json!("2025-12-31T23:59:59Z"),
+            );
+        let expected = serde_json::json!({
+            "type": "rateLimited",
+            "existingId": "obj-7",
+            "maxRecipients": 50,
+            "invalidRecipients": ["bad@", "no@no"],
+            "notFound": ["blob-1", "blob-2"],
+            "maxSize": 10485760,
+            "serverRetryAfter": "2025-12-31T23:59:59Z"
+        });
+        assert_eq!(serde_json::Value::from(&err), expected);
+    }
+
+    /// Oracle: the derived `Serialize` impl, an independent path through
+    /// serde. The hand-built conversion must agree with it for a bare
+    /// error and for one carrying every field.
+    #[test]
+    fn value_from_set_error_agrees_with_serde_derive() {
+        let full = SetError::new(SetErrorType::TooManyRecipients)
+            .with_description("too many")
+            .with_properties(["to"])
+            .with_existing_id(Id::from("e1"))
+            .with_max_recipients(3)
+            .with_invalid_recipients(["x@"])
+            .with_not_found(vec![Id::from("b1")])
+            .with_max_size(1)
+            .with_extra("x-ext", serde_json::json!({"k": [1, 2]}));
+        for err in [SetError::new(SetErrorType::Forbidden), full] {
+            assert_eq!(
+                serde_json::Value::from(&err),
+                serde_json::to_value(&err).expect("serialize"),
+                "conversion drifted from derive(Serialize) for {err:?}"
             );
         }
     }

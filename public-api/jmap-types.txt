@@ -77,6 +77,8 @@ pub jmap_types::MethodErrorType::UnknownCapability
 pub jmap_types::MethodErrorType::UnknownMethod
 pub jmap_types::MethodErrorType::UnsupportedFilter
 pub jmap_types::MethodErrorType::UnsupportedSort
+impl jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_types::MethodErrorType
 pub fn jmap_types::MethodErrorType::clone(&self) -> jmap_types::MethodErrorType
 impl core::cmp::Eq for jmap_types::MethodErrorType
@@ -138,6 +140,8 @@ pub jmap_types::SetErrorType::TooManyKeywords
 pub jmap_types::SetErrorType::TooManyMailboxes
 pub jmap_types::SetErrorType::TooManyRecipients
 pub jmap_types::SetErrorType::WillDestroy
+impl jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_types::SetErrorType
 pub fn jmap_types::SetErrorType::clone(&self) -> jmap_types::SetErrorType
 impl core::cmp::Eq for jmap_types::SetErrorType
@@ -651,6 +655,10 @@ impl core::clone::Clone for jmap_types::SetError
 pub fn jmap_types::SetError::clone(&self) -> jmap_types::SetError
 impl core::cmp::PartialEq for jmap_types::SetError
 pub fn jmap_types::SetError::eq(&self, &jmap_types::SetError) -> bool
+impl core::convert::From<&jmap_types::SetError> for serde_json::value::Value
+pub fn serde_json::value::Value::from(&jmap_types::SetError) -> Self
+impl core::convert::From<jmap_types::SetError> for serde_json::value::Value
+pub fn serde_json::value::Value::from(jmap_types::SetError) -> Self
 impl core::fmt::Debug for jmap_types::SetError
 pub fn jmap_types::SetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_types::SetError

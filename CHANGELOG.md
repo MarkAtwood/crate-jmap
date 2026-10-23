@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: `From<&SetError>` and `From<SetError>` for
+  `serde_json::Value` build the RFC 8620 §5.3 wire object directly, with
+  no fallible serde step (bd JMAP-ic0j.38).
 - **jmap-mime**: an RFC 5322 / MIME message writer. `writer::write_message`
   writes header fields and a `writer::Part` tree (RFC 2047 encoded words,
   RFC 2231 parameters, quoted-printable and base64 bodies, folding at 78
