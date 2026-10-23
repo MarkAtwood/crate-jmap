@@ -35,6 +35,50 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 ///
 /// `unread_threads` counts threads that contain at least one unread (by the
 /// above definition) email in the mailbox.
+///
+/// # Permission enforcement (backend canonical)
+///
+/// The handlers in this crate check no `myRights`; the backend is the
+/// canonical enforcement point. A handler pre-check, such as the
+/// `Identity/set` refusal to destroy an Identity whose `mayDelete` is false
+/// (RFC 8621 §6), is not atomic with the write, so the backend MUST enforce
+/// the caller's rights inside the same atomic boundary as the write in
+/// [`create_object`](Self::create_object),
+/// [`update_object`](Self::update_object),
+/// [`destroy_object`](Self::destroy_object),
+/// [`copy_object`](Self::copy_object), [`import_email`](Self::import_email)
+/// and [`batch_destroy_emails`](Self::batch_destroy_emails).
+///
+/// The caller is known only through [`JmapBackend::principal_id`]. A backend
+/// whose `principal_id` returns `None` honors no per-user ACL and permits
+/// every write (fail-open, bd:JMAP-bghk); that suits test fixtures and
+/// single-user servers, not multi-user deployments.
+///
+/// RFC 8621 §2 `myRights` names the rights. A write that "would violate an
+/// ACL or other permissions policy" fails with `forbidden` (RFC 8620 §5.3),
+/// returned as [`BackendSetError::SetError`]:
+///
+/// - Mailbox create: `mayCreateChild` on the parent, or the account's
+///   `mayCreateTopLevelMailbox` (RFC 8621 §1.3.1) when `parentId` is null.
+/// - Mailbox update: `mayRename` to change `name` or `parentId`.
+/// - Mailbox destroy: `mayDelete`.
+/// - Email create, import or copy: `mayAddItems` on every Mailbox in
+///   `mailboxIds`.
+/// - Email update: `mayAddItems` on each Mailbox added to `mailboxIds` and
+///   `mayRemoveItems` on each one removed; `maySetSeen` on *all* of the
+///   Email's Mailboxes to change `$seen`, and `maySetKeywords` on all of them
+///   to change any other keyword.
+/// - Email destroy: `mayRemoveItems` on every Mailbox the Email is in.
+///
+/// Reads apply the same rights: "Email objects may be fetched if they are in
+/// *at least one* Mailbox with" `mayReadItems` (RFC 8621 §2), so
+/// [`JmapBackend::get_objects`] and [`JmapBackend::query_objects`] leave out
+/// the others, and `Email/copy` treats an unreadable source Email in
+/// `fromAccountId` as not found.
+///
+/// `jmap-sharing-server` serves the RFC 9670 Principal and ShareNotification
+/// methods and owns the `myRights` contract that this trait applies to
+/// Mailboxes; it enforces nothing on this crate's behalf.
 pub trait MailBackend: JmapBackend {
     // -----------------------------------------------------------------------
     // Write operations

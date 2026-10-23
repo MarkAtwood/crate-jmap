@@ -67,6 +67,49 @@ impl CaseFolding {
 ///
 /// This trait is not object-safe by design (generic methods).  Use
 /// `Arc<impl FileNodeBackend>` when sharing across tasks.
+///
+/// # Permission enforcement (backend canonical)
+///
+/// The handlers in this crate check no `myRights`; the backend is the
+/// canonical enforcement point. [`files_rights`](Self::files_rights) only
+/// reports rights. The backend MUST enforce the caller's rights inside the
+/// same atomic boundary as the write in
+/// [`create_object`](Self::create_object),
+/// [`update_object`](Self::update_object) and
+/// [`destroy_object`](Self::destroy_object); `FileNode/copy` writes through
+/// the same three methods.
+///
+/// The caller is known only through [`JmapBackend::principal_id`]. A backend
+/// whose `principal_id` returns `None` honors no per-user ACL and permits
+/// every write (fail-open, bd:JMAP-bghk); that suits test fixtures and
+/// single-user servers, not multi-user deployments.
+///
+/// draft-ietf-jmap-filenode-16 §FileNode properties names the rights in
+/// `myRights`, and §Access Control derives them from the `shareWith` ACLs on
+/// a node and its ancestors: "if mayRead is set on a node, all its child
+/// nodes are also readable". A write that "would violate an ACL or other
+/// permissions policy" fails with `forbidden` (RFC 8620 §5.3), returned as
+/// [`BackendSetError::SetError`]:
+///
+/// - Create: `mayAddChildren` on the parent, or the account's
+///   `mayCreateTopLevelFileNode` when `parentId` is null.
+/// - Update: `mayRename` to change `name` or `parentId` (plus
+///   `mayAddChildren` on a new parent), `mayModifyContent` to change
+///   `blobId`, `mediaType`, `target`, `modified`, `accessed` or
+///   `executable`, and `mayShare` to change `shareWith`.
+/// - Destroy: `mayDelete`, which an `onExists` replacement also needs on the
+///   existing node.
+/// - Copy: the source must be discoverable in `fromAccountId`, and the copy
+///   is a create in `accountId`.
+///
+/// Reads apply §Access Control discoverability: [`JmapBackend::get_objects`]
+/// and [`JmapBackend::query_objects`] leave out nodes the caller cannot
+/// discover, which "MUST return notFound errors if fetched with
+/// FileNode/get and MUST NOT be returned in response to FileNode/query".
+///
+/// `jmap-sharing-server` serves the RFC 9670 Principal and ShareNotification
+/// methods and owns the `myRights` contract that this trait applies to
+/// FileNodes; it enforces nothing on this crate's behalf.
 pub trait FileNodeBackend: JmapBackend {
     /// Create a new FileNode.
     ///
