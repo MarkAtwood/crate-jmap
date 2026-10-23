@@ -960,13 +960,12 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
 
 /// Map a write failure: a placeholder limit (`rateLimit`) is `rateLimited`
 /// (§Placeholder ChatContact Creation); anything else is `serverFail`.
-pub(crate) fn set_failure<E: std::error::Error>(e: BackendSetError<E>) -> JmapError {
+pub(crate) fn set_failure<E: std::fmt::Display>(e: BackendSetError<E>) -> JmapError {
     match e {
         BackendSetError::SetError(s) if s.error_type == SetErrorType::RateLimit => {
             JmapError::custom("rateLimited")
         }
-        BackendSetError::Other(e) => server_fail_from_backend(&e),
-        _ => JmapError::server_fail("the backend refused the write"),
+        other => server_fail_from_backend(&other),
     }
 }
 
@@ -1431,4 +1430,42 @@ async fn deliver_reaction<B: FederationBackend>(
         ctx.now.clone(),
         target.canonical.clone(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jmap_chat_server::SetError;
+
+    /// Oracle: draft-atwood-jmap-chat-federation-00 (spec 6c38e2f) line
+    /// 897: a placeholder limit "rejects, with `rateLimited`, any request
+    /// that would exceed it". Expected JSON is hand-written.
+    #[test]
+    fn set_failure_rate_limit_is_rate_limited() {
+        let e: BackendSetError<std::fmt::Error> =
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::RateLimit)));
+        assert_eq!(
+            serde_json::to_value(set_failure(e)).expect("JmapError serializes"),
+            json!({"type": "rateLimited"})
+        );
+    }
+
+    /// Oracle: line 825 lists `serverFail` for Peer/* failures and says a
+    /// `description` "SHOULD NOT disclose private information". Any
+    /// non-rateLimit failure is the shared redacted serverFail, never the
+    /// backend's text (hand-written expected JSON, hand-built canary).
+    #[test]
+    fn set_failure_other_failures_are_redacted_server_fail() {
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-fed510";
+        let expected = json!({"type": "serverFail", "description": "internal error"});
+        let refused: BackendSetError<&str> = BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::Forbidden).with_description(CANARY),
+        ));
+        let storage: BackendSetError<&str> = BackendSetError::Other(CANARY);
+        for e in [refused, storage] {
+            let wire = serde_json::to_value(set_failure(e)).expect("JmapError serializes");
+            assert!(!wire.to_string().contains(CANARY), "leaked: {wire}");
+            assert_eq!(wire, expected);
+        }
+    }
 }
