@@ -97,17 +97,6 @@ where
     })))
 }
 
-/// Serialize a [`SetError`] to a JSON value for inclusion in
-/// `notCreated`/`notUpdated`/`notDestroyed` maps.
-///
-/// `SetError` carries only plain data (string error type plus optional
-/// scalar fields) and its `Serialize` impl is derive-generated, so the
-/// `.expect` below is provably unreachable: `serde_json::to_value` on a
-/// derive-Serialize type with no custom logic cannot fail.
-pub(crate) fn set_error_value(e: &jmap_server::SetError) -> serde_json::Value {
-    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
-}
-
 /// Resolve an Id-typed property value that may be a `#creationId`
 /// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
 ///
