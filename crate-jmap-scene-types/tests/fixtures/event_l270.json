@@ -1,0 +1,9 @@
+{
+  "@type": "SceneObjectEvent",
+  "accountId": "account-xyz",
+  "regionId": "01J5ABC0000000000000000001",
+  "objectId": "01J5QBJ0000000000000000042",
+  "event": "destroyed",
+  "updatedBy": "user:bob@example.com",
+  "position": null
+}

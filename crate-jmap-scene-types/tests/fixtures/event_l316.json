@@ -1,0 +1,9 @@
+{
+  "@type": "SceneInteractionEvent",
+  "accountId": "account-xyz",
+  "regionId": "01J5ABC0000000000000000001",
+  "objectId": "01J5QBJ0000000000000000001",
+  "userId": "user:alice@example.com",
+  "action": "click",
+  "data": null
+}

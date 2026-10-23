@@ -1,0 +1,6 @@
+{
+  "@type": "SceneStreamEnable",
+  "id": "e1",
+  "regionIds": ["01J5ABC0000000000000000001"],
+  "eventTypes": ["SceneFooBarEvent"]
+}

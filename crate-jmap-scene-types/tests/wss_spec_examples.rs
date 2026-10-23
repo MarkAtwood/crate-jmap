@@ -14,6 +14,8 @@
 //! `SceneObject/get` (L1091) and `StateChange` (L1122) examples are not
 //! instances of these types.
 
+mod common;
+
 use jmap_scene_types::{
     AvatarEventKind, ObjectEventKind, SceneEvent, SceneEventType, SceneStreamMessage,
     JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI,
@@ -50,249 +52,149 @@ fn round_trip<T: DeserializeOwned + Serialize>(text: &str) -> T {
 }
 
 /// draft-atwood-jmap-scene-wss-00 L155-L164.
-const SESSION_L155: &str = r#"{
-  "capabilities": {
-    "urn:ietf:params:jmap:websocket": {
-      "url": "wss://scene.example.com/jmap/ws/",
-      "supportsPush": true
-    },
-    "urn:ietf:params:jmap:scene": {},
-    "urn:ietf:params:jmap:scene:websocket": {}
-  }
-}"#;
+fn session_l155() -> String {
+    common::fixture("session_l155.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L214-L222.
-const EVENT_L214: &str = r#"{
-  "@type": "SceneAvatarEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "avatarId": "01J5AV00000000000000000001",
-  "event": "entered",
-  "userId": "user:alice@example.com",
-  "displayName": "Alice Chen"
-}"#;
+fn event_l214() -> String {
+    common::fixture("event_l214.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L256-L264.
-const EVENT_L256: &str = r#"{
-  "@type": "SceneObjectEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000042",
-  "event": "created",
-  "updatedBy": "user:bob@example.com",
-  "position": [15.0, 0, -5.0]
-}"#;
+fn event_l256() -> String {
+    common::fixture("event_l256.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L270-L278.
-const EVENT_L270: &str = r#"{
-  "@type": "SceneObjectEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000042",
-  "event": "destroyed",
-  "updatedBy": "user:bob@example.com",
-  "position": null
-}"#;
+fn event_l270() -> String {
+    common::fixture("event_l270.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L316-L324.
-const EVENT_L316: &str = r#"{
-  "@type": "SceneInteractionEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000001",
-  "userId": "user:alice@example.com",
-  "action": "click",
-  "data": null
-}"#;
+fn event_l316() -> String {
+    common::fixture("event_l316.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L330-L338.
-const EVENT_L330: &str = r#"{
-  "@type": "SceneInteractionEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000007",
-  "userId": "user:alice@example.com",
-  "action": "com.example.puzzle.solve",
-  "data": {"pieceIndex": 4, "rotation": 90}
-}"#;
+fn event_l330() -> String {
+    common::fixture("event_l330.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L357-L368.
-const EVENT_L357: &str = r#"{
-  "@type": "SceneInteractionEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000077",
-  "userId": "user:alice@example.com",
-  "action": "com.example.game.cast-spell",
-  "data": {
-    "spellId": "fireball",
-    "targetId": "01J5QBJ0000000000000000033"
-  }
-}"#;
+fn event_l357() -> String {
+    common::fixture("event_l357.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L457-L461.
-const STREAM_L457: &str = r#"{
-  "@type": "SceneStreamEnable",
-  "regionIds": ["01J5ABC0000000000000000001"],
-  "eventTypes": ["SceneAvatarEvent", "SceneObjectEvent"]
-}"#;
+fn stream_l457() -> String {
+    common::fixture("stream_l457.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L477-L481.
-const STREAM_L477: &str = r#"{
-  "@type": "SceneStreamEnable",
-  "regionIds": ["01J5ABC0000000000000000001"],
-  "eventTypes": ["SceneInteractionEvent"]
-}"#;
+fn stream_l477() -> String {
+    common::fixture("stream_l477.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L500-L507.
-const STREAM_L500: &str = r#"{
-  "@type": "SceneStreamEnable",
-  "regionIds": [
-    "01J5ABC0000000000000000001",
-    "01J5ABC0000000000000000002"
-  ],
-  "eventTypes": null
-}"#;
+fn stream_l500() -> String {
+    common::fixture("stream_l500.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L587-L592.
-const STREAM_L587: &str = r#"{
-  "@type": "SceneStreamEnable",
-  "id": "e1",
-  "regionIds": ["01J5ABC0000000000000000001"],
-  "eventTypes": ["SceneFooBarEvent"]
-}"#;
+fn stream_l587() -> String {
+    common::fixture("stream_l587.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L646-L648.
-const STREAM_L646: &str = r#"{
-  "@type": "SceneStreamDisable"
-}"#;
+fn stream_l646() -> String {
+    common::fixture("stream_l646.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L727-L735.
-const EVENT_L727: &str = r#"{
-  "@type": "SceneObjectEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000050",
-  "event": "updated",
-  "updatedBy": null,
-  "position": [10.0, 0, 0]
-}"#;
+fn event_l727() -> String {
+    common::fixture("event_l727.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L742-L750.
-const EVENT_L742: &str = r#"{
-  "@type": "SceneObjectEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000050",
-  "event": "updated",
-  "updatedBy": null,
-  "position": [10.5, 0, 0]
-}"#;
+fn event_l742() -> String {
+    common::fixture("event_l742.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L858-L866.
-const EVENT_L858: &str = r#"{
-  "@type": "SceneAvatarEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "avatarId": "01J5AV00000000000000000003",
-  "event": "entered",
-  "userId": "user:mallory@example.com",
-  "displayName": "Mallory Nguyen"
-}"#;
+fn event_l858() -> String {
+    common::fixture("event_l858.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L955-L959.
-const STREAM_L955: &str = r#"{
-  "@type": "SceneStreamEnable",
-  "regionIds": ["01J5ABC0000000000000000001"],
-  "eventTypes": null
-}"#;
+fn stream_l955() -> String {
+    common::fixture("stream_l955.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L1049-L1053.
-const STREAM_L1049: &str = r#"{
-  "@type": "SceneStreamEnable",
-  "regionIds": ["01J5ABC0000000000000000001"],
-  "eventTypes": null
-}"#;
+fn stream_l1049() -> String {
+    common::fixture("stream_l955.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L1061-L1069.
-const EVENT_L1061: &str = r#"{
-  "@type": "SceneAvatarEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "avatarId": "01J5AV00000000000000000002",
-  "event": "entered",
-  "userId": "user:bob@example.com",
-  "displayName": "Bob Martinez"
-}"#;
+fn event_l1061() -> String {
+    common::fixture("event_l1061.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L1077-L1085.
-const EVENT_L1077: &str = r#"{
-  "@type": "SceneObjectEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000042",
-  "event": "created",
-  "updatedBy": "user:bob@example.com",
-  "position": [8.0, 1.2, -3.5]
-}"#;
+fn event_l1077() -> String {
+    common::fixture("event_l1077.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L1106-L1114.
-const EVENT_L1106: &str = r#"{
-  "@type": "SceneInteractionEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "objectId": "01J5QBJ0000000000000000001",
-  "userId": "user:alice@example.com",
-  "action": "click",
-  "data": null
-}"#;
+fn event_l1106() -> String {
+    common::fixture("event_l316.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L1137-L1145.
-const EVENT_L1137: &str = r#"{
-  "@type": "SceneAvatarEvent",
-  "accountId": "account-xyz",
-  "regionId": "01J5ABC0000000000000000001",
-  "avatarId": "01J5AV00000000000000000002",
-  "event": "left",
-  "userId": "user:bob@example.com",
-  "displayName": "Bob Martinez"
-}"#;
+fn event_l1137() -> String {
+    common::fixture("event_l1137.json")
+}
 
 /// draft-atwood-jmap-scene-wss-00 L1153-L1155.
-const STREAM_L1153: &str = r#"{
-  "@type": "SceneStreamDisable"
-}"#;
+fn stream_l1153() -> String {
+    common::fixture("stream_l646.json")
+}
 
-const EVENTS: &[&str] = &[
-    EVENT_L214,
-    EVENT_L256,
-    EVENT_L270,
-    EVENT_L316,
-    EVENT_L330,
-    EVENT_L357,
-    EVENT_L727,
-    EVENT_L742,
-    EVENT_L858,
-    EVENT_L1061,
-    EVENT_L1077,
-    EVENT_L1106,
-    EVENT_L1137,
-];
+fn events() -> [String; 13] {
+    [
+        event_l214(),
+        event_l256(),
+        event_l270(),
+        event_l316(),
+        event_l330(),
+        event_l357(),
+        event_l727(),
+        event_l742(),
+        event_l858(),
+        event_l1061(),
+        event_l1077(),
+        event_l1106(),
+        event_l1137(),
+    ]
+}
 
-const STREAMS: &[&str] = &[
-    STREAM_L457,
-    STREAM_L477,
-    STREAM_L500,
-    STREAM_L587,
-    STREAM_L646,
-    STREAM_L955,
-    STREAM_L1049,
-    STREAM_L1153,
-];
+fn streams() -> [String; 8] {
+    [
+        stream_l457(),
+        stream_l477(),
+        stream_l500(),
+        stream_l587(),
+        stream_l646(),
+        stream_l955(),
+        stream_l1049(),
+        stream_l1153(),
+    ]
+}
 
 #[test]
 fn every_event_example_round_trips_to_a_known_variant() {
-    for text in EVENTS {
+    for text in &events() {
         let e: SceneEvent = round_trip(text);
         assert!(
             !matches!(e, SceneEvent::Unknown { .. }),
@@ -305,7 +207,7 @@ fn every_event_example_round_trips_to_a_known_variant() {
 fn every_event_example_carries_the_hosting_account_id() {
     // L178 "Every event carries an `accountId` (String) property: the id
     // of the region's hosting account". Every example uses "account-xyz".
-    for text in EVENTS {
+    for text in &events() {
         let account_id = match round_trip(text) {
             SceneEvent::Avatar(e) => e.account_id,
             SceneEvent::Object(e) => e.account_id,
@@ -318,7 +220,7 @@ fn every_event_example_carries_the_hosting_account_id() {
 
 #[test]
 fn every_stream_example_round_trips_to_a_known_variant() {
-    for text in STREAMS {
+    for text in &streams() {
         let m: SceneStreamMessage = round_trip(text);
         assert!(
             !matches!(m, SceneStreamMessage::Unknown { .. }),
@@ -330,7 +232,7 @@ fn every_stream_example_round_trips_to_a_known_variant() {
 #[test]
 fn avatar_entered_example_fields() {
     // L211 "Example — avatar enters a region".
-    let SceneEvent::Avatar(e) = round_trip(EVENT_L214) else {
+    let SceneEvent::Avatar(e) = round_trip(&event_l214()) else {
         panic!("wrong variant")
     };
     assert_eq!(e.region_id.as_ref(), "01J5ABC0000000000000000001");
@@ -344,14 +246,14 @@ fn avatar_entered_example_fields() {
 fn object_created_and_destroyed_example_fields() {
     // L250-251 `position`: "Present for `\"created\"` and `\"updated\"`
     // events; `null` for `\"destroyed\"`."
-    let SceneEvent::Object(c) = round_trip(EVENT_L256) else {
+    let SceneEvent::Object(c) = round_trip(&event_l256()) else {
         panic!("wrong variant")
     };
     assert_eq!(c.event, ObjectEventKind::Created);
     assert_eq!(c.updated_by.as_deref(), Some("user:bob@example.com"));
     assert_eq!(c.position, Some([15.0, 0.0, -5.0]));
 
-    let SceneEvent::Object(d) = round_trip(EVENT_L270) else {
+    let SceneEvent::Object(d) = round_trip(&event_l270()) else {
         panic!("wrong variant")
     };
     assert_eq!(d.event, ObjectEventKind::Destroyed);
@@ -361,14 +263,14 @@ fn object_created_and_destroyed_example_fields() {
 #[test]
 fn interaction_examples_fields() {
     // L322-323 `"action": "click"`, `"data": null`.
-    let SceneEvent::Interaction(click) = round_trip(EVENT_L316) else {
+    let SceneEvent::Interaction(click) = round_trip(&event_l316()) else {
         panic!("wrong variant")
     };
     assert_eq!(click.action, "click");
     assert_eq!(click.data, None);
 
     // L336-337 reverse-domain action with an opaque payload.
-    let SceneEvent::Interaction(solve) = round_trip(EVENT_L330) else {
+    let SceneEvent::Interaction(solve) = round_trip(&event_l330()) else {
         panic!("wrong variant")
     };
     assert_eq!(solve.action, "com.example.puzzle.solve");
@@ -381,7 +283,7 @@ fn interaction_examples_fields() {
 #[test]
 fn stream_enable_examples_fields() {
     // L458-460 explicit regions and event types.
-    let SceneStreamMessage::Enable(e) = round_trip(STREAM_L457) else {
+    let SceneStreamMessage::Enable(e) = round_trip(&stream_l457()) else {
         panic!("wrong variant")
     };
     assert_eq!(
@@ -395,7 +297,7 @@ fn stream_enable_examples_fields() {
 
     // L506 `"eventTypes": null`: "all three event types ... are
     // delivered" (L510-512).
-    let SceneStreamMessage::Enable(m) = round_trip(STREAM_L500) else {
+    let SceneStreamMessage::Enable(m) = round_trip(&stream_l500()) else {
         panic!("wrong variant")
     };
     assert_eq!(m.region_ids.unwrap().len(), 2);
@@ -403,7 +305,7 @@ fn stream_enable_examples_fields() {
 
     // L591 the unrecognized-only error case still decodes: rejecting it
     // with a `RequestError` (L595-599) is the server's job.
-    let SceneStreamMessage::Enable(bad) = round_trip(STREAM_L587) else {
+    let SceneStreamMessage::Enable(bad) = round_trip(&stream_l587()) else {
         panic!("wrong variant")
     };
     assert_eq!(
@@ -417,7 +319,7 @@ fn stream_enable_examples_fields() {
 #[test]
 fn stream_disable_example() {
     // L647 `{"@type": "SceneStreamDisable"}`.
-    let m: SceneStreamMessage = round_trip(STREAM_L646);
+    let m: SceneStreamMessage = round_trip(&stream_l646());
     assert!(matches!(m, SceneStreamMessage::Disable(_)));
 }
 
@@ -427,7 +329,7 @@ fn session_example_advertises_both_scene_capabilities() {
     // `urn:ietf:params:jmap:scene:websocket` MUST also advertise both
     // `urn:ietf:params:jmap:websocket` and `urn:ietf:params:jmap:scene`";
     // L135-137 its value "is an empty JSON object `{}`".
-    let v: Value = serde_json::from_str(SESSION_L155).unwrap();
+    let v: Value = serde_json::from_str(&session_l155()).unwrap();
     let caps = &v["capabilities"];
     assert_eq!(caps[JMAP_SCENE_WEBSOCKET_URI], json!({}));
     assert_eq!(caps[JMAP_SCENE_URI], json!({}));

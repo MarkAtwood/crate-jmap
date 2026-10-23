@@ -1,0 +1,23 @@
+{
+  "id": "01J5OBJ0000000000000000001",
+  "regionId": "01J5ABC0000000000000000001",
+  "parentId": null,
+  "name": "Sculpture: Convergence",
+  "position": [12.5, 0, -3.2],
+  "orientation": [0, 0.707, 0, 0.707],
+  "scale": [1, 1, 1],
+  "visualRef": "blob-gltf-sculpture-001",
+  "visualType": "model/gltf-binary",
+  "assetUri": "https://cdn.example.com/assets/sculpture-001.glb",
+  "physicsMode": "static",
+  "interactable": true,
+  "visible": true,
+  "ownerId": "user:curator@example.com",
+  "createdAt": "2026-06-01T12:00:00Z",
+  "updatedAt": "2026-06-01T12:00:00Z",
+  "worldState": {
+    "artist": "Elena Voss",
+    "year": 2025,
+    "medium": "Bronze"
+  }
+}

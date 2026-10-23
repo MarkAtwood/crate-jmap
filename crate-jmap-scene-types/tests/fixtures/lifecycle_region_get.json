@@ -1,0 +1,76 @@
+[["SceneRegion/query", {
+  "accountId": "alice-account",
+  "queryState": "s100",
+  "canCalculateChanges": true,
+  "position": 0,
+  "total": 2,
+  "ids": [
+    "01JXKR5M0G3QVTA8N2BWFP7Y01",
+    "01JXKR5M0G3QVTA8N2BWFP7Y02"
+  ]
+}, "0"],
+["SceneRegion/get", {
+  "accountId": "alice-account",
+  "state": "s101",
+  "list": [
+    {
+      "id": "01JXKR5M0G3QVTA8N2BWFP7Y01",
+      "accountId": "alice-account",
+      "ownerId": "user:curator@example.com",
+      "name": "Gallery East Wing",
+      "description": "Contemporary sculpture exhibition",
+      "bounds": {
+        "min": [-50, 0, -50],
+        "max": [50, 10, 50]
+      },
+      "environment": {
+        "skyColor": "#87CEEB",
+        "ambientIntensity": 0.6,
+        "gravity": 9.81
+      },
+      "simulationUri": "wss://sim.example.com/regions/01JXKR5M",
+      "viewHint": "3d",
+      "spawnPosition": [0, 0, 10],
+      "spawnOrientation": [0, 0, 0, 1],
+      "activeAvatarCount": 3,
+      "accessPolicy": "public",
+      "invitedUserIds": [],
+      "createdAt": "2026-05-01T10:00:00Z",
+      "updatedAt": "2026-06-05T14:30:00Z",
+      "chatId": null,
+      "spaceId": null,
+      "channelId": null,
+      "activeCallId": null
+    },
+    {
+      "id": "01JXKR5M0G3QVTA8N2BWFP7Y02",
+      "accountId": "alice-account",
+      "ownerId": "user:curator@example.com",
+      "name": "Rooftop Lounge",
+      "description": "Social hangout with city skyline",
+      "bounds": {
+        "min": [-30, 0, -30],
+        "max": [30, 5, 30]
+      },
+      "environment": {
+        "skyColor": "#1a1a2e",
+        "ambientIntensity": 0.3,
+        "gravity": 9.81
+      },
+      "simulationUri": "wss://sim.example.com/regions/01JXKR5N",
+      "viewHint": "3d",
+      "spawnPosition": [0, 0, 0],
+      "spawnOrientation": [0, 0, 0, 1],
+      "activeAvatarCount": 1,
+      "accessPolicy": "public",
+      "invitedUserIds": [],
+      "createdAt": "2026-05-15T08:00:00Z",
+      "updatedAt": "2026-06-04T22:10:00Z",
+      "chatId": null,
+      "spaceId": null,
+      "channelId": null,
+      "activeCallId": null
+    }
+  ],
+  "notFound": []
+}, "1"]]

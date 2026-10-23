@@ -1,0 +1,11 @@
+[["SceneRegion/query", {
+  "accountId": "account-xyz",
+  "filter": {
+    "accessPolicy": "public",
+    "hasSimulationUri": true,
+    "createdAfter": "2026-01-01T00:00:00Z"
+  },
+  "sort": [{"property": "createdAt", "isAscending": false}],
+  "position": 0,
+  "limit": 50
+}, "0"]]

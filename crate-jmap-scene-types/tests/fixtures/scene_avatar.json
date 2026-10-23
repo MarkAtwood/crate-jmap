@@ -1,0 +1,16 @@
+{
+  "id": "user:alice@example.com",
+  "regionId": "01J5ABC0000000000000000001",
+  "userId": "user:alice@example.com",
+  "displayName": "Alice Chen",
+  "position": [5.2, 0, -1.8],
+  "orientation": [0, 0.383, 0, 0.924],
+  "visualRef": "blob-avatar-alice-001",
+  "visualType": "model/gltf-binary",
+  "joinedAt": "2026-06-05T14:35:00Z",
+  "leftAt": null,
+  "worldState": {
+    "animation": "idle",
+    "nametag": true
+  }
+}

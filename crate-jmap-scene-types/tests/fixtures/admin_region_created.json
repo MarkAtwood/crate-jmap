@@ -1,0 +1,43 @@
+[["SceneRegion/set", {
+  "accountId": "admin-account",
+  "oldState": "s300",
+  "newState": "s301",
+  "created": {
+    "r0": {
+      "id": "01JXKRBN7KWMPS46GFHDJT9R10",
+      "accountId": "admin-account",
+      "ownerId": "user:admin@example.com",
+      "name": "Product Launch Hall",
+      "description": "Annual product launch event venue",
+      "bounds": {
+        "min": [-100, 0, -60],
+        "max": [100, 20, 60]
+      },
+      "viewHint": "3d",
+      "accessPolicy": "public",
+      "invitedUserIds": [],
+      "spawnPosition": [0, 0, 50],
+      "spawnOrientation": [0, 0, 0, 1],
+      "simulationUri": "wss://sim.example.com/regions/launch-hall",
+      "environment": {
+        "skyColor": "#000022",
+        "ambientIntensity": 0.4,
+        "gravity": 9.81,
+        "fogDensity": 0.01,
+        "fogColor": "#111133"
+      },
+      "activeAvatarCount": 0,
+      "createdAt": "2026-06-06T08:00:00Z",
+      "updatedAt": "2026-06-06T08:00:00Z",
+      "chatId": null,
+      "spaceId": null,
+      "channelId": null,
+      "activeCallId": null
+    }
+  },
+  "updated": null,
+  "destroyed": null,
+  "notCreated": null,
+  "notUpdated": null,
+  "notDestroyed": null
+}, "0"]]

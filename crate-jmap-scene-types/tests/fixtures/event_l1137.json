@@ -1,0 +1,9 @@
+{
+  "@type": "SceneAvatarEvent",
+  "accountId": "account-xyz",
+  "regionId": "01J5ABC0000000000000000001",
+  "avatarId": "01J5AV00000000000000000002",
+  "event": "left",
+  "userId": "user:bob@example.com",
+  "displayName": "Bob Martinez"
+}

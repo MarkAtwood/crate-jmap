@@ -1,0 +1,37 @@
+{
+  "capabilities": {
+    "urn:ietf:params:jmap:core": {},
+    "urn:ietf:params:jmap:scene": {}
+  },
+  "accounts": {
+    "alice-account": {
+      "name": "alice@example.com",
+      "isPersonal": true,
+      "isReadOnly": false,
+      "accountCapabilities": {}
+    },
+    "gallery-account": {
+      "name": "Example Gallery",
+      "isPersonal": false,
+      "isReadOnly": false,
+      "accountCapabilities": {
+        "urn:ietf:params:jmap:scene": {
+          "mayCreateRegion": false,
+          "mayCreateObject": true,
+          "supportedVisualTypes": [
+            "model/gltf-binary",
+            "image/png"
+          ],
+          "maxRegionsPerAccount": 10,
+          "maxObjectsPerRegion": 5000,
+          "maxAvatarsPerRegion": 100,
+          "maxAssetSizeBytes": 52428800,
+          "supportsSceneAsset": true
+        }
+      }
+    }
+  },
+  "apiUrl": "https://jmap.example.com/api/",
+  "uploadUrl": "https://jmap.example.com/upload/{accountId}/",
+  "downloadUrl": "https://jmap.example.com/download/{accountId}/{blobId}/{name}"
+}

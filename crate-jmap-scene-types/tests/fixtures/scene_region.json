@@ -1,0 +1,30 @@
+{
+  "id": "01J5ABC0000000000000000001",
+  "accountId": "account-xyz",
+  "ownerId": "user:curator@example.com",
+  "name": "Gallery East Wing",
+  "description": "Contemporary sculpture exhibition",
+  "bounds": {
+    "min": [-50, 0, -50],
+    "max": [50, 10, 50]
+  },
+  "environment": {
+    "skyColor": "#87CEEB",
+    "ambientIntensity": 0.6,
+    "gravity": 9.81
+  },
+  "simulationUri": "wss://sim.example.com/regions/01J5ABC",
+  "viewHint": "3d",
+  "spawnPosition": [0, 0, 10],
+  "spawnOrientation": [0, 0, 0, 1],
+  "activeAvatarCount": 3,
+  "accessPolicy": "public",
+  "invitedUserIds": [],
+  "createdAt": "2026-06-01T10:00:00Z",
+  "updatedAt": "2026-06-05T14:30:00Z",
+  "worldState": null,
+  "chatId": "01J5ABC0000000000000000099",
+  "spaceId": null,
+  "channelId": null,
+  "activeCallId": null
+}
