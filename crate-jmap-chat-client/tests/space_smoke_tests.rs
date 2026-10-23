@@ -1212,3 +1212,187 @@ async fn space_create_threads_description_and_icon() {
         json!({ "name": "Engineering", "description": "Builders", "iconBlobId": "blob-icon" })
     );
 }
+
+/// `Space/get` with explicit `ids` and `properties` must thread both
+/// slices verbatim. Paired with
+/// [`space_get_omits_ids_and_properties_when_none`].
+///
+/// Oracle: RFC 8620 §5.1 — `ids` is `Id[]|null` and `properties` is
+/// `String[]|null`; draft-atwood-jmap-chat-00.md:1314 — member callers
+/// get the full Space "subject to the standard JMAP `/get` `properties`
+/// filter".
+#[tokio::test]
+async fn space_get_threads_ids_and_properties() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Space/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "sp-state-1",
+            "list": [],
+            "notFound": ["space-a", "space-b"]
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let ids = [Id::from("space-a"), Id::from("space-b")];
+    let _ = sc
+        .space_get(Some(&ids), Some(&["id", "name"]))
+        .await
+        .expect("space_get: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(args["ids"], json!(["space-a", "space-b"]), "ids mismatch");
+    assert_eq!(
+        args["properties"],
+        json!(["id", "name"]),
+        "properties mismatch"
+    );
+}
+
+/// `Space/query` with a sort list must emit RFC 8620 §5.5 Comparator
+/// objects: `isAscending` is omitted when `true` (its default) and
+/// emitted as `false` for a descending sort.
+///
+/// Oracle: draft-atwood-jmap-chat-00.md:1391 — "Default sort: `name`
+/// ascending"; RFC 8620 §5.5 Comparator `property` / `isAscending`
+/// (default `true`).
+#[tokio::test]
+async fn space_query_sort_serializes_comparators() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Space/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "sq-1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let mut descending =
+        jmap_chat_types::SpaceComparator::new(jmap_chat_types::SpaceComparatorProperty::Name);
+    descending.is_ascending = false;
+    let sort = [
+        jmap_chat_types::SpaceComparator::new(jmap_chat_types::SpaceComparatorProperty::Name),
+        descending,
+    ];
+    let _ = sc
+        .space_query(
+            None::<&jmap_chat_types::SpaceFilter>,
+            Some(&sort),
+            &jmap_base_client::QueryParams::default(),
+        )
+        .await
+        .expect("space_query: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["sort"],
+        json!([
+            { "property": "name" },
+            { "property": "name", "isAscending": false }
+        ]),
+        "sort must serialize as RFC 8620 §5.5 Comparator objects"
+    );
+}
+
+/// `Space/queryChanges` must reject an empty `since_query_state`
+/// client-side before any HTTP call, surfacing
+/// `ClientError::InvalidArgument`. Paired with
+/// [`space_query_changes_since_state_passthrough`].
+///
+/// Oracle: RFC 8620 §5.6 — `sinceQueryState` is a server-issued
+/// `queryState` String; an empty one can never have come from a prior
+/// `/query` response.
+#[tokio::test]
+async fn space_query_changes_rejects_empty_state() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+    let empty = State::from("");
+    let err = sc
+        .space_query_changes(
+            &empty,
+            None,
+            None::<&jmap_chat_types::SpaceFilter>,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect_err("space_query_changes must reject empty since_query_state");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("since_query_state may not be empty"),
+                "error message must explain validation: got {msg:?}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+    assert!(
+        server
+            .received_requests()
+            .await
+            .expect("request recording enabled")
+            .is_empty(),
+        "no HTTP request may be sent when validation fails"
+    );
+}
+
+/// `Space/set` update with an `updateMembers` entry carrying `roleIds`
+/// and a `nick` `Patch::Clear` must emit both keys, with `nick: null`.
+/// Also threads `ifInState` (RFC 8620 §5.3).
+///
+/// Oracle: draft-atwood-jmap-chat-00.md:1363 — "Each entry: `id`
+/// (String) and any of `roleIds`, `nick`."
+#[tokio::test]
+async fn space_update_members_role_ids_and_nick_clear_serialise() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        json!({ "updated": { "space-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let space_id = Id::from("space-1");
+    let member_id = Id::from("u-bob");
+    let role_ids = [Id::from("role-mod"), Id::from("role-dev")];
+    let update_members = [jmap_chat_client::SpaceUpdateMemberInput {
+        id: &member_id,
+        role_ids: Some(&role_ids),
+        nick: jmap_chat_client::Patch::Clear,
+    }];
+    let patch = jmap_chat_client::SpacePatch {
+        update_members: Some(&update_members),
+        ..Default::default()
+    };
+    let state = State::from(SPACE_STATE_OLD);
+    let _ = sc
+        .space_update(&space_id, &patch, Some(&state))
+        .await
+        .expect("space_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["space-1"],
+        json!({
+            "updateMembers": [
+                { "id": "u-bob", "roleIds": ["role-mod", "role-dev"], "nick": null }
+            ]
+        }),
+        "updateMembers must thread id, roleIds and nick: null"
+    );
+    assert_eq!(
+        args["ifInState"],
+        json!(SPACE_STATE_OLD),
+        "ifInState mismatch"
+    );
+}
