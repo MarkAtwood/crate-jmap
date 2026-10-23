@@ -48,7 +48,7 @@ use crate::{
     SpacePatchOp,
 };
 use jmap_server::{
-    is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
+    filter_arg, is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
@@ -628,8 +628,7 @@ pub async fn handle_space_query<B: ChatBackend>(
     // §Space/query: "Default sort: `name` ascending."
     default_sort(&mut args, json!([{ "property": "name" }]));
     reject_unsupported_sort::<SpaceComparator>(args.get("sort"))?;
-    let filter: Option<SpaceFilter> =
-        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
+    let filter: Option<SpaceFilter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<SpaceComparator>> = optional_arg(&mut args, "sort", || {
         JmapError::invalid_arguments("sort must be an array")

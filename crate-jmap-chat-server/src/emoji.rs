@@ -36,7 +36,7 @@ use crate::helpers::{
 use crate::helpers::{mistyped_create_props, PropType};
 use crate::{BackendSetError, ChatBackend, EmojiSetOp};
 use jmap_server::{
-    is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
+    filter_arg, is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
@@ -187,8 +187,7 @@ pub async fn handle_emoji_query<B: ChatBackend>(
     // §CustomEmoji/query: "Default sort: `name` ascending."
     default_sort(&mut args, json!([{ "property": "name" }]));
     reject_unsupported_sort::<CustomEmojiComparator>(args.get("sort"))?;
-    let filter: Option<CustomEmojiFilter> =
-        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
+    let filter: Option<CustomEmojiFilter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<CustomEmojiComparator>> = optional_arg(&mut args, "sort", || {
         JmapError::invalid_arguments("sort must be an array")

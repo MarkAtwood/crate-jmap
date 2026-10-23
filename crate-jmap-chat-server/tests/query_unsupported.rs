@@ -11,7 +11,7 @@
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::message::handle_message_query;
+use jmap_chat_server::message::{handle_message_query, handle_message_query_changes};
 use jmap_chat_server::{
     handle_chat_query, handle_contact_query, handle_emoji_query, handle_space_query,
 };
@@ -130,6 +130,40 @@ async fn misspelt_operator_is_unsupported_filter() {
         let filter = json!({ "opperator": "AND", "conditions": [spec_condition(method)] });
         let err = query(handler, filter, json!([])).await.expect_err(method);
         assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{method}");
+    }
+}
+
+/// RFC 8620 §5.5 types `filter` as "FilterOperator|FilterCondition|null"
+/// and both are objects ("A *FilterCondition* is an "object""), so a
+/// non-object value is "of the wrong type" (§3.6.2 `invalidArguments`),
+/// not "syntactically valid" (§5.5 `unsupportedFilter`). §5.6 reuses the
+/// same `filter` type for `/queryChanges`.
+#[tokio::test]
+async fn non_object_filter_is_invalid_arguments() {
+    for filter in [json!(42), json!("x"), json!(true), json!([])] {
+        for (method, handler) in handlers() {
+            let err = query(handler, filter.clone(), json!([]))
+                .await
+                .expect_err(method);
+            assert_eq!(
+                err.error_type.to_string(),
+                "invalidArguments",
+                "{method} {filter}"
+            );
+        }
+        let backend = backend();
+        let err = handle_message_query_changes(
+            &backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "filter": filter, "sinceQueryState": "0" }),
+        )
+        .await
+        .expect_err("Message/queryChanges");
+        assert_eq!(
+            err.error_type.to_string(),
+            "invalidArguments",
+            "Message/queryChanges {filter}"
+        );
     }
 }
 
