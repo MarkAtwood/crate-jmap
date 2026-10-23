@@ -1,6 +1,6 @@
 //! draft-ietf-jmap-metadata-04 server-side helpers.
 //!
-//! The -02 revision eliminates the standalone `Metadata` object type.
+//! Since -02, the draft has no standalone `Metadata` object type.
 //! Metadata becomes `metadata` and `privateMetadata` properties on
 //! each listed JMAP data type. Clients read and write metadata
 //! through the existing `Foo/get`, `Foo/set`, `Foo/changes`, and

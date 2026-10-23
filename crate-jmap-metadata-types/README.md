@@ -10,8 +10,8 @@ no async, no network I/O.
 |---|---|
 | `DataTypeMetadataInfo` | Per-data-type entry of the account capability's `dataTypes` map (§1.2.1): `namespaces`, `supportsVendorNamespaces`, `supportsPrivate`, `maxDepth` |
 | `MetadataTextMatch` | `{ path, value }` value of the four `*TextContains` / `*TextEquals` filter conditions (§3.6) |
-| `is_registered_namespace` | Registered-name syntax check: US-ASCII letters, digits, `-`, `_`, no dot (§2.1) |
-| `is_vendor_namespace` | Vendor domain-name structural check: at least one dot, non-empty printable-ASCII labels; no DNS validation (§2.1) |
+| `is_registered_namespace` | Registered-name syntax check: lowercase US-ASCII letters, digits, `-`, `_`, no dot (§2.1) |
+| `is_vendor_namespace` | Vendor domain-name structural check: at least one dot, non-empty printable-ASCII labels, no uppercase letters; no DNS validation (§2.1) |
 | `is_valid_namespace` | Either of the above (§2.1) |
 | `JMAP_METADATA_URI` | `"urn:ietf:params:jmap:metadata"` (§1.2.1, §8.1) |
 
