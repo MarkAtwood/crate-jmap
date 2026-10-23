@@ -44,6 +44,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// (RFC 8621 §6), is not atomic with the write, so the backend MUST enforce
 /// the caller's rights inside the same atomic boundary as the write in
 /// [`create_object`](Self::create_object),
+/// [`create_email`](Self::create_email),
 /// [`update_object`](Self::update_object),
 /// [`destroy_object`](Self::destroy_object),
 /// [`copy_object`](Self::copy_object), [`import_email`](Self::import_email)
@@ -110,23 +111,15 @@ pub trait MailBackend: JmapBackend {
     /// The backend mints the new object's id, calls `build(&id)` exactly
     /// once to obtain the complete object, and stores that object under
     /// `id` in the same atomic write. `build` sets the object's `id` field
-    /// to the id it is given; the backend stores the built object as is
-    /// and does not rewrite any of its fields except the Email ones below.
+    /// to the id it is given; the backend stores the built object as is.
     /// RFC 8620 §5.3 lists `id` among the "server-set properties".
     ///
     /// For `VacationResponse` the backend mints `"singleton"`: RFC 8621
     /// §8 says the one VacationResponse in an account "MUST have the id
     /// \"singleton\"".
     ///
-    /// # Email server-set fields
-    ///
-    /// The `Email/set` create handler has no message bytes, so it builds
-    /// an Email whose `blob_id` is `"placeholder-blob"` and whose `size`
-    /// is `0`. The backend MUST replace `blob_id` with the blob id of the
-    /// stored message and `size` with its byte size (RFC 8621 §4.1.1).
-    /// Backends that do not store raw bytes on this path (e.g.
-    /// `MemoryBackend`) may use any stable unique blob id and the
-    /// serialized object size.
+    /// The `Email/set` create handler does not call this method for
+    /// Emails; it calls [`create_email`](Self::create_email).
     ///
     /// # Singleton types
     ///
@@ -185,6 +178,50 @@ pub trait MailBackend: JmapBackend {
     where
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
+
+    /// Store a new Email whose RFC 5322 message is `message`, for an
+    /// `Email/set` create (RFC 8621 §4.6).
+    ///
+    /// The handler has composed `message` from the create. The backend
+    /// stores it as a new blob, mints the Email's id, calls
+    /// `build(&email_id, &blob_id, &message)` exactly once to obtain the
+    /// complete Email, and stores that Email as is. `build` parses
+    /// `message`, so the Email's `blobId` and `size` describe the stored
+    /// message (RFC 8621 §4.1.1) and its header and body properties are
+    /// the ones the message carries. Returns the new id and the Email.
+    ///
+    /// The blob, the Email, the state advance and the change record MUST
+    /// be atomic with respect to other callers, and a call that returns
+    /// `Err` MUST store nothing, as for
+    /// [`create_object`](Self::create_object). The authorisation contract
+    /// and error rules of `create_object` apply: Email create needs
+    /// `mayAddItems` on every Mailbox in `mailboxIds`.
+    fn create_email<F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        create_id: &str,
+        message: Vec<u8>,
+        build: F,
+    ) -> impl std::future::Future<
+        Output = Result<(jmap_types::Id, jmap_mail_types::Email), BackendSetError<Self::Error>>,
+    > + Send
+    where
+        F: FnOnce(&jmap_types::Id, &jmap_types::Id, &[u8]) -> jmap_mail_types::Email + Send;
+
+    /// Return the bytes of blob `blob_id` in `account_id`, or `None` if the
+    /// account has no such blob.
+    ///
+    /// The `Email/set` create handler reads the blobs that body parts
+    /// reference by `blobId` and reports the missing ones in a
+    /// `blobNotFound` SetError (RFC 8621 §4.6). Return `Err` only for a
+    /// storage failure; the handler reports it as `serverFail`.
+    fn read_blob(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
 
     /// Apply a partial update (patch) to an existing object.
     ///
@@ -373,8 +410,9 @@ pub trait MailBackend: JmapBackend {
     /// pre-computed thread hint. The backend is responsible for
     /// parsing the blob's `Message-ID` / `In-Reply-To` /
     /// `References` headers and joining or creating a thread.
-    /// Implementations SHOULD share the same thread-assignment logic
-    /// they use from `create_object::<Email>` so that the two entry
+    /// Implementations SHOULD share the thread-assignment logic of
+    /// [`find_thread_by_message_ids`](MailBackend::find_thread_by_message_ids),
+    /// which the `Email/set` create handler uses, so that the two entry
     /// points produce identical thread graphs for the same input.
     ///
     /// ## Server-set fields
@@ -442,9 +480,7 @@ pub trait MailBackend: JmapBackend {
     /// The handler uses this method during `Email/set` / `Email/import` to
     /// reuse an existing thread id when an incoming message has the same
     /// `Message-ID` / `References` as a stored message. If this method
-    /// returns `None`, the handler calls
-    /// [`create_object`](MailBackend::create_object)`::<Email>` which
-    /// generates a fresh thread id via the backend's own ID generator.
+    /// returns `None`, the handler assigns a fresh thread id.
     ///
     /// # Persistence guidance
     ///

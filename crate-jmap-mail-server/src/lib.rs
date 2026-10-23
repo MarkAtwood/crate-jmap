@@ -76,6 +76,7 @@ pub use sieve::{handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_s
 mod helpers;
 mod identity;
 mod mailbox;
+mod parse;
 mod snippet;
 mod submission;
 mod thread;

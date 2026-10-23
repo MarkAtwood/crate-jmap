@@ -18,7 +18,7 @@ sieve = ["jmap-mail-types/sieve"]
 # Not production — intended as a reference impl, integration-test harness, and
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0.
-memory = ["dep:uuid", "dep:jmap-mime"]
+memory = ["dep:uuid"]
 
 [dependencies]
 jmap-types = { workspace = true }
@@ -31,9 +31,11 @@ serde_json = { workspace = true }
 # RFC 8621 §4.1.2 As* header-form selectors (asAddresses, asGroupedAddresses,
 # asDate, asMessageIds, asURLs). See bd:JMAP-g7wu.5 / bd:JMAP-g7wu.11.
 mime-tree = { workspace = true }
+# Writes the RFC 5322 message for an Email/set create and maps parsed
+# messages to Email body fields (bd:JMAP-u6c5).
+jmap-mime = { workspace = true }
 # Optional deps activated by the `memory` feature.
 uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
-jmap-mime = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

@@ -194,6 +194,36 @@ impl MailBackend for FaultyBackend {
             .await
     }
 
+    async fn create_email<F>(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        create_id: &str,
+        message: Vec<u8>,
+        build: F,
+    ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>>
+    where
+        F: FnOnce(&Id, &Id, &[u8]) -> jmap_mail_types::Email + Send,
+    {
+        if self.take_fault("Email", "create") {
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected create error {FAULTY_BACKEND_CANARY}"
+            ))));
+        }
+        self.inner
+            .create_email(&(), account_id, create_id, message, build)
+            .await
+    }
+
+    async fn read_blob(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Option<Vec<u8>>, Self::Error> {
+        MailBackend::read_blob(&self.inner, &(), account_id, blob_id).await
+    }
+
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &(),

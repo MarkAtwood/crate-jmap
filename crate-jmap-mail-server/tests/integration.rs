@@ -608,6 +608,31 @@ async fn search_snippet_get_capability_gated() {
                 .await
         }
 
+        async fn create_email<F>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            create_id: &str,
+            message: Vec<u8>,
+            build: F,
+        ) -> Result<(Id, jmap_mail_types::Email), jmap_mail_server::BackendSetError<Self::Error>>
+        where
+            F: FnOnce(&Id, &Id, &[u8]) -> jmap_mail_types::Email + Send,
+        {
+            self.0
+                .create_email(&(), account_id, create_id, message, build)
+                .await
+        }
+
+        async fn read_blob(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            blob_id: &Id,
+        ) -> Result<Option<Vec<u8>>, Self::Error> {
+            MailBackend::read_blob(&self.0, &(), account_id, blob_id).await
+        }
+
         async fn update_object<O: jmap_mail_server::SetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -2994,8 +3019,8 @@ async fn email_set_create_and_get() {
 
     // RFC 8621 §5.5.3: size is server-set and must not be sent by the client.
     // We intentionally omit size from the create payload to verify it is not
-    // accepted from the client. MemoryBackend sets size=0 (placeholder; a real
-    // backend would compute it from the raw blob bytes).
+    // accepted from the client; the server sets it to the composed message's
+    // byte length.
     let set_args = serde_json::json!({
         "accountId": account_id.as_ref(),
         "create": {
@@ -3027,8 +3052,7 @@ async fn email_set_create_and_get() {
         c0["threadId"].as_str().is_some(),
         "created entry must have threadId"
     );
-    // size is server-set; MemoryBackend must assign the real blob size (> 0),
-    // not leave the placeholder 0 that email.rs sets before calling create_object.
+    // size is server-set: the byte length of the composed message (> 0).
     assert!(
         c0["size"].as_u64().unwrap_or(0) > 0,
         "size must be server-set and > 0; got: {:?}",
@@ -13644,9 +13668,8 @@ Subject: Re: Project Alpha Discussion\r\n\r\nAnother reply.\r\n";
 
 /// Oracle: Email/set create must echo back size > 0.
 ///
-/// RFC 8621 §5.5.3 — size is server-set. The backend must assign the real blob
-/// size, not leave the placeholder 0 that email.rs places in the object before
-/// calling create_object. This test guards against the placeholder fossilizing.
+/// RFC 8621 §5.5.3 — size is server-set: the byte length of the stored
+/// message, never 0 for a composed message with header fields.
 #[tokio::test]
 async fn email_set_create_size_is_nonzero() {
     let backend = MemoryBackend::new();
