@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `check_patch_paths` reports the RFC 8620 §5.3
+  PatchObject errors that the request alone determines (prefix conflict,
+  invalid `~` escape, depth cap) without the target object;
+  `apply_patch_object` runs it first (bd JMAP-s4kp.1).
 - **jmap-mail-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
   Email and Mailbox. `handle_email_set`, `handle_mailbox_set`,
   `handle_email_changes` and `handle_mailbox_changes` take the request's
@@ -3389,6 +3393,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: Email/set and Mailbox/set updates report a
+  request-only patch error (e.g. `"metadata"` with `"metadata/<ns>/k"`)
+  as `invalidPatch` before `notFound`, `forbidden` or
+  `invalidProperties`, as draft-ietf-jmap-metadata-04 §3.2 requires
+  (bd JMAP-s4kp.1).
 - **jmap-mail-server**: `Email/import`, `Email/parse` and `Email/set`
   create decode RFC 2047 encoded words in `subject` and fill `sender`,
   `replyTo`, `bcc` and `sentAt` from the message (RFC 8621 §4.1.3), and
