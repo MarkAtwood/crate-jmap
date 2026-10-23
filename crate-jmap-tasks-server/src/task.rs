@@ -1,7 +1,7 @@
 //! Task/* method handlers (draft-tasks-06 §4).
 //!
-//! Task/set enforces the `isDraft` immutability constraint: once set to false,
-//! it cannot be set back to true.
+//! The `isDraft` immutability constraint (once false, never true again) is
+//! enforced by [`crate::TasksBackend::update_object`], not by Task/set.
 //!
 //! # Wire-shape contract
 //!
@@ -158,16 +158,11 @@ const TASK_ID_PROPERTIES: &[&str] = &["taskListId"];
 /// returned `Value` is the §5.3 `/set` response shape (`accountId`,
 /// `oldState`, `newState`, plus the per-operation result maps).
 ///
-/// **isDraft immutability**: If a patch contains `"isDraft": true` and the
-/// current stored object does not have `isDraft = true`, the update is rejected with
-/// `invalidProperties`. The current object must be fetched from the backend
-/// to check this.
-///
-/// Note: The backend returns the current object via `get_objects` for the
-/// isDraft check. This is not done here to avoid coupling to the stored state;
-/// instead, backends are expected to enforce this constraint and return
-/// `invalidProperties` from `update_object` when the patch violates it.
-/// The handler also does a best-effort check on the patch itself.
+/// **isDraft immutability**: this handler does not check `isDraft`. The
+/// backend's [`crate::TasksBackend::update_object`] MUST reject a patch that
+/// sets `isDraft: true` on a Task whose stored value is not `true` with
+/// `invalidProperties`, atomically with the write; the rejection is reported
+/// in `notUpdated`.
 ///
 /// **`taskListId` references**: a `#creationId` value on create or update
 /// names a TaskList created earlier in the request and resolves against
@@ -1135,7 +1130,8 @@ mod tests {
     /// Oracle: draft-tasks-06 §4 — "Once set to false, the value [isDraft]
     /// cannot be updated to true."
     /// A patch of {"isDraft": true} on a task that already has isDraft=false
-    /// MUST be rejected at the handler level with invalidProperties.
+    /// MUST be rejected with invalidProperties. The handler does no isDraft
+    /// check, so this exercises the backend rejection reaching `notUpdated`.
     #[tokio::test]
     async fn set_is_draft_revert_rejected_when_current_is_false() {
         let mut backend = MockBackend::new_with_account("acc1");
