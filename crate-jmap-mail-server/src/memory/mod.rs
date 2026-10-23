@@ -588,6 +588,21 @@ fn invalid_patched_properties(
     })
 }
 
+/// Re-type a generic query filter or sort as the concrete type that
+/// `O::TYPE_NAME` names, through a JSON roundtrip.
+///
+/// Both halves succeed when `B` is the type behind the generic, which the
+/// `O::TYPE_NAME` dispatch guarantees. A failure means the dispatch and the
+/// `QueryObject` impls have drifted; it surfaces as `serverFail` rather than
+/// a panic or a silently dropped filter (bd:JMAP-ic0j.38).
+fn retype<A: serde::Serialize, B: serde::de::DeserializeOwned>(
+    a: A,
+) -> Result<B, BackendQueryError<MemoryError>> {
+    let v = jmap_server::serialize_value(a).map_err(BackendQueryError::Method)?;
+    serde_json::from_value(v)
+        .map_err(|e| BackendQueryError::Method(jmap_types::JmapError::server_fail(e.to_string())))
+}
+
 // ---------------------------------------------------------------------------
 // JmapBackend impl (read-side)
 // ---------------------------------------------------------------------------
@@ -786,39 +801,12 @@ impl JmapBackend for MemoryBackend {
         // enough that the dispatch is cleaner than retrofitting the Email
         // pipeline below.
         if O::TYPE_NAME == "Mailbox" {
-            // Type-identity roundtrip: when O::TYPE_NAME == "Mailbox" the
-            // generic O::Filter is necessarily MailboxFilter (see
-            // the QueryObject impl in jmap-mail-types src/backend.rs), so both halves
-            // of this serde roundtrip are infallible:
-            //   - to_value(&f) cannot fail: derive(Serialize) on plain data.
-            //   - from_value::<MailboxFilter>(v) cannot fail: v was
-            //     just produced by Serialize on the same concrete type.
-            // Pattern G policy (bc79c70) requires .expect() rather than
-            // silent .ok() fallback, so a future custom-serde change here
-            // surfaces as a panic instead of silently dropping the filter
-            // (which would return ALL mailboxes when the client expected
-            // a filtered subset).
-            let mailbox_filter: Option<MailboxFilter> = filter.map(|f| {
-                let v =
-                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
-                serde_json::from_value(v).expect(
-                    "type-identity roundtrip on MailboxFilter is infallible: \
-                     the JSON came from Serialize on the same concrete type",
-                )
-            });
-            // Type-identity roundtrip: when O::TYPE_NAME == "Mailbox" the
-            // generic O::Comparator is necessarily MailboxComparator. Same
-            // Pattern G rationale as the filter roundtrip above.
-            let mailbox_sort: Vec<MailboxComparator> = sort
-                .map(|s| {
-                    let v = serde_json::to_value(s)
-                        .expect("derive(Serialize) on plain data is infallible");
-                    serde_json::from_value(v).expect(
-                        "type-identity roundtrip on Vec<MailboxComparator> is infallible: \
-                         the JSON came from Serialize on the same concrete type",
-                    )
-                })
-                .unwrap_or_default();
+            // When O::TYPE_NAME == "Mailbox" the generic O::Filter and
+            // O::Comparator are MailboxFilter and MailboxComparator (see the
+            // QueryObject impl in jmap-mail-types src/backend.rs).
+            let mailbox_filter: Option<MailboxFilter> = filter.map(retype).transpose()?;
+            let mailbox_sort: Vec<MailboxComparator> =
+                sort.map(retype).transpose()?.unwrap_or_default();
             return self
                 .query_mailboxes(
                     account_id,
@@ -832,72 +820,26 @@ impl JmapBackend for MemoryBackend {
                 .await;
         }
 
-        // Type-identity roundtrip: when O::TYPE_NAME == "Email" the generic
-        // O::Filter is necessarily EmailFilter, so both halves of this serde
-        // roundtrip are infallible. See the Mailbox arm above for the full
-        // rationale and the Pattern G (bc79c70) policy reference.
+        // Same type-identity retyping for Email and EmailSubmission.
         let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
-            filter.map(|f| {
-                let v =
-                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
-                serde_json::from_value(v).expect(
-                    "type-identity roundtrip on EmailFilter is infallible: \
-                     the JSON came from Serialize on the same concrete type",
-                )
-            })
+            filter.map(retype).transpose()?
         } else {
             None
         };
-
-        // Decode EmailComparator list for Email queries (JSON roundtrip via
-        // O::Comparator). Type-identity roundtrip: when O::TYPE_NAME == "Email"
-        // the generic O::Comparator is necessarily EmailComparator, so both
-        // halves of the roundtrip are infallible. Same Pattern G rationale
-        // as the filter roundtrips above.
         let email_sort: Option<Vec<EmailComparator>> = if O::TYPE_NAME == "Email" {
-            sort.map(|s| {
-                let v =
-                    serde_json::to_value(s).expect("derive(Serialize) on plain data is infallible");
-                serde_json::from_value(v).expect(
-                    "type-identity roundtrip on Vec<EmailComparator> is infallible: \
-                     the JSON came from Serialize on the same concrete type",
-                )
-            })
+            sort.map(retype).transpose()?
         } else {
             None
         };
-
-        // Type-identity roundtrip: when O::TYPE_NAME == "EmailSubmission" the
-        // generic O::Filter is necessarily EmailSubmissionFilter, so both
-        // halves of this serde roundtrip are infallible. Same Pattern G
-        // rationale as the Mailbox arm above.
         let submission_filter: Option<EmailSubmissionFilter> = if O::TYPE_NAME == "EmailSubmission"
         {
-            filter.map(|f| {
-                let v =
-                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
-                serde_json::from_value(v).expect(
-                    "type-identity roundtrip on EmailSubmissionFilter is infallible: \
-                     the JSON came from Serialize on the same concrete type",
-                )
-            })
+            filter.map(retype).transpose()?
         } else {
             None
         };
-
-        // Type-identity roundtrip: when O::TYPE_NAME == "EmailSubmission" the
-        // generic O::Comparator is necessarily EmailSubmissionComparator. Same
-        // Pattern G rationale as the filter roundtrips above.
         let submission_sort: Option<Vec<EmailSubmissionComparator>> =
             if O::TYPE_NAME == "EmailSubmission" {
-                sort.map(|s| {
-                    let v = serde_json::to_value(s)
-                        .expect("derive(Serialize) on plain data is infallible");
-                    serde_json::from_value(v).expect(
-                        "type-identity roundtrip on Vec<EmailSubmissionComparator> is \
-                         infallible: the JSON came from Serialize on the same concrete type",
-                    )
-                })
+                sort.map(retype).transpose()?
             } else {
                 None
             };
@@ -2913,6 +2855,26 @@ mod tests {
                 .get(&Id::from("singleton")),
             Some(&stored)
         );
+    }
+}
+
+#[cfg(test)]
+mod retype_tests {
+    use super::{BackendQueryError, retype};
+
+    /// Oracle: RFC 8620 §3.6.1 — "serverFail: An unexpected error occurred
+    /// during the processing of the call." A filter that does not decode
+    /// as the type `O::TYPE_NAME` names is such an error: it must come
+    /// back as that method error, not a panic (bd:JMAP-ic0j.38).
+    #[test]
+    fn retype_mismatch_is_server_fail() {
+        let wire = serde_json::json!({"inMailbox": 7});
+        match retype::<_, Vec<String>>(&wire) {
+            Err(BackendQueryError::Method(e)) => {
+                assert_eq!(serde_json::to_value(&e).unwrap()["type"], "serverFail");
+            }
+            other => panic!("expected a serverFail method error, got {other:?}"),
+        }
     }
 }
 

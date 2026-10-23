@@ -29,15 +29,13 @@
 
 use std::collections::BTreeMap;
 
-use jmap_mail_types::{Email, Identity, Mdn, MdnParseRequest, MdnSendRequest};
-use jmap_types::{Id, Invocation, JmapError};
-use serde_json::{Value, json};
-
-use crate::helpers::set_error_value;
 use crate::{MailBackend, SetError, SetErrorType};
+use jmap_mail_types::{Email, Identity, Mdn, MdnParseRequest, MdnSendRequest};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, reject_read_only_patch, server_fail_from_backend,
 };
+use jmap_types::{Id, Invocation, JmapError};
+use serde_json::{Value, json};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
 #[non_exhaustive]
@@ -433,7 +431,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         if crlf_bad {
             not_sent.insert(
                 creation_id,
-                set_error_value(
+                serde_json::Value::from(
                     &SetError::new(SetErrorType::InvalidProperties)
                         .with_description("CR or LF in MDN field"),
                 ),
@@ -471,7 +469,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             if email.keywords.get("$mdnsent") == Some(&true) {
                 not_sent.insert(
                     creation_id.clone(),
-                    set_error_value(&SetError::new(SetErrorType::from("mdnAlreadySent"))),
+                    serde_json::Value::from(&SetError::new(SetErrorType::from("mdnAlreadySent"))),
                 );
                 continue;
             }
@@ -500,7 +498,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 None => {
                     not_sent.insert(
                         creation_id,
-                        set_error_value(&SetError::new(SetErrorType::NotFound)),
+                        serde_json::Value::from(&SetError::new(SetErrorType::NotFound)),
                     );
                 }
             }
@@ -513,7 +511,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 .map_err(|e| server_fail_from_backend(&e))?;
 
             for (id, se) in result.not_sent {
-                not_sent.insert(id, set_error_value(&se));
+                not_sent.insert(id, serde_json::Value::from(&se));
             }
             for (id, mdn) in result.sent {
                 sent_mdns.insert(id, mdn);
@@ -554,7 +552,8 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 
             // Apply the same immutable-field guard as handle_email_set patches.
             if let Some(err) = reject_read_only_patch::<Email>(patch_obj.as_map(), None) {
-                email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
+                email_not_updated
+                    .insert(email_id.as_ref().to_owned(), serde_json::Value::from(&err));
                 continue;
             }
 
@@ -565,8 +564,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 Ok(Some(obj)) => {
                     email_updated.insert(
                         email_id.as_ref().to_owned(),
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
+                        jmap_server::serialize_value(&obj)?,
                     );
                 }
                 Ok(None) => {

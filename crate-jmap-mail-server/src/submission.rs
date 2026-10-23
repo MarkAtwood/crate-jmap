@@ -53,7 +53,7 @@ use serde_json::{Value, json};
 
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
-    now_utc_string, resolve_ref, serialize_value, set_error_value,
+    now_utc_string, resolve_ref, serialize_value,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -528,7 +528,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                 }
                 Err(err) => {
                     let err_json = match err {
-                        CreateError::SetError(se) => set_error_value(&se),
+                        CreateError::SetError(se) => serde_json::Value::from(&*se),
                         CreateError::Server(jmap_err) => {
                             // server_fail_from_backend already stripped any
                             // backend Display text at the source call site;
@@ -560,7 +560,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -579,11 +579,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             };
             match process_update(backend, caller, &account_id, &id, patch).await {
                 Ok(Some(obj)) => {
-                    updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str.clone(), jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     updated.insert(id_str.clone(), Value::Null);
@@ -622,7 +618,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -716,7 +712,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                 };
                 // Apply same immutable-field guard as handle_email_set patches.
                 if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
-                    email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
+                    email_not_updated
+                        .insert(email_id.as_ref().to_owned(), serde_json::Value::from(&err));
                     continue;
                 }
                 match backend
@@ -726,8 +723,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Ok(Some(obj)) => {
                         email_updated.insert(
                             email_id.as_ref().to_owned(),
-                            serde_json::to_value(&obj)
-                                .expect("derive(Serialize) on plain data is infallible"),
+                            jmap_server::serialize_value(&obj)?,
                         );
                     }
                     Ok(None) => {
@@ -1013,7 +1009,7 @@ async fn process_create<B: MailBackend>(
         })?;
 
     // create_object guarantees created_obj.id == server_id; serialize as-is.
-    Ok(serde_json::to_value(&created_obj).expect("derive(Serialize) on plain data is infallible"))
+    jmap_server::serialize_value(&created_obj).map_err(CreateError::Server)
 }
 
 /// Process a single update entry in an `EmailSubmission/set` request.

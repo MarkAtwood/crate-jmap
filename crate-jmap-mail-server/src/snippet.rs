@@ -128,8 +128,8 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
 
     let list_json: Vec<Value> = snippets
         .iter()
-        .map(|s| serde_json::to_value(s).expect("derive(Serialize) on plain data is infallible"))
-        .collect();
+        .map(jmap_server::serialize_value)
+        .collect::<Result<_, _>>()?;
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),

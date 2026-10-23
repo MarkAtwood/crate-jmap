@@ -34,7 +34,7 @@ use serde_json::{Value, json};
 use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
+    filter_properties, finalize_set_response, not_found_json, serialize_value,
 };
 use jmap_mail_types::Identity;
 use jmap_server::{
@@ -231,7 +231,7 @@ pub async fn handle_identity_set<B: MailBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Identity>) {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             // Validate: email must be present and non-empty.
@@ -337,11 +337,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                     mutated = true;
                     // create_object guarantees created_obj.id == server_id;
                     // serialize the full object (id is already correct).
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
                     not_created.insert(create_id, backend_set_error_value(e));
@@ -358,7 +354,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -380,7 +376,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             // RFC 8621 §6: `email` is immutable; `id` and `mayDelete` are
             // server-set.
             if let Some(err) = reject_read_only_patch::<Identity>(patch.as_map(), None) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -390,11 +386,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -429,7 +421,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, set_error_value(&err));
+                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };

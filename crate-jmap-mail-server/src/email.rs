@@ -47,7 +47,6 @@ use serde_json::{Value, json};
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     filter_properties, finalize_set_response, not_found_json, resolve_ref, serialize_value,
-    set_error_value,
 };
 use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -360,9 +359,9 @@ fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), Strin
 /// implemented inline; the five `As*` parse forms delegate to
 /// `mime_tree::parse_header_typed`, which is the workspace's single
 /// gateway to RFC 5322 header parsing (see bd:JMAP-g7wu.11).
-fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
+fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Result<Value, JmapError> {
     use HeaderForm::*;
-    match form {
+    Ok(match form {
         Raw => {
             // Replace CRLF with LF; return as string (RFC 8621 §4.1.3).
             Value::String(raw_value.replace("\r\n", "\n"))
@@ -383,9 +382,11 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
             mime_tree::HeaderForm::Addresses,
             &restore_crlf(raw_value),
         ) {
-            mime_tree::HeaderValueTyped::Addresses(list) => {
-                Value::Array(list.into_iter().map(jmap_email_address_value).collect())
-            }
+            mime_tree::HeaderValueTyped::Addresses(list) => Value::Array(
+                list.into_iter()
+                    .map(jmap_email_address_value)
+                    .collect::<Result<_, _>>()?,
+            ),
             _ => Value::Array(Vec::new()),
         },
         // RFC 8621 §4.1.2.4 — list of EmailAddressGroup; preserves group structure.
@@ -397,7 +398,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
                 groups
                     .into_iter()
                     .map(jmap_email_address_group_value)
-                    .collect(),
+                    .collect::<Result<_, _>>()?,
             ),
             _ => Value::Array(Vec::new()),
         },
@@ -438,7 +439,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
             // failure).
             _ => Value::Null,
         },
-    }
+    })
 }
 
 /// Restore RFC 5322 wire CRLFs in a header field value before handing it
@@ -503,16 +504,16 @@ fn restore_crlf(raw_value: &str) -> Vec<u8> {
 /// `address: None` for malformed input; in that case we substitute the
 /// empty string so the JMAP wire-type invariant (non-nullable `email`)
 /// is preserved.
-fn jmap_email_address_value(addr: mime_tree::EmailAddress) -> Value {
+fn jmap_email_address_value(addr: mime_tree::EmailAddress) -> Result<Value, JmapError> {
     let mut ea = EmailAddress::new(addr.address.unwrap_or_default());
     ea.name = addr.name;
-    serde_json::to_value(ea).expect("derive(Serialize) on plain data is infallible")
+    jmap_server::serialize_value(ea)
 }
 
 /// Convert a `mime_tree::AddressGroup` to the JMAP `EmailAddressGroup`
 /// JSON shape (RFC 8621 §4.1.2.4) via the canonical wire-type so the
 /// serialised shape stays aligned with the rest of the crate.
-fn jmap_email_address_group_value(group: mime_tree::AddressGroup) -> Value {
+fn jmap_email_address_group_value(group: mime_tree::AddressGroup) -> Result<Value, JmapError> {
     let mut eag = EmailAddressGroup::new(
         group
             .addresses
@@ -525,15 +526,18 @@ fn jmap_email_address_group_value(group: mime_tree::AddressGroup) -> Value {
             .collect(),
     );
     eag.name = group.name;
-    serde_json::to_value(eag).expect("derive(Serialize) on plain data is infallible")
+    jmap_server::serialize_value(eag)
 }
 
 /// Extract header value(s) from `email_json["headers"]` for the given request.
 ///
 /// `email_json` must be the serialised Email object as returned by the backend;
 /// its `"headers"` key is an array of `{name, value}` objects.
-fn extract_header_values(email_json: &Value, req: &HeaderPropertyRequest) -> Value {
-    match email_json.get("headers").and_then(|v| v.as_array()) {
+fn extract_header_values(
+    email_json: &Value,
+    req: &HeaderPropertyRequest,
+) -> Result<Value, JmapError> {
+    Ok(match email_json.get("headers").and_then(|v| v.as_array()) {
         None => {
             if req.all {
                 Value::Array(vec![])
@@ -561,17 +565,17 @@ fn extract_header_values(email_json: &Value, req: &HeaderPropertyRequest) -> Val
                     matching
                         .iter()
                         .map(|v| apply_header_form(v, &req.form))
-                        .collect(),
+                        .collect::<Result<_, _>>()?,
                 )
             } else {
                 // RFC 8621 §4.1.3: without :all, return the *last* matching instance.
                 match matching.last() {
-                    Some(v) => apply_header_form(v, &req.form),
+                    Some(v) => apply_header_form(v, &req.form)?,
                     None => Value::Null,
                 }
             }
         }
-    }
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -721,7 +725,7 @@ pub async fn handle_email_get<B: MailBackend>(
                 // `val` still holds the full serialised email; use it for extraction.
                 if let Value::Object(ref mut map) = obj {
                     for (prop, req) in &parsed_header_reqs {
-                        let extracted = extract_header_values(&val, req);
+                        let extracted = extract_header_values(&val, req)?;
                         map.insert((*prop).to_owned(), extracted);
                     }
                     // Remove the injected "headers" key if the client didn't ask for it.
@@ -1173,12 +1177,12 @@ pub async fn handle_email_set<B: MailBackend>(
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Email>) {
-                not_created.insert(create_id.clone(), set_error_value(&err));
+                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
                 continue;
             }
             let mut obj_val = obj_val.clone();
             if let Err(err) = resolve_mailbox_id_refs(&mut obj_val, created_ids) {
-                not_created.insert(create_id.clone(), set_error_value(&err));
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
             let obj_val = &obj_val;
@@ -1252,12 +1256,12 @@ pub async fn handle_email_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_mailbox_id_refs(&mut patch_val, created_ids) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -1277,7 +1281,7 @@ pub async fn handle_email_set<B: MailBackend>(
 
             // Check for immutable field violations in the patch keys.
             if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
-                not_updated.insert(id_str.clone(), set_error_value(&err));
+                not_updated.insert(id_str.clone(), serde_json::Value::from(&err));
                 continue;
             }
 
@@ -1287,11 +1291,7 @@ pub async fn handle_email_set<B: MailBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str.clone(), jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -1326,7 +1326,7 @@ pub async fn handle_email_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -1589,7 +1589,8 @@ fn parse_mailbox_ids(entry: &Value, rfc_ref: &str) -> Result<Vec<Id>, Value> {
             .iter()
             .filter(|(_, v)| v.as_bool() == Some(true))
             .map(|(k, _)| {
-                jmap_server::parse_wire_id(k, "mailboxIds").map_err(|e| set_error_value(&e))
+                jmap_server::parse_wire_id(k, "mailboxIds")
+                    .map_err(|e| serde_json::Value::from(&*e))
             })
             .collect::<Result<_, _>>()?,
         None => {
@@ -1859,7 +1860,7 @@ async fn build_email_from_create<B: MailBackend>(
         }
     }
     if !missing.is_empty() {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &SetError::new(SetErrorType::BlobNotFound).with_not_found(missing),
         ));
     }
@@ -2133,7 +2134,7 @@ pub async fn handle_email_import<B: MailBackend>(
         let blob_id: Id = match jmap_server::parse_wire_id(s, "blobId") {
             Ok(id) => id,
             Err(err) => {
-                not_created.insert(import_id, set_error_value(&err));
+                not_created.insert(import_id, serde_json::Value::from(&*err));
                 continue;
             }
         };
@@ -2341,8 +2342,7 @@ pub async fn handle_email_parse<B: MailBackend>(
     for blob_id in &blob_ids {
         match backend.parse_email(caller, &account_id, blob_id).await {
             Ok(email) => {
-                let mut val = serde_json::to_value(&email)
-                    .expect("derive(Serialize) on plain data is infallible");
+                let mut val = jmap_server::serialize_value(&email)?;
                 apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
                 let mut obj = filter_properties(&val, &effective_props);
                 // Inject dynamic header: property results (mirrors handle_email_get).
@@ -2350,7 +2350,7 @@ pub async fn handle_email_parse<B: MailBackend>(
                     && let Value::Object(ref mut map) = obj
                 {
                     for (prop, req) in &parsed_header_reqs {
-                        let extracted = extract_header_values(&val, req);
+                        let extracted = extract_header_values(&val, req)?;
                         map.insert((*prop).to_owned(), extracted);
                     }
                     if headers_implicit {
@@ -2504,7 +2504,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         let source_id: Id = match jmap_server::parse_wire_id(s, "id") {
             Ok(id) => id,
             Err(err) => {
-                not_created.insert(copy_id, set_error_value(&err));
+                not_created.insert(copy_id, serde_json::Value::from(&*err));
                 continue;
             }
         };
