@@ -48,25 +48,6 @@ pub enum ChatPermission {
     Other(String),
 }
 
-impl ChatPermission {
-    /// The wire string for this permission.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::View => "view",
-            Self::Send => "send",
-            Self::Pin => "pin",
-            Self::ManageChannels => "manage_channels",
-            Self::ManageMembers => "manage_members",
-            Self::ManageRoles => "manage_roles",
-            Self::ManageSpace => "manage_space",
-            Self::Ban => "ban",
-            Self::MentionBroadcast => "mention_broadcast",
-            Self::StartCall => "start_call",
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(ChatPermission, "a Space permission name",
     "view" => View,
     "send" => Send,

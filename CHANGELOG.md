@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: `impl_string_enum!` now emits an inherent
+  `pub fn as_str(&self) -> &str`, and its `Serialize` and `Display` impls
+  call it, so every string-backed wire enum has one wire mapping (bd
+  JMAP-axxb). The hand-written `as_str()` copies on `BodyType`,
+  `BroadcastScope`, `ChannelPermissionTargetType`, `ChatMemberRole`,
+  `ChatPermission`, `EphemeralDataType` (jmap-chat-types), `QuotaScope`,
+  `QuotaResourceType` (jmap-chat-client), `VtcEventType` (jmap-vtc-types),
+  `SceneEventType` (jmap-scene-types) and `GraphEditDataType`
+  (jmap-graph-types) are gone; their signature and output are unchanged.
 - **jmap-server**: `limit_or_max(Option<u64>) -> usize` converts an RFC 8620
   `limit` / `maxChanges` argument to an item count, saturating instead of
   truncating on 32-bit targets (bd JMAP-pgj7). The mail, calendars, chat,

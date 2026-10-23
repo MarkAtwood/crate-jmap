@@ -67,23 +67,6 @@ pub enum VtcEventType {
     Other(String),
 }
 
-impl VtcEventType {
-    /// The wire string for this event type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Ring => RING,
-            Self::CallEnd => CALL_END,
-            Self::GatewaySignal => GATEWAY_SIGNAL,
-            Self::Participant => PARTICIPANT,
-            Self::MediaState => MEDIA_STATE,
-            Self::ActiveSpeaker => ACTIVE_SPEAKER,
-            Self::UnmuteRequest => UNMUTE_REQUEST,
-            Self::RecordingState => RECORDING_STATE,
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(VtcEventType, "a VTCStreamEnable eventTypes string",
     "VTCRingEvent" => Ring,
     "VTCCallEndEvent" => CallEnd,

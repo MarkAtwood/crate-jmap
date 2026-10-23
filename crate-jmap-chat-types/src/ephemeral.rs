@@ -35,19 +35,6 @@ pub enum EphemeralDataType {
     Other(String),
 }
 
-impl EphemeralDataType {
-    /// The wire string for this data type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Typing => "typing",
-            Self::Presence => "presence",
-            Self::Vtc => "vtc",
-            Self::Scene => "scene",
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(EphemeralDataType, "an ephemeral data type string",
     "typing" => Typing,
     "presence" => Presence,
