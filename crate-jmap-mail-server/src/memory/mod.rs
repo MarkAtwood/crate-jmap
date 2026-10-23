@@ -2950,26 +2950,18 @@ impl SieveBackend for MemoryBackend {
         &self,
         _caller: &(),
         _account_id: &jmap_types::Id,
-        blob_id: &jmap_types::Id,
+        script: &[u8],
     ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
-        // Trivial validation: blob must exist, be non-empty, and be valid UTF-8.
-        // Returns Ok(None) for valid, Ok(Some(reason)) for invalid.
+        // Trivial validation: script must be non-empty and valid UTF-8.
         // A real backend would call a Sieve parser here.
-        let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();
-        async move {
-            match bytes {
-                None => Ok(Some("blob not found".to_owned())),
-                Some(b) => {
-                    if b.is_empty() {
-                        return Ok(Some("script must not be empty".to_owned()));
-                    }
-                    match std::str::from_utf8(&b) {
-                        Err(_) => Ok(Some("script is not valid UTF-8".to_owned())),
-                        Ok(_) => Ok(None),
-                    }
-                }
-            }
-        }
+        let verdict = if script.is_empty() {
+            Some("script must not be empty".to_owned())
+        } else if std::str::from_utf8(script).is_err() {
+            Some("script is not valid UTF-8".to_owned())
+        } else {
+            None
+        };
+        async move { Ok(verdict) }
     }
 }
 
