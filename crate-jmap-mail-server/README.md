@@ -31,22 +31,35 @@ the dispatcher into HTTP/SSE/WebSocket transport themselves.
 
 ## How to use
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use jmap_mail_server::{MailBackend, register_mail_handlers};
 use jmap_server::Dispatcher;
 
-// 1. Implement MailBackend for your storage layer (see trait section below).
-struct MyBackend { /* db pool, etc. */ }
-impl MailBackend for MyBackend { /* ... */ }
+// 1. Implement MailBackend for your storage layer. The impl must also
+//    satisfy the JmapBackend supertrait (account_exists, get_objects,
+//    get_state, get_changes, query_objects, query_changes) and declare
+//    `type Error` and `type CallerCtx`. See the MailBackend trait
+//    section below for the full surface.
 
-// 2. Wire all 26 RFC 8621 methods into a Dispatcher in one call.
-let mut dispatcher: Dispatcher<()> = Dispatcher::new();
-register_mail_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));
+// 2. Construct a dispatcher parameterised on your CallerCtx type, then
+//    register all 26 RFC 8621 methods in one call.
+let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
+register_mail_handlers(&mut dispatcher, Arc::new(my_backend));
 
 // 3. Dispatch JMAP requests (in your HTTP handler).
-// let response = dispatcher.dispatch(request, (), session_state).await;
+// let response = dispatcher.dispatch(request, caller_ctx, session_state).await;
 ```
+
+`Dispatcher<C>` requires `B::CallerCtx = C`; `register_mail_handlers`
+enforces the match at the type level. For a single-user dev server use
+`Dispatcher<()>` with a backend whose `CallerCtx = ()`. For
+multi-tenant production, define a typed caller context (e.g. a
+principal-id newtype) and parameterise both sides on that type.
+
+For a runnable, type-checked variant of this example, see the
+[crate-level documentation](https://docs.rs/jmap-mail-server) — the
+doctest in `lib.rs` is verified by `cargo test --doc`.
 
 After `register_mail_handlers` returns, the dispatcher handles every method
 name listed in the [Registered methods](#registered-methods) section below.
@@ -74,90 +87,151 @@ read-side methods (`get_objects`, `get_state`, `get_changes`, `query_objects`,
 `jmap-server`). `MailBackend` adds write operations and mail-specific
 operations.
 
-```rust
+```rust,ignore
 pub trait MailBackend: JmapBackend {
     // --- Write operations ---
 
-    /// Create a new object. Returns (assigned_id, created_object).
+    /// Create a new object. `build` receives the backend-assigned id and
+    /// returns the object to store. Returns (assigned_id, created_object).
     /// For singleton types (VacationResponse), MUST be idempotent:
     /// if an object already exists for the key, return it rather than
     /// creating a duplicate.
-    fn create_object<O: SetObject>(&self, account_id: &Id, create_id: &str, obj: O)
-        -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+    fn create_object<O, F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        create_id: &str,
+        build: F,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send;
 
     /// Apply a partial patch to an existing object.
     /// Returns Some(updated) if the backend modified server-set fields beyond
     /// the patch (RFC 8620 §5.3 echo); None if the patch was applied verbatim.
     /// Handlers include the Some(O) in the /set response — do not discard it.
-    fn update_object<O: SetObject>(&self, account_id: &Id, id: &Id, patch: O::Patch)
-        -> impl Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
+    fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> impl Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy an existing object by id.
-    fn destroy_object<O: SetObject>(&self, account_id: &Id, id: &Id)
-        -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
+    fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        id: &Id,
+    ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
     // --- Mail-specific operations ---
 
     /// Import a raw message blob as an Email (RFC 8621 §5.7).
     /// The blob must already be present in the blob store.
-    fn import_email(&self, account_id: &Id, blob_id: &Id, mailbox_ids: &[Id],
-        keywords: &[Keyword], received_at: Option<&UTCDate>)
-        -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>> + Send;
+    fn import_email(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        blob_id: &Id,
+        mailbox_ids: &[Id],
+        keywords: &[Keyword],
+        received_at: Option<&UTCDate>,
+    ) -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>> + Send;
 
-    /// Store a record read from `from_account_id` as a new record in
-    /// `to_account_id` (RFC 8620 §5.4 /copy; the handler applied the
-    /// overrides). Returns the new id and the stored record.
-    fn copy_object<O: SetObject + Send + Sync>(&self, caller: &Self::CallerCtx,
-        from_account_id: &Id, to_account_id: &Id, obj: O)
-        -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
-
-    /// Parse a blob as a message and return an Email without storing it
-    /// (RFC 8621 §5.8 — Email/parse).
-    fn parse_email(&self, account_id: &Id, blob_id: &Id)
-        -> impl Future<Output = Result<Email, Self::Error>> + Send;
+    /// Return the thread id of the first stored Email whose messageId list
+    /// intersects message_ids, or None if no match.
+    fn find_thread_by_message_ids(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        message_ids: &[&str],
+    ) -> impl Future<Output = Result<Option<Id>, Self::Error>> + Send;
 
     /// Return true if blob_id exists in account_id's blob store.
     /// Used by Email/parse to distinguish notFound (blob absent) from
     /// notParsable (blob present but not a valid message).
-    fn blob_exists(&self, account_id: &Id, blob_id: &Id)
-        -> impl Future<Output = bool> + Send;
+    fn blob_exists(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
-    /// Return the thread id of the first stored Email whose messageId list
-    /// intersects message_ids, or None if no match.
-    ///
-    /// Persistent backends MUST override this. The default ID generator is
-    /// seeded from system-clock nanoseconds at startup; two processes starting
-    /// within the same nanosecond (common in containers and test harnesses)
-    /// will produce identical ID sequences and silently corrupt thread graphs
-    /// across restarts.
-    fn find_thread_by_message_ids(&self, account_id: &Id, message_ids: &[&str])
-        -> impl Future<Output = Result<Option<Id>, Self::Error>> + Send;
+    /// Parse a blob as a message and return an Email without storing it
+    /// (RFC 8621 §5.8 — Email/parse).
+    fn parse_email(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> impl Future<Output = Result<Email, Self::Error>> + Send;
+
+    /// Store a record read from `from_account_id` as a new record in
+    /// `to_account_id` (RFC 8620 §5.4 /copy; the handler applied the
+    /// overrides). Returns the new id and the stored record.
+    fn copy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        from_account_id: &Id,
+        to_account_id: &Id,
+        obj: O,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
 
     /// Return search snippets for the given Email ids (RFC 8621 §5.9).
-    fn search_snippets(&self, account_id: &Id, email_ids: &[Id],
-        filter: Option<&EmailFilterCondition>)
-        -> impl Future<Output = Result<Vec<SearchSnippet>, Self::Error>> + Send;
+    fn search_snippets(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        email_ids: &[Id],
+        filter: Option<&EmailFilterCondition>,
+    ) -> impl Future<Output = Result<Vec<SearchSnippet>, Self::Error>> + Send;
 
     /// Returns `true` if this backend supports JMAP object type `O` for
     /// `account_id`, as seen by `caller`.
     /// Used by the session capability builder and by SearchSnippet/get.
-    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx,
-        account_id: &Id) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 
     // --- Optional overrides (have sensible defaults) ---
 
+    /// Max email ids fetched when `collapseThreads=true` (default 65536).
+    fn max_collapse_threads_emails(&self, caller: &Self::CallerCtx, account_id: &Id) -> usize {
+        65_536
+    }
+
     /// Max bytes of body value text per EmailBodyPart (0 = unlimited).
-    fn max_body_value_bytes(&self, account_id: &Id) -> u64 { 0 }
+    fn max_body_value_bytes(&self, caller: &Self::CallerCtx, account_id: &Id) -> u64 { 0 }
 
     /// Max seconds in the future that sendAt may be for EmailSubmission
     /// (0 = no delayed send).
-    fn max_delayed_send_seconds(&self, account_id: &Id) -> u64 { 0 }
+    fn max_delayed_send_seconds(&self, caller: &Self::CallerCtx, account_id: &Id) -> u64 { 0 }
 
     /// Return true if this backend can compute Mailbox/queryChanges
     /// (RFC 8620 §5.6 canCalculateChanges). Defaults to false.
-    fn can_calculate_mailbox_query_changes(&self, account_id: &Id) -> bool { false }
+    fn can_calculate_mailbox_query_changes(&self, caller: &Self::CallerCtx, account_id: &Id)
+        -> bool { false }
+
+    /// Destroy several Emails; one result per input id, in order.
+    /// The default calls destroy_object::<Email> per id; an override MUST
+    /// keep the per-id write-access check.
+    fn batch_destroy_emails(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        email_ids: &[Id],
+    ) -> impl Future<Output = Vec<(Id, Option<BackendSetError<Self::Error>>)>> + Send
+    where
+        Self: Sized { /* ... */ }
 }
 ```
+
+Every method receives a `caller: &Self::CallerCtx` reference as its
+first parameter after `&self`. The handler closures registered by
+`register_mail_handlers` forward the caller context unchanged from
+`jmap_server::Dispatcher::dispatch`, so the backend sees exactly the
+value the HTTP transport layer supplied.
 
 `BackendSetError<E>` is an enum over two variants:
 

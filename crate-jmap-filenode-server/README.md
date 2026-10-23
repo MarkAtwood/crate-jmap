@@ -21,22 +21,35 @@ themselves.
 
 ## How to use
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use jmap_filenode_server::{FileNodeBackend, register_filenode_handlers};
 use jmap_server::Dispatcher;
 
-// 1. Implement FileNodeBackend for your storage layer (see trait section below).
-struct MyBackend { /* db pool, tree store, etc. */ }
-impl FileNodeBackend for MyBackend { /* ... */ }
+// 1. Implement FileNodeBackend for your storage layer. The impl must also
+//    satisfy the JmapBackend supertrait (account_exists, get_objects,
+//    get_state, get_changes, query_objects, query_changes) and declare
+//    `type Error` and `type CallerCtx`. See the FileNodeBackend trait
+//    section below for the full surface.
 
-// 2. Wire all 6 FileNode methods into a Dispatcher in one call.
-let mut dispatcher: Dispatcher<()> = Dispatcher::new();
-register_filenode_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));
+// 2. Construct a dispatcher parameterised on your CallerCtx type, then
+//    register all 6 FileNode methods in one call.
+let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
+register_filenode_handlers(&mut dispatcher, Arc::new(my_backend));
 
 // 3. Dispatch JMAP requests (in your HTTP handler).
-// let response = dispatcher.dispatch(request, (), session_state).await;
+// let response = dispatcher.dispatch(request, caller_ctx, session_state).await;
 ```
+
+`Dispatcher<C>` requires `B::CallerCtx = C`; `register_filenode_handlers`
+enforces the match at the type level. For a single-user dev server use
+`Dispatcher<()>` with a backend whose `CallerCtx = ()`. For
+multi-tenant production, define a typed caller context (e.g. a
+principal-id newtype) and parameterise both sides on that type.
+
+For a runnable, type-checked variant of this example, see the
+[crate-level documentation](https://docs.rs/jmap-filenode-server) — the
+doctest in `lib.rs` is verified by `cargo test --doc`.
 
 After `register_filenode_handlers` returns, the dispatcher handles every method name listed in
 the [Registered methods](#registered-methods) section below. The same `Arc<MyBackend>` can
@@ -57,27 +70,41 @@ Implement this trait to connect the handlers to your storage system. The read-si
 the `JmapBackend` supertrait (from `jmap-server`). `FileNodeBackend` adds write operations
 and the four FileNode-specific structural queries required for tree management.
 
-```rust
+```rust,ignore
 pub trait FileNodeBackend: JmapBackend {
     // --- Write operations ---
 
-    /// Create a new FileNode.
-    /// Returns (assigned_id, created_object). create_id is the client-side
-    /// creation key from the /set request.
-    fn create_object<O: SetObject + Send + Sync>(
-        &self, account_id: &Id, create_id: &str, obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+    /// Create a new FileNode. `build` receives the backend-assigned id and
+    /// returns the object to store. Returns (assigned_id, created_object).
+    /// create_id is the client-side creation key from the /set request.
+    fn create_object<O, F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        create_id: &str,
+        build: F,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing FileNode.
     /// Returns Some(updated_object) if the backend modified server-set fields
     /// beyond the patch (RFC 8620 §5.3 echo); None if applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
-        &self, account_id: &Id, id: &Id, patch: O::Patch,
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
     ) -> impl Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy a FileNode by id.
     fn destroy_object<O: SetObject + Send + Sync>(
-        &self, account_id: &Id, id: &Id,
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        id: &Id,
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
     /// Returns `true` if this backend supports JMAP object type `O` for
@@ -91,7 +118,10 @@ pub trait FileNodeBackend: JmapBackend {
     /// Used for: (1) cycle detection when moving a node; (2) fetchParents
     /// expansion in FileNode/get.
     fn get_ancestors(
-        &self, account_id: &Id, ids: &[Id],
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        ids: &[Id],
     ) -> impl Future<Output = Result<Vec<FileNode>, Self::Error>> + Send;
 
     /// Returns all IDs that are descendants of the given node (children,
@@ -101,28 +131,38 @@ pub trait FileNodeBackend: JmapBackend {
     /// descendant set, the move would create a cycle; (2) nodeHasChildren guard
     /// — if result is non-empty the node has children.
     fn get_descendant_ids(
-        &self, account_id: &Id, id: &Id,
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        id: &Id,
     ) -> impl Future<Output = Result<Vec<Id>, Self::Error>> + Send;
 
     /// Returns true if blob_id exists in account_id's blob store.
     ///
     /// Used by FileNode/set to validate blobId before creating a file node.
     fn blob_exists(
-        &self, account_id: &Id, blob_id: &Id,
-    ) -> impl Future<Output = bool> + Send;
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Returns the id of any sibling node that already has the given name,
     /// or None if the name is unique within that parent.
     ///
-    /// parent_id is None for the root level. case_insensitive controls the
+    /// parent_id is None for the root level. folding selects the name
     /// comparison. Used by FileNode/set to enforce the alreadyExists constraint.
     fn find_sibling_by_name(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         parent_id: Option<&Id>,
         name: &str,
-        case_insensitive: bool,
+        folding: CaseFolding,
     ) -> impl Future<Output = Result<Option<Id>, Self::Error>> + Send;
+
+    // Methods with defaults, each taking `caller: &Self::CallerCtx` first:
+    // blob_sha256, cid_advertised, files_rights, query_subtree.
 }
 ```
 

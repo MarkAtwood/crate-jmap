@@ -23,22 +23,35 @@ WebSocket transport themselves.
 
 ## How to use
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use jmap_calendars_server::{CalendarsBackend, register_calendars_handlers};
 use jmap_server::Dispatcher;
 
-// 1. Implement CalendarsBackend for your storage layer (see trait section below).
-struct MyBackend { /* db pool, etc. */ }
-impl CalendarsBackend for MyBackend { /* ... */ }
+// 1. Implement CalendarsBackend for your storage layer. The impl must also
+//    satisfy the JmapBackend supertrait (account_exists, get_objects,
+//    get_state, get_changes, query_objects, query_changes) and declare
+//    `type Error` and `type CallerCtx`. See the CalendarsBackend trait
+//    section below for the full surface.
 
-// 2. Wire all 19 Calendars methods into a Dispatcher in one call.
-let mut dispatcher: Dispatcher<()> = Dispatcher::new();
-register_calendars_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));
+// 2. Construct a dispatcher parameterised on your CallerCtx type, then
+//    register all 19 Calendars methods in one call.
+let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
+register_calendars_handlers(&mut dispatcher, Arc::new(my_backend));
 
 // 3. Dispatch JMAP requests (in your HTTP handler).
-// let response = dispatcher.dispatch(request, (), session_state).await;
+// let response = dispatcher.dispatch(request, caller_ctx, session_state).await;
 ```
+
+`Dispatcher<C>` requires `B::CallerCtx = C`; `register_calendars_handlers`
+enforces the match at the type level. For a single-user dev server use
+`Dispatcher<()>` with a backend whose `CallerCtx = ()`. For
+multi-tenant production, define a typed caller context (e.g. a
+principal-id newtype) and parameterise both sides on that type.
+
+For a runnable, type-checked variant of this example, see the
+[crate-level documentation](https://docs.rs/jmap-calendars-server) — the
+doctest in `lib.rs` is verified by `cargo test --doc`.
 
 After `register_calendars_handlers` returns, the dispatcher handles every
 method name listed below. The same `Arc<MyBackend>` can be shared with other
@@ -72,18 +85,22 @@ layer. Reference impls that do not need identity (e.g. `MemoryBackend`)
 use `type CallerCtx = ();`. See the workspace AGENTS.md "Caller identity
 (foundation seam)" section.
 
-```rust
+```rust,ignore
 pub trait CalendarsBackend: JmapBackend {
     // --- Write operations ---
 
-    /// Create a new object. Returns (assigned_id, created_object).
-    fn create_object<O: SetObject + Send + Sync>(
+    /// Create a new object. `build` receives the backend-assigned id and
+    /// returns the object to store. Returns (assigned_id, created_object).
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+        build: F,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing object.
     /// Returns Some(updated_object) if the backend modified any server-set
@@ -228,7 +245,9 @@ the scheduling-aware `create_calendar_event` / `update_calendar_event` /
 `destroy_calendar_event` (forwarded the `sendSchedulingMessages` flag),
 the `§5.7`-aware `get_calendar_events`, the `§5.11`-aware
 `query_calendar_events`, and `set_default_calendar` /
-`set_default_participant_identity` for the `onSuccessSetIsDefault` hook.
+`set_default_participant_identity` for the `onSuccessSetIsDefault` hook,
+`privacy_conflicts` (the §5.9 uid/privacy check) and
+`may_copy_calendar_event` (the §5.10 copy-out check).
 All take `caller` as first arg after `&self`. See `src/backend.rs` for
 the full canonical signatures.
 

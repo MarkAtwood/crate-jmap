@@ -75,14 +75,18 @@ operations.
 ```rust,ignore
 pub trait ContactsBackend: JmapBackend {
     /// Create a new AddressBook or ContactCard.
-    /// Returns (assigned_id, created_object) on success.
-    fn create_object<O: SetObject + Send + Sync>(
+    /// `build` receives the backend-assigned id and returns the object
+    /// to store. Returns (assigned_id, created_object) on success.
+    fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+        build: F,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing AddressBook or ContactCard.
     /// Returns Some(updated_object) if the backend modified server-set fields
