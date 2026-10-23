@@ -45,8 +45,7 @@ async fn graph_and_node(backend: &MemoryBackend, share_with: Value) -> (String, 
         .as_str()
         .expect("graph")
         .to_owned();
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         backend,
         ALICE,
         json!({ "create": { "n": { "graphId": g } } })

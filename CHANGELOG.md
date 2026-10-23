@@ -1447,6 +1447,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-graph-server**: `handle_graph_node_set`,
+  `handle_graph_edge_set` and `handle_graph_node_op_set` take a new third
+  argument, `created_ids: &BTreeMap<Id, Id>` (pass
+  `CallContext::created_ids`; `register_graph_handlers` and
+  `register_graph_edit_handlers` do). They now resolve `#creationId`
+  references (RFC 8620 §5.3) in GraphNode `graphId`, GraphEdge `graphId` /
+  `fromId` / `toId` (create and update) and GraphNodeOp `nodeId`, as
+  draft-atwood-jmap-graph-00 L277, L306 and the L354-387 example require,
+  instead of rejecting `#x` as a malformed id. A reference that matches no
+  earlier creation fails that entry with `invalidProperties` naming the
+  property (bd JMAP-1p88).
 - **BREAKING** **jmap-mail-client**, **jmap-chat-client**,
   **jmap-chat-mimi-client**, **jmap-calendars-client**,
   **jmap-tasks-client**, **jmap-contacts-client**,

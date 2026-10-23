@@ -51,7 +51,7 @@ async fn graph(backend: &MemoryBackend, share_with: Value) -> String {
 }
 
 async fn node_set(backend: &MemoryBackend, args: Value) -> Value {
-    call!(handle_graph_node_set, backend, ALICE, args)
+    call!(ids handle_graph_node_set, backend, ALICE, args)
 }
 
 /// A node of `graph` with `editFormat` [`FORMAT`].
@@ -68,8 +68,7 @@ async fn edited_node(backend: &MemoryBackend, graph: &str) -> String {
 }
 
 async fn op_set(backend: &MemoryBackend, caller: &str, create: Value) -> Value {
-    call!(
-        handle_graph_node_op_set,
+    call!(ids handle_graph_node_op_set,
         backend,
         caller,
         json!({ "create": create })
@@ -303,8 +302,7 @@ async fn ops_cannot_be_updated_or_destroyed() {
     let n = edited_node(&backend, &g).await;
     let id = op(&backend, ALICE, &n, 0).await["id"].clone();
     let id = id.as_str().expect("op id");
-    let resp = call!(
-        handle_graph_node_op_set,
+    let resp = call!(ids handle_graph_node_op_set,
         &backend,
         ALICE,
         json!({ "update": { id: { "data": "AA" } }, "destroy": [id] })
@@ -320,7 +318,7 @@ async fn ops_cannot_be_updated_or_destroyed() {
 #[tokio::test]
 async fn edit_methods_need_the_capability() {
     let backend = backend();
-    let ty = call_err!(handle_graph_node_op_set, &backend, ALICE, json!({}));
+    let ty = call_err!(ids handle_graph_node_op_set, &backend, ALICE, json!({}));
     assert_eq!(ty, "accountNotSupportedByMethod");
     let ty = call_err!(
         handle_graph_node_cursor,

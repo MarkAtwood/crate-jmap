@@ -7,6 +7,8 @@
 //! the edge's Graph and checks that `fromId` and `toId` name nodes of that
 //! Graph.
 
+use std::collections::BTreeMap;
+
 use jmap_graph_types::CandidateKind;
 use jmap_graph_types::GraphEdgeComparator;
 use jmap_graph_types::{GraphCapability, GraphEdge, GraphNode};
@@ -148,18 +150,26 @@ pub async fn handle_graph_edge_query_changes<B: GraphBackend>(
 /// that changes `fromId` or `toId`, checks that each names a GraphNode of
 /// the edge's Graph. `graphId` is immutable. "Destroying an edge does not
 /// affect its nodes."
+///
+/// `graphId`, `fromId` and `toId` may each be a `#creationId` reference to a record created
+/// earlier in the request, resolved against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]; draft-atwood-jmap-graph-00
+/// §GraphEdge/set, RFC 8620 §5.3); an unknown reference is `invalidProperties`
+/// naming the property.
 pub async fn handle_graph_edge_set<B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    handle_set::<EdgeSet, B>(backend, caller, args).await
+    handle_set::<EdgeSet, B>(backend, caller, created_ids, args).await
 }
 
 struct EdgeSet;
 
 impl<B: GraphBackend> SetOps<B> for EdgeSet {
     type Object = GraphEdge;
+    const ID_PROPERTIES: &'static [&'static str] = &["graphId", "fromId", "toId"];
 
     async fn create(
         backend: &B,

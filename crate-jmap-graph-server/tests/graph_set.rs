@@ -265,8 +265,7 @@ async fn destroy_cascades_to_nodes_and_edges() {
 
     let backend = backend();
     let g = design_notes(&backend, Value::Null).await;
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         &backend,
         ALICE,
         json!({ "create": { "a": { "graphId": g }, "b": { "graphId": g } } })
@@ -275,8 +274,7 @@ async fn destroy_cascades_to_nodes_and_edges() {
         resp["created"]["a"]["id"].as_str().expect("a").to_owned(),
         resp["created"]["b"]["id"].as_str().expect("b").to_owned(),
     );
-    let resp = call!(
-        handle_graph_edge_set,
+    let resp = call!(ids handle_graph_edge_set,
         &backend,
         ALICE,
         json!({ "create": { "e": { "graphId": g, "fromId": a, "toId": b } } })
@@ -332,8 +330,7 @@ async fn node_changes_leave_graph_updated() {
     let backend = backend();
     let g = design_notes(&backend, Value::Null).await;
     let before = get_one(&backend, ALICE, &g).await["list"][0]["updated"].clone();
-    let resp = call!(
-        handle_graph_node_set,
+    let resp = call!(ids handle_graph_node_set,
         &backend,
         ALICE,
         json!({ "create": { "a": { "graphId": g } } })
