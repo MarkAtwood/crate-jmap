@@ -19,8 +19,9 @@
 mod helpers;
 
 use helpers::{
-    CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID, jmap_response, mock_jmap_post, recorded_args,
-    recorded_body, set_destroy_response, set_response,
+    CHAT_STATE_NEW, CHAT_STATE_OLD, QUERY_STATE_NEW, QUERY_STATE_OLD, TEST_ACCOUNT_ID,
+    TEST_CHAT_ID, TEST_MESSAGE_ID, TEST_UTC_DATE_LATER, jmap_response, mock_jmap_post,
+    recorded_args, recorded_body, set_destroy_response, set_response,
 };
 use jmap_metadata_types::WithMetadata;
 use jmap_types::{Filter, FilterOperator, Operator};
@@ -38,7 +39,7 @@ async fn chat_get_omits_ids_and_properties_when_none() {
         "Chat/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "c-state-1",
+            "state": CHAT_STATE_OLD,
             "list": [],
             "notFound": []
         }),
@@ -56,7 +57,7 @@ async fn chat_get_omits_ids_and_properties_when_none() {
         TEST_ACCOUNT_ID,
         "accountId mismatch"
     );
-    assert_eq!(resp.state, "c-state-1", "state mismatch");
+    assert_eq!(resp.state, CHAT_STATE_OLD, "state mismatch");
     assert!(resp.list.is_empty(), "list must be empty");
 
     let body = recorded_body(&server).await;
@@ -96,7 +97,7 @@ async fn chat_get_threads_ids_and_properties_when_some() {
         "Chat/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "c-state-1",
+            "state": CHAT_STATE_OLD,
             "list": [],
             "notFound": ["chat-missing"]
         }),
@@ -104,7 +105,7 @@ async fn chat_get_threads_ids_and_properties_when_some() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let ids = [Id::from("chat-1"), Id::from("chat-missing")];
+    let ids = [Id::from(TEST_CHAT_ID), Id::from("chat-missing")];
     let props = ["id", "name"];
     let resp = sc
         .chat_get(Some(&ids), Some(&props))
@@ -119,7 +120,7 @@ async fn chat_get_threads_ids_and_properties_when_some() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["ids"],
-        json!(["chat-1", "chat-missing"]),
+        json!([TEST_CHAT_ID, "chat-missing"]),
         "ids must thread through verbatim"
     );
     assert_eq!(
@@ -150,10 +151,10 @@ async fn chat_get_decodes_populated_chat() {
         "Chat/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "c-state-2",
+            "state": CHAT_STATE_NEW,
             "list": [
                 {
-                    "id": "chat-1",
+                    "id": TEST_CHAT_ID,
                     "kind": "group",
                     "name": "Team Standup",
                     "createdAt": "2026-01-15T09:00:00Z",
@@ -193,11 +194,11 @@ async fn chat_get_decodes_populated_chat() {
         TEST_ACCOUNT_ID,
         "accountId mismatch"
     );
-    assert_eq!(resp.state, "c-state-2", "state mismatch");
+    assert_eq!(resp.state, CHAT_STATE_NEW, "state mismatch");
     assert_eq!(resp.list.len(), 1, "list must contain exactly one Chat");
 
     let chat = &resp.list[0];
-    assert_eq!(chat.id.as_ref(), "chat-1", "id mismatch");
+    assert_eq!(chat.id.as_ref(), TEST_CHAT_ID, "id mismatch");
     assert!(
         matches!(chat.kind, jmap_chat_types::ChatKind::Group),
         "kind 'group' must deserialise to ChatKind::Group, got {:?}",
@@ -265,10 +266,10 @@ async fn chat_query_empty_filter_sends_null() {
         "Chat/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "qs-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
-            "ids": ["chat-1", "chat-2"],
+            "ids": [TEST_CHAT_ID, "chat-2"],
             "total": null,
             "limit": null
         }),
@@ -308,7 +309,7 @@ async fn chat_query_filter_muted_serializes() {
         "Chat/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "qs-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": false,
             "position": 0,
             "ids": []
@@ -349,7 +350,7 @@ async fn chat_query_anchor_offset_calculate_total_serialize() {
         "Chat/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "qs-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": false,
             "position": 3,
             "ids": [],
@@ -406,7 +407,7 @@ async fn chat_query_sends_metadata_condition_leaf() {
         "Chat/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "qs-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": false,
             "position": 0,
             "ids": []
@@ -443,8 +444,8 @@ async fn chat_changes_since_state_and_max_changes_passthrough() {
         "Chat/changes",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldState": "c-old",
-            "newState": "c-new",
+            "oldState": CHAT_STATE_OLD,
+            "newState": CHAT_STATE_NEW,
             "hasMoreChanges": false,
             "created": ["chat-new"],
             "updated": [],
@@ -454,16 +455,20 @@ async fn chat_changes_since_state_and_max_changes_passthrough() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("c-old");
+    let since = State::from(CHAT_STATE_OLD);
     let resp = sc
         .chat_changes(&since, Some(50))
         .await
         .expect("chat_changes: must succeed");
-    assert_eq!(resp.old_state, "c-old", "oldState mismatch");
-    assert_eq!(resp.new_state, "c-new", "newState mismatch");
+    assert_eq!(resp.old_state, CHAT_STATE_OLD, "oldState mismatch");
+    assert_eq!(resp.new_state, CHAT_STATE_NEW, "newState mismatch");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["sinceState"], json!("c-old"), "sinceState mismatch");
+    assert_eq!(
+        args["sinceState"],
+        json!(CHAT_STATE_OLD),
+        "sinceState mismatch"
+    );
     assert_eq!(args["maxChanges"], json!(50), "maxChanges mismatch");
 }
 
@@ -510,8 +515,8 @@ async fn chat_query_changes_since_query_state_passthrough() {
         "Chat/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": null,
             "removed": [],
             "added": []
@@ -520,7 +525,7 @@ async fn chat_query_changes_since_query_state_passthrough() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("qs-old");
+    let since = State::from(QUERY_STATE_OLD);
     let _ = sc
         .chat_query_changes(
             &since,
@@ -536,7 +541,7 @@ async fn chat_query_changes_since_query_state_passthrough() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["sinceQueryState"],
-        json!("qs-old"),
+        json!(QUERY_STATE_OLD),
         "sinceQueryState mismatch"
     );
     assert!(
@@ -554,14 +559,14 @@ async fn chat_typing_emits_chat_id_and_typing_flag() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let _ = sc
         .chat_typing(&chat_id, true)
         .await
         .expect("chat_typing: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["chatId"], json!("chat-1"), "chatId mismatch");
+    assert_eq!(args["chatId"], json!(TEST_CHAT_ID), "chatId mismatch");
     assert_eq!(args["typing"], json!(true), "typing flag mismatch");
 }
 
@@ -654,12 +659,12 @@ async fn chat_update_patch_muted_serializes() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let patch = jmap_chat_client::ChatPatch {
         muted: Some(true),
         ..Default::default()
@@ -671,7 +676,7 @@ async fn chat_update_patch_muted_serializes() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["chat-1"],
+        args["update"][TEST_CHAT_ID],
         json!({ "muted": true }),
         "patch must contain only muted=true"
     );
@@ -691,13 +696,13 @@ async fn chat_update_patch_struct_update_syntax_serializes() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let until = jmap_types::UTCDate::from("2024-06-16T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let until = jmap_types::UTCDate::from(TEST_UTC_DATE_LATER);
     let patch = jmap_chat_client::ChatPatch {
         muted: Some(true),
         mute_until: jmap_chat_client::Patch::Set(&until),
@@ -710,8 +715,8 @@ async fn chat_update_patch_struct_update_syntax_serializes() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["chat-1"],
-        json!({ "muted": true, "muteUntil": "2024-06-16T09:00:00Z" }),
+        args["update"][TEST_CHAT_ID],
+        json!({ "muted": true, "muteUntil": TEST_UTC_DATE_LATER }),
     );
 }
 
@@ -729,12 +734,12 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let patch = jmap_chat_client::ChatPatch {
         message_expiry_seconds: jmap_chat_client::Patch::Clear,
         ..Default::default()
@@ -746,7 +751,7 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["chat-1"],
+        args["update"][TEST_CHAT_ID],
         json!({ "messageExpirySeconds": null }),
         "Patch::Clear must serialise the field as JSON null"
     );
@@ -766,12 +771,12 @@ async fn chat_update_patch_receipt_sharing_clear_emits_null() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let patch = jmap_chat_client::ChatPatch {
         receipt_sharing: jmap_chat_client::Patch::Clear,
         ..Default::default()
@@ -782,7 +787,10 @@ async fn chat_update_patch_receipt_sharing_clear_emits_null() {
         .expect("chat_update: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["update"]["chat-1"], json!({ "receiptSharing": null }),);
+    assert_eq!(
+        args["update"][TEST_CHAT_ID],
+        json!({ "receiptSharing": null }),
+    );
 }
 
 /// `Chat/set` update with `receipt_sharing: Patch::Set(false)` emits the
@@ -794,12 +802,12 @@ async fn chat_update_patch_receipt_sharing_set_emits_value() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let patch = jmap_chat_client::ChatPatch {
         receipt_sharing: jmap_chat_client::Patch::Set(false),
         ..Default::default()
@@ -810,7 +818,10 @@ async fn chat_update_patch_receipt_sharing_set_emits_value() {
         .expect("chat_update: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["update"]["chat-1"], json!({ "receiptSharing": false }),);
+    assert_eq!(
+        args["update"][TEST_CHAT_ID],
+        json!({ "receiptSharing": false }),
+    );
 }
 
 /// `Chat/set` update with `message_expiry_seconds: Patch::Set(N)` must
@@ -825,12 +836,12 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let patch = jmap_chat_client::ChatPatch {
         message_expiry_seconds: jmap_chat_client::Patch::Set(86_400),
         ..Default::default()
@@ -842,7 +853,7 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["chat-1"],
+        args["update"][TEST_CHAT_ID],
         json!({ "messageExpirySeconds": 86_400 }),
         "Patch::Set(N) must serialise the field as integer N"
     );
@@ -916,12 +927,12 @@ async fn chat_update_patch_name_description_avatar_serialises() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let patch = jmap_chat_client::ChatPatch {
         name: Some("Renamed Group"),
         description: jmap_chat_client::Patch::Set("New topic for the group"),
@@ -934,7 +945,7 @@ async fn chat_update_patch_name_description_avatar_serialises() {
         .expect("chat_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["chat-1"];
+    let patch_obj = &args["update"][TEST_CHAT_ID];
     assert_eq!(patch_obj["name"], json!("Renamed Group"), "name mismatch");
     assert_eq!(
         patch_obj["description"],
@@ -965,12 +976,12 @@ async fn chat_update_patch_add_and_remove_members_serialises() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let alice_id = Id::from("u-alice");
     let bob_id = Id::from("u-bob");
     let add_alice = jmap_chat_client::AddMemberInput {
@@ -996,7 +1007,7 @@ async fn chat_update_patch_add_and_remove_members_serialises() {
         .expect("chat_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["chat-1"];
+    let patch_obj = &args["update"][TEST_CHAT_ID];
     assert_eq!(
         patch_obj["addMembers"],
         json!([
@@ -1023,12 +1034,12 @@ async fn chat_update_patch_update_member_roles_serialises() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     let alice_id = Id::from("u-alice");
     let bob_id = Id::from("u-bob");
     let role_changes = [
@@ -1056,7 +1067,7 @@ async fn chat_update_patch_update_member_roles_serialises() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["chat-1"]["updateMemberRoles"],
+        args["update"][TEST_CHAT_ID]["updateMemberRoles"],
         json!([
             { "id": "u-alice", "role": "member" },
             { "id": "u-bob", "role": "moderator" }
@@ -1078,8 +1089,8 @@ async fn chat_query_changes_with_filter_sort_upto_calculatetotal() {
         "Chat/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": 0,
             "removed": [],
             "added": []
@@ -1088,7 +1099,7 @@ async fn chat_query_changes_with_filter_sort_upto_calculatetotal() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("qs-old");
+    let since = State::from(QUERY_STATE_OLD);
     let up_to = Id::from("CH-100");
     let mut cond = jmap_chat_types::ChatFilterCondition::default();
     cond.kind = Some(jmap_chat_types::ChatKind::Group);
@@ -1145,8 +1156,8 @@ async fn chat_query_changes_all_none_omits_optional_wire_keys() {
         "Chat/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": 0,
             "removed": [],
             "added": []
@@ -1155,7 +1166,7 @@ async fn chat_query_changes_all_none_omits_optional_wire_keys() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("qs-old");
+    let since = State::from(QUERY_STATE_OLD);
     sc.chat_query_changes(
         &since,
         None,
@@ -1196,8 +1207,8 @@ async fn chat_query_changes_sends_metadata_condition_in_and() {
         "Chat/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": null,
             "removed": [],
             "added": []
@@ -1216,7 +1227,7 @@ async fn chat_query_changes_sends_metadata_condition_in_and() {
 
     let sc = helpers::make_client(&server);
     sc.chat_query_changes(
-        &State::from("qs-old"),
+        &State::from(QUERY_STATE_OLD),
         None,
         Some(&filter),
         None,
@@ -1331,13 +1342,13 @@ async fn chat_update_patch_typing_and_pins_serialise() {
         "Chat/set",
         CHAT_STATE_OLD,
         CHAT_STATE_NEW,
-        json!({ "updated": { "chat-1": null } }),
+        json!({ "updated": { TEST_CHAT_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let pins = [Id::from("msg-1"), Id::from("msg-2")];
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let pins = [Id::from(TEST_MESSAGE_ID), Id::from("msg-2")];
     let patch = jmap_chat_client::ChatPatch {
         receive_typing_indicators: Some(false),
         pinned_message_ids: Some(&pins),
@@ -1350,7 +1361,7 @@ async fn chat_update_patch_typing_and_pins_serialise() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["chat-1"],
-        json!({ "receiveTypingIndicators": false, "pinnedMessageIds": ["msg-1", "msg-2"] })
+        args["update"][TEST_CHAT_ID],
+        json!({ "receiveTypingIndicators": false, "pinnedMessageIds": [TEST_MESSAGE_ID, "msg-2"] })
     );
 }

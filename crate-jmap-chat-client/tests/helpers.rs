@@ -42,6 +42,20 @@ pub const SPACE_STATE_NEW: &str = "sp-2";
 pub const MESSAGE_STATE_OLD: &str = "ms-1";
 pub const MESSAGE_STATE_NEW: &str = "ms-2";
 
+/// Query-state pair used by every `/query` and `/queryChanges` response.
+pub const QUERY_STATE_OLD: &str = "qs-old";
+pub const QUERY_STATE_NEW: &str = "qs-new";
+
+/// Canonical object ids for the Chat, Space and Message under test.
+pub const TEST_CHAT_ID: &str = "chat-1";
+pub const TEST_SPACE_ID: &str = "space-1";
+pub const TEST_MESSAGE_ID: &str = "msg-1";
+
+/// Canonical RFC 8620 §1.4 `UTCDate` values for tests that need one
+/// timestamp, or one timestamp strictly after another.
+pub const TEST_UTC_DATE: &str = "2024-06-15T09:00:00Z";
+pub const TEST_UTC_DATE_LATER: &str = "2024-06-16T09:00:00Z";
+
 /// Build a [`jmap_base_client::Session`] whose `apiUrl` points at the mock server.
 ///
 /// Account: [`TEST_ACCOUNT_ID`] / `john@example.com`, primary for

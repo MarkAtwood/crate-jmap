@@ -13,8 +13,9 @@
 mod helpers;
 
 use helpers::{
-    MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, TEST_ACCOUNT_ID, jmap_response, mock_jmap_post,
-    recorded_args, recorded_body, set_response, set_update_response,
+    MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, QUERY_STATE_NEW, QUERY_STATE_OLD, TEST_ACCOUNT_ID,
+    TEST_CHAT_ID, TEST_MESSAGE_ID, TEST_UTC_DATE, TEST_UTC_DATE_LATER, jmap_response,
+    mock_jmap_post, recorded_args, recorded_body, set_response, set_update_response,
 };
 use jmap_types::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
@@ -34,7 +35,7 @@ async fn message_get_none_ids_omits_ids_on_wire() {
         "Message/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "m-state-0",
+            "state": MESSAGE_STATE_OLD,
             "list": [],
             "notFound": []
         }),
@@ -46,7 +47,7 @@ async fn message_get_none_ids_omits_ids_on_wire() {
         .message_get(None, None)
         .await
         .expect("message_get(None): must succeed");
-    assert_eq!(resp.state, "m-state-0", "state mismatch");
+    assert_eq!(resp.state, MESSAGE_STATE_OLD, "state mismatch");
 
     let body = recorded_body(&server).await;
     let args = &body["methodCalls"][0][1];
@@ -62,15 +63,15 @@ async fn message_get_threads_ids_and_omits_properties_when_none() {
         "Message/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "m-state-1",
+            "state": MESSAGE_STATE_OLD,
             "list": [],
-            "notFound": ["msg-1", "msg-2"]
+            "notFound": [TEST_MESSAGE_ID, "msg-2"]
         }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let ids = [Id::from("msg-1"), Id::from("msg-2")];
+    let ids = [Id::from(TEST_MESSAGE_ID), Id::from("msg-2")];
     let _ = sc
         .message_get(Some(&ids), None)
         .await
@@ -80,7 +81,7 @@ async fn message_get_threads_ids_and_omits_properties_when_none() {
     let args = &body["methodCalls"][0][1];
     assert_eq!(
         args["ids"],
-        json!(["msg-1", "msg-2"]),
+        json!([TEST_MESSAGE_ID, "msg-2"]),
         "ids must thread through verbatim"
     );
     assert!(
@@ -124,13 +125,13 @@ async fn message_get_decodes_populated_message() {
         "Message/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "m-state-2",
+            "state": MESSAGE_STATE_NEW,
             "list": [
                 {
-                    "id": "msg-1",
+                    "id": TEST_MESSAGE_ID,
                     "senderMsgId": "client-msg-1",
                     "senderId": TEST_ACCOUNT_ID,
-                    "chatId": "chat-1",
+                    "chatId": TEST_CHAT_ID,
                     "body": "Hello, world!",
                     "bodyType": "text/plain",
                     "attachments": [
@@ -169,7 +170,7 @@ async fn message_get_decodes_populated_message() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let ids = [Id::from("msg-1")];
+    let ids = [Id::from(TEST_MESSAGE_ID)];
     let resp = sc
         .message_get(Some(&ids), None)
         .await
@@ -180,18 +181,18 @@ async fn message_get_decodes_populated_message() {
         TEST_ACCOUNT_ID,
         "accountId mismatch"
     );
-    assert_eq!(resp.state, "m-state-2", "state mismatch");
+    assert_eq!(resp.state, MESSAGE_STATE_NEW, "state mismatch");
     assert_eq!(resp.list.len(), 1, "list must contain exactly one Message");
 
     let msg = &resp.list[0];
-    assert_eq!(msg.id.as_ref(), "msg-1", "id mismatch");
+    assert_eq!(msg.id.as_ref(), TEST_MESSAGE_ID, "id mismatch");
     assert_eq!(
         msg.sender_msg_id.as_ref(),
         "client-msg-1",
         "senderMsgId mismatch"
     );
     assert_eq!(msg.sender_id.as_ref(), TEST_ACCOUNT_ID, "senderId mismatch");
-    assert_eq!(msg.chat_id.as_ref(), "chat-1", "chatId mismatch");
+    assert_eq!(msg.chat_id.as_ref(), TEST_CHAT_ID, "chatId mismatch");
     assert_eq!(msg.body, "Hello, world!", "body mismatch");
     assert_eq!(
         msg.body_type,
@@ -315,10 +316,10 @@ async fn message_query_chat_id_and_default_sort() {
         "Message/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "mq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
-            "ids": ["msg-1"]
+            "ids": [TEST_MESSAGE_ID]
         }),
     );
     mock_jmap_post(&server, resp_body).await;
@@ -336,7 +337,7 @@ async fn message_query_chat_id_and_default_sort() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["filter"],
-        json!({ "chatId": "chat-1" }),
+        json!({ "chatId": TEST_CHAT_ID }),
         "filter must contain chatId only"
     );
     assert!(
@@ -354,7 +355,7 @@ async fn message_query_sort_ascending() {
         "Message/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "mq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
             "ids": []
@@ -395,7 +396,7 @@ async fn message_query_topic_id_filter_serializes() {
         "Message/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "mq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
             "ids": []
@@ -405,7 +406,7 @@ async fn message_query_topic_id_filter_serializes() {
 
     let sc = helpers::make_client(&server);
     let mut cond = jmap_chat_types::MessageFilterCondition::default();
-    cond.chat_id = Some(Id::from("chat-1"));
+    cond.chat_id = Some(Id::from(TEST_CHAT_ID));
     cond.topic_id = Some("topic-1".to_owned());
     let _ = sc
         .message_query(
@@ -419,7 +420,7 @@ async fn message_query_topic_id_filter_serializes() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["filter"],
-        json!({ "chatId": "chat-1", "topicId": "topic-1" }),
+        json!({ "chatId": TEST_CHAT_ID, "topicId": "topic-1" }),
         "filter must carry topicId verbatim"
     );
 }
@@ -437,7 +438,7 @@ async fn message_query_anchor_offset_calculate_total_serialize() {
         "Message/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "mq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 10,
             "ids": [],
@@ -491,7 +492,7 @@ async fn message_query_sends_not_operator() {
         "Message/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "mq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
             "ids": []
@@ -527,17 +528,17 @@ async fn message_query_sends_not_operator() {
         json!({
             "operator": "AND",
             "conditions": [
-                { "chatId": "chat-1" },
+                { "chatId": TEST_CHAT_ID },
                 { "operator": "NOT", "conditions": [{ "hasAttachment": true }] }
             ]
         })
     );
 }
 
-/// A `Message/query` filter with only `chatId: "chat-1"`.
+/// A `Message/query` filter with only `chatId: TEST_CHAT_ID`.
 fn chat_filter() -> jmap_chat_types::MessageFilter {
     let mut cond = jmap_chat_types::MessageFilterCondition::default();
-    cond.chat_id = Some(Id::from("chat-1"));
+    cond.chat_id = Some(Id::from(TEST_CHAT_ID));
     Filter::Condition(cond)
 }
 
@@ -550,25 +551,29 @@ async fn message_changes_since_state_passthrough() {
         "Message/changes",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldState": "mc-old",
-            "newState": "mc-new",
+            "oldState": MESSAGE_STATE_OLD,
+            "newState": MESSAGE_STATE_NEW,
             "hasMoreChanges": false,
             "created": [],
-            "updated": ["msg-1"],
+            "updated": [TEST_MESSAGE_ID],
             "destroyed": []
         }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("mc-old");
+    let since = State::from(MESSAGE_STATE_OLD);
     let _ = sc
         .message_changes(&since, Some(100))
         .await
         .expect("message_changes: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["sinceState"], json!("mc-old"), "sinceState mismatch");
+    assert_eq!(
+        args["sinceState"],
+        json!(MESSAGE_STATE_OLD),
+        "sinceState mismatch"
+    );
     assert_eq!(args["maxChanges"], json!(100), "maxChanges mismatch");
 }
 
@@ -587,9 +592,9 @@ async fn message_create_serializes_create_object() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let chat_id = Id::from(TEST_CHAT_ID);
     // 20-character UTCDate (RFC 8620 §1.4): "YYYY-MM-DDTHH:MM:SSZ".
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let input = jmap_chat_client::MessageCreateInput {
         client_id: Some("client-msg-1"),
         chat_id: &chat_id,
@@ -617,7 +622,7 @@ async fn message_create_serializes_create_object() {
 
     let args = recorded_args(&server).await;
     let create = &args["create"]["client-msg-1"];
-    assert_eq!(create["chatId"], json!("chat-1"), "chatId mismatch");
+    assert_eq!(create["chatId"], json!(TEST_CHAT_ID), "chatId mismatch");
     assert_eq!(create["body"], json!("hello world"), "body mismatch");
     assert_eq!(
         create["bodyType"],
@@ -626,7 +631,7 @@ async fn message_create_serializes_create_object() {
     );
     assert_eq!(
         create["sentAt"],
-        json!("2024-06-15T09:00:00Z"),
+        json!(TEST_UTC_DATE),
         "sentAt must thread through verbatim"
     );
     // `replyTo` was not set, must be absent.
@@ -664,8 +669,8 @@ async fn message_create_rate_limited_surfaces_as_error() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let input = jmap_chat_client::MessageCreateInput {
         client_id: Some("client-msg-1"),
         chat_id: &chat_id,
@@ -742,8 +747,8 @@ async fn message_create_rate_limit_without_hint_retries_now() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let input = jmap_chat_client::MessageCreateInput {
         client_id: Some("client-msg-1"),
         chat_id: &chat_id,
@@ -805,8 +810,8 @@ async fn message_create_legacy_rate_limited_is_not_created_not_error() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let input = jmap_chat_client::MessageCreateInput {
         client_id: Some("client-msg-1"),
         chat_id: &chat_id,
@@ -859,8 +864,8 @@ async fn message_create_rate_limit_malformed_retry_after_is_unexpected() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let input = jmap_chat_client::MessageCreateInput {
         client_id: Some("client-msg-1"),
         chat_id: &chat_id,
@@ -894,12 +899,16 @@ async fn message_create_rate_limit_malformed_retry_after_is_unexpected() {
 #[tokio::test]
 async fn message_update_body_patch_serializes() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
     let patch = jmap_chat_client::MessagePatch {
         body: Some("edited body"),
         body_type: Some(jmap_chat_client::BodyType::Markdown),
@@ -911,7 +920,7 @@ async fn message_update_body_patch_serializes() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert_eq!(patch_obj["body"], json!("edited body"), "body mismatch");
     assert_eq!(
         patch_obj["bodyType"],
@@ -926,13 +935,17 @@ async fn message_update_body_patch_serializes() {
 #[tokio::test]
 async fn message_update_reaction_add_uses_json_pointer_patch_key() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let reaction_sent_at = UTCDate::from("2024-06-15T09:01:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let reaction_sent_at = UTCDate::from(TEST_UTC_DATE);
     let changes = [jmap_chat_client::ReactionChange::Add {
         sender_reaction_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
         emoji: "👍",
@@ -948,10 +961,10 @@ async fn message_update_reaction_add_uses_json_pointer_patch_key() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert_eq!(
         patch_obj["reactions/01ARZ3NDEKTSV4RRFFQ69G5FAV"],
-        json!({ "emoji": "👍", "sentAt": "2024-06-15T09:01:00Z" }),
+        json!({ "emoji": "👍", "sentAt": TEST_UTC_DATE }),
         "reaction-add must produce JSON Pointer patch key with emoji + sentAt"
     );
 }
@@ -962,12 +975,16 @@ async fn message_update_reaction_add_uses_json_pointer_patch_key() {
 #[tokio::test]
 async fn message_update_reaction_remove_emits_null_patch_value() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
     let changes = [jmap_chat_client::ReactionChange::Remove {
         sender_reaction_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
     }];
@@ -981,7 +998,7 @@ async fn message_update_reaction_remove_emits_null_patch_value() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert_eq!(
         patch_obj["reactions/01ARZ3NDEKTSV4RRFFQ69G5FAV"],
         json!(null),
@@ -997,8 +1014,8 @@ async fn message_update_reaction_id_with_json_pointer_chars_rejected() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server);
 
-    let msg_id = Id::from("msg-1");
-    let sent_at = UTCDate::from("2024-06-15T09:01:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let changes = [jmap_chat_client::ReactionChange::Add {
         sender_reaction_id: "bad/id",
         emoji: "👍",
@@ -1039,19 +1056,27 @@ async fn message_update_reaction_id_with_json_pointer_chars_rejected() {
 #[tokio::test]
 async fn message_destroy_threads_ids() {
     let server = MockServer::start().await;
-    let resp_body =
-        helpers::set_destroy_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = helpers::set_destroy_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let ids = [Id::from("msg-1")];
+    let ids = [Id::from(TEST_MESSAGE_ID)];
     let _ = sc
         .message_destroy(&ids, None)
         .await
         .expect("message_destroy: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["destroy"], json!(["msg-1"]), "destroy must thread");
+    assert_eq!(
+        args["destroy"],
+        json!([TEST_MESSAGE_ID]),
+        "destroy must thread"
+    );
 }
 
 /// `Message/set` destroy must reject an empty `ids` slice client-side
@@ -1100,13 +1125,17 @@ async fn message_destroy_rejects_empty_ids() {
 #[tokio::test]
 async fn message_update_with_read_disposition_displayed_serialises_correctly() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let read_at = UTCDate::from(TEST_UTC_DATE);
     let patch = jmap_chat_client::MessagePatch {
         read_at: Some(&read_at),
         read_disposition: Some(jmap_chat_types::ReadDisposition::Displayed),
@@ -1118,10 +1147,10 @@ async fn message_update_with_read_disposition_displayed_serialises_correctly() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert_eq!(
         patch_obj["readAt"],
-        json!("2026-01-05T10:00:00Z"),
+        json!(TEST_UTC_DATE),
         "readAt must thread to the wire alongside readDisposition"
     );
     assert_eq!(
@@ -1136,13 +1165,17 @@ async fn message_update_with_read_disposition_displayed_serialises_correctly() {
 #[tokio::test]
 async fn message_update_with_read_disposition_deleted_serialises_correctly() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let read_at = UTCDate::from(TEST_UTC_DATE);
     let patch = jmap_chat_client::MessagePatch {
         read_at: Some(&read_at),
         read_disposition: Some(jmap_chat_types::ReadDisposition::Deleted),
@@ -1154,8 +1187,8 @@ async fn message_update_with_read_disposition_deleted_serialises_correctly() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
-    assert_eq!(patch_obj["readAt"], json!("2026-01-05T10:00:00Z"));
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
+    assert_eq!(patch_obj["readAt"], json!(TEST_UTC_DATE));
     assert_eq!(
         patch_obj["readDisposition"],
         json!("deleted"),
@@ -1168,13 +1201,17 @@ async fn message_update_with_read_disposition_deleted_serialises_correctly() {
 #[tokio::test]
 async fn message_update_with_read_disposition_processed_serialises_correctly() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let read_at = UTCDate::from(TEST_UTC_DATE);
     let patch = jmap_chat_client::MessagePatch {
         read_at: Some(&read_at),
         read_disposition: Some(jmap_chat_types::ReadDisposition::Processed),
@@ -1186,8 +1223,8 @@ async fn message_update_with_read_disposition_processed_serialises_correctly() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
-    assert_eq!(patch_obj["readAt"], json!("2026-01-05T10:00:00Z"));
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
+    assert_eq!(patch_obj["readAt"], json!(TEST_UTC_DATE));
     assert_eq!(
         patch_obj["readDisposition"],
         json!("processed"),
@@ -1202,13 +1239,17 @@ async fn message_update_with_read_disposition_processed_serialises_correctly() {
 #[tokio::test]
 async fn message_update_with_read_disposition_other_serialises_correctly() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let read_at = UTCDate::from(TEST_UTC_DATE);
     let patch = jmap_chat_client::MessagePatch {
         read_at: Some(&read_at),
         read_disposition: Some(jmap_chat_types::ReadDisposition::Other(
@@ -1222,8 +1263,8 @@ async fn message_update_with_read_disposition_other_serialises_correctly() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
-    assert_eq!(patch_obj["readAt"], json!("2026-01-05T10:00:00Z"));
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
+    assert_eq!(patch_obj["readAt"], json!(TEST_UTC_DATE));
     assert_eq!(
         patch_obj["readDisposition"],
         json!("voice-listened"),
@@ -1239,13 +1280,17 @@ async fn message_update_with_read_disposition_other_serialises_correctly() {
 #[tokio::test]
 async fn message_update_with_read_disposition_arbitrary_other_passes_through() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let read_at = UTCDate::from(TEST_UTC_DATE);
     let patch = jmap_chat_client::MessagePatch {
         read_at: Some(&read_at),
         read_disposition: Some(jmap_chat_types::ReadDisposition::Other(
@@ -1260,7 +1305,7 @@ async fn message_update_with_read_disposition_arbitrary_other_passes_through() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["msg-1"]["readDisposition"],
+        args["update"][TEST_MESSAGE_ID]["readDisposition"],
         json!("acmeCorpPrivateStatus"),
         "an arbitrary Other value must reach the wire unchanged"
     );
@@ -1273,13 +1318,17 @@ async fn message_update_with_read_disposition_arbitrary_other_passes_through() {
 #[tokio::test]
 async fn message_update_without_read_disposition_omits_field() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let read_at = UTCDate::from(TEST_UTC_DATE);
     let patch = jmap_chat_client::MessagePatch {
         read_at: Some(&read_at),
         ..Default::default()
@@ -1291,10 +1340,10 @@ async fn message_update_without_read_disposition_omits_field() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert_eq!(
         patch_obj["readAt"],
-        json!("2026-01-05T10:00:00Z"),
+        json!(TEST_UTC_DATE),
         "readAt must thread to the wire"
     );
     assert!(
@@ -1317,7 +1366,7 @@ async fn message_update_read_disposition_without_read_at_rejected() {
         ..Default::default()
     };
     let err = sc
-        .message_update(&Id::from("msg-1"), &patch, None)
+        .message_update(&Id::from(TEST_MESSAGE_ID), &patch, None)
         .await
         .expect_err("message_update must reject read_disposition without read_at");
     assert!(
@@ -1345,8 +1394,8 @@ async fn message_query_changes_passthrough_and_empty_state_rejected() {
         "Message/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "mqc-old",
-            "newQueryState": "mqc-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": null,
             "removed": [],
             "added": []
@@ -1355,7 +1404,7 @@ async fn message_query_changes_passthrough_and_empty_state_rejected() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("mqc-old");
+    let since = State::from(QUERY_STATE_OLD);
     let _ = sc
         .message_query_changes(
             &since,
@@ -1371,7 +1420,7 @@ async fn message_query_changes_passthrough_and_empty_state_rejected() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["sinceQueryState"],
-        json!("mqc-old"),
+        json!(QUERY_STATE_OLD),
         "sinceQueryState mismatch"
     );
     assert_eq!(args["maxChanges"], json!(25), "maxChanges mismatch");
@@ -1419,8 +1468,8 @@ async fn message_create_with_body_type_rich_serialises_correct_wire_string() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let input = jmap_chat_client::MessageCreateInput {
         client_id: Some("client-msg-rich"),
         chat_id: &chat_id,
@@ -1461,12 +1510,16 @@ async fn message_create_with_body_type_rich_serialises_correct_wire_string() {
 #[tokio::test]
 async fn message_update_with_body_type_other_round_trips_wire_string() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
     let patch = jmap_chat_client::MessagePatch {
         body: Some("vendor-encoded body"),
         body_type: Some(jmap_chat_client::BodyType::Other(
@@ -1481,7 +1534,7 @@ async fn message_update_with_body_type_other_round_trips_wire_string() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["msg-1"]["bodyType"],
+        args["update"][TEST_MESSAGE_ID]["bodyType"],
         json!("application/x-acme-rich"),
         "BodyType::Other must serialise the caller-supplied wire string verbatim"
     );
@@ -1500,8 +1553,8 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
         "Message/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": 0,
             "removed": [],
             "added": []
@@ -1510,10 +1563,10 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("qs-old");
+    let since = State::from(QUERY_STATE_OLD);
     let up_to = Id::from("MSG-100");
     let mut cond = jmap_chat_types::MessageFilterCondition::default();
-    cond.chat_id = Some(Id::from("chat-1"));
+    cond.chat_id = Some(Id::from(TEST_CHAT_ID));
     // draft-atwood-jmap-chat-00 §Input Validation: "`sentAt`, `editedAt`:
     // store as-is; never use for ordering or expiry."; §Message/query
     // "Default sort: `receivedAt`".
@@ -1535,7 +1588,7 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["filter"]["chatId"],
-        json!("chat-1"),
+        json!(TEST_CHAT_ID),
         "filter.chatId must be 'chat-1'"
     );
     assert_eq!(
@@ -1570,12 +1623,16 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
 #[tokio::test]
 async fn message_update_broadcast_mentions_emits_wire_key() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
     let patch = jmap_chat_client::MessagePatch {
         broadcast_mentions: Some(vec![
             serde_json::from_value(json!({"scope": "everyone"}))
@@ -1589,7 +1646,7 @@ async fn message_update_broadcast_mentions_emits_wire_key() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert_eq!(
         patch_obj["broadcastMentions"],
         json!([{"scope": "everyone"}]),
@@ -1603,12 +1660,16 @@ async fn message_update_broadcast_mentions_emits_wire_key() {
 #[tokio::test]
 async fn message_update_broadcast_mentions_none_omits_wire_key() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
     let patch = jmap_chat_client::MessagePatch::default();
     // broadcast_mentions is None by default.
     let _ = sc
@@ -1617,7 +1678,7 @@ async fn message_update_broadcast_mentions_none_omits_wire_key() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert!(
         patch_obj.get("broadcastMentions").is_none(),
         "broadcastMentions key must be absent when broadcast_mentions is None; got {:?}",
@@ -1631,12 +1692,16 @@ async fn message_update_broadcast_mentions_none_omits_wire_key() {
 #[tokio::test]
 async fn message_update_broadcast_mentions_empty_vec_emits_empty_array() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
     let patch = jmap_chat_client::MessagePatch {
         broadcast_mentions: Some(vec![]),
         ..Default::default()
@@ -1647,7 +1712,7 @@ async fn message_update_broadcast_mentions_empty_vec_emits_empty_array() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["msg-1"];
+    let patch_obj = &args["update"][TEST_MESSAGE_ID];
     assert_eq!(
         patch_obj["broadcastMentions"],
         json!([]),
@@ -1668,8 +1733,8 @@ async fn message_query_changes_all_none_omits_optional_wire_keys() {
         "Message/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": 0,
             "removed": [],
             "added": []
@@ -1678,7 +1743,7 @@ async fn message_query_changes_all_none_omits_optional_wire_keys() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("qs-old");
+    let since = State::from(QUERY_STATE_OLD);
     sc.message_query_changes(
         &since,
         None,
@@ -1761,9 +1826,9 @@ async fn message_create_serializes_all_optional_properties() {
         [serde_json::from_value(action_json.clone()).expect("MessageAction must deserialize")];
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
-    let expires = UTCDate::from("2024-06-16T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
+    let expires = UTCDate::from(TEST_UTC_DATE_LATER);
     let reply_to = Id::from("msg-parent");
     let thread_root = Id::from("msg-root");
     let input = jmap_chat_client::MessageCreateInput {
@@ -1799,7 +1864,7 @@ async fn message_create_serializes_all_optional_properties() {
     assert_eq!(create["threadRootId"], json!("msg-root"));
     assert_eq!(create["topicId"], json!("topic-1"));
     assert_eq!(create["subject"], json!("Q3 planning"));
-    assert_eq!(create["senderExpiresAt"], json!("2024-06-16T09:00:00Z"));
+    assert_eq!(create["senderExpiresAt"], json!(TEST_UTC_DATE_LATER));
     assert_eq!(create["burnOnRead"], json!(true));
     assert_eq!(create["expiresAfterReadSeconds"], json!(30));
 }
@@ -1819,8 +1884,8 @@ async fn message_create_omits_unset_optional_properties() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let chat_id = Id::from(TEST_CHAT_ID);
+    let sent_at = UTCDate::from(TEST_UTC_DATE);
     let input = jmap_chat_client::MessageCreateInput {
         client_id: Some("client-msg-1"),
         chat_id: &chat_id,
@@ -1861,12 +1926,16 @@ async fn message_create_omits_unset_optional_properties() {
 #[tokio::test]
 async fn message_update_mentions_emits_wire_key() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
     let patch = jmap_chat_client::MessagePatch {
         mentions: Some(vec![
             serde_json::from_value(json!({"id": "c2"})).expect("Mention must deserialize"),
@@ -1879,7 +1948,10 @@ async fn message_update_mentions_emits_wire_key() {
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["update"]["msg-1"]["mentions"], json!([{"id": "c2"}]));
+    assert_eq!(
+        args["update"][TEST_MESSAGE_ID]["mentions"],
+        json!([{"id": "c2"}])
+    );
 }
 
 /// `Message/set` update threads `deletedAt` and `deletedForAll`
@@ -1889,13 +1961,17 @@ async fn message_update_mentions_emits_wire_key() {
 #[tokio::test]
 async fn message_update_deleted_at_and_for_all_serialise() {
     let server = MockServer::start().await;
-    let resp_body =
-        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    let resp_body = set_update_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        TEST_MESSAGE_ID,
+    );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let msg_id = Id::from("msg-1");
-    let at = UTCDate::from("2024-06-16T09:00:00Z");
+    let msg_id = Id::from(TEST_MESSAGE_ID);
+    let at = UTCDate::from(TEST_UTC_DATE_LATER);
     let patch = jmap_chat_client::MessagePatch {
         deleted_at: Some(&at),
         deleted_for_all: Some(true),
@@ -1908,7 +1984,7 @@ async fn message_update_deleted_at_and_for_all_serialise() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["msg-1"],
-        json!({ "deletedAt": "2024-06-16T09:00:00Z", "deletedForAll": true })
+        args["update"][TEST_MESSAGE_ID],
+        json!({ "deletedAt": TEST_UTC_DATE_LATER, "deletedForAll": true })
     );
 }
