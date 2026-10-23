@@ -353,6 +353,20 @@ cargo clippy --workspace -- -D warnings
 cargo fmt --all
 ```
 
+Server integration tests need the crate's `memory` feature (and `mdn`,
+`sieve` for `jmap-mail-server`). Each server crate turns them on with a
+path-only self-dev-dependency, so plain `cargo test -p <crate>` runs them:
+
+```toml
+[dev-dependencies]
+jmap-<X>-server = { path = ".", features = ["memory"] }
+```
+
+Keep it path-only. `workspace = true` adds a `version`, and `cargo publish`
+then resolves the self-dev-dep against crates.io, failing whenever a
+feature is newer than the last published release (bd:JMAP-31o4). A
+version-less path dev-dependency is dropped from the published manifest.
+
 **Pre-commit gate — run all of these before any commit:**
 ```bash
 cargo fmt --all

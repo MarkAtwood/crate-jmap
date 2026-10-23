@@ -41,4 +41,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # Self-dep with feature flags ensures the `memory`, `mdn`, and `sieve`
 # features are active when compiling integration tests, without exposing
 # them to downstream users by default.
-jmap-mail-server = { workspace = true, features = ["memory", "mdn", "sieve"] }
+# Path-only, no version: cargo drops it on publish, so it never has to
+# resolve against crates.io versions that lack these features (JMAP-31o4).
+jmap-mail-server = { path = ".", features = ["memory", "mdn", "sieve"] }

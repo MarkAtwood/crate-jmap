@@ -31,4 +31,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # Tests use the public MemoryBackend reference impl from `src/memory.rs`.
 # Self-dep with the `memory` feature ensures integration tests get the
 # reference impl without exposing it to downstream users by default.
-jmap-vtc-server = { workspace = true, features = ["memory"] }
+# Path-only, no version: cargo drops it on publish, so it never has to
+# resolve against crates.io versions that lack these features (JMAP-31o4).
+jmap-vtc-server = { path = ".", features = ["memory"] }
