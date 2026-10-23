@@ -55,7 +55,7 @@ fn seed_group(backend: &IdentityBackend, members: Value) {
 async fn chat_set(backend: &IdentityBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
-    handle_chat_set(backend, &owner(), args)
+    handle_chat_set(backend, &owner(), &std::collections::BTreeMap::new(), args)
         .await
         .expect("Chat/set")
         .primary
@@ -343,6 +343,7 @@ async fn ban_created_by_owner_records_account_id_as_banned_by() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &owner(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b0": { "spaceId": SPACE_ID, "userId": "c-target" } }
@@ -364,6 +365,7 @@ async fn invite_created_by_owner_records_account_id_as_created_by() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &owner(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "i0": { "spaceId": SPACE_ID } }
@@ -385,6 +387,7 @@ async fn emoji_created_by_owner_records_account_id_as_created_by() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &owner(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "e0": { "name": "wave", "blobId": "blob-wave-001" } }

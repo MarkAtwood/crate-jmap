@@ -59,6 +59,7 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { &id: { "kind": null } } }),
     )
     .await
@@ -82,6 +83,7 @@ async fn message_body_null_rejected_and_get_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -97,6 +99,7 @@ async fn message_body_null_rejected_and_get_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { &id: { "body": null } } }),
     )
     .await
@@ -133,6 +136,7 @@ async fn emoji_blob_id_null_rejected_and_get_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { "e1": { "blobId": null } } }),
     )
     .await
@@ -236,6 +240,7 @@ async fn position_wrong_type_rejected_and_get_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { "rp1": { "lastReadMessageId": 5 } } }),
     )
     .await
@@ -272,6 +277,7 @@ async fn ban_reason_wrong_type_rejected_and_get_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { "b1": { "reason": 5 } } }),
     )
     .await

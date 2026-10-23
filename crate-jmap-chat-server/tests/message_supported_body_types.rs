@@ -30,6 +30,7 @@ async fn create(backend: &MemoryBackend, entries: &[(&str, Option<&str>)]) -> Va
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": create }),
     )
     .await

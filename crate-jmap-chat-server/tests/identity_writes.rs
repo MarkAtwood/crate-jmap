@@ -219,6 +219,7 @@ async fn invite_set_with_identity_writes_account_id_into_created_by() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -263,6 +264,7 @@ async fn invite_set_single_user_writes_account_id_into_created_by() {
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -298,6 +300,7 @@ async fn ban_set_with_identity_writes_account_id_into_banned_by() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -331,6 +334,7 @@ async fn ban_set_single_user_writes_account_id_into_banned_by() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -369,6 +373,7 @@ async fn emoji_set_with_identity_writes_account_id_into_created_by() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -402,6 +407,7 @@ async fn emoji_set_single_user_writes_account_id_into_created_by() {
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {

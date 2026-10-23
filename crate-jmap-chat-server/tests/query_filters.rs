@@ -321,6 +321,7 @@ async fn emoji_set(backend: &MemoryBackend, create: Value) -> Value {
     handle_emoji_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": create }),
     )
     .await

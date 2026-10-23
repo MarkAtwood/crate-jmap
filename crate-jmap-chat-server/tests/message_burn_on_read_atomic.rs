@@ -26,6 +26,7 @@ async fn seeded() -> (InjectableBackend, String) {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": {
@@ -52,6 +53,7 @@ async fn set_update(backend: &InjectableBackend, id: &str, patch: Value) -> Valu
     handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
     )
     .await

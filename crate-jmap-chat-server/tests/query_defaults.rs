@@ -325,7 +325,7 @@ async fn space_query_unfiltered_hides_non_member_public_space() {
 async fn emoji_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
-    handle_emoji_set(backend, &(), args)
+    handle_emoji_set(backend, &(), &std::collections::BTreeMap::new(), args)
         .await
         .expect("CustomEmoji/set")
         .primary

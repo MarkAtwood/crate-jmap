@@ -23,7 +23,7 @@
 //! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_chat_types::ChatComparator;
 use jmap_chat_types::SPEC_CHAT_MEMBER_ROLES;
@@ -37,6 +37,7 @@ use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, now_utc_string, reject_unsupported_sort, set_error_value,
 };
+use crate::helpers::{resolve_refs, resolved_create};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
 use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -521,6 +522,15 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 // Chat/set
 // ---------------------------------------------------------------------------
 
+/// The Chat create and update properties that hold the id of another record, which a
+/// client may set to a `#creationId` reference (RFC 8620 §5.3).
+const CHAT_ID_PROPERTIES: &[&str] = &[
+    "contactId",
+    "memberIds",
+    "pinnedMessageIds",
+    "removeMembers",
+];
+
 /// Handle a `Chat/set` method call (draft-atwood-jmap-chat-00 §Chat).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -545,9 +555,15 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 ///   [`ChatBackend::may_set_pinned_messages`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `contactId`, or a `memberIds`, `pinnedMessageIds` or `removeMembers`
+/// element, that is a `#creationId` reference names a record created earlier in the request and resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3); an unknown reference is `invalidProperties` naming the property.
 pub async fn handle_chat_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -618,6 +634,14 @@ pub async fn handle_chat_set<B: ChatBackend>(
         let mut batch_direct_ids: HashMap<String, Id> = HashMap::new();
 
         for (create_id, obj_val) in create_map {
+            let resolved = match resolved_create(obj_val, CHAT_ID_PROPERTIES, created_ids) {
+                Ok(v) => v,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    continue;
+                }
+            };
+            let obj_val = &resolved;
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(
@@ -1041,7 +1065,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -1049,6 +1073,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_refs(&mut patch_val, CHAT_ID_PROPERTIES, created_ids) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             // Only the keys §Chat/set "Updating a Chat" defines may be
             // patched: the client-settable Chat properties that are not

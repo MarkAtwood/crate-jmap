@@ -1803,6 +1803,7 @@ pub async fn make_chat_group(backend: &MemoryBackend, name: &str) -> String {
     let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         serde_json::json!({
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "group", "name": name } }

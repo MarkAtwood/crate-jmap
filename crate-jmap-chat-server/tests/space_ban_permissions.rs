@@ -53,9 +53,14 @@ async fn set(backend: &IdentityBackend, body: Value) -> Value {
         unreachable!("both are object literals");
     };
     args_map.extend(body_map);
-    let HandlerOutput { primary: resp, .. } = handle_ban_set(backend, &Id::from("owner"), args)
-        .await
-        .expect("SpaceBan/set");
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
+        backend,
+        &Id::from("owner"),
+        &std::collections::BTreeMap::new(),
+        args,
+    )
+    .await
+    .expect("SpaceBan/set");
     resp
 }
 

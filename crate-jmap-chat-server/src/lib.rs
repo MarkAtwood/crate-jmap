@@ -178,8 +178,11 @@ where
     //
     // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
     // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
+    // The optional `$ids` binds `CallContext::created_ids`, the
+    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
+    // use to resolve `#creationId` references.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -188,6 +191,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
+                        $(created_ids: $ids,)?
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -210,8 +214,8 @@ where
     reg!("Chat/queryChanges", backend, |b, _ci, a, ctx| {
         handle_chat_query_changes(&*b, &ctx, a).await
     });
-    reg!("Chat/set", backend, |b, _ci, a, ctx| {
-        handle_chat_set(&*b, &ctx, a).await
+    reg!("Chat/set", backend, |b, _ci, a, ctx, ids| {
+        handle_chat_set(&*b, &ctx, &ids, a).await
     });
     reg!("Chat/typing", backend, |b, _ci, a, ctx| {
         handle_chat_typing(&*b, &ctx, a).await
@@ -230,8 +234,8 @@ where
     reg!("Message/queryChanges", backend, |b, _ci, a, ctx| {
         message::handle_message_query_changes(&*b, &ctx, a).await
     });
-    reg!("Message/set", backend, |b, _ci, a, ctx| {
-        message::handle_message_set(&*b, &ctx, a).await
+    reg!("Message/set", backend, |b, _ci, a, ctx, ids| {
+        message::handle_message_set(&*b, &ctx, &ids, a).await
     });
 
     // Space
@@ -278,8 +282,8 @@ where
     reg!("ReadPosition/changes", backend, |b, _ci, a, ctx| {
         handle_position_changes(&*b, &ctx, a).await
     });
-    reg!("ReadPosition/set", backend, |b, _ci, a, ctx| {
-        handle_position_set(&*b, &ctx, a).await
+    reg!("ReadPosition/set", backend, |b, _ci, a, ctx, ids| {
+        handle_position_set(&*b, &ctx, &ids, a).await
     });
 
     // SpaceInvite
@@ -289,8 +293,8 @@ where
     reg!("SpaceInvite/changes", backend, |b, _ci, a, ctx| {
         handle_invite_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceInvite/set", backend, |b, _ci, a, ctx| {
-        handle_invite_set(&*b, &ctx, a).await
+    reg!("SpaceInvite/set", backend, |b, _ci, a, ctx, ids| {
+        handle_invite_set(&*b, &ctx, &ids, a).await
     });
 
     // SpaceBan
@@ -300,8 +304,8 @@ where
     reg!("SpaceBan/changes", backend, |b, _ci, a, ctx| {
         handle_ban_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceBan/set", backend, |b, _ci, a, ctx| {
-        handle_ban_set(&*b, &ctx, a).await
+    reg!("SpaceBan/set", backend, |b, _ci, a, ctx, ids| {
+        handle_ban_set(&*b, &ctx, &ids, a).await
     });
 
     // CustomEmoji
@@ -317,8 +321,8 @@ where
     reg!("CustomEmoji/queryChanges", backend, |b, _ci, a, ctx| {
         handle_emoji_query_changes(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/set", backend, |b, _ci, a, ctx| {
-        handle_emoji_set(&*b, &ctx, a).await
+    reg!("CustomEmoji/set", backend, |b, _ci, a, ctx, ids| {
+        handle_emoji_set(&*b, &ctx, &ids, a).await
     });
 
     // PresenceStatus

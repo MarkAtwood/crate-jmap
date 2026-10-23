@@ -24,6 +24,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
@@ -41,6 +42,7 @@ async fn create(backend: &MemoryBackend, chat_id: &str, broadcast_mentions: Valu
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m": {
@@ -80,6 +82,7 @@ async fn update_rejects_broadcast_mention_without_scope() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { msg_id: {

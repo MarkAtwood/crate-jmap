@@ -26,6 +26,7 @@ async fn create_message(backend: &MemoryBackend) -> String {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }

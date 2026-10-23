@@ -36,6 +36,7 @@ macro_rules! create_entry {
         let resp = $handler(
             $backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({ "accountId": ACCOUNT_ID, "create": { "c": $obj } }),
         )
         .await
@@ -49,6 +50,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
     let resp = handle_chat_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
@@ -90,6 +92,7 @@ async fn chat_set_rejects_malformed_destroy_id() {
     let resp = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["bad id"] }),
     )
     .await
@@ -130,6 +133,7 @@ async fn chat_set_update_rejects_malformed_pinned_message_id() {
     let resp = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &chat_id: { "pinnedMessageIds": ["bad id"] } }

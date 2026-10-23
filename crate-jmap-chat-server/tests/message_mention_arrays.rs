@@ -59,6 +59,7 @@ async fn create_on<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": message } }),
     )
     .await
@@ -180,6 +181,7 @@ async fn edit_adding_rich_broadcast_span_without_array_is_not_gated() {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "body": RICH_BROADCAST, "bodyType": RICH } }

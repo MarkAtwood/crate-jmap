@@ -106,6 +106,7 @@ async fn owner_without_identity_needs_ban_for_space_ban_create() {
         let HandlerOutput { primary: resp, .. } = handle_ban_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "create": { "b0": { "spaceId": SPACE_ID, "userId": "target" } },

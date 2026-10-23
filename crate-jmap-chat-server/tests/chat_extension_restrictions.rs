@@ -88,15 +88,18 @@ fn default_hooks() -> TrackingBackend {
 }
 
 async fn message_set(backend: &TrackingBackend, args: Value) -> Value {
-    let HandlerOutput { primary, .. } = handle_message_set(backend, &(), args)
-        .await
-        .expect("Message/set");
+    let HandlerOutput { primary, .. } =
+        handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("Message/set");
     primary
 }
 
 async fn chat_set(backend: &TrackingBackend, args: Value) -> Value {
     let HandlerOutput { primary, .. } =
-        handle_chat_set(backend, &(), args).await.expect("Chat/set");
+        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("Chat/set");
     primary
 }
 

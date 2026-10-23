@@ -1447,6 +1447,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `handle_chat_set`,
+  `message::handle_message_set`, `handle_position_set`,
+  `handle_invite_set`, `handle_ban_set` and `handle_emoji_set` take a new
+  third argument, `created_ids: &BTreeMap<Id, Id>` (pass
+  `CallContext::created_ids`; `register_chat_handlers` does). They now
+  resolve `#creationId` references (RFC 8620 §5.3) in Chat `contactId` and
+  the `memberIds`, `pinnedMessageIds` and `removeMembers` elements,
+  Message `chatId` / `replyTo` / `threadRootId`, ReadPosition
+  `lastReadMessageId`, SpaceInvite `spaceId` / `defaultChannelId`, and
+  SpaceBan and CustomEmoji `spaceId`. `Message/set` runs a create whose
+  `replyTo` or `threadRootId` is `#k` after the create `k` of the same
+  call, as §5.3 requires. An unknown reference fails that entry with
+  `invalidProperties` naming the property. Ids nested inside entry objects
+  (`addMembers`, `updateMemberRoles`, Message `mentions` and
+  `attachments`, `Space/set` patch entries) are not resolved yet (bd
+  JMAP-3x9e) (bd JMAP-1p88).
 - **BREAKING** **jmap-scene-server**: `handle_scene_region_set`,
   `handle_scene_object_set` and `handle_scene_avatar_set` take a new third
   argument, `created_ids: &BTreeMap<Id, Id>` (pass

@@ -129,6 +129,7 @@ async fn space_ban_create_uses_owner_member_entry_permissions() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &caller(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b0": { "spaceId": SPACE_ID, "userId": "target" } }

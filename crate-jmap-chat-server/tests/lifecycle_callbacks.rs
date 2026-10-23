@@ -124,6 +124,7 @@ async fn chat_destroy_reports_the_chat_once() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["dm"] }),
     )
     .await
@@ -144,6 +145,7 @@ async fn failed_chat_destroy_reports_nothing() {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["missing"] }),
     )
     .await
@@ -225,6 +227,7 @@ async fn space_ban_create_reports_the_ban_once() {
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "b1": { "spaceId": SPACE_ID, "userId": "c-peer" } }
