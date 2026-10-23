@@ -14888,6 +14888,47 @@ async fn mailbox_query_changes_unknown_filter_key_returns_unsupported_filter() {
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
+/// Oracle: RFC 8621 §2.3 — the `parentId` FilterCondition is "Id|null";
+/// RFC 8620 §5.5 — a filter the server cannot process is unsupportedFilter.
+/// A number, boolean, array or object `parentId` must be refused at the
+/// Mailbox/query handler rather than matching every Mailbox.
+#[tokio::test]
+async fn mailbox_query_non_id_parent_id_filter_returns_unsupported_filter() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+
+    for parent in [
+        serde_json::json!(42),
+        serde_json::json!(true),
+        serde_json::json!(["m1"]),
+        serde_json::json!({ "id": "m1" }),
+    ] {
+        let args = serde_json::json!({
+            "accountId": "account1",
+            "filter": { "parentId": parent },
+        });
+        let err = handle_mailbox_query(&backend, &(), args)
+            .await
+            .expect_err("non-Id parentId filter must be refused");
+        assert_eq!(
+            err.error_type.to_string(),
+            "unsupportedFilter",
+            "parentId {parent}: {err:?}"
+        );
+    }
+
+    // Negative control: the two RFC 8621 §2.3 shapes decode.
+    for parent in [serde_json::Value::Null, serde_json::json!("m1")] {
+        let args = serde_json::json!({
+            "accountId": "account1",
+            "filter": { "parentId": parent },
+        });
+        handle_mailbox_query(&backend, &(), args)
+            .await
+            .expect("Id or null parentId filter must be accepted");
+    }
+}
+
 /// Oracle: RFC 8620 §5.6 — /queryChanges takes "The sort argument that was
 /// used with Foo/query"; RFC 8621 §2.3 lists only `sortOrder` and `name` as
 /// Mailbox sort properties, and §5.5 makes any other unsupportedSort.

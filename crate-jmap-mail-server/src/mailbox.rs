@@ -275,8 +275,8 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // The filter is "FilterOperator|FilterCondition|null" (RFC 8620 §5.5).
     // An unknown or misspelt property anywhere in the tree fails the
     // `deny_unknown_fields` decode and yields unsupportedFilter.
-    // `parent_id: Option<Value>` keeps the three-way absent / null / string
-    // distinction.
+    // `parent_id: Option<Option<Id>>` keeps the three-way absent / null / Id
+    // distinction, and a non-Id `parentId` fails the decode.
     let filter: Option<MailboxFilter> = filter_arg(&mut args)?;
 
     let sort_slice = if sort_values.is_empty() {
