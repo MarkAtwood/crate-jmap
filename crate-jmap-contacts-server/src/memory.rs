@@ -61,7 +61,7 @@ use crate::{
     QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_contacts_types::{ContactCardFilter, ContactCardFilterCondition};
-use jmap_server::{apply_patch_object, resolve_query_start};
+use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -753,7 +753,7 @@ impl JmapBackend for MemoryBackend {
 
         ids = ids[start..]
             .iter()
-            .take(limit.map_or(usize::MAX, |n| n as usize))
+            .take(limit_or_max(limit))
             .cloned()
             .collect();
 

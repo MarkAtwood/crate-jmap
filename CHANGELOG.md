@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `limit_or_max(Option<u64>) -> usize` converts an RFC 8620
+  `limit` / `maxChanges` argument to an item count, saturating instead of
+  truncating on 32-bit targets (bd JMAP-pgj7). The mail, calendars, chat,
+  contacts, filenode, graph, scene, sharing, tasks and vtc servers use it in
+  place of bare `n as usize` casts, and the mail-server anchor branches of
+  `Email/query`, `Mailbox/query`, `EmailSubmission/query` and
+  `SieveScript/query` no longer use `as` casts (or an overflowing
+  `anchor_idx + anchorOffset`) to compute the start index.
 - **jmap-server**: `backend_set_error_value(BackendSetError<E>) -> Value` is
   the one RFC 8620 §5.3 `notCreated`/`notUpdated`/`notDestroyed` mapping for
   backend `/set` failures: a `SetError` verbatim, `Other` as the redacted

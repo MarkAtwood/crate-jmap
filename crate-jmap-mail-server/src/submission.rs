@@ -49,7 +49,8 @@ use crate::helpers::{
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_start,
+    server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -243,14 +244,8 @@ pub async fn handle_submission_query<B: MailBackend>(
                 )
                 .await
                 .map_err(JmapError::from)?;
-            let anchor_idx = all
-                .ids
-                .iter()
-                .position(|id| id == anchor_id)
-                .ok_or_else(JmapError::anchor_not_found)?;
-            let raw = anchor_idx as i64 + anchor_offset;
-            let start = raw.max(0).min(all.ids.len() as i64) as usize;
-            let effective_limit = limit.map_or(usize::MAX, |n| n as usize);
+            let start = resolve_query_start(&all.ids, position, Some(anchor_id), anchor_offset)?;
+            let effective_limit = limit_or_max(limit);
             let page: Vec<Id> = all
                 .ids
                 .into_iter()

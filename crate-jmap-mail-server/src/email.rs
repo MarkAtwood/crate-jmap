@@ -40,8 +40,8 @@ use crate::helpers::{
 };
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    reject_read_only_patch, reject_server_set, resolve_query_offset, server_fail_from_backend,
-    server_fail_value_from_backend, take_bool_arg,
+    limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_offset,
+    resolve_query_start, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -915,13 +915,7 @@ pub async fn handle_email_query<B: MailBackend>(
 
             // Resolve start position: anchor overrides position.
             let start = if let Some(ref anchor_id) = anchor {
-                let anchor_idx = all_ids
-                    .iter()
-                    .position(|id| id == anchor_id)
-                    .ok_or_else(JmapError::anchor_not_found)?;
-                // RFC 8620 §5.5: clamp effective position to [0, len].
-                let raw = anchor_idx as i64 + anchor_offset;
-                raw.max(0).min(all_ids.len() as i64) as usize
+                resolve_query_start(&all_ids, position, Some(anchor_id), anchor_offset)?
             } else {
                 // bd:JMAP-qz9v.48 — centralized i64-to-usize bounds /
                 // i64::MIN handling in jmap_server::resolve_query_offset.
@@ -931,7 +925,7 @@ pub async fn handle_email_query<B: MailBackend>(
             let page: Vec<Id> = all_ids
                 .into_iter()
                 .skip(start)
-                .take(effective_limit as usize)
+                .take(limit_or_max(Some(effective_limit)))
                 .collect();
             (
                 page,

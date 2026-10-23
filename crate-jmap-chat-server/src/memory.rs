@@ -63,7 +63,7 @@ use crate::{
 use jmap_chat_types::{ChatPermission, ChatPushCapability};
 use jmap_server::{
     MergePatchError, PushSubscriptionBackend, StoredPushSubscription, apply_patch_object,
-    json_merge_patch, now_utc_string, resolve_query_start,
+    json_merge_patch, limit_or_max, now_utc_string, resolve_query_start,
 };
 use jmap_types::{Id, PushSubscription, State};
 
@@ -826,13 +826,9 @@ impl JmapBackend for MemoryBackend {
         let start = resolve_query_start(&ids, position, anchor, anchor_offset)
             .map_err(BackendQueryError::Method)?;
 
-        // `n.min(usize::MAX as u64) as usize` saturates rather than
-        // truncates on 32-bit targets. Mirrors the canonical
-        // mail-server pattern at crate-jmap-mail-server/src/memory.rs
-        // (per workspace AGENTS.md "Canonical Templates").
         ids = ids[start..]
             .iter()
-            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .take(limit_or_max(limit))
             .cloned()
             .collect();
 
