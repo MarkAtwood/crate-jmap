@@ -1431,6 +1431,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-mail-server**: `handle_mailbox_set`,
+  `handle_email_set` and `handle_submission_set` take a new third argument,
+  `created_ids: &BTreeMap<Id, Id>` (pass `CallContext::created_ids`;
+  `register_mail_handlers` does). They now resolve `#creationId`
+  references (RFC 8620 §5.3) in Mailbox `parentId` (create and update),
+  Email `mailboxIds` keys and `mailboxIds/<id>` patch paths, and
+  EmailSubmission `identityId` / `emailId`, instead of treating `#x` as a
+  literal id. `Mailbox/set` runs a create whose `parentId` is `#k` after
+  the create `k` of the same call, as §5.3 requires. A reference that
+  matches no earlier creation fails that entry with `invalidProperties`
+  naming the property (bd JMAP-j7uo).
 - **BREAKING** **jmap-server**: `Dispatcher::dispatch` now answers a method
   call whose `filter` nests FilterOperator `conditions` more than 32 levels
   deep with `unsupportedFilter` (RFC 8620 §5.5, rfc8620.txt:2626-2629),

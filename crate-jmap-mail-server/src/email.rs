@@ -36,7 +36,8 @@ use serde_json::{Value, json};
 use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
+    filter_properties, finalize_set_response, not_found_json, resolve_ref, serialize_value,
+    set_error_value,
 };
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
@@ -1111,10 +1112,16 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 /// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
 /// maps).
 ///
+/// `#creationId` references among the `mailboxIds` keys of a create, a
+/// `mailboxIds` patch value or a `mailboxIds/<id>` patch path resolve
+/// against `created_ids` (pass [`jmap_server::CallContext::created_ids`];
+/// RFC 8620 §5.3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -1158,6 +1165,12 @@ pub async fn handle_email_set<B: MailBackend>(
                 not_created.insert(create_id.clone(), set_error_value(&err));
                 continue;
             }
+            let mut obj_val = obj_val.clone();
+            if let Err(err) = resolve_mailbox_id_refs(&mut obj_val, created_ids) {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
+            let obj_val = &obj_val;
             // Validate: at least one mailboxId with value true is required (RFC 8621 §5.5.3).
             let mailbox_ids_ok = obj_val
                 .get("mailboxIds")
@@ -1234,7 +1247,7 @@ pub async fn handle_email_set<B: MailBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -1242,6 +1255,10 @@ pub async fn handle_email_set<B: MailBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_mailbox_id_refs(&mut patch_val, created_ids) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -1517,6 +1534,43 @@ fn validate_and_normalize_keywords(
             Ok((Keyword::from(kw.to_ascii_lowercase()), true))
         })
         .collect()
+}
+
+/// Replace `#creationId` mailbox references in an Email create or patch
+/// with the ids they name (RFC 8620 §5.3): the keys of a `mailboxIds`
+/// object and the id segment of a `mailboxIds/<id>` patch path.
+///
+/// # Errors
+///
+/// An `invalidProperties` [`crate::SetError`] naming `mailboxIds` when a
+/// reference matches no record created earlier in the request.
+fn resolve_mailbox_id_refs(
+    obj: &mut Value,
+    created_ids: &BTreeMap<Id, Id>,
+) -> Result<(), Box<crate::SetError>> {
+    let Some(obj) = obj.as_object_mut() else {
+        return Ok(());
+    };
+    if let Some(Value::Object(mailbox_ids)) = obj.get_mut("mailboxIds") {
+        let mut resolved = serde_json::Map::with_capacity(mailbox_ids.len());
+        for (key, value) in std::mem::take(mailbox_ids) {
+            let id = resolve_ref(&key, "mailboxIds", created_ids)?;
+            resolved.insert(id.as_ref().to_owned(), value);
+        }
+        *mailbox_ids = resolved;
+    }
+    let ref_paths: Vec<String> = obj
+        .keys()
+        .filter(|k| k.starts_with("mailboxIds/#"))
+        .cloned()
+        .collect();
+    for path in ref_paths {
+        let id = resolve_ref(&path["mailboxIds/".len()..], "mailboxIds", created_ids)?;
+        if let Some(value) = obj.remove(&path) {
+            obj.insert(format!("mailboxIds/{}", id.as_ref()), value);
+        }
+    }
+    Ok(())
 }
 
 /// Parse and validate `mailboxIds` from an Email/import or Email/copy entry.

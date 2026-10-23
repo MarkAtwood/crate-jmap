@@ -57,6 +57,32 @@ pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 
+/// Resolve an Id-typed property value that may be a `#creationId`
+/// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
+///
+/// A literal id is returned unchanged; its validation stays with the
+/// caller.
+///
+/// # Errors
+///
+/// A boxed `invalidProperties` [`crate::SetError`] naming `property` when
+/// the reference matches no record created earlier in the request.
+pub(crate) fn resolve_ref(
+    raw: &str,
+    property: &str,
+    created_ids: &std::collections::BTreeMap<Id, Id>,
+) -> Result<Id, Box<crate::SetError>> {
+    jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
+        Box::new(
+            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+                .with_properties([property])
+                .with_description(
+                    "creation id reference matches no record created earlier in this request",
+                ),
+        )
+    })
+}
+
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
 /// The six fields correspond to the six top-level result keys (`created`,

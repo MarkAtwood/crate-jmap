@@ -44,7 +44,7 @@ use serde_json::{Value, json};
 
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
-    now_utc_string, serialize_value, set_error_value,
+    now_utc_string, resolve_ref, serialize_value, set_error_value,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -413,9 +413,14 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 ///
 /// Returns `(response_args, extra_invocations)`. When `onSuccessUpdateEmail` is
 /// present, extra_invocations will contain one `Email/set` invocation.
+///
+/// A `#creationId` `identityId` or `emailId` on a create resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`];
+/// RFC 8620 §5.3).
 pub async fn handle_submission_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
     call_id: &str,
 ) -> Result<HandlerOutput, JmapError> {
@@ -495,7 +500,16 @@ pub async fn handle_submission_set<B: MailBackend>(
 
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, create_args) in create_map {
-            match process_create(backend, caller, &account_id, create_id, create_args).await {
+            match process_create(
+                backend,
+                caller,
+                &account_id,
+                create_id,
+                create_args,
+                created_ids,
+            )
+            .await
+            {
                 Ok(obj_json) => {
                     // Populate submission → email_id map for onSuccess* processing.
                     if let Some(eid) = obj_json.get("emailId").and_then(|v| v.as_str()) {
@@ -816,6 +830,7 @@ async fn process_create<B: MailBackend>(
     account_id: &Id,
     create_id: &str,
     create_args: &Value,
+    created_ids: &BTreeMap<Id, Id>,
 ) -> Result<Value, CreateError> {
     if let Some(err) = create_args
         .as_object()
@@ -834,8 +849,9 @@ async fn process_create<B: MailBackend>(
                     .with_description("identityId is required"),
             ))
         })?;
-    let identity_id =
-        jmap_server::parse_wire_id(identity_id_str, "identityId").map_err(CreateError::SetError)?;
+    let identity_id = resolve_ref(identity_id_str, "identityId", created_ids)
+        .and_then(|id| jmap_server::parse_wire_id(id.as_ref(), "identityId"))
+        .map_err(CreateError::SetError)?;
 
     // Validate identityId references an existing Identity.
     let (identities, _) = backend
@@ -867,8 +883,9 @@ async fn process_create<B: MailBackend>(
                     .with_description("emailId is required"),
             ))
         })?;
-    let email_id =
-        jmap_server::parse_wire_id(email_id_str, "emailId").map_err(CreateError::SetError)?;
+    let email_id = resolve_ref(email_id_str, "emailId", created_ids)
+        .and_then(|id| jmap_server::parse_wire_id(id.as_ref(), "emailId"))
+        .map_err(CreateError::SetError)?;
 
     // Validate emailId references an existing Email and retrieve threadId.
     let (emails, _) = backend
