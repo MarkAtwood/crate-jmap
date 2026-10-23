@@ -76,7 +76,7 @@ async fn chat_set<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
-        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("Chat/set");
     primary
@@ -283,6 +283,7 @@ async fn message_update_reads_stored_objects_once() {
                 "reactions/r1": { "emoji": "+1" },
             } },
         }),
+        &[],
     )
     .await
     .expect("Message/set");

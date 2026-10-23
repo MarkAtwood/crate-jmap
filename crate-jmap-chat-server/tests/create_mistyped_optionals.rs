@@ -120,6 +120,7 @@ async fn space_rejects_mistyped_optionals() {
             "isPublic": "yes",
             "isPubliclyPreviewable": 1,
         })),
+        &[],
     )
     .await
     .expect("Space/set");
@@ -138,6 +139,7 @@ async fn space_accepts_null_optionals() {
         &backend,
         &(),
         args(json!({ "name": "S", "description": null, "isPublic": null })),
+        &[],
     )
     .await
     .expect("Space/set");
@@ -159,6 +161,7 @@ async fn chat_rejects_mistyped_optionals() {
             "muted": "no",
             "receiveTypingIndicators": 0,
         })),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -176,6 +179,7 @@ async fn chat_rejects_non_string_contact_and_space_ids() {
         &(),
         &std::collections::BTreeMap::new(),
         args(json!({ "kind": "direct", "contactId": 3, "spaceId": false })),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -199,6 +203,7 @@ async fn message_rejects_mistyped_optionals() {
             "senderExpiresAt": 3,
             "burnOnRead": "true",
         })),
+        &[],
     )
     .await
     .expect("Message/set");

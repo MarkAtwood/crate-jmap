@@ -58,6 +58,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
         }),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -139,6 +140,7 @@ async fn create(backend: &MemoryBackend, obj: Value) -> Value {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": obj } }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -367,6 +369,7 @@ async fn message_changes(backend: &MemoryBackend, since: &str) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
+        &[],
     )
     .await
     .expect("Message/changes");
@@ -401,6 +404,7 @@ async fn reply_destroy_lists_parent_updated() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [B] }),
+        &[],
     )
     .await
     .expect("Message/set");

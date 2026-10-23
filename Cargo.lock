@@ -1935,6 +1935,8 @@ dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
  "jmap-did-types",
+ "jmap-metadata-server",
+ "jmap-metadata-types",
  "jmap-peer-auth",
  "jmap-server",
  "jmap-types",
@@ -1964,6 +1966,7 @@ version = "0.3.0"
 dependencies = [
  "jmap-cid-types",
  "jmap-did-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",

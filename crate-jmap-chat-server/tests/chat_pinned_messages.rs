@@ -114,6 +114,7 @@ async fn update(backend: &IdentityBackend, patch: Value) -> Value {
         &Id::from("owner"),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { CHAT_ID: patch } }),
+        &[],
     )
     .await
     .expect("Chat/set");

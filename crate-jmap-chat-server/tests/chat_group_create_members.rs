@@ -26,6 +26,7 @@ async fn create_as(backend: &IdentityBackend, caller: &str, create: Value) -> Va
         &Id::from(caller),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "g": create } }),
+        &[],
     )
     .await
     .expect("Chat/set");

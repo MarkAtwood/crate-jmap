@@ -148,6 +148,7 @@ async fn sender_expires_at_hard_deletes_at_deadline() {
         &b,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": state }),
+        &[],
     )
     .await
     .expect("Message/changes")
@@ -354,6 +355,7 @@ async fn expiry_records_chat_unread_count_change() {
         &b,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
+        &[],
     )
     .await
     .expect("Chat/changes")

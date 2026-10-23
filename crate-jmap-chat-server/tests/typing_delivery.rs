@@ -184,6 +184,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
         &backend,
         &(),
         json!({ "accountId": RECIPIENT, "create": { "s": { "name": "S" } } }),
+        &[],
     )
     .await
     .expect("Space/set create");
@@ -198,6 +199,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
             "accountId": RECIPIENT,
             "update": { &space_id: { "addChannels": [{ "name": "general" }] } }
         }),
+        &[],
     )
     .await
     .expect("Space/set addChannels");
@@ -221,6 +223,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
             "accountId": RECIPIENT,
             "update": { &channel_id: { "receiveTypingIndicators": false } }
         }),
+        &[],
     )
     .await
     .expect("Chat/set update");

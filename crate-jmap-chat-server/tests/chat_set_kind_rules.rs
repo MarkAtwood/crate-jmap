@@ -15,7 +15,7 @@ async fn chat_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary: resp, .. } =
-        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("Chat/set");
     resp
@@ -94,6 +94,7 @@ async fn non_string_destroy_element_is_invalid_arguments() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["g1", 7] }),
+        &[],
     )
     .await
     .expect_err("non-string destroy element must be a method error");

@@ -38,6 +38,7 @@ async fn seeded() -> (InjectableBackend, String) {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -55,6 +56,7 @@ async fn set_update(backend: &InjectableBackend, id: &str, patch: Value) -> Valu
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
+        &[],
     )
     .await
     .expect("Message/set")
@@ -116,6 +118,7 @@ async fn failed_burn_commits_nothing_and_retry_burns() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": before }),
+        &[],
     )
     .await
     .expect("Message/changes");

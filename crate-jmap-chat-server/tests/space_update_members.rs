@@ -36,6 +36,7 @@ async fn update_members(backend: &IdentityBackend, caller: &str, entries: Value)
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "updateMembers": entries }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");

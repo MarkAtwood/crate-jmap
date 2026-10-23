@@ -176,6 +176,7 @@ async fn message_update(backend: &MemoryBackend, id: &str, patch: Value) -> Valu
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -186,7 +187,7 @@ async fn chat_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
-        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_chat_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("Chat/set");
     primary
@@ -297,6 +298,7 @@ async fn failed_delete_for_all_reports_nothing() {
                 "m1": { "deletedAt": "2026-01-02T00:00:00Z", "deletedForAll": true }
             }
         }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -577,6 +579,7 @@ async fn create_reports_one_new_message() {
                 "sentAt": "2026-01-02T00:00:00Z",
             } },
         }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -629,6 +632,7 @@ async fn rejected_create_reports_nothing() {
                 "sentAt": "2026-01-02T00:00:00Z",
             } },
         }),
+        &[],
     )
     .await
     .expect("Message/set");

@@ -1815,6 +1815,7 @@ pub async fn make_space(backend: &MemoryBackend, name: &str) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": name } }
         }),
+        &[],
     )
     .await
     .expect("make_space: handle_space_set");
@@ -1837,6 +1838,7 @@ pub async fn make_space_with_props(backend: &MemoryBackend, props: serde_json::V
             "accountId": ACCOUNT_ID,
             "create": { "s0": props }
         }),
+        &[],
     )
     .await
     .expect("make_space_with_props: handle_space_set");
@@ -1863,6 +1865,7 @@ pub async fn make_chat_group(backend: &MemoryBackend, name: &str) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "group", "name": name } }
         }),
+        &[],
     )
     .await
     .expect("make_chat_group: handle_chat_set");

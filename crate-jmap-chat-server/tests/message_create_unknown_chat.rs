@@ -31,6 +31,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str) -> Value {
                 "sentAt": "2024-01-01T00:00:00Z"
             } }
         }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -71,6 +72,7 @@ async fn create_in_existing_chat_still_succeeds() {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
         }),
+        &[],
     )
     .await
     .expect("Chat/set");

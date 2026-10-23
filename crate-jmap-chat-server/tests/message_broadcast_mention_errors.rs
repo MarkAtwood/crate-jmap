@@ -29,6 +29,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
         }),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -52,6 +53,7 @@ async fn create(backend: &MemoryBackend, chat_id: &str, broadcast_mentions: Valu
                 "broadcastMentions": broadcast_mentions,
             } }
         }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -89,6 +91,7 @@ async fn update_rejects_broadcast_mention_without_scope() {
                 "broadcastMentions": [{}]
             } }
         }),
+        &[],
     )
     .await
     .expect("Message/set");

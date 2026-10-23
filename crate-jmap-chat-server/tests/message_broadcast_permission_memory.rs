@@ -22,6 +22,7 @@ async fn create_channel(backend: &MemoryBackend) -> (String, String) {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s": { "name": "S" } } }),
+        &[],
     )
     .await
     .expect("Space/set create");
@@ -36,6 +37,7 @@ async fn create_channel(backend: &MemoryBackend) -> (String, String) {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addChannels": [{ "name": "general" }] } }
         }),
+        &[],
     )
     .await
     .expect("Space/set addChannels");
@@ -77,7 +79,7 @@ async fn message_set(backend: &MemoryBackend, body: Value) -> Value {
     };
     args_map.extend(body_map);
     let HandlerOutput { primary: resp, .. } =
-        handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("Message/set");
     resp

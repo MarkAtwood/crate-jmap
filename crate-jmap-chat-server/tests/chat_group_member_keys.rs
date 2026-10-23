@@ -32,6 +32,7 @@ async fn group_of_three(backend: &IdentityBackend) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "Team", "memberIds": ["bob", "carol"] } },
         }),
+        &[],
     )
     .await
     .expect("Chat/set create");
@@ -72,6 +73,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch
         &Id::from(caller),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { chat_id: patch } }),
+        &[],
     )
     .await
     .expect("Chat/set update");

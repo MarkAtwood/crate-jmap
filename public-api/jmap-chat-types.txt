@@ -86,6 +86,8 @@ pub fn jmap_chat_types::ChannelPermissionTargetType::deserialize<D: serde_core::
 pub jmap_chat_types::ChatCapabilityRole::Other(alloc::string::String)
 pub jmap_chat_types::ChatCapabilityRole::Owner
 pub jmap_chat_types::ChatCapabilityRole::Peer
+impl jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::ChatCapabilityRole
 pub fn jmap_chat_types::ChatCapabilityRole::clone(&self) -> jmap_chat_types::ChatCapabilityRole
 impl core::cmp::Eq for jmap_chat_types::ChatCapabilityRole
@@ -109,6 +111,8 @@ pub fn jmap_chat_types::ChatCapabilityRole::deserialize<D: serde_core::de::Deser
 #[non_exhaustive] pub enum jmap_chat_types::ChatComparatorProperty
 pub jmap_chat_types::ChatComparatorProperty::LastMessageAt
 pub jmap_chat_types::ChatComparatorProperty::Other(alloc::string::String)
+impl jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::ChatComparatorProperty
 pub fn jmap_chat_types::ChatComparatorProperty::clone(&self) -> jmap_chat_types::ChatComparatorProperty
 impl core::cmp::Eq for jmap_chat_types::ChatComparatorProperty
@@ -134,6 +138,8 @@ pub jmap_chat_types::ChatContactComparatorProperty::LastActiveAt
 pub jmap_chat_types::ChatContactComparatorProperty::LastSeenAt
 pub jmap_chat_types::ChatContactComparatorProperty::Login
 pub jmap_chat_types::ChatContactComparatorProperty::Other(alloc::string::String)
+impl jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::ChatContactComparatorProperty
 pub fn jmap_chat_types::ChatContactComparatorProperty::clone(&self) -> jmap_chat_types::ChatContactComparatorProperty
 impl core::cmp::Eq for jmap_chat_types::ChatContactComparatorProperty
@@ -182,6 +188,8 @@ pub jmap_chat_types::ChatKind::Channel
 pub jmap_chat_types::ChatKind::Direct
 pub jmap_chat_types::ChatKind::Group
 pub jmap_chat_types::ChatKind::Other(alloc::string::String)
+impl jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::ChatKind
 pub fn jmap_chat_types::ChatKind::clone(&self) -> jmap_chat_types::ChatKind
 impl core::cmp::Eq for jmap_chat_types::ChatKind
@@ -309,6 +317,8 @@ pub fn jmap_chat_types::Clearable<T>::serialize<S: serde_core::ser::Serializer>(
 #[non_exhaustive] pub enum jmap_chat_types::CustomEmojiComparatorProperty
 pub jmap_chat_types::CustomEmojiComparatorProperty::Name
 pub jmap_chat_types::CustomEmojiComparatorProperty::Other(alloc::string::String)
+impl jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::CustomEmojiComparatorProperty
 pub fn jmap_chat_types::CustomEmojiComparatorProperty::clone(&self) -> jmap_chat_types::CustomEmojiComparatorProperty
 impl core::cmp::Eq for jmap_chat_types::CustomEmojiComparatorProperty
@@ -352,6 +362,8 @@ pub jmap_chat_types::DeliveryState::Failed
 pub jmap_chat_types::DeliveryState::Other(alloc::string::String)
 pub jmap_chat_types::DeliveryState::Pending
 pub jmap_chat_types::DeliveryState::Received
+impl jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::DeliveryState
 pub fn jmap_chat_types::DeliveryState::clone(&self) -> jmap_chat_types::DeliveryState
 impl core::cmp::Eq for jmap_chat_types::DeliveryState
@@ -422,6 +434,8 @@ pub fn jmap_chat_types::EphemeralMessage::deserialize<D: serde_core::de::Deseria
 #[non_exhaustive] pub enum jmap_chat_types::MessageComparatorProperty
 pub jmap_chat_types::MessageComparatorProperty::Other(alloc::string::String)
 pub jmap_chat_types::MessageComparatorProperty::ReceivedAt
+impl jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::MessageComparatorProperty
 pub fn jmap_chat_types::MessageComparatorProperty::clone(&self) -> jmap_chat_types::MessageComparatorProperty
 impl core::cmp::Eq for jmap_chat_types::MessageComparatorProperty
@@ -487,6 +501,8 @@ pub jmap_chat_types::Presence::Invisible
 pub jmap_chat_types::Presence::Offline
 pub jmap_chat_types::Presence::Online
 pub jmap_chat_types::Presence::Other(alloc::string::String)
+impl jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::Presence
 pub fn jmap_chat_types::Presence::clone(&self) -> jmap_chat_types::Presence
 impl core::cmp::Eq for jmap_chat_types::Presence
@@ -530,6 +546,8 @@ pub jmap_chat_types::ReadDisposition::Deleted
 pub jmap_chat_types::ReadDisposition::Displayed
 pub jmap_chat_types::ReadDisposition::Other(alloc::string::String)
 pub jmap_chat_types::ReadDisposition::Processed
+impl jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::ReadDisposition
 pub fn jmap_chat_types::ReadDisposition::clone(&self) -> jmap_chat_types::ReadDisposition
 impl core::cmp::Eq for jmap_chat_types::ReadDisposition
@@ -586,6 +604,8 @@ impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceBanProperty
 #[non_exhaustive] pub enum jmap_chat_types::SpaceComparatorProperty
 pub jmap_chat_types::SpaceComparatorProperty::Name
 pub jmap_chat_types::SpaceComparatorProperty::Other(alloc::string::String)
+impl jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::SpaceComparatorProperty
 pub fn jmap_chat_types::SpaceComparatorProperty::clone(&self) -> jmap_chat_types::SpaceComparatorProperty
 impl core::cmp::Eq for jmap_chat_types::SpaceComparatorProperty
@@ -630,7 +650,7 @@ impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceInviteProperty
 pub jmap_chat_types::SpacePatchOp::AddCategory(jmap_chat_types::CategoryCreate)
 pub jmap_chat_types::SpacePatchOp::AddChannel(jmap_chat_types::ChannelCreate)
 pub jmap_chat_types::SpacePatchOp::AddMember(jmap_chat_types::MemberCreate)
-pub jmap_chat_types::SpacePatchOp::AddRole(jmap_chat_types::SpaceRole)
+pub jmap_chat_types::SpacePatchOp::AddRole(jmap_chat_types::RoleCreate)
 pub jmap_chat_types::SpacePatchOp::RemoveCategory(jmap_types::id::Id)
 pub jmap_chat_types::SpacePatchOp::RemoveChannel(jmap_types::id::Id)
 pub jmap_chat_types::SpacePatchOp::RemoveMember(jmap_types::id::Id)
@@ -689,6 +709,8 @@ pub jmap_chat_types::SpanType::Link
 pub jmap_chat_types::SpanType::Mention
 pub jmap_chat_types::SpanType::Other(alloc::string::String)
 pub jmap_chat_types::SpanType::Text
+impl jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_types::SpanType
 pub fn jmap_chat_types::SpanType::clone(&self) -> jmap_chat_types::SpanType
 impl core::cmp::Eq for jmap_chat_types::SpanType
@@ -715,6 +737,8 @@ pub jmap_chat_types::UrgencyLevel::Low
 pub jmap_chat_types::UrgencyLevel::Normal
 pub jmap_chat_types::UrgencyLevel::Other(alloc::string::String)
 pub jmap_chat_types::UrgencyLevel::VeryLow
+impl jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::as_str(&self) -> &str
 impl jmap_chat_types::UrgencyLevel
 pub fn jmap_chat_types::UrgencyLevel::to_urgency(&self) -> core::option::Option<jmap_types::push::Urgency>
 impl core::clone::Clone for jmap_chat_types::UrgencyLevel
@@ -954,12 +978,14 @@ pub jmap_chat_types::Chat::kind: jmap_chat_types::ChatKind
 pub jmap_chat_types::Chat::last_message_at: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_chat_types::Chat::members: core::option::Option<alloc::vec::Vec<jmap_chat_types::ChatMember>>
 pub jmap_chat_types::Chat::message_expiry_seconds: core::option::Option<u64>
+pub jmap_chat_types::Chat::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_chat_types::Chat::mute_until: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_chat_types::Chat::muted: bool
 pub jmap_chat_types::Chat::name: core::option::Option<alloc::string::String>
 pub jmap_chat_types::Chat::permission_overrides: core::option::Option<alloc::vec::Vec<jmap_chat_types::ChannelPermission>>
 pub jmap_chat_types::Chat::pinned_message_ids: alloc::vec::Vec<jmap_types::id::Id>
 pub jmap_chat_types::Chat::position: core::option::Option<u64>
+pub jmap_chat_types::Chat::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_chat_types::Chat::receipt_sharing: core::option::Option<bool>
 pub jmap_chat_types::Chat::receive_typing_indicators: bool
 pub jmap_chat_types::Chat::slow_mode_seconds: core::option::Option<u64>
@@ -1103,7 +1129,15 @@ impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatFilenodeCapa
 pub fn jmap_chat_types::ChatFilenodeCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_chat_types::ChatFilterCondition
 pub jmap_chat_types::ChatFilterCondition::kind: core::option::Option<jmap_chat_types::ChatKind>
+pub jmap_chat_types::ChatFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_chat_types::ChatFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_chat_types::ChatFilterCondition::muted: core::option::Option<bool>
+pub jmap_chat_types::ChatFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_chat_types::ChatFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+impl jmap_chat_types::ChatFilterCondition
+pub fn jmap_chat_types::ChatFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_chat_types::ChatFilterCondition
 pub fn jmap_chat_types::ChatFilterCondition::clone(&self) -> jmap_chat_types::ChatFilterCondition
 impl core::cmp::Eq for jmap_chat_types::ChatFilterCondition
@@ -1496,6 +1530,8 @@ pub jmap_chat_types::Message::expires_after_read_seconds: core::option::Option<u
 pub jmap_chat_types::Message::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_chat_types::Message::id: jmap_types::id::Id
 pub jmap_chat_types::Message::mentions: alloc::vec::Vec<jmap_chat_types::Mention>
+pub jmap_chat_types::Message::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_chat_types::Message::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_chat_types::Message::reactions: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_chat_types::Reaction>
 pub jmap_chat_types::Message::read_at: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_chat_types::Message::read_disposition: core::option::Option<jmap_chat_types::ReadDisposition>
@@ -1557,9 +1593,17 @@ pub fn jmap_chat_types::MessageAction::deserialize<__D>(__D) -> core::result::Re
 pub jmap_chat_types::MessageFilterCondition::chat_id: core::option::Option<jmap_types::id::Id>
 pub jmap_chat_types::MessageFilterCondition::has_attachment: core::option::Option<bool>
 pub jmap_chat_types::MessageFilterCondition::has_mention: core::option::Option<bool>
+pub jmap_chat_types::MessageFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_chat_types::MessageFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_chat_types::MessageFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_chat_types::MessageFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_chat_types::MessageFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_chat_types::MessageFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_chat_types::MessageFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_chat_types::MessageFilterCondition::thread_root_id: core::option::Option<jmap_types::id::Id>
 pub jmap_chat_types::MessageFilterCondition::topic_id: core::option::Option<alloc::string::String>
+impl jmap_chat_types::MessageFilterCondition
+pub fn jmap_chat_types::MessageFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_chat_types::MessageFilterCondition
 pub fn jmap_chat_types::MessageFilterCondition::clone(&self) -> jmap_chat_types::MessageFilterCondition
 impl core::cmp::Eq for jmap_chat_types::MessageFilterCondition
@@ -1682,6 +1726,23 @@ impl serde_core::ser::Serialize for jmap_chat_types::RichBody
 pub fn jmap_chat_types::RichBody::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::RichBody
 pub fn jmap_chat_types::RichBody::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::RoleCreate
+pub jmap_chat_types::RoleCreate::color: core::option::Option<serde_json::value::Value>
+pub jmap_chat_types::RoleCreate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::RoleCreate::name: alloc::string::String
+pub jmap_chat_types::RoleCreate::permissions: alloc::vec::Vec<jmap_chat_types::ChatPermission>
+pub jmap_chat_types::RoleCreate::position: u64
+impl core::clone::Clone for jmap_chat_types::RoleCreate
+pub fn jmap_chat_types::RoleCreate::clone(&self) -> jmap_chat_types::RoleCreate
+impl core::cmp::PartialEq for jmap_chat_types::RoleCreate
+pub fn jmap_chat_types::RoleCreate::eq(&self, &jmap_chat_types::RoleCreate) -> bool
+impl core::fmt::Debug for jmap_chat_types::RoleCreate
+pub fn jmap_chat_types::RoleCreate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::RoleCreate
+impl serde_core::ser::Serialize for jmap_chat_types::RoleCreate
+pub fn jmap_chat_types::RoleCreate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::RoleCreate
+pub fn jmap_chat_types::RoleCreate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_chat_types::RolePatch
 pub jmap_chat_types::RolePatch::color: core::option::Option<jmap_chat_types::Clearable<serde_json::value::Value>>
 pub jmap_chat_types::RolePatch::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
@@ -1713,7 +1774,9 @@ pub jmap_chat_types::Space::is_public: bool
 pub jmap_chat_types::Space::is_publicly_previewable: bool
 pub jmap_chat_types::Space::member_count: u64
 pub jmap_chat_types::Space::members: alloc::vec::Vec<jmap_chat_types::SpaceMember>
+pub jmap_chat_types::Space::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_chat_types::Space::name: alloc::string::String
+pub jmap_chat_types::Space::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_chat_types::Space::roles: alloc::vec::Vec<jmap_chat_types::SpaceRole>
 pub jmap_chat_types::Space::uncategorized_channel_ids: alloc::vec::Vec<jmap_types::id::Id>
 impl jmap_chat_types::Space
@@ -1778,7 +1841,15 @@ impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceBan
 pub fn jmap_chat_types::SpaceBan::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_chat_types::SpaceFilterCondition
 pub jmap_chat_types::SpaceFilterCondition::is_public: core::option::Option<bool>
+pub jmap_chat_types::SpaceFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_chat_types::SpaceFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_chat_types::SpaceFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_chat_types::SpaceFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::SpaceFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_chat_types::SpaceFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_chat_types::SpaceFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+impl jmap_chat_types::SpaceFilterCondition
+pub fn jmap_chat_types::SpaceFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_chat_types::SpaceFilterCondition
 pub fn jmap_chat_types::SpaceFilterCondition::clone(&self) -> jmap_chat_types::SpaceFilterCondition
 impl core::cmp::Eq for jmap_chat_types::SpaceFilterCondition

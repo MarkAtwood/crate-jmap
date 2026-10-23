@@ -240,6 +240,18 @@ pub struct Chat {
     /// exactly when `activeCallId` is, and not a `Chat/set` patch key.
     #[serde(default)]
     pub active_call_account_id: Option<Id>,
+    /// Shared metadata, keyed by namespace identifier
+    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+    /// The authenticated user's own metadata, keyed by namespace
+    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// handling as `metadata`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -309,6 +321,8 @@ impl Chat {
             closed_at: None,
             active_call_id: None,
             active_call_account_id: None,
+            metadata: None,
+            private_metadata: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -641,5 +655,44 @@ mod tests {
             Some(&serde_json::Value::Null),
             "{out}"
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §2 adds `metadata` and
+    /// `privateMetadata` (objects keyed by namespace) to each listed type,
+    /// and draft-atwood-jmap-chat-00 lets servers list `Chat`; the keys are
+    /// the jmap-chat-metadata-guide §1 and §4 examples. The values land in
+    /// the typed fields, not `extra`. -04 §3.2: "null is equivalent to
+    /// {}", so `null` decodes as absent; a non-object is rejected.
+    #[test]
+    fn chat_metadata_properties() {
+        let mut raw = serde_json::json!({
+            "id": "c1", "kind": "group", "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "metadata": {"chat.example.com": {"externalLink": "https://wiki.example.com/p"}},
+            "privateMetadata": {"chat.example.com": {"starred": true}}
+        });
+        let chat: Chat = serde_json::from_value(raw.clone()).expect("decode");
+        assert_eq!(
+            chat.metadata
+                .as_ref()
+                .map(|m| &m["chat.example.com"]["externalLink"]),
+            Some(&serde_json::json!("https://wiki.example.com/p"))
+        );
+        assert_eq!(
+            chat.private_metadata
+                .as_ref()
+                .map(|m| &m["chat.example.com"]["starred"]),
+            Some(&serde_json::json!(true))
+        );
+        assert!(chat.extra.is_empty());
+        let back = serde_json::to_value(&chat).expect("encode");
+        assert_eq!(back["metadata"], raw["metadata"]);
+        assert_eq!(back["privateMetadata"], raw["privateMetadata"]);
+
+        raw["metadata"] = serde_json::Value::Null;
+        let chat: Chat = serde_json::from_value(raw.clone()).expect("decode null");
+        assert_eq!(chat.metadata, None);
+        raw["metadata"] = serde_json::json!(["x"]);
+        assert!(serde_json::from_value::<Chat>(raw).is_err());
     }
 }

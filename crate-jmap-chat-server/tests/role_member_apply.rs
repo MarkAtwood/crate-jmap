@@ -65,6 +65,7 @@ async fn owner_without_member_entry_cannot_add_roles() {
                 "id": "placeholder", "name": "Mod", "permissions": ["manage_members"], "position": 50
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -100,6 +101,7 @@ async fn add_role_stores_server_assigned_id() {
                 { "id": "client-chosen", "name": "WithId", "permissions": [], "position": 20 }
             ]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -153,6 +155,7 @@ async fn non_member_caller_lacks_all_permissions() {
                 "id": "placeholder", "name": "Mod", "permissions": [], "position": 50
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -203,6 +206,7 @@ async fn member_with_only_everyone_role_lacks_permissions() {
                 "id": "placeholder", "name": "Mod", "permissions": [], "position": 50
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -230,6 +234,7 @@ async fn admin_with_required_permissions_succeeds() {
                 "id": "placeholder", "name": "Mod", "permissions": [], "position": 50
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -279,6 +284,7 @@ async fn add_role_at_caller_position_rejected() {
                 "id": "placeholder", "name": "PeerMod", "permissions": [], "position": 50
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -307,6 +313,7 @@ async fn add_role_at_caller_position_rejected() {
                 "id": "placeholder", "name": "JuniorMod", "permissions": [], "position": 49
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -360,6 +367,7 @@ async fn update_role_hierarchy_checks_both_old_and_new_position() {
                 "id": "r-low", "position": 100
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -411,6 +419,7 @@ async fn add_member_with_role_above_caller_rejected() {
                 "roleIds": ["r-admin"]
             }]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -476,6 +485,7 @@ async fn remove_role_cascades_demotion_to_everyone() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeRoles": ["r-mod"] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -595,6 +605,7 @@ async fn remove_role_cascades_channel_permission_overrides() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeRoles": ["r-mod"] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -629,6 +640,7 @@ async fn remove_role_cascades_channel_permission_overrides() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "sinceState": since_state }),
+        &[],
     )
     .await
     .expect("Chat/changes");
@@ -688,6 +700,7 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID, "u-regular"] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -762,6 +775,7 @@ async fn last_admin_protection_disabled_allows_removal() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID, "u-regular"] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -808,6 +822,7 @@ async fn last_admin_protection_allows_when_other_admin_remains() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": ["admin-2"] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -868,6 +883,7 @@ async fn whole_patch_reject_on_permission_failure_no_partial_mutation() {
                 "addMembers": [{ "id": "u-new", "roleIds": [] }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -937,6 +953,7 @@ async fn whole_patch_reject_on_hierarchy_failure() {
                 { "id": "p2", "name": "Illegal", "permissions": [], "position": 100 }
             ]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -1011,6 +1028,7 @@ async fn member_lifecycle_with_authenticated_admin() {
                 "roleIds": ["r-member"]
             }]}}
         }),
+        &[],
     )
     .await
     .expect("addMembers");
@@ -1032,6 +1050,7 @@ async fn member_lifecycle_with_authenticated_admin() {
                 "nick": "Captain Newbie"
             }]}}
         }),
+        &[],
     )
     .await
     .expect("updateMembers");
@@ -1071,6 +1090,7 @@ async fn member_lifecycle_with_authenticated_admin() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": ["newbie"] }}
         }),
+        &[],
     )
     .await
     .expect("removeMembers");
@@ -1113,6 +1133,7 @@ async fn add_member_duplicate_user_id_rejected() {
                 "roleIds": []
             }]}}
         }),
+        &[],
     )
     .await
     .expect("addMembers");
@@ -1139,6 +1160,7 @@ async fn add_member_unknown_role_id_rejected() {
                 "roleIds": ["r-does-not-exist"]
             }]}}
         }),
+        &[],
     )
     .await
     .expect("addMembers");
@@ -1196,6 +1218,7 @@ async fn update_role_color_preserves_all_three_representations() {
                     "id": "r-target", "color": color
                 }]}}
             }),
+            &[],
         )
         .await
         .expect("handle_space_set");
@@ -1273,6 +1296,7 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
                 "accountId": ACCOUNT_ID,
                 "update": { SPACE_ID: { "addRoles": add_roles } }
             }),
+            &[],
         )
         .await
         .expect("handle_space_set");
@@ -1350,6 +1374,7 @@ async fn add_roles_after_remove_does_not_reuse_freed_id() {
                 backend,
                 &(),
                 json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
+                &[],
             )
             .await
             .expect("handle_space_set");

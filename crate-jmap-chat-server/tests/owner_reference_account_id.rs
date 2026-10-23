@@ -55,10 +55,16 @@ fn seed_group(backend: &IdentityBackend, members: Value) {
 async fn chat_set(backend: &IdentityBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
-    handle_chat_set(backend, &owner(), &std::collections::BTreeMap::new(), args)
-        .await
-        .expect("Chat/set")
-        .primary
+    handle_chat_set(
+        backend,
+        &owner(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .expect("Chat/set")
+    .primary
 }
 
 async fn stored_chat_members(backend: &IdentityBackend) -> Vec<Value> {
@@ -98,6 +104,7 @@ async fn space_set_update(backend: &IdentityBackend, patch: Value) -> Value {
         backend,
         &owner(),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
+        &[],
     )
     .await
     .expect("Space/set")

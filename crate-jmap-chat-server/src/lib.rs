@@ -187,11 +187,12 @@ where
     //
     // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
     // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
-    // The optional `$ids` binds `CallContext::created_ids`, the
-    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
-    // use to resolve `#creationId` references.
+    // Each optional trailing ident binds the `CallContext` field of that name:
+    // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
+    // `/set` handlers use to resolve `#creationId` references, or `using`,
+    // the request's capability list (draft-ietf-jmap-metadata-04 §3).
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -200,7 +201,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
-                        $(created_ids: $ids,)?
+                        $($field,)*
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -214,8 +215,8 @@ where
     reg!("Chat/get", backend, |b, _ci, a, ctx| {
         handle_chat_get(&*b, &ctx, a).await
     });
-    reg!("Chat/changes", backend, |b, _ci, a, ctx| {
-        handle_chat_changes(&*b, &ctx, a).await
+    reg!("Chat/changes", backend, |b, _ci, a, ctx, using| {
+        handle_chat_changes(&*b, &ctx, a, &using).await
     });
     reg!("Chat/query", backend, |b, _ci, a, ctx| {
         handle_chat_query(&*b, &ctx, a).await
@@ -223,8 +224,8 @@ where
     reg!("Chat/queryChanges", backend, |b, _ci, a, ctx| {
         handle_chat_query_changes(&*b, &ctx, a).await
     });
-    reg!("Chat/set", backend, |b, _ci, a, ctx, ids| {
-        handle_chat_set(&*b, &ctx, &ids, a).await
+    reg!("Chat/set", backend, |b, _ci, a, ctx, created_ids, using| {
+        handle_chat_set(&*b, &ctx, &created_ids, a, &using).await
     });
     reg!("Chat/typing", backend, |b, _ci, a, ctx| {
         handle_chat_typing(&*b, &ctx, a).await
@@ -234,8 +235,8 @@ where
     reg!("Message/get", backend, |b, _ci, a, ctx| {
         message::handle_message_get(&*b, &ctx, a).await
     });
-    reg!("Message/changes", backend, |b, _ci, a, ctx| {
-        message::handle_message_changes(&*b, &ctx, a).await
+    reg!("Message/changes", backend, |b, _ci, a, ctx, using| {
+        message::handle_message_changes(&*b, &ctx, a, &using).await
     });
     reg!("Message/query", backend, |b, _ci, a, ctx| {
         message::handle_message_query(&*b, &ctx, a).await
@@ -243,16 +244,20 @@ where
     reg!("Message/queryChanges", backend, |b, _ci, a, ctx| {
         message::handle_message_query_changes(&*b, &ctx, a).await
     });
-    reg!("Message/set", backend, |b, _ci, a, ctx, ids| {
-        message::handle_message_set(&*b, &ctx, &ids, a).await
-    });
+    reg!(
+        "Message/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, using| {
+            message::handle_message_set(&*b, &ctx, &created_ids, a, &using).await
+        }
+    );
 
     // Space
     reg!("Space/get", backend, |b, _ci, a, ctx| {
         handle_space_get(&*b, &ctx, a).await
     });
-    reg!("Space/changes", backend, |b, _ci, a, ctx| {
-        handle_space_changes(&*b, &ctx, a).await
+    reg!("Space/changes", backend, |b, _ci, a, ctx, using| {
+        handle_space_changes(&*b, &ctx, a, &using).await
     });
     reg!("Space/query", backend, |b, _ci, a, ctx| {
         handle_space_query(&*b, &ctx, a).await
@@ -260,8 +265,8 @@ where
     reg!("Space/queryChanges", backend, |b, _ci, a, ctx| {
         handle_space_query_changes(&*b, &ctx, a).await
     });
-    reg!("Space/set", backend, |b, _ci, a, ctx| {
-        handle_space_set(&*b, &ctx, a).await
+    reg!("Space/set", backend, |b, _ci, a, ctx, using| {
+        handle_space_set(&*b, &ctx, a, &using).await
     });
     reg!("Space/join", backend, |b, _ci, a, ctx| {
         handle_space_join(&*b, &ctx, a).await
@@ -291,9 +296,11 @@ where
     reg!("ReadPosition/changes", backend, |b, _ci, a, ctx| {
         handle_position_changes(&*b, &ctx, a).await
     });
-    reg!("ReadPosition/set", backend, |b, _ci, a, ctx, ids| {
-        handle_position_set(&*b, &ctx, &ids, a).await
-    });
+    reg!(
+        "ReadPosition/set",
+        backend,
+        |b, _ci, a, ctx, created_ids| handle_position_set(&*b, &ctx, &created_ids, a).await
+    );
 
     // SpaceInvite
     reg!("SpaceInvite/get", backend, |b, _ci, a, ctx| {
@@ -302,8 +309,8 @@ where
     reg!("SpaceInvite/changes", backend, |b, _ci, a, ctx| {
         handle_invite_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceInvite/set", backend, |b, _ci, a, ctx, ids| {
-        handle_invite_set(&*b, &ctx, &ids, a).await
+    reg!("SpaceInvite/set", backend, |b, _ci, a, ctx, created_ids| {
+        handle_invite_set(&*b, &ctx, &created_ids, a).await
     });
 
     // SpaceBan
@@ -313,8 +320,8 @@ where
     reg!("SpaceBan/changes", backend, |b, _ci, a, ctx| {
         handle_ban_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceBan/set", backend, |b, _ci, a, ctx, ids| {
-        handle_ban_set(&*b, &ctx, &ids, a).await
+    reg!("SpaceBan/set", backend, |b, _ci, a, ctx, created_ids| {
+        handle_ban_set(&*b, &ctx, &created_ids, a).await
     });
 
     // CustomEmoji
@@ -330,8 +337,8 @@ where
     reg!("CustomEmoji/queryChanges", backend, |b, _ci, a, ctx| {
         handle_emoji_query_changes(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/set", backend, |b, _ci, a, ctx, ids| {
-        handle_emoji_set(&*b, &ctx, &ids, a).await
+    reg!("CustomEmoji/set", backend, |b, _ci, a, ctx, created_ids| {
+        handle_emoji_set(&*b, &ctx, &created_ids, a).await
     });
 
     // PresenceStatus

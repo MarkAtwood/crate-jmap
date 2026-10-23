@@ -194,6 +194,7 @@ async fn chat_set_create_group() {
                 "c0": { "kind": "group", "name": "My Group" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -217,6 +218,7 @@ async fn chat_set_create_direct_with_contact_id() {
                 "c0": { "kind": "direct", "contactId": "u1" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -239,6 +241,7 @@ async fn chat_set_create_direct_missing_contact_id() {
                 "c0": { "kind": "direct" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -266,6 +269,7 @@ async fn chat_set_create_channel_missing_space_id() {
                 "c0": { "kind": "channel" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -288,6 +292,7 @@ async fn chat_set_create_missing_kind() {
                 "c0": { "name": "No Kind" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -318,6 +323,7 @@ async fn chat_set_create_unknown_kind_rejected() {
                 "c0": { "kind": "vampire", "name": "Junk" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -373,6 +379,7 @@ async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
             "accountId": ACCOUNT_ID,
             "update": { &chat_id: patch }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -425,6 +432,7 @@ async fn chat_set_update_readonly_field_rejected() {
                 &chat_id: { "createdAt": "2020-01-01T00:00:00Z" }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -448,6 +456,7 @@ async fn chat_set_destroy() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [chat_id] }),
+        &[],
     )
     .await
     .expect("destroy");
@@ -469,6 +478,7 @@ async fn chat_set_if_in_state_mismatch() {
             "ifInState": "999",
             "create": { "c0": { "kind": "group" } }
         }),
+        &[],
     )
     .await
     .unwrap_err();
@@ -489,6 +499,7 @@ async fn chat_changes_empty() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("handle_chat_changes");
@@ -505,7 +516,7 @@ async fn chat_changes_missing_since_state() {
     let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
-    let err = handle_chat_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+    let err = handle_chat_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
         .await
         .unwrap_err();
     assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -524,6 +535,7 @@ async fn chat_changes_after_create() {
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "group", "name": "G" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -532,6 +544,7 @@ async fn chat_changes_after_create() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("changes");
@@ -569,6 +582,7 @@ async fn chat_query_with_calculate_total() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group", "name": "G" } } }),
+        &[],
     )
     .await
     .expect("create");
@@ -611,6 +625,7 @@ async fn chat_query_changes_after_create() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group", "name": "G" } } }),
+        &[],
     )
     .await
     .expect("create");
@@ -654,6 +669,7 @@ async fn chat_query_changes_reports_updated_id_in_removed_and_added() {
             "accountId": ACCOUNT_ID,
             "update": { &chat_id: { "name": "Renamed" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1116,6 +1132,7 @@ async fn message_set_create_missing_chat_id() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "body": "Hello" } }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -1142,6 +1159,7 @@ async fn message_set_create_success() {
                 "m0": { "chatId": "c1", "body": "Hello, world!", "sentAt": "2024-01-01T00:00:00Z" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -1168,6 +1186,7 @@ async fn message_set_update_readonly_field() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -1183,6 +1202,7 @@ async fn message_set_update_readonly_field() {
                 msg_id: { "deliveryState": "delivered" }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1202,6 +1222,7 @@ async fn message_get_returns_created() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "Test body", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -1238,6 +1259,7 @@ async fn message_changes_after_create() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "Hi", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -1246,6 +1268,7 @@ async fn message_changes_after_create() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("changes");
@@ -1265,6 +1288,7 @@ async fn message_query_order() {
                 "accountId": ACCOUNT_ID,
                 "create": { format!("m{i}"): { "chatId": "c1", "body": format!("msg {i}"), "sentAt": "2024-01-01T00:00:00Z" } }
             }),
+            &[],
         )
         .await
         .expect("create");
@@ -1294,6 +1318,7 @@ async fn message_set_update_body_injects_edited_at() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -1313,6 +1338,7 @@ async fn message_set_update_body_injects_edited_at() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "body": "edited" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1347,6 +1373,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "hello", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -1366,6 +1393,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "deletedForAll": true } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1446,6 +1474,7 @@ async fn message_set_update_delete_for_all_purges_content() {
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedForAll": true } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1537,6 +1566,7 @@ async fn message_set_update_local_delete_purges_content() {
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedAt": "2024-01-03T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1584,6 +1614,7 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedForAll": true } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1628,6 +1659,7 @@ async fn message_set_update_edit_rejects_other_sender() {
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "body": "rewritten", "bodyType": "text/plain" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1669,6 +1701,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
             "accountId": ACCOUNT_ID,
             "update": { "m1": { "deletedAt": "2024-01-03T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("delete");
@@ -1687,6 +1720,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
                 "m1": { "mentions": [{ "id": "contact-alice", "offset": 0, "length": 0 }] }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1716,6 +1750,7 @@ async fn message_set_update_mark_as_read() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "read me", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -1736,6 +1771,7 @@ async fn message_set_update_mark_as_read() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": read_ts } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -1764,6 +1800,7 @@ async fn message_set_read_at_defaults_disposition() {
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+        &[],
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
         .as_str()
@@ -1772,6 +1809,7 @@ async fn message_set_read_at_defaults_disposition() {
 
     let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z" } } }),
+        &[],
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
@@ -1800,6 +1838,7 @@ async fn message_set_explicit_disposition_preserved() {
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+        &[],
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
         .as_str()
@@ -1808,6 +1847,7 @@ async fn message_set_explicit_disposition_preserved() {
 
     let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "deleted" } } }),
+        &[],
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
@@ -1835,6 +1875,7 @@ async fn message_set_extension_disposition_stored_as_is() {
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+        &[],
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
         .as_str()
@@ -1843,6 +1884,7 @@ async fn message_set_extension_disposition_stored_as_is() {
 
     let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "voice-listened" } } }),
+        &[],
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
@@ -1870,6 +1912,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2026-01-01T00:00:00Z" } } }),
+        &[],
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
         .as_str()
@@ -1878,6 +1921,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
 
     let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "body": "edited text" } } }),
+        &[],
     )
     .await
     .expect("update");
@@ -1913,6 +1957,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+        &[],
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
         .as_str()
@@ -1931,6 +1976,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
             &(),
             &std::collections::BTreeMap::new(),
             json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
+            &[],
         )
         .await
         .expect("update");
@@ -1969,6 +2015,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
             "bad": { "chatId": "c1", "body": "hi", "bodyType": "text/html", "sentAt": "2026-01-01T00:00:00Z" },
             "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" }
         } }),
+        &[],
     )
     .await
     .expect("create");
@@ -1983,6 +2030,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
 
     let HandlerOutput { primary: update_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "bodyType": "text/html" } } }),
+        &[],
     )
     .await
     .expect("update");
@@ -2014,6 +2062,7 @@ async fn message_set_read_at_null_clears_read_disposition() {
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+        &[],
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
         .as_str()
@@ -2037,6 +2086,7 @@ async fn message_set_read_at_null_clears_read_disposition() {
             &(),
             &std::collections::BTreeMap::new(),
             json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
+            &[],
         )
         .await
         .expect("update");
@@ -2090,6 +2140,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -2117,6 +2168,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -2156,6 +2208,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("changes");
@@ -2193,6 +2246,7 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -2213,6 +2267,7 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "body": "edited body" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -2258,6 +2313,7 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -2278,6 +2334,7 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -2335,6 +2392,7 @@ async fn message_set_burn_on_read_spares_senders_own_copy() {
             "accountId": ACCOUNT_ID,
             "update": { "own": { "readAt": "2024-01-02T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -2379,6 +2437,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -2401,6 +2460,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": serde_json::Value::Null } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -2446,6 +2506,7 @@ async fn memory_backend_expire_message_direct_call() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -2487,6 +2548,7 @@ async fn memory_backend_expire_message_direct_call() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("changes");
@@ -2580,6 +2642,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -2601,6 +2664,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -2684,6 +2748,7 @@ async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_displ
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("chat_set");
@@ -2740,6 +2805,7 @@ async fn chat_set_direct_recheck_read_failure_rolls_back_create() {
                 "c1": { "kind": "direct", "contactId": "contact-2" }
             }
         }),
+        &[],
     )
     .await
     .expect("re-check read failure must not be a method-level error");
@@ -2802,6 +2868,7 @@ async fn chat_set_direct_recheck_and_rollback_failure_advances_state() {
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
         }),
+        &[],
     )
     .await
     .expect("re-check read failure must not be a method-level error");
@@ -2859,6 +2926,7 @@ async fn chat_set_direct_lost_race_new_state_matches_get() {
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
         }),
+        &[],
     )
     .await
     .expect("chat_set");
@@ -2914,6 +2982,7 @@ async fn chat_set_direct_lost_race_cleanup_failure_new_state_matches_get() {
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "contact-1" } }
         }),
+        &[],
     )
     .await
     .expect("chat_set");
@@ -3149,6 +3218,7 @@ async fn message_set_create_no_slow_mode_on_memory_backend() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3193,6 +3263,7 @@ async fn message_set_create_slow_mode_rejects_with_retry_after() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3242,6 +3313,7 @@ async fn message_set_create_tracking_backend_default_allows() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3277,6 +3349,7 @@ async fn message_set_create_slow_mode_skipped_when_validation_fails() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3305,6 +3378,7 @@ async fn message_set_create_with_reply_to() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create first message");
@@ -3329,6 +3403,7 @@ async fn message_set_create_with_reply_to() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("create reply");
@@ -3368,6 +3443,7 @@ async fn message_set_create_with_malformed_expiry_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3406,6 +3482,7 @@ async fn message_set_create_with_past_expiry_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3447,6 +3524,7 @@ async fn message_set_past_expiry_set_error_matches_draft() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3482,6 +3560,7 @@ async fn message_set_create_with_malformed_sent_at_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3551,6 +3630,7 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "react to me", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -3572,6 +3652,7 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
                 &msg_id: { "reactions/abc": { "emoji": "👍" } }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -3621,6 +3702,7 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -3642,6 +3724,7 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
                 &msg_id: { "reactions/bar": { "emoji": "❤️", "senderId": "someone-else" } }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -3707,6 +3790,7 @@ async fn message_set_update_reaction_remove_others_rejected_forbidden() {
                 "m1": { "reactions/foo": serde_json::Value::Null }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3783,6 +3867,7 @@ async fn message_set_update_reaction_modify_others_rejected_forbidden() {
                 "m1": { "reactions/foo": { "emoji": "🎉" } }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -3808,6 +3893,7 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -3829,6 +3915,7 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
                 &msg_id: { "reactions/a/b": { "emoji": "👍" } }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -3854,6 +3941,7 @@ async fn message_set_update_reaction_non_object_value_rejected() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -3875,6 +3963,7 @@ async fn message_set_update_reaction_non_object_value_rejected() {
                 &msg_id: { "reactions/abc": "👍" }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -3899,6 +3988,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -3920,6 +4010,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
                 &msg_id: { "reactions/r1": { "emoji": "👍" } }
             }
         }),
+        &[],
     )
     .await
     .expect("add");
@@ -3939,6 +4030,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
                 &msg_id: { "reactions/r1": serde_json::Value::Null }
             }
         }),
+        &[],
     )
     .await
     .expect("remove");
@@ -3979,6 +4071,7 @@ async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("create");
@@ -4003,6 +4096,7 @@ async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("update");
@@ -4025,6 +4119,7 @@ async fn space_set_create_missing_name() {
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "isPublic": false } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4047,6 +4142,7 @@ async fn space_set_create_success() {
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "My Server", "isPublic": true } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4090,6 +4186,7 @@ async fn space_set_update_readonly_fields_rejected() {
                 "accountId": ACCOUNT_ID,
                 "update": { &space_id: { (*field): [] } }
             }),
+            &[],
         )
         .await
         .expect("handle_space_set");
@@ -4138,6 +4235,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
                 { "id": "placeholder", "name": "Mod", "permissions": ["chat:read"], "position": 1 }
             ]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set (addRoles)");
@@ -4178,6 +4276,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
                 { "id": role_id, "name": "Renamed" }
             ]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set (updateRoles)");
@@ -4196,6 +4295,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
                 { "id": "u1", "roleIds": [role_id] }
             ]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set (addMembers)");
@@ -4214,6 +4314,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
                 { "id": "u1", "nick": "Mark" }
             ]}}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set (updateMembers)");
@@ -4230,6 +4331,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeMembers": ["u1"] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set (removeMembers)");
@@ -4246,6 +4348,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeRoles": [role_id] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set (removeRoles)");
@@ -4262,6 +4365,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeRoles": ["nonexistent"] }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set (removeRoles nonexistent)");
@@ -4286,6 +4390,7 @@ async fn space_set_update_structural_empty_array_is_empty_patch() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addRoles": [] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4312,6 +4417,7 @@ async fn space_set_update_malformed_structural_rejected() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addRoles": ["not-an-object"] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4331,6 +4437,7 @@ async fn space_set_update_malformed_structural_rejected() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeMembers": "not-an-array" } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4369,6 +4476,7 @@ async fn space_set_add_roles_position_zero_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4420,6 +4528,7 @@ async fn space_set_add_roles_position_one_passes_handler_check() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4462,6 +4571,7 @@ async fn space_set_update_roles_position_zero_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4496,6 +4606,7 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4547,6 +4658,7 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4588,6 +4700,7 @@ async fn space_set_update_unknown_property_rejected() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "name": "OK", "totallyUnknownProperty": 42 } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4672,6 +4785,7 @@ async fn space_set_category_add_assigns_id_and_pushes() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4733,6 +4847,7 @@ async fn space_set_category_add_without_id_is_accepted() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4794,6 +4909,7 @@ async fn space_set_category_add_assigns_unique_ids() {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("handle_space_set");
@@ -4854,6 +4970,7 @@ async fn space_set_category_add_reassigns_existing_channels() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4903,6 +5020,7 @@ async fn space_set_category_add_unknown_channel_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4939,6 +5057,7 @@ async fn space_set_category_remove_unknown_yields_not_found() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeCategories": ["does-not-exist"] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -4976,6 +5095,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("add cat");
@@ -4991,6 +5111,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeCategories": [cat_id.as_ref()] } }
         }),
+        &[],
     )
     .await
     .expect("remove cat");
@@ -5071,6 +5192,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("seed cat");
@@ -5095,6 +5217,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("update cat");
@@ -5203,6 +5326,7 @@ async fn space_set_category_add_moves_channel_out_of_previous_category() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("add cat");
@@ -5261,6 +5385,7 @@ async fn space_set_category_update_moves_channel_out_of_previous_category() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("update cat");
@@ -5328,6 +5453,7 @@ async fn space_set_category_cascade_emits_chat_changes() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("addCategories");
@@ -5340,6 +5466,7 @@ async fn space_set_category_cascade_emits_chat_changes() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("chat_changes");
@@ -5385,6 +5512,7 @@ async fn space_set_channel_add_assigns_id_and_lands_uncategorized() {
                 &space_id: { "addChannels": [{ "name": "general" }] }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -5464,6 +5592,7 @@ async fn space_set_channel_add_into_existing_category() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("addCategories");
@@ -5486,6 +5615,7 @@ async fn space_set_channel_add_into_existing_category() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("addChannels");
@@ -5557,6 +5687,7 @@ async fn space_set_channel_add_unknown_category_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -5610,6 +5741,7 @@ async fn space_set_channel_remove_unknown_yields_not_found() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeChannels": ["does-not-exist"] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -5643,6 +5775,7 @@ async fn space_set_channel_remove_cascades_messages() {
                 ] }
             }
         }),
+        &[],
     )
     .await
     .expect("addChannels");
@@ -5723,6 +5856,7 @@ async fn space_set_channel_remove_cascades_messages() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeChannels": [&general_id] } }
         }),
+        &[],
     )
     .await
     .expect("removeChannels");
@@ -5744,6 +5878,7 @@ async fn space_set_channel_remove_cascades_messages() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("message_changes");
@@ -5799,6 +5934,7 @@ async fn space_set_channel_update_name_and_position() {
                 &space_id: { "addChannels": [{ "name": "old-name", "topic": "old topic" }] }
             }
         }),
+        &[],
     )
     .await
     .expect("addChannels");
@@ -5832,6 +5968,7 @@ async fn space_set_channel_update_name_and_position() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("updateChannels");
@@ -5864,6 +6001,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
                 &space_id: { "addChannels": [{ "name": "ch", "topic": "to-clear" }] }
             }
         }),
+        &[],
     )
     .await
     .expect("addChannels");
@@ -5890,6 +6028,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
                 &space_id: { "updateChannels": [{ "id": &ch_id, "topic": null }] }
             }
         }),
+        &[],
     )
     .await
     .expect("updateChannels");
@@ -5934,6 +6073,7 @@ async fn space_set_channel_update_category_move() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("seed");
@@ -5963,6 +6103,7 @@ async fn space_set_channel_update_category_move() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("updateChannels");
@@ -6029,6 +6170,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("addCategories");
@@ -6046,6 +6188,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("addChannels");
@@ -6076,6 +6219,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("updateChannels");
@@ -6130,6 +6274,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addChannels": [{ "name": "ch" }] } }
         }),
+        &[],
     )
     .await
     .expect("addChannels");
@@ -6158,6 +6303,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("updateChannels");
@@ -6194,6 +6340,7 @@ async fn space_set_channel_update_unknown_channel_yields_not_found() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("updateChannels");
@@ -6224,6 +6371,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("chat_changes baseline");
@@ -6248,6 +6396,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("addChannels");
@@ -6274,6 +6423,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": &baseline_state }),
+        &[],
     )
     .await
     .expect("chat_changes after create");
@@ -6301,6 +6451,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeChannels": [&ch_id] } }
         }),
+        &[],
     )
     .await
     .expect("removeChannels");
@@ -6316,6 +6467,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": &after_create_state }),
+        &[],
     )
     .await
     .expect("chat_changes after destroy");
@@ -6368,6 +6520,7 @@ async fn space_set_update_metadata_success() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -6925,6 +7078,7 @@ async fn chat_set_backend_error_maps_to_server_fail() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group" } } }),
+        &[],
     )
     .await
     .unwrap_err();
@@ -6952,6 +7106,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
                 "c0": { "kind": "direct", "contactId": "u1" }
             }
         }),
+        &[],
     )
     .await
     .expect("first create");
@@ -6975,6 +7130,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
                 "c1": { "kind": "direct", "contactId": "u1" }
             }
         }),
+        &[],
     )
     .await
     .expect("second create call");
@@ -7003,6 +7159,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
             "accountId": ACCOUNT_ID,
             "create": { "c0": { "kind": "direct", "contactId": "u1" } }
         }),
+        &[],
     )
     .await
     .expect("create u1");
@@ -7016,6 +7173,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
             "accountId": ACCOUNT_ID,
             "create": { "c1": { "kind": "direct", "contactId": "u2" } }
         }),
+        &[],
     )
     .await
     .expect("create u2");
@@ -7041,6 +7199,7 @@ async fn accounts_are_isolated() {
 
     handle_chat_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "c0": { "kind": "group", "name": "A's group" } } }),
+        &[],
     )
     .await
     .expect("create in a1");
@@ -8083,6 +8242,7 @@ async fn space_join_via_invite_code_success() {
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "Invite Space" } }
         }),
+        &[],
     )
     .await
     .expect("create Space");
@@ -8200,6 +8360,7 @@ async fn space_join_invite_code_from_other_account_not_found() {
             "accountId": "a1",
             "create": { "s0": { "name": "Hosted in a1" } }
         }),
+        &[],
     )
     .await
     .expect("create Space");
@@ -8529,6 +8690,7 @@ async fn message_set_create_body_too_large() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": long_body } }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
@@ -8577,6 +8739,7 @@ async fn space_set_create_name_too_long() {
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": long_name } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -8672,6 +8835,7 @@ async fn space_set_count_limits_default_caps_allow_normal_patch() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -8711,6 +8875,7 @@ async fn space_set_count_limits_add_categories_over_cap_rejects() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("first add");
@@ -8733,6 +8898,7 @@ async fn space_set_count_limits_add_categories_over_cap_rejects() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("second add");
@@ -8782,6 +8948,7 @@ async fn space_set_count_limits_atomic_reject_whole_target() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -8828,6 +8995,7 @@ async fn space_set_count_limits_add_channels_over_cap_rejects() {
                 &space_id: { "addChannels": [{ "name": "general" }, { "name": "random" }] }
             }
         }),
+        &[],
     )
     .await
     .expect("first batch");
@@ -8847,6 +9015,7 @@ async fn space_set_count_limits_add_channels_over_cap_rejects() {
                 &space_id: { "addChannels": [{ "name": "off-topic" }] }
             }
         }),
+        &[],
     )
     .await
     .expect("over-cap add");
@@ -8889,6 +9058,7 @@ async fn space_set_count_limits_first_offender_surfaces() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -8928,6 +9098,7 @@ async fn space_set_count_limits_no_add_ops_bypasses_check() {
                 &space_id: { "removeRoles": ["nonexistent-role-id"] }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -8961,6 +9132,7 @@ async fn space_set_count_limits_create_only_unaffected() {
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "Free Standing" } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -9115,6 +9287,7 @@ async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("first add");
@@ -9133,6 +9306,7 @@ async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("second add");

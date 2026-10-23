@@ -44,7 +44,7 @@ fn backend(encrypted: &'static [&'static str]) -> MemoryBackend {
 
 async fn set(backend: &MemoryBackend, args: Value) -> Value {
     let HandlerOutput { primary: resp, .. } =
-        handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("Message/set");
     resp

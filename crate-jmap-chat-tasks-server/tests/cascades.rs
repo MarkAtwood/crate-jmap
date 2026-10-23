@@ -72,7 +72,7 @@ fn chat() -> ChatMemory {
 }
 
 async fn space_set(chat: &ChatMemory, args: Value) -> Value {
-    handle_space_set(chat, &(), args)
+    handle_space_set(chat, &(), args, &[])
         .await
         .expect("Space/set")
         .primary
@@ -163,6 +163,7 @@ async fn task_list_destroy_clears_space_task_list_id() {
         &chat,
         &(),
         json!({ "accountId": ACCOUNT, "sinceState": before }),
+        &[],
     )
     .await
     .expect("Space/changes")

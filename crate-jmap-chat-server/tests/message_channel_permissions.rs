@@ -131,6 +131,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str) -> Value {
                 "sentAt": "2026-01-01T00:00:00Z"
             }}
         }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -504,6 +505,7 @@ async fn create_broadcast_message(backend: &MemoryBackend) -> Value {
                 "broadcastMentions": [{ "scope": "everyone" }]
             }}
         }),
+        &[],
     )
     .await
     .expect("Message/set");

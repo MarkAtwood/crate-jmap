@@ -30,14 +30,16 @@ fn assert_invalid_property(entry: &Value, resp: &Value, property: &str) {
 }
 
 /// Runs one `/set` create `c` through `handler` and returns its
-/// `notCreated` entry with the full response.
+/// `notCreated` entry with the full response. A trailing `using` is
+/// passed to handlers that take the request's capability list.
 macro_rules! create_entry {
-    ($handler:ident, $backend:expr, $obj:expr) => {{
+    ($handler:ident, $backend:expr, $obj:expr $(, $using:expr)?) => {{
         let resp = $handler(
             $backend,
             &(),
             &std::collections::BTreeMap::new(),
             json!({ "accountId": ACCOUNT_ID, "create": { "c": $obj } }),
+            $($using)?
         )
         .await
         .expect("/set must not fail as a method")
@@ -55,6 +57,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
         }),
+        &[],
     )
     .await
     .expect("Chat/set")
@@ -78,7 +81,7 @@ async fn space_set_rejects_malformed_update_and_destroy_ids() {
         "update": { "bad id": { "name": "x" } },
         "destroy": ["bad id"]
     });
-    let resp = handle_space_set(&backend, &(), args_with_account(args))
+    let resp = handle_space_set(&backend, &(), args_with_account(args), &[])
         .await
         .expect("/set must not fail as a method")
         .primary;
@@ -94,6 +97,7 @@ async fn chat_set_rejects_malformed_destroy_id() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["bad id"] }),
+        &[],
     )
     .await
     .expect("/set must not fail as a method")
@@ -109,19 +113,22 @@ async fn chat_set_create_rejects_malformed_id_properties() {
     let (entry, resp) = create_entry!(
         handle_chat_set,
         &backend,
-        json!({ "kind": "group", "name": "G", "memberIds": ["bad id"] })
+        json!({ "kind": "group", "name": "G", "memberIds": ["bad id"] }),
+        &[]
     );
     assert_invalid_property(&entry, &resp, "memberIds");
     let (entry, resp) = create_entry!(
         handle_chat_set,
         &backend,
-        json!({ "kind": "direct", "contactId": "bad id" })
+        json!({ "kind": "direct", "contactId": "bad id" }),
+        &[]
     );
     assert_invalid_property(&entry, &resp, "contactId");
     let (entry, resp) = create_entry!(
         handle_chat_set,
         &backend,
-        json!({ "kind": "group", "name": "G", "memberIds": [], "avatarBlobId": "bad id" })
+        json!({ "kind": "group", "name": "G", "memberIds": [], "avatarBlobId": "bad id" }),
+        &[]
     );
     assert_invalid_property(&entry, &resp, "avatarBlobId");
 }
@@ -138,6 +145,7 @@ async fn chat_set_update_rejects_malformed_pinned_message_id() {
             "accountId": ACCOUNT_ID,
             "update": { &chat_id: { "pinnedMessageIds": ["bad id"] } }
         }),
+        &[],
     )
     .await
     .expect("/set must not fail as a method")
@@ -157,7 +165,7 @@ async fn message_set_create_rejects_malformed_reply_to_and_thread_root() {
             "sentAt": "2024-01-01T00:00:00Z",
         });
         obj[property] = json!("bad id");
-        let (entry, resp) = create_entry!(handle_message_set, &backend, obj);
+        let (entry, resp) = create_entry!(handle_message_set, &backend, obj, &[]);
         assert_invalid_property(&entry, &resp, property);
     }
 }

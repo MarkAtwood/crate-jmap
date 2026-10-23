@@ -59,7 +59,7 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -70,9 +70,15 @@ use crate::{
     strip_unsupported_chat_push, validate_chat_push,
 };
 use jmap_chat_types::{ChatPermission, ChatPushCapability};
+use jmap_metadata_server::{
+    ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
+    changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
+};
+use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_server::{
-    MergePatchError, PushSubscriptionBackend, StoredPushSubscription, apply_patch_object,
-    json_merge_patch, limit_or_max, now_utc_string, resolve_query_start,
+    MergePatchError, PatchPathError, PushSubscriptionBackend, StoredPushSubscription,
+    apply_patch_object, check_patch_paths, json_merge_patch, limit_or_max, now_utc_string,
+    resolve_query_start,
 };
 use jmap_types::{Id, PushSubscription, State};
 
@@ -115,6 +121,23 @@ struct ChangeEntry {
     created: Vec<Id>,
     updated: Vec<Id>,
     destroyed: Vec<Id>,
+    /// The top-level properties this change altered on every id in
+    /// `updated`, or `None` when not known. Feeds
+    /// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges` and
+    /// `updatedProperties`.
+    updated_props: Option<BTreeSet<String>>,
+}
+
+impl ChangeEntry {
+    /// `true` for an update that changed only `metadata` and/or
+    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    fn is_metadata_only_update(&self) -> bool {
+        self.created.is_empty()
+            && self.destroyed.is_empty()
+            && self.updated_props.as_ref().is_some_and(|props| {
+                !props.is_empty() && props.iter().all(|p| is_metadata_property(p))
+            })
+    }
 }
 
 /// Shared inner state, behind Arc<Mutex>.
@@ -180,6 +203,10 @@ struct Inner {
     space_everyone_permissions: HashMap<String, HashSet<ChatPermission>>,
     /// Source of every id this backend assigns; see [`Inner::mint_id`].
     ids: ulid::Generator,
+    /// `type_name` → the draft-ietf-jmap-metadata-04 §1.2.1
+    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// A type without an entry does not have the metadata properties.
+    metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
 }
 
 /// One lifecycle callback received by the [`MemoryBackend`], as
@@ -330,6 +357,53 @@ impl MemoryBackend {
     /// Space; change that with [`set_everyone_permissions`](Self::set_everyone_permissions).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// §1.2.1). draft-atwood-jmap-chat-00 lets a server list `Chat`,
+    /// `Message` and `Space` in the capability's `dataTypes`.
+    ///
+    /// Without this call a type has no metadata: `Foo/set` rejects a
+    /// write to `metadata` or `privateMetadata` with `invalidProperties`
+    /// and `Foo/query` rejects a metadata filter condition with
+    /// `unsupportedFilter`. With it, `Foo/set` validates metadata writes
+    /// (-04 §3.2), `Foo/query` evaluates the -04 §3.6 conditions, and
+    /// `Foo/changes` honours `ignoreMetadataOnlyChanges` and reports
+    /// `updatedProperties` (-04 §3.3). Advertising the capability in the
+    /// session is the server's job: list `info` under `data_type` in the
+    /// account's `urn:ietf:params:jmap:metadata` `dataTypes`.
+    ///
+    /// None of the three types has a rights object or belongs to a
+    /// container with one (the Space permission model is not one, per
+    /// draft-atwood-jmap-chat-00 §Space), so -04 §4.1 asks only that the
+    /// account is not read-only, and this backend has no read-only
+    /// accounts: every metadata write passes rule 1's `maySetMetadata`
+    /// check (fail-open, JMAP-bghk).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `data_type` is not `"Chat"`, `"Message"` or `"Space"`,
+    /// or if `info.supports_private` is true: this backend has no
+    /// per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
+    /// (-04 §2).
+    #[must_use]
+    pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
+        let type_name = metadata_type_name(data_type).unwrap_or_else(|| {
+            panic!(
+                "MemoryBackend supports metadata only on Chat, Message and Space, not {data_type:?}"
+            )
+        });
+        assert!(
+            !info.supports_private,
+            "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
+        );
+        self.inner
+            .lock()
+            .unwrap()
+            .metadata_info
+            .insert(type_name, info);
+        self
     }
 
     /// Set the permissions of the implicit `@everyone` role, which every
@@ -769,6 +843,13 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
+        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // already folded a `using` without the capability into this flag.
+        let mode = if params.ignore_metadata_only_changes {
+            MetadataOnlyChanges::Ignore
+        } else {
+            MetadataOnlyChanges::Report
+        };
         let inner = self.inner.lock().unwrap();
 
         let since_n: u64 = since_state
@@ -788,8 +869,15 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
+        // Each entry counts as one change toward the limit, except a
+        // metadata-only update under Ignore: -04 §3.3 "Excluded ids do not
+        // count toward maxChanges".
+        let counted = relevant
+            .iter()
+            .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
+            .count();
         if let Some(max) = max_changes
-            && relevant.len() as u64 > max
+            && counted as u64 > max
         {
             return Err(BackendChangesError::TooManyChanges { limit: max });
         }
@@ -799,6 +887,7 @@ impl JmapBackend for MemoryBackend {
         // order so the response lists are deterministic.
         let mut fates: HashMap<Id, IdFate> = HashMap::new();
         let mut order: Vec<Id> = Vec::new();
+        let mut window_props = ChangedProperties::new();
         for entry in &relevant {
             for id in &entry.created {
                 if fates.insert(id.clone(), IdFate::Created).is_none() {
@@ -806,6 +895,7 @@ impl JmapBackend for MemoryBackend {
                 }
             }
             for id in &entry.updated {
+                window_props.record(id.as_ref(), entry.updated_props.as_ref());
                 let fate = match fates.get(id) {
                     Some(IdFate::Created) => IdFate::Created,
                     Some(IdFate::Destroyed) => IdFate::Destroyed,
@@ -838,19 +928,29 @@ impl JmapBackend for MemoryBackend {
         for id in order {
             match fates.remove(&id) {
                 Some(IdFate::Created) => created.push(id),
+                // -04 §3.3: under Ignore, "exclude from the updated array
+                // any id whose only changes since sinceState ... are
+                // confined to metadata and/or privateMetadata".
+                Some(IdFate::Updated)
+                    if mode == MetadataOnlyChanges::Ignore
+                        && window_props.is_metadata_only(id.as_ref()) => {}
                 Some(IdFate::Updated) => updated.push(id),
                 Some(IdFate::Destroyed) => destroyed.push(id),
                 None => {}
             }
         }
 
+        // -04 §3.3 `updatedProperties`; no chat type has the RFC 8621
+        // §2.2 count properties that only Mailbox/changes may list.
+        let updated_properties = window_props.updated_properties(&updated, mode, &[]);
         Ok(ChangesResult::new(
             created,
             updated,
             destroyed,
             false,
             State::from(current_state.to_string()),
-        ))
+        )
+        .with_updated_properties(updated_properties))
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(
@@ -876,6 +976,9 @@ impl JmapBackend for MemoryBackend {
         let filter_val: Option<serde_json::Value> =
             filter.and_then(|f| serde_json::to_value(f).ok());
         let sort_val: Option<serde_json::Value> = sort.and_then(|s| serde_json::to_value(s).ok());
+        if let Some(fv) = &filter_val {
+            check_metadata_filter(fv, inner.metadata_info.get(O::TYPE_NAME))?;
+        }
 
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -1070,6 +1173,7 @@ impl ChatBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
+        check_metadata_create(&inner, O::TYPE_NAME, &val)?;
 
         // `ChatContact` uniqueness contract on `create_object`: at most
         // one ChatContact per `identity`, compared octet for octet.
@@ -1114,6 +1218,7 @@ impl ChatBackend for MemoryBackend {
                 created: vec![server_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
         record_thread_count_changes(
             &mut inner,
@@ -1132,7 +1237,7 @@ impl ChatBackend for MemoryBackend {
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
-        let current = patched_copy::<O>(&mut inner, account_id.as_ref(), id, &patch)?;
+        let (current, changed) = patched_copy::<O>(&mut inner, account_id.as_ref(), id, &patch)?;
 
         // `CustomEmoji` uniqueness contract on `update_object`.
         if O::TYPE_NAME == "CustomEmoji"
@@ -1164,6 +1269,7 @@ impl ChatBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                updated_props: Some(changed),
             });
         record_thread_count_changes(&mut inner, account_id.as_ref(), unread_changed);
 
@@ -1220,6 +1326,7 @@ impl ChatBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![id.clone()],
+                updated_props: None,
             });
         if O::TYPE_NAME == "Space" {
             destroy_space_channels(&mut inner, account_id.as_ref(), id);
@@ -1340,6 +1447,7 @@ impl ChatBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                updated_props: None,
             });
         }
         Ok(Ok(()))
@@ -1924,6 +2032,7 @@ impl ChatBackend for MemoryBackend {
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![message_id.clone()],
+                    updated_props: None,
                 });
         }
         Ok(())
@@ -1953,6 +2062,7 @@ impl ChatBackend for MemoryBackend {
             created: vec![],
             updated: vec![],
             destroyed: vec![message_id.clone()],
+            updated_props: None,
         });
         Ok(())
     }
@@ -2086,17 +2196,38 @@ fn base64url_unpadded(bytes: &[u8]) -> String {
     out
 }
 
-/// Stored `O` `id` with `patch` applied, validated but not stored.
+/// Stored `O` `id` with `patch` applied, validated but not stored, and
+/// the top-level properties the patch changed.
 ///
 /// `notFound` if `id` is absent; `invalidPatch` / `invalidProperties`
 /// if the patch does not apply or the result is not a valid `O`. Works
 /// on a clone, so an error leaves storage unchanged.
+///
+/// A patch that writes draft-ietf-jmap-metadata-04 `metadata` or
+/// `privateMetadata` is checked in -04 §3.2 order: request-only patch
+/// errors (`invalidPatch`), rule 1 (`notFound`), rules 2 and 3
+/// ([`Inner::check_metadata_set`]), value-dependent patch errors, then
+/// rule 4 (`maxDepth`) on the value as it would be stored.
 fn patched_copy<O: SetObject>(
     inner: &mut Inner,
     account_id: &str,
     id: &Id,
     patch: &O::Patch,
-) -> Result<serde_json::Value, BackendSetError<MemoryError>> {
+) -> Result<(serde_json::Value, BTreeSet<String>), BackendSetError<MemoryError>> {
+    let invalid_patch = |e: PatchPathError| {
+        BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        ))
+    };
+    let patch_val = serde_json::to_value(patch)
+        .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
+    let no_patch = serde_json::Map::new();
+    let patch_map = patch_val.as_object().unwrap_or(&no_patch);
+    // -04 §3.2: "Patch errors that can be determined from the request
+    // alone (for example, two paths where one is a prefix of the other)
+    // MUST be reported with "invalidPatch" before rule 1 is evaluated."
+    check_patch_paths(patch_map).map_err(invalid_patch)?;
+
     let existing = inner.objects_mut(O::TYPE_NAME, account_id).get(id).cloned();
 
     let mut current = match existing {
@@ -2114,16 +2245,43 @@ fn patched_copy<O: SetObject>(
     // invalidPatch leaves storage unchanged. Its nesting DoS cap
     // (bd:JMAP-wlip.1, path segments + value depth) also surfaces here
     // as invalidPatch.
-    let patch_val = serde_json::to_value(patch)
-        .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
-    if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
-        (&mut current, &patch_val)
-    {
-        apply_patch_object(base, patch_map).map_err(|e| {
-            BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-            ))
-        })?;
+    let mut changed = BTreeSet::new();
+    if let serde_json::Value::Object(base) = &mut current {
+        // -04 §3.2 rules 2 and 3 run before the patch is applied.
+        let metadata_info = if metadata_type_name(O::TYPE_NAME).is_some() {
+            inner.check_metadata_set(O::TYPE_NAME, SetKind::Update, patch_map, Some(base))?
+        } else {
+            None
+        };
+        // -04 §2 `metadata` has "default: {}", so a `metadata/<namespace>`
+        // pointer finds its parent.
+        if metadata_info.is_some() {
+            base.entry("metadata")
+                .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        }
+        let before = base.clone();
+        // The value-dependent patch errors (missing parent, path through
+        // an array) land here, after rule 3 and before rule 4 (-04 §3.2).
+        apply_patch_object(base, patch_map).map_err(invalid_patch)?;
+        if let Some(info) = &metadata_info {
+            // -04 §3.2: "In an update, null is equivalent to {}"; the
+            // patch removed the property instead.
+            for property in ["metadata", "privateMetadata"] {
+                if patch_map
+                    .get(property)
+                    .is_some_and(serde_json::Value::is_null)
+                {
+                    base.insert(
+                        property.to_owned(),
+                        serde_json::Value::Object(serde_json::Map::new()),
+                    );
+                }
+            }
+            // -04 §3.2 rule 4 runs on the value as it would be stored.
+            check_metadata_depth(patch_map, base, info)
+                .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+        }
+        changed = changed_properties(&before, base);
     }
 
     // Re-validate the patched copy as `O` before storing
@@ -2132,10 +2290,8 @@ fn patched_copy<O: SetObject>(
     // The offending property is named only when the patch touches a
     // single top-level property; otherwise the description carries it.
     if let Err(e) = O::deserialize(&current) {
-        let mut props: Vec<String> = patch_val
-            .as_object()
-            .into_iter()
-            .flat_map(|m| m.keys())
+        let mut props: Vec<String> = patch_map
+            .keys()
             .map(|k| {
                 let top = k.split('/').next().unwrap_or(k);
                 top.replace("~1", "/").replace("~0", "~")
@@ -2150,7 +2306,88 @@ fn patched_copy<O: SetObject>(
         }
         return Err(BackendSetError::SetError(Box::new(err)));
     }
-    Ok(current)
+    Ok((current, changed))
+}
+
+/// The `TYPE_NAME` of the chat type named `data_type` if it is one this
+/// backend can give draft-ietf-jmap-metadata-04 properties
+/// (draft-atwood-jmap-chat-00 names `Chat`, `Message` and `Space`).
+/// `ChatContact` has a `metadata` property of its own
+/// (draft-atwood-jmap-chat-00 §4.4) and is not one of them.
+fn metadata_type_name(data_type: &str) -> Option<&'static str> {
+    [
+        jmap_chat_types::Chat::TYPE_NAME,
+        jmap_chat_types::Message::TYPE_NAME,
+        jmap_chat_types::Space::TYPE_NAME,
+    ]
+    .into_iter()
+    .find(|t| *t == data_type)
+}
+
+fn invalid_metadata_property(property: &str, description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties([property])
+            .with_description(description),
+    ))
+}
+
+impl Inner {
+    /// draft-ietf-jmap-metadata-04 §3.2 rules 1 to 3 for a metadata write
+    /// on a `type_name` object, before the write is applied. Returns the
+    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// or `None` when `entry` writes no metadata.
+    ///
+    /// `entry` is the create object or update patch and `stored` the
+    /// object before an update (`None` on create). Rule 1's `notFound` is
+    /// the caller's: this backend has no read rights, so only a missing
+    /// object is unreadable. Rule 1's `forbidden` never applies: see
+    /// [`MemoryBackend::with_metadata_info`].
+    fn check_metadata_set(
+        &self,
+        type_name: &'static str,
+        kind: SetKind,
+        entry: &serde_json::Map<String, serde_json::Value>,
+        stored: Option<&serde_json::Map<String, serde_json::Value>>,
+    ) -> Result<Option<DataTypeMetadataInfo>, BackendSetError<MemoryError>> {
+        let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
+            return Ok(None);
+        };
+        // -04 §1.2.1: an unlisted type "does not gain the metadata or
+        // privateMetadata properties".
+        let Some(info) = self.metadata_info.get(type_name) else {
+            return Err(invalid_metadata_property(
+                first,
+                "metadata is not supported on this data type",
+            ));
+        };
+        check_metadata_write(kind, entry, stored, info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+        Ok(Some(info.clone()))
+    }
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
+/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
+/// on the stored value. Types without the -04 properties pass unchecked.
+fn check_metadata_create(
+    inner: &Inner,
+    type_name: &'static str,
+    val: &serde_json::Value,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let (Some(type_name), Some(obj)) = (metadata_type_name(type_name), val.as_object()) else {
+        return Ok(());
+    };
+    let entry: serde_json::Map<String, serde_json::Value> = obj
+        .iter()
+        .filter(|(k, _)| is_metadata_property(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    if let Some(info) = inner.check_metadata_set(type_name, SetKind::Create, &entry, None)? {
+        check_metadata_depth(&entry, obj, &info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    }
+    Ok(())
 }
 
 /// Remove Message `id` and unpin it from its Chat under the same lock.
@@ -2185,6 +2422,7 @@ fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
             created: vec![],
             updated: vec![chat_id],
             destroyed: vec![],
+            updated_props: None,
         });
     }
     true
@@ -2265,6 +2503,7 @@ fn record_thread_count_changes(inner: &mut Inner, account_id: &str, ids: Vec<Id>
             created: vec![],
             updated: ids,
             destroyed: vec![],
+            updated_props: None,
         });
 }
 
@@ -2308,6 +2547,7 @@ fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
         created: vec![],
         updated: vec![],
         destroyed: chat_ids,
+        updated_props: None,
     });
     if !message_ids.is_empty() {
         let new_state = inner.bump_state("Message", account_id);
@@ -2318,6 +2558,7 @@ fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
                 created: vec![],
                 updated: vec![],
                 destroyed: message_ids,
+                updated_props: None,
             });
     }
 }
@@ -2518,6 +2759,7 @@ fn apply_space_patch_impl(
                 created: vec![],
                 updated: vec![space_id.clone()],
                 destroyed: vec![],
+                updated_props: None,
             });
     }
 
@@ -2545,6 +2787,7 @@ fn apply_space_patch_impl(
                 created: chats_created,
                 updated,
                 destroyed: chats_destroyed,
+                updated_props: None,
             });
     }
 
@@ -2557,6 +2800,7 @@ fn apply_space_patch_impl(
                 created: vec![],
                 updated: vec![],
                 destroyed: messages_destroyed,
+                updated_props: None,
             });
     }
 
@@ -2691,6 +2935,7 @@ fn apply_space_metadata_patch_impl(
             created: vec![],
             updated: vec![space_id.clone()],
             destroyed: vec![],
+            updated_props: None,
         });
 
     // Return `None` to match the `update_object` contract: no
@@ -4886,6 +5131,79 @@ fn filter_matches(
     }
 }
 
+/// The six draft-ietf-jmap-metadata-04 §3.6 FilterCondition fields.
+const METADATA_CONDITION_KEYS: [&str; 6] = [
+    "metadataExists",
+    "privateMetadataExists",
+    "metadataTextContains",
+    "privateMetadataTextContains",
+    "metadataTextEquals",
+    "privateMetadataTextEquals",
+];
+
+/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// before any object is matched.
+///
+/// A type without `info` has no metadata (-04 §1.2.1: it "does not gain
+/// the metadata or privateMetadata properties"), so a metadata leaf is
+/// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
+/// but the server cannot process it"). Otherwise
+/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// `invalidArguments`, and a `privateMetadata*` condition is
+/// `unsupportedFilter` because `supportsPrivate` is false.
+fn check_metadata_filter(
+    filter: &serde_json::Value,
+    info: Option<&DataTypeMetadataInfo>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    let unsupported = |description: String| {
+        let mut err = jmap_types::JmapError::unsupported_filter();
+        err.description = Some(description);
+        BackendQueryError::Method(err)
+    };
+    if filter.get("operator").is_some() {
+        return filter
+            .get("conditions")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .try_for_each(|f| check_metadata_filter(f, info));
+    }
+    let Some(leaf) = filter.as_object() else {
+        return Ok(());
+    };
+    if !METADATA_CONDITION_KEYS
+        .iter()
+        .any(|k| leaf.contains_key(*k))
+    {
+        return Ok(());
+    }
+    let Some(info) = info else {
+        return Err(unsupported(
+            "metadata filter conditions are not supported".to_owned(),
+        ));
+    };
+    MetadataCondition::take_from(&mut leaf.clone(), info)
+        .map(drop)
+        .map_err(|e| match e {
+            MetadataFilterError::InvalidArguments(d) => {
+                BackendQueryError::Method(jmap_types::JmapError::invalid_arguments(d))
+            }
+            other => unsupported(other.to_string()),
+        })
+}
+
+/// Whether a stored object passes the draft-ietf-jmap-metadata-04 §3.6
+/// conditions of one FilterCondition `cond`, matched against its
+/// `metadata` (absent means `{}`, -04 §2). A leaf without them matches.
+/// The `privateMetadata*` conditions never reach this point:
+/// [`check_metadata_filter`] rejects them, since this backend has
+/// `supportsPrivate` false.
+fn metadata_leaf_matches(obj: &serde_json::Value, cond: &serde_json::Value) -> bool {
+    <MetadataCondition as serde::Deserialize>::deserialize(cond)
+        .is_ok_and(|c| c.matches(obj.get("metadata").and_then(|m| m.as_object()), None))
+}
+
 /// Whether `filter`, a FilterCondition or a FilterOperator tree (RFC 8620
 /// §5.5), contains an `isPublic: true` FilterCondition at any depth.
 fn has_is_public_true(filter: &serde_json::Value) -> bool {
@@ -4906,6 +5224,8 @@ fn has_is_public_true(filter: &serde_json::Value) -> bool {
 /// - Message: see [`message_matches_filter`].
 /// - Space (§Space/query): `name` ("substring match"), `isPublic`.
 /// - CustomEmoji (§CustomEmoji/query): `spaceId`; absent returns all.
+/// - Chat, Message and Space also take the draft-ietf-jmap-metadata-04
+///   §3.6 conditions; see [`metadata_leaf_matches`].
 ///
 /// A Boolean property absent from the stored object takes its `false`
 /// default.
@@ -4928,11 +5248,14 @@ fn condition_matches(
             })
     };
     match type_name {
-        "Chat" => eq("kind") && flag_eq("muted"),
+        "Chat" => eq("kind") && flag_eq("muted") && metadata_leaf_matches(obj, cond),
         "ChatContact" => flag_eq("blocked") && eq("presence") && eq("identity"),
-        "Message" => message_matches_filter(inner, obj, cond, account_id),
+        "Message" => {
+            message_matches_filter(inner, obj, cond, account_id) && metadata_leaf_matches(obj, cond)
+        }
         "Space" => {
             flag_eq("isPublic")
+                && metadata_leaf_matches(obj, cond)
                 && cond
                     .get("name")
                     .and_then(serde_json::Value::as_str)
@@ -5064,6 +5387,7 @@ fn destroy_read_positions(inner: &mut Inner, account_id: &str, chat_ids: &[Id]) 
             created: vec![],
             updated: vec![],
             destroyed: doomed,
+            updated_props: None,
         });
 }
 
@@ -5190,18 +5514,21 @@ mod tests {
                 created: vec![id("eph"), id("fresh")],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 2,
                 created: vec![],
                 updated: vec![id("fresh"), id("old"), id("doomed")],
                 destroyed: vec![id("eph")],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 3,
                 created: vec![],
                 updated: vec![id("old")],
                 destroyed: vec![id("doomed"), id("gone")],
+                updated_props: None,
             });
         }
 
@@ -5236,18 +5563,21 @@ mod tests {
                 created: vec![id("burnt"), id("kept")],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 2,
                 created: vec![],
                 updated: vec![id("burnt")],
                 destroyed: vec![],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 3,
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![id("burnt")],
+                updated_props: None,
             });
         }
 

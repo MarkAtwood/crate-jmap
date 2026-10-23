@@ -594,6 +594,18 @@ pub struct Message {
     /// The `deletedForAll` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_for_all: Option<bool>,
+    /// Shared metadata, keyed by namespace identifier
+    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+    /// The authenticated user's own metadata, keyed by namespace
+    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// handling as `metadata`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -665,6 +677,8 @@ impl Message {
             edit_history: None,
             deleted_at: None,
             deleted_for_all: None,
+            metadata: None,
+            private_metadata: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -1417,5 +1431,41 @@ mod tests {
             j.contains(r#""deliveryReceipts":{"u1":{},"u2":{}}"#),
             "deliveryReceipts keys must be sorted: {j}"
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §2 `metadata` and
+    /// `privateMetadata` on a listed type; the keys are the
+    /// jmap-chat-metadata-guide §2 and §5 examples. The values land in the
+    /// typed fields, not `extra`, and a non-object is rejected.
+    #[test]
+    fn message_metadata_properties() {
+        let mut raw = serde_json::json!({
+            "id": "m1", "senderMsgId": "m1", "senderId": "a1", "chatId": "c1",
+            "body": "hi", "bodyType": "text/plain", "attachments": [],
+            "sentAt": "2026-01-01T00:00:00Z", "receivedAt": "2026-01-01T00:00:00Z",
+            "deliveryState": "delivered",
+            "metadata": {"chat.example.com": {"moderationNote": "edited for spam"}},
+            "privateMetadata": {"chat.example.com": {"bookmark": true}}
+        });
+        let msg: Message = serde_json::from_value(raw.clone()).expect("decode");
+        assert_eq!(
+            msg.metadata
+                .as_ref()
+                .map(|m| &m["chat.example.com"]["moderationNote"]),
+            Some(&serde_json::json!("edited for spam"))
+        );
+        assert_eq!(
+            msg.private_metadata
+                .as_ref()
+                .map(|m| &m["chat.example.com"]["bookmark"]),
+            Some(&serde_json::json!(true))
+        );
+        assert!(msg.extra.is_empty());
+        let back = serde_json::to_value(&msg).expect("encode");
+        assert_eq!(back["metadata"], raw["metadata"]);
+        assert_eq!(back["privateMetadata"], raw["privateMetadata"]);
+
+        raw["privateMetadata"] = serde_json::json!(7);
+        assert!(serde_json::from_value::<Message>(raw).is_err());
     }
 }

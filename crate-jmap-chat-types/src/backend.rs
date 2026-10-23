@@ -298,6 +298,10 @@ impl GetObject for crate::Chat {}
 /// `slowModeSeconds` and `permissionOverrides` ("Channel Chats are created
 /// exclusively via the `addChannels` patch key in `Space/set`"), so they
 /// are server-set here.
+///
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set` (draft-atwood-jmap-chat-00 lets
+/// servers list `Chat` in the capability's `dataTypes`).
 impl SetObject for crate::Chat {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -328,6 +332,8 @@ impl SetObject for crate::Chat {
         "receiveTypingIndicators",
         "receiptSharing",
         "messageExpirySeconds",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &["kind", "contactId"];
 }
@@ -354,6 +360,9 @@ impl GetObject for crate::Message {}
 /// §Message/set "Creating a Message" accepts `attachments`, `actions`,
 /// `replyTo`, `threadRootId` and `sentAt`, and no update section changes
 /// them, so they are immutable here.
+///
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Message {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -390,6 +399,8 @@ impl SetObject for crate::Message {
         "readDisposition",
         "deletedAt",
         "deletedForAll",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &[
         "chatId",
@@ -426,6 +437,9 @@ impl GetObject for crate::Space {}
 /// `uncategorizedChannelIds` only through its semantic patch keys
 /// (`addRoles`, `addMembers`, ...), never as properties, so they are
 /// server-set here.
+///
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Space {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -444,6 +458,8 @@ impl SetObject for crate::Space {
         "iconBlobId",
         "isPublic",
         "isPubliclyPreviewable",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
@@ -633,6 +649,8 @@ mod tests {
             closed_at: Some(date()),
             active_call_id: Some(Id::from("v1")),
             active_call_account_id: Some(Id::from("a1")),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
@@ -672,6 +690,8 @@ mod tests {
             edit_history: Some(vec![]),
             deleted_at: Some(date()),
             deleted_for_all: Some(true),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
@@ -693,6 +713,8 @@ mod tests {
             is_publicly_previewable: true,
             member_count: 1,
             closed_at: Some(date()),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

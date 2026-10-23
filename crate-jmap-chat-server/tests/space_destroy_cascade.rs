@@ -154,6 +154,7 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/set");
@@ -177,6 +178,7 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": before_chats["state"] }),
+        &[],
     )
     .await
     .expect("Chat/changes");
@@ -193,6 +195,7 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": before_messages["state"] }),
+        &[],
     )
     .await
     .expect("Message/changes");
@@ -217,6 +220,7 @@ async fn channel_read_failure_leaves_space_and_channels() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/set");
@@ -272,6 +276,7 @@ async fn destroy_without_manage_space_is_forbidden() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/set");
