@@ -3613,6 +3613,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-scene-server**: **BREAKING** (wire) `SceneObject/set` `created`
+  entries now carry `orientation` when the create omitted it (stored as
+  the identity `[0, 0, 0, 1]`) or normalizing changed it, as RFC 8620 §5.3
+  requires ("any properties that were omitted or not set to the requested
+  value by the server"; draft-atwood-jmap-scene-00 §Coordinate System: "it
+  MUST normalize the quaternion to unit length before storage"). Before,
+  `created` held only `id`, `ownerId`, `createdAt` and `updatedAt`.
+
 - **jmap-filenode-server**: **BREAKING** (wire) `MemoryBackend`
   `FileNode/query` applies `sort` instead of always ordering by id
   (RFC 8620 §5.5). It sorts by `name`, `mediaType`, `size`, `created`,
