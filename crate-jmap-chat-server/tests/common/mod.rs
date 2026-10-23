@@ -260,6 +260,12 @@ pub struct TrackingBackend {
     /// (Create/Update/Destroy). When `false`, forwards to `inner`
     /// (which returns `Ok(Ok(()))`).
     emoji_set_deny: bool,
+    /// When `true`, [`ChatBackend::may_set_custom_emoji`] returns a
+    /// backend error whose Display contains [`INJECTABLE_BACKEND_CANARY`].
+    emoji_set_fail: bool,
+    /// The `(target_space_id, op)` of every
+    /// [`ChatBackend::may_set_custom_emoji`] call, in call order.
+    emoji_set_calls: Arc<Mutex<Vec<EmojiSetCall>>>,
     /// When `true`, [`ChatBackend::may_broadcast_mention`] returns
     /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`. When `false`,
     /// forwards to `inner` (which returns `Ok(Ok(()))`).
@@ -296,6 +302,9 @@ pub struct TrackingBackend {
     /// Count of [`ChatBackend::filenode_attachment`] calls.
     filenode_attachment_calls: Arc<AtomicU64>,
 }
+
+/// One [`ChatBackend::may_set_custom_emoji`] call: `(target_space_id, op)`.
+pub type EmojiSetCall = (Option<Id>, EmojiSetOp);
 
 /// The Chat/set patch keys draft-atwood-jmap-chat-mimi-00 L251 forbids on
 /// a Chat with a `roomId`.
@@ -345,6 +354,22 @@ impl TrackingBackend {
             emoji_set_deny: true,
             ..Self::new()
         }
+    }
+
+    /// Configure the wrapper so [`ChatBackend::may_set_custom_emoji`]
+    /// fails with a backend error for every op. The wrapped
+    /// `MemoryBackend` is otherwise functional.
+    pub fn with_emoji_set_failing() -> Self {
+        Self {
+            emoji_set_fail: true,
+            ..Self::new()
+        }
+    }
+
+    /// The `(target_space_id, op)` of every
+    /// [`ChatBackend::may_set_custom_emoji`] call so far, in call order.
+    pub fn emoji_set_calls(&self) -> Vec<EmojiSetCall> {
+        self.emoji_set_calls.lock().unwrap().clone()
     }
 
     /// Configure the wrapper so [`ChatBackend::may_broadcast_mention`]
@@ -654,6 +679,13 @@ impl ChatBackend for TrackingBackend {
         target_space_id: Option<&Id>,
         op: EmojiSetOp,
     ) -> Result<Result<(), SetError>, Self::Error> {
+        self.emoji_set_calls
+            .lock()
+            .unwrap()
+            .push((target_space_id.cloned(), op));
+        if self.emoji_set_fail {
+            return Err(MemoryError::new(INJECTABLE_BACKEND_CANARY));
+        }
         if self.emoji_set_deny {
             Ok(Err(SetError::new(SetErrorType::Forbidden)
                 .with_description(
