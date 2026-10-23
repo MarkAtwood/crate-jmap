@@ -32,7 +32,7 @@
 //! as `Err`.
 
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
-use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject, UTCDate};
 use serde_json::{json, Value};
 
 use crate::helpers::{
@@ -41,7 +41,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, FileNodeBackend};
 use jmap_server::{
-    now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
 };
 
 // ---------------------------------------------------------------------------
@@ -468,6 +469,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<FileNode>) {
+                not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             // `FileNode.id` is required, so the parse fills it with "",
             // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
             // of 255 octets"); `build` overwrites it with the minted id.
@@ -516,9 +521,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 
             // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is
             // server-set ("MUST be `null` for directory FileNodes"; for a
-            // file, the digest of the stored blob), so a client value is
-            // dropped and only the File branch below fills it.
-            node.sha256 = None;
+            // file, the digest of the stored blob). The client could not send
+            // it, so only the File branch below fills it.
 
             // For file nodes, verify the blob exists. A transient backend
             // error propagates as a top-level serverFail so the client
@@ -994,28 +998,22 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 .into_iter()
                 .filter(|p| patch.as_map().get(*p).is_some_and(Value::is_null))
                 .collect();
-            let type_patch = patch.as_map().get("@type");
-            // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is
-            // server-set. RFC 8620 §5.3: "Any server-set properties MAY be
-            // included in the patch if their value is identical to the
-            // current server value ... Otherwise, the update MUST be
-            // rejected with an `invalidProperties` SetError."
-            let sha256_patched = patch
-                .as_map()
-                .keys()
-                .any(|k| k == "sha256" || k.starts_with("sha256/"));
+            // A server-set or immutable property (`@type`, `sha256`,
+            // `spaceId`, ...) may appear only with its stored value (RFC 8620
+            // §5.3), so the check below needs the stored node.
+            let read_only_patched = patch.as_map().keys().any(|k| {
+                let head = k.split('/').next();
+                FileNode::SERVER_SET
+                    .iter()
+                    .chain(FileNode::IMMUTABLE)
+                    .any(|p| Some(*p) == head)
+            });
             // draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
-            // Property: `spaceId` is immutable and present only on a Space
-            // file tree root, so neither it nor a root's role may change.
-            let space_id_patched = patch
-                .as_map()
-                .keys()
-                .any(|k| k == "spaceId" || k.starts_with("spaceId/"));
+            // Property: `spaceId` is present only on a Space file tree root,
+            // so a root's role may not change either.
             let role_patch = patch.as_map().get("role");
             if !typed.is_empty()
-                || type_patch.is_some()
-                || sha256_patched
-                || space_id_patched
+                || read_only_patched
                 || role_patch.is_some()
                 || nulled.iter().any(|p| property_owner(p).is_some())
             {
@@ -1044,51 +1042,17 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 // A missing node falls through so update_object reports
                 // notFound.
                 if let Some(node) = stored {
-                    // §3.1.1: changing @type after creation is
-                    // invalidProperties.
-                    if type_patch.is_some_and(|t| *t != json!(node.node_type)) {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["@type"],
-                                "description": "@type is immutable",
-                            }),
-                        );
-                        continue;
-                    }
-                    let current_sha256 = json!(node.sha256);
-                    let sha256_unchanged = patch
-                        .as_map()
-                        .iter()
-                        .filter(|(k, _)| *k == "sha256" || k.starts_with("sha256/"))
-                        .all(|(k, v)| k == "sha256" && *v == current_sha256);
-                    if !sha256_unchanged {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["sha256"],
-                                "description": "sha256 is server-set",
-                            }),
-                        );
-                        continue;
-                    }
-                    let current_space_id = json!(node.space_id);
-                    let space_id_unchanged = patch
-                        .as_map()
-                        .iter()
-                        .filter(|(k, _)| *k == "spaceId" || k.starts_with("spaceId/"))
-                        .all(|(k, v)| k == "spaceId" && *v == current_space_id);
-                    if !space_id_unchanged {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["spaceId"],
-                                "description": "spaceId is immutable",
-                            }),
-                        );
+                    // §3.1.1 `@type` is immutable; draft-atwood-jmap-cid-00
+                    // `sha256` and the other server-set properties may
+                    // repeat only their stored value (RFC 8620 §5.3).
+                    let current = match json!(node) {
+                        Value::Object(m) => Some(m),
+                        _ => None,
+                    };
+                    if let Some(err) =
+                        reject_read_only_patch::<FileNode>(patch.as_map(), current.as_ref())
+                    {
+                        not_updated.insert(id_str, set_error_value(&err));
                         continue;
                     }
                     // draft-atwood-jmap-chat-filenode-00 §Creating the File

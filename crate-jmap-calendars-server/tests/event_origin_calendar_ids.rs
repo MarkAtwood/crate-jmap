@@ -110,12 +110,18 @@ async fn create_sets_is_origin_from_organizer() {
     }
 }
 
+/// draft-ietf-jmap-calendars-33 §5: `isOrigin` is "(server-set)"; RFC 8620
+/// §1.1: "The client MUST NOT send this property when creating", and RFC
+/// 8620 §5.3 lists that under `invalidProperties`.
 #[tokio::test]
-async fn create_replaces_client_is_origin() {
+async fn create_rejects_client_is_origin() {
     let backend = backend();
-    let ev = event(json!({ "isOrigin": false }));
-    let id = created_id(&backend, ev).await;
-    assert_eq!(get(&backend, "acc1", &id).await["isOrigin"], true);
+    let resp = create(&backend, event(json!({ "isOrigin": false }))).await;
+    assert_eq!(
+        resp["notCreated"]["c1"],
+        json!({ "type": "invalidProperties", "properties": ["isOrigin"] }),
+        "{resp}"
+    );
 }
 
 #[tokio::test]

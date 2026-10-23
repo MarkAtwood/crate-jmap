@@ -2,7 +2,9 @@
 //!
 //! Each test dispatches through `register_sharing_handlers` with the
 //! in-memory `MemoryBackend` and observes the stored object via
-//! Principal/get.
+//! Principal/get. The nested-object tests patch `exampleExt`, an extension
+//! property: Principal's own object-valued `capabilities` is server-set
+//! (RFC 9670 §2), so a client patch to it is `invalidProperties`.
 
 mod common;
 
@@ -17,15 +19,16 @@ use serde_json::{json, Value};
 
 use common::MemoryBackend;
 
-/// Seed one Principal whose `capabilities` holds `{"urn:example:a": {"v": 1}}`
-/// and return a dispatcher plus its id.
+/// Seed one Principal whose extension property `exampleExt` holds
+/// `{"urn:example:a": {"v": 1}}` and return a dispatcher plus its id.
 async fn setup() -> (Dispatcher<()>, Id) {
     let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
     let principal = |id: &Id| -> Principal {
         serde_json::from_value(json!({
             "id": id, "type": "individual", "name": "Alice Smith",
             "email": "alice@example.com", "description": null, "timeZone": null,
-            "capabilities": { "urn:example:a": { "v": 1 } }, "accounts": null
+            "capabilities": {}, "accounts": null,
+            "exampleExt": { "urn:example:a": { "v": 1 } }
         }))
         .expect("test fixture must deserialize")
     };
@@ -74,31 +77,31 @@ async fn get(dispatcher: &Dispatcher<()>, id: &Id) -> Value {
 /// [RFC6901], with an implicit leading "/" (i.e., prefix each key with "/"
 /// before applying the JSON Pointer evaluation algorithm)."
 ///
-/// `capabilities/urn:example:b` must set member `urn:example:b` of
-/// `capabilities`, not create a literal top-level property.
+/// `exampleExt/urn:example:b` must set member `urn:example:b` of
+/// `exampleExt`, not create a literal top-level property.
 #[tokio::test]
 async fn update_path_key_sets_nested_member() {
     let (dispatcher, id) = setup().await;
     let resp = update(
         &dispatcher,
         &id,
-        json!({ "capabilities/urn:example:b": { "v": 2 } }),
+        json!({ "exampleExt/urn:example:b": { "v": 2 } }),
     )
     .await;
     assert!(resp["updated"].get(id.as_ref()).is_some(), "{resp}");
 
     let obj = get(&dispatcher, &id).await;
     assert_eq!(
-        obj["capabilities"],
+        obj["exampleExt"],
         json!({ "urn:example:a": { "v": 1 }, "urn:example:b": { "v": 2 } }),
         "{obj}"
     );
-    assert!(obj.get("capabilities/urn:example:b").is_none(), "{obj}");
+    assert!(obj.get("exampleExt/urn:example:b").is_none(), "{obj}");
 }
 
 /// Oracle: RFC 8620 §5.3 — for a non-null value: "Anything else: The value
 /// to set for this property (this may be a replacement or addition to the
-/// object being patched)." A top-level key `capabilities` is set to the
+/// object being patched)." A top-level key `exampleExt` is set to the
 /// given value wholesale; members absent from it are not merged in.
 #[tokio::test]
 async fn update_top_level_object_value_replaces_property() {
@@ -106,14 +109,14 @@ async fn update_top_level_object_value_replaces_property() {
     let resp = update(
         &dispatcher,
         &id,
-        json!({ "capabilities": { "urn:example:b": { "v": 2 } } }),
+        json!({ "exampleExt": { "urn:example:b": { "v": 2 } } }),
     )
     .await;
     assert!(resp["updated"].get(id.as_ref()).is_some(), "{resp}");
 
     let obj = get(&dispatcher, &id).await;
     assert_eq!(
-        obj["capabilities"],
+        obj["exampleExt"],
         json!({ "urn:example:b": { "v": 2 } }),
         "{obj}"
     );
@@ -130,7 +133,7 @@ async fn update_path_through_absent_parent_is_invalid_patch() {
     let resp = update(
         &dispatcher,
         &id,
-        json!({ "capabilities/urn:example:missing/v": 2 }),
+        json!({ "exampleExt/urn:example:missing/v": 2 }),
     )
     .await;
     assert_eq!(
@@ -152,7 +155,7 @@ async fn update_prefix_conflict_is_invalid_patch() {
     let resp = update(
         &dispatcher,
         &id,
-        json!({ "capabilities": {}, "capabilities/urn:example:a": { "v": 2 } }),
+        json!({ "exampleExt": {}, "exampleExt/urn:example:a": { "v": 2 } }),
     )
     .await;
     assert_eq!(

@@ -674,3 +674,40 @@ async fn calendar_query_rejects_filter_backend_cannot_evaluate() {
         assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{filter}");
     }
 }
+
+/// draft-ietf-jmap-calendars-33 §4: `isDefault` and `myRights` are
+/// "(server-set)". RFC 8620 §1.1: "The client MUST NOT send this property
+/// when creating", and RFC 8620 §5.3 lists that under `invalidProperties`;
+/// RFC 8620 §5.3: `created` "includes all server-set properties".
+#[tokio::test]
+async fn calendar_set_create_server_set_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let create = |extra: Value| {
+        let mut cal = json!({
+            "name": "Work",
+            "isSubscribed": true,
+            "includeInAvailability": "all",
+        });
+        cal.as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        json!({ "accountId": "acc1", "create": { "c1": cal } })
+    };
+
+    let HandlerOutput { primary: resp, .. } =
+        handle_calendar_set(&backend, &(), create(json!({ "isDefault": true })))
+            .await
+            .expect("Calendar/set must not return a top-level error");
+    assert_eq!(
+        resp["notCreated"]["c1"],
+        json!({ "type": "invalidProperties", "properties": ["isDefault"] }),
+        "{resp}"
+    );
+
+    let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), create(json!({})))
+        .await
+        .expect("Calendar/set must not return a top-level error");
+    let created = &resp["created"]["c1"];
+    assert_eq!(created["isDefault"], false, "{resp}");
+    assert!(created["myRights"].is_object(), "{resp}");
+}

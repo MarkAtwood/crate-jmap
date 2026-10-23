@@ -38,7 +38,10 @@ use crate::helpers::{
     SetAccumulators,
 };
 use crate::{BackendSetError, TasksBackend};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // Task/get
@@ -202,17 +205,8 @@ pub async fn handle_task_set<B: TasksBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
-            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
-            // object" — id is server-assigned. Any present "id" key (even
-            // null) is rejected with invalidProperties:["id"]. Fixed in
-            // JMAP-n22t. (Task/copy is a separate handler and accepts an
-            // id from the source account; this rejection applies to /set
-            // only.)
-            if obj_val.get("id").is_some() {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Task>) {
+                not_created.insert(create_id, set_error_value(&err));
                 continue;
             }
             // `Task.id` is optional, so the create parses without one and
@@ -308,6 +302,10 @@ pub async fn handle_task_set<B: TasksBackend>(
                     continue;
                 }
             };
+            if let Some(err) = reject_read_only_patch::<Task>(patch.as_map(), None) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             let update_result = if is_per_user_only {
                 backend

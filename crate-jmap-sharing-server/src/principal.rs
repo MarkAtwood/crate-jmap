@@ -35,7 +35,10 @@ use crate::helpers::{
     SetAccumulators,
 };
 use crate::{BackendSetError, SharingBackend};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // Principal/get
@@ -146,13 +149,22 @@ pub async fn handle_principal_set<B: SharingBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Principal>) {
+                not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             // Deserialize the Principal from the client-provided object.
             // `Principal.id` is required, so the parse fills it with "",
             // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
             // of 255 octets"); `build` overwrites it with the minted id.
+            // `capabilities` and `accounts` are server-set (RFC 9670 §2)
+            // and required, so the server supplies them: no capabilities
+            // and no accounts until the backend grants some.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.insert("id".to_owned(), Value::String(String::new()));
+                    m.insert("capabilities".to_owned(), json!({}));
+                    m.insert("accounts".to_owned(), Value::Null);
                     Value::Object(m)
                 }
                 other => other,
@@ -225,6 +237,10 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     continue;
                 }
             };
+            if let Some(err) = reject_read_only_patch::<Principal>(patch.as_map(), None) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             match backend
                 .update_object::<Principal>(caller, &account_id, &id, patch)

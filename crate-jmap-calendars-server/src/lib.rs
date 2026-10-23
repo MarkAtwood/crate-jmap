@@ -1895,10 +1895,10 @@ mod tests {
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
 
-        // Calendar has many required (non-Option) fields per
-        // jmap_calendars_types::Calendar — the create object must carry all
-        // of them or the handler rejects with invalidProperties before any
-        // backend call. Spec example values (§4 type definition).
+        // The create carries the client-set properties
+        // jmap_calendars_types::Calendar requires (§4 type definition).
+        // `isDefault` and `myRights` are server-set, so the client omits them
+        // (RFC 8620 §1.1).
         let req = single_call(
             "Calendar/set",
             json!({
@@ -1909,18 +1909,7 @@ mod tests {
                         "sortOrder": 0,
                         "isSubscribed": true,
                         "isVisible": true,
-                        "isDefault": false,
-                        "includeInAvailability": "all",
-                        "myRights": {
-                            "mayReadFreeBusy": true,
-                            "mayReadItems": true,
-                            "mayWriteAll": true,
-                            "mayWriteOwn": true,
-                            "mayUpdatePrivate": true,
-                            "mayRSVP": true,
-                            "mayShare": true,
-                            "mayDelete": true
-                        }
+                        "includeInAvailability": "all"
                     }
                 },
                 "onSuccessSetIsDefault": "#c1"

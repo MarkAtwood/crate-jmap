@@ -701,7 +701,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     }
                 };
                 // Apply same immutable-field guard as handle_email_set patches.
-                if let Some(err) = reject_read_only_patch::<Email>(patch.as_map()) {
+                if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
                     email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
                     continue;
                 }

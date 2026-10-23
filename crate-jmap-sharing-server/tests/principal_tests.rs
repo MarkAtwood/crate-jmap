@@ -119,9 +119,14 @@ async fn principal_set_create_succeeds() {
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
     register_sharing_handlers(&mut dispatcher, Arc::clone(&backend));
 
-    // Attach a placeholder id in the create body so the type deserializes.
+    // `id`, `capabilities` and `accounts` are server-set (RFC 9670 §2), so
+    // the create body omits them (RFC 8620 §1.1).
     let mut create_body = alice_json();
-    create_body["id"] = json!("placeholder");
+    let body = create_body
+        .as_object_mut()
+        .expect("alice_json is an object");
+    body.remove("capabilities");
+    body.remove("accounts");
 
     let req = single_call(
         "Principal/set",
@@ -144,7 +149,7 @@ async fn principal_set_create_succeeds() {
     );
     let assigned_id = created["c1"]["id"].as_str().expect("id must be a string");
     assert!(
-        !assigned_id.is_empty() && assigned_id != "placeholder",
+        !assigned_id.is_empty(),
         "server must assign a real id, got: {assigned_id}"
     );
 }

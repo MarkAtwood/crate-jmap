@@ -857,3 +857,35 @@ async fn task_query_changes_honours_task_list_filter() {
         "{changes}"
     );
 }
+
+/// draft-ietf-jmap-tasks-06 §3 (line 496): TaskList `myRights` is
+/// "(server-set)". RFC 8620 §1.1: "The client MUST NOT send this property
+/// when creating", and RFC 8620 §5.3 lists that under `invalidProperties`;
+/// `created` "includes all server-set properties".
+#[tokio::test]
+async fn task_list_set_create_server_set_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let args = |list: Value| json!({ "accountId": "acc1", "create": { "c1": list } });
+
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(
+        &backend,
+        &(),
+        args(json!({ "name": "Todo", "isSubscribed": true, "myRights": { "mayAdmin": true } })),
+    )
+    .await
+    .expect("TaskList/set must not return a top-level error");
+    assert_eq!(
+        resp["notCreated"]["c1"],
+        json!({ "type": "invalidProperties", "properties": ["myRights"] }),
+        "{resp}"
+    );
+
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(
+        &backend,
+        &(),
+        args(json!({ "name": "Todo", "isSubscribed": true })),
+    )
+    .await
+    .expect("TaskList/set must not return a top-level error");
+    assert!(resp["created"]["c1"]["myRights"].is_object(), "{resp}");
+}

@@ -323,9 +323,12 @@ async fn address_book_set_state_bumps_visible_via_changes() {
 }
 
 // ---------------------------------------------------------------------------
-// Single-default invariant on AddressBook/set update (bd:JMAP-qz9v.11)
-// Oracle: RFC 9610 §2 at-most-one-default semantics; RFC 8620 §5.2 changes
-// surface every modified id (including server-set demotions).
+// Single-default invariant on AddressBook/set onSuccessSetIsDefault
+// (bd:JMAP-qz9v.11)
+// Oracle: RFC 9610 §2 at-most-one-default semantics; `isDefault` is
+// server-set, so a client changes it only through onSuccessSetIsDefault.
+// RFC 8620 §5.2 changes surface every modified id (including server-set
+// demotions).
 // ---------------------------------------------------------------------------
 
 /// Build an AddressBook fixture with explicit isDefault state.
@@ -336,7 +339,7 @@ fn address_book_fixture_with_default(id: &str, name: &str, is_default: bool) -> 
 }
 
 #[tokio::test]
-async fn address_book_set_update_is_default_demotes_other_books_in_memory() {
+async fn address_book_set_on_success_set_is_default_demotes_other_books_in_memory() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_object(
         "acc1",
@@ -351,10 +354,10 @@ async fn address_book_set_update_is_default_demotes_other_books_in_memory() {
         address_book_fixture_with_default("ab2", "Second", false),
     );
 
-    // Promote ab2 to default via a regular update patch.
+    // Promote ab2 to default via onSuccessSetIsDefault.
     let args = json!({
         "accountId": "acc1",
-        "update": { "ab2": { "isDefault": true } }
+        "onSuccessSetIsDefault": "ab2"
     });
     let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
@@ -393,7 +396,7 @@ async fn address_book_set_update_is_default_demotes_other_books_in_memory() {
 }
 
 #[tokio::test]
-async fn address_book_set_update_is_default_records_demoted_books_in_changes() {
+async fn address_book_set_on_success_set_is_default_records_demoted_books_in_changes() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_object(
         "acc1",
@@ -420,7 +423,7 @@ async fn address_book_set_update_is_default_records_demoted_books_in_changes() {
     // Promote ab2.
     let args = json!({
         "accountId": "acc1",
-        "update": { "ab2": { "isDefault": true } }
+        "onSuccessSetIsDefault": "ab2"
     });
     let _ = handle_address_book_set(&backend, &(), args)
         .await
@@ -450,7 +453,7 @@ async fn address_book_set_update_is_default_records_demoted_books_in_changes() {
 }
 
 #[tokio::test]
-async fn address_book_set_update_is_default_no_op_does_not_demote() {
+async fn address_book_set_on_success_set_is_default_no_op_does_not_demote() {
     // Setting isDefault:true on a book that is already default must
     // still trigger the invariant pass (idempotent), but the second
     // book stays at isDefault:false either way.
@@ -470,7 +473,7 @@ async fn address_book_set_update_is_default_no_op_does_not_demote() {
 
     let args = json!({
         "accountId": "acc1",
-        "update": { "ab1": { "isDefault": true } }
+        "onSuccessSetIsDefault": "ab1"
     });
     let _ = handle_address_book_set(&backend, &(), args)
         .await
@@ -495,11 +498,12 @@ async fn address_book_set_update_is_default_no_op_does_not_demote() {
 // ---------------------------------------------------------------------------
 // Single-default invariant on AddressBook/set CREATE (bd:JMAP-qz9v.5)
 // Oracle: RFC 9610 §2 "MUST NOT be true for more than one AddressBook
-// within an account." Same invariant as update-side; parallel coverage.
+// within an account." A new book becomes the default through
+// onSuccessSetIsDefault naming its creation id.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn address_book_set_create_with_is_default_demotes_existing_default() {
+async fn address_book_set_create_set_default_demotes_existing_default() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_object(
         "acc1",
@@ -508,17 +512,17 @@ async fn address_book_set_create_with_is_default_demotes_existing_default() {
         address_book_fixture_with_default("ab1", "First", true),
     );
 
-    // Create a new book with isDefault:true; ab1 must be demoted.
+    // Create a new book and make it the default; ab1 must be demoted.
     let args = json!({
         "accountId": "acc1",
         "create": {
             "c1": {
                 "name": "Second",
                 "sortOrder": 0,
-                "isDefault": true,
                 "isSubscribed": true
             }
-        }
+        },
+        "onSuccessSetIsDefault": "#c1"
     });
     let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
@@ -543,7 +547,7 @@ async fn address_book_set_create_with_is_default_demotes_existing_default() {
 }
 
 #[tokio::test]
-async fn address_book_set_create_with_is_default_records_demoted_in_changes() {
+async fn address_book_set_create_set_default_records_demoted_in_changes() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_object(
         "acc1",
@@ -568,10 +572,10 @@ async fn address_book_set_create_with_is_default_records_demoted_in_changes() {
             "c1": {
                 "name": "Second",
                 "sortOrder": 0,
-                "isDefault": true,
                 "isSubscribed": true
             }
-        }
+        },
+        "onSuccessSetIsDefault": "#c1"
     });
     let _ = handle_address_book_set(&backend, &(), args)
         .await
@@ -601,12 +605,12 @@ async fn address_book_set_create_with_is_default_records_demoted_in_changes() {
 //
 // RFC 8620 §5.3 requires every modified object to surface in the response's
 // `updated` map. When the single-default invariant demotes sibling books in
-// response to a regular create-with-isDefault or update-with-isDefault, the
-// demoted entries MUST appear in `updated` (not just in /changes).
+// response to onSuccessSetIsDefault, the demoted entries MUST appear in
+// `updated` (not just in /changes).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn address_book_set_update_with_is_default_reports_demoted_in_updated_wire() {
+async fn address_book_set_on_success_set_is_default_reports_demoted_in_updated_wire() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_object(
         "acc1",
@@ -623,7 +627,7 @@ async fn address_book_set_update_with_is_default_reports_demoted_in_updated_wire
 
     let args = json!({
         "accountId": "acc1",
-        "update": { "ab2": { "isDefault": true } }
+        "onSuccessSetIsDefault": "ab2"
     });
     let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
@@ -648,7 +652,7 @@ async fn address_book_set_update_with_is_default_reports_demoted_in_updated_wire
 }
 
 #[tokio::test]
-async fn address_book_set_create_with_is_default_reports_demoted_in_updated_wire() {
+async fn address_book_set_create_set_default_reports_demoted_in_updated_wire() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_object(
         "acc1",
@@ -663,10 +667,10 @@ async fn address_book_set_create_with_is_default_reports_demoted_in_updated_wire
             "c1": {
                 "name": "Second",
                 "sortOrder": 0,
-                "isDefault": true,
                 "isSubscribed": true
             }
-        }
+        },
+        "onSuccessSetIsDefault": "#c1"
     });
     let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
         .await
@@ -1726,4 +1730,30 @@ async fn contact_card_query_evaluates_operator_tree() {
         got.sort_unstable();
         assert_eq!(got, want, "filter {filter}: {resp}");
     }
+}
+
+/// RFC 9610 §2 (rfc9610.txt:191): AddressBook `isDefault` is
+/// "(server-set)". RFC 8620 §1.1: "The client MUST NOT send this property
+/// when creating"; RFC 8620 §5.3: changing a server-set property is
+/// `invalidProperties`.
+#[tokio::test]
+async fn address_book_set_client_is_default_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "First"),
+    );
+    let args = json!({
+        "accountId": "acc1",
+        "create": { "c1": { "name": "Second", "isSubscribed": true, "isDefault": true } },
+        "update": { "ab1": { "isDefault": true } },
+    });
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    let want = json!({ "type": "invalidProperties", "properties": ["isDefault"] });
+    assert_eq!(resp["notCreated"]["c1"], want, "{resp}");
+    assert_eq!(resp["notUpdated"]["ab1"], want, "{resp}");
 }

@@ -37,7 +37,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, ContactsBackend, SetError, SetErrorType};
 use jmap_server::{
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 /// RFC 9610 §7.4.1 — IANA-registered JMAP error type for AddressBook/set
@@ -214,14 +215,11 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
-            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
-            // object" — id is server-assigned. Any present "id" key (even
-            // null) is rejected with invalidProperties:["id"].
-            if obj_val.get("id").is_some() {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(reject_server_set::<AddressBook>)
+            {
+                not_created.insert(create_id, set_error_value(&err));
                 continue;
             }
             // `AddressBook.id` is required, so the parse fills it with "",
@@ -230,15 +228,20 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.insert("id".to_owned(), Value::String(String::new()));
-                    // AddressBook requires myRights — inject a default if absent.
-                    m.entry("myRights").or_insert_with(|| {
+                    // `isDefault` and `myRights` are server-set (RFC 9610 §2)
+                    // and AddressBook requires both, so the server supplies
+                    // them. A new book is not the default until
+                    // `onSuccessSetIsDefault` makes it one.
+                    m.insert("isDefault".to_owned(), Value::Bool(false));
+                    m.insert(
+                        "myRights".to_owned(),
                         json!({
                             "mayRead": true,
                             "mayWrite": true,
                             "mayShare": false,
                             "mayDelete": false
-                        })
-                    });
+                        }),
+                    );
                     Value::Object(m)
                 }
                 other => other,
@@ -314,6 +317,10 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     continue;
                 }
             };
+            if let Some(err) = reject_read_only_patch::<AddressBook>(patch.as_map(), None) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             match backend
                 .update_object::<AddressBook>(caller, &account_id, &id, patch)
@@ -445,55 +452,6 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     }
 
     // -----------------------------------------------------------------------
-    // bd:JMAP-qz9v.57 — report books demoted by the single-default invariant.
-    //
-    // After the regular create + update + destroy loops, any AddressBook that
-    // was isDefault:true at the start of /set (captured in
-    // `previously_default_ids`) but is now isDefault:false was implicitly
-    // demoted by the backend's enforcement of RFC 9610 §2's
-    // 'MUST NOT be true for more than one AddressBook within an account'
-    // invariant. RFC 8620 §5.3 requires every modified object to surface in
-    // the response, so we re-fetch the previously-default ids and insert
-    // any flipped-to-false entries into the wire `updated` map.
-    //
-    // Skip ids that already appear in `updated` (because they were the
-    // explicit target of a successful update) or in `created` (because
-    // they were just created); those entries are authoritative.
-    //
-    // A best-effort error from the re-fetch leaves the wire response as-is.
-    // The /changes machinery will still surface the demotion.
-    //
-    // The onSuccessSetIsDefault block below has its own (legacy) demotion
-    // reporting; this pass covers the regular paths only. Running this
-    // BEFORE onSuccessSetIsDefault ensures no double-attribution: any
-    // promotion onSuccessSetIsDefault triggers will be picked up by its
-    // own existing block.
-    // -----------------------------------------------------------------------
-    if !previously_default_ids.is_empty() {
-        if let Ok((current_books, _)) = backend
-            .get_objects::<AddressBook>(caller, &account_id, None, None)
-            .await
-        {
-            for book in current_books {
-                let book_id_str = book.id.to_string();
-                if !previously_default_ids.contains(&book.id) {
-                    continue; // not previously default → not a demotion candidate
-                }
-                if book.is_default {
-                    continue; // still default → not demoted
-                }
-                if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
-                    continue; // already authoritatively recorded
-                }
-                let v = serde_json::to_value(&book)
-                    .expect("derive(Serialize) on plain data is infallible");
-                updated.insert(book_id_str, v);
-                mutated = true;
-            }
-        }
-    }
-
-    // -----------------------------------------------------------------------
     // onSuccessSetIsDefault — post-set isDefault patch
     // RFC 9610 §2.3: onSuccessSetIsDefault is Id|null (a single string id,
     // not a map).  After the main set operations, if it is a non-null string,
@@ -535,28 +493,6 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                             serde_json::to_value(&obj)
                                 .expect("derive(Serialize) on plain data is infallible"),
                         );
-                        // RFC 8620 §5.3: all changed objects must appear in
-                        // updated.  When isDefault transfers, the backend clears
-                        // it on all other books; re-fetch to pick them up.
-                        if let Ok((all_books, _)) = backend
-                            .get_objects::<AddressBook>(caller, &account_id, None, None)
-                            .await
-                        {
-                            for book in all_books {
-                                let book_id = book.id.clone();
-                                if book_id == target_id {
-                                    continue; // already recorded above
-                                }
-                                // The backend enforces single-default: any book
-                                // returned here whose is_default is now false was
-                                // implicitly demoted.
-                                if !book.is_default {
-                                    let v = serde_json::to_value(&book)
-                                        .expect("derive(Serialize) on plain data is infallible");
-                                    updated.insert(book_id.to_string(), v);
-                                }
-                            }
-                        }
                     }
                     Ok(None) => {
                         mutated = true;
@@ -567,6 +503,54 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             }
         }
     } // end if main_ops_all_succeeded
+
+    // -----------------------------------------------------------------------
+    // bd:JMAP-qz9v.57 — report books demoted by the single-default invariant.
+    //
+    // After the create, update and destroy loops and onSuccessSetIsDefault,
+    // any AddressBook that
+    // was isDefault:true at the start of /set (captured in
+    // `previously_default_ids`) but is now isDefault:false was implicitly
+    // demoted by the backend's enforcement of RFC 9610 §2's
+    // 'MUST NOT be true for more than one AddressBook within an account'
+    // invariant. RFC 8620 §5.3 requires every modified object to surface in
+    // the response, so we re-fetch the previously-default ids and insert
+    // any flipped-to-false entries into the wire `updated` map.
+    //
+    // Skip ids that already appear in `updated` (because they were the
+    // explicit target of a successful update) or in `created` (because
+    // they were just created); those entries are authoritative.
+    //
+    // A best-effort error from the re-fetch leaves the wire response as-is.
+    // The /changes machinery will still surface the demotion.
+    //
+    // This runs after onSuccessSetIsDefault, the only client path that
+    // changes isDefault (RFC 9610 §2: it is server-set), so it reports that
+    // demotion too.
+    // -----------------------------------------------------------------------
+    if !previously_default_ids.is_empty() {
+        if let Ok((current_books, _)) = backend
+            .get_objects::<AddressBook>(caller, &account_id, None, None)
+            .await
+        {
+            for book in current_books {
+                let book_id_str = book.id.to_string();
+                if !previously_default_ids.contains(&book.id) {
+                    continue; // not previously default → not a demotion candidate
+                }
+                if book.is_default {
+                    continue; // still default → not demoted
+                }
+                if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
+                    continue; // already authoritatively recorded
+                }
+                let v = serde_json::to_value(&book)
+                    .expect("derive(Serialize) on plain data is infallible");
+                updated.insert(book_id_str, v);
+                mutated = true;
+            }
+        }
+    }
 
     // Fetch newState AFTER all mutations including onSuccessSetIsDefault
     // (RFC 8620 §5.3: newState must reflect every mutation in this call).

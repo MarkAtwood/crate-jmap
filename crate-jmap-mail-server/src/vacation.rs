@@ -214,7 +214,12 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 }
             };
 
-            if let Some(err) = reject_read_only_patch::<VacationResponse>(patch.as_map()) {
+            // The stored `id` is always "singleton" (RFC 8621 §8), so a
+            // whole-object patch may repeat it (RFC 8620 §5.3).
+            let stored = serde_json::Map::from_iter([("id".to_owned(), json!(SINGLETON_ID))]);
+            if let Some(err) =
+                reject_read_only_patch::<VacationResponse>(patch.as_map(), Some(&stored))
+            {
                 not_updated.insert(id.clone(), set_error_value(&err));
                 continue;
             }

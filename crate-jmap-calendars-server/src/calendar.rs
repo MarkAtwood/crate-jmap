@@ -38,7 +38,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{
-    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+    bool_arg, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -153,16 +154,34 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj_val) in create_map {
-            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
-            // object" — id is server-assigned. Any present "id" key (even
-            // null) is rejected with invalidProperties:["id"].
-            if obj_val.get("id").is_some() {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
+        for (create_id, mut obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Calendar>) {
+                not_created.insert(create_id, set_error_value(&err));
                 continue;
+            }
+            // `isDefault` and `myRights` are server-set (draft-ietf-jmap-
+            // calendars-33 §4) and `Calendar` requires both, so the server
+            // supplies them. A new calendar is not the default until
+            // `onSuccessSetIsDefault` makes it one.
+            //
+            // ponytail: the creator holds every right, as the owner of a
+            // calendar in their own account; a backend with finer sharing may
+            // replace `myRights` in `create_object`.
+            if let Some(m) = obj_val.as_object_mut() {
+                m.insert("isDefault".to_owned(), Value::Bool(false));
+                m.insert(
+                    "myRights".to_owned(),
+                    json!({
+                        "mayReadFreeBusy": true,
+                        "mayReadItems": true,
+                        "mayWriteAll": true,
+                        "mayWriteOwn": true,
+                        "mayUpdatePrivate": true,
+                        "mayRSVP": true,
+                        "mayShare": true,
+                        "mayDelete": true,
+                    }),
+                );
             }
             // `Calendar.id` is optional, so the create parses without one
             // and `build` sets the id the backend mints.
@@ -235,6 +254,10 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     continue;
                 }
             };
+            if let Some(err) = reject_read_only_patch::<Calendar>(patch.as_map(), None) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
             match backend
                 .update_object::<Calendar>(caller, &account_id, &id, patch)
                 .await

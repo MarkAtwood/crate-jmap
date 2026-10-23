@@ -44,8 +44,8 @@ use crate::{
     CalendarsBackend, QueryCalendarEventsError,
 };
 use jmap_server::{
-    bool_arg, filter_arg, query_anchor_args, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryParams,
+    bool_arg, filter_arg, query_anchor_args, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -284,9 +284,10 @@ async fn prepare_new_event<B: CalendarsBackend>(
     Ok(())
 }
 
-/// Checks a CalendarEvent/set update patch against the `isOrigin` and
-/// `calendarIds` rules and, when the patch changes
-/// `organizerCalendarAddress`, adds the recomputed `isOrigin` to it.
+/// Checks a CalendarEvent/set update patch against the `calendarIds` rules
+/// and, when the patch changes `organizerCalendarAddress`, adds the
+/// recomputed `isOrigin` to it. The caller has already rejected a patch to
+/// `isOrigin` or another server-set property.
 async fn prepare_event_patch<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -295,12 +296,6 @@ async fn prepare_event_patch<B: CalendarsBackend>(
     patch: &mut serde_json::Map<String, Value>,
 ) -> Result<(), Value> {
     let invalid = |prop: &str| json!({ "type": "invalidProperties", "properties": [prop] });
-    let head = |k: &str| k.split_once('/').map_or(k, |(h, _)| h).to_owned();
-    // RFC 8620 §5.3: isOrigin is server-set, so a client may not patch it.
-    if patch.keys().any(|k| head(k) == "isOrigin") {
-        return Err(invalid("isOrigin"));
-    }
-
     if let Some(whole) = patch.get("calendarIds") {
         let ids = serde_json::from_value::<BTreeMap<Id, bool>>(whole.clone()).ok();
         if !valid_calendar_ids(ids.as_ref()) {
@@ -459,16 +454,11 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 continue;
             }
 
-            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
-            // object" — id is server-assigned. Any present "id" key (even
-            // null) is rejected with invalidProperties:["id"].
-            // (CalendarEvent/copy uses "id" with different semantics — that is
-            // a separate handler, see handle_calendar_event_copy.)
-            if obj_val.get("id").is_some() {
-                not_created.insert(
-                    create_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(reject_server_set::<CalendarEvent>)
+            {
+                not_created.insert(create_id, set_error_value(&err));
                 continue;
             }
 
@@ -514,6 +504,14 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                     id_str,
                     json!({ "type": "invalidProperties", "properties": ["utcEnd", "duration"] }),
                 );
+                continue;
+            }
+
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| reject_read_only_patch::<CalendarEvent>(m, None))
+            {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 

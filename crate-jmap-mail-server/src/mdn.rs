@@ -553,7 +553,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 };
 
                 // Apply the same immutable-field guard as handle_email_set patches.
-                if let Some(err) = reject_read_only_patch::<Email>(patch_obj.as_map()) {
+                if let Some(err) = reject_read_only_patch::<Email>(patch_obj.as_map(), None) {
                     email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
                     continue;
                 }
