@@ -3,28 +3,21 @@
 //! Oracle: draft-atwood-jmap-chat-00 at jmap-chat-spec 91672c9,
 //! §Rich Body Format (L1445-1500).
 
+mod common;
+
 use jmap_chat_types::{BroadcastScope, RichBody, SpanType};
 use serde_json::json;
 
 /// §Example (L1486-1497), copied verbatim from the draft.
-const DRAFT_EXAMPLE: &str = r#"{
-  "spans": [
-    {"type": "text", "text": "Hello "},
-    {"type": "mention", "text": "@alice", "userId": "contact-alice"},
-    {"type": "text", "text": " and "},
-    {"type": "broadcast", "text": "@here", "scope": "here"},
-    {"type": "text", "text": ", see this code: "},
-    {"type": "code", "text": "foo()"},
-    {"type": "text", "text": ". Full example:"},
-    {"type": "codeblock", "text": "fn main() {}", "lang": "rust"}
-  ]
-}"#;
+fn draft_example() -> String {
+    common::fixture("draft_example.json")
+}
 
 /// The draft's example parses into the spans it lists, in order, with
 /// each span's type-specific field from the L1470-1479 table.
 #[test]
 fn draft_example_parses_field_for_field() {
-    let rich: RichBody = serde_json::from_str(DRAFT_EXAMPLE).expect("draft example");
+    let rich: RichBody = serde_json::from_str(&draft_example()).expect("draft example");
     let s = &rich.spans;
     assert_eq!(s.len(), 8);
     assert_eq!(
@@ -56,7 +49,7 @@ fn draft_example_parses_field_for_field() {
 /// The draft's example serializes back to the same JSON value.
 #[test]
 fn draft_example_round_trips() {
-    let wire: serde_json::Value = serde_json::from_str(DRAFT_EXAMPLE).expect("json");
+    let wire: serde_json::Value = serde_json::from_str(&draft_example()).expect("json");
     let rich: RichBody = serde_json::from_value(wire.clone()).expect("draft example");
     assert_eq!(serde_json::to_value(&rich).expect("serialize"), wire);
 }

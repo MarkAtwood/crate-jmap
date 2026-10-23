@@ -1,0 +1,12 @@
+{
+  "spans": [
+    {"type": "text", "text": "Hello "},
+    {"type": "mention", "text": "@alice", "userId": "contact-alice"},
+    {"type": "text", "text": " and "},
+    {"type": "broadcast", "text": "@here", "scope": "here"},
+    {"type": "text", "text": ", see this code: "},
+    {"type": "code", "text": "foo()"},
+    {"type": "text", "text": ". Full example:"},
+    {"type": "codeblock", "text": "fn main() {}", "lang": "rust"}
+  ]
+}
