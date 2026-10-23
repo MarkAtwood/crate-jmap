@@ -90,6 +90,22 @@ pub const MAX_PUSH_SUBSCRIPTIONS: usize = 50;
 // Internal state
 // ---------------------------------------------------------------------------
 
+/// Per-ID fate tracker for RFC 8620 §5.2 ID deduplication across change log
+/// entries in one `/changes` window.
+///
+/// - created+updated → `Created`
+/// - created+destroyed → omitted (the client never knew the object)
+/// - updated+destroyed → `Destroyed`
+/// - updated+updated → `Updated`
+///
+/// Mirrors the canonical jmap-mail-server `IdFate` enum.
+#[derive(Debug, Clone, Copy)]
+enum IdFate {
+    Created,
+    Updated,
+    Destroyed,
+}
+
 /// A change log entry for one state transition.
 #[derive(Clone, Debug)]
 struct ChangeEntry {
@@ -759,27 +775,49 @@ impl JmapBackend for MemoryBackend {
             return Err(BackendChangesError::TooManyChanges { limit: max });
         }
 
-        let mut created: Vec<Id> = Vec::new();
-        let mut updated: Vec<Id> = Vec::new();
-        let mut destroyed: Vec<Id> = Vec::new();
-
+        // RFC 8620 §5.2 ID deduplication across the window, using the
+        // canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
+        // order so the response lists are deterministic.
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
+        let mut order: Vec<Id> = Vec::new();
         for entry in &relevant {
             for id in &entry.created {
-                if !destroyed.contains(id) && !created.contains(id) {
-                    created.push(id.clone());
+                if fates.insert(id.clone(), IdFate::Created).is_none() {
+                    order.push(id.clone());
                 }
             }
             for id in &entry.updated {
-                if !destroyed.contains(id) && !created.contains(id) && !updated.contains(id) {
-                    updated.push(id.clone());
+                let fate = match fates.get(id) {
+                    Some(IdFate::Created) => IdFate::Created,
+                    Some(IdFate::Destroyed) => IdFate::Destroyed,
+                    _ => IdFate::Updated,
+                };
+                if fates.insert(id.clone(), fate).is_none() {
+                    order.push(id.clone());
                 }
             }
             for id in &entry.destroyed {
-                created.retain(|c| c != id);
-                updated.retain(|u| u != id);
-                if !destroyed.contains(id) {
-                    destroyed.push(id.clone());
+                // "If a record has been created AND destroyed since the old
+                // state, the server SHOULD remove the id from the response
+                // entirely." (RFC 8620 §5.2)
+                if matches!(fates.get(id), Some(IdFate::Created)) {
+                    fates.remove(id);
+                } else if fates.insert(id.clone(), IdFate::Destroyed).is_none() {
+                    order.push(id.clone());
                 }
+            }
+        }
+
+        let mut created: Vec<Id> = Vec::new();
+        let mut updated: Vec<Id> = Vec::new();
+        let mut destroyed: Vec<Id> = Vec::new();
+        // `fates.remove` emits each id once and skips ids omitted above.
+        for id in order {
+            match fates.remove(&id) {
+                Some(IdFate::Created) => created.push(id),
+                Some(IdFate::Updated) => updated.push(id),
+                Some(IdFate::Destroyed) => destroyed.push(id),
+                None => {}
             }
         }
 
@@ -5070,7 +5108,50 @@ fn variant_name(op: &SpacePatchOp) -> &'static str {
 mod tests {
     use super::*;
     use crate::ChatBackend;
+    use jmap_chat_types::ChatContact;
     use std::collections::HashSet;
+
+    /// Oracle: RFC 8620 §5.2 /changes rules, expected lists written by hand.
+    /// "If a record has been created AND destroyed since the old state, the
+    /// server SHOULD remove the id from the response entirely"; a record
+    /// created then updated is reported only in `created`; one updated then
+    /// destroyed is reported only in `destroyed`.
+    #[tokio::test]
+    async fn get_changes_dedups_ids_across_window() {
+        let backend = MemoryBackend::new();
+        let id = |s: &str| Id::from(s);
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            let log = inner.change_log_mut(ChatContact::TYPE_NAME, "acc1");
+            log.push(ChangeEntry {
+                new_state: 1,
+                created: vec![id("eph"), id("fresh")],
+                updated: vec![],
+                destroyed: vec![],
+            });
+            log.push(ChangeEntry {
+                new_state: 2,
+                created: vec![],
+                updated: vec![id("fresh"), id("old"), id("doomed")],
+                destroyed: vec![id("eph")],
+            });
+            log.push(ChangeEntry {
+                new_state: 3,
+                created: vec![],
+                updated: vec![id("old")],
+                destroyed: vec![id("doomed"), id("gone")],
+            });
+        }
+
+        let changes = backend
+            .get_changes::<ChatContact>(&(), &id("acc1"), &State::from("0"), None)
+            .await
+            .expect("get_changes must succeed");
+
+        assert_eq!(changes.created, vec![id("fresh")]);
+        assert_eq!(changes.updated, vec![id("old")]);
+        assert_eq!(changes.destroyed, vec![id("doomed"), id("gone")]);
+    }
 
     /// Oracle: RFC 8620 §1.4 — a UTCDate is an RFC 3339 instant whose zero
     /// time-secfrac "MUST be omitted", so `00:00:01Z` is one millisecond

@@ -159,6 +159,22 @@ impl Inner {
     }
 }
 
+/// Per-ID fate tracker for RFC 8620 §5.2 ID deduplication across change log
+/// entries in one `/changes` window.
+///
+/// - created+updated → `Created`
+/// - created+destroyed → omitted (the client never knew the object)
+/// - updated+destroyed → `Destroyed`
+/// - updated+updated → `Updated`
+///
+/// Mirrors the canonical jmap-mail-server `IdFate` enum.
+#[derive(Debug, Clone, Copy)]
+enum IdFate {
+    Created,
+    Updated,
+    Destroyed,
+}
+
 // ---------------------------------------------------------------------------
 // MemoryBackend
 // ---------------------------------------------------------------------------
@@ -432,57 +448,35 @@ impl JmapBackend for MemoryBackend {
             return Err(BackendChangesError::TooManyChanges { limit: max });
         }
 
-        // Compute each id's NET outcome across the change interval.
-        //
-        // RFC 8620 §5.2: every id reported in /changes appears in exactly
-        // one of `created`/`updated`/`destroyed`, reflecting the net
-        // transition from `sinceState` to the current state. Transitions
-        // within the interval (create → destroy → create on a recycled
-        // id, update → destroy, etc.) collapse to the final bucket.
-        //
-        // The previous implementation used three `Vec<Id>`s and
-        // `Vec::contains` for dedup. That had two defects: (a) the create
-        // branch suppressed ids already in `destroyed`, so a recycled id
-        // sequence `create K / destroy K+1 / create K+2` left the id out
-        // of `created` despite it being present in the current state
-        // (bd:JMAP-3t94.3); (b) `Vec::contains` on each push made the
-        // loop O(n*m) (bd:JMAP-3t94.7).
-        //
-        // The replacement walks each entry once and stores each id's
-        // most-recent outcome in a `HashMap`, preserving first-seen order
-        // in a parallel `Vec`. Later transitions overwrite earlier ones;
-        // a destroy followed by a create overrides the destroy and vice
-        // versa. Time complexity is O(total ids in interval); space is
-        // O(distinct ids).
-        #[derive(Copy, Clone)]
-        enum Outcome {
-            Created,
-            Updated,
-            Destroyed,
-        }
-
-        let mut outcome: HashMap<Id, Outcome> = HashMap::new();
+        // RFC 8620 §5.2 ID deduplication across the window, using the
+        // canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
+        // order so the response lists are deterministic. A create after a destroy
+        // (recycled id, bd:JMAP-3t94.3) overwrites the earlier fate.
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
         let mut order: Vec<Id> = Vec::new();
-
         for entry in &relevant {
             for id in &entry.created {
-                if outcome.insert(id.clone(), Outcome::Created).is_none() {
+                if fates.insert(id.clone(), IdFate::Created).is_none() {
                     order.push(id.clone());
                 }
             }
             for id in &entry.updated {
-                // An id already classified as `Created` in this interval
-                // stays `Created` (a later update does not demote a fresh
-                // creation); otherwise mark `Updated`.
-                if matches!(outcome.get(id), Some(Outcome::Created)) {
-                    continue;
-                }
-                if outcome.insert(id.clone(), Outcome::Updated).is_none() {
+                let fate = match fates.get(id) {
+                    Some(IdFate::Created) => IdFate::Created,
+                    Some(IdFate::Destroyed) => IdFate::Destroyed,
+                    _ => IdFate::Updated,
+                };
+                if fates.insert(id.clone(), fate).is_none() {
                     order.push(id.clone());
                 }
             }
             for id in &entry.destroyed {
-                if outcome.insert(id.clone(), Outcome::Destroyed).is_none() {
+                // "If a record has been created AND destroyed since the old
+                // state, the server SHOULD remove the id from the response
+                // entirely." (RFC 8620 §5.2)
+                if matches!(fates.get(id), Some(IdFate::Created)) {
+                    fates.remove(id);
+                } else if fates.insert(id.clone(), IdFate::Destroyed).is_none() {
                     order.push(id.clone());
                 }
             }
@@ -491,11 +485,13 @@ impl JmapBackend for MemoryBackend {
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
         let mut destroyed: Vec<Id> = Vec::new();
+        // `fates.remove` emits each id once and skips ids omitted above.
         for id in order {
-            match outcome[&id] {
-                Outcome::Created => created.push(id),
-                Outcome::Updated => updated.push(id),
-                Outcome::Destroyed => destroyed.push(id),
+            match fates.remove(&id) {
+                Some(IdFate::Created) => created.push(id),
+                Some(IdFate::Updated) => updated.push(id),
+                Some(IdFate::Destroyed) => destroyed.push(id),
+                None => {}
             }
         }
 
@@ -969,13 +965,12 @@ mod tests {
         );
     }
 
-    /// Oracle: a create → destroy sequence on the same id within an interval
-    /// SHOULD per RFC 8620 §5.2 either omit the id or report it as destroyed
-    /// only; either way it MUST NOT appear in `created` (the final state
-    /// does not have it). The MemoryBackend chooses the MAY-allowed
-    /// destroyed-only variant.
+    /// Oracle: RFC 8620 §5.2, "If a record has been created AND destroyed
+    /// since the old state, the server SHOULD remove the id from the
+    /// response entirely." The MemoryBackend takes the SHOULD path, matching
+    /// the canonical jmap-mail-server `IdFate` rules.
     #[tokio::test]
-    async fn get_changes_create_then_destroy_lands_in_destroyed_only() {
+    async fn get_changes_create_then_destroy_is_omitted() {
         let backend = MemoryBackend::new_with_accounts(&["acc1"]);
         let ephemeral = Id::from("ephemeral");
 
@@ -1013,8 +1008,8 @@ mod tests {
             changes.created
         );
         assert!(
-            changes.destroyed.contains(&ephemeral),
-            "MemoryBackend reports create→destroy in destroyed-only; \
+            !changes.destroyed.contains(&ephemeral),
+            "create→destroy in one window SHOULD be omitted from destroyed; \
              got destroyed={:?}",
             changes.destroyed
         );
