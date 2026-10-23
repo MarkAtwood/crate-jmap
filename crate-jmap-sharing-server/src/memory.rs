@@ -650,12 +650,9 @@ impl SharingBackend for MemoryBackend {
     {
         let server_id = Id::from(uuid::Uuid::new_v4().to_string());
         let stored_obj = build(&server_id);
-        // Uses `map_err` (not `.expect`) because `O` is an associated type
-        // controlled by the consumer: a downstream `SetObject` impl with a
-        // hand-rolled `Serialize` could in principle fail. Handler-site
-        // serializations of plain crate-defined types use `.expect` since
-        // their derive(Serialize) impl is provably infallible
-        // (see `helpers::set_error_value`, `principal::handle_principal_set`).
+        // Uses `map_err` because `O` is an associated type controlled by the
+        // consumer: a downstream `SetObject` impl with a hand-rolled
+        // `Serialize` could fail.
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 

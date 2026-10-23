@@ -33,7 +33,6 @@ use serde_json::Value;
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    set_error_value,
 };
 use crate::{SetError, SetErrorType, SharingBackend};
 use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
@@ -146,7 +145,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
         for (create_id, _) in create_map {
             not_created.insert(
                 create_id,
-                set_error_value(&SetError::new(SetErrorType::Forbidden)),
+                serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
@@ -158,7 +157,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
         for (id_str, _) in update_map {
             not_updated.insert(
                 id_str,
-                set_error_value(&SetError::new(SetErrorType::Forbidden)),
+                serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
@@ -190,7 +189,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, set_error_value(&err));
+                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
