@@ -2128,12 +2128,17 @@ pub async fn handle_message_set<B: ChatBackend>(
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
         // silently skipping it, which would produce a misleading response.
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
+        let id_strs: Vec<&str> = destroy_arr
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
         // The destroyed Messages' Chats, read before the destroy, for
         // `record_unread_count_changes` (§Chat `unreadCount`).
         // A malformed id is skipped here and rejected per entry below.
@@ -2148,10 +2153,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             .map(|(found, _)| found.into_iter().map(|m| (m.id, m.chat_id)).collect())
             .unwrap_or_default();
         let mut destroyed_chat_ids: Vec<Id> = Vec::new();
-        for id_val in destroy_arr {
-            let Some(id_str) = id_val.as_str() else {
-                continue; // unreachable: validated above
-            };
+        for id_str in id_strs {
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {

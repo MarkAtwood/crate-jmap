@@ -607,16 +607,18 @@ pub async fn handle_submission_set<B: MailBackend>(
     if let Some(destroy_ids) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: the destroy array is Id[]. A non-string element is a
         // malformed request; return invalidArguments for the whole request.
-        if let Some(bad) = destroy_ids.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy array must contain only Id strings; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
-        for id_val in destroy_ids {
-            let Some(id_str) = id_val.as_str() else {
-                continue; // unreachable: validated above
-            };
+        let id_strs: Vec<&str> = destroy_ids
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy array must contain only Id strings; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        for id_str in id_strs {
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {

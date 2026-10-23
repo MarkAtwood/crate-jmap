@@ -246,16 +246,18 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
         // silently skipping it, which would produce a misleading response.
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
-        for id_val in destroy_arr {
-            let Some(s) = id_val.as_str() else {
-                continue; // unreachable: validated above
-            };
+        let id_strs: Vec<&str> = destroy_arr
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        for s in id_strs {
             let id_str = s.to_owned();
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
