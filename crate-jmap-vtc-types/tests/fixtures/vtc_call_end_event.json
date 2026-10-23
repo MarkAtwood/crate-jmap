@@ -1,0 +1,6 @@
+{
+  "@type": "VTCCallEndEvent",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+  "endReason": "answered_elsewhere"
+}

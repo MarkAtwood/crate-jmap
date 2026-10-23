@@ -1,0 +1,11 @@
+{
+  "@type": "VTCGatewaySignal",
+  "accountId": "bob-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+  "participantId": "gw-pstn-14155559876",
+  "protocol": "pstn",
+  "signal": "dtmf",
+  "data": {"digit": "5", "duration": 160},
+  "direction": "inbound",
+  "timestamp": "2026-06-05T14:42:17Z"
+}

@@ -10,6 +10,8 @@
 //! request and response fragments, not instances of these types; the
 //! method beads test them.
 
+mod common;
+
 use jmap_vtc_types::{
     CallState, CallType, JoinMethod, MediaKind, RingEndReason, SignalDirection, VtcCall,
     VtcCallPush, VtcEvent, VtcParticipant,
@@ -31,121 +33,44 @@ fn parse(text: &str) -> Value {
 }
 
 /// VTCCall/get example response object, "properties abridged" (draft-atwood-jmap-vtc-00 L530-L560).
-const VTC_CALL_GET: &str = r#"{
-  "id": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-  "callType": "ring",
-  "state": "active",
-  "createdAt": "2026-06-05T14:30:00Z",
-  "endedAt": null,
-  "endReason": null,
-  "initiatorId": "user:bob@example.com",
-  "subject": "Quick sync",
-  "joinUri": "https://meet.example.com/room/xkz",
-  "joinPassword": null,
-  "mediaTypes": ["audio", "video"],
-  "activeParticipantCount": 2,
-  "lobbyEnabled": false,
-  "policy": {
-    "muteOnEntry": false,
-    "videoOffOnEntry": false,
-    "participantsCanUnmute": true,
-    "participantsCanShareScreen": true,
-    "participantsCanStartVideo": true
-  },
-  "parentCallId": null,
-  "breakoutRoomIds": [],
-  "scheduledStartAt": null,
-  "gatewayPin": null,
-  "e2eeEnabled": false,
-  "chatId": "01J4XL2RN5NXWS9QQCFIUJ4BC",
-  "spaceId": null,
-  "channelId": null,
-  "calendarEventId": null
-}"#;
+fn vtc_call_get() -> String {
+    common::fixture("vtc_call_get.json")
+}
 
 /// VTCParticipant/set `created` response: "the complete VTCParticipant record"
 /// (draft-atwood-jmap-vtc-00 L896-L923 at jmap-chat-spec 6bcd9d8, which adds
 /// `breakoutCallId`).
-const VTC_PARTICIPANT_CREATED: &str = r#"{
-  "created": {
-    "p0": {
-      "id": "01J4XMVQK7NRYS9PPCEHTK4CD0",
-      "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
-      "userId": "user:alice@example.com",
-      "displayName": "Alice Chen",
-      "role": "participant",
-      "joinedAt": "2026-06-05T14:35:22Z",
-      "leftAt": null,
-      "callResponse": null,
-      "joinMethod": "webrtc",
-      "gatewayData": null,
-      "lobbyState": null,
-      "mediaState": {
-        "audio": true,
-        "video": true,
-        "screen": false,
-        "raisedHand": false
-      },
-      "speakerTimeMs": 0,
-      "kickedBy": null,
-      "e2eeFingerprint": null,
-      "unmuteRequested": false,
-      "breakoutCallId": null
-    }
-  }
-}"#;
+fn vtc_participant_created() -> String {
+    common::fixture("vtc_participant_created.json")
+}
 
 /// Example `VTCCallPush` payload (draft-atwood-jmap-vtc-00 L1279-L1291).
-const VTC_CALL_PUSH_FULL: &str = r#"{
-  "@type": "VTCCallPush",
-  "accountId": "alice-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-  "callType": "ring",
-  "initiatorId": "user:bob@example.com",
-  "initiatorDisplayName": "Bob Martinez",
-  "subject": "Quick sync",
-  "mediaTypes": ["audio", "video"],
-  "joinUri": "https://meet.example.com/room/xkz",
-  "chatId": null,
-  "spaceId": null
-}"#;
+fn vtc_call_push_full() -> String {
+    common::fixture("vtc_call_push_full.json")
+}
 
 /// Example content-free `VTCCallPush` payload (draft-atwood-jmap-vtc-00 L1307-L1312).
-const VTC_CALL_PUSH_CONTENT_FREE: &str = r#"{
-  "@type": "VTCCallPush",
-  "accountId": "alice-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-  "callType": "ring"
-}"#;
+fn vtc_call_push_content_free() -> String {
+    common::fixture("vtc_call_push_content_free.json")
+}
 
 /// VTCCallEndEvent example: call answered on another device (draft-atwood-jmap-vtc-00 L1368-L1372),
 /// plus the `accountId` that WebSocket delivery adds to every VTC event
 /// (draft-atwood-jmap-vtc-wss-00 L296-303 at jmap-chat-spec 6bcd9d8).
-const VTC_CALL_END_EVENT: &str = r#"{
-  "@type": "VTCCallEndEvent",
-  "accountId": "bob-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-  "endReason": "answered_elsewhere"
-}"#;
+fn vtc_call_end_event() -> String {
+    common::fixture("vtc_call_end_event.json")
+}
 
 /// VTCGatewaySignal example: inbound DTMF from a PSTN participant (draft-atwood-jmap-vtc-00 L1416-L1425),
 /// plus the WebSocket `accountId` (draft-atwood-jmap-vtc-wss-00 L296-303 at
 /// jmap-chat-spec 6bcd9d8).
-const VTC_GATEWAY_SIGNAL: &str = r#"{
-  "@type": "VTCGatewaySignal",
-  "accountId": "bob-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-  "participantId": "gw-pstn-14155559876",
-  "protocol": "pstn",
-  "signal": "dtmf",
-  "data": {"digit": "5", "duration": 160},
-  "direction": "inbound",
-  "timestamp": "2026-06-05T14:42:17Z"
-}"#;
+fn vtc_gateway_signal() -> String {
+    common::fixture("vtc_gateway_signal.json")
+}
 
 #[test]
 fn vtc_call_get_example() {
-    let call: VtcCall = round_trip(&parse(VTC_CALL_GET));
+    let call: VtcCall = round_trip(&parse(&vtc_call_get()));
     assert_eq!(call.call_type, CallType::Ring);
     assert_eq!(call.state, CallState::Active);
     assert_eq!(call.media_types, [MediaKind::Audio, MediaKind::Video]);
@@ -156,7 +81,7 @@ fn vtc_call_get_example() {
 
 #[test]
 fn vtc_participant_created_example() {
-    let created = parse(VTC_PARTICIPANT_CREATED);
+    let created = parse(&vtc_participant_created());
     let p: VtcParticipant = round_trip(&created["created"]["p0"]);
     assert_eq!(p.join_method, JoinMethod::Webrtc);
     assert_eq!(p.user_id.as_deref(), Some("user:alice@example.com"));
@@ -165,7 +90,7 @@ fn vtc_participant_created_example() {
 
 #[test]
 fn vtc_call_push_full_example() {
-    let push: VtcCallPush = round_trip(&parse(VTC_CALL_PUSH_FULL));
+    let push: VtcCallPush = round_trip(&parse(&vtc_call_push_full()));
     assert_eq!(push.initiator_id.as_deref(), Some("user:bob@example.com"));
     assert_eq!(push.subject, Some(Some("Quick sync".to_owned())));
     assert_eq!(push.chat_id, Some(None));
@@ -175,7 +100,7 @@ fn vtc_call_push_full_example() {
 
 #[test]
 fn vtc_call_push_content_free_example() {
-    let push: VtcCallPush = round_trip(&parse(VTC_CALL_PUSH_CONTENT_FREE));
+    let push: VtcCallPush = round_trip(&parse(&vtc_call_push_content_free()));
     assert_eq!(push.call_type, CallType::Ring);
     assert!(push.initiator_id.is_none());
     assert!(push.media_types.is_none());
@@ -184,7 +109,7 @@ fn vtc_call_push_content_free_example() {
 
 #[test]
 fn vtc_call_end_event_example() {
-    let ev: VtcEvent = round_trip(&parse(VTC_CALL_END_EVENT));
+    let ev: VtcEvent = round_trip(&parse(&vtc_call_end_event()));
     let VtcEvent::CallEnd(e) = ev else {
         panic!("wrong variant: {ev:?}")
     };
@@ -193,7 +118,7 @@ fn vtc_call_end_event_example() {
 
 #[test]
 fn vtc_gateway_signal_example() {
-    let ev: VtcEvent = round_trip(&parse(VTC_GATEWAY_SIGNAL));
+    let ev: VtcEvent = round_trip(&parse(&vtc_gateway_signal()));
     let VtcEvent::GatewaySignal(s) = ev else {
         panic!("wrong variant: {ev:?}")
     };
@@ -204,50 +129,27 @@ fn vtc_gateway_signal_example() {
 
 /// VTCParticipantEvent example: participant joins (draft-atwood-jmap-vtc-wss-00
 /// L501-511 at jmap-chat-spec 6bcd9d8).
-const WSS_PARTICIPANT_EVENT: &str = r#"{
-  "@type": "VTCParticipantEvent",
-  "accountId": "bob-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
-  "participantId": "01J4XMVQK7NRYS9PPCEHTK4CD0",
-  "event": "joined",
-  "displayName": "Alice Chen",
-  "role": "participant"
-}"#;
+fn wss_participant_event() -> String {
+    common::fixture("wss_participant_event.json")
+}
 
 /// VTCMediaStateEvent example: participant mutes (draft-atwood-jmap-vtc-wss-00
 /// L517-530 at jmap-chat-spec 6bcd9d8).
-const WSS_MEDIA_STATE_EVENT: &str = r#"{
-  "@type": "VTCMediaStateEvent",
-  "accountId": "bob-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
-  "participantId": "01J4XMVQK7NRYS9PPCEHTK4CD0",
-  "mediaState": {
-    "audio": false,
-    "video": true,
-    "screen": false,
-    "raisedHand": false
-  }
-}"#;
+fn wss_media_state_event() -> String {
+    common::fixture("wss_media_state_event.json")
+}
 
 /// VTCActiveSpeakerEvent example (draft-atwood-jmap-vtc-wss-00 L536-543 at
 /// jmap-chat-spec 6bcd9d8).
-const WSS_ACTIVE_SPEAKER_EVENT: &str = r#"{
-  "@type": "VTCActiveSpeakerEvent",
-  "accountId": "bob-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
-  "participantId": "01J4XNZRM8QWVT0RRDFJVS5EF0"
-}"#;
+fn wss_active_speaker_event() -> String {
+    common::fixture("wss_active_speaker_event.json")
+}
 
 /// VTCRecordingStateEvent example: recording starts
 /// (draft-atwood-jmap-vtc-wss-00 L549-558 at jmap-chat-spec 6bcd9d8).
-const WSS_RECORDING_STATE_EVENT: &str = r#"{
-  "@type": "VTCRecordingStateEvent",
-  "accountId": "bob-account",
-  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0",
-  "recordingId": "01J4XP2SN9RXVV1SSEGJVT6GH0",
-  "state": "recording",
-  "initiatedBy": "user:bob@example.com"
-}"#;
+fn wss_recording_state_event() -> String {
+    common::fixture("wss_recording_state_event.json")
+}
 
 /// draft-atwood-jmap-vtc-wss-00 L296-303: over the WebSocket every VTC
 /// event "carries an `accountId` (String) property ... the id of the
@@ -256,10 +158,10 @@ const WSS_RECORDING_STATE_EVENT: &str = r#"{
 #[test]
 fn wss_examples_carry_hosting_account() {
     for text in [
-        WSS_PARTICIPANT_EVENT,
-        WSS_MEDIA_STATE_EVENT,
-        WSS_ACTIVE_SPEAKER_EVENT,
-        WSS_RECORDING_STATE_EVENT,
+        &wss_participant_event(),
+        &wss_media_state_event(),
+        &wss_active_speaker_event(),
+        &wss_recording_state_event(),
     ] {
         let account = match round_trip::<VtcEvent>(&parse(text)) {
             VtcEvent::Participant(e) => e.account_id,

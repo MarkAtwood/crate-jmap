@@ -1,0 +1,13 @@
+{
+  "@type": "VTCCallPush",
+  "accountId": "alice-account",
+  "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+  "callType": "ring",
+  "initiatorId": "user:bob@example.com",
+  "initiatorDisplayName": "Bob Martinez",
+  "subject": "Quick sync",
+  "mediaTypes": ["audio", "video"],
+  "joinUri": "https://meet.example.com/room/xkz",
+  "chatId": null,
+  "spaceId": null
+}

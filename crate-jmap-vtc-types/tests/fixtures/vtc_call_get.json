@@ -1,0 +1,31 @@
+{
+  "id": "01J4XKZQN4MWVT8PPBEHTJ3AB",
+  "callType": "ring",
+  "state": "active",
+  "createdAt": "2026-06-05T14:30:00Z",
+  "endedAt": null,
+  "endReason": null,
+  "initiatorId": "user:bob@example.com",
+  "subject": "Quick sync",
+  "joinUri": "https://meet.example.com/room/xkz",
+  "joinPassword": null,
+  "mediaTypes": ["audio", "video"],
+  "activeParticipantCount": 2,
+  "lobbyEnabled": false,
+  "policy": {
+    "muteOnEntry": false,
+    "videoOffOnEntry": false,
+    "participantsCanUnmute": true,
+    "participantsCanShareScreen": true,
+    "participantsCanStartVideo": true
+  },
+  "parentCallId": null,
+  "breakoutRoomIds": [],
+  "scheduledStartAt": null,
+  "gatewayPin": null,
+  "e2eeEnabled": false,
+  "chatId": "01J4XL2RN5NXWS9QQCFIUJ4BC",
+  "spaceId": null,
+  "channelId": null,
+  "calendarEventId": null
+}
