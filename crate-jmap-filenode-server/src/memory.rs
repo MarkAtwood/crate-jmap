@@ -68,7 +68,9 @@ use crate::{
     QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_cid_types::Sha256;
-use jmap_filenode_types::{FileNode, FileNodeFilter, NodeRole, NodeType};
+use jmap_filenode_types::{
+    FileNode, FileNodeComparator, FileNodeComparatorProperty, FileNodeFilter, NodeRole, NodeType,
+};
 use jmap_metadata_server::{
     ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
     changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
@@ -716,12 +718,23 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let QueryParams {
             filter,
+            sort,
             limit,
             position,
             anchor,
             anchor_offset,
             ..
         } = params;
+        // RFC 8620 §5.5: sort as asked, or reject what cannot be applied with
+        // `unsupportedSort` — never silently ignore it (bd:JMAP-yt1w.27).
+        // Same serde round-trip as the filter below.
+        let sort: Vec<FileNodeComparator> = match sort {
+            None => Vec::new(),
+            Some(s) => serde_json::to_value(s)
+                .and_then(serde_json::from_value)
+                .map_err(|e| MemoryError::serde("parse sort", &e))?,
+        };
+        check_sort(&sort).map_err(BackendQueryError::Method)?;
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
@@ -761,19 +774,22 @@ impl JmapBackend for MemoryBackend {
             }
         };
 
-        let mut ids: Vec<Id> = Vec::new();
+        let mut matched: Vec<&FileNode> = Vec::new();
         for node in store.nodes.values() {
             let matches = match &fc {
                 None => true,
                 Some(f) => node_matches_tree(node, f, &store.nodes)?,
             };
             if matches {
-                ids.push(node.id.clone());
+                matched.push(node);
             }
         }
 
-        // Sort by id string for determinism in tests.
-        ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        // Id breaks ties so pages stay stable across calls.
+        matched.sort_by(|a, b| {
+            compare_nodes(a, b, &sort).then_with(|| a.id.as_ref().cmp(b.id.as_ref()))
+        });
+        let ids: Vec<Id> = matched.into_iter().map(|n| n.id.clone()).collect();
 
         let total = ids.len() as u64;
         // RFC 8620 §5.5 position / anchor / anchorOffset.
@@ -1720,6 +1736,73 @@ fn glob_match_inner(p: &[char], pi: usize, t: &[char], ti: usize) -> bool {
     }
 }
 
+/// Reject a `FileNode/query` sort [`compare_nodes`] cannot apply.
+///
+/// RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically valid, but
+/// includes a property the server does not support sorting on, or a
+/// collation method it does not recognise." `tree` is rejected because
+/// draft-ietf-jmap-filenode-16 §3.2.5 defines no descending tree order;
+/// strings compare byte-wise, so `i;octet` (RFC 4790 §9.3) is the only
+/// collation accepted.
+fn check_sort(sort: &[FileNodeComparator]) -> Result<(), JmapError> {
+    let supported = |c: &FileNodeComparator| {
+        matches!(
+            c.property,
+            FileNodeComparatorProperty::Name
+                | FileNodeComparatorProperty::MediaType
+                | FileNodeComparatorProperty::Size
+                | FileNodeComparatorProperty::Created
+                | FileNodeComparatorProperty::Modified
+                | FileNodeComparatorProperty::NodeType
+        ) && c.collation.as_deref().is_none_or(|k| k == "i;octet")
+    };
+    if sort.iter().all(supported) {
+        Ok(())
+    } else {
+        Err(JmapError::unsupported_sort())
+    }
+}
+
+/// Order two nodes by `sort` (already passed through [`check_sort`]).
+///
+/// draft-ietf-jmap-filenode-16 §3.2.5: a node lacking the property sorts
+/// before one that has it when ascending, and two lacking it fall through
+/// to the next Comparator — exactly `Option`'s `None < Some` ordering.
+/// `nodeType` puts Directories first, then symlinks, then files, then
+/// other `@type` values by value. Dates compare as strings, matching the
+/// `createdBefore`-style filters in this file.
+fn compare_nodes(a: &FileNode, b: &FileNode, sort: &[FileNodeComparator]) -> std::cmp::Ordering {
+    fn type_rank(n: &FileNode) -> Option<(u8, &str)> {
+        n.node_type.as_ref().map(|t| match t {
+            NodeType::Directory => (0, ""),
+            NodeType::Symlink => (1, ""),
+            NodeType::File => (2, ""),
+            other => (3, other.to_wire_str()),
+        })
+    }
+    sort.iter()
+        .map(|c| {
+            let ord = match c.property {
+                FileNodeComparatorProperty::Name => a.name.cmp(&b.name),
+                FileNodeComparatorProperty::MediaType => a.media_type.cmp(&b.media_type),
+                FileNodeComparatorProperty::Size => a.size.cmp(&b.size),
+                FileNodeComparatorProperty::Created => {
+                    let d = |n: &FileNode| n.created.as_ref().map(|d| d.as_ref().to_owned());
+                    d(a).cmp(&d(b))
+                }
+                FileNodeComparatorProperty::Modified => {
+                    let d = |n: &FileNode| n.modified.as_ref().map(|d| d.as_ref().to_owned());
+                    d(a).cmp(&d(b))
+                }
+                FileNodeComparatorProperty::NodeType => type_rank(a).cmp(&type_rank(b)),
+                _ => std::cmp::Ordering::Equal,
+            };
+            if c.is_ascending { ord } else { ord.reverse() }
+        })
+        .find(|o| o.is_ne())
+        .unwrap_or(std::cmp::Ordering::Equal)
+}
+
 fn date_strictly_before(
     node_date: Option<&jmap_types::UTCDate>,
     bound: &jmap_types::UTCDate,
@@ -2256,5 +2339,82 @@ mod empty_account_id_tests {
     #[should_panic(expected = "account_id must not be the empty string")]
     fn with_account_rejects_empty_id() {
         let _ = MemoryBackend::new().with_account(&Id::from(""));
+    }
+}
+
+#[cfg(test)]
+mod sort_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Oracle: draft-ietf-jmap-filenode-16 §3.2.5 — "Directories sort
+    /// first, then symlinks, then files, then nodes of any other @type
+    /// ordered by the @type value", and "nodes without the property sort
+    /// before nodes that have it when isAscending is true. Nodes that lack
+    /// the property are ordered among themselves as if that Comparator
+    /// were absent". Each expected order is read off the hand-written
+    /// fixtures below, not computed.
+    #[test]
+    fn compare_nodes_follows_draft_sort_rules() {
+        let node = |v: serde_json::Value| -> FileNode {
+            serde_json::from_value(v).expect("fixture FileNode must deserialize")
+        };
+        let dir = node(json!({"id": "d", "name": "m-dir", "@type": "Directory",
+            "parentId": null, "created": "2020-01-03T00:00:00Z"}));
+        let link = node(json!({"id": "l", "name": "z-link", "@type": "SymLink",
+            "parentId": null, "target": ["x"], "created": "2020-01-01T00:00:00Z"}));
+        let big = node(
+            json!({"id": "b", "name": "a-big", "@type": "File", "parentId": null,
+            "blobId": "b1", "size": 300, "mediaType": "text/plain",
+            "created": "2020-01-02T00:00:00Z"}),
+        );
+        let small = node(
+            json!({"id": "s", "name": "b-small", "@type": "File", "parentId": null,
+            "blobId": "b2", "size": 10, "mediaType": "image/png",
+            "created": "2020-01-04T00:00:00Z"}),
+        );
+        let odd = node(
+            json!({"id": "o", "name": "c-odd", "@type": "Gadget", "parentId": null,
+            "created": "2020-01-05T00:00:00Z"}),
+        );
+        let all = [&dir, &link, &big, &small, &odd];
+
+        let order = |sort: serde_json::Value| -> Vec<&str> {
+            let sort: Vec<FileNodeComparator> =
+                serde_json::from_value(sort).expect("fixture sort must deserialize");
+            check_sort(&sort).expect("sort must be supported");
+            let mut v = all.to_vec();
+            v.sort_by(|a, b| {
+                compare_nodes(a, b, &sort).then_with(|| a.id.as_ref().cmp(b.id.as_ref()))
+            });
+            v.iter().map(|n| n.id.as_ref()).collect()
+        };
+
+        assert_eq!(
+            order(json!([{"property": "name"}])),
+            ["b", "s", "o", "d", "l"]
+        );
+        assert_eq!(
+            order(json!([{"property": "name", "isAscending": false}])),
+            ["l", "d", "o", "s", "b"]
+        );
+        assert_eq!(
+            order(json!([{"property": "nodeType"}])),
+            ["d", "l", "b", "s", "o"]
+        );
+        assert_eq!(
+            order(json!([{"property": "created"}])),
+            ["l", "b", "d", "s", "o"]
+        );
+        // d, l, o have no size: they sort first, then by the next
+        // Comparator (name descending: o "c-odd", l "z-link", d "m-dir").
+        assert_eq!(
+            order(json!([{"property": "size"}, {"property": "name", "isAscending": false}])),
+            ["l", "d", "o", "s", "b"]
+        );
+        assert_eq!(
+            order(json!([{"property": "mediaType", "isAscending": false}])),
+            ["b", "s", "d", "l", "o"]
+        );
     }
 }

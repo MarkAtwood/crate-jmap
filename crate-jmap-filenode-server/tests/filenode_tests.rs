@@ -3984,3 +3984,76 @@ async fn filenode_query_evaluates_operator_tree() {
     .expect_err("a nested body condition must not silently match");
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/query — MemoryBackend honours `sort` (bd:JMAP-yt1w.27).
+// Oracle: RFC 8620 §5.5 — the server sorts by the `sort` argument, else
+// "unsupportedSort: The sort is syntactically valid, but includes a
+// property the server does not support sorting on, or a collation method
+// it does not recognise." The expected order is read off the hand-written
+// names: "zebra" > "mango" > "apple" descending.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_query_applies_sort_or_rejects_it() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "a": { "@type": "Directory", "name": "apple", "parentId": null },
+                "m": { "@type": "Directory", "name": "mango", "parentId": null },
+                "z": { "@type": "Directory", "name": "zebra", "parentId": null }
+            }
+        }),
+        &[],
+    )
+    .await
+    .expect("create must succeed");
+    let id = |c: &str| {
+        set_resp["created"][c]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{c} must be created: {set_resp}"))
+            .to_owned()
+    };
+
+    let HandlerOutput {
+        primary: q_resp, ..
+    } = handle_filenode_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "sort": [{ "property": "name", "isAscending": false }]
+        }),
+    )
+    .await
+    .expect("query must succeed");
+    assert_eq!(
+        q_resp["ids"],
+        json!([id("z"), id("m"), id("a")]),
+        "{q_resp}"
+    );
+
+    for sort in [
+        json!([{ "property": "tree" }]),
+        json!([{ "property": "blobId" }]),
+        json!([{ "property": "name", "collation": "i;unicode-casemap" }]),
+    ] {
+        let err =
+            handle_filenode_query(&backend, &(), json!({ "accountId": "acc1", "sort": sort }))
+                .await
+                .expect_err("an unappliable sort must not be silently ignored");
+        assert_eq!(
+            err.error_type.to_string(),
+            "unsupportedSort",
+            "{sort}: {err:?}"
+        );
+    }
+}
