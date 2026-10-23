@@ -21,7 +21,7 @@
 //! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use jmap_mail_types::{
     Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxComparator,
@@ -32,7 +32,8 @@ use serde_json::{Value, json};
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
+    filter_properties, finalize_set_response, not_found_json, resolve_ref, serialize_value,
+    set_error_value,
 };
 use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -441,6 +442,64 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
     Ok(HandlerOutput::new(resp))
 }
 
+/// Replace a `#creationId` `parentId` in a Mailbox create or patch with
+/// the id it names (RFC 8620 §5.3).
+///
+/// # Errors
+///
+/// An `invalidProperties` [`SetError`] naming `parentId` when the
+/// reference matches no record created earlier in the request.
+fn resolve_parent_ref(
+    props: &mut Value,
+    created_ids: &BTreeMap<Id, Id>,
+) -> Result<(), Box<SetError>> {
+    if let Some(Value::String(parent)) = props.get_mut("parentId") {
+        *parent = resolve_ref(parent, "parentId", created_ids)?
+            .as_ref()
+            .to_owned();
+    }
+    Ok(())
+}
+
+/// Order a `Mailbox/set` create map so each create whose `parentId` is
+/// `#k` comes after the create `k` of the same call.
+///
+/// RFC 8620 §5.3: "In the case of records with references to the same
+/// type, the server MUST order the creates and updates within a single
+/// method call so that creates happen before their creation ids are
+/// referenced by another create/update/destroy in the same call."
+/// Creates caught in a reference cycle keep their map order and fail to
+/// resolve.
+///
+/// ponytail: repeated passes, O(n^2) in the create count, which
+/// `maxObjectsInSet` bounds; a topological sort is the upgrade path.
+fn parents_first(creates: &serde_json::Map<String, Value>) -> Vec<(&String, &Value)> {
+    let mut pending: Vec<(&String, &Value)> = creates.iter().collect();
+    let mut ordered: Vec<(&String, &Value)> = Vec::with_capacity(pending.len());
+    loop {
+        let before = pending.len();
+        pending.retain(|&(create_id, props)| {
+            let waits = props
+                .get("parentId")
+                .and_then(Value::as_str)
+                .and_then(|p| p.strip_prefix('#'))
+                .is_some_and(|parent| {
+                    parent != create_id.as_str()
+                        && creates.contains_key(parent)
+                        && !ordered.iter().any(|(done, _)| done.as_str() == parent)
+                });
+            if !waits {
+                ordered.push((create_id, props));
+            }
+            waits
+        });
+        if pending.is_empty() || pending.len() == before {
+            ordered.extend(pending);
+            return ordered;
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Mailbox/set (RFC 8621 §2.5)
 // ---------------------------------------------------------------------------
@@ -459,11 +518,15 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
 /// - role uniqueness per account
 /// - server-set field immutability on update
 /// - `onDestroyRemoveEmails` cascade logic
+/// - `parentId` `#creationId` references (RFC 8620 §5.3), resolved against
+///   `created_ids` (pass [`jmap_server::CallContext::created_ids`]) and
+///   against the creates of this call, which run parents first
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -548,13 +611,22 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
+    // RFC 8620 §5.3: creates of this call join the request-wide map so
+    // later creates and updates in this call can reference them.
+    let mut created_ids = created_ids.clone();
 
     if let Some(Value::Object(creates)) = args.get("create") {
-        for (create_id, props) in creates {
+        for (create_id, props) in parents_first(creates) {
             if let Some(err) = props.as_object().and_then(reject_server_set::<Mailbox>) {
                 not_created.insert(create_id.clone(), set_error_value(&err));
                 continue;
             }
+            let mut props = props.clone();
+            if let Err(err) = resolve_parent_ref(&mut props, &created_ids) {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
+            let props = &props;
             // name is required.
             if props.get("name").and_then(|v| v.as_str()).is_none() {
                 not_created.insert(
@@ -639,9 +711,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .create_object::<Mailbox, _>(caller, &account_id, create_id, build)
                         .await
                     {
-                        Ok((_id, obj)) => {
+                        Ok((id, obj)) => {
                             let obj_val = serde_json::to_value(&obj)
                                 .expect("derive(Serialize) on plain data is infallible");
+                            created_ids.insert(Id::from(create_id.as_str()), id);
                             created.insert(create_id.clone(), obj_val);
                         }
                         Err(e) => {
@@ -713,11 +786,22 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // Pass 2 runs everything else (including role-claiming patches).
         // This ordering allows a single request to swap roles atomically
         // (RFC 8621 §2.5).
-        let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates.into_iter().partition(|(_, v)| {
-            v.as_object()
-                .and_then(|o| o.get("role"))
-                .is_some_and(|v| v.is_null())
-        });
+        let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates
+            .into_iter()
+            .filter_map(|(id_str, mut patch_val)| {
+                match resolve_parent_ref(&mut patch_val, &created_ids) {
+                    Ok(()) => Some((id_str, patch_val)),
+                    Err(err) => {
+                        not_updated.insert(id_str, set_error_value(&err));
+                        None
+                    }
+                }
+            })
+            .partition(|(_, v)| {
+                v.as_object()
+                    .and_then(|o| o.get("role"))
+                    .is_some_and(|v| v.is_null())
+            });
 
         // Returns the InvalidProperties error value if `patch` names a
         // server-set Mailbox property (RFC 8621 §2), or None if the patch is
