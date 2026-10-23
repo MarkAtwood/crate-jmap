@@ -21,8 +21,8 @@
 //! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
 //! §3.6.2 and §5):
 //!
-//! - every handler: `accountNotFound`, `invalidArguments`,
-//!   `requestTooLarge`, `serverFail`.
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/parse`: `requestTooLarge` past `max_mdn_parse_blob_ids`.
 //!
 //! Per-target failures inside `/send` surface in the `notSent` map within
 //! `Ok((Value, ...))`, not as `Err`.
