@@ -910,10 +910,10 @@ pub trait ChatBackend: JmapBackend {
     ///   (draft-atwood-jmap-chat-00 §Message/set: "enqueues the message for
     ///   outbound delivery").
     /// - `Message/set` update setting `deletedForAll: true`:
-    ///   [`OutboundEvent::Retract`](crate::OutboundEvent::Retract), after validation and *before* the
-    ///   update is written (§Peer/retract "Sender Behavior": "before
-    ///   marking the local record"). If the write then fails, the event
-    ///   has still been reported.
+    ///   [`OutboundEvent::Retract`](crate::OutboundEvent::Retract), after the update is written
+    ///   (§Peer/retract "Sender Behavior": "the server MUST send
+    ///   `Peer/retract` to the server of every other participant in the
+    ///   Chat"). If the write fails, nothing is reported.
     /// - `Message/set` update editing `body`, `bodyType`, `mentions` or
     ///   `broadcastMentions` and not deleting the Message:
     ///   [`OutboundEvent::Edit`](crate::OutboundEvent::Edit), after the update is written.
