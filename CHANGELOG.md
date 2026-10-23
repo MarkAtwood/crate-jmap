@@ -3574,6 +3574,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-filenode-server**: **BREAKING** (wire) `MemoryBackend`
+  `FileNode/query` applies `sort` instead of always ordering by id
+  (RFC 8620 §5.5). It sorts by `name`, `mediaType`, `size`, `created`,
+  `modified` and `nodeType`, with nodes lacking a property first when
+  ascending (draft-ietf-jmap-filenode-16 §3.2.5), and answers `tree`, any
+  other property, or a collation other than `i;octet` with
+  `unsupportedSort`.
+
 - **jmap-sharing-server**, **jmap-tasks-server**: the README Gotchas no
   longer say no storage backend ships (sharing also named the private
   test-only `MockBackend`). They describe the public `memory::MemoryBackend`
