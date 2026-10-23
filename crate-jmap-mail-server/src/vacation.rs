@@ -102,7 +102,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
         .collect();
 
     // Fetch the singleton from the backend.
-    // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
+    // Id::from: SINGLETON_ID is a constant RFC 8620 §1.2 Id, not wire input.
     let singleton_id = Id::from(SINGLETON_ID);
     let (list, _) = backend
         .get_objects::<VacationResponse>(caller, &account_id, Some(&[singleton_id]), None)

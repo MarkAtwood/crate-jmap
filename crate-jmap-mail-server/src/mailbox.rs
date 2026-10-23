@@ -217,8 +217,10 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // RFC 8620 §5.5: anchor-based pagination overrides position.
     let anchor: Option<jmap_types::Id> = match args.get("anchor") {
         None | Some(Value::Null) => None,
-        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-        Some(Value::String(s)) => Some(jmap_types::Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            jmap_types::Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("anchor: {e}")))?,
+        ),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
@@ -377,7 +379,10 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
 
     let up_to_id: Option<Id> = match args.get("upToId") {
         None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("upToId: {e}")))?,
+        ),
         Some(_) => {
             return Err(JmapError::invalid_arguments(
                 "upToId must be a string Id or null",
@@ -523,10 +528,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     .and_then(|o| o.get("role"))
                     .is_some_and(|v| v.is_null());
                 if sets_role_null {
-                    let id = Id::from(id_str.as_str());
                     if let Some(role) = all_mailboxes
                         .iter()
-                        .find(|m| m.id == id)
+                        .find(|m| m.id.as_ref() == id_str.as_str())
                         .and_then(|m| m.role.as_ref())
                         .map(|r| r.to_wire_str().to_owned())
                     {
@@ -741,7 +745,13 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---
         for (id_str, patch_val) in vacating {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -810,7 +820,13 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
         // --- Pass 2: non-vacating updates ---
         for (id_str, patch_val) in non_vacating {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -933,7 +949,13 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Check for child mailboxes using the post-create snapshot.
             let has_child = mailboxes_after_mutations
@@ -1162,7 +1184,9 @@ fn build_mailbox_from_props(props: &Value) -> Result<impl FnOnce(&Id) -> Mailbox
     // rather than be silently dropped.
     let parent_id = match props.get("parentId") {
         None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => {
+            Some(jmap_server::parse_wire_id(s, "parentId").map_err(|e| set_error_value(&e))?)
+        }
         Some(_) => {
             return Err(set_error_value(
                 &SetError::new(SetErrorType::InvalidProperties)

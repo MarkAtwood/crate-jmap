@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `parse_wire_id(raw, property)` validates a client-supplied
+  id against RFC 8620 §1.2 and returns an `invalidProperties` SetError naming
+  `property` when it is not an Id (bd JMAP-k9va).
 - **jmap-server**: `Dispatcher::dispatch` emits one `tracing::error!` event
   when a method handler panics, with only the `method` and `call_id` fields
   (never the panic payload or the arguments), so operators can tell a caught
@@ -1394,6 +1397,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server**, **jmap-mail-server**: wire ids are validated
+  against RFC 8620 §1.2 (1-255 octets of `A-Za-z0-9-_`) instead of being
+  wrapped unchecked with `Id::from` (bd JMAP-k9va). A malformed `/set`
+  `update` key or `destroy` element now fails that entry with
+  `invalidProperties` (`properties: ["id"]`) instead of reaching the
+  backend; a malformed Id-typed create or patch property (`parentId`,
+  `mailboxIds` keys, `identityId`, `emailId`, `blobId`, `Email/copy` `id`)
+  fails with `invalidProperties` naming it; a malformed `anchor`, `upToId`,
+  `fromAccountId` or `SieveScript/validate` `blobId` argument is
+  `invalidArguments`. `query_anchor_args` returns `invalidArguments` for a
+  malformed `anchor` where it used to pass it through to `anchorNotFound`.
 - **jmap-calendars-server**: **BREAKING** `AvailabilityError` and
   `QueryCalendarEventsError` are removed. `get_availability` and
   `query_calendar_events` return `jmap_server::BackendQueryError<Self::Error>`,

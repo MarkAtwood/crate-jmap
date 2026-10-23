@@ -15022,3 +15022,56 @@ async fn mailbox_set_update_inside_server_set_property_rejected() {
         "{upd_resp}"
     );
 }
+
+/// Oracle: RFC 8620 §1.2, an Id "MUST only contain characters from the 'URL
+/// and Filename Safe' base64 alphabet". `"bad id"` (space) is not an Id, so
+/// each /set entry naming it fails with `invalidProperties` and a /query
+/// `anchor` naming it is `invalidArguments` (RFC 8620 §3.6.2).
+#[tokio::test]
+async fn mailbox_set_and_query_reject_malformed_ids() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+
+    let set_args = serde_json::json!({
+        "accountId": "acct1",
+        "create": { "c0": { "name": "Child", "parentId": "bad id" } },
+        "update": { "bad id": { "name": "x" } },
+        "destroy": ["bad id"]
+    });
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), set_args)
+        .await
+        .expect("Mailbox/set must not error");
+    assert_eq!(
+        resp["notCreated"]["c0"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c0"]["properties"],
+        serde_json::json!(["parentId"])
+    );
+    assert_eq!(
+        resp["notUpdated"]["bad id"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notUpdated"]["bad id"]["properties"],
+        serde_json::json!(["id"])
+    );
+    assert_eq!(
+        resp["notDestroyed"]["bad id"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notDestroyed"]["bad id"]["properties"],
+        serde_json::json!(["id"])
+    );
+
+    let query_args = serde_json::json!({ "accountId": "acct1", "anchor": "bad id" });
+    let err = handle_mailbox_query(&backend, &(), query_args)
+        .await
+        .expect_err("a malformed anchor must be rejected");
+    assert_eq!(
+        err.error_type,
+        jmap_types::MethodErrorType::InvalidArguments
+    );
+}

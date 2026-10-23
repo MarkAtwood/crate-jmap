@@ -841,14 +841,16 @@ pub fn resolve_query_offset(position: i64, total: usize) -> usize {
 ///
 /// # Errors
 ///
-/// `invalidArguments` when `anchor` is neither a string nor `null`, or
-/// `anchorOffset` is neither an integer nor `null`.
+/// `invalidArguments` when `anchor` is neither a string nor `null`, is a
+/// string that is not an RFC 8620 §1.2 Id, or `anchorOffset` is neither an
+/// integer nor `null`.
 pub fn query_anchor_args(args: &Map<String, Value>) -> Result<(Option<Id>, i64), JmapError> {
     let anchor = match args.get("anchor") {
         None | Some(Value::Null) => None,
-        // Id::from: wire-boundary validation deferred to JMAP-k9va; a
-        // malformed id is never in the results, so it is anchorNotFound.
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("anchor: {e}")))?,
+        ),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
@@ -1182,14 +1184,39 @@ pub fn resolve_creation_ref(
     }
 }
 
+/// Parse a client-supplied id: a `/set` `update` key, a `destroy` element
+/// or an Id-typed property value.
+///
+/// RFC 8620 §1.2: an Id "MUST be at least 1 and a maximum of 255 octets in
+/// size, and it MUST only contain characters from the 'URL and Filename
+/// Safe' base64 alphabet". [`Id::from`] does not check this, so every
+/// handler routes wire ids through here instead.
+///
+/// # Errors
+///
+/// A boxed `invalidProperties` [`SetError`] naming `property` (`"id"` for an
+/// `update` key or `destroy` element) whose description says why the
+/// value is not an Id. The caller records it in `notCreated`,
+/// `notUpdated` or `notDestroyed` for that entry.
+pub fn parse_wire_id(raw: &str, property: &str) -> Result<Id, Box<SetError>> {
+    Id::new_validated(raw).map_err(|e| {
+        Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties([property])
+                .with_description(e.to_string()),
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
         extract_account_id, filter_arg, is_client_updatable, json_merge_patch, now_utc_string,
-        parse_max_changes, reject_did_bearing_properties, reject_read_only_patch,
-        reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
-        utc_date_from_epoch_seconds, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
+        parse_max_changes, parse_wire_id, query_anchor_args, reject_did_bearing_properties,
+        reject_read_only_patch, reject_server_set, resolve_creation_ref, resolve_query_offset,
+        resolve_query_start, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
+        MAX_MERGE_PATCH_DEPTH,
     };
     use jmap_types::{Id, PushSubscription};
     use serde_json::json;
@@ -1296,6 +1323,47 @@ mod tests {
         );
         assert_eq!(resolve_creation_ref("k15", &created), Some(Id::from("k15")));
         assert_eq!(resolve_creation_ref("#k16", &created), None);
+    }
+
+    /// RFC 8620 §1.2: 1 to 255 octets from `A-Za-z0-9`, `-` and `_`.
+    #[test]
+    fn parse_wire_id_enforces_rfc8620_id_syntax() {
+        assert_eq!(parse_wire_id("aZ09-_", "id"), Ok(Id::from("aZ09-_")));
+        assert!(parse_wire_id(&"a".repeat(255), "id").is_ok());
+        for bad in [
+            "",
+            "has space",
+            "line\nbreak",
+            "#c1",
+            "a=",
+            &"a".repeat(256),
+        ] {
+            let err = parse_wire_id(bad, "mailboxId").unwrap_err();
+            assert_eq!(
+                serde_json::to_value(&err).unwrap()["type"],
+                "invalidProperties",
+                "{bad:?}"
+            );
+            assert_eq!(
+                err.properties.as_deref(),
+                Some(&["mailboxId".to_owned()][..])
+            );
+        }
+    }
+
+    #[test]
+    fn query_anchor_args_rejects_non_id_anchor() {
+        let args = serde_json::json!({ "anchor": "not an id" });
+        let err = query_anchor_args(args.as_object().unwrap()).unwrap_err();
+        assert_eq!(
+            err.error_type,
+            jmap_types::MethodErrorType::InvalidArguments
+        );
+        let args = serde_json::json!({ "anchor": "m1", "anchorOffset": -1 });
+        assert_eq!(
+            query_anchor_args(args.as_object().unwrap()).unwrap(),
+            (Some(Id::from("m1")), -1)
+        );
     }
 
     #[derive(Debug, serde::Deserialize)]

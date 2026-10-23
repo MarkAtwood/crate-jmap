@@ -209,8 +209,10 @@ pub async fn handle_submission_query<B: MailBackend>(
     // RFC 8620 §5.5: anchor-based pagination overrides position.
     let anchor: Option<Id> = match args.get("anchor") {
         None | Some(Value::Null) => None,
-        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("anchor: {e}")))?,
+        ),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
@@ -341,7 +343,10 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 
     let up_to_id: Option<Id> = match args.get("upToId") {
         None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(Value::String(s)) => Some(
+            Id::new_validated(s.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("upToId: {e}")))?,
+        ),
         Some(_) => {
             return Err(JmapError::invalid_arguments(
                 "upToId must be a string Id or null",
@@ -462,20 +467,16 @@ pub async fn handle_submission_set<B: MailBackend>(
     if has_on_success {
         let mut non_ref_id_set: HashSet<Id> = HashSet::new();
         if let Some(m) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
-            for key in m.keys() {
-                if !key.starts_with('#') {
-                    non_ref_id_set.insert(Id::from(key.as_str()));
-                }
-            }
+            // `#` creation refs and malformed ids match no stored
+            // submission, so only valid literal ids are prefetched.
+            non_ref_id_set.extend(m.keys().filter_map(|k| Id::new_validated(k.as_str()).ok()));
         }
         if let Some(arr) = args.get("onSuccessDestroyEmail").and_then(|v| v.as_array()) {
-            for item in arr {
-                if let Some(s) = item.as_str() {
-                    if !s.starts_with('#') {
-                        non_ref_id_set.insert(Id::from(s));
-                    }
-                }
-            }
+            non_ref_id_set.extend(
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .filter_map(|s| Id::new_validated(s).ok()),
+            );
         }
         let non_ref_ids: Vec<Id> = non_ref_id_set.into_iter().collect();
         if !non_ref_ids.is_empty() {
@@ -534,7 +535,13 @@ pub async fn handle_submission_set<B: MailBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
@@ -599,7 +606,13 @@ pub async fn handle_submission_set<B: MailBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
             match backend
                 .destroy_object::<EmailSubmission>(caller, &account_id, &id)
                 .await
@@ -875,7 +888,8 @@ async fn process_create<B: MailBackend>(
                     .with_description("identityId is required"),
             ))
         })?;
-    let identity_id = Id::from(identity_id_str);
+    let identity_id =
+        jmap_server::parse_wire_id(identity_id_str, "identityId").map_err(CreateError::SetError)?;
 
     // Validate identityId references an existing Identity.
     let (identities, _) = backend
@@ -907,7 +921,8 @@ async fn process_create<B: MailBackend>(
                     .with_description("emailId is required"),
             ))
         })?;
-    let email_id = Id::from(email_id_str);
+    let email_id =
+        jmap_server::parse_wire_id(email_id_str, "emailId").map_err(CreateError::SetError)?;
 
     // Validate emailId references an existing Email and retrieve threadId.
     let (emails, _) = backend
