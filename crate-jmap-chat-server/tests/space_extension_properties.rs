@@ -137,6 +137,50 @@ async fn unregistered_property_is_invalid_properties() {
     );
 }
 
+/// The create half of `unregistered_property_is_invalid_properties`
+/// (bd:JMAP-zmqp): without the extension `calendarId` is not a Space
+/// property, so RFC 8620 §5.3 `invalidProperties` applies and no Space is
+/// created.
+#[tokio::test]
+async fn unregistered_property_on_create_is_invalid_properties() {
+    let backend = backend_with(&[]);
+    let resp = space_set(
+        &backend,
+        json!({ "accountId": ACCOUNT_ID, "create": { "s0": {
+            "name": "Team",
+            "calendarId": "cal-1",
+        } } }),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["s0"],
+        json!({ "type": "invalidProperties", "properties": ["calendarId"] }),
+        "{resp}"
+    );
+    assert!(resp["created"].get("s0").is_none(), "{resp}");
+}
+
+/// Create with one registered and one unregistered key names only the
+/// unregistered one.
+#[tokio::test]
+async fn only_registered_keys_are_accepted_on_create() {
+    let backend = backend_with(&["calendarId"]);
+    let resp = space_set(
+        &backend,
+        json!({ "accountId": ACCOUNT_ID, "create": { "s0": {
+            "name": "Team",
+            "calendarId": "cal-1",
+            "taskListId": "tl-1",
+        } } }),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["s0"],
+        json!({ "type": "invalidProperties", "properties": ["taskListId"] }),
+        "{resp}"
+    );
+}
+
 #[tokio::test]
 async fn only_registered_keys_are_accepted() {
     let backend = backend_with(&["calendarId"]);
@@ -165,8 +209,9 @@ async fn only_registered_keys_are_accepted() {
 /// core meaning." draft-atwood-jmap-chat-00 L820: Space `closedAt` is
 /// "server-set", so a listed `closedAt` on create is `invalidProperties`
 /// (RFC 8620 §1.1: "The client MUST NOT send this property when
-/// creating"). A listed structural key is not stored, while a listed
-/// extension key is.
+/// creating"). L1330-1334 lists the create keys (`name`, `description`,
+/// `iconBlobId`), so a listed structural key is not a create property and
+/// is `invalidProperties`, while a listed extension key is stored.
 #[tokio::test]
 async fn listed_core_property_is_not_stored_on_create() {
     let backend = backend_with(&["closedAt", "addRoles", "calendarId"]);
@@ -184,11 +229,25 @@ async fn listed_core_property_is_not_stored_on_create() {
         "{resp}"
     );
 
-    let id = create_space(&backend, json!({ "addRoles": [], "calendarId": "cal-1" })).await;
+    let resp = space_set(
+        &backend,
+        json!({ "accountId": ACCOUNT_ID, "create": { "s1": {
+            "name": "Team",
+            "addRoles": [],
+            "calendarId": "cal-1",
+        } } }),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["s1"],
+        json!({ "type": "invalidProperties", "properties": ["addRoles"] }),
+        "{resp}"
+    );
+
+    let id = create_space(&backend, json!({ "calendarId": "cal-1" })).await;
 
     let space = get_space(&backend, &id).await;
     assert!(space.get("closedAt").is_none(), "{space}");
-    assert!(space.get("addRoles").is_none(), "{space}");
     assert_eq!(space["calendarId"], "cal-1", "{space}");
 }
 
