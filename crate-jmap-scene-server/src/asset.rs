@@ -25,7 +25,6 @@ use crate::SceneBackend;
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, invalid, not_found, over_quota, reject_unsupported_sort,
-    set_error_value,
 };
 use jmap_server::{
     HandlerOutput, SetError, SetErrorType, backend_set_error_value, now_utc_string,
@@ -202,7 +201,8 @@ pub async fn handle_scene_asset_set<B: SceneBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -235,7 +235,7 @@ pub async fn handle_scene_asset_set<B: SceneBackend>(
                 Ok(id) => id,
                 Err(err) => {
                     acc.not_destroyed
-                        .insert(id_str.to_owned(), set_error_value(&err));
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -334,7 +334,7 @@ async fn create_asset<B: SceneBackend>(
     // "The server sets `id`, `accountId`, `ownerId`, `size`, and
     // `createdAt`."
     if let Some(e) = reject_server_set::<SceneAsset>(&m) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties are set by the server"),
         ));
     }
@@ -446,7 +446,9 @@ async fn update_asset<B: SceneBackend>(
     patch: Value,
 ) -> Result<Value, Value> {
     let patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
     fetch_modifiable(backend, caller, account_id, id).await?;
 
@@ -455,7 +457,7 @@ async fn update_asset<B: SceneBackend>(
     // property; vendor extension properties stay patchable
     // (§Extension Properties in Updates).
     if let Some(e) = reject_read_only_patch::<SceneAsset>(patch.as_map(), None) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties cannot be changed"),
         ));
     }
@@ -473,9 +475,8 @@ async fn update_asset<B: SceneBackend>(
         .await
         .map_err(backend_set_error_value)?
     {
-        Some(asset) => {
-            Ok(serde_json::to_value(asset).expect("derive(Serialize) on plain data is infallible"))
-        }
+        Some(asset) => Ok(jmap_server::serialize_value(asset)
+            .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?),
         None => Ok(Value::Null),
     }
 }

@@ -27,7 +27,6 @@ use crate::helpers::{
     SetAccumulators, check_region_filter, default_sort, enforce_max_objects_in_set,
     extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
     invalid, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
-    set_error_value,
 };
 use jmap_server::{
     HandlerOutput, SetError, SetErrorType, apply_patch_object, backend_set_error_value,
@@ -183,7 +182,8 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in create_map {
             if let Err(err) = resolve_refs(&mut obj, AVATAR_ID_PROPERTIES, created_ids) {
-                acc.not_created.insert(create_id, set_error_value(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             match enter_region(backend, caller, &account_id, &create_id, obj).await {
@@ -203,12 +203,14 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch, AVATAR_ID_PROPERTIES, created_ids) {
-                acc.not_updated.insert(id_str, set_error_value(&err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
             match update_avatar(backend, caller, &account_id, &id, patch).await {
@@ -380,7 +382,7 @@ async fn enter_region<B: SceneBackend>(
     // other server-set properties are refused.
     m.remove("userId");
     if let Some(e) = reject_server_set::<SceneAvatar>(&m) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties are set by the server"),
         ));
     }
@@ -451,7 +453,8 @@ async fn enter_region<B: SceneBackend>(
         })
         .await
         .map_err(backend_set_error_value)?;
-    Ok(serde_json::to_value(stored).expect("derive(Serialize) on plain data is infallible"))
+    jmap_server::serialize_value(stored)
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))
 }
 
 /// One §Updating Avatar State, §Leaving a Region or §Re-entering a Region.
@@ -472,7 +475,9 @@ async fn update_avatar<B: SceneBackend>(
     patch: Value,
 ) -> Result<Value, Value> {
     let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
     // "The avatar id does not exist or caller lacks access to the
     // containing region": `notFound`.
@@ -516,7 +521,7 @@ async fn update_avatar<B: SceneBackend>(
     // §SceneAvatar: `id`, `userId` and `joinedAt` are server-set, `regionId`
     // immutable.
     if let Some(e) = reject_read_only_patch::<SceneAvatar>(patch.as_map(), None) {
-        return Err(set_error_value(&e.with_description(
+        return Err(serde_json::Value::from(&e.with_description(
             "these properties are immutable or set by the server",
         )));
     }
@@ -588,13 +593,15 @@ async fn update_avatar<B: SceneBackend>(
         echo.insert("leftAt".to_owned(), now);
     }
 
-    let Value::Object(mut result) =
-        serde_json::to_value(&avatar).expect("derive(Serialize) on plain data is infallible")
+    let Value::Object(mut result) = jmap_server::serialize_value(&avatar)
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
     else {
         unreachable!("a SceneAvatar serializes as a JSON object")
     };
     apply_patch_object(&mut result, patch.as_map()).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
     refuse_malformed(malformed(&result))?;
     if touched("displayName") {
@@ -614,9 +621,8 @@ async fn update_avatar<B: SceneBackend>(
         .await
         .map_err(backend_set_error_value)?
     {
-        Some(avatar) => Ok(
-            serde_json::to_value(avatar).expect("derive(Serialize) on plain data is infallible")
-        ),
+        Some(avatar) => Ok(jmap_server::serialize_value(avatar)
+            .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?),
         None if echo.is_empty() => Ok(Value::Null),
         None => Ok(Value::Object(echo)),
     }

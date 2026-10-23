@@ -109,15 +109,6 @@ pub(crate) fn check_region_filter(
     condition(filter)
 }
 
-/// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
-/// `notDestroyed` map.
-///
-/// `SetError` is plain data with a derived `Serialize`, so the `.expect`
-/// is unreachable.
-pub(crate) fn set_error_value(e: &SetError) -> Value {
-    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
-}
-
 /// Resolve an Id-typed property value that may be a `#creationId`
 /// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
 ///
@@ -208,7 +199,7 @@ pub(crate) fn parents_first(
 /// An `invalidProperties` SetError naming `properties` (none when empty).
 pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
-    set_error_value(&if properties.is_empty() {
+    serde_json::Value::from(&if properties.is_empty() {
         err
     } else {
         err.with_properties(properties.iter().copied())
@@ -217,17 +208,17 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
 
 /// A `forbidden` SetError.
 pub(crate) fn forbidden(description: &str) -> Value {
-    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(description))
+    serde_json::Value::from(&SetError::new(SetErrorType::Forbidden).with_description(description))
 }
 
 /// A `notFound` SetError.
 pub(crate) fn not_found() -> Value {
-    set_error_value(&SetError::new(SetErrorType::NotFound))
+    serde_json::Value::from(&SetError::new(SetErrorType::NotFound))
 }
 
 /// An `overQuota` SetError.
 pub(crate) fn over_quota(description: &str) -> Value {
-    set_error_value(&SetError::new(SetErrorType::OverQuota).with_description(description))
+    serde_json::Value::from(&SetError::new(SetErrorType::OverQuota).with_description(description))
 }
 
 /// Fetch one object of type `O`, or `None` if the backend does not have it.
