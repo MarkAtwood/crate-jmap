@@ -2386,6 +2386,8 @@ dependencies = [
 name = "jmap-sharing-server"
 version = "0.3.0"
 dependencies = [
+ "jmap-metadata-server",
+ "jmap-metadata-types",
  "jmap-server",
  "jmap-sharing-server",
  "jmap-sharing-types",
@@ -2399,6 +2401,7 @@ dependencies = [
 name = "jmap-sharing-types"
 version = "0.3.0"
 dependencies = [
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",

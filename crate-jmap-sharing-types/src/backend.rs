@@ -69,11 +69,20 @@ impl GetObject for crate::Principal {}
 
 /// RFC 9670 §2 (rfc9670.txt:257, 287, 292): `id` is "(immutable;
 /// server-set)"; `capabilities` and `accounts` are "(server-set)".
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Principal {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &["id", "capabilities", "accounts"];
-    const CLIENT_SETTABLE: &'static [&'static str] =
-        &["type", "name", "description", "email", "timeZone"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "type",
+        "name",
+        "description",
+        "email",
+        "timeZone",
+        "metadata",
+        "privateMetadata",
+    ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
 
@@ -141,6 +150,8 @@ mod tests {
             time_zone: Some("Etc/UTC".into()),
             capabilities: BTreeMap::new(),
             accounts: Some(BTreeMap::new()),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

@@ -172,8 +172,12 @@ where
     //
     // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
     // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
+    //
+    // Each optional trailing ident binds the `CallContext` field of that
+    // name: `using`, the request's capability list
+    // (draft-ietf-jmap-metadata-04 §3).
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -182,6 +186,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
+                        $($field,)*
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -195,11 +200,11 @@ where
     reg!("Principal/get", backend, |b, _ci, a, ctx| {
         handle_principal_get(&*b, &ctx, a).await
     });
-    reg!("Principal/changes", backend, |b, _ci, a, ctx| {
-        handle_principal_changes(&*b, &ctx, a).await
+    reg!("Principal/changes", backend, |b, _ci, a, ctx, using| {
+        handle_principal_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Principal/set", backend, |b, _ci, a, ctx| {
-        handle_principal_set(&*b, &ctx, a).await
+    reg!("Principal/set", backend, |b, _ci, a, ctx, using| {
+        handle_principal_set(&*b, &ctx, a, &using).await
     });
     reg!("Principal/query", backend, |b, _ci, a, ctx| {
         handle_principal_query(&*b, &ctx, a).await

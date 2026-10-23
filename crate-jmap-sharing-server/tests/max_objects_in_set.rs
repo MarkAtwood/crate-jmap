@@ -71,7 +71,7 @@ async fn principal_set_over_limit_create_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_principal_set(&backend, &(), args)
+    let err = handle_principal_set(&backend, &(), args, &[])
         .await
         .expect_err("501-entry Principal/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
@@ -113,7 +113,7 @@ async fn principal_set_at_limit_passes_cap_check() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP),
     });
-    let result = handle_principal_set(&backend, &(), args).await;
+    let result = handle_principal_set(&backend, &(), args, &[]).await;
     if let Err(ref err) = result {
         assert_ne!(
             err.error_type.to_string(),
