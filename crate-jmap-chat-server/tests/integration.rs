@@ -2146,14 +2146,16 @@ async fn message_set_burn_on_read_fires_on_read_at() {
     assert_eq!(not_found.len(), 1);
     assert_eq!(not_found[0], msg_id);
 
-    // Message/changes from "0" must report the id as destroyed.
+    // Message/changes since the create must report the id as destroyed.
+    // From "0" the create is in the window too, and RFC 8620 §5.2 says the
+    // server SHOULD omit an id created AND destroyed since the old state.
     let HandlerOutput {
         primary: changes_resp,
         ..
     } = handle_message_changes(
         &backend,
         &(),
-        json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        json!({ "accountId": ACCOUNT_ID, "sinceState": create_resp["newState"] }),
     )
     .await
     .expect("changes");
@@ -2475,14 +2477,16 @@ async fn memory_backend_expire_message_direct_call() {
     assert_eq!(not_found.len(), 1);
     assert_eq!(not_found[0], msg_id_str);
 
-    // Message/changes must report the id as destroyed.
+    // Message/changes since the create must report the id as destroyed
+    // (RFC 8620 §5.2: an id created AND destroyed in the window SHOULD be
+    // omitted, so the window starts after the create).
     let HandlerOutput {
         primary: changes_resp,
         ..
     } = handle_message_changes(
         &backend,
         &(),
-        json!({ "accountId": ACCOUNT_ID, "sinceState": "0" }),
+        json!({ "accountId": ACCOUNT_ID, "sinceState": create_resp["newState"] }),
     )
     .await
     .expect("changes");

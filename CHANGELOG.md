@@ -3273,6 +3273,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**, **jmap-tasks-server**, **jmap-sharing-server**:
+  `MemoryBackend::get_changes` now omits an id created and destroyed in
+  the same window, the RFC 8620 §5.2 SHOULD path, instead of listing it
+  in `destroyed` (bd JMAP-cqy7). The three backends now use the
+  canonical jmap-mail-server `IdFate` rules.
 - **jmap-mail-server, jmap-chat-server, jmap-calendars-server,
   jmap-tasks-server, jmap-filenode-server, jmap-sharing-server,
   jmap-contacts-server**: README trait blocks match the source again:
