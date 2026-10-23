@@ -11,6 +11,8 @@ pub jmap_filenode_types::FileNodeComparatorProperty::NodeType
 pub jmap_filenode_types::FileNodeComparatorProperty::Other(alloc::string::String)
 pub jmap_filenode_types::FileNodeComparatorProperty::Size
 pub jmap_filenode_types::FileNodeComparatorProperty::Tree
+impl jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_filenode_types::FileNodeComparatorProperty
 pub fn jmap_filenode_types::FileNodeComparatorProperty::clone(&self) -> jmap_filenode_types::FileNodeComparatorProperty
 impl core::cmp::Eq for jmap_filenode_types::FileNodeComparatorProperty
@@ -72,6 +74,8 @@ pub jmap_filenode_types::NodeRole::Temp
 pub jmap_filenode_types::NodeRole::Trash
 pub jmap_filenode_types::NodeRole::Videos
 impl jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::as_str(&self) -> &str
+impl jmap_filenode_types::NodeRole
 pub fn jmap_filenode_types::NodeRole::to_wire_str(&self) -> &str
 impl core::clone::Clone for jmap_filenode_types::NodeRole
 pub fn jmap_filenode_types::NodeRole::clone(&self) -> jmap_filenode_types::NodeRole
@@ -98,6 +102,8 @@ pub jmap_filenode_types::NodeType::Directory
 pub jmap_filenode_types::NodeType::File
 pub jmap_filenode_types::NodeType::Other(alloc::string::String)
 pub jmap_filenode_types::NodeType::Symlink
+impl jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::as_str(&self) -> &str
 impl jmap_filenode_types::NodeType
 pub fn jmap_filenode_types::NodeType::to_wire_str(&self) -> &str
 impl core::clone::Clone for jmap_filenode_types::NodeType
@@ -130,11 +136,13 @@ pub jmap_filenode_types::FileNode::extra: serde_json::map::Map<alloc::string::St
 pub jmap_filenode_types::FileNode::id: jmap_types::id::Id
 pub jmap_filenode_types::FileNode::is_subscribed: core::option::Option<bool>
 pub jmap_filenode_types::FileNode::media_type: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNode::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_filenode_types::FileNode::modified: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_filenode_types::FileNode::my_rights: core::option::Option<jmap_filenode_types::FilesRights>
 pub jmap_filenode_types::FileNode::name: alloc::string::String
 pub jmap_filenode_types::FileNode::node_type: core::option::Option<jmap_filenode_types::NodeType>
 pub jmap_filenode_types::FileNode::parent_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNode::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_filenode_types::FileNode::role: core::option::Option<jmap_filenode_types::NodeRole>
 pub jmap_filenode_types::FileNode::sha256: core::option::Option<jmap_cid_types::digest::Sha256>
 pub jmap_filenode_types::FileNode::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_filenode_types::FilesRights>>
@@ -220,6 +228,9 @@ pub jmap_filenode_types::FileNodeFilterCondition::is_top_level: core::option::Op
 pub jmap_filenode_types::FileNodeFilterCondition::max_size: core::option::Option<u64>
 pub jmap_filenode_types::FileNodeFilterCondition::media_type: core::option::Option<alloc::string::String>
 pub jmap_filenode_types::FileNodeFilterCondition::media_type_match: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_filenode_types::FileNodeFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_filenode_types::FileNodeFilterCondition::min_size: core::option::Option<u64>
 pub jmap_filenode_types::FileNodeFilterCondition::modified_after: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_filenode_types::FileNodeFilterCondition::modified_before: core::option::Option<jmap_types::id::UTCDate>
@@ -227,9 +238,14 @@ pub jmap_filenode_types::FileNodeFilterCondition::name: core::option::Option<all
 pub jmap_filenode_types::FileNodeFilterCondition::name_match: core::option::Option<alloc::string::String>
 pub jmap_filenode_types::FileNodeFilterCondition::node_type: core::option::Option<jmap_filenode_types::NodeType>
 pub jmap_filenode_types::FileNodeFilterCondition::parent_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNodeFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_filenode_types::FileNodeFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_filenode_types::FileNodeFilterCondition::role: core::option::Option<jmap_filenode_types::NodeRole>
 pub jmap_filenode_types::FileNodeFilterCondition::space_id: core::option::Option<jmap_types::id::Id>
 pub jmap_filenode_types::FileNodeFilterCondition::text: core::option::Option<alloc::string::String>
+impl jmap_filenode_types::FileNodeFilterCondition
+pub fn jmap_filenode_types::FileNodeFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_filenode_types::FileNodeFilterCondition
 pub fn jmap_filenode_types::FileNodeFilterCondition::clone(&self) -> jmap_filenode_types::FileNodeFilterCondition
 impl core::default::Default for jmap_filenode_types::FileNodeFilterCondition

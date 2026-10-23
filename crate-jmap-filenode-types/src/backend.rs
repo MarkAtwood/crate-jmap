@@ -67,6 +67,8 @@ impl GetObject for crate::FileNode {}
 /// SHA-256 digest of the stored blob content". draft-atwood-jmap-chat-
 /// filenode-00 §The `spaceId` Extension Property: `spaceId` is "Supplied
 /// by the client at creation and treated as immutable thereafter".
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::FileNode {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &["id", "changed", "myRights", "size", "sha256"];
@@ -85,6 +87,8 @@ impl SetObject for crate::FileNode {
         "role",
         "target",
         "spaceId",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &["@type", "spaceId"];
 }
@@ -142,6 +146,8 @@ mod tests {
             share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
             role: Some(de(json!("chatspace"))),
             space_id: Some(Id::from("s1")),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

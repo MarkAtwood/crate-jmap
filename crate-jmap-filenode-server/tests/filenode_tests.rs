@@ -58,7 +58,7 @@ async fn filenode_set_create_without_type_is_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("set must not return top-level error");
 
@@ -101,7 +101,7 @@ async fn filenode_set_create_file_requires_blobid() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("set must not return top-level error");
 
@@ -142,7 +142,7 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("set must not return top-level error");
 
@@ -186,7 +186,7 @@ async fn filenode_set_destroy_parent_node_has_children() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("set must not return top-level error");
 
@@ -229,7 +229,7 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("set must not return top-level error");
 
@@ -280,7 +280,7 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("set must not return top-level error");
 
@@ -348,7 +348,7 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("set must not return top-level error");
 
@@ -394,9 +394,15 @@ async fn filenode_get_returns_created_node() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), set_args)
-        .await
-        .expect("set must succeed");
+    } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        set_args,
+        &[],
+    )
+    .await
+    .expect("set must succeed");
 
     let server_id = set_resp["created"]["c1"]["id"]
         .as_str()
@@ -453,6 +459,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
                 "p1": { "@type": "Directory", "name": "parent", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("create parent must succeed");
@@ -469,7 +476,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
             "create": {
                 "c1": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("create child must succeed");
@@ -535,6 +542,7 @@ async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
                 &node_id: ["this is not a JSON object"]
             }
         }),
+        &[],
     )
     .await
     .expect("set must succeed at the method level");
@@ -615,6 +623,7 @@ async fn filenode_query_depth_one_returns_children() {
                 "d1": { "@type": "Directory", "name": "topdir", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("create dir must succeed");
@@ -636,6 +645,7 @@ async fn filenode_query_depth_one_returns_children() {
                 "ch2": { "@type": "Directory", "name": "beta",  "parentId": &dir_id, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("create children must succeed");
@@ -708,6 +718,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
                 "c1": { "@type": "Directory", "name": "newnode", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("set must succeed");
@@ -728,6 +739,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
             "accountId": "acc1",
             "sinceState": &pre_state
         }),
+        &[],
     )
     .await
     .expect("changes must succeed");
@@ -760,6 +772,7 @@ async fn filenode_changes_unparseable_since_state_cannot_calculate() {
             "accountId": "acc1",
             "sinceState": "bogus-non-numeric-state"
         }),
+        &[],
     )
     .await
     .expect_err("unparseable sinceState must produce a JmapError");
@@ -798,6 +811,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
                 "p": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed parent must succeed");
@@ -819,6 +833,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
                 "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed child must succeed");
@@ -840,7 +855,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
             "create": {
                 "new": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("replace+cascade must succeed");
@@ -891,6 +906,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
                 "p": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed parent must succeed");
@@ -909,6 +925,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
                 "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed child must succeed");
@@ -922,7 +939,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
             "create": {
                 "new": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("must not return top-level error");
@@ -963,7 +980,7 @@ async fn create_node(
             "create": {
                 create_id: { "@type": "Directory", "name": name, "parentId": parent_id, "role": null }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("seed node must succeed");
@@ -2086,7 +2103,7 @@ async fn filenode_query_role_filter_excludes_non_matching() {
                 "d2": { "@type": "Directory", "name": "downloads", "parentId": null, "role": "downloads" },
                 "d3": { "@type": "Directory", "name": "no-role",    "parentId": null, "role": null }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("create must succeed");
@@ -2170,6 +2187,7 @@ async fn filenode_set_state_advances_on_successful_create() {
                 "c1": { "@type": "Directory", "name": "first", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("set must succeed");
@@ -2214,6 +2232,7 @@ async fn filenode_set_state_stays_when_all_creates_fail() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("set must not return top-level error");
@@ -2261,7 +2280,7 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
                     // intentionally missing blobId
                 }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("set must not return top-level error");
@@ -2293,6 +2312,7 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
             "accountId": "acc1",
             "sinceState": &new
         }),
+        &[],
     )
     .await
     .expect("changes must succeed");
@@ -2375,6 +2395,7 @@ async fn filenode_set_on_exists_newest_incoming_wins() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2424,6 +2445,7 @@ async fn filenode_set_on_exists_newest_existing_wins() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2470,6 +2492,7 @@ async fn filenode_set_on_exists_newest_both_missing_modified() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2570,6 +2593,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
                 "p": { "@type": "Directory", "name": "shared", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed parent must succeed");
@@ -2588,6 +2612,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
                 "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed child must succeed");
@@ -2611,6 +2636,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2646,6 +2672,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
                 "p": { "@type": "Directory", "name": "shared", "parentId": null, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed parent must succeed");
@@ -2667,6 +2694,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
                 "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
+        &[],
     )
     .await
     .expect("seed child must succeed");
@@ -2695,6 +2723,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2752,6 +2781,7 @@ async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2834,6 +2864,7 @@ async fn filenode_set_unsupported_type_description_names_values() {
             "accountId": "acc1",
             "create": { "c1": { "@type": "directory", "name": "d" } }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2871,6 +2902,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
             "accountId": "acc1",
             "create": { "l": { "@type": "SymLink", "name": "l", "target": ["d"] } }
         }),
+        &[],
     )
     .await
     .expect("symlink create must not return top-level error");
@@ -2890,6 +2922,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
                 &link_id: { "executable": true }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2934,6 +2967,7 @@ async fn filenode_set_update_ignores_null_other_type_properties() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2964,6 +2998,7 @@ async fn filenode_set_update_rejects_other_type_pointer_key() {
             "accountId": "acc1",
             "update": { &dir_id: { "mediaType/x": "text/plain" } }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2997,6 +3032,7 @@ async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
                 &ctl_id: { "mediaType": null }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3029,6 +3065,7 @@ async fn filenode_set_update_rejects_type_change() {
             "accountId": "acc1",
             "update": { &dir_id: { "@type": "SymLink" } }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3079,6 +3116,7 @@ async fn assert_invalid_create_keeps_existing(on_exists: &str) {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3131,7 +3169,7 @@ async fn filenode_set_create_rejects_other_type_property() {
                 "d": { "@type": "Directory", "name": "d", "parentId": null, "mediaType": "text/plain" },
                 "f": { "@type": "File", "name": "f", "parentId": null, "blobId": "b1", "role": "trash" }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3166,6 +3204,7 @@ async fn filenode_set_create_ignores_null_other_type_property() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3208,6 +3247,7 @@ async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "create": create }),
+        &[],
     )
     .await
     .expect("seed create must not return top-level error");
@@ -3244,6 +3284,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
             "accountId": "acc1",
             "update": { id: { "modified": null, "accessed": null } }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3297,6 +3338,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3334,6 +3376,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { &id: { "name": null } } }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3385,6 +3428,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3480,6 +3524,7 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3537,6 +3582,7 @@ async fn filenode_query_space_id_returns_only_matching_space_root() {
                         "role": "chatspace", "spaceId": "S2" }
             }
         }),
+        &[],
     )
     .await
     .expect("create Space roots must succeed");
@@ -3594,6 +3640,7 @@ async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
                        "role": "chatspace", "spaceId": space_id }
             }
         }),
+        &[],
     )
     .await
     .expect("create Space root must succeed");
@@ -3631,6 +3678,7 @@ async fn filenode_set_create_space_id_on_non_root_rejected() {
                                "role": "documents", "spaceId": "S1" }
             }
         }),
+        &[],
     )
     .await
     .expect("FileNode/set must succeed");
@@ -3662,6 +3710,7 @@ async fn filenode_set_update_space_id_rejected() {
             &(),
             &std::collections::BTreeMap::new(),
             json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
+            &[],
         )
         .await
         .expect("FileNode/set must succeed");
@@ -3685,6 +3734,7 @@ async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { "d1": { "spaceId": "S1" } } }),
+        &[],
     )
     .await
     .expect("FileNode/set must succeed");
@@ -3705,6 +3755,7 @@ async fn filenode_set_update_role_off_space_root_rejected() {
             &(),
             &std::collections::BTreeMap::new(),
             json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
+            &[],
         )
         .await
         .expect("FileNode/set must succeed");
@@ -3736,6 +3787,7 @@ async fn filenode_set_update_role_to_chatspace_rejected() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { "d1": { "role": "chatspace" } } }),
+        &[],
     )
     .await
     .expect("FileNode/set must succeed");
@@ -3765,6 +3817,7 @@ async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
         &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1",
                 "update": { root.clone(): { "role": "chatspace", "name": "renamed" } } }),
+        &[],
     )
     .await
     .expect("FileNode/set must succeed");
@@ -3800,7 +3853,7 @@ async fn filenode_query_evaluates_operator_tree() {
                 "d2": { "@type": "Directory", "name": "downloads", "parentId": null, "role": "downloads" },
                 "d3": { "@type": "Directory", "name": "no-role",    "parentId": null, "role": null }
             }
-        }),
+        }), &[],
     )
     .await
     .expect("create must succeed");

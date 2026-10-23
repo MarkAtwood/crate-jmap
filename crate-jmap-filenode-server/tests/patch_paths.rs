@@ -71,6 +71,7 @@ async fn assert_invalid_patch(bad_patch: Value, ok_patch: Value) {
             "accountId": "acc1",
             "update": { "bad": bad_patch, "ok": ok_patch }
         }),
+        &[],
     )
     .await
     .expect("must not return top-level error");

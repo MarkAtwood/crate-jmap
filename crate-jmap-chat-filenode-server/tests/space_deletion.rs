@@ -120,6 +120,7 @@ async fn destroy_is_a_filenode_state_change() {
         &files,
         &(),
         json!({ "accountId": ACCOUNT, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("FileNode/changes");
@@ -133,6 +134,7 @@ async fn destroy_is_a_filenode_state_change() {
         &files,
         &(),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
+        &[],
     )
     .await
     .expect("FileNode/changes");

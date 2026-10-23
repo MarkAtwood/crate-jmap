@@ -171,7 +171,8 @@ pub struct FilesRights {
 ///
 /// `parentId` and `shareWith` are required-and-nullable: always emitted, as `null`
 /// when `None`.  `@type`, `created`, `modified`, `accessed`, `changed`,
-/// `isSubscribed`, and `myRights` are omitted when `None`.
+/// `isSubscribed`, `myRights`, `metadata` and `privateMetadata` are omitted
+/// when `None`.
 ///
 /// ## `modified` and `accessed` semantics
 ///
@@ -301,6 +302,20 @@ pub struct FileNode {
     /// `None`.
     pub space_id: Option<Id>,
 
+    /// Shared metadata, keyed by namespace identifier
+    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// `None`. Absent from wire when `None`.
+    #[serde(default)]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+
+    /// The authenticated user's own metadata, keyed by namespace
+    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// handling as [`metadata`](Self::metadata).
+    #[serde(default)]
+    pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
+
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -347,6 +362,10 @@ impl Serialize for FileNode {
             role: Option<Option<&'a NodeRole>>,
             #[serde(skip_serializing_if = "Option::is_none")]
             space_id: Option<&'a Id>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            metadata: Option<&'a serde_json::Map<String, serde_json::Value>>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            private_metadata: Option<&'a serde_json::Map<String, serde_json::Value>>,
             #[serde(flatten)]
             extra: &'a serde_json::Map<String, serde_json::Value>,
         }
@@ -371,6 +390,8 @@ impl Serialize for FileNode {
             share_with,
             role,
             space_id,
+            metadata,
+            private_metadata,
             extra,
         } = self;
 
@@ -414,6 +435,8 @@ impl Serialize for FileNode {
             share_with: share_with.as_ref(),
             role: wire_role,
             space_id: space_id.as_ref(),
+            metadata: metadata.as_ref(),
+            private_metadata: private_metadata.as_ref(),
             extra,
         }
         .serialize(serializer)

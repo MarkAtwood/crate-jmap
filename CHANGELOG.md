@@ -14,6 +14,33 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
+  FileNode (-04 §4.1 names it among the types with a rights object).
+  `handle_filenode_set` and `handle_filenode_changes` take the request's
+  `using` list as a new last argument (`register_filenode_handlers` passes
+  `CallContext::using`), with the same `/changes` and `/set` checks as
+  jmap-mail-server. Creates store the `metadata` they carry. The in-memory
+  backend opts FileNode in with
+  `MemoryBackend::with_metadata_info("FileNode", info)` (panics for other
+  types or `supportsPrivate: true`); nothing is enabled by default. Opted
+  in, `FileNode/query` evaluates the -04 §3.6 shared-metadata conditions in
+  any leaf of the filter tree, and writes are validated in -04 §3.2 rule
+  order (request-only `invalidPatch`, `notFound`, `forbidden` when the
+  node's `myRights.maySetMetadata` is false, then namespace and `maxDepth`
+  checks). An update's `metadata: null` is stored as `{}`, `changed` is
+  left alone (-04 §3.1), and metadata-only updates are dropped from
+  `/changes` under `ignoreMetadataOnlyChanges` without counting toward
+  `maxChanges`. When FileNode is not opted in, metadata writes are
+  `invalidProperties` and metadata filters `unsupportedFilter`; before
+  this change a metadata write was silently kept in `extra` (bd
+  JMAP-s4kp.6).
+- **jmap-filenode-types**: **BREAKING** draft-ietf-jmap-metadata-04 fields
+  on FileNode: typed `metadata` and `privateMetadata`
+  (`Option<Map<String, Value>>`, -04 §2; `null` decodes as absent, a
+  non-object fails), classified `CLIENT_SETTABLE`.
+  `FileNodeFilterCondition` carries the six -04 §3.6 conditions as leaf
+  fields, with `has_metadata_condition`; `deny_unknown_fields` still
+  rejects any other key (bd JMAP-s4kp.6).
 - **jmap-contacts-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
   AddressBook and ContactCard (the types -04 §4.1 names for contacts).
   `handle_address_book_set`, `handle_contact_card_set`,
