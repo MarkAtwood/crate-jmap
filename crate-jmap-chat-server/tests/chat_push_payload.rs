@@ -441,8 +441,9 @@ fn snippet_strips_control_characters_before_truncating() {
 /// draft-atwood-jmap-chat-push-00 §End-to-End Encrypted Deployments
 /// (push:197): "For the plaintext body types defined by {{JMAP-CHAT}} —
 /// `"text/plain"`, `"text/markdown"`, and `"application/jmap-chat-rich"` —
-/// the server MUST set `encrypted` to `false`." Plan decision D8 omits the
-/// snippet for rich bodies (a documented departure from push:121).
+/// the server MUST set `encrypted` to `false`." A rich body that is not a
+/// rich-body object (`{}` has no `spans`) yields no plaintext, so its
+/// snippet is omitted.
 #[test]
 fn plaintext_body_types_are_not_encrypted() {
     let cfg = config(json!({ "properties": ["encrypted", "bodySnippet"] }));
@@ -456,7 +457,53 @@ fn plaintext_body_types_are_not_encrypted() {
     let rich = message("{}", "application/jmap-chat-rich", json!([]), json!([]));
     let e = entry_json(&build(&cfg, NOBODY, &rich, &chat, &bob(), None).payload);
     assert_eq!(e["encrypted"], json!(false));
-    assert!(!e.contains_key("bodySnippet"), "D8: rich snippet omitted");
+    assert!(!e.contains_key("bodySnippet"), "unparsable rich body");
+}
+
+/// draft-atwood-jmap-chat-push-00 §ChatMessageEntry (push:194): "When the
+/// message's `bodyType` is `"text/markdown"` or
+/// `"application/jmap-chat-rich"`, the server SHOULD generate a plaintext
+/// approximation rather than including raw markup syntax."
+/// draft-atwood-jmap-chat-00 §Span Object (chat:1548): "`text` (String):
+/// The plaintext content of this span." The body is the §Example (chat:1567)
+/// rich body; the expected string is its span texts joined by hand.
+#[test]
+fn rich_snippet_is_span_text_in_order() {
+    let cfg = config(json!({ "properties": ["bodySnippet"] }));
+    let body = r#"{"spans":[
+        {"type":"text","text":"Hello "},
+        {"type":"mention","text":"@alice","userId":"contact-alice"},
+        {"type":"text","text":" and "},
+        {"type":"broadcast","text":"@here","scope":"here"},
+        {"type":"text","text":", see this code: "},
+        {"type":"code","text":"foo()"},
+        {"type":"text","text":". Full example:"},
+        {"type":"codeblock","text":"fn main() {}","lang":"rust"}
+    ]}"#;
+    let rich = message(body, "application/jmap-chat-rich", json!([]), json!([]));
+    let e = entry_json(&build(&cfg, NOBODY, &rich, &group_chat(), &bob(), None).payload);
+    assert_eq!(
+        e["bodySnippet"],
+        json!("Hello @alice and @here, see this code: foo(). Full example:fn main() {}")
+    );
+}
+
+/// draft-atwood-jmap-chat-00 §Span Object (chat:1564): "Clients MUST
+/// silently ignore unknown span types and render the `text` field as
+/// plaintext". push:95: the snippet is cut to `maxSnippetBytes` (256 here)
+/// on a UTF-8 character boundary; "é" is 2 bytes, so 255 ASCII bytes plus
+/// "é" cut at byte 255.
+#[test]
+fn rich_snippet_keeps_unknown_span_text_and_truncates() {
+    let cfg = config(json!({ "properties": ["bodySnippet"] }));
+    let body = json!({ "spans": [
+        { "type": "sparkle", "text": "a".repeat(255) },
+        { "type": "bold", "text": "\u{e9}tail" },
+    ]})
+    .to_string();
+    let rich = message(&body, "application/jmap-chat-rich", json!([]), json!([]));
+    let e = entry_json(&build(&cfg, NOBODY, &rich, &group_chat(), &bob(), None).payload);
+    assert_eq!(e["bodySnippet"], json!("a".repeat(255)));
 }
 
 /// draft-atwood-jmap-chat-push-00 §End-to-End Encrypted Deployments
