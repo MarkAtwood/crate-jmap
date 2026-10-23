@@ -232,7 +232,7 @@ async fn test_email_keywords_plain_simple() {
         .as_ref()
         .and_then(|f| f.first())
         .map(|a| a.email.as_str())
-        .unwrap_or("");
+        .expect("plain-simple must have a From address");
     assert_eq!(
         from_email, "alice@example.com",
         "plain-simple from must be alice@example.com"
@@ -628,7 +628,10 @@ async fn test_email_subjects() {
         "html-only subject must be 'Newsletter: Weekly Digest'"
     );
     // no-subject: subject is empty string (not None)
-    let no_subj = find("no-subject").subject.as_deref().unwrap_or("");
+    let no_subj = find("no-subject")
+        .subject
+        .as_deref()
+        .expect("no-subject subject must be Some, not None");
     assert_eq!(
         no_subj, "",
         "no-subject email must have empty subject, got '{}'",

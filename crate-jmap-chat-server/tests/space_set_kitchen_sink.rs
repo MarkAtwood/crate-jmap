@@ -281,7 +281,9 @@ async fn space_set_all_twelve_ops_in_one_call() {
         .find(|r| r["id"].as_str() == Some("r-update"))
         .expect("r-update must still exist");
     assert_eq!(
-        updated_role["name"].as_str().unwrap_or(""),
+        updated_role["name"]
+            .as_str()
+            .expect("name must be a string"),
         "Role Renamed In Patch",
         "r-update must be renamed: {updated_role:?}"
     );
@@ -306,7 +308,9 @@ async fn space_set_all_twelve_ops_in_one_call() {
         .find(|m| m["id"].as_str() == Some("u-update"))
         .expect("u-update must still exist");
     assert_eq!(
-        updated_member["nick"].as_str().unwrap_or(""),
+        updated_member["nick"]
+            .as_str()
+            .expect("nick must be a string"),
         "NewNick",
         "u-update nick must be updated: {updated_member:?}"
     );
@@ -355,7 +359,9 @@ async fn space_set_all_twelve_ops_in_one_call() {
     .await
     .expect("Chat/get");
     assert_eq!(
-        chat_get["list"][0]["name"].as_str().unwrap_or(""),
+        chat_get["list"][0]["name"]
+            .as_str()
+            .expect("name must be a string"),
         "channel-renamed-in-patch",
         "ch-update must be renamed: {chat_get:?}"
     );
@@ -379,7 +385,7 @@ async fn space_set_all_twelve_ops_in_one_call() {
         .find(|c| c["id"].as_str() == Some("cat-update"))
         .expect("cat-update must still exist");
     assert_eq!(
-        updated_cat["name"].as_str().unwrap_or(""),
+        updated_cat["name"].as_str().expect("name must be a string"),
         "Category Renamed In Patch",
         "cat-update must be renamed: {updated_cat:?}"
     );

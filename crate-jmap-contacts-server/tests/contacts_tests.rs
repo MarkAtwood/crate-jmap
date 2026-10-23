@@ -485,7 +485,7 @@ async fn address_book_set_on_success_set_is_default_no_op_does_not_demote() {
         .expect("/get must succeed");
     let list = resp["list"].as_array().expect("list must be an array");
     for book in list {
-        let id = book["id"].as_str().unwrap_or("");
+        let id = book["id"].as_str().expect("id must be a string");
         let is_default = book["isDefault"].as_bool().unwrap_or(false);
         match id {
             "ab1" => assert!(is_default, "ab1 must remain isDefault:true: {resp}"),
