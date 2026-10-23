@@ -157,6 +157,9 @@ pub struct Calendar {
     pub default_alerts_without_time: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// IANA Time Zone Database id; `null` to inherit from the account Principal.
+    ///
+    /// This crate does not check the value against the IANA Time Zone
+    /// Database; validating the zone name is the backend's job.
     pub time_zone: Option<String>,
 
     /// Map of Principal id → rights; `null` if not shared.

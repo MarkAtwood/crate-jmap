@@ -207,6 +207,9 @@ pub struct CalendarEvent {
     pub recurrence_id: Option<String>,
 
     /// Time zone for `recurrence_id` (required when `recurrence_id` is set).
+    ///
+    /// This crate does not check the value against the IANA Time Zone
+    /// Database; validating the zone name is the backend's job.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_id_time_zone: Option<String>,
 
@@ -312,6 +315,9 @@ pub struct CalendarEvent {
 
     // ── JSCalendar time zone properties (RFC 8984 §4.7) ───────────────────────
     /// IANA time zone id for the event's start/end times.
+    ///
+    /// This crate does not check the value against the IANA Time Zone
+    /// Database; validating the zone name is the backend's job.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_zone: Option<String>,
 

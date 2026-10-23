@@ -1337,6 +1337,9 @@ pub struct CalendarEventGetArgs {
     /// `timeZone` (default `"Etc/UTC"` when `None`). Used for computing
     /// `utcStart` / `utcEnd` of floating events when those properties are
     /// requested. Has no effect if the response does not include them.
+    ///
+    /// This crate does not check the value against the IANA Time Zone
+    /// Database; validating the zone name is the backend's job.
     pub time_zone: Option<String>,
 }
 
@@ -1360,6 +1363,9 @@ pub struct CalendarEventQueryArgs {
     /// `timeZone` (default `Etc/UTC` when `None`). Time zone used by the
     /// backend when evaluating `before` / `after` conditions against
     /// floating events.
+    ///
+    /// This crate does not check the value against the IANA Time Zone
+    /// Database; validating the zone name is the backend's job.
     pub time_zone: Option<String>,
 }
 

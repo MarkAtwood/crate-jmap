@@ -467,6 +467,9 @@ pub struct Location {
     pub relative_to: Option<String>,
 
     /// IANA time zone id for this location.
+    ///
+    /// This crate does not check the value against the IANA Time Zone
+    /// Database; validating the zone name is the backend's job.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_zone: Option<String>,
 
