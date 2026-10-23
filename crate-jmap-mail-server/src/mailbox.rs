@@ -1207,9 +1207,9 @@ fn build_mailbox_from_props(
 
     let sort_order: u32 = match props.get("sortOrder") {
         None | Some(Value::Null) => 0,
-        Some(v) => match v.as_u64() {
-            Some(n) if n <= u32::MAX as u64 => n as u32,
-            _ => {
+        Some(v) => match v.as_u64().and_then(|n| u32::try_from(n).ok()) {
+            Some(n) => n,
+            None => {
                 return Err(set_error_value(
                     &SetError::new(SetErrorType::InvalidProperties)
                         .with_properties(["sortOrder"])

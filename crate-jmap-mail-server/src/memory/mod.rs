@@ -2269,7 +2269,11 @@ fn try_rfc3339_to_epoch_secs(s: &str) -> Option<i64> {
     let is_leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     const MONTH_DAYS: [i64; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let mut days_in_year: i64 = 0;
-    for (m, days) in MONTH_DAYS.iter().enumerate().take((month - 1) as usize) {
+    for (m, days) in MONTH_DAYS
+        .iter()
+        .enumerate()
+        .take(usize::try_from(month - 1).ok()?)
+    {
         let extra = if m == 1 && is_leap { 1 } else { 0 };
         days_in_year += days + extra;
     }
@@ -2983,6 +2987,19 @@ mod tests {
     use super::*;
     use jmap_mail_types::VacationResponse;
     use jmap_types::PatchObject;
+
+    /// RFC 3339 §5.6: "date-month = 2DIGIT ; 01-12". Month `00` is not a
+    /// date, so it must parse as `None` rather than wrapping `month - 1`
+    /// to `usize::MAX` (bd:JMAP-uqhn.1). Valid-path oracle: January has
+    /// 31 days, so 1970-02-01T00:00:00Z is 31 * 86400 = 2678400 s.
+    #[test]
+    fn rfc3339_month_zero_is_rejected() {
+        assert_eq!(
+            try_rfc3339_to_epoch_secs("1970-02-01T00:00:00Z"),
+            Some(2_678_400)
+        );
+        assert_eq!(try_rfc3339_to_epoch_secs("1970-00-01T00:00:00Z"), None);
+    }
 
     /// A stored submission that fails to deserialize sorts after every one
     /// that does, which keeps the comparator a total order (`slice::sort_by`
