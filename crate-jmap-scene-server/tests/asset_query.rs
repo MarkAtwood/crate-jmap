@@ -8,7 +8,7 @@ mod common;
 use common::*;
 use jmap_scene_server::handle_scene_asset_query;
 use jmap_scene_server::memory::MemoryBackend;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Four assets around the L829-840 example query.
 fn backend_with_assets() -> MemoryBackend {

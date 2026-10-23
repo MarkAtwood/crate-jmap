@@ -113,8 +113,8 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 
 use jmap_did_types::{
-    verify_plc_audit_log, verify_webvh_log, webvh_log_url, Did, DidKey, DidKeyError, PlcError,
-    PlcState, PlcStatus, WebvhError, WebvhLog, WebvhVersion,
+    Did, DidKey, DidKeyError, PlcError, PlcState, PlcStatus, WebvhError, WebvhLog, WebvhVersion,
+    verify_plc_audit_log, verify_webvh_log, webvh_log_url,
 };
 use serde_json::Value;
 
@@ -618,10 +618,10 @@ impl<F: Fetch> Resolver<F> {
     /// `did`, and otherwise stores `log` as the newest.
     fn record_webvh(&self, did: &Did, log: &WebvhLog) -> Result<(), ResolveError> {
         let mut stored = relock(&self.webvh);
-        if let Some((seen, _)) = stored.get(did) {
-            if log.version(&seen.latest().version_id).is_none() {
-                return Err(ResolveError::WebvhRollback);
-            }
+        if let Some((seen, _)) = stored.get(did)
+            && log.version(&seen.latest().version_id).is_none()
+        {
+            return Err(ResolveError::WebvhRollback);
         }
         self.make_room(&mut stored, did, |(_, at)| *at);
         stored.insert(did.clone(), (log.clone(), (self.clock)()));

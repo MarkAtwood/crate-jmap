@@ -34,13 +34,13 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::message::{
     handle_message_changes, handle_message_get, handle_message_query, handle_message_set,
 };
-use jmap_chat_server::{handle_chat_set, handle_position_set, ChatLimits};
+use jmap_chat_server::{ChatLimits, handle_chat_set, handle_position_set};
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // Hand-picked ULIDs (Crockford base32, 26 chars) in ascending order.
 const ROOT: &str = "01J0000000000000000000000A";

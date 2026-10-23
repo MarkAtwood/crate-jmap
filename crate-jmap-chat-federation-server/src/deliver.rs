@@ -14,25 +14,25 @@
 use std::collections::{HashMap, HashSet};
 
 use jmap_chat_federation_types::{
-    is_jmap_object_uri, PeerAttachment, PeerAvatar, PeerDeliverArgs, PeerDeliverResponse, PeerEdit,
-    PeerMention, PeerMessage, PeerReactionUpdate, ReactionAction,
+    PeerAttachment, PeerAvatar, PeerDeliverArgs, PeerDeliverResponse, PeerEdit, PeerMention,
+    PeerMessage, PeerReactionUpdate, ReactionAction, is_jmap_object_uri,
 };
 use jmap_chat_server::message::{
-    find_message_by_sender_msg_id, store_server_message, StoreOutcome,
+    StoreOutcome, find_message_by_sender_msg_id, store_server_message,
 };
 use jmap_chat_server::{
-    resolve_channel_permissions, BackendSetError, ChatBackend, ChatLimits, SetErrorType,
+    BackendSetError, ChatBackend, ChatLimits, SetErrorType, resolve_channel_permissions,
 };
 use jmap_chat_types::CHAT_CAP_TASK;
 use jmap_chat_types::{
-    BroadcastMention, Chat, ChatContact, ChatKind, ChatPermission, ChatTypingEvent, DeliveryState,
-    Mention, Message, MessageAction, Space, SpaceBan, BROADCAST_MENTION_SCOPES,
+    BROADCAST_MENTION_SCOPES, BroadcastMention, Chat, ChatContact, ChatKind, ChatPermission,
+    ChatTypingEvent, DeliveryState, Mention, Message, MessageAction, Space, SpaceBan,
 };
 use jmap_cid_types::Sha256;
-use jmap_peer_auth::{bind_identity, IdentityBinding, PeerDomain};
-use jmap_server::{now_utc_string, serialize_value, server_fail_from_backend, HandlerOutput};
+use jmap_peer_auth::{IdentityBinding, PeerDomain, bind_identity};
+use jmap_server::{HandlerOutput, now_utc_string, serialize_value, server_fail_from_backend};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use subtle::ConstantTimeEq;
 
 use crate::outbound::task_assignee_ids;
@@ -385,7 +385,7 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
         _ => {
             return Err(JmapError::invalid_arguments(
                 "exactly one of message, edit or reactionUpdate must be present",
-            ))
+            ));
         }
     };
 
@@ -1199,15 +1199,15 @@ async fn deliver_message<B: FederationBackend>(
         ));
     }
 
-    if let Some(chat) = &target.chat {
-        if let Some(existing) = ctx.find(&chat.id, &m.sender_msg_id).await? {
-            return respond(
-                ctx.account_id,
-                existing.id,
-                existing.received_at,
-                target.canonical.clone(),
-            );
-        }
+    if let Some(chat) = &target.chat
+        && let Some(existing) = ctx.find(&chat.id, &m.sender_msg_id).await?
+    {
+        return respond(
+            ctx.account_id,
+            existing.id,
+            existing.received_at,
+            target.canonical.clone(),
+        );
     }
 
     // Step 11.
@@ -1409,7 +1409,7 @@ async fn deliver_reaction<B: FederationBackend>(
         _ => {
             return Err(JmapError::invalid_arguments(
                 "action must be \"add\" or \"remove\"",
-            ))
+            ));
         }
     };
 

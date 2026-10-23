@@ -96,8 +96,8 @@ impl QueryObject for crate::FileNode {
 
 #[cfg(test)]
 mod tests {
-    use jmap_types::{check_property_classification, Id, UTCDate};
-    use serde_json::{json, Map, Value};
+    use jmap_types::{Id, UTCDate, check_property_classification};
+    use serde_json::{Map, Value, json};
     use std::collections::BTreeMap;
 
     fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {

@@ -26,14 +26,14 @@
 
 use jmap_mail_types::VacationResponse;
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, set_error_value, SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, set_error_value,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
-use jmap_server::{reject_read_only_patch, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, reject_read_only_patch, server_fail_from_backend};
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -82,15 +82,15 @@ pub async fn handle_vacation_get<B: MailBackend>(
         .map_err(|e| server_fail_from_backend(&e))?;
 
     // ids=[] — return empty immediately.
-    if let Some(ref ids) = requested_ids {
-        if ids.is_empty() {
-            return Ok(HandlerOutput::new(json!({
-                "accountId": account_id.as_ref(),
-                "state": state.as_ref(),
-                "list": [],
-                "notFound": [],
-            })));
-        }
+    if let Some(ref ids) = requested_ids
+        && ids.is_empty()
+    {
+        return Ok(HandlerOutput::new(json!({
+            "accountId": account_id.as_ref(),
+            "state": state.as_ref(),
+            "list": [],
+            "notFound": [],
+        })));
     }
 
     // Any requested id that is not "singleton" is notFound.
@@ -170,10 +170,10 @@ pub async fn handle_vacation_set<B: MailBackend>(
         .get_state::<VacationResponse>(caller, &account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if old_state.as_ref() != if_in_state {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && old_state.as_ref() != if_in_state
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut not_created = serde_json::Map::new();

@@ -18,8 +18,8 @@
 mod common;
 
 use jmap_scene_types::{
-    AccessPolicy, GeoAnchor, PhysicsMode, SceneAvatar, SceneBounds, SceneCapability, SceneObject,
-    SceneRegion, ViewHint, JMAP_SCENE_URI,
+    AccessPolicy, GeoAnchor, JMAP_SCENE_URI, PhysicsMode, SceneAvatar, SceneBounds,
+    SceneCapability, SceneObject, SceneRegion, ViewHint,
 };
 use jmap_scene_types::{
     SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
@@ -27,9 +27,9 @@ use jmap_scene_types::{
     WithinBounds, WithinRadius,
 };
 use jmap_types::Id;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 /// `v` with every number replaced by its `f64` value (RFC 8259 §6).
 fn numbers_as_f64(v: &Value) -> Value {

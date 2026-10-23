@@ -80,10 +80,10 @@ mod ssrf;
 
 pub use domain::{InvalidPeerDomain, PeerDomain};
 pub use ed25519_dalek;
-pub use identity::{bind_identity, IdentityBinding};
-pub use keys::{usable_keys, DnssecAnswer, PeerSigningKey};
+pub use identity::{IdentityBinding, bind_identity};
+pub use keys::{DnssecAnswer, PeerSigningKey, usable_keys};
 pub use signature::{
-    sign, Accepted, Rejection, Request, SignError, SignatureHeaders, SignedRequest,
-    CLOCK_SKEW_SECS, MAX_LIFETIME_SECS, REPLAY_MARGIN_SECS, SIGNATURE_TAG,
+    Accepted, CLOCK_SKEW_SECS, MAX_LIFETIME_SECS, REPLAY_MARGIN_SECS, Rejection, Request,
+    SIGNATURE_TAG, SignError, SignatureHeaders, SignedRequest, sign,
 };
 pub use ssrf::fetch_address_allowed;

@@ -8,7 +8,7 @@ use jmap_types::Id;
 use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::{handle_vtc_call_get, handle_vtc_call_query, handle_vtc_call_set};
 use jmap_vtc_types::VtcCapability;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub const ACCOUNT: &str = "A1";
 pub const BOB: &str = "user:bob@example.com";

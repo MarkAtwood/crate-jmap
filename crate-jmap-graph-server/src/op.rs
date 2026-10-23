@@ -16,15 +16,15 @@ use jmap_graph_types::{
     GraphCursorEvent, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
     GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
-use jmap_server::{now_utc_string, reject_server_set, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, now_utc_string, reject_server_set, server_fail_from_backend};
 use jmap_types::{Id, JmapError, SetObject};
 use serde::Deserialize as _;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::edit::base64url_len;
 use crate::helpers::{
-    backend_set_error_value, fetch_one, forbidden, handle_get_visible, handle_set, invalid,
-    readable_rights, set_error_value, to_map, SetOps,
+    SetOps, backend_set_error_value, fetch_one, forbidden, handle_get_visible, handle_set, invalid,
+    readable_rights, set_error_value, to_map,
 };
 use crate::{GraphBackend, JmapBackend, SetError, SetErrorType};
 
@@ -372,10 +372,10 @@ pub async fn handle_graph_node_cursor<B: GraphBackend>(
         None => {
             return Err(JmapError::invalid_arguments(
                 "data is not base64url without padding",
-            ))
+            ));
         }
         Some(len) if len as u64 > cap.max_cursor_size => {
-            return Err(JmapError::invalid_arguments("data exceeds maxCursorSize"))
+            return Err(JmapError::invalid_arguments("data exceeds maxCursorSize"));
         }
         Some(_) => {}
     }

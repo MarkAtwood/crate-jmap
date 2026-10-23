@@ -25,7 +25,7 @@ use jmap_vtc_server::{
     handle_vtc_participant_query_changes, handle_vtc_recording_query,
     handle_vtc_recording_query_changes,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 type Handler = for<'a> fn(
     &'a MemoryBackend,

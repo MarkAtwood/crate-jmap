@@ -61,14 +61,14 @@ mod vacation;
 mod mdn;
 #[cfg(feature = "mdn")]
 pub use mdn::{
-    ActionMode, Disposition, DispositionType, Mdn, MdnParseRequest, MdnParseResponse,
-    MdnSendRequest, MdnSendResponse, SendingMode, JMAP_MDN_URI,
+    ActionMode, Disposition, DispositionType, JMAP_MDN_URI, Mdn, MdnParseRequest, MdnParseResponse,
+    MdnSendRequest, MdnSendResponse, SendingMode,
 };
 
 #[cfg(feature = "sieve")]
 mod sieve;
 #[cfg(feature = "sieve")]
-pub use sieve::{SieveAccountCapability, SieveCapability, SieveScript, JMAP_SIEVE_SCRIPTS_URI};
+pub use sieve::{JMAP_SIEVE_SCRIPTS_URI, SieveAccountCapability, SieveCapability, SieveScript};
 
 #[cfg(feature = "sieve")]
 pub use backend::SieveScriptProperty;
@@ -77,15 +77,15 @@ pub use backend::{
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
 };
 pub use capability::{
-    MailAccountCapability, MailCapability, SubmissionAccountCapability, SubmissionCapability,
-    VacationResponseCapability, JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI,
+    JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI, MailAccountCapability,
+    MailCapability, SubmissionAccountCapability, SubmissionCapability, VacationResponseCapability,
 };
 pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,
 };
 pub use identity::Identity;
 pub use keyword::{
-    Keyword, KeywordError, ANSWERED, DRAFT, FLAGGED, FORWARDED, JUNK, NOT_JUNK, PHISHING, SEEN,
+    ANSWERED, DRAFT, FLAGGED, FORWARDED, JUNK, Keyword, KeywordError, NOT_JUNK, PHISHING, SEEN,
 };
 pub use mailbox::{Mailbox, MailboxFilterCondition, MailboxRights, MailboxRole};
 pub use query::{

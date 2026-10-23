@@ -25,19 +25,19 @@
 
 use std::collections::HashSet;
 
-use jmap_chat_server::resolve_channel_permissions;
 use jmap_chat_server::ChatBackend;
+use jmap_chat_server::resolve_channel_permissions;
 use jmap_chat_types::{Chat, ChatContact, ChatKind, ChatPermission, Space};
 use jmap_server::{
-    now_utc_string, BackendSetError, GetObject, JmapBackend, SetError, SetErrorType,
+    BackendSetError, GetObject, JmapBackend, SetError, SetErrorType, now_utc_string,
 };
 use jmap_types::{Id, PatchObject};
-use jmap_vtc_server::{after_leave, VtcBackend, VtcEphemeralSubscription};
+use jmap_vtc_server::{VtcBackend, VtcEphemeralSubscription, after_leave};
 use jmap_vtc_types::{
     CallRole, CallState, ParticipantEventKind, VtcCall, VtcEvent, VtcParticipant,
     VtcParticipantEvent, VtcStreamEnable,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Check the Chat rules of draft-atwood-jmap-vtc-00 §Creating a Ring Call
 /// and §Creating a Room Call for a `VTCCall/set` create.

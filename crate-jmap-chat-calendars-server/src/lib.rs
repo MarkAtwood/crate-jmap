@@ -26,7 +26,7 @@
 
 use jmap_calendars_server::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use jmap_calendars_types::{Calendar, JMAP_CALENDARS_URI};
-use jmap_chat_types::{ChatCalendarsCapability, Space, JMAP_CHAT_URI, SPACE_CALENDAR_ID_PROPERTY};
+use jmap_chat_types::{ChatCalendarsCapability, JMAP_CHAT_URI, SPACE_CALENDAR_ID_PROPERTY, Space};
 use jmap_types::Id;
 use serde_json::Value;
 

@@ -10,7 +10,7 @@ mod common;
 
 use common::*;
 use jmap_chat_types::{Chat, ChatContact, Message};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const DAVE: &str = "dave@peer.example";
 const ERIN: &str = "erin@far.example";

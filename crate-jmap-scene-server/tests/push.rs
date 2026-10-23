@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_scene_server::{push_urgency, SceneEvent, Urgency, SCENE_DATA_TYPES};
+use jmap_scene_server::{SCENE_DATA_TYPES, SceneEvent, Urgency, push_urgency};
 use jmap_server::state_change_for;
 use jmap_types::{Id, PushSubscription, State};
 

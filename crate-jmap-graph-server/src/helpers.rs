@@ -4,16 +4,16 @@ use std::collections::HashMap;
 
 use jmap_graph_types::{Graph, GraphCapability, GraphEdge, GraphNode, GraphNodeOp, GraphRights};
 use jmap_types::{GetObject, Id, JmapError, JmapObject, PatchObject, State};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use jmap_graph_types::CandidateKind;
 
 use crate::search::{check_search_filter, uses_search};
 use crate::{BackendSetError, GraphBackend, QueryObject, SetError, SetErrorType};
 use jmap_server::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
-    optional_arg, serialize_value, server_fail_from_backend, server_fail_value_from_backend,
-    HandlerOutput,
+    HandlerOutput, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    not_found_json, optional_arg, serialize_value, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 /// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
@@ -544,10 +544,10 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
         .get_state::<S::Object>(caller, &account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
     let cap = backend
         .graph_capability(caller, &account_id)

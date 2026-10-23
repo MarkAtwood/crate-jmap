@@ -9,7 +9,7 @@
 //! server frames verbatim and returns each text frame the client sent.
 
 use futures::{SinkExt as _, StreamExt as _};
-use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::{DEFAULT_WS_MAX_MESSAGE_BYTES, connect_ws_allow_plaintext};
 use jmap_base_client::{WsFrame, WsSession};
 use jmap_graph_client::{GraphEditWsExt, GraphEditWsFrame};
 use jmap_graph_types::{GraphEditDataType, GraphEditStreamEnable};

@@ -15,7 +15,7 @@ use jmap_scene_server::{
     handle_scene_object_get, handle_scene_object_query, handle_scene_object_set,
     handle_scene_region_get, handle_scene_region_query, handle_scene_region_set,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A `"public"` region owned by [`ALICE`].
 const PUBLIC: &str = "01J5ABC0000000000000000001";

@@ -32,7 +32,7 @@ use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
 use crate::chat::ChannelPermission;
-use crate::clearable::{some_clearable, Clearable};
+use crate::clearable::{Clearable, some_clearable};
 use crate::space::SpaceRole;
 
 /// Per-entry input for `addMembers` (draft-atwood-jmap-chat-00 §Space/set).

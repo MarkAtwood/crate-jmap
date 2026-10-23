@@ -7,12 +7,12 @@
 use std::sync::Arc;
 
 use jmap_chat_federation_server::{
-    check_method_access, method_access_guard, FederationCaller, PEER_METHODS,
+    FederationCaller, PEER_METHODS, check_method_access, method_access_guard,
 };
 use jmap_server::{
     CallContext, Dispatcher, HandlerFuture, HandlerOutput, Invocation, JmapHandler, JmapRequest,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Clone)]
 struct Caller {

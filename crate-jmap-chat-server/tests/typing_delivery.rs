@@ -15,7 +15,7 @@ use jmap_chat_server::{
 use jmap_chat_types::ChatTypingEvent;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const RECIPIENT: &str = "acct-owner";
 const OTHER_ACCOUNT: &str = "acct-other";

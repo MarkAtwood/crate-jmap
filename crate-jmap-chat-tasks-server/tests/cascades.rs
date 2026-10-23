@@ -18,7 +18,7 @@
 //! Records are hand-written JSON from the drafts' field lists.
 
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
-use jmap_chat_server::{handle_space_changes, handle_space_get, handle_space_set, ChatBackend};
+use jmap_chat_server::{ChatBackend, handle_space_changes, handle_space_get, handle_space_set};
 use jmap_chat_tasks_server::{
     clear_space_task_list_id, clear_task_chat_ids, space_extension_properties,
 };
@@ -28,7 +28,7 @@ use jmap_tasks_server::{
     handle_task_changes, handle_task_get, handle_task_list_set, handle_task_set,
 };
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 

@@ -92,13 +92,13 @@ pub use contact::{
     handle_contact_changes, handle_contact_get, handle_contact_query, handle_contact_query_changes,
     handle_contact_set,
 };
-pub use did_auth::{verify_did_binding, DidAuthRejection, DidDocument};
+pub use did_auth::{DidAuthRejection, DidDocument, verify_did_binding};
 pub use emoji::{
     handle_emoji_changes, handle_emoji_get, handle_emoji_query, handle_emoji_query_changes,
     handle_emoji_set,
 };
 pub use ephemeral::{
-    project_presence, should_deliver_typing, CompanionStreams, EphemeralSubscription, IdScope,
+    CompanionStreams, EphemeralSubscription, IdScope, project_presence, should_deliver_typing,
 };
 pub use expiry::sweep_expired;
 pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
@@ -113,13 +113,13 @@ pub use jmap_server::{
 };
 pub use outbound::{GroupUpdateAction, OutboundEvent, ReactionAction};
 pub use permissions::{
-    required_permissions_for_op, resolve_channel_permissions, RequiredPermissions,
+    RequiredPermissions, required_permissions_for_op, resolve_channel_permissions,
 };
 pub use position::{handle_position_changes, handle_position_get, handle_position_set};
 pub use presence::{handle_presence_changes, handle_presence_get, handle_presence_set};
 pub use push::{
-    build_chat_message_push, chat_state_change_for, fit_chat_message_push, should_push,
-    strip_unsupported_chat_push, validate_chat_push, BuiltPush, OwnerFlags, PushItem,
+    BuiltPush, OwnerFlags, PushItem, build_chat_message_push, chat_state_change_for,
+    fit_chat_message_push, should_push, strip_unsupported_chat_push, validate_chat_push,
 };
 pub use space::{
     handle_space_changes, handle_space_get, handle_space_join, handle_space_query,

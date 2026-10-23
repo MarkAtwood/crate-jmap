@@ -9,17 +9,17 @@ use std::net::TcpListener;
 use std::num::NonZeroU32;
 use std::time::Duration;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_web_push::jmap_types::{PushSubscription, PushVerification};
-use jmap_web_push::p256::ecdsa::SigningKey;
 use jmap_web_push::p256::SecretKey;
+use jmap_web_push::p256::ecdsa::SigningKey;
 use jmap_web_push::url::Url;
 use jmap_web_push::{
     EncryptError, Endpoint, EndpointError, Outcome, PushOptions, Retry, SendError, Sender, Topic,
     Urgency, Vapid,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
@@ -109,9 +109,11 @@ async fn encrypted_push_is_accepted_and_decrypts() {
     assert_eq!(header(req, "ttl"), Some("60"));
     assert_eq!(header(req, "urgency"), Some("high"));
     assert_eq!(header(req, "topic"), Some("chat-u1"));
-    assert!(header(req, "authorization")
-        .unwrap()
-        .starts_with("vapid t="));
+    assert!(
+        header(req, "authorization")
+            .unwrap()
+            .starts_with("vapid t=")
+    );
 
     let body = &req.body;
     assert_eq!(&body[16..20], &4096u32.to_be_bytes(), "rs");

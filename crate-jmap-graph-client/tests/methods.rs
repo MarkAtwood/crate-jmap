@@ -16,7 +16,7 @@ use jmap_graph_types::{
     GraphNodeFilterCondition, GraphNodeSortProperty, GraphSortProperty,
 };
 use jmap_types::{Id, PatchObject, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

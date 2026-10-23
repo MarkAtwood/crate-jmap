@@ -23,7 +23,7 @@
 
 use futures::SinkExt;
 use jmap_base_client::WsFrame;
-use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::{DEFAULT_WS_MAX_MESSAGE_BYTES, connect_ws_allow_plaintext};
 use jmap_chat_client::{ChatWsExt, ChatWsFrame};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;

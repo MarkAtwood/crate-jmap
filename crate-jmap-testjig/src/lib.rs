@@ -74,4 +74,4 @@ pub mod spawn;
 pub mod sse;
 pub mod ws;
 
-pub use spawn::{spawn_in_process, TestjigConfig, TestjigHandle};
+pub use spawn::{TestjigConfig, TestjigHandle, spawn_in_process};

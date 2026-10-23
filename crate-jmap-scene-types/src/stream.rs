@@ -6,7 +6,7 @@
 //! dispatches on it, as [`SceneEvent`](crate::SceneEvent) does for the
 //! events.
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::event::{AVATAR, INTERACTION, OBJECT};
@@ -306,9 +306,11 @@ mod tests {
         // Oracle: L391 "`@type` (String): MUST be `\"SceneStreamEnable\"`";
         // L393 `regionIds` is "String[]|null".
         assert!(serde_json::from_value::<SceneStreamMessage>(json!({"regionIds": null})).is_err());
-        assert!(serde_json::from_value::<SceneStreamMessage>(
-            json!({"@type": "SceneStreamEnable", "regionIds": "01J5ABC0000000000000000001"})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<SceneStreamMessage>(
+                json!({"@type": "SceneStreamEnable", "regionIds": "01J5ABC0000000000000000001"})
+            )
+            .is_err()
+        );
     }
 }

@@ -4,8 +4,8 @@
 
 mod common;
 
-use common::{seed_space, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
-use jmap_chat_server::{handle_space_set, JmapBackend};
+use common::{ACCOUNT_ID, IdentityBackend, MemoryBackend, SPACE_ID, seed_space};
+use jmap_chat_server::{JmapBackend, handle_space_set};
 use jmap_chat_types::Space;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;

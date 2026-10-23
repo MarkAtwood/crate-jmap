@@ -20,7 +20,7 @@ use jmap_chat_vtc_server::should_deliver_vtc;
 use jmap_types::Id;
 use jmap_vtc_server::VtcEphemeralSubscription;
 use jmap_vtc_types::VtcEvent;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The hosting account of call `C1`; [`ACCOUNT`] is the recipient's
 /// (the [`OWNER`]'s) personal account.

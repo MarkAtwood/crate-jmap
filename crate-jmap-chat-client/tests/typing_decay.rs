@@ -14,7 +14,7 @@
 
 use std::time::{Duration, Instant};
 
-use jmap_chat_client::{TypingIndicators, TYPING_DECAY};
+use jmap_chat_client::{TYPING_DECAY, TypingIndicators};
 use jmap_types::Id;
 
 fn ids() -> (Id, Id) {

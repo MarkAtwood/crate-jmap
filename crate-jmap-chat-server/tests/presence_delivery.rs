@@ -11,7 +11,7 @@ use jmap_chat_server::memory::MemoryBackend;
 use jmap_chat_server::project_presence;
 use jmap_chat_types::ChatPresenceEvent;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const RECIPIENT: &str = "acct-owner";
 const OTHER_ACCOUNT: &str = "acct-other";

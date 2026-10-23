@@ -28,16 +28,16 @@
 
 use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
 use jmap_types::{Filter, Id, JmapError, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    set_error_value,
 };
 use crate::{BackendSetError, TasksBackend};
 use jmap_server::{
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryParams,
+    HandlerOutput, QueryParams, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -131,10 +131,10 @@ pub async fn handle_task_list_set<B: TasksBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -337,12 +337,11 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             // TaskList will be removed from it, and they will be destroyed."
             // A failed cascade leaves the list in place rather than
             // orphaning the Tasks that remain.
-            if on_destroy_remove_tasks {
-                if let Err(value) = destroy_task_list_tasks(backend, caller, &account_id, &id).await
-                {
-                    not_destroyed.insert(id_str, value);
-                    continue;
-                }
+            if on_destroy_remove_tasks
+                && let Err(value) = destroy_task_list_tasks(backend, caller, &account_id, &id).await
+            {
+                not_destroyed.insert(id_str, value);
+                continue;
             }
 
             match backend

@@ -10,7 +10,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use helpers::{mock_jmap_post, recorded_args, recorded_body, TEST_ACCOUNT_ID, TEST_SESSION_STATE};
+use helpers::{TEST_ACCOUNT_ID, TEST_SESSION_STATE, mock_jmap_post, recorded_args, recorded_body};
 use jmap_chat_client::JmapChatExt;
 use jmap_chat_types::{ChatFilter, MessageFilter, MessageFilterCondition};
 use jmap_types::Filter;

@@ -7,10 +7,10 @@
 //! they define.
 
 use jmap_chat_types::{
-    AvailabilityMetadata, CalendarEventMetadata, ChatCalendarsCapability, LookupWindow,
-    MessageAction, Space, JMAP_CHAT_CALENDARS_URI, SPACE_CALENDAR_ID_PROPERTY,
+    AvailabilityMetadata, CalendarEventMetadata, ChatCalendarsCapability, JMAP_CHAT_CALENDARS_URI,
+    LookupWindow, MessageAction, SPACE_CALENDAR_ID_PROPERTY, Space,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[test]
 fn capability_uri_matches_draft() {

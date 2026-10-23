@@ -31,17 +31,16 @@
 
 use jmap_chat_types::ReadPosition;
 use jmap_types::{Id, JmapError, PatchObject, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::chat::record_unread_count_changes;
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
-    SetAccumulators,
 };
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -174,10 +173,10 @@ pub async fn handle_position_set<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let created = serde_json::Map::new();
@@ -296,14 +295,13 @@ pub async fn handle_position_set<B: ChatBackend>(
         }
     }
 
-    if !updated_ids.is_empty() {
-        if let Ok((updated_positions, _)) = backend
+    if !updated_ids.is_empty()
+        && let Ok((updated_positions, _)) = backend
             .get_objects::<ReadPosition>(caller, &account_id, Some(&updated_ids), None)
             .await
-        {
-            let chat_ids = updated_positions.into_iter().map(|p| p.chat_id).collect();
-            record_unread_count_changes(backend, caller, &account_id, chat_ids).await;
-        }
+    {
+        let chat_ids = updated_positions.into_iter().map(|p| p.chat_id).collect();
+        record_unread_count_changes(backend, caller, &account_id, chat_ids).await;
     }
 
     // -----------------------------------------------------------------------

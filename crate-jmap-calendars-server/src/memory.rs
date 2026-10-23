@@ -605,7 +605,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         }
                     }
@@ -623,7 +623,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         },
                         None => not_found.push(id.clone()),
@@ -668,10 +668,10 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
-        if let Some(max) = max_changes {
-            if relevant.len() as u64 > max {
-                return Err(BackendChangesError::TooManyChanges { limit: max });
-            }
+        if let Some(max) = max_changes
+            && relevant.len() as u64 > max
+        {
+            return Err(BackendChangesError::TooManyChanges { limit: max });
         }
 
         // bd:JMAP-ic0j.50 — port the canonical jmap-mail-server HashMap+IdFate
@@ -1697,7 +1697,7 @@ mod calendar_event_counts_tests {
     fn calendar_event(
         uid: &str,
         calendar_ids: &[&str],
-    ) -> impl FnOnce(&Id) -> jmap_calendars_types::CalendarEvent + Send {
+    ) -> impl FnOnce(&Id) -> jmap_calendars_types::CalendarEvent + Send + use<> {
         let mut cal_ids = serde_json::Map::new();
         for c in calendar_ids {
             cal_ids.insert((*c).to_owned(), serde_json::Value::Bool(true));

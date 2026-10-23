@@ -46,9 +46,9 @@ pub use availability::{BusyPeriod, BusyStatus};
 pub use calendar::{Calendar, CalendarRights, IncludeInAvailability};
 pub use capability::{
     CalendarsAccountCapability, CalendarsCapability, CalendarsParseCapability,
+    JMAP_CALENDARS_PARSE_URI, JMAP_CALENDARS_URI, JMAP_PRINCIPALS_AVAILABILITY_URI,
     PrincipalCalendarsCapability, PrincipalsAvailabilityAccountCapability,
-    PrincipalsAvailabilityCapability, JMAP_CALENDARS_PARSE_URI, JMAP_CALENDARS_URI,
-    JMAP_PRINCIPALS_AVAILABILITY_URI,
+    PrincipalsAvailabilityCapability,
 };
 pub use event::{
     CalendarEvent, CalendarEventComparator, CalendarEventComparatorProperty, CalendarEventFilter,
@@ -77,6 +77,7 @@ pub use jmap_types::{Filter, FilterOperator, Operator};
 // ── Backend re-exports ────────────────────────────────────────────────────────
 
 pub use backend::{
-    is_per_user_calendar_event_property, CalendarEventNotificationProperty, CalendarEventProperty,
-    CalendarProperty, ParticipantIdentityProperty, PER_USER_CALENDAR_EVENT_PROPERTIES,
+    CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,
+    PER_USER_CALENDAR_EVENT_PROPERTIES, ParticipantIdentityProperty,
+    is_per_user_calendar_event_property,
 };

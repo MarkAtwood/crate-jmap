@@ -29,16 +29,16 @@ use std::fmt;
 use std::num::NonZeroU32;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use hkdf::Hkdf;
 use jmap_types::PushSubscription;
 use p256::ecdsa::signature::Signer as _;
 use p256::ecdsa::{Signature, SigningKey};
 use p256::elliptic_curve::sec1::ToEncodedPoint as _;
 use p256::{PublicKey, SecretKey};
-use reqwest::header::{HeaderMap, AUTHORIZATION, CONTENT_ENCODING, CONTENT_TYPE, RETRY_AFTER};
 use reqwest::StatusCode;
+use reqwest::header::{AUTHORIZATION, CONTENT_ENCODING, CONTENT_TYPE, HeaderMap, RETRY_AFTER};
 use serde::Serialize;
 use sha2::Sha256;
 use url::Url;
@@ -373,11 +373,7 @@ impl TryFrom<String> for Topic {
         let valid = (1..=32).contains(&s.len())
             && s.bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
-        if valid {
-            Ok(Self(s))
-        } else {
-            Err(TopicError)
-        }
+        if valid { Ok(Self(s)) } else { Err(TopicError) }
     }
 }
 
@@ -571,7 +567,7 @@ impl Sender {
         let body = match &endpoint.keys {
             Some(keys) => encrypt(&json, keys)?,
             None if json.len() > MAX_PLAINTEXT => {
-                return Err(EncryptError::TooLarge { len: json.len() }.into())
+                return Err(EncryptError::TooLarge { len: json.len() }.into());
             }
             None => json,
         };

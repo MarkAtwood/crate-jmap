@@ -16,7 +16,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_tasks_server::{handle_task_list_set, handle_task_notification_set, handle_task_set};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Default cap value returned by `JmapBackend::max_objects_in_set` in
 /// the foundation crate. Tests below construct batches relative to

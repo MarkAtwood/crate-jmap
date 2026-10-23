@@ -18,7 +18,7 @@ use jmap_calendars_client::{
     CalendarEventGetParams, CalendarEventParseParams, PrincipalGetAvailabilityParams,
 };
 use jmap_types::{Id, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

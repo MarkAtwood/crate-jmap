@@ -17,12 +17,12 @@
 mod common;
 
 use jmap_scene_types::{
-    AvatarEventKind, ObjectEventKind, SceneEvent, SceneEventType, SceneStreamMessage,
-    JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI,
+    AvatarEventKind, JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI, ObjectEventKind, SceneEvent,
+    SceneEventType, SceneStreamMessage,
 };
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 /// `v` with every number replaced by its `f64` value (RFC 8259 §6).
 fn numbers_as_f64(v: &Value) -> Value {

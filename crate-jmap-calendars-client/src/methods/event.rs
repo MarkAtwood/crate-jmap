@@ -183,12 +183,12 @@ impl super::SessionClient {
                     .into(),
             ));
         }
-        if let Some(m) = create.as_ref().and_then(serde_json::Value::as_object) {
-            if m.keys().any(|k| k.is_empty()) {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "calendar_event_set: create map key (creation id) may not be empty".into(),
-                ));
-            }
+        if let Some(m) = create.as_ref().and_then(serde_json::Value::as_object)
+            && m.keys().any(|k| k.is_empty())
+        {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "calendar_event_set: create map key (creation id) may not be empty".into(),
+            ));
         }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({

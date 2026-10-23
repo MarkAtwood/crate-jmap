@@ -11,7 +11,7 @@ use jmap_vtc_server::{
     handle_vtc_recording_get, handle_vtc_recording_query, handle_vtc_recording_set,
 };
 use jmap_vtc_types::VtcEvent;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 async fn set(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
     call!(handle_vtc_recording_set, backend, caller, args)

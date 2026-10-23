@@ -112,12 +112,12 @@ mod room;
 mod wire;
 
 pub use backend::{
-    group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
-    room_signature_key_not_bound, signature_key_bound_elsewhere, HubReply, HubUnavailable,
-    MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom,
+    HubReply, HubUnavailable, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom, group_id_in_use,
+    key_package_over_quota, key_package_ref_in_use, room_id_in_use, room_signature_key_not_bound,
+    signature_key_bound_elsewhere,
 };
 pub use fanout::{
-    notify_from_hub, parse_fanout_messages, Fanout, FanoutParseError, FanoutRecipients,
+    Fanout, FanoutParseError, FanoutRecipients, notify_from_hub, parse_fanout_messages,
 };
 pub use handout::{KeyMaterialRequirements, KeyPackageFit};
 pub use hub::{

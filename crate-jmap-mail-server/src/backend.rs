@@ -121,7 +121,7 @@ pub trait MailBackend: JmapBackend {
         create_id: &str,
         build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send
+    + Send
     where
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
@@ -449,7 +449,7 @@ pub trait MailBackend: JmapBackend {
         to_account_id: &jmap_types::Id,
         obj: O,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+    + Send;
 
     /// Return search snippets for the given Email ids (RFC 8621 §5.9 — `SearchSnippet/get`).
     fn search_snippets(
@@ -566,8 +566,9 @@ pub trait MailBackend: JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         email_ids: &[jmap_types::Id],
-    ) -> impl std::future::Future<Output = Vec<(jmap_types::Id, Option<BackendSetError<Self::Error>>)>>
-           + Send
+    ) -> impl std::future::Future<
+        Output = Vec<(jmap_types::Id, Option<BackendSetError<Self::Error>>)>,
+    > + Send
     where
         Self: Sized,
     {

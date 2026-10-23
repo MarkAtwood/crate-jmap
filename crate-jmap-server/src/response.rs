@@ -1,6 +1,6 @@
 //! HTTP response helpers for JMAP request-level errors (RFC 8620 §3.6.1, RFC 7807).
 
-use http::{header, Response, StatusCode};
+use http::{Response, StatusCode, header};
 use serde::Serialize;
 
 use crate::{Invocation, JmapError};

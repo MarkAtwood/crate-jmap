@@ -13,10 +13,10 @@
 
 use futures::StreamExt as _;
 use jmap_base_client::ClientError;
-use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::{DEFAULT_WS_MAX_MESSAGE_BYTES, connect_ws_allow_plaintext};
 use tokio::net::TcpListener;
-use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
 /// Start a server that accepts one connection and closes it with `code`
 /// and `reason`; return the client's first `next_frame` result.

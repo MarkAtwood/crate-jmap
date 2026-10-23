@@ -10,10 +10,10 @@
 //! written independently of this crate.
 
 use jmap_chat_federation_types::{
-    anonymous_well_known_session, owner_endpoints, AnonymousSessionError, FederationSession,
+    AnonymousSessionError, FederationSession, anonymous_well_known_session, owner_endpoints,
 };
 use jmap_chat_types::ChatContact;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 /// L284-293, verbatim.
 fn draft_key() -> Value {

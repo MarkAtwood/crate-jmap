@@ -28,17 +28,16 @@ use std::collections::HashSet;
 
 use jmap_chat_types::{Space, SpaceInvite};
 use jmap_types::{Id, JmapError, State, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
+use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
-    SetAccumulators,
 };
-use crate::helpers::{mistyped_create_props, PropType};
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    reject_server_set, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -231,10 +230,10 @@ pub async fn handle_invite_set<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();

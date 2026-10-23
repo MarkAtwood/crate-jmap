@@ -13,8 +13,8 @@
 mod helpers;
 
 use helpers::{
-    jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, set_update_response,
-    MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, TEST_ACCOUNT_ID,
+    MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, TEST_ACCOUNT_ID, jmap_response, mock_jmap_post,
+    recorded_args, recorded_body, set_response, set_update_response,
 };
 use jmap_types::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
@@ -1541,8 +1541,10 @@ async fn message_update_broadcast_mentions_emits_wire_key() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let patch = jmap_chat_client::MessagePatch {
-        broadcast_mentions: Some(vec![serde_json::from_value(json!({"scope": "everyone"}))
-            .expect("BroadcastMention must deserialize")]),
+        broadcast_mentions: Some(vec![
+            serde_json::from_value(json!({"scope": "everyone"}))
+                .expect("BroadcastMention must deserialize"),
+        ]),
         ..Default::default()
     };
     let _ = sc
@@ -1831,7 +1833,7 @@ async fn message_update_mentions_emits_wire_key() {
     let msg_id = Id::from("msg-1");
     let patch = jmap_chat_client::MessagePatch {
         mentions: Some(vec![
-            serde_json::from_value(json!({"id": "c2"})).expect("Mention must deserialize")
+            serde_json::from_value(json!({"id": "c2"})).expect("Mention must deserialize"),
         ]),
         ..Default::default()
     };

@@ -8,8 +8,8 @@
 use futures::StreamExt;
 use jmap_base_client::ClientError;
 use jmap_base_client::{
-    upload_body_from_reader, BlobUploadBody, DownloadBlobParams, JmapUrlTemplate,
-    UploadBlobStreamParams,
+    BlobUploadBody, DownloadBlobParams, JmapUrlTemplate, UploadBlobStreamParams,
+    upload_body_from_reader,
 };
 use jmap_base_client::{ClientConfig, JmapClient};
 use jmap_base_client::{DefaultTransport, NoneAuth};

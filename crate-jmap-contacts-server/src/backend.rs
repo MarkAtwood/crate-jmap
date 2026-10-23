@@ -143,7 +143,7 @@ pub trait ContactsBackend: JmapBackend {
         create_id: &str,
         build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send
+    + Send
     where
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
@@ -292,7 +292,7 @@ pub trait ContactsBackend: JmapBackend {
         to_account_id: &jmap_types::Id,
         obj: O,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send;
+    + Send;
 
     /// Return `Ok(true)` if `address_book_id` (in `account_id`)
     /// currently references one or more ContactCards.

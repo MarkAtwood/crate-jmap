@@ -10,12 +10,12 @@
 //! hand-written Crockford Base32 encoder per the ULID spec, a hand-written
 //! TLS/varint Welcome parser) and are hardcoded here.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_server::memory::MemoryBackend;
 use jmap_chat_mimi_server::{
-    handle_key_package_set, notify_from_hub, parse_fanout_messages, Fanout, FanoutRecipients,
-    KeyMaterialRequirements, MimiBackend,
+    Fanout, FanoutRecipients, KeyMaterialRequirements, MimiBackend, handle_key_package_set,
+    notify_from_hub, parse_fanout_messages,
 };
 use jmap_chat_mimi_types::{Base64Url, MimiCapability};
 use jmap_types::Id;
@@ -26,7 +26,7 @@ use openmls::prelude::{
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::{OpenMlsRustCrypto, RustCrypto};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tls_codec::{Deserialize as _, Serialize as _};
 
 const SUITE: Ciphersuite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
@@ -526,14 +526,18 @@ async fn an_unbound_chat_stores_nothing_until_a_welcome_binds_it_again() {
         .room_chat_id(&Id::from("b1"), ROOM)
         .expect("Bob's Chat");
 
-    assert!(backend
-        .unbind_room(&(), &Id::from("b1"), ROOM)
-        .await
-        .expect("unbind"));
-    assert!(!backend
-        .unbind_room(&(), &Id::from("d1"), ROOM)
-        .await
-        .expect("unbind"));
+    assert!(
+        backend
+            .unbind_room(&(), &Id::from("b1"), ROOM)
+            .await
+            .expect("unbind")
+    );
+    assert!(
+        !backend
+            .unbind_room(&(), &Id::from("d1"), ROOM)
+            .await
+            .expect("unbind")
+    );
     notify(
         &backend,
         &application_fanout(T + 1, &group.send(b"while unbound")),
@@ -567,16 +571,20 @@ async fn a_repeated_welcome_does_not_rebind_an_unbound_chat() {
     let mut group = Group::new();
     let welcome = welcome_fanout(T, &group.add(&[bob]));
     notify(&backend, &welcome).await;
-    assert!(backend
-        .unbind_room(&(), &Id::from("b1"), ROOM)
-        .await
-        .expect("unbind"));
+    assert!(
+        backend
+            .unbind_room(&(), &Id::from("b1"), ROOM)
+            .await
+            .expect("unbind")
+    );
 
     notify(&backend, &welcome).await;
-    assert!(!backend
-        .room_bound(&(), &Id::from("b1"), ROOM)
-        .await
-        .expect("room_bound"));
+    assert!(
+        !backend
+            .room_bound(&(), &Id::from("b1"), ROOM)
+            .await
+            .expect("room_bound")
+    );
     notify(
         &backend,
         &application_fanout(T + 1, &group.send(b"after leaving")),

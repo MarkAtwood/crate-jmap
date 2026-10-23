@@ -13,7 +13,7 @@
 
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The single hardcoded account-id the testjig serves.
 ///

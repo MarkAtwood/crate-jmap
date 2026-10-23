@@ -7,7 +7,7 @@
 //! GroupInfo and ratchet tree inside it are encrypted to the client, so the
 //! server passes them through.
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::Base64Url;

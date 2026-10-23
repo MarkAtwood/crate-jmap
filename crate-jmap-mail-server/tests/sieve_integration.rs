@@ -8,7 +8,7 @@
 
 mod common;
 
-use common::{MemoryBackend, INVALID_SIEVE_SCRIPT, VALID_SIEVE_SCRIPT};
+use common::{INVALID_SIEVE_SCRIPT, MemoryBackend, VALID_SIEVE_SCRIPT};
 use jmap_mail_server::{
     handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate,
 };

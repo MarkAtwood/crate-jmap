@@ -28,12 +28,12 @@ use std::collections::BTreeMap;
 
 use jmap_mail_types::{Email, Identity, Mdn, MdnParseRequest, MdnSendRequest};
 use jmap_types::{Id, Invocation, JmapError};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::set_error_value;
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
@@ -462,18 +462,18 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     // was not found are still passed through (backend returns notFound for those).
     let mut remaining_send: BTreeMap<String, (Mdn, Option<Email>)> = BTreeMap::new();
     for (creation_id, mdn) in send_map {
-        if let Some(ref for_email_id) = mdn.for_email_id {
-            if let Some(email) = emails_by_id.get(for_email_id) {
-                if email.keywords.get("$mdnsent") == Some(&true) {
-                    not_sent.insert(
-                        creation_id.clone(),
-                        set_error_value(&SetError::new(SetErrorType::from("mdnAlreadySent"))),
-                    );
-                    continue;
-                }
-                remaining_send.insert(creation_id, (mdn, Some(email.clone())));
+        if let Some(ref for_email_id) = mdn.for_email_id
+            && let Some(email) = emails_by_id.get(for_email_id)
+        {
+            if email.keywords.get("$mdnsent") == Some(&true) {
+                not_sent.insert(
+                    creation_id.clone(),
+                    set_error_value(&SetError::new(SetErrorType::from("mdnAlreadySent"))),
+                );
                 continue;
             }
+            remaining_send.insert(creation_id, (mdn, Some(email.clone())));
+            continue;
         }
         remaining_send.insert(creation_id, (mdn, None));
     }
@@ -525,99 +525,98 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     // Step 8: Apply onSuccessUpdateEmail for each successfully sent entry.
     let mut extra_invocations: Vec<Invocation> = Vec::new();
 
-    if let Some(ref patches) = req.on_success_update_email {
-        if !sent_mdns.is_empty() {
-            let email_old_state = backend
+    if let Some(ref patches) = req.on_success_update_email
+        && !sent_mdns.is_empty()
+    {
+        let email_old_state = backend
+            .get_state::<Email>(caller, &req.account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        let mut email_updated: serde_json::Map<String, Value> = serde_json::Map::new();
+        let mut email_not_updated: serde_json::Map<String, Value> = serde_json::Map::new();
+
+        for (creation_id_str, sent_mdn) in &sent_mdns {
+            let patch_key = format!("#{creation_id_str}");
+            // `patches` is `BTreeMap<String, PatchObject>` — keys can be
+            // `#creationId` references per RFC 8620 §5.7; `Id`'s alphabet
+            // contract forbids `#`. `String: Borrow<str>` (built-in) lets
+            // us look up by `&str` without allocating a `String`.
+            let patch_obj = match patches.get(patch_key.as_str()) {
+                Some(p) => p.clone(),
+                None => continue,
+            };
+
+            // Resolve the email ID from the sent MDN's forEmailId.
+            let email_id = match sent_mdn.for_email_id.as_ref() {
+                Some(id) => id.clone(),
+                None => continue,
+            };
+
+            // Apply the same immutable-field guard as handle_email_set patches.
+            if let Some(err) = reject_read_only_patch::<Email>(patch_obj.as_map(), None) {
+                email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
+                continue;
+            }
+
+            match backend
+                .update_object::<Email>(caller, &req.account_id, &email_id, patch_obj)
+                .await
+            {
+                Ok(Some(obj)) => {
+                    email_updated.insert(
+                        email_id.as_ref().to_owned(),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
+                }
+                Ok(None) => {
+                    email_updated.insert(email_id.as_ref().to_owned(), Value::Null);
+                }
+                Err(BackendSetError::SetError(se)) => {
+                    email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&se));
+                }
+                Err(BackendSetError::Other(e)) => {
+                    email_not_updated.insert(
+                        email_id.as_ref().to_owned(),
+                        server_fail_value_from_backend(&e),
+                    );
+                }
+                Err(_) => {
+                    email_not_updated.insert(
+                        email_id.as_ref().to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
+            }
+        }
+
+        let any_email_ops = !email_updated.is_empty() || !email_not_updated.is_empty();
+        if any_email_ops {
+            let email_new_state = backend
                 .get_state::<Email>(caller, &req.account_id)
                 .await
                 .map_err(|e| server_fail_from_backend(&e))?;
 
-            let mut email_updated: serde_json::Map<String, Value> = serde_json::Map::new();
-            let mut email_not_updated: serde_json::Map<String, Value> = serde_json::Map::new();
-
-            for (creation_id_str, sent_mdn) in &sent_mdns {
-                let patch_key = format!("#{creation_id_str}");
-                // `patches` is `BTreeMap<String, PatchObject>` — keys can be
-                // `#creationId` references per RFC 8620 §5.7; `Id`'s alphabet
-                // contract forbids `#`. `String: Borrow<str>` (built-in) lets
-                // us look up by `&str` without allocating a `String`.
-                let patch_obj = match patches.get(patch_key.as_str()) {
-                    Some(p) => p.clone(),
-                    None => continue,
-                };
-
-                // Resolve the email ID from the sent MDN's forEmailId.
-                let email_id = match sent_mdn.for_email_id.as_ref() {
-                    Some(id) => id.clone(),
-                    None => continue,
-                };
-
-                // Apply the same immutable-field guard as handle_email_set patches.
-                if let Some(err) = reject_read_only_patch::<Email>(patch_obj.as_map(), None) {
-                    email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
-                    continue;
-                }
-
-                match backend
-                    .update_object::<Email>(caller, &req.account_id, &email_id, patch_obj)
-                    .await
-                {
-                    Ok(Some(obj)) => {
-                        email_updated.insert(
-                            email_id.as_ref().to_owned(),
-                            serde_json::to_value(&obj)
-                                .expect("derive(Serialize) on plain data is infallible"),
-                        );
-                    }
-                    Ok(None) => {
-                        email_updated.insert(email_id.as_ref().to_owned(), Value::Null);
-                    }
-                    Err(BackendSetError::SetError(se)) => {
-                        email_not_updated
-                            .insert(email_id.as_ref().to_owned(), set_error_value(&se));
-                    }
-                    Err(BackendSetError::Other(e)) => {
-                        email_not_updated.insert(
-                            email_id.as_ref().to_owned(),
-                            server_fail_value_from_backend(&e),
-                        );
-                    }
-                    Err(_) => {
-                        email_not_updated.insert(
-                            email_id.as_ref().to_owned(),
-                            json!({
-                                "type": "serverFail",
-                                "description": "unhandled backend error variant",
-                            }),
-                        );
-                    }
-                }
-            }
-
-            let any_email_ops = !email_updated.is_empty() || !email_not_updated.is_empty();
-            if any_email_ops {
-                let email_new_state = backend
-                    .get_state::<Email>(caller, &req.account_id)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
-
-                let email_set_resp = json!({
-                    "accountId": req.account_id.as_ref(),
-                    "oldState": email_old_state.as_ref(),
-                    "newState": email_new_state.as_ref(),
-                    "created": Value::Null,
-                    "updated": if email_updated.is_empty() { Value::Null } else { Value::Object(email_updated) },
-                    "destroyed": Value::Null,
-                    "notCreated": Value::Null,
-                    "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
-                    "notDestroyed": Value::Null,
-                });
-                extra_invocations.push(Invocation::new(
-                    "Email/set",
-                    email_set_resp,
-                    call_id.to_owned(),
-                ));
-            }
+            let email_set_resp = json!({
+                "accountId": req.account_id.as_ref(),
+                "oldState": email_old_state.as_ref(),
+                "newState": email_new_state.as_ref(),
+                "created": Value::Null,
+                "updated": if email_updated.is_empty() { Value::Null } else { Value::Object(email_updated) },
+                "destroyed": Value::Null,
+                "notCreated": Value::Null,
+                "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
+                "notDestroyed": Value::Null,
+            });
+            extra_invocations.push(Invocation::new(
+                "Email/set",
+                email_set_resp,
+                call_id.to_owned(),
+            ));
         }
     }
 

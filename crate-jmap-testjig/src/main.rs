@@ -17,7 +17,7 @@
 use std::net::SocketAddr;
 
 use jmap_testjig::auth::DEFAULT_BEARER_TOKEN;
-use jmap_testjig::http::{router, AppState};
+use jmap_testjig::http::{AppState, router};
 
 /// Default TCP port the testjig binds when `--port` is not supplied.
 const DEFAULT_PORT: u16 = 8080;
@@ -81,7 +81,9 @@ fn print_usage() {
     eprintln!("USAGE: jmap-testjig [--port <port>] [--token <token>]");
     eprintln!();
     eprintln!("FLAGS:");
-    eprintln!("  --port <port>     TCP port on 127.0.0.1 (default: {DEFAULT_PORT}; use 0 for an OS-assigned port)");
+    eprintln!(
+        "  --port <port>     TCP port on 127.0.0.1 (default: {DEFAULT_PORT}; use 0 for an OS-assigned port)"
+    );
     eprintln!(
         "  --token <token>   Bearer token clients must supply (default: {DEFAULT_BEARER_TOKEN})"
     );

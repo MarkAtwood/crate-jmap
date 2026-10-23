@@ -115,9 +115,10 @@ fn empty_or_unrecognized_event_types_is_invalid_and_keeps_state() {
 #[test]
 fn invalid_first_enable_leaves_connection_inactive() {
     let mut sub = VtcEphemeralSubscription::default();
-    assert!(sub
-        .replace_with(&enable(json!({ "eventTypes": [] })))
-        .is_err());
+    assert!(
+        sub.replace_with(&enable(json!({ "eventTypes": [] })))
+            .is_err()
+    );
     assert_eq!(sub.filter(), None);
 }
 

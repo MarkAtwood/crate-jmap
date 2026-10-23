@@ -35,17 +35,17 @@ mod task_list;
 // --- Top-level re-exports ---
 
 pub use backend::{
-    is_per_user_task_property, TaskListProperty, TaskNotificationProperty, TaskProperty,
-    PER_USER_TASK_PROPERTIES,
+    PER_USER_TASK_PROPERTIES, TaskListProperty, TaskNotificationProperty, TaskProperty,
+    is_per_user_task_property,
 };
 pub use capability::{
+    JMAP_TASKS_ALERTS_URI, JMAP_TASKS_ASSIGNEES_URI, JMAP_TASKS_CUSTOMTIMEZONES_URI,
+    JMAP_TASKS_MULTILINGUAL_URI, JMAP_TASKS_RECURRENCES_URI, JMAP_TASKS_URI,
     PrincipalTasksCapability, TasksAccountCapability, TasksAlertsAccountCapability,
     TasksAlertsCapability, TasksAssigneesAccountCapability, TasksAssigneesCapability,
     TasksCapability, TasksCustomTimeZonesAccountCapability, TasksCustomTimeZonesCapability,
     TasksMultilingualAccountCapability, TasksMultilingualCapability,
-    TasksRecurrencesAccountCapability, TasksRecurrencesCapability, JMAP_TASKS_ALERTS_URI,
-    JMAP_TASKS_ASSIGNEES_URI, JMAP_TASKS_CUSTOMTIMEZONES_URI, JMAP_TASKS_MULTILINGUAL_URI,
-    JMAP_TASKS_RECURRENCES_URI, JMAP_TASKS_URI,
+    TasksRecurrencesAccountCapability, TasksRecurrencesCapability,
 };
 pub use filter::{
     TaskComparator, TaskComparatorProperty, TaskNotificationComparator,

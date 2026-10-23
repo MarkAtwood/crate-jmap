@@ -155,11 +155,7 @@ pub fn compare_regions(
                 }
                 _ => Ordering::Equal,
             };
-            if c.is_ascending {
-                ord
-            } else {
-                ord.reverse()
-            }
+            if c.is_ascending { ord } else { ord.reverse() }
         })
         .find(|o| o.is_ne())
         .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))
@@ -318,11 +314,7 @@ pub fn compare_avatars(
                 SceneAvatarSortProperty::DisplayName => a.display_name.cmp(&b.display_name),
                 _ => Ordering::Equal,
             };
-            if c.is_ascending {
-                ord
-            } else {
-                ord.reverse()
-            }
+            if c.is_ascending { ord } else { ord.reverse() }
         })
         .find(|o| o.is_ne())
         .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))

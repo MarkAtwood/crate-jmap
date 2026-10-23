@@ -12,12 +12,12 @@
 //! The last tests check KeyMaterial/fetch (jmap-chat-spec 33702a5, L231)
 //! in a room that Room/create made this server the hub of.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_server::handle_key_package_set;
 use jmap_chat_mimi_server::handle_room_create;
 use jmap_chat_mimi_server::memory::MemoryBackend;
-use jmap_chat_mimi_server::{handle_key_material_fetch, MimiEndpoint};
+use jmap_chat_mimi_server::{MimiEndpoint, handle_key_material_fetch};
 use jmap_chat_mimi_types::MimiCapability;
 use jmap_types::Id;
 use openmls::extensions::{AppDataDictionary, AppDataDictionaryExtension};
@@ -27,7 +27,7 @@ use openmls::prelude::{
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::{OpenMlsRustCrypto, RustCrypto};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tls_codec::Serialize as _;
 
 const ALICE: &str = "mimi://a.example/u/alice";

@@ -20,7 +20,7 @@ use std::{
 };
 
 use jmap_types::{Id, JmapError, PushSubscription, SetObject, State, StateChange, UTCDate};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use subtle::ConstantTimeEq;
 
 use crate::backend::{BackendSetError, JmapBackend, SetError, SetErrorType};
@@ -526,12 +526,11 @@ async fn update_one<B: PushSubscriptionBackend>(
     // RFC 8620 §7.2.2 (rfc8620.txt:3790-3792): "Attempts to update the
     // subscription with an invalid verification code MUST be rejected by
     // the server with an "invalidProperties" SetError."
-    if patched.verification_code != old.verification_code {
-        if let Some(code) = &patched.verification_code {
-            if !codes_match(code, &current.expected_code) {
-                return Err(invalid_property("verificationCode"));
-            }
-        }
+    if patched.verification_code != old.verification_code
+        && let Some(code) = &patched.verification_code
+        && !codes_match(code, &current.expected_code)
+    {
+        return Err(invalid_property("verificationCode"));
     }
 
     // RFC 8620 §7.2.2 (rfc8620.txt:3794-3798): "The server MAY modify the

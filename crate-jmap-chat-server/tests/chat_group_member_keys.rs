@@ -14,11 +14,11 @@
 
 mod common;
 
-use common::{IdentityBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_chat_get, handle_chat_set, ChatLimits};
+use common::{ACCOUNT_ID, IdentityBackend};
+use jmap_chat_server::{ChatLimits, handle_chat_get, handle_chat_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Create a group Chat as the owner (admin) with `bob` and `carol` as
 /// members and return its id.
@@ -138,10 +138,12 @@ async fn admin_add_members_adds_with_default_role() {
             ("erin", "admin"),
         ])
     );
-    assert!(stored_chat(&backend, &chat_id)
-        .await
-        .get("addMembers")
-        .is_none());
+    assert!(
+        stored_chat(&backend, &chat_id)
+            .await
+            .get("addMembers")
+            .is_none()
+    );
 }
 
 /// "Member list changes use the following patch keys (all require admin
@@ -187,10 +189,12 @@ async fn admin_remove_members_removes() {
         stored_members(&backend, &chat_id).await,
         pairs(&[(ACCOUNT_ID, "admin"), ("bob", "member")])
     );
-    assert!(stored_chat(&backend, &chat_id)
-        .await
-        .get("removeMembers")
-        .is_none());
+    assert!(
+        stored_chat(&backend, &chat_id)
+            .await
+            .get("removeMembers")
+            .is_none()
+    );
 }
 
 /// "The owner MAY leave the group by including only the accountId in
@@ -338,10 +342,12 @@ async fn admin_update_member_roles_changes_role() {
         stored_members(&backend, &chat_id).await,
         pairs(&[(ACCOUNT_ID, "admin"), ("bob", "admin"), ("carol", "member")])
     );
-    assert!(stored_chat(&backend, &chat_id)
-        .await
-        .get("updateMemberRoles")
-        .is_none());
+    assert!(
+        stored_chat(&backend, &chat_id)
+            .await
+            .get("updateMemberRoles")
+            .is_none()
+    );
 }
 
 /// "Member list changes use the following patch keys (all require admin

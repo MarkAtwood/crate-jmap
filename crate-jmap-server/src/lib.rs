@@ -42,17 +42,17 @@ pub use backend::{
     QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject,
 };
 pub use handlers::{
-    handle_changes, handle_get, handle_query, handle_query_changes, server_fail_from_backend,
-    server_fail_value_from_backend, SERVER_FAIL_INTERNAL_DESC,
+    SERVER_FAIL_INTERNAL_DESC, handle_changes, handle_get, handle_query, handle_query_changes,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 pub use helpers::{
-    apply_jmap_patch, apply_patch_object, bool_arg, enforce_max_objects_in_get,
-    enforce_max_objects_in_set, extract_account_id, filter_arg, is_client_updatable,
-    json_merge_patch, not_found_json, now_utc_string, now_utc_string_checked, optional_arg,
-    parse_max_changes, parse_wire_id, query_anchor_args, reject_did_bearing_properties,
-    reject_read_only_patch, reject_server_set, resolve_creation_ref, resolve_query_offset,
-    resolve_query_start, serialize_value, take_bool_arg, utc_date_from_epoch_seconds,
-    MergePatchError, PatchPathError,
+    MergePatchError, PatchPathError, apply_jmap_patch, apply_patch_object, bool_arg,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_arg,
+    is_client_updatable, json_merge_patch, not_found_json, now_utc_string, now_utc_string_checked,
+    optional_arg, parse_max_changes, parse_wire_id, query_anchor_args,
+    reject_did_bearing_properties, reject_read_only_patch, reject_server_set, resolve_creation_ref,
+    resolve_query_offset, resolve_query_start, serialize_value, take_bool_arg,
+    utc_date_from_epoch_seconds,
 };
 
 mod parse;
@@ -61,10 +61,10 @@ mod response;
 
 pub use parse::{check_known_capabilities, parse_request, parse_request_bytes, resolve_args};
 pub use push::{
-    is_deliverable, register_push_subscription_handlers, state_change_for, PushSubscriptionBackend,
-    StoredPushSubscription, MAX_PUSH_EXPIRY_SECS,
+    MAX_PUSH_EXPIRY_SECS, PushSubscriptionBackend, StoredPushSubscription, is_deliverable,
+    register_push_subscription_handlers, state_change_for,
 };
-pub use response::{error_invocation, error_status, request_error, RequestError};
+pub use response::{RequestError, error_invocation, error_status, request_error};
 
 use std::{
     collections::{BTreeMap, HashMap},
@@ -677,7 +677,7 @@ impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C> for Clo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::sync::{Arc, Mutex};
 
     // Compile-time: Dispatcher must be Send + Sync so it can be wrapped in Arc

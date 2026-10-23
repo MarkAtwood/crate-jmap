@@ -17,11 +17,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, MemoryBackend, SPACE_ID};
 use jmap_chat_server::message::handle_message_query;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const CHAT_ID: &str = "c1";
 

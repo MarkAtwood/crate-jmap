@@ -5,7 +5,7 @@
 //! The event structs carry no `@type`; [`VtcEvent`] adds and dispatches
 //! on it, as `jmap_chat_types::EphemeralMessage` does for Chat events.
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{CallRole, GatewayProtocol, MediaKind, RecordingState, VtcMediaState};
@@ -568,22 +568,24 @@ mod tests {
         assert!(serde_json::from_value::<VtcEvent>(json!({"@type": 7, "callId": "C1"})).is_err());
         // A known @type whose required `endReason` is missing is an error,
         // not Unknown.
-        assert!(serde_json::from_value::<VtcEvent>(
-            json!({"@type": "VTCCallEndEvent", "callId": "C1"})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<VtcEvent>(json!({"@type": "VTCCallEndEvent", "callId": "C1"}))
+                .is_err()
+        );
     }
 
     #[test]
     fn known_type_without_account_id_rejected() {
         // Oracle: draft-atwood-jmap-vtc-wss-00 L296-298 "every event in
         // this table carries an `accountId` (String) property".
-        assert!(serde_json::from_value::<VtcEvent>(json!({
-            "@type": "VTCActiveSpeakerEvent",
-            "callId": "C1",
-            "participantId": "P1"
-        }))
-        .is_err());
+        assert!(
+            serde_json::from_value::<VtcEvent>(json!({
+                "@type": "VTCActiveSpeakerEvent",
+                "callId": "C1",
+                "participantId": "P1"
+            }))
+            .is_err()
+        );
     }
 
     #[test]

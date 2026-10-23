@@ -7,19 +7,19 @@
 mod common;
 
 use common::{
-    make_chat_group, make_space, make_space_with_props, FaultyBackend, MemoryBackend,
-    TrackingBackend, ACCOUNT_ID, ACCOUNT_ID_B,
+    ACCOUNT_ID, ACCOUNT_ID_B, FaultyBackend, MemoryBackend, TrackingBackend, make_chat_group,
+    make_space, make_space_with_props,
 };
 use jmap_chat_server::message::{
     handle_message_changes, handle_message_get, handle_message_query, handle_message_set,
 };
 use jmap_chat_server::{
-    handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get, handle_chat_query,
-    handle_chat_query_changes, handle_chat_set, handle_contact_changes, handle_contact_get,
-    handle_contact_query, handle_contact_query_changes, handle_contact_set, handle_invite_get,
-    handle_invite_set, handle_position_get, handle_position_set, handle_presence_changes,
-    handle_presence_get, handle_presence_set, handle_space_get, handle_space_join,
-    handle_space_set, ChatBackend, JmapBackend,
+    ChatBackend, JmapBackend, handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get,
+    handle_chat_query, handle_chat_query_changes, handle_chat_set, handle_contact_changes,
+    handle_contact_get, handle_contact_query, handle_contact_query_changes, handle_contact_set,
+    handle_invite_get, handle_invite_set, handle_position_get, handle_position_set,
+    handle_presence_changes, handle_presence_get, handle_presence_set, handle_space_get,
+    handle_space_join, handle_space_set,
 };
 use jmap_chat_types::{Chat, ChatKind};
 use jmap_server::HandlerOutput;
@@ -2542,7 +2542,7 @@ async fn memory_backend_expire_message_idempotent_on_missing() {
 /// error's Display text MUST NOT appear in the response.
 #[tokio::test]
 async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
-    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+    use common::{INJECTABLE_BACKEND_CANARY, InjectableBackend};
 
     let backend = InjectableBackend::new();
 
@@ -2647,7 +2647,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
 ///      test.
 #[tokio::test]
 async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_display() {
-    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+    use common::{INJECTABLE_BACKEND_CANARY, InjectableBackend};
 
     let backend = InjectableBackend::new();
     backend.inner.register_account(&Id::from(ACCOUNT_ID));
@@ -2709,7 +2709,7 @@ async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_displ
 /// same batch still run (bd:JMAP-y3f2.19).
 #[tokio::test]
 async fn chat_set_direct_recheck_read_failure_rolls_back_create() {
-    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+    use common::{INJECTABLE_BACKEND_CANARY, InjectableBackend};
 
     let backend = InjectableBackend::new();
     let account_id = Id::from(ACCOUNT_ID);
@@ -2772,7 +2772,7 @@ async fn chat_set_direct_recheck_read_failure_rolls_back_create() {
 /// The per-id error stays a redacted `serverFail`.
 #[tokio::test]
 async fn chat_set_direct_recheck_and_rollback_failure_advances_state() {
-    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+    use common::{INJECTABLE_BACKEND_CANARY, InjectableBackend};
 
     let backend = InjectableBackend::new();
     let account_id = Id::from(ACCOUNT_ID);

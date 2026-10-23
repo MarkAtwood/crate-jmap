@@ -10,10 +10,10 @@ mod common;
 
 use common::*;
 use jmap_scene_server::memory::MemoryBackend;
-use jmap_scene_server::{should_deliver, validate_interaction, SceneEphemeralSubscription};
+use jmap_scene_server::{SceneEphemeralSubscription, should_deliver, validate_interaction};
 use jmap_scene_types::{SceneEvent, SceneInteractionEvent, SceneStreamEnable};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The region of every draft example.
 const R1: &str = "01J5ABC0000000000000000001";

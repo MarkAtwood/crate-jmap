@@ -4,15 +4,15 @@
 
 use jmap_contacts_types::{AddressBook, ContactCard};
 use jmap_graph_projection_server::{
-    node_matches, node_object_uri, object_uri, projected_edge, projected_graph_rights,
-    projected_node, visible_ids, Projectable, Reference,
+    Projectable, Reference, node_matches, node_object_uri, object_uri, projected_edge,
+    projected_graph_rights, projected_node, visible_ids,
 };
 use jmap_graph_types::GraphNode;
 use jmap_graph_types::GraphNodeFilterCondition;
-use jmap_mail_server::memory::{seed::setup_seed_data, MemoryBackend};
+use jmap_mail_server::memory::{MemoryBackend, seed::setup_seed_data};
 use jmap_mail_types::{Email, EmailSubmission, Identity, Mailbox, Thread};
 use jmap_types::{Id, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn id(s: &str) -> Id {
     Id::from(s)

@@ -163,7 +163,7 @@ pub trait CalendarsBackend: JmapBackend {
         create_id: &str,
         build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send
+    + Send
     where
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
@@ -644,8 +644,9 @@ pub trait CalendarsBackend: JmapBackend {
         _account_id: &jmap_types::Id,
         _event: &jmap_calendars_types::CalendarEvent,
         _tz_hint: Option<&str>,
-    ) -> impl std::future::Future<Output = (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>)>
-           + Send {
+    ) -> impl std::future::Future<
+        Output = (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>),
+    > + Send {
         async { (None, None) }
     }
 

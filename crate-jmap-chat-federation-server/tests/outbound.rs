@@ -7,14 +7,14 @@ mod common;
 
 use common::*;
 use jmap_chat_federation_server::{
-    aggregate_delivery_state, is_transient, other_participants, outbound_reference,
-    peer_group_update_args, DeliveryFailure, OutboundError, SenderIdentities,
+    DeliveryFailure, OutboundError, SenderIdentities, aggregate_delivery_state, is_transient,
+    other_participants, outbound_reference, peer_group_update_args,
 };
 use jmap_chat_federation_types::PeerAvatar;
 use jmap_chat_server::GroupUpdateAction;
 use jmap_chat_types::{Chat, ChatContact, ChatMember, DeliveryState, MessageAction, Space};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const PEER_ACCOUNT: &str = "peer-acct";
 

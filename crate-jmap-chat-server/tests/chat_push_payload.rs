@@ -10,13 +10,13 @@
 //! enforces. Fixtures are draft-shaped JSON, not values produced by the
 //! code under test.
 
-use jmap_chat_server::{build_chat_message_push, BuiltPush, OwnerFlags, PushItem};
+use jmap_chat_server::{BuiltPush, OwnerFlags, PushItem, build_chat_message_push};
 use jmap_chat_types::{
     Chat, ChatContact, ChatMessagePush, ChatPushCapability, ChatPushConfig, Message, Space,
     SpaceMember,
 };
 use jmap_types::{Id, State, Urgency};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "acct-owner";
 const SENDER: &str = "contact-bob";

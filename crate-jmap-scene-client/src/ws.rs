@@ -7,8 +7,8 @@
 
 use jmap_base_client::{ClientError, WsFrame, WsSession};
 use jmap_scene_types::{
-    SceneAvatarEvent, SceneEvent, SceneInteractionEvent, SceneObjectEvent, SceneStreamDisable,
-    SceneStreamEnable, SceneStreamMessage, SCENE_EVENT_TYPES,
+    SCENE_EVENT_TYPES, SceneAvatarEvent, SceneEvent, SceneInteractionEvent, SceneObjectEvent,
+    SceneStreamDisable, SceneStreamEnable, SceneStreamMessage,
 };
 use serde::Deserialize as _;
 

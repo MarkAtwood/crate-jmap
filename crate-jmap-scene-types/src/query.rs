@@ -35,7 +35,7 @@
 //! let filter = SceneObjectFilter::Condition(cond);
 //! ```
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::{AccessPolicy, PhysicsMode, Position, ViewHint};
@@ -549,14 +549,18 @@ mod tests {
     fn spatial_filters_reject_unknown_properties() {
         // Oracle: RFC 8620 §5.5 "unsupportedFilter"; workspace policy maps
         // an unknown clause to a decode failure.
-        assert!(serde_json::from_value::<WithinRadius>(
-            json!({"center": [0.0, 0.0, 0.0], "radius": 1.0, "falloff": 2})
-        )
-        .is_err());
-        assert!(serde_json::from_value::<WithinBounds>(
-            json!({"min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "y": 1})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<WithinRadius>(
+                json!({"center": [0.0, 0.0, 0.0], "radius": 1.0, "falloff": 2})
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<WithinBounds>(
+                json!({"min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0], "y": 1})
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -582,15 +586,19 @@ mod tests {
         // `unsupportedFilter` error."
         assert!(serde_json::from_value::<SceneAssetFilter>(json!({"size": 1})).is_err());
         assert!(serde_json::from_value::<SceneRegionFilter>(json!({"bogus": 1})).is_err());
-        assert!(serde_json::from_value::<SceneObjectFilter>(json!({
-            "operator": "AND",
-            "conditions": [{"regionId": "R1"}, {"bogus": 1}]
-        }))
-        .is_err());
-        assert!(serde_json::from_value::<SceneAvatarFilter>(
-            json!({"regionId": "R1", "displayName": "x"})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<SceneObjectFilter>(json!({
+                "operator": "AND",
+                "conditions": [{"regionId": "R1"}, {"bogus": 1}]
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<SceneAvatarFilter>(
+                json!({"regionId": "R1", "displayName": "x"})
+            )
+            .is_err()
+        );
     }
 
     #[test]

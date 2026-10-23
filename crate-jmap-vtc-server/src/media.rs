@@ -28,19 +28,19 @@ use jmap_vtc_types::{
     CallState, LivestreamState, RecordingState, VtcCall, VtcLivestream, VtcRecording,
     VtcRecordingStateEvent,
 };
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Map, Value, json};
 
 use crate::helpers::{
-    backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
-    set_error_value, state_refused, SetAccumulators,
+    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
+    extract_account_id, fetch_one, finalize_set_response, forbidden, invalid, not_found,
+    reject_unsupported_sort, set_error_value, state_refused,
 };
 use crate::{BackendSetError, StatefulObject, VtcBackend};
 use jmap_server::{
-    now_utc_string, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
-    HandlerOutput,
+    HandlerOutput, now_utc_string, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 /// The stream configuration §Updating Stream Configuration lets an update
@@ -135,11 +135,11 @@ pub async fn handle_vtc_livestream_get<B: VtcBackend>(
     // The redaction needs each item's `callId`; fetch it when the caller's
     // `properties` leaves it out, and drop it again afterwards.
     let mut strip_call_id = false;
-    if let Some(Value::Array(props)) = args.get_mut("properties") {
-        if !props.iter().any(|p| p == "callId") {
-            props.push(json!("callId"));
-            strip_call_id = true;
-        }
+    if let Some(Value::Array(props)) = args.get_mut("properties")
+        && !props.iter().any(|p| p == "callId")
+    {
+        props.push(json!("callId"));
+        strip_call_id = true;
     }
 
     let mut out = jmap_server::handle_get::<VtcLivestream, B>(backend, caller, args).await?;
@@ -277,10 +277,10 @@ where
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut acc = SetAccumulators::default();
@@ -940,7 +940,7 @@ async fn update_recording<B: VtcBackend>(
             return Err(invalid(
                 &["state"],
                 "this recording state transition is not permitted",
-            ))
+            ));
         }
     };
     let mut echo = Map::new();

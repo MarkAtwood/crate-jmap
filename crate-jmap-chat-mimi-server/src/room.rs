@@ -1,9 +1,9 @@
 //! draft-atwood-jmap-chat-mimi-00 §Room/create.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_types::{Base64Url, MimiCapability, RoomCreateResponse};
-use jmap_server::{extract_account_id, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, extract_account_id, server_fail_from_backend};
 use jmap_types::JmapError;
 use openmls::component::ComponentId;
 use openmls::prelude::{

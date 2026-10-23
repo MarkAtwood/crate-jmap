@@ -6,7 +6,7 @@
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_types::SceneCapability;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The account of the L652-668 create example.
 pub const ACCOUNT: &str = "acct-001";

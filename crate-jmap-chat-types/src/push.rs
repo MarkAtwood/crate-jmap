@@ -2,7 +2,7 @@
 
 use crate::chat::ChatKind;
 use crate::message::BroadcastScope;
-use jmap_types::{impl_string_enum, Id, State, UTCDate, Urgency};
+use jmap_types::{Id, State, UTCDate, Urgency, impl_string_enum};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -714,10 +714,12 @@ mod tests {
         });
         let push: ChatMessagePush = serde_json::from_value(raw).unwrap();
         assert_eq!(push.unread_count, None);
-        assert!(serde_json::to_value(&push)
-            .unwrap()
-            .get("unreadCount")
-            .is_none());
+        assert!(
+            serde_json::to_value(&push)
+                .unwrap()
+                .get("unreadCount")
+                .is_none()
+        );
     }
 
     /// draft-atwood-jmap-chat-push-00 L153-155: `unreadCount` is not in

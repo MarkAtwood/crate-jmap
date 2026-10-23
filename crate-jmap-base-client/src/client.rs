@@ -11,7 +11,7 @@ use futures::StreamExt;
 use crate::auth::{AuthProvider, DefaultTransport, TransportConfig};
 use crate::error::ClientError;
 use crate::request::Session;
-use crate::sse::{parse_sse_block, SseFrame};
+use crate::sse::{SseFrame, parse_sse_block};
 
 /// Internal state threaded through the `subscribe_events` unfold loop.
 struct SseStreamState<S> {
@@ -413,10 +413,10 @@ pub(crate) async fn read_capped_body(
     resp: reqwest::Response,
     limit: u64,
 ) -> Result<Vec<u8>, ClientError> {
-    if let Some(len) = resp.content_length() {
-        if len > limit {
-            return Err(ClientError::ResponseTooLarge { actual: len, limit });
-        }
+    if let Some(len) = resp.content_length()
+        && len > limit
+    {
+        return Err(ClientError::ResponseTooLarge { actual: len, limit });
     }
 
     let mut stream = resp.bytes_stream();
@@ -1486,8 +1486,8 @@ fn validate_session_url_schemes(session: &Session) -> Result<(), ClientError> {
 
 #[cfg(test)]
 mod tests {
-    use super::decode_utf8_chunk;
     use super::SseReconnectPolicy;
+    use super::decode_utf8_chunk;
     use std::time::Duration;
 
     /// Oracle: the `SseReconnectPolicy` / `subscribe_events_reconnecting`

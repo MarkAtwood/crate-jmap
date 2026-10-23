@@ -127,7 +127,7 @@ pub use op::{
     handle_graph_node_cursor, handle_graph_node_op_changes, handle_graph_node_op_get,
     handle_graph_node_op_query, handle_graph_node_op_query_changes, handle_graph_node_op_set,
 };
-pub use stream::{should_deliver, GraphEditStreamFilter, GraphEditSubscription};
+pub use stream::{GraphEditStreamFilter, GraphEditSubscription, should_deliver};
 
 /// Capability URI for `urn:ietf:params:jmap:graph`.
 pub use jmap_graph_types::JMAP_GRAPH_URI;

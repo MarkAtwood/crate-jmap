@@ -65,7 +65,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_chat_mimi_types::{
-    ClientKeyMaterial, KeyMaterialClientCode, KeyPackage, MimiCapability, MIMI_FANOUT_BODY_TYPE,
+    ClientKeyMaterial, KeyMaterialClientCode, KeyPackage, MIMI_FANOUT_BODY_TYPE, MimiCapability,
 };
 use jmap_types::{Id, JmapError, State};
 use openmls::prelude::OpenMlsCrypto;
@@ -74,11 +74,11 @@ use serde_json::json;
 use crate::fanout::{Fanout, FanoutRecipients};
 use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
 use crate::{
-    group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
-    room_signature_key_not_bound, signature_key_bound_elsewhere, BackendChangesError,
-    BackendQueryError, BackendSetError, ChangesResult, GetObject, HubReply, HubUnavailable,
-    JmapBackend, JmapObject, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom, QueryChangesParams,
-    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, HubReply,
+    HubUnavailable, JmapBackend, JmapObject, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
+    SetErrorType, group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
+    room_signature_key_not_bound, signature_key_bound_elsewhere,
 };
 
 /// One stored KeyPackage record and the signature key of its client.
@@ -666,10 +666,10 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
                     .iter()
                     .map(|account| match inner.room_chat_id(account, room_id) {
                         Some(id) => {
-                            if let Some(chat) = inner.room_chats.get_mut(&id) {
-                                if !chat.holds(fanout) {
-                                    chat.bound = true;
-                                }
+                            if let Some(chat) = inner.room_chats.get_mut(&id)
+                                && !chat.holds(fanout)
+                            {
+                                chat.bound = true;
                             }
                             id
                         }

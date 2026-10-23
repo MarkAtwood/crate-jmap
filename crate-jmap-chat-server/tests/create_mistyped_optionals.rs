@@ -12,13 +12,13 @@
 
 mod common;
 
-use common::{make_space, MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, make_space};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
     handle_ban_set, handle_chat_set, handle_emoji_set, handle_invite_set, handle_space_set,
 };
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The SetError RFC 8620 §5.3 requires, naming exactly `props`.
 fn invalid(props: &[&str]) -> Value {

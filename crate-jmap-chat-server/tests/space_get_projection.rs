@@ -20,7 +20,7 @@
 
 mod common;
 
-use common::{IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, IdentityBackend, MemoryBackend, SPACE_ID};
 use jmap_chat_server::handle_space_get;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;

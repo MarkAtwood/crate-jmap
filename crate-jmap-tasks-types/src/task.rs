@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 
 use jmap_jscalendar_types::LocalDateTime;
-use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
+use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 /// Progress status of a Task (RFC 8984 §5.2.5).

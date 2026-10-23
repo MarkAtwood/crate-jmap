@@ -24,14 +24,18 @@ const FORGET_AFTER: u64 = 1360;
 async fn the_same_pair_is_refused_the_second_time() {
     let store = MemoryReplayStore::new();
     let alice = domain("alice.example");
-    assert!(store
-        .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
-        .await
-        .unwrap());
-    assert!(!store
-        .insert(&alice, "n1", at(FORGET_AFTER), at(1001))
-        .await
-        .unwrap());
+    assert!(
+        store
+            .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
+            .await
+            .unwrap()
+    );
+    assert!(
+        !store
+            .insert(&alice, "n1", at(FORGET_AFTER), at(1001))
+            .await
+            .unwrap()
+    );
 }
 
 /// The pair is (peer domain, nonce): the same nonce from another peer
@@ -41,18 +45,24 @@ async fn pairs_differ_by_domain_and_by_nonce() {
     let store = MemoryReplayStore::new();
     let alice = domain("alice.example");
     let bob = domain("bob.example");
-    assert!(store
-        .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
-        .await
-        .unwrap());
-    assert!(store
-        .insert(&bob, "n1", at(FORGET_AFTER), at(1000))
-        .await
-        .unwrap());
-    assert!(store
-        .insert(&alice, "n2", at(FORGET_AFTER), at(1000))
-        .await
-        .unwrap());
+    assert!(
+        store
+            .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
+            .await
+            .unwrap()
+    );
+    assert!(
+        store
+            .insert(&bob, "n1", at(FORGET_AFTER), at(1000))
+            .await
+            .unwrap()
+    );
+    assert!(
+        store
+            .insert(&alice, "n2", at(FORGET_AFTER), at(1000))
+            .await
+            .unwrap()
+    );
 }
 
 /// "at least until 60 seconds after that signature's `expires`": still
@@ -61,14 +71,18 @@ async fn pairs_differ_by_domain_and_by_nonce() {
 async fn the_pair_is_remembered_through_forget_after() {
     let store = MemoryReplayStore::new();
     let alice = domain("alice.example");
-    assert!(store
-        .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
-        .await
-        .unwrap());
-    assert!(!store
-        .insert(&alice, "n1", at(FORGET_AFTER), at(FORGET_AFTER))
-        .await
-        .unwrap());
+    assert!(
+        store
+            .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
+            .await
+            .unwrap()
+    );
+    assert!(
+        !store
+            .insert(&alice, "n1", at(FORGET_AFTER), at(FORGET_AFTER))
+            .await
+            .unwrap()
+    );
 }
 
 /// After `expires` + 60, check 4 rejects the signature as expired before
@@ -77,14 +91,18 @@ async fn the_pair_is_remembered_through_forget_after() {
 async fn the_pair_expires_after_forget_after() {
     let store = MemoryReplayStore::new();
     let alice = domain("alice.example");
-    assert!(store
-        .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
-        .await
-        .unwrap());
-    assert!(store
-        .insert(&alice, "n1", at(5000), at(FORGET_AFTER + 1))
-        .await
-        .unwrap());
+    assert!(
+        store
+            .insert(&alice, "n1", at(FORGET_AFTER), at(1000))
+            .await
+            .unwrap()
+    );
+    assert!(
+        store
+            .insert(&alice, "n1", at(5000), at(FORGET_AFTER + 1))
+            .await
+            .unwrap()
+    );
 }
 
 /// Sweeping expired entries must not drop a pair still inside its
@@ -94,28 +112,36 @@ async fn the_pair_expires_after_forget_after() {
 async fn sweeps_keep_live_pairs() {
     let store = MemoryReplayStore::new();
     let alice = domain("alice.example");
-    assert!(store
-        .insert(&alice, "live", at(10_000), at(1000))
-        .await
-        .unwrap());
+    assert!(
+        store
+            .insert(&alice, "live", at(10_000), at(1000))
+            .await
+            .unwrap()
+    );
     for i in 0..5000 {
         let nonce = format!("old{i}");
-        assert!(store
-            .insert(&alice, &nonce, at(1001), at(1000))
-            .await
-            .unwrap());
+        assert!(
+            store
+                .insert(&alice, &nonce, at(1001), at(1000))
+                .await
+                .unwrap()
+        );
     }
     for i in 0..5000 {
         let nonce = format!("new{i}");
-        assert!(store
-            .insert(&alice, &nonce, at(9000), at(2000))
-            .await
-            .unwrap());
+        assert!(
+            store
+                .insert(&alice, &nonce, at(9000), at(2000))
+                .await
+                .unwrap()
+        );
     }
-    assert!(!store
-        .insert(&alice, "live", at(10_000), at(2000))
-        .await
-        .unwrap());
+    assert!(
+        !store
+            .insert(&alice, "live", at(10_000), at(2000))
+            .await
+            .unwrap()
+    );
 }
 
 /// §Replay: "A receiving server whose nonce cache is lost, for example on

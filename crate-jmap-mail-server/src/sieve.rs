@@ -40,17 +40,17 @@ pub(crate) const SIEVE_ERR_IS_ACTIVE: &str = "sieveIsActive";
 use jmap_mail_types::SieveScript;
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, set_error_value, SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    filter_properties, finalize_set_response, set_error_value,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    filter_arg, reject_read_only_patch, reject_server_set, resolve_query_offset,
-    server_fail_from_backend, server_fail_value_from_backend, take_bool_arg, HandlerOutput,
+    HandlerOutput, filter_arg, reject_read_only_patch, reject_server_set, resolve_query_offset,
+    server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
 };
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
@@ -375,10 +375,10 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     // Extract the activation side-effect args before consuming the map.
@@ -388,7 +388,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "onSuccessActivateScript: expected a string or null, got {v}"
-            )))
+            )));
         }
     };
     let on_success_deactivate_script: Option<bool> = match args.remove("onSuccessDeactivateScript")
@@ -737,41 +737,42 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             // VR-backed script guard: reject blobId changes on the VR-backed script
             // (RFC 9661 §4). isActive changes are handled separately
             // by the activation state machine and are not blocked here.
-            if let Some(ref vr_id) = vr_script_id {
-                if vr_id == &id && patch.as_map().contains_key("blobId") {
-                    not_updated.insert(
-                        id_str,
-                        set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(
-                            "blobId of a VacationResponse-backed script cannot be \
+            if let Some(ref vr_id) = vr_script_id
+                && vr_id == &id
+                && patch.as_map().contains_key("blobId")
+            {
+                not_updated.insert(
+                    id_str,
+                    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(
+                        "blobId of a VacationResponse-backed script cannot be \
                                  updated via SieveScript/set",
-                        )),
-                    );
-                    continue;
-                }
+                    )),
+                );
+                continue;
             }
 
             // R2: validate name character if patch contains "name".
-            if let Some(name_val) = patch.as_map().get("name") {
-                if let Some(name_str) = name_val.as_str() {
-                    if let Some(name_err) = validate_script_name(name_str) {
-                        not_updated.insert(id_str, set_error_value(&name_err));
-                        continue;
-                    }
+            if let Some(name_val) = patch.as_map().get("name")
+                && let Some(name_str) = name_val.as_str()
+            {
+                if let Some(name_err) = validate_script_name(name_str) {
+                    not_updated.insert(id_str, set_error_value(&name_err));
+                    continue;
+                }
 
-                    // R6: uniqueness check — exclude the script being updated.
-                    if let Some(existing) = all_scripts_for_update
-                        .iter()
-                        .find(|s| s.name.as_deref() == Some(name_str) && s.id != id)
-                    {
-                        not_updated.insert(
-                            id_str,
-                            set_error_value(
-                                &SetError::new(SetErrorType::AlreadyExists)
-                                    .with_existing_id(existing.id.clone()),
-                            ),
-                        );
-                        continue;
-                    }
+                // R6: uniqueness check — exclude the script being updated.
+                if let Some(existing) = all_scripts_for_update
+                    .iter()
+                    .find(|s| s.name.as_deref() == Some(name_str) && s.id != id)
+                {
+                    not_updated.insert(
+                        id_str,
+                        set_error_value(
+                            &SetError::new(SetErrorType::AlreadyExists)
+                                .with_existing_id(existing.id.clone()),
+                        ),
+                    );
+                    continue;
                 }
             }
 
@@ -928,46 +929,41 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 // (Fix R2_3: deactivate failure aborts activate to preserve one-active invariant).
                 let mut deactivation_failed = false;
 
-                if let Some(currently_active) = all_scripts.iter().find(|s| s.is_active) {
-                    if &currently_active.id != target_id {
-                        let active_id = currently_active.id.clone();
-                        let active_id_str = active_id.as_ref().to_owned();
-                        // Only deactivate if Step A hasn't already done so for this script.
-                        if !updated.contains_key(&active_id_str) {
-                            let mut patch_map = serde_json::Map::new();
-                            patch_map.insert("isActive".to_owned(), Value::Bool(false));
-                            let patch = PatchObject::from_map(patch_map);
-                            match backend
-                                .update_object::<SieveScript>(
-                                    caller,
-                                    &account_id,
-                                    &active_id,
-                                    patch,
-                                )
-                                .await
-                            {
-                                Ok(_) => {
-                                    updated.insert(active_id_str, json!({ "isActive": false }));
-                                }
-                                Err(BackendSetError::SetError(se)) => {
-                                    not_updated.insert(active_id_str, set_error_value(&se));
-                                    deactivation_failed = true;
-                                }
-                                Err(BackendSetError::Other(e)) => {
-                                    not_updated
-                                        .insert(active_id_str, server_fail_value_from_backend(&e));
-                                    deactivation_failed = true;
-                                }
-                                Err(_) => {
-                                    not_updated.insert(
-                                        active_id_str,
-                                        json!({
-                                            "type": "serverFail",
-                                            "description": "unhandled backend error variant",
-                                        }),
-                                    );
-                                    deactivation_failed = true;
-                                }
+                if let Some(currently_active) = all_scripts.iter().find(|s| s.is_active)
+                    && &currently_active.id != target_id
+                {
+                    let active_id = currently_active.id.clone();
+                    let active_id_str = active_id.as_ref().to_owned();
+                    // Only deactivate if Step A hasn't already done so for this script.
+                    if !updated.contains_key(&active_id_str) {
+                        let mut patch_map = serde_json::Map::new();
+                        patch_map.insert("isActive".to_owned(), Value::Bool(false));
+                        let patch = PatchObject::from_map(patch_map);
+                        match backend
+                            .update_object::<SieveScript>(caller, &account_id, &active_id, patch)
+                            .await
+                        {
+                            Ok(_) => {
+                                updated.insert(active_id_str, json!({ "isActive": false }));
+                            }
+                            Err(BackendSetError::SetError(se)) => {
+                                not_updated.insert(active_id_str, set_error_value(&se));
+                                deactivation_failed = true;
+                            }
+                            Err(BackendSetError::Other(e)) => {
+                                not_updated
+                                    .insert(active_id_str, server_fail_value_from_backend(&e));
+                                deactivation_failed = true;
+                            }
+                            Err(_) => {
+                                not_updated.insert(
+                                    active_id_str,
+                                    json!({
+                                        "type": "serverFail",
+                                        "description": "unhandled backend error variant",
+                                    }),
+                                );
+                                deactivation_failed = true;
                             }
                         }
                     }
@@ -1125,7 +1121,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
-            )))
+            )));
         }
     };
 

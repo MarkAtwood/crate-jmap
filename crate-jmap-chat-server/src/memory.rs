@@ -54,16 +54,16 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    strip_unsupported_chat_push, validate_chat_push, AddedItem, AttachmentBlob,
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
-    ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
-    SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    AddedItem, AttachmentBlob, BackendChangesError, BackendQueryError, BackendSetError,
+    ChangesResult, ChatBackend, ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend,
+    JmapObject, OpResult, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    strip_unsupported_chat_push, validate_chat_push,
 };
 use jmap_chat_types::{ChatPermission, ChatPushCapability};
 use jmap_server::{
-    apply_patch_object, json_merge_patch, now_utc_string, resolve_query_start, MergePatchError,
-    PushSubscriptionBackend, StoredPushSubscription,
+    MergePatchError, PushSubscriptionBackend, StoredPushSubscription, apply_patch_object,
+    json_merge_patch, now_utc_string, resolve_query_start,
 };
 use jmap_types::{Id, PushSubscription, State};
 
@@ -624,7 +624,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         }
                     }
@@ -642,7 +642,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         },
                         None => not_found.push(id.clone()),
@@ -688,10 +688,10 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
-        if let Some(max) = max_changes {
-            if relevant.len() as u64 > max {
-                return Err(BackendChangesError::TooManyChanges { limit: max });
-            }
+        if let Some(max) = max_changes
+            && relevant.len() as u64 > max
+        {
+            return Err(BackendChangesError::TooManyChanges { limit: max });
         }
 
         let mut created: Vec<Id> = Vec::new();
@@ -966,12 +966,12 @@ impl ChatBackend for MemoryBackend {
         }
 
         // `CustomEmoji` uniqueness contract on `create_object`.
-        if O::TYPE_NAME == "CustomEmoji" {
-            if let Some(existing) = emoji_name_holder(&inner, account_id, &val, None) {
-                return Err(BackendSetError::SetError(Box::new(
-                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
-                )));
-            }
+        if O::TYPE_NAME == "CustomEmoji"
+            && let Some(existing) = emoji_name_holder(&inner, account_id, &val, None)
+        {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
+            )));
         }
 
         let reply_parent = if O::TYPE_NAME == "Message" {
@@ -1058,24 +1058,20 @@ impl ChatBackend for MemoryBackend {
         // draft-atwood-jmap-chat-00 §Destroying a Space: "The caller MUST
         // hold `"manage_space"`". Checked under the same lock hold as the
         // removal, as `apply_space_metadata_patch_impl` does.
-        if O::TYPE_NAME == "Space" {
-            if let Some(space_val) = inner
+        if O::TYPE_NAME == "Space"
+            && let Some(space_val) = inner
                 .objects_ref("Space", account_id.as_ref())
                 .and_then(|m| m.get(id))
-            {
-                let caller_perms = caller_effective_permissions(
-                    space_val,
-                    account_id,
-                    inner.everyone_in(space_val),
-                )
-                .unwrap_or_default();
-                if !caller_perms.contains(&ChatPermission::ManageSpace) {
-                    return Err(BackendSetError::SetError(Box::new(
-                        SetError::new(SetErrorType::Forbidden).with_description(
-                            "caller lacks required permission `manage_space` to destroy the Space",
-                        ),
-                    )));
-                }
+        {
+            let caller_perms =
+                caller_effective_permissions(space_val, account_id, inner.everyone_in(space_val))
+                    .unwrap_or_default();
+            if !caller_perms.contains(&ChatPermission::ManageSpace) {
+                return Err(BackendSetError::SetError(Box::new(
+                    SetError::new(SetErrorType::Forbidden).with_description(
+                        "caller lacks required permission `manage_space` to destroy the Space",
+                    ),
+                )));
             }
         }
 
@@ -1982,7 +1978,7 @@ fn patched_copy<O: SetObject>(
         None => {
             return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            ))))
+            ))));
         }
     };
 
@@ -2354,27 +2350,26 @@ fn apply_space_patch_impl(
         });
     }
 
-    if leaving_space_manager {
-        if let Some(space) = inner
+    if leaving_space_manager
+        && let Some(space) = inner
             .objects_mut("Space", account_id.as_ref())
             .get_mut(space_id)
-        {
-            let member_ids: Vec<&str> = space
-                .get("members")
-                .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|m| m["id"].as_str()).collect())
-                .unwrap_or_default();
-            let closes = space.get("closedAt").is_none()
-                && !member_ids.is_empty()
-                && !member_ids.contains(&account_id.as_ref())
-                && member_ids.iter().all(|m| {
-                    !member_effective_permissions(space, m, &everyone)
-                        .is_some_and(|p| p.contains(&ChatPermission::ManageSpace))
-                });
-            if closes {
-                space["closedAt"] = serde_json::Value::String(now_utc_string().into_inner());
-                space_mutated = true;
-            }
+    {
+        let member_ids: Vec<&str> = space
+            .get("members")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|m| m["id"].as_str()).collect())
+            .unwrap_or_default();
+        let closes = space.get("closedAt").is_none()
+            && !member_ids.is_empty()
+            && !member_ids.contains(&account_id.as_ref())
+            && member_ids.iter().all(|m| {
+                !member_effective_permissions(space, m, &everyone)
+                    .is_some_and(|p| p.contains(&ChatPermission::ManageSpace))
+            });
+        if closes {
+            space["closedAt"] = serde_json::Value::String(now_utc_string().into_inner());
+            space_mutated = true;
         }
     }
 
@@ -4028,7 +4023,7 @@ fn validate_space_patch_ops(
     protect_last_admin: bool,
     everyone: &HashSet<ChatPermission>,
 ) -> Result<(), Box<SetError>> {
-    use crate::permissions::{required_permissions_for_op, RequiredPermissions};
+    use crate::permissions::{RequiredPermissions, required_permissions_for_op};
 
     // Draft §Space/set `removeMembers`: a patch whose `removeMembers`
     // holds only the accountId is self-removal, which "the server
@@ -4138,41 +4133,37 @@ fn validate_space_patch_ops(
                 )));
             }
             SpacePatchOp::RemoveRole(target_id) => {
-                if let Some(pos) = role_position(space_val, target_id.as_ref()) {
-                    if pos >= caller_highest {
-                        return Err(Box::new(hierarchy_error(pos, caller_highest, "RemoveRole")));
-                    }
+                if let Some(pos) = role_position(space_val, target_id.as_ref())
+                    && pos >= caller_highest
+                {
+                    return Err(Box::new(hierarchy_error(pos, caller_highest, "RemoveRole")));
                 }
                 // Nonexistent role id is a per-op NotFound, not
                 // a permission failure — leave for the apply
                 // pass.
             }
             SpacePatchOp::UpdateRole { id, patch } => {
-                if let Some(pos) = role_position(space_val, id.as_ref()) {
-                    if pos >= caller_highest {
-                        return Err(Box::new(hierarchy_error(pos, caller_highest, "UpdateRole")));
-                    }
+                if let Some(pos) = role_position(space_val, id.as_ref())
+                    && pos >= caller_highest
+                {
+                    return Err(Box::new(hierarchy_error(pos, caller_highest, "UpdateRole")));
                 }
-                if let Some(new_pos) = patch.position {
-                    if new_pos >= caller_highest {
-                        return Err(Box::new(hierarchy_error(
-                            new_pos,
-                            caller_highest,
-                            "UpdateRole (new position)",
-                        )));
-                    }
+                if let Some(new_pos) = patch.position
+                    && new_pos >= caller_highest
+                {
+                    return Err(Box::new(hierarchy_error(
+                        new_pos,
+                        caller_highest,
+                        "UpdateRole (new position)",
+                    )));
                 }
             }
             SpacePatchOp::AddMember(create) => {
                 for rid in &create.role_ids {
-                    if let Some(pos) = role_position(space_val, rid.as_ref()) {
-                        if pos >= caller_highest {
-                            return Err(Box::new(hierarchy_error(
-                                pos,
-                                caller_highest,
-                                "AddMember",
-                            )));
-                        }
+                    if let Some(pos) = role_position(space_val, rid.as_ref())
+                        && pos >= caller_highest
+                    {
+                        return Err(Box::new(hierarchy_error(pos, caller_highest, "AddMember")));
                     }
                     // Nonexistent role id surfaces in apply pass
                     // as InvalidProperties.
@@ -4183,14 +4174,14 @@ fn validate_space_patch_ops(
                     let current = member_role_ids(space_val, user_id.as_ref());
                     let new: HashSet<&str> = role_ids.iter().map(|r| r.as_ref()).collect();
                     for rid in current.symmetric_difference(&new) {
-                        if let Some(pos) = role_position(space_val, rid) {
-                            if pos >= caller_highest {
-                                return Err(Box::new(hierarchy_error(
-                                    pos,
-                                    caller_highest,
-                                    "UpdateMember",
-                                )));
-                            }
+                        if let Some(pos) = role_position(space_val, rid)
+                            && pos >= caller_highest
+                        {
+                            return Err(Box::new(hierarchy_error(
+                                pos,
+                                caller_highest,
+                                "UpdateMember",
+                            )));
                         }
                     }
                 }
@@ -4206,17 +4197,15 @@ fn validate_space_patch_ops(
     // same protection applies to an `updateMembers` role change, a
     // `removeRoles` entry, or an `updateRoles` permission change ...; a
     // refusal names the patch key concerned."
-    if protect_last_admin {
-        if let Some(keys) = last_admin_patch_keys(space_val, ops, self_removal) {
-            return Err(Box::new(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(keys)
-                    .with_description(
-                        "this patch would leave the Space with no \
+    if protect_last_admin && let Some(keys) = last_admin_patch_keys(space_val, ops, self_removal) {
+        return Err(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(keys)
+                .with_description(
+                    "this patch would leave the Space with no \
                      `manage_members`/`manage_space` holder (last-admin protection)",
-                    ),
-            ));
-        }
+                ),
+        ));
     }
 
     Ok(())

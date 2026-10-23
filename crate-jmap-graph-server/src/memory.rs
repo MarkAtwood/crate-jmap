@@ -80,10 +80,10 @@ use jmap_graph_types::{
 use jmap_graph_types::{GraphCursorEvent, GraphNodeOpFilterCondition};
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, JmapError, State};
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 use crate::edit::check_node_edit;
 use crate::query::{
@@ -214,11 +214,12 @@ impl Inner {
         let id = Id::from(v["id"].as_str().unwrap_or_default());
         let rights = self.rights(caller, account_id, &id).unwrap_or_default();
         v["myRights"] = json!(rights);
-        v["isSubscribed"] = json!(self
-            .subscriptions
-            .get(&(id, caller.clone()))
-            .copied()
-            .unwrap_or_else(|| self.is_owner(caller, account_id)));
+        v["isSubscribed"] = json!(
+            self.subscriptions
+                .get(&(id, caller.clone()))
+                .copied()
+                .unwrap_or_else(|| self.is_owner(caller, account_id))
+        );
         v
     }
 

@@ -21,11 +21,11 @@
 //! Calendars-specific `notFound` / `forbidden` shapes — per draft §2.2).
 
 use jmap_types::{Id, JmapError, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::helpers::extract_account_id;
 use crate::CalendarsBackend;
-use jmap_server::{bool_arg, server_fail_from_backend, HandlerOutput};
+use crate::helpers::extract_account_id;
+use jmap_server::{HandlerOutput, bool_arg, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // Principal/getAvailability
@@ -297,8 +297,8 @@ mod tests {
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
             JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-            QueryParams, QueryResult, SetError as JsSetError, SetErrorType as JsSetErrorType,
-            SetObject, SERVER_FAIL_INTERNAL_DESC,
+            QueryParams, QueryResult, SERVER_FAIL_INTERNAL_DESC, SetError as JsSetError,
+            SetErrorType as JsSetErrorType, SetObject,
         };
         use jmap_types::State;
 

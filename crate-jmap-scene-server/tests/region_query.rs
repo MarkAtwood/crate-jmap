@@ -10,7 +10,7 @@ use common::*;
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{handle_scene_region_query, handle_scene_region_query_changes};
 use jmap_types::JmapError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Four regions, seeded with hand-picked properties:
 ///

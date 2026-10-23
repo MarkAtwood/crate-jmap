@@ -9,11 +9,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::{handle_chat_get, handle_chat_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const CHAT: &str = "chat1";
 const CLOSED_AT: &str = "2026-02-01T00:00:00Z";

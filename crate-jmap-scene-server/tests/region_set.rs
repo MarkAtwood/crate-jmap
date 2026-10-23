@@ -9,13 +9,13 @@ mod common;
 use common::*;
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{
-    handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_object_changes,
-    handle_scene_object_get, handle_scene_region_changes, handle_scene_region_get,
-    handle_scene_region_set, BindingProperty, BindingTarget, JmapBackend,
+    BindingProperty, BindingTarget, JmapBackend, handle_scene_avatar_changes,
+    handle_scene_avatar_get, handle_scene_object_changes, handle_scene_object_get,
+    handle_scene_region_changes, handle_scene_region_get, handle_scene_region_set,
 };
 use jmap_scene_types::{SceneAvatar, SceneObject};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const CHAT: &str = "urn:ietf:params:jmap:chat";
 const VTC: &str = "urn:ietf:params:jmap:vtc";

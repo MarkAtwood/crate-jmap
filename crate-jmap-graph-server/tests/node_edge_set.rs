@@ -12,7 +12,7 @@ use jmap_graph_server::{
     handle_graph_edge_changes, handle_graph_edge_get, handle_graph_edge_set, handle_graph_node_get,
     handle_graph_node_set, handle_graph_set,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A Graph of [`ALICE`]'s shared with `share_with`.
 async fn graph(backend: &MemoryBackend, share_with: Value) -> String {

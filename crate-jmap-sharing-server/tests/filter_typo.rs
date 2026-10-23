@@ -17,7 +17,7 @@ use jmap_sharing_server::{
     handle_share_notification_query_changes,
 };
 use jmap_types::JmapError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 type Handler = for<'a> fn(
     &'a MemoryBackend,

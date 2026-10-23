@@ -25,7 +25,7 @@ use jmap_filenode_server::memory::MemoryBackend;
 use jmap_filenode_server::{handle_filenode_changes, handle_filenode_get};
 use jmap_filenode_types::FileNode;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const ROLE: &str = "chatspace";
@@ -103,9 +103,11 @@ async fn leaves_other_trees_alone() {
     destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
         .await
         .expect("destroy");
-    assert!(not_found(&files, &["r2", "f3", "plain", "f4"])
-        .await
-        .is_empty());
+    assert!(
+        not_found(&files, &["r2", "f3", "plain", "f4"])
+            .await
+            .is_empty()
+    );
 }
 
 /// RFC 8620 §5.2: destroying the tree destroys FileNode records, so

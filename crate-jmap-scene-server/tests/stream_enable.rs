@@ -186,11 +186,12 @@ fn empty_or_only_unrecognized_event_types_is_invalid_and_keeps_state() {
 #[test]
 fn invalid_first_enable_leaves_subscription_inactive() {
     let mut sub = SceneEphemeralSubscription::default();
-    assert!(sub
-        .replace_with(&enable(json!({
+    assert!(
+        sub.replace_with(&enable(json!({
             "@type": "SceneStreamEnable",
             "eventTypes": []
         })))
-        .is_err());
+        .is_err()
+    );
     assert!(sub.filter().is_none());
 }

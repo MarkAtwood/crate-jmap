@@ -21,7 +21,7 @@
 //! base64url, oversized data, a `baseSeq` past the head and every other
 //! rule of the draft is a server check.
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::GraphNode;

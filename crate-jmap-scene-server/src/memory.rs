@@ -103,9 +103,9 @@ use jmap_scene_types::{
 };
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 use crate::query::{
     asset_matches, avatar_matches, compare_assets, compare_avatars, compare_objects,
@@ -349,7 +349,7 @@ impl Inner {
     }
 
     /// Every stored object of type `O` that decodes.
-    fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ {
+    fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ + use<'_, O> {
         self.objects(O::TYPE_NAME, account_id)
             .into_iter()
             .flat_map(HashMap::values)
@@ -834,16 +834,16 @@ impl SceneBackend for MemoryBackend {
             return Ok((id, decode(&stored).map_err(BackendSetError::Other)?));
         }
         // "Account asset storage quota exceeded", checked under the lock.
-        if O::TYPE_NAME == SceneAsset::TYPE_NAME {
-            if let Some(&quota) = inner.storage_quota.get(account_id.as_ref()) {
-                let used: u64 = inner.all::<SceneAsset>(account_id).map(|a| a.size).sum();
-                let size = value.get("size").and_then(Value::as_u64).unwrap_or(0);
-                if used.saturating_add(size) > quota {
-                    return Err(BackendSetError::SetError(Box::new(
-                        SetError::new(SetErrorType::OverQuota)
-                            .with_description("account asset storage quota exceeded"),
-                    )));
-                }
+        if O::TYPE_NAME == SceneAsset::TYPE_NAME
+            && let Some(&quota) = inner.storage_quota.get(account_id.as_ref())
+        {
+            let used: u64 = inner.all::<SceneAsset>(account_id).map(|a| a.size).sum();
+            let size = value.get("size").and_then(Value::as_u64).unwrap_or(0);
+            if used.saturating_add(size) > quota {
+                return Err(BackendSetError::SetError(Box::new(
+                    SetError::new(SetErrorType::OverQuota)
+                        .with_description("account asset storage quota exceeded"),
+                )));
             }
         }
         // "`overQuota` when `maxRegionsPerAccount` would be exceeded",

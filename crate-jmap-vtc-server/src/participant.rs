@@ -31,19 +31,19 @@ use jmap_vtc_types::{
 };
 use jmap_vtc_types::{Filter, Operator, VtcParticipantComparator, VtcParticipantFilter};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::time::SystemTime;
 
 use crate::call::{deliver_call_end, end_call, is_state_refusal, ring_deadline, set_call_state};
 use crate::helpers::{
-    backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, not_found, peek_filter,
-    reject_unsupported_sort, set_error_value, utc_key, SetAccumulators,
+    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
+    extract_account_id, fetch_one, finalize_set_response, forbidden, invalid, not_found,
+    peek_filter, reject_unsupported_sort, set_error_value, utc_key,
 };
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
-    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// The properties "The server sets" at join or dial-out that an update may
@@ -194,10 +194,10 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut acc = SetAccumulators::default();
@@ -826,7 +826,7 @@ async fn update_participant<B: VtcBackend>(
                 return Err(invalid(
                     &["lobbyState"],
                     "lobbyState may only move from \"waiting\" to \"admitted\" or \"rejected\"",
-                ))
+                ));
             }
         };
         echo.insert(stamp.to_owned(), now.clone());
@@ -904,14 +904,13 @@ async fn update_participant<B: VtcBackend>(
             .map(|(k, v)| (k.clone(), v.clone())),
     );
     let mut echo = Value::Object(echo);
-    if !patch.as_map().is_empty() {
-        if let Some(obj) = backend
+    if !patch.as_map().is_empty()
+        && let Some(obj) = backend
             .update_object::<VtcParticipant>(caller, account_id, id, patch)
             .await
             .map_err(backend_set_error_value)?
-        {
-            echo = to_value(&obj);
-        }
+    {
+        echo = to_value(&obj);
     }
 
     run_effects(backend, caller, account_id, &old, &me, effects).await;

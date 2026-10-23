@@ -16,7 +16,7 @@ use jmap_chat_federation_server::AuthenticatedPeer;
 use jmap_chat_server::ChatLimits;
 use jmap_peer_auth::PeerDomain;
 use jmap_types::{Id, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn message(sender_msg_id: &str) -> Value {
     json!({

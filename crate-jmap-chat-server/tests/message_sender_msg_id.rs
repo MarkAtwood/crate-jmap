@@ -10,11 +10,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::message::{find_message_by_sender_msg_id, handle_message_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn setup() -> MemoryBackend {
     let backend = MemoryBackend::new();

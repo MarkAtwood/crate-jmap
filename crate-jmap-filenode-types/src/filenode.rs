@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use jmap_cid_types::Sha256;
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// The `@type` of a FileNode (draft-ietf-jmap-filenode-16 §3.1.1, IANA "JMAP FileNode

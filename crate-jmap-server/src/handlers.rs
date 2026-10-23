@@ -25,7 +25,7 @@
 
 use crate::HandlerOutput;
 use jmap_types::{Id, JmapError, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::backend::{
     GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryObject, QueryParams,
@@ -289,7 +289,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
-                )))
+                )));
             }
         },
     };
@@ -333,10 +333,8 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         // #[serde(transparent)] impl.
         "ids": result.ids,
     });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -379,7 +377,7 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         Some(_) => {
             return Err(JmapError::invalid_arguments(
                 "upToId must be a string Id or null",
-            ))
+            ));
         }
     };
 
@@ -426,10 +424,8 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         "removed": result.removed,
         "added": added,
     });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))

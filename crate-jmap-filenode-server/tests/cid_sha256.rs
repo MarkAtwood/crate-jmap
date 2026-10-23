@@ -16,7 +16,7 @@ use jmap_cid_types::Sha256;
 use jmap_filenode_server::{handle_filenode_copy, handle_filenode_get, handle_filenode_set};
 use jmap_filenode_types::FileNode;
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// FIPS 180-4 example: SHA-256("abc").
 const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";

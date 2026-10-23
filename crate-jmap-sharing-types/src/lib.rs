@@ -40,7 +40,7 @@ mod principal;
 
 pub use backend::{PrincipalProperty, ShareNotificationProperty};
 pub use capability::{
-    PrincipalsCapability, PrincipalsOwnerCapability, JMAP_PRINCIPALS_OWNER_URI, JMAP_PRINCIPALS_URI,
+    JMAP_PRINCIPALS_OWNER_URI, JMAP_PRINCIPALS_URI, PrincipalsCapability, PrincipalsOwnerCapability,
 };
 pub use notification::{
     ChangedBy, ShareNotification, ShareNotificationComparator, ShareNotificationComparatorProperty,

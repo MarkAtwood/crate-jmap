@@ -13,7 +13,7 @@
 //! lose nor double the increment.
 
 use jmap_chat_server::memory::MemoryBackend;
-use jmap_chat_server::{handle_space_join, ChatBackend, InviteJoinRefusal, JmapBackend};
+use jmap_chat_server::{ChatBackend, InviteJoinRefusal, JmapBackend, handle_space_join};
 use jmap_chat_types::{Space, SpaceInvite};
 use jmap_types::{Id, UTCDate};
 use serde_json::json;
@@ -164,9 +164,11 @@ async fn concurrent_redemptions_increment_exactly_once() {
     }
 
     assert_eq!(outcomes.iter().filter(|o| o.is_ok()).count(), 1);
-    assert!(outcomes
-        .iter()
-        .all(|o| *o == Ok(()) || *o == Err(InviteJoinRefusal::AlreadyMember)));
+    assert!(
+        outcomes
+            .iter()
+            .all(|o| *o == Ok(()) || *o == Err(InviteJoinRefusal::AlreadyMember))
+    );
     let (members, uses, _, _) = snapshot(&backend).await;
     assert_eq!(members, vec![ACCOUNT_ID.to_owned()]);
     assert_eq!(uses, 1);

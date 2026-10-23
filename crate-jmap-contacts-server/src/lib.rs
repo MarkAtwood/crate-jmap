@@ -507,41 +507,41 @@ pub(crate) mod test_support {
                 Err(_) => {
                     return Err(BackendSetError::SetError(Box::new(SetError::new(
                         SetErrorType::NotFound,
-                    ))))
+                    ))));
                 }
             };
 
             let mut guard = self.state.lock().unwrap();
-            if let Some(acct) = guard.get_mut(account_id.as_ref()) {
-                if let Some(existing_book) = acct.addressbooks.get(id).cloned() {
-                    // Apply the patch: merge JSON fields into the existing book.
-                    if let Ok(mut book_val) = serde_json::to_value(&existing_book) {
-                        if let (Some(obj), Some(patch_obj)) =
-                            (book_val.as_object_mut(), patch_val.as_object())
-                        {
-                            for (k, v) in patch_obj {
-                                obj.insert(k.clone(), v.clone());
-                            }
+            if let Some(acct) = guard.get_mut(account_id.as_ref())
+                && let Some(existing_book) = acct.addressbooks.get(id).cloned()
+            {
+                // Apply the patch: merge JSON fields into the existing book.
+                if let Ok(mut book_val) = serde_json::to_value(&existing_book) {
+                    if let (Some(obj), Some(patch_obj)) =
+                        (book_val.as_object_mut(), patch_val.as_object())
+                    {
+                        for (k, v) in patch_obj {
+                            obj.insert(k.clone(), v.clone());
                         }
-                        if let Ok(updated_book) = serde_json::from_value::<AddressBook>(book_val) {
-                            // Single-default invariant: if this book is now
-                            // default, clear isDefault on all other books.
-                            if updated_book.is_default {
-                                let target_id = id.clone();
-                                for (other_id, other_book) in acct.addressbooks.iter_mut() {
-                                    if *other_id != target_id {
-                                        other_book.is_default = false;
-                                    }
+                    }
+                    if let Ok(updated_book) = serde_json::from_value::<AddressBook>(book_val) {
+                        // Single-default invariant: if this book is now
+                        // default, clear isDefault on all other books.
+                        if updated_book.is_default {
+                            let target_id = id.clone();
+                            for (other_id, other_book) in acct.addressbooks.iter_mut() {
+                                if *other_id != target_id {
+                                    other_book.is_default = false;
                                 }
                             }
-                            // Store the updated book.
-                            acct.addressbooks.insert(id.clone(), updated_book.clone());
-                            // Try to cast back to O (succeeds when O = AddressBook).
-                            if let Ok(obj) = serde_json::to_value(&updated_book)
-                                .and_then(|v| serde_json::from_value::<O>(v))
-                            {
-                                return Ok(Some(obj));
-                            }
+                        }
+                        // Store the updated book.
+                        acct.addressbooks.insert(id.clone(), updated_book.clone());
+                        // Try to cast back to O (succeeds when O = AddressBook).
+                        if let Ok(obj) = serde_json::to_value(&updated_book)
+                            .and_then(|v| serde_json::from_value::<O>(v))
+                        {
+                            return Ok(Some(obj));
                         }
                     }
                 }

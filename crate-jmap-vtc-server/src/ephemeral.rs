@@ -25,11 +25,11 @@
 
 use jmap_types::{Id, JmapError};
 use jmap_vtc_types::{
-    RingEndReason, VtcCall, VtcEvent, VtcParticipant, VtcStreamEnable, VTC_EVENT_TYPES,
+    RingEndReason, VTC_EVENT_TYPES, VtcCall, VtcEvent, VtcParticipant, VtcStreamEnable,
 };
 
-use crate::call::JMAP_CHAT_URI;
 use crate::VtcBackend;
+use crate::call::JMAP_CHAT_URI;
 
 /// Which calls a subscription covers for per-call events.
 #[non_exhaustive]
@@ -220,7 +220,7 @@ pub async fn should_deliver<B: VtcBackend>(
     }
     let (call_id, origin) = match event {
         VtcEvent::Ring(e) => {
-            return Ok(!is_blocked(backend, caller, recipient_account_id, &e.initiator_id).await?)
+            return Ok(!is_blocked(backend, caller, recipient_account_id, &e.initiator_id).await?);
         }
         VtcEvent::CallEnd(e) => {
             if !matches!(
@@ -247,10 +247,10 @@ pub async fn should_deliver<B: VtcBackend>(
         VtcEvent::UnmuteRequest(e) => (&e.call_id, Origin::User(&e.requested_by)),
         _ => return Ok(false),
     };
-    if let CallScope::Only(ids) = filter.call_ids() {
-        if !ids.contains(call_id) {
-            return Ok(false);
-        }
+    if let CallScope::Only(ids) = filter.call_ids()
+        && !ids.contains(call_id)
+    {
+        return Ok(false);
     }
     let Some(call) = fetch_call(backend, caller, hosting_account_id, call_id).await? else {
         return Ok(false);

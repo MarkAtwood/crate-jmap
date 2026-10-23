@@ -36,10 +36,10 @@ use std::time::{Duration, Instant};
 
 use jmap_did_resolver::reqwest;
 use jmap_did_resolver::{
+    Fetch, FetchError, HttpFetcher, MAX_BODY_BYTES, ResolveError, Resolved, Resolver,
     jmap_did_types::{Did, WebvhLog},
-    Fetch, FetchError, HttpFetcher, ResolveError, Resolved, Resolver, MAX_BODY_BYTES,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

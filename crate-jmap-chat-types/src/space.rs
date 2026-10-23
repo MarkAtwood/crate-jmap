@@ -1,6 +1,6 @@
 //! Space (server-like container), categories, roles, members, invites, and bans.
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 /// A named Space permission (draft-atwood-jmap-chat-00 §SpaceRole

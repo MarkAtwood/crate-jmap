@@ -9,14 +9,14 @@
 use std::collections::BTreeMap;
 
 use jmap_chat_mimi_types::{
-    Base64Url, GroupInfoFetchRequest, GroupInfoFetchResponse, KeyMaterialFetchRequest,
-    KeyMaterialFetchResponse, KeyPackage, KeyPackageCreate, KeyPackageCreated, MimiCapability,
-    RoomCreateRequest, RoomCreateResponse, RoomSendRequest, RoomSendResponse, RoomUnbindRequest,
-    RoomUnbindResponse, RoomUpdateRequest, RoomUpdateResponse, JMAP_CHAT_MIMI_URI,
+    Base64Url, GroupInfoFetchRequest, GroupInfoFetchResponse, JMAP_CHAT_MIMI_URI,
+    KeyMaterialFetchRequest, KeyMaterialFetchResponse, KeyPackage, KeyPackageCreate,
+    KeyPackageCreated, MimiCapability, RoomCreateRequest, RoomCreateResponse, RoomSendRequest,
+    RoomSendResponse, RoomUnbindRequest, RoomUnbindResponse, RoomUpdateRequest, RoomUpdateResponse,
 };
 use jmap_types::{GetResponse, Id, SetResponse, State};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 /// The call-id embedded in every single-method request this crate sends.
 const CALL_ID: &str = "r1";

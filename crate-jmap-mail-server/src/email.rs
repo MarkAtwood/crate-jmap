@@ -31,17 +31,17 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use jmap_mail_types::{Email, EmailAddress, EmailAddressGroup, Keyword};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
 };
 use crate::{BackendSetError, MailBackend};
 use jmap_server::{
-    bool_arg, filter_arg, reject_read_only_patch, reject_server_set, resolve_query_offset,
-    server_fail_from_backend, server_fail_value_from_backend, take_bool_arg, HandlerOutput,
-    QueryChangesParams, QueryParams,
+    HandlerOutput, QueryChangesParams, QueryParams, bool_arg, filter_arg, reject_read_only_patch,
+    reject_server_set, resolve_query_offset, server_fail_from_backend,
+    server_fail_value_from_backend, take_bool_arg,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -827,7 +827,7 @@ pub async fn handle_email_query<B: MailBackend>(
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
-            )))
+            )));
         }
     };
     let anchor_offset: i64 = match args.remove("anchorOffset") {
@@ -972,10 +972,8 @@ pub async fn handle_email_query<B: MailBackend>(
         "position": reported_position,
         "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
-    if calculate_total {
-        if let Some(t) = total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = total {
+        resp["total"] = json!(t);
     }
     // RFC 8620 §5.5: return limit if server applied a cap different from what the client sent.
     if requested_limit != Some(effective_limit) {
@@ -1040,7 +1038,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         Some(_) => {
             return Err(JmapError::invalid_arguments(
                 "upToId must be a string Id or null",
-            ))
+            ));
         }
     };
 
@@ -1091,10 +1089,8 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         "removed": removed_json,
         "added": added_json,
     });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -1137,10 +1133,10 @@ pub async fn handle_email_set<B: MailBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -1398,7 +1394,7 @@ pub async fn handle_email_set<B: MailBackend>(
 /// This function operates on the serialized JSON value because the body-value filtering rules
 /// require cross-referencing `textBody`/`htmlBody` part ids against `bodyValues` keys.
 fn apply_body_value_args(val: &mut Value, args: &BodyFetchArgs, body_prop_set: &HashSet<&str>) {
-    let Value::Object(ref mut map) = val else {
+    let Value::Object(map) = val else {
         return;
     };
 
@@ -1433,7 +1429,7 @@ fn apply_body_value_args(val: &mut Value, args: &BodyFetchArgs, body_prop_set: &
     // are both empty HashSets (constructed in the else branches above), so retain()
     // removes every entry — effectively clearing bodyValues. This is the correct
     // RFC 8621 §4.2 default (all flags false → no body values returned).
-    if let Some(Value::Object(ref mut bv_map)) = map.get_mut("bodyValues") {
+    if let Some(Value::Object(bv_map)) = map.get_mut("bodyValues") {
         if !args.fetch_all {
             bv_map.retain(|part_id, _| {
                 text_part_ids.contains(part_id) || html_part_ids.contains(part_id)
@@ -1472,7 +1468,7 @@ fn apply_body_value_args(val: &mut Value, args: &BodyFetchArgs, body_prop_set: &
 
     // Apply bodyProperties filtering to each EmailBodyPart list.
     for key in &["textBody", "htmlBody", "attachments"] {
-        if let Some(Value::Array(ref mut parts)) = map.get_mut(*key) {
+        if let Some(Value::Array(parts)) = map.get_mut(*key) {
             for part in parts.iter_mut() {
                 *part = apply_body_properties(part, body_prop_set);
             }
@@ -1503,13 +1499,12 @@ fn apply_body_properties_recursive(node: &mut Value, props: &HashSet<&str>) {
     // Recurse into subParts only when the client asked for subParts in
     // bodyProperties — if subParts is absent from props, apply_body_properties
     // will strip it from the output anyway, so recursing first is wasted work.
-    if props.contains("subParts") {
-        if let Value::Object(ref mut map) = node {
-            if let Some(Value::Array(ref mut parts)) = map.get_mut("subParts") {
-                for part in parts.iter_mut() {
-                    apply_body_properties_recursive(part, props);
-                }
-            }
+    if props.contains("subParts")
+        && let Value::Object(map) = node
+        && let Some(Value::Array(parts)) = map.get_mut("subParts")
+    {
+        for part in parts.iter_mut() {
+            apply_body_properties_recursive(part, props);
         }
     }
     // Filter this node's own keys.  When subParts is not in props, the key is
@@ -1716,7 +1711,7 @@ async fn build_email_from_create<B: MailBackend>(
     account_id: &Id,
     backend: &B,
     caller: &B::CallerCtx,
-) -> Result<impl FnOnce(&Id) -> Email + Send, String> {
+) -> Result<impl FnOnce(&Id) -> Email + Send + use<B>, String> {
     // NOTE: The following fields are validated (body structure / envelope
     // rules are checked) but are NOT yet stored in the returned Email object:
     //   Envelope: from, to, cc, bcc, sender, replyTo, messageId
@@ -1898,10 +1893,10 @@ fn validate_email_body(obj_val: &Value) -> Result<(), String> {
             validate_body_part(part, body_values)?;
         }
     }
-    if let Some(body_struct) = obj_val.get("bodyStructure") {
-        if !body_struct.is_null() {
-            validate_body_part(body_struct, body_values)?;
-        }
+    if let Some(body_struct) = obj_val.get("bodyStructure")
+        && !body_struct.is_null()
+    {
+        validate_body_part(body_struct, body_values)?;
     }
 
     Ok(())
@@ -1952,8 +1947,8 @@ async fn assign_thread<B: MailBackend>(
 /// [`MailBackend::find_thread_by_message_ids`] to supply thread IDs from their own
 /// durable storage rather than relying on this counter.
 fn next_id() -> Id {
-    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::OnceLock;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -2053,10 +2048,10 @@ pub async fn handle_email_import<B: MailBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -2298,15 +2293,15 @@ pub async fn handle_email_parse<B: MailBackend>(
                 apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
                 let mut obj = filter_properties(&val, &effective_props);
                 // Inject dynamic header: property results (mirrors handle_email_get).
-                if !parsed_header_reqs.is_empty() {
-                    if let Value::Object(ref mut map) = obj {
-                        for (prop, req) in &parsed_header_reqs {
-                            let extracted = extract_header_values(&val, req);
-                            map.insert((*prop).to_owned(), extracted);
-                        }
-                        if headers_implicit {
-                            map.remove("headers");
-                        }
+                if !parsed_header_reqs.is_empty()
+                    && let Value::Object(ref mut map) = obj
+                {
+                    for (prop, req) in &parsed_header_reqs {
+                        let extracted = extract_header_values(&val, req);
+                        map.insert((*prop).to_owned(), extracted);
+                    }
+                    if headers_implicit {
+                        map.remove("headers");
                     }
                 }
                 // RFC 8621 §5.8: id, blobId, threadId, mailboxIds, keywords, and
@@ -2436,10 +2431,10 @@ pub async fn handle_email_copy<B: MailBackend>(
         .map_err(|e| server_fail_from_backend(&e))?;
 
     // ifInState: check destination account state (RFC 8620 §5.4).
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -2618,15 +2613,15 @@ pub async fn handle_email_copy<B: MailBackend>(
         // mismatch aborts that whole call with a method-level stateMismatch
         // error in place of the Email/set response. Nothing is destroyed and no
         // onSuccessUpdateOriginal patch is applied.
-        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
-            if if_in_state != email_old_state.as_ref() {
-                let err = json!({ "type": "stateMismatch" });
-                return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
-                    "error",
-                    err,
-                    call_id.to_owned(),
-                )]));
-            }
+        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str)
+            && if_in_state != email_old_state.as_ref()
+        {
+            let err = json!({ "type": "stateMismatch" });
+            return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
+                "error",
+                err,
+                call_id.to_owned(),
+            )]));
         }
 
         let mut email_destroyed: Vec<Value> = Vec::new();

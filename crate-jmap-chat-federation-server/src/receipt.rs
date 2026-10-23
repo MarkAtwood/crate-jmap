@@ -4,14 +4,14 @@
 
 use jmap_chat_federation_types::{PeerAck, PeerReceiptArgs};
 use jmap_chat_types::{DeliveryState, Message, PresenceStatus, ReadDisposition};
-use jmap_server::{serialize_value, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, serialize_value, server_fail_from_backend};
 use jmap_types::{JmapError, PatchObject};
 use serde_json::Map;
 
-use crate::deliver::{
-    authenticate, check_account, get_chat, is_participant, set_failure, Identities, Who,
-};
 use crate::FederationBackend;
+use crate::deliver::{
+    Identities, Who, authenticate, check_account, get_chat, is_participant, set_failure,
+};
 
 /// Handle a `Peer/receipt` method call.
 ///

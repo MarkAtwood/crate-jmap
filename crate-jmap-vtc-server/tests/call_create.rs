@@ -9,7 +9,7 @@ use common::*;
 use jmap_server::JmapBackend;
 use jmap_types::Id;
 use jmap_vtc_types::{CallResponse, CallRole, VtcParticipant};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The ring create example, L594-604, verbatim.
 fn ring_example() -> Value {

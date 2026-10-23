@@ -4,12 +4,12 @@
 
 use std::collections::HashSet;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_server::memory::MemoryBackend;
 use jmap_chat_mimi_server::{
-    handle_key_package_get, handle_key_package_set, KeyMaterialRequirements, KeyPackageFit,
-    MimiBackend,
+    KeyMaterialRequirements, KeyPackageFit, MimiBackend, handle_key_package_get,
+    handle_key_package_set,
 };
 use jmap_chat_mimi_types::{Base64Url, ClientKeyMaterial, MimiCapability};
 use jmap_types::Id;
@@ -22,7 +22,7 @@ use openmls::prelude::{
 use openmls::treesync::errors::LifetimeError;
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::{OpenMlsRustCrypto, RustCrypto};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tls_codec::{Deserialize as _, Serialize as _};
 
 const ALICE: &str = "mimi://a.example/u/alice";

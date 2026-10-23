@@ -22,11 +22,11 @@
 
 mod common;
 
-use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, TrackingBackend};
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
-use jmap_chat_server::{handle_chat_set, ChatBackend, ChatLimits, SetError, SetErrorType};
+use jmap_chat_server::{ChatBackend, ChatLimits, SetError, SetErrorType, handle_chat_set};
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// SHA-256("abc"), FIPS 180-2 Appendix B.1 / RFC 6234 §8.5 TEST1.
 const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";

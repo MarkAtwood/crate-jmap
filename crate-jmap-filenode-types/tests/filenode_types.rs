@@ -11,8 +11,8 @@
 mod common;
 
 use jmap_filenode_types::{
-    FileNode, FileNodeCapability, FileNodeFilterCondition, FilesRights, NodeRole, NodeType,
-    JMAP_FILENODE_URI,
+    FileNode, FileNodeCapability, FileNodeFilterCondition, FilesRights, JMAP_FILENODE_URI,
+    NodeRole, NodeType,
 };
 use jmap_types::{Id, UTCDate};
 
@@ -375,16 +375,18 @@ fn capability_deserialize_from_spec_example() {
         ]
     );
     assert_eq!(cap.forbidden_name_chars, Some("/<>:\"\\|?*".to_owned()));
-    assert!(cap
-        .forbidden_node_names
-        .as_ref()
-        .unwrap()
-        .contains(&"CON".to_owned()));
-    assert!(cap
-        .forbidden_node_names
-        .as_ref()
-        .unwrap()
-        .contains(&".".to_owned()));
+    assert!(
+        cap.forbidden_node_names
+            .as_ref()
+            .unwrap()
+            .contains(&"CON".to_owned())
+    );
+    assert!(
+        cap.forbidden_node_names
+            .as_ref()
+            .unwrap()
+            .contains(&".".to_owned())
+    );
     assert!(!cap.case_insensitive_names);
     assert!(!cap.may_create_top_level_file_node);
     assert_eq!(

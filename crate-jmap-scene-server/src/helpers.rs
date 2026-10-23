@@ -1,14 +1,14 @@
 //! Private helper utilities for the handler modules.
 
 use jmap_types::{GetObject, Id, JmapError, JmapObject, State, UTCDate};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use jmap_scene_types::{SceneAvatar, SceneObject, SceneRegion};
 
 use crate::{BackendSetError, SceneBackend, SetError, SetErrorType};
 use jmap_server::{
-    enforce_max_objects_in_get, not_found_json, optional_arg, serialize_value,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, enforce_max_objects_in_get, not_found_json, optional_arg, serialize_value,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
@@ -90,21 +90,20 @@ pub(crate) fn check_region_filter(
     if let Some(r) = filter
         .pointer("/withinRadius/radius")
         .and_then(Value::as_f64)
+        && r <= 0.0
     {
-        if r <= 0.0 {
-            return Err(JmapError::invalid_arguments(
-                "filter withinRadius.radius must be positive",
-            ));
-        }
+        return Err(JmapError::invalid_arguments(
+            "filter withinRadius.radius must be positive",
+        ));
     }
     if let Some(b) = filter.get("withinBounds") {
         let corner = |k| b.get(k).and_then(|c| numbers(c, 3));
-        if let (Some(min), Some(max)) = (corner("min"), corner("max")) {
-            if min.iter().zip(&max).any(|(lo, hi)| hi < lo) {
-                return Err(JmapError::invalid_arguments(
-                    "filter withinBounds.max must be >= withinBounds.min on every axis",
-                ));
-            }
+        if let (Some(min), Some(max)) = (corner("min"), corner("max"))
+            && min.iter().zip(&max).any(|(lo, hi)| hi < lo)
+        {
+            return Err(JmapError::invalid_arguments(
+                "filter withinBounds.max must be >= withinBounds.min on every axis",
+            ));
         }
     }
     condition(filter)

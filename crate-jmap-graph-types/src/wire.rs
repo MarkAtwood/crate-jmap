@@ -1,7 +1,7 @@
 //! Private serde helpers shared by the Graph wire types.
 
-use serde::de::Error as _;
 use serde::Deserializer;
+use serde::de::Error as _;
 use serde_json::{Map, Value};
 
 /// Insert `"@type": tag` into a serialized object.

@@ -26,8 +26,8 @@
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
-use jmap_testjig::{spawn_in_process, TestjigConfig};
-use serde_json::{json, Value};
+use jmap_testjig::{TestjigConfig, spawn_in_process};
+use serde_json::{Value, json};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::protocol::Message;
 

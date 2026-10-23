@@ -277,9 +277,9 @@ pub(crate) mod test_support {
     use std::sync::{Arc, Mutex};
 
     use jmap_server::{
-        apply_patch_object, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-        GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-        QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+        BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+        JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+        QueryResult, SetError, SetErrorType, SetObject, apply_patch_object,
     };
     use jmap_types::{Id, State};
 
@@ -808,10 +808,10 @@ pub(crate) mod test_support {
             if let Some(acct) = guard.get_mut(account_id.as_ref()) {
                 // Also clear from calendars_with_events if it's a Calendar.
                 acct.calendars_with_events.remove(id);
-                if let Some(store) = acct.objects.get_mut(type_name) {
-                    if store.remove(id).is_some() {
-                        return Ok(());
-                    }
+                if let Some(store) = acct.objects.get_mut(type_name)
+                    && store.remove(id).is_some()
+                {
+                    return Ok(());
                 }
             }
             Err(BackendSetError::SetError(Box::new(SetError::new(
@@ -967,21 +967,21 @@ pub(crate) mod test_support {
             params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
             args: &CalendarEventQueryArgs,
         ) -> Result<jmap_server::QueryResult, BackendQueryError<Self::Error>> {
-            if let Some(jmap_types::Filter::Condition(f)) = params.filter {
-                if let Some(in_cal) = f.in_calendar.as_ref() {
-                    match in_cal.as_ref() {
-                        "trigger-too-large" => {
-                            return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
-                                "expandDurationTooLarge",
-                            )));
-                        }
-                        "trigger-cannot-calc" => {
-                            return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
-                                "cannotCalculateOccurrences",
-                            )));
-                        }
-                        _ => {}
+            if let Some(jmap_types::Filter::Condition(f)) = params.filter
+                && let Some(in_cal) = f.in_calendar.as_ref()
+            {
+                match in_cal.as_ref() {
+                    "trigger-too-large" => {
+                        return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
+                            "expandDurationTooLarge",
+                        )));
                     }
+                    "trigger-cannot-calc" => {
+                        return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
+                            "cannotCalculateOccurrences",
+                        )));
+                    }
+                    _ => {}
                 }
             }
             let _ = args; // happy path delegates to the generic backend
@@ -1082,10 +1082,10 @@ pub(crate) mod test_support {
                     continue;
                 };
                 let before = key(&v).0;
-                if let Some(obj) = v.as_object_mut() {
-                    if apply_patch_object(obj, patch.as_map()).is_ok() {
-                        after.insert(id.clone(), key(&v));
-                    }
+                if let Some(obj) = v.as_object_mut()
+                    && apply_patch_object(obj, patch.as_map()).is_ok()
+                {
+                    after.insert(id.clone(), key(&v));
                 }
                 update_uids.push((id, before, after[id].0.clone()));
             }

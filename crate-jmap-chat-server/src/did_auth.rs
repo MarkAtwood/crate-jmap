@@ -35,8 +35,8 @@
 
 use std::fmt;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_did_types::{Did, DidKey, KeyType};
 use jmap_peer_auth::ed25519_dalek::VerifyingKey;
 use serde_json::Value;

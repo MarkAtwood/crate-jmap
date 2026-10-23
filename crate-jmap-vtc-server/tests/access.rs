@@ -14,7 +14,7 @@ use jmap_vtc_server::{
     handle_vtc_participant_changes, handle_vtc_participant_get, handle_vtc_participant_query,
     handle_vtc_participant_set, handle_vtc_recording_get,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A backend under [`media_capability`] holding room call `C1` (active,
 /// initiator [`BOB`]) with `e2eeEnabled` set to `e2ee`.

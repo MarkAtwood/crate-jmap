@@ -6,7 +6,7 @@
 //! on it. Events "are not persisted as JMAP objects and carry no state
 //! token".
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::Position;
@@ -382,16 +382,18 @@ mod tests {
         // Oracle: L193-194 `@type` (String): `"SceneAvatarEvent"`; L202
         // `event` (String).
         assert!(serde_json::from_value::<SceneEvent>(json!({"regionId": "R1"})).is_err());
-        assert!(serde_json::from_value::<SceneEvent>(json!({
-            "@type": "SceneAvatarEvent",
-            "accountId": "A",
-            "regionId": "R1",
-            "avatarId": "A1",
-            "event": 1,
-            "userId": "u",
-            "displayName": "U"
-        }))
-        .is_err());
+        assert!(
+            serde_json::from_value::<SceneEvent>(json!({
+                "@type": "SceneAvatarEvent",
+                "accountId": "A",
+                "regionId": "R1",
+                "avatarId": "A1",
+                "event": 1,
+                "userId": "u",
+                "displayName": "U"
+            }))
+            .is_err()
+        );
     }
 
     #[test]

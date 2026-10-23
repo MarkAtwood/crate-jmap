@@ -8,12 +8,12 @@ use std::task::{Context, Poll};
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use jmap_types::Id;
-use reqwest::header::{HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
+use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
-use crate::client::{read_capped_body, JmapClient};
+use crate::client::{JmapClient, read_capped_body};
 use crate::error::ClientError;
 
 /// Parameters for [`JmapClient::download_blob`].
@@ -813,10 +813,10 @@ impl JmapClient {
 
         let limit = self.config.max_download_body;
         let content_length = resp.content_length();
-        if let Some(len) = content_length {
-            if len > limit {
-                return Err(ClientError::ResponseTooLarge { actual: len, limit });
-            }
+        if let Some(len) = content_length
+            && len > limit
+        {
+            return Err(ClientError::ResponseTooLarge { actual: len, limit });
         }
 
         let state = DownloadState {

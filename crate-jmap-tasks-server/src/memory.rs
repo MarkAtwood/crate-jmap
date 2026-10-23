@@ -447,10 +447,10 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
-        if let Some(max) = max_changes {
-            if relevant.len() as u64 > max {
-                return Err(BackendChangesError::TooManyChanges { limit: max });
-            }
+        if let Some(max) = max_changes
+            && relevant.len() as u64 > max
+        {
+            return Err(BackendChangesError::TooManyChanges { limit: max });
         }
 
         let mut created: Vec<Id> = Vec::new();

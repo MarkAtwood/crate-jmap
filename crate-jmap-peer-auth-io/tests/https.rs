@@ -9,8 +9,8 @@
 //! made with OpenSSL (`tests/fixtures/`). They are test-only keys.
 
 use std::net::IpAddr;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use jmap_peer_auth_io::{Fetch, FetchError, HttpsFetcher};
 use rustls_pki_types::pem::PemObject;

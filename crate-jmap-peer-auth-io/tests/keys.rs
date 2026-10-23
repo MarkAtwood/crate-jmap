@@ -7,12 +7,12 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use http::{HeaderMap, HeaderValue, Method};
 use jmap_peer_auth::ed25519_dalek::SigningKey;
-use jmap_peer_auth::{sign, DnssecAnswer, PeerDomain, PeerSigningKey, Rejection, Request};
+use jmap_peer_auth::{DnssecAnswer, PeerDomain, PeerSigningKey, Rejection, Request, sign};
 use jmap_peer_auth_io::{
-    authenticate, DnsAnswer, DnssecLookup, Error, Fetch, FetchError, MemoryReplayStore, PeerKeys,
-    Response,
+    DnsAnswer, DnssecLookup, Error, Fetch, FetchError, MemoryReplayStore, PeerKeys, Response,
+    authenticate,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// RFC 8037 Appendix A.2 public key; Appendix A.3 gives its thumbprint,
 /// which the draft also uses as its example `kid`.

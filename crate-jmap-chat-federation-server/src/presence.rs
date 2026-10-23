@@ -12,12 +12,12 @@ use jmap_chat_federation_types::{
     PeerUnsubscribePresenceArgs,
 };
 use jmap_chat_types::{ChatContact, ChatPresenceEvent, Clearable, Presence, PresenceStatus};
-use jmap_server::{serialize_value, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, serialize_value, server_fail_from_backend};
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
-use crate::deliver::{authenticate, check_account, set_failure, Identities, Who};
 use crate::FederationBackend;
+use crate::deliver::{Identities, Who, authenticate, check_account, set_failure};
 
 /// What the presence methods need beyond [`FederationBackend`]: the
 /// subscription store and the owner's client push.

@@ -29,8 +29,8 @@
 mod common;
 
 use common::{
-    seed_space, seed_with_admin, seed_with_non_admin_caller, IdentityBackend, MemoryBackend,
-    ACCOUNT_ID, SPACE_ID,
+    ACCOUNT_ID, IdentityBackend, MemoryBackend, SPACE_ID, seed_space, seed_with_admin,
+    seed_with_non_admin_caller,
 };
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_server::HandlerOutput;

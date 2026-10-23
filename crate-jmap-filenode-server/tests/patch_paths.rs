@@ -14,7 +14,7 @@ use jmap_filenode_server::handle_filenode_set;
 use jmap_filenode_types::FileNode;
 use jmap_server::{HandlerOutput, JmapBackend};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Seed a File node `id` whose `shareWith` holds a single "existing" entry.
 fn seed_file(backend: &MemoryBackend, id: &str) {

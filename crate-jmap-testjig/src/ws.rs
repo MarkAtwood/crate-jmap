@@ -62,21 +62,21 @@ use std::sync::Arc;
 
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         State as AxumState,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::Response,
 };
-use jmap_server::{parse_request, JmapError};
+use jmap_server::{JmapError, parse_request};
 use jmap_types::{Id, State};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::http::{AppState, AppStateInner, MAX_CALLS_IN_REQUEST};
 use crate::session;
-use crate::sse::{TypesFilter, POLL_INTERVAL};
+use crate::sse::{POLL_INTERVAL, TypesFilter};
 
 /// Subprotocol name negotiated on the WS upgrade handshake.
 ///

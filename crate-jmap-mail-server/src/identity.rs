@@ -22,17 +22,17 @@
 use std::collections::HashSet;
 
 use jmap_types::{Id, JmapError, PatchObject, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
 };
 use crate::{BackendSetError, MailBackend};
 use jmap_mail_types::Identity;
 use jmap_server::{
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
@@ -204,10 +204,10 @@ pub async fn handle_identity_set<B: MailBackend>(
         .map_err(|e| server_fail_from_backend(&e))?;
 
     // ifInState: if provided and does not match, return stateMismatch.
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();

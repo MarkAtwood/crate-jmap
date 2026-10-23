@@ -25,7 +25,7 @@ use jmap_filenode_server::memory::MemoryBackend;
 use jmap_filenode_server::{handle_filenode_changes, handle_filenode_query};
 use jmap_filenode_types::FileNode;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const ROLE: &str = "chatspace";

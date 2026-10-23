@@ -6,7 +6,7 @@
 //! dispatches on it, as [`VtcEvent`](crate::VtcEvent) does for the
 //! server→client events.
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::event::{
@@ -373,9 +373,11 @@ mod tests {
         // Oracle: L140 "`@type` (String): MUST be `\"VTCStreamEnable\"`";
         // L142 `callIds` is "String[]|null".
         assert!(serde_json::from_value::<VtcStreamMessage>(json!({"callIds": null})).is_err());
-        assert!(serde_json::from_value::<VtcStreamMessage>(
-            json!({"@type": "VTCStreamEnable", "callIds": "01J4XKZQN4MWVT8PPBEHTJ3AB"})
-        )
-        .is_err());
+        assert!(
+            serde_json::from_value::<VtcStreamMessage>(
+                json!({"@type": "VTCStreamEnable", "callIds": "01J4XKZQN4MWVT8PPBEHTJ3AB"})
+            )
+            .is_err()
+        );
     }
 }

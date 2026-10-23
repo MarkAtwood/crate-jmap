@@ -5,7 +5,7 @@
 //! digest value is the draft's own example (L158), the SHA-256 of `"test"`.
 
 use jmap_filenode_types::{FileNode, NodeType};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// draft-atwood-jmap-cid-00 L158: the `sha256` example value.
 const DRAFT_SHA256: &str = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";

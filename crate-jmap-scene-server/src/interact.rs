@@ -19,14 +19,14 @@
 
 use jmap_scene_types::{SceneInteraction, SceneInteractionEvent, SceneObject};
 use jmap_types::{Id, JmapError};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
+use crate::SceneBackend;
 use crate::ephemeral::has_active_avatar;
 use crate::helpers::{
     extract_account_id, fetch_one, forbidden, invalid, is_visible, not_found, set_error_value,
 };
-use crate::SceneBackend;
-use jmap_server::{server_fail_value_from_backend, HandlerOutput, SetError, SetErrorType};
+use jmap_server::{HandlerOutput, SetError, SetErrorType, server_fail_value_from_backend};
 
 /// Handle `SceneObject/interact`.
 ///

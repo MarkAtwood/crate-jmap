@@ -15,7 +15,7 @@
 //! (`draft-atwood-jmap-chat-did-00`). A marker's value is an empty object,
 //! so only its URI constant is defined here, with no struct.
 
-use jmap_types::{impl_string_enum, Urgency};
+use jmap_types::{Urgency, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::message::BodyType;

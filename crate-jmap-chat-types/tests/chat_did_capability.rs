@@ -5,7 +5,7 @@
 //! /home/mark/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-did-00.md
 //! (line numbers at HEAD) and hand-written method lists.
 
-use jmap_chat_types::{may_advertise_chat_did, JMAP_CHAT_DID_URI, MANDATORY_DID_METHODS};
+use jmap_chat_types::{JMAP_CHAT_DID_URI, MANDATORY_DID_METHODS, may_advertise_chat_did};
 
 #[test]
 fn uri_matches_draft() {

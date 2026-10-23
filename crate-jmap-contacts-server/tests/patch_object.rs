@@ -12,7 +12,7 @@ use jmap_contacts_server::{
     handle_contact_card_set,
 };
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A minimal valid AddressBook.
 fn address_book(id: &str) -> Value {

@@ -6,11 +6,11 @@
 //! Records and events are hand-written JSON.
 
 use jmap_chat_scene_server::should_deliver_scene;
-use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::SceneEphemeralSubscription;
+use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_types::{SceneCapability, SceneEvent, SceneStreamEnable};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "acct-001";
 const ALICE: &str = "user:alice@example.com";

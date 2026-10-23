@@ -419,8 +419,8 @@ mod tests {
     //! new field is a compile error here until it is set, then a
     //! classification failure until the `SetObject` lists name it.
 
-    use jmap_types::{check_property_classification, Date, Id, UTCDate};
-    use serde_json::{json, Map, Value};
+    use jmap_types::{Date, Id, UTCDate, check_property_classification};
+    use serde_json::{Map, Value, json};
     use std::collections::BTreeMap;
 
     fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {

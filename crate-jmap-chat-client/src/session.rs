@@ -396,10 +396,12 @@ mod tests {
             .expect("acct1 must have chat filenode capability");
         assert_eq!(cap.max_space_storage_bytes, Some(5000000));
         assert!(cap.auto_create_file_tree);
-        assert!(session
-            .chat_filenode_capability("acct2")
-            .expect("absent key must not Err")
-            .is_none());
+        assert!(
+            session
+                .chat_filenode_capability("acct2")
+                .expect("absent key must not Err")
+                .is_none()
+        );
         assert!(session.chat_filenode_capability("acct3").is_err());
     }
 

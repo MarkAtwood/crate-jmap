@@ -4,14 +4,14 @@
 #![allow(dead_code)] // Each test binary uses a subset of the helpers.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use jmap_chat_federation_server::{
+    AuthenticatedPeer, FederationBackend, FederationPresenceBackend, FetchedBlob,
     handle_peer_deliver, handle_peer_group_update, handle_peer_presence, handle_peer_receipt,
     handle_peer_retract, handle_peer_subscribe_presence, handle_peer_typing,
-    handle_peer_unsubscribe_presence, AuthenticatedPeer, FederationBackend,
-    FederationPresenceBackend, FetchedBlob,
+    handle_peer_unsubscribe_presence,
 };
 use jmap_chat_federation_types::{PeerAttachment, PeerAvatar};
 use jmap_chat_server::memory::{MemoryBackend, MemoryError};
@@ -26,7 +26,7 @@ use jmap_chat_types::{
 };
 use jmap_peer_auth::PeerDomain;
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub const ACCOUNT: &str = "A1";
 pub const OWNER: &str = "owner@home.example";
@@ -398,12 +398,12 @@ impl ChatBackend for Fed {
         O: SetObject + Send + Sync,
         F: FnOnce(&Id) -> O + Send,
     {
-        if let (Some(cap), true) = (self.contact_cap, O::TYPE_NAME == ChatContact::TYPE_NAME) {
-            if self.contacts().await.len() >= cap {
-                return Err(BackendSetError::SetError(Box::new(SetError::new(
-                    SetErrorType::RateLimit,
-                ))));
-            }
+        if let (Some(cap), true) = (self.contact_cap, O::TYPE_NAME == ChatContact::TYPE_NAME)
+            && self.contacts().await.len() >= cap
+        {
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
+                SetErrorType::RateLimit,
+            ))));
         }
         self.chat
             .create_object(caller, account_id, create_id, build)

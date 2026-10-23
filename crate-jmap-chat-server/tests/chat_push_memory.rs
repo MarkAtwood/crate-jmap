@@ -10,7 +10,7 @@ use jmap_chat_server::memory::MemoryBackend;
 use jmap_chat_types::ChatPushCapability;
 use jmap_server::{BackendSetError, PushSubscriptionBackend, SetErrorType};
 use jmap_types::{Id, PushSubscription};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "acct-push";
 

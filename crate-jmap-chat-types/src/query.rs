@@ -36,7 +36,7 @@
 //! let filter = MessageFilter::Condition(cond);
 //! ```
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::{ChatKind, Presence};
@@ -288,7 +288,7 @@ impl<P> Comparator<P> {
 mod tests {
     use super::*;
     use serde::de::DeserializeOwned;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     /// `wire` uses every filter property the draft lists for the object.
     /// It must decode and re-encode to the same JSON.

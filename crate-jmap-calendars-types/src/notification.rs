@@ -2,7 +2,7 @@
 //!
 //! Normative reference: draft-ietf-jmap-calendars-33 §7.
 
-use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
+use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 /// Who made the change that triggered a [`CalendarEventNotification`]

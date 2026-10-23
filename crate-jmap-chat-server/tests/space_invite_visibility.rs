@@ -6,11 +6,11 @@
 
 mod common;
 
-use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, IdentityBackend, SPACE_ID, seed_space};
 use jmap_chat_server::{handle_invite_changes, handle_invite_get, handle_invite_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const OWN: &str = "inv-own";
 const OTHERS: &str = "inv-others";

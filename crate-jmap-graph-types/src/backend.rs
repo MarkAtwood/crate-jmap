@@ -115,8 +115,8 @@ mod tests {
     //! classification failure until the `SetObject` lists name it.
 
     use super::*;
-    use jmap_types::{check_property_classification, Id, UTCDate};
-    use serde_json::{json, Map};
+    use jmap_types::{Id, UTCDate, check_property_classification};
+    use serde_json::{Map, json};
     use std::collections::BTreeMap;
 
     fn date() -> UTCDate {

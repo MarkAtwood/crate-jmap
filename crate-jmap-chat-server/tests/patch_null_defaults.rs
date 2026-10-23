@@ -9,16 +9,16 @@
 
 mod common;
 
-use common::{make_chat_group, seed_group_chat, MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, make_chat_group, seed_group_chat};
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_server::{
-    handle_chat_get, handle_chat_set, handle_contact_get, handle_contact_set, handle_presence_get,
-    handle_presence_set, ChatBackend,
+    ChatBackend, handle_chat_get, handle_chat_set, handle_contact_get, handle_contact_set,
+    handle_presence_get, handle_presence_set,
 };
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, PatchObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 /// Assert a `/set` response updated `id` without error.
 fn assert_updated(resp: &Value, id: &str) {

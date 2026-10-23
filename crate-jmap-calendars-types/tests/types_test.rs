@@ -15,9 +15,9 @@ mod common;
 use jmap_calendars_types::{
     Alert, AlertTrigger, BusyPeriod, BusyStatus, Calendar, CalendarAlert, CalendarEvent,
     CalendarEventFilterCondition, CalendarEventNotification, CalendarRights,
-    CalendarsAccountCapability, CalendarsCapability, IncludeInAvailability, Link, Participant,
-    ParticipantIdentity, Person, PrincipalCalendarsCapability,
-    PrincipalsAvailabilityAccountCapability, VirtualLocation, JMAP_CALENDARS_URI,
+    CalendarsAccountCapability, CalendarsCapability, IncludeInAvailability, JMAP_CALENDARS_URI,
+    Link, Participant, ParticipantIdentity, Person, PrincipalCalendarsCapability,
+    PrincipalsAvailabilityAccountCapability, VirtualLocation,
 };
 use jmap_types::Id;
 

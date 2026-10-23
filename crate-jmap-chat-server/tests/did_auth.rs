@@ -13,14 +13,14 @@
 
 use std::time::{Duration, UNIX_EPOCH};
 
-use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use http::{HeaderMap, HeaderValue, Method};
-use jmap_chat_server::{verify_did_binding, DidAuthRejection, DidDocument};
+use jmap_chat_server::{DidAuthRejection, DidDocument, verify_did_binding};
 use jmap_did_types::Did;
 use jmap_peer_auth::ed25519_dalek::{Signer as _, SigningKey, VerifyingKey};
 use jmap_peer_auth::{PeerSigningKey, Request, SignedRequest};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// RFC 9421 Appendix B.1.4 test-key-ed25519, JWK `d`.
 const B14_D: &str = "n4Ni-HpISpVObnQMW0wOhCKROaIKqKtW_2ZYb2p9KcU";

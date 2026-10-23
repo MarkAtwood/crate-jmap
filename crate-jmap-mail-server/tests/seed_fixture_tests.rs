@@ -10,7 +10,7 @@
 
 mod common;
 
-use common::{seed::setup_seed_data, MemoryBackend};
+use common::{MemoryBackend, seed::setup_seed_data};
 use jmap_mail_server::JmapBackend;
 use jmap_mail_types::{Email, Mailbox, MailboxRole};
 use jmap_types::Id;

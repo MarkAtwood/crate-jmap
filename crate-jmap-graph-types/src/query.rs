@@ -34,7 +34,7 @@
 //! cond.from_id = Some(vec![Id::from("N1")]);
 //! ```
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 pub use jmap_types::{Filter, FilterOperator, Operator};

@@ -41,7 +41,7 @@ pub use methods::{
     AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
     SessionClient, SetError, SetResponse,
 };
-pub use ws::{parse_vtc_ws_frame, VtcWsExt, VtcWsFrame};
+pub use ws::{VtcWsExt, VtcWsFrame, parse_vtc_ws_frame};
 
 // ---------------------------------------------------------------------------
 // JmapVtcExt — the extension trait

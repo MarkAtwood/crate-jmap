@@ -39,14 +39,14 @@
 use std::collections::HashSet;
 
 use jmap_chat_filenode_server::{
-    check_space_create, check_space_destroy, check_space_update, space_files_rights, RootCheckError,
+    RootCheckError, check_space_create, check_space_destroy, check_space_update, space_files_rights,
 };
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_filenode_server::memory::MemoryBackend as FilesMemory;
 use jmap_filenode_types::FileNode;
 use jmap_server::JmapBackend;
 use jmap_types::{Id, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";

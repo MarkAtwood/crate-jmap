@@ -11,11 +11,11 @@
 
 mod common;
 
-use common::{IdentityBackend, MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, IdentityBackend, MemoryBackend};
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
 /// Every permission name defined in draft-atwood-jmap-chat-00 §SpaceRole

@@ -1,8 +1,8 @@
 //! draft-atwood-jmap-chat-mimi-00 §Handing Out KeyPackages: which stored
 //! KeyPackage a key material request may receive.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_types::Base64Url;
 use openmls::prelude::{
     KeyPackageIn, OpenMlsCrypto, ProtocolVersion, RequiredCapabilitiesExtension,

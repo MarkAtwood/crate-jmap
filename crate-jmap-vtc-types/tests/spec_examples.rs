@@ -16,8 +16,8 @@ use jmap_vtc_types::{
     CallState, CallType, JoinMethod, MediaKind, RingEndReason, SignalDirection, VtcCall,
     VtcCallPush, VtcEvent, VtcParticipant,
 };
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 /// Parse `json` as `T`, assert it re-serializes to the same JSON value,

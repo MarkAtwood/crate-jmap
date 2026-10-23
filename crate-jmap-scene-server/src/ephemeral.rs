@@ -30,14 +30,14 @@
 //! (§Client-to-Server Submission).
 
 use jmap_scene_types::{
-    ObjectEventKind, SceneAvatar, SceneEvent, SceneInteractionEvent, SceneObject,
-    SceneStreamEnable, SCENE_EVENT_TYPES,
+    ObjectEventKind, SCENE_EVENT_TYPES, SceneAvatar, SceneEvent, SceneInteractionEvent,
+    SceneObject, SceneStreamEnable,
 };
 use jmap_types::{Id, JmapError};
 
+use crate::SceneBackend;
 use crate::helpers::is_visible;
 use crate::region::JMAP_CHAT_URI;
-use crate::SceneBackend;
 
 /// Which regions a subscription covers.
 #[non_exhaustive]

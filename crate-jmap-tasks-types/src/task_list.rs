@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 /// Special role of a TaskList (draft-tasks-06 §3).

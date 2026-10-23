@@ -1,10 +1,10 @@
 //! Private helper utilities for the handler modules.
 
 use jmap_types::{GetObject, Id, JmapError, JmapObject, State, UTCDate};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, server_fail_from_backend, server_fail_value_from_backend};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 

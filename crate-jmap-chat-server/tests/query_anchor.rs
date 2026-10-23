@@ -10,11 +10,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::handle_chat_query;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A backend holding Chats `c1`..`c5` in account [`ACCOUNT_ID`].
 fn seeded_backend() -> MemoryBackend {

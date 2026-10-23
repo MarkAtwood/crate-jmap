@@ -18,15 +18,15 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::message::{
-    find_message_by_sender_msg_id, handle_message_get, store_server_message, StoreOutcome,
+    StoreOutcome, find_message_by_sender_msg_id, handle_message_get, store_server_message,
 };
 use jmap_chat_server::{handle_chat_get, handle_position_get};
 use jmap_chat_types::{DeliveryState, Message};
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const FANOUT: &str = "application/mimi-fanout";
 const HUB: &str = "contact-hub";
@@ -57,7 +57,11 @@ fn setup() -> MemoryBackend {
     backend
 }
 
-fn fanout(chat_id: &str, sender_msg_id: &str, body: &str) -> impl FnOnce(&Id) -> Message + Send {
+fn fanout(
+    chat_id: &str,
+    sender_msg_id: &str,
+    body: &str,
+) -> impl FnOnce(&Id) -> Message + Send + use<> {
     let (chat_id, sender_msg_id, body) = (
         chat_id.to_owned(),
         sender_msg_id.to_owned(),

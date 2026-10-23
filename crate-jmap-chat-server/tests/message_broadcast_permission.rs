@@ -10,11 +10,11 @@
 
 mod common;
 
-use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, TrackingBackend};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const RICH: &str = "application/jmap-chat-rich";
 const RICH_BROADCAST: &str = r#"{"spans":[{"type":"text","text":"hi "},{"type":"broadcast","text":"@here","scope":"here"}]}"#;

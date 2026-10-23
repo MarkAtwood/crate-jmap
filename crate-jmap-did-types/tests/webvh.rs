@@ -21,7 +21,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use jmap_did_types::{verify_webvh_log, webvh_log_url, Did, WebvhError, WebvhLog};
+use jmap_did_types::{Did, WebvhError, WebvhLog, verify_webvh_log, webvh_log_url};
 use serde_json::Value;
 
 /// 2026-10-20T00:00:00Z, after every fixture's `versionTime`.

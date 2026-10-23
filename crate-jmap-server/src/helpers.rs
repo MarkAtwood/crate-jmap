@@ -854,7 +854,7 @@ pub fn query_anchor_args(args: &Map<String, Value>) -> Result<(Option<Id>, i64),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
-            )))
+            )));
         }
     };
     let anchor_offset = match args.get("anchorOffset") {
@@ -1211,12 +1211,12 @@ pub fn parse_wire_id(raw: &str, property: &str) -> Result<Id, Box<SetError>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
-        extract_account_id, filter_arg, is_client_updatable, json_merge_patch, now_utc_string,
-        parse_max_changes, parse_wire_id, query_anchor_args, reject_did_bearing_properties,
-        reject_read_only_patch, reject_server_set, resolve_creation_ref, resolve_query_offset,
-        resolve_query_start, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
-        MAX_MERGE_PATCH_DEPTH,
+        MAX_MERGE_PATCH_DEPTH, MergePatchError, PatchPathError, apply_jmap_patch,
+        apply_patch_object, civil_from_days, enforce_max_objects_in_set, extract_account_id,
+        filter_arg, is_client_updatable, json_merge_patch, now_utc_string, parse_max_changes,
+        parse_wire_id, query_anchor_args, reject_did_bearing_properties, reject_read_only_patch,
+        reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
+        utc_date_from_epoch_seconds,
     };
     use jmap_types::{Id, PushSubscription};
     use serde_json::json;

@@ -9,13 +9,13 @@
 use std::sync::{Arc, Mutex};
 
 use jmap_server::{
-    register_push_subscription_handlers, BackendChangesError, BackendQueryError, BackendSetError,
-    ChangesResult, Dispatcher, GetObject, Id, JmapBackend, JmapObject, JmapRequest,
-    PushSubscriptionBackend, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, State, StoredPushSubscription,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, Dispatcher, GetObject,
+    Id, JmapBackend, JmapObject, JmapRequest, PushSubscriptionBackend, QueryChangesParams,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, State, StoredPushSubscription,
+    register_push_subscription_handlers,
 };
 use jmap_types::PushSubscription;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Debug)]
 struct MockError;

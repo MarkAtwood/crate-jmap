@@ -56,18 +56,18 @@ mod search;
 mod wire;
 
 pub use capability::{
-    GraphCapability, GraphProjectionCapability, PrincipalGraphCapability,
-    JMAP_GRAPH_PROJECTION_URI, JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE,
-    JMAP_URI_GRAPH_TYPE,
+    GraphCapability, GraphProjectionCapability, JMAP_GRAPH_PROJECTION_URI, JMAP_GRAPH_URI,
+    JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE, JMAP_URI_GRAPH_TYPE,
+    PrincipalGraphCapability,
 };
 pub use edge::GraphEdge;
 pub use edit::{
-    GraphCursorEvent, GraphEditCapability, GraphEditDataType, GraphEditEvent,
-    GraphEditStreamDisable, GraphEditStreamEnable, GraphEditStreamMessage, GraphNodeCursorRequest,
-    GraphNodeCursorResponse, GraphNodeOp, GraphNodeOpComparator, GraphNodeOpEvent,
-    GraphNodeOpFilterCondition, GraphNodeOpSortProperty, DATA_TYPE_CURSORS, DATA_TYPE_OPS,
-    GRAPH_EDIT_DATA_TYPES, GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY,
-    JMAP_GRAPH_EDIT_URI, OPS_COMPACTED,
+    DATA_TYPE_CURSORS, DATA_TYPE_OPS, GRAPH_EDIT_DATA_TYPES, GRAPH_NODE_EDIT_FORMAT_PROPERTY,
+    GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY, GraphCursorEvent, GraphEditCapability, GraphEditDataType,
+    GraphEditEvent, GraphEditStreamDisable, GraphEditStreamEnable, GraphEditStreamMessage,
+    GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOp, GraphNodeOpComparator,
+    GraphNodeOpEvent, GraphNodeOpFilterCondition, GraphNodeOpSortProperty, JMAP_GRAPH_EDIT_URI,
+    OPS_COMPACTED,
 };
 pub use graph::{Graph, GraphRights};
 pub use node::GraphNode;
@@ -78,5 +78,5 @@ pub use query::{
 };
 pub use search::{
     Bound, CandidateKind, Direction, EdgeTest, Expression, FieldTest, GraphSearchCapability,
-    ReachTest, WhereError, JMAP_GRAPH_SEARCH_URI, QUERY_TOO_COMPLEX,
+    JMAP_GRAPH_SEARCH_URI, QUERY_TOO_COMPLEX, ReachTest, WhereError,
 };

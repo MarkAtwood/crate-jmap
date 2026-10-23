@@ -6,8 +6,8 @@
 
 mod common;
 
-use jmap_did_types::{DidAccountCapability, DidCapability, KeyCustody, JMAP_DID_URI};
-use serde_json::{json, Value};
+use jmap_did_types::{DidAccountCapability, DidCapability, JMAP_DID_URI, KeyCustody};
+use serde_json::{Value, json};
 
 /// L125-135: session-level capability example, verbatim.
 fn session_example() -> String {

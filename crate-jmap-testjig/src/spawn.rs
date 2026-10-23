@@ -50,7 +50,7 @@ use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 use crate::auth::DEFAULT_BEARER_TOKEN;
-use crate::http::{router, AppState};
+use crate::http::{AppState, router};
 
 /// Configuration for [`spawn_in_process`].
 ///

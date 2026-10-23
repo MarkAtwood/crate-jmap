@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use jmap_chat_types::{Chat, Message, PresenceStatus};
 use jmap_types::{Id, PatchObject, UTCDate};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::chat::record_unread_count_changes;
 use crate::{BackendSetError, ChatBackend};

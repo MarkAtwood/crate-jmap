@@ -8,15 +8,15 @@ use jmap_chat_federation_types::{
     GroupUpdateAction, PeerAck, PeerAvatar, PeerChatMember, PeerGroupUpdateArgs,
 };
 use jmap_chat_types::{Chat, ChatKind, ChatMember, ChatMemberRole, Clearable};
-use jmap_server::{now_utc_string, serialize_value, HandlerOutput};
+use jmap_server::{HandlerOutput, now_utc_string, serialize_value};
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
-use crate::deliver::{
-    authenticate, check_account, get_chat, set_failure, sha256_matches, valid_media_type, Commit,
-    Identities, Who,
-};
 use crate::FederationBackend;
+use crate::deliver::{
+    Commit, Identities, Who, authenticate, check_account, get_chat, set_failure, sha256_matches,
+    valid_media_type,
+};
 
 /// Handle a `Peer/groupUpdate` method call.
 ///

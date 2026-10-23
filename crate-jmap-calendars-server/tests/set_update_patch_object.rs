@@ -10,7 +10,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_calendars_server::{handle_calendar_event_get, handle_calendar_event_set};
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Seed `acc1` with event `ev1` holding one participant and one alert,
 /// and no `locations`.

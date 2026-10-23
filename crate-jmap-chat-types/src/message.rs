@@ -1,7 +1,7 @@
 //! Chat message, attachments, reactions, and delivery state types.
 
 use jmap_cid_types::Sha256;
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

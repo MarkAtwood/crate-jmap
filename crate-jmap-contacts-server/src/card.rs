@@ -31,16 +31,16 @@
 
 use jmap_contacts_types::ContactCard;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    set_error_value,
 };
 use crate::{BackendSetError, ContactsBackend};
 use jmap_server::{
-    apply_patch_object, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, apply_patch_object, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -123,10 +123,10 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -438,10 +438,10 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut copied = serde_json::Map::new();
@@ -796,8 +796,8 @@ mod tests {
 
         use jmap_server::{Dispatcher, JmapRequest, State};
 
-        use crate::register_contacts_handlers;
         use crate::JMAP_CONTACTS_URI;
+        use crate::register_contacts_handlers;
 
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_account("acc2");
@@ -851,8 +851,8 @@ mod tests {
 
         use jmap_server::{Dispatcher, JmapRequest, State};
 
-        use crate::register_contacts_handlers;
         use crate::JMAP_CONTACTS_URI;
+        use crate::register_contacts_handlers;
 
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_account("acc2");

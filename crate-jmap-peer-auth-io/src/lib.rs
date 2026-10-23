@@ -54,10 +54,10 @@ use jmap_peer_auth::{PeerDomain, PeerSigningKey, Rejection, Request, SignedReque
 
 pub use dns::{DnsAnswer, DnssecLookup, HickoryLookup, NoDnssec};
 pub use fetch::{
-    freshness_lifetime, Fetch, FetchError, HttpsFetcher, Response, FETCH_TIMEOUT, MAX_BODY_BYTES,
-    MAX_REDIRECTS,
+    FETCH_TIMEOUT, Fetch, FetchError, HttpsFetcher, MAX_BODY_BYTES, MAX_REDIRECTS, Response,
+    freshness_lifetime,
 };
-pub use keys::{PeerKeySet, PeerKeys, DEFAULT_MAX_ENTRIES, MAX_CACHE_LIFETIME, REFETCH_INTERVAL};
+pub use keys::{DEFAULT_MAX_ENTRIES, MAX_CACHE_LIFETIME, PeerKeySet, PeerKeys, REFETCH_INTERVAL};
 pub use replay::{MemoryReplayStore, ReplayStore, ReplayStoreError};
 pub use {hickory_resolver, jmap_peer_auth, reqwest};
 

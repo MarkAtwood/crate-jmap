@@ -20,7 +20,7 @@ use jmap_calendars_server::{
     handle_calendar_event_copy, handle_calendar_event_get, handle_calendar_event_set,
 };
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const OWN: &str = "mailto:alice@example.com";
 const FOREIGN: &str = "mailto:bob@example.org";

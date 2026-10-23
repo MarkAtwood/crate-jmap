@@ -16,10 +16,10 @@
 use std::collections::HashMap;
 
 use jmap_chat_server::memory::MemoryBackend;
-use jmap_chat_server::{should_push, OwnerFlags};
+use jmap_chat_server::{OwnerFlags, should_push};
 use jmap_chat_types::{ChatPushCapability, ChatPushConfig, Message};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "acct-owner";
 const SENDER: &str = "contact-bob";

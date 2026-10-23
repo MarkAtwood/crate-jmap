@@ -58,8 +58,8 @@ mod wire;
 
 pub use call::{CallEndReason, CallState, CallType, VtcCall, VtcCallPolicy, VtcMediaState};
 pub use capability::{
-    GatewayProtocol, MediaKind, VtcCapability, VtcDialInEntry, VtcGateway, JMAP_VTC_URI,
-    JMAP_VTC_WEBSOCKET_URI,
+    GatewayProtocol, JMAP_VTC_URI, JMAP_VTC_WEBSOCKET_URI, MediaKind, VtcCapability,
+    VtcDialInEntry, VtcGateway,
 };
 pub use event::{
     ParticipantEventKind, RingEndReason, SignalDirection, VtcActiveSpeakerEvent, VtcCallEndEvent,
@@ -77,5 +77,5 @@ pub use query::{
 };
 pub use recording::{LivestreamState, RecordingState, VtcLivestream, VtcRecording};
 pub use stream::{
-    VtcEventType, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage, VTC_EVENT_TYPES,
+    VTC_EVENT_TYPES, VtcEventType, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage,
 };

@@ -19,8 +19,8 @@
 mod helpers;
 
 use helpers::{
-    jmap_response, mock_jmap_post, recorded_args, recorded_body, set_destroy_response,
-    set_response, CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID,
+    CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID, jmap_response, mock_jmap_post, recorded_args,
+    recorded_body, set_destroy_response, set_response,
 };
 use jmap_metadata_types::WithMetadata;
 use jmap_types::{Filter, FilterOperator, Operator};

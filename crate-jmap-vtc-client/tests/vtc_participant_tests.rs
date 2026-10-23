@@ -15,7 +15,7 @@ use jmap_vtc_types::{CallRole, VtcParticipant};
 use jmap_vtc_types::{
     VtcParticipantComparator, VtcParticipantFilterCondition, VtcParticipantSortProperty,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::MockServer;
 
 /// One-entry `update` map of `id` to the single patch `key: value`.

@@ -12,9 +12,9 @@
 
 use std::fmt;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
-use jmap_chat_mimi_types::{ulid, Base64Url};
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use jmap_chat_mimi_types::{Base64Url, ulid};
 use jmap_types::UTCDate;
 use openmls::prelude::{ContentType, MlsMessageBodyIn, MlsMessageIn};
 use sha2::{Digest, Sha256};
@@ -200,7 +200,7 @@ fn parse_one(bytes: &[u8]) -> Result<(Fanout, &[u8]), FanoutParseError> {
         _ => {
             return Err(FanoutParseError::new(
                 "message is not a PublicMessage, PrivateMessage or Welcome",
-            ))
+            ));
         }
     };
     let octets = &bytes[..bytes.len() - tail.len()];

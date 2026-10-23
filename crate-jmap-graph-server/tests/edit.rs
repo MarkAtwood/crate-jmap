@@ -16,7 +16,7 @@ use jmap_graph_server::{
 };
 use jmap_graph_types::GraphEditCapability;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const FORMAT: &str = "application/x-example-ops";
 

@@ -5,7 +5,7 @@
 //! `serde_json::Value` so key order and whitespace do not matter.
 
 use jmap_types::{PushKeys, PushSubscription, PushVerification, StateChange};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// RFC 8620 §7.1.1 example StateChange object (rfc8620.txt:3541-3554).
 fn rfc_state_change() -> Value {

@@ -13,7 +13,7 @@ use jmap_graph_types::{
     GraphNodeOpComparator, GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
 use jmap_types::{Id, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

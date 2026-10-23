@@ -48,7 +48,7 @@ use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
 use crate::jcs::canonicalize;
-use crate::key::{decode_base58btc, encode_base58btc, BASE58_ALPHABET};
+use crate::key::{BASE58_ALPHABET, decode_base58btc, encode_base58btc};
 use crate::{Did, DidKey, KeyType};
 
 /// The only `method` value of did:webvh v1.0.
@@ -457,16 +457,15 @@ impl Walk {
             .map(|p| &p.next_key_hashes)
             .filter(|hashes| !hashes.is_empty());
         let pre_rotation = committed.is_some();
-        if let Some(committed) = committed {
-            if !update.sets_update_keys
+        if let Some(committed) = committed
+            && (!update.sets_update_keys
                 || !update.sets_next_key_hashes
                 || !next
                     .update_keys
                     .iter()
-                    .all(|k| committed.contains(&sha256_multihash(k.as_bytes())))
-            {
-                return Err(WebvhError::PreRotation);
-            }
+                    .all(|k| committed.contains(&sha256_multihash(k.as_bytes()))))
+        {
+            return Err(WebvhError::PreRotation);
         }
 
         let state_id = state

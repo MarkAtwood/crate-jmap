@@ -11,7 +11,7 @@ use jmap_server::{Dispatcher, Invocation, JmapRequest, State};
 use jmap_types::Id;
 use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::register_vtc_handlers;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Three calls with hand-picked timestamps, plus Alice's participant record
 /// on C2.
@@ -132,12 +132,14 @@ async fn filter_properties_combine_with_and() {
         .await,
         ["C1"]
     );
-    assert!(ids(
-        &backend,
-        json!({ "filter": { "state": "pending", "callType": "room" } })
-    )
-    .await
-    .is_empty());
+    assert!(
+        ids(
+            &backend,
+            json!({ "filter": { "state": "pending", "callType": "room" } })
+        )
+        .await
+        .is_empty()
+    );
 }
 
 #[tokio::test]

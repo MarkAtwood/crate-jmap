@@ -12,7 +12,7 @@ use jmap_graph_server::{
     handle_graph_edge_query, handle_graph_edge_query_changes, handle_graph_edge_set,
     handle_graph_node_query, handle_graph_node_set, handle_graph_query, handle_graph_set,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 async fn graph(backend: &MemoryBackend, name: &str) -> String {
     let resp = call!(

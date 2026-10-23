@@ -10,9 +10,9 @@ mod common;
 use common::*;
 use jmap_types::Id;
 use jmap_vtc_server::memory::MemoryBackend;
-use jmap_vtc_server::{should_deliver, VtcEphemeralSubscription};
+use jmap_vtc_server::{VtcEphemeralSubscription, should_deliver};
 use jmap_vtc_types::{VtcEvent, VtcStreamEnable};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A VTCParticipant record in call `call_id`, hand-written from the field
 /// list at vtc L281-330.

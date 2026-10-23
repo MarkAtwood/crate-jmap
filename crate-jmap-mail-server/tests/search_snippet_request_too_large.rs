@@ -14,7 +14,7 @@ use common::MemoryBackend;
 use jmap_mail_server::handle_search_snippet_get;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // Default cap value returned by `JmapBackend::max_objects_in_get` in the
 // foundation crate.

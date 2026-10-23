@@ -24,12 +24,12 @@
 
 mod common;
 
-use common::{TrackingBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, TrackingBackend};
 use jmap_chat_server::handle_chat_set;
 use jmap_chat_server::message::handle_message_set;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ROOM_CHAT: &str = "room1";
 const ROOM_ID: &str = "mimi://a.example/r/k5qwmzlqmfsgk3tbnvsxi2lf4a";

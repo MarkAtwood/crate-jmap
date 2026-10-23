@@ -17,8 +17,8 @@
 
 use std::time::Duration;
 
-use jmap_testjig::{spawn_in_process, TestjigConfig};
-use serde_json::{json, Value};
+use jmap_testjig::{TestjigConfig, spawn_in_process};
+use serde_json::{Value, json};
 
 /// How long the test will wait for the SSE `state` event before
 /// declaring the slice broken. Push is now signal-driven (the
