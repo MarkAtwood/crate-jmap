@@ -934,7 +934,7 @@ async fn message_update_reaction_add_uses_json_pointer_patch_key() {
     let msg_id = Id::from("msg-1");
     let reaction_sent_at = UTCDate::from("2024-06-15T09:01:00Z");
     let changes = [jmap_chat_client::ReactionChange::Add {
-        sender_reaction_id: "react-ulid-1",
+        sender_reaction_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
         emoji: "👍",
         sent_at: &reaction_sent_at,
     }];
@@ -950,7 +950,7 @@ async fn message_update_reaction_add_uses_json_pointer_patch_key() {
     let args = recorded_args(&server).await;
     let patch_obj = &args["update"]["msg-1"];
     assert_eq!(
-        patch_obj["reactions/react-ulid-1"],
+        patch_obj["reactions/01ARZ3NDEKTSV4RRFFQ69G5FAV"],
         json!({ "emoji": "👍", "sentAt": "2024-06-15T09:01:00Z" }),
         "reaction-add must produce JSON Pointer patch key with emoji + sentAt"
     );
@@ -969,7 +969,7 @@ async fn message_update_reaction_remove_emits_null_patch_value() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let changes = [jmap_chat_client::ReactionChange::Remove {
-        sender_reaction_id: "react-ulid-1",
+        sender_reaction_id: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
     }];
     let patch = jmap_chat_client::MessagePatch {
         reaction_changes: Some(&changes),
@@ -983,7 +983,7 @@ async fn message_update_reaction_remove_emits_null_patch_value() {
     let args = recorded_args(&server).await;
     let patch_obj = &args["update"]["msg-1"];
     assert_eq!(
-        patch_obj["reactions/react-ulid-1"],
+        patch_obj["reactions/01ARZ3NDEKTSV4RRFFQ69G5FAV"],
         json!(null),
         "reaction-remove must produce null patch value"
     );
