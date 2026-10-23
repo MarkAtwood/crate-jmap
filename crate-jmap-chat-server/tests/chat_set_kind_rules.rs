@@ -78,6 +78,27 @@ async fn group_destroy_still_succeeds() {
     assert_eq!(resp["destroyed"], json!(["g1"]), "{resp}");
 }
 
+/// RFC 8620 §5.3 types `destroy` as `Id[]|null`, and §3.6.2 says
+/// `invalidArguments` is returned when an argument "is of the wrong type".
+/// A non-string element after a valid id must fail the whole call rather
+/// than being skipped while the valid id is destroyed.
+#[tokio::test]
+async fn non_string_destroy_element_is_invalid_arguments() {
+    let backend = MemoryBackend::new();
+    store_chat(&backend, "g1", "group", json!([]));
+
+    let err = handle_chat_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "destroy": ["g1", 7] }),
+    )
+    .await
+    .expect_err("non-string destroy element must be a method error");
+
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
+    assert_eq!(chat_get(&backend, "g1").await["kind"], "group");
+}
+
 /// L1030: "For group chats, admins additionally may update: `name`,
 /// `description`, `avatarBlobId`." A group member who is not an admin may
 /// not.
