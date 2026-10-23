@@ -267,6 +267,7 @@ pub fn jmap_server::JmapHandler::call(&self, jmap_server::CallContext<CallerCtx>
 impl<B: core::marker::Send + core::marker::Sync + 'static, C: core::clone::Clone + core::marker::Send + 'static> jmap_server::JmapHandler<C> for jmap_server::ClosureHandler<B, C>
 pub fn jmap_server::ClosureHandler<B, C>::call(&self, jmap_server::CallContext<C>) -> jmap_server::HandlerFuture
 pub trait jmap_server::PushSubscriptionBackend: jmap_server::JmapBackend
+pub const jmap_server::PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES: &'static [&'static str]
 pub fn jmap_server::PushSubscriptionBackend::create_push_subscription(&self, &Self::CallerCtx, jmap_types::push::PushSubscription) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::StoredPushSubscription, jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::PushSubscriptionBackend::destroy_push_subscription(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::PushSubscriptionBackend::list_push_subscriptions(&self, &Self::CallerCtx) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_server::StoredPushSubscription>, Self::Error>> + core::marker::Send

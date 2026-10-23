@@ -1849,6 +1849,9 @@ impl ChatBackend for MemoryBackend {
 /// backend has no clock window and no HTTP client; both are consumer MUSTs
 /// stated on [`PushSubscriptionBackend`].
 impl PushSubscriptionBackend for MemoryBackend {
+    const PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES: &'static [&'static str] =
+        &[crate::push::CHAT_PUSH];
+
     async fn list_push_subscriptions(
         &self,
         _caller: &(),

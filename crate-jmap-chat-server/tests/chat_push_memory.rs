@@ -125,3 +125,15 @@ async fn list_strips_entry_after_capability_is_withdrawn() {
         Some(&json!({}))
     );
 }
+
+/// draft-atwood-jmap-chat-push-00 line 62 (jmap-chat-spec 29e9a41): "it
+/// extends `PushSubscription` with a `chatPush` property". RFC 8620 §5.1
+/// (rfc8620.txt:1609-1611) makes `PushSubscription/get` reject undeclared
+/// property names, so the backend must declare `chatPush`.
+#[test]
+fn chat_push_is_a_declared_push_subscription_property() {
+    assert_eq!(
+        MemoryBackend::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES,
+        &["chatPush"]
+    );
+}

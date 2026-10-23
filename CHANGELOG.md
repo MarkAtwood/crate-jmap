@@ -1408,6 +1408,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server**: `PushSubscription/get` now rejects a
+  `properties` entry that is neither an RFC 8620 §7.2 property nor listed in
+  the new `PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES`
+  (default empty) with `invalidArguments`, per RFC 8620 §5.1
+  (rfc8620.txt:1609-1611); it used to drop unknown names silently. A backend
+  that stores extension properties must list them. **jmap-chat-server**'s
+  `MemoryBackend` lists `chatPush` (bd JMAP-yt1w.39).
 - **jmap-mail-server**, **jmap-filenode-server**: the `MailBackend` and
   `FileNodeBackend` trait docs gain a "Permission enforcement (backend
   canonical)" section (bd JMAP-510h.44). It names `principal_id` as the only
