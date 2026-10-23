@@ -1447,6 +1447,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-filenode-server**: `handle_filenode_set` takes a new
+  third argument, `created_ids: &BTreeMap<Id, Id>` (pass
+  `CallContext::created_ids`; `register_filenode_handlers` does). A
+  FileNode `parentId` or `spaceId` that is a `#creationId` reference (RFC
+  8620 §5.3) on create or update now resolves to the record created
+  earlier in the request, and a create whose `parentId` is `#k` runs after
+  the create `k` of the same call, as §5.3 requires. An unknown reference
+  fails that entry with `invalidProperties` naming the property (bd
+  JMAP-1p88).
 - **BREAKING** **jmap-calendars-server**: `handle_calendar_event_set` takes
   a new third argument, `created_ids: &BTreeMap<Id, Id>` (pass
   `CallContext::created_ids`; `register_calendars_handlers` does). A

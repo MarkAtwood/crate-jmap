@@ -85,6 +85,7 @@ impl Fixture {
         let out = handle_filenode_set(
             &self.files,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT,
                 "create": { "r": { "@type": "Directory", "name": space_id, "parentId": null,

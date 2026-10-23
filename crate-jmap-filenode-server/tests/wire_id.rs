@@ -35,10 +35,15 @@ async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
         "update": { "bad id": { "name": "x" } },
         "destroy": ["bad id"]
     });
-    let resp = handle_filenode_set(&backend, &(), args_with_account(args))
-        .await
-        .expect("/set must not fail as a method")
-        .primary;
+    let resp = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        args_with_account(args),
+    )
+    .await
+    .expect("/set must not fail as a method")
+    .primary;
     assert_invalid_id(&resp["notUpdated"]["bad id"], &resp);
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
 }
