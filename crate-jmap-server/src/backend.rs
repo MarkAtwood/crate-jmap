@@ -1211,6 +1211,82 @@ mod tests {
         );
     }
 
+    /// Hand-built storage error for the stub backend and the error-envelope
+    /// tests; its `Display` text is a fixed literal.
+    #[derive(Debug)]
+    struct StubError;
+
+    impl std::fmt::Display for StubError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("stub")
+        }
+    }
+    impl std::error::Error for StubError {}
+
+    /// Minimal backend that implements only the required trait methods, so
+    /// tests observe the provided (default) methods. The required methods
+    /// are never invoked.
+    struct StubBackend;
+
+    impl JmapBackend for StubBackend {
+        type Error = StubError;
+        type CallerCtx = ();
+
+        async fn account_exists(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+        ) -> Result<bool, Self::Error> {
+            unreachable!("stub backend: only default methods are exercised")
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+            _ids: Option<&[jmap_types::Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error> {
+            unreachable!("stub backend: only default methods are exercised")
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+        ) -> Result<jmap_types::State, Self::Error> {
+            unreachable!("stub backend: only default methods are exercised")
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+            _since_state: &jmap_types::State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("stub backend: only default methods are exercised")
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+            _params: QueryParams<'_, O>,
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+            unreachable!("stub backend: only default methods are exercised")
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+            _params: QueryChangesParams<'_, O>,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("stub backend: only default methods are exercised")
+        }
+    }
+
     /// Oracle (bd:JMAP-ga0q.1): `JmapBackend::principal_id` has a default impl
     /// that returns `None`. A backend whose `CallerCtx = ()` and that does NOT
     /// override `principal_id` inherits that default and signals "identity not
@@ -1218,79 +1294,6 @@ mod tests {
     /// treat `None` as a hard "cannot honor".
     #[test]
     fn principal_id_default_impl_returns_none_for_unit_caller_ctx() {
-        // Minimal stub backend exercising only the default impl. All other
-        // trait methods are stubbed with `unreachable!()` and never invoked.
-        struct StubBackend;
-
-        #[derive(Debug)]
-        struct StubError;
-
-        impl std::fmt::Display for StubError {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str("stub")
-            }
-        }
-        impl std::error::Error for StubError {}
-
-        impl JmapBackend for StubBackend {
-            type Error = StubError;
-            type CallerCtx = ();
-
-            async fn account_exists(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-            ) -> Result<bool, Self::Error> {
-                unreachable!("only principal_id is exercised in this test")
-            }
-
-            async fn get_objects<O: GetObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _ids: Option<&[jmap_types::Id]>,
-                _properties: Option<&[String]>,
-            ) -> Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error> {
-                unreachable!("only principal_id is exercised in this test")
-            }
-
-            async fn get_state<O: JmapObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-            ) -> Result<jmap_types::State, Self::Error> {
-                unreachable!("only principal_id is exercised in this test")
-            }
-
-            async fn get_changes<O: JmapObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _since_state: &jmap_types::State,
-                _max_changes: Option<u64>,
-            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-                unreachable!("only principal_id is exercised in this test")
-            }
-
-            async fn query_objects<O: QueryObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _params: QueryParams<'_, O>,
-            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-                unreachable!("only principal_id is exercised in this test")
-            }
-
-            async fn query_changes<O: QueryObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _params: QueryChangesParams<'_, O>,
-            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-                unreachable!("only principal_id is exercised in this test")
-            }
-        }
-
         let caller: <StubBackend as JmapBackend>::CallerCtx = ();
         let id = <StubBackend as JmapBackend>::principal_id(&caller);
         assert!(
@@ -1307,77 +1310,6 @@ mod tests {
     /// default rather than silently disabling the cap.
     #[test]
     fn max_objects_in_set_default_impl_returns_500() {
-        struct StubBackend;
-
-        #[derive(Debug)]
-        struct StubError;
-
-        impl std::fmt::Display for StubError {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str("stub")
-            }
-        }
-        impl std::error::Error for StubError {}
-
-        impl JmapBackend for StubBackend {
-            type Error = StubError;
-            type CallerCtx = ();
-
-            async fn account_exists(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-            ) -> Result<bool, Self::Error> {
-                unreachable!("only max_objects_in_set is exercised in this test")
-            }
-
-            async fn get_objects<O: GetObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _ids: Option<&[jmap_types::Id]>,
-                _properties: Option<&[String]>,
-            ) -> Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error> {
-                unreachable!("only max_objects_in_set is exercised in this test")
-            }
-
-            async fn get_state<O: JmapObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-            ) -> Result<jmap_types::State, Self::Error> {
-                unreachable!("only max_objects_in_set is exercised in this test")
-            }
-
-            async fn get_changes<O: JmapObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _since_state: &jmap_types::State,
-                _max_changes: Option<u64>,
-            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-                unreachable!("only max_objects_in_set is exercised in this test")
-            }
-
-            async fn query_objects<O: QueryObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _params: QueryParams<'_, O>,
-            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-                unreachable!("only max_objects_in_set is exercised in this test")
-            }
-
-            async fn query_changes<O: QueryObject + Send + Sync>(
-                &self,
-                _caller: &(),
-                _account_id: &jmap_types::Id,
-                _params: QueryChangesParams<'_, O>,
-            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-                unreachable!("only max_objects_in_set is exercised in this test")
-            }
-        }
-
         let backend = StubBackend;
         let caller: <StubBackend as JmapBackend>::CallerCtx = ();
         let id = jmap_types::Id::from("any-account");
@@ -1385,6 +1317,94 @@ mod tests {
             backend.max_objects_in_set(&caller, &id),
             500,
             "default max_objects_in_set must return 500"
+        );
+    }
+
+    /// Oracle (trait docs, same rationale as `max_objects_in_set`): the
+    /// default `JmapBackend::max_objects_in_get` cap is `500`, so a backend
+    /// that does not override it keeps the RFC 8620 §5.1 `requestTooLarge`
+    /// guard enabled.
+    #[test]
+    fn max_objects_in_get_default_impl_returns_500() {
+        let caller: <StubBackend as JmapBackend>::CallerCtx = ();
+        let id = jmap_types::Id::from("any-account");
+        assert_eq!(StubBackend.max_objects_in_get(&caller, &id), 500);
+    }
+
+    /// Oracle: hand-written expected strings. The `SetError` arm prefixes
+    /// the `SetError` Display (`<type>: <description>`), and `Other` is
+    /// transparent over the wrapped error.
+    #[test]
+    fn backend_set_error_display() {
+        let se: BackendSetError<StubError> = BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::NotFound).with_description("gone"),
+        ));
+        assert_eq!(se.to_string(), "set error: notFound: gone");
+        assert_eq!(BackendSetError::Other(StubError).to_string(), "stub");
+    }
+
+    /// Oracle: hand-written expected strings for every variant.
+    #[test]
+    fn backend_changes_error_display() {
+        assert_eq!(
+            BackendChangesError::<StubError>::CannotCalculate.to_string(),
+            "cannot calculate changes"
+        );
+        assert_eq!(
+            BackendChangesError::<StubError>::TooManyChanges { limit: 7 }.to_string(),
+            "too many changes (limit: 7)"
+        );
+        assert_eq!(BackendChangesError::Other(StubError).to_string(), "stub");
+    }
+
+    /// Oracle: `Method` displays the wrapped `JmapError` unchanged and
+    /// `Other` is transparent over the wrapped error (hand-written strings).
+    #[test]
+    fn backend_query_error_display() {
+        let method = jmap_types::JmapError::server_fail("x");
+        let expected = method.to_string();
+        assert_eq!(
+            BackendQueryError::<StubError>::Method(method).to_string(),
+            expected
+        );
+        assert_eq!(BackendQueryError::Other(StubError).to_string(), "stub");
+    }
+
+    /// Oracle (`std::error::Error::source` contract): only the `Other`
+    /// variant wraps an underlying error, so only it reports a source, and
+    /// that source is the wrapped value.
+    #[test]
+    fn backend_errors_source_is_wrapped_other_only() {
+        use std::error::Error as _;
+
+        let is_stub = |e: Option<&(dyn std::error::Error + 'static)>| {
+            e.is_some_and(|s| s.downcast_ref::<StubError>().is_some())
+        };
+
+        assert!(is_stub(BackendSetError::Other(StubError).source()));
+        assert!(
+            BackendSetError::<StubError>::from(SetError::new(SetErrorType::Forbidden))
+                .source()
+                .is_none()
+        );
+
+        assert!(is_stub(BackendChangesError::from(StubError).source()));
+        assert!(
+            BackendChangesError::<StubError>::CannotCalculate
+                .source()
+                .is_none()
+        );
+        assert!(
+            BackendChangesError::<StubError>::TooManyChanges { limit: 1 }
+                .source()
+                .is_none()
+        );
+
+        assert!(is_stub(BackendQueryError::from(StubError).source()));
+        assert!(
+            BackendQueryError::<StubError>::Method(jmap_types::JmapError::server_fail("x"))
+                .source()
+                .is_none()
         );
     }
 }
