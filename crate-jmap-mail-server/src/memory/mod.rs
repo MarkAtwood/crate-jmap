@@ -57,6 +57,15 @@
 //! guard across `.await`, switch to `tokio::sync::Mutex` rather than
 //! disabling the lint.
 //!
+//! Every `lock()` in this module ends in a bare `.unwrap()` on purpose.
+//! `Mutex::lock` fails only when another thread panicked while holding the
+//! guard, so the state behind it may be half-updated; that panic is
+//! already a bug in this module, and there is no consistent state to
+//! recover. Panicking again surfaces it instead of serving corrupt data.
+//! The crate's tests never poison the lock. A production backend that must
+//! survive a poisoned lock should implement the trait with its own locking
+//! rather than copy this pattern.
+//!
 //! # Tracking
 //!
 //! Promoted from `tests/common/mod.rs` per Beads issue JMAP-hwdv (epic)
@@ -2529,7 +2538,6 @@ impl MdnBackend for MemoryBackend {
         _account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
-        // test only: mutex is never poisoned in tests
         let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();
         async move { Ok(bytes) }
     }
@@ -2630,7 +2638,6 @@ impl MdnBackend for MemoryBackend {
             // Step 6: store the blob.
             let blob_id = jmap_types::Id::from(uuid::Uuid::new_v4().to_string());
             {
-                // test only: mutex is never poisoned in tests
                 let mut inner = self.inner.lock().unwrap();
                 inner.blobs.insert(blob_id, mdn_blob.into_bytes());
             }
@@ -2760,7 +2767,6 @@ impl MdnBackend for MemoryBackend {
 
                     // Correlate original_message_id → for_email_id via message_id_index.
                     let for_email_id = original_message_id.as_ref().and_then(|msg_id| {
-                        // test only: mutex is never poisoned in tests
                         let inner = self.inner.lock().unwrap();
                         inner
                             .message_id_index

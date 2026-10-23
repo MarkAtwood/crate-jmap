@@ -1431,6 +1431,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
+  **jmap-contacts-server**, **jmap-tasks-server**, **jmap-filenode-server**,
+  **jmap-sharing-server**: the `MemoryBackend` module docs now state the
+  lock-poisoning policy: each `Mutex::lock` ends in a deliberate
+  `.unwrap()`, because a poisoned lock means an earlier panic left state
+  half-updated. No behaviour change (bd JMAP-pk88).
 - **BREAKING** **jmap-mail-server**: `handle_mailbox_set`,
   `handle_email_set` and `handle_submission_set` take a new third argument,
   `created_ids: &BTreeMap<Id, Id>` (pass `CallContext::created_ids`;
