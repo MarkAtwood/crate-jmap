@@ -348,7 +348,7 @@ pub struct NDay {
 /// Used in `recurrenceRules` and `excludedRecurrenceRules` of a
 /// `CalendarEvent` (from `jmap-calendars-types`).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RecurrenceRule {
     /// Object type discriminator; always `"RecurrenceRule"` on the wire.
@@ -437,7 +437,7 @@ pub struct RecurrenceRule {
 
 /// A physical or virtual location associated with an event (RFC 8984 §4.2.5).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Location {
     /// Object type discriminator; always `"Location"` on the wire.
@@ -490,7 +490,7 @@ pub struct Location {
 
 /// An online meeting or virtual location (RFC 8984 §4.2.6).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualLocation {
     /// Object type discriminator; always `"VirtualLocation"` on the wire.
@@ -554,7 +554,7 @@ pub struct VirtualLocation {
 /// Consumers that need to validate the invariant on inbound data check it
 /// themselves; validation lives outside this crate (bd:JMAP-ops7.38).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Link {
     /// Object type discriminator; always `"Link"` on the wire.
@@ -635,7 +635,7 @@ pub struct Link {
 /// A relationship between this object and another, identified by UID
 /// (RFC 8984 §1.4.10).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Relation {
     /// Object type discriminator; always `"Relation"` on the wire.
@@ -663,7 +663,7 @@ pub struct Relation {
 
 /// A participant in an event (RFC 8984 §4.4.6).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Participant {
     /// Object type discriminator; always `"Participant"` on the wire.
@@ -837,7 +837,7 @@ pub struct Participant {
 /// A trigger time given as an offset from the event start or end
 /// (RFC 8984 §4.5.2).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OffsetTrigger {
     /// Object type discriminator; always `"OffsetTrigger"` on the wire.
@@ -867,7 +867,7 @@ pub struct OffsetTrigger {
 
 /// A trigger time given as an absolute UTC date-time (RFC 8984 §4.5.2).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AbsoluteTrigger {
     /// Object type discriminator; always `"AbsoluteTrigger"` on the wire.
@@ -958,7 +958,7 @@ pub struct AbsoluteTrigger {
 /// (RFC 8984 §4.5.2) before proposing it. The design defense is
 /// bd:JMAP-1rwf.8.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AlertTrigger {
     /// Offset-based trigger: fires at `offset` relative to event start/end.
     OffsetTrigger(OffsetTrigger),
@@ -1005,7 +1005,7 @@ impl<'de> Deserialize<'de> for AlertTrigger {
 
 /// An alert to be shown or emailed before or after an event (RFC 8984 §4.5.2).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Alert {
     /// Object type discriminator; always `"Alert"` on the wire.
@@ -1047,7 +1047,7 @@ pub struct Alert {
 /// Maps to a VTIMEZONE STANDARD or DAYLIGHT sub-component from iCalendar.
 /// At most one recurrence rule is allowed per rule.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeZoneRule {
     /// Object type discriminator; always `"TimeZoneRule"` on the wire.
@@ -1114,7 +1114,7 @@ pub struct TimeZoneRule {
 /// Maps to a VTIMEZONE component from iCalendar. A valid TimeZone MUST
 /// define at least one transition rule in `standard` or `daylight`.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimeZone {
     /// Object type discriminator; always `"TimeZone"` on the wire.
@@ -1177,6 +1177,27 @@ mod tests {
     //! `{"0": …}` on the wire.
     use super::*;
     use serde_json::json;
+
+    /// Every data type implements `Eq`, as in jmap-jscontact-types: no
+    /// field is a float, and `serde_json::Map` is `Eq`. The oracle is the
+    /// trait bound itself; this fails to compile if a type drops `Eq`.
+    #[test]
+    fn data_types_implement_eq() {
+        fn assert_eq_impl<T: Eq>() {}
+        assert_eq_impl::<NDay>();
+        assert_eq_impl::<RecurrenceRule>();
+        assert_eq_impl::<Location>();
+        assert_eq_impl::<VirtualLocation>();
+        assert_eq_impl::<Link>();
+        assert_eq_impl::<Relation>();
+        assert_eq_impl::<Participant>();
+        assert_eq_impl::<OffsetTrigger>();
+        assert_eq_impl::<AbsoluteTrigger>();
+        assert_eq_impl::<AlertTrigger>();
+        assert_eq_impl::<Alert>();
+        assert_eq_impl::<TimeZoneRule>();
+        assert_eq_impl::<TimeZone>();
+    }
 
     /// Oracle: the three scalar newtypes (`LocalDateTime`, `Duration`,
     /// `SignedDuration`) format via `std::fmt::Display` as the bare wire

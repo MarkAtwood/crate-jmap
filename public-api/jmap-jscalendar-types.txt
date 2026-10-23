@@ -8,6 +8,7 @@ pub jmap_jscalendar_types::AlertTrigger::OffsetTrigger(jmap_jscalendar_types::Of
 pub jmap_jscalendar_types::AlertTrigger::Unknown(serde_json::value::Value)
 impl core::clone::Clone for jmap_jscalendar_types::AlertTrigger
 pub fn jmap_jscalendar_types::AlertTrigger::clone(&self) -> jmap_jscalendar_types::AlertTrigger
+impl core::cmp::Eq for jmap_jscalendar_types::AlertTrigger
 impl core::cmp::PartialEq for jmap_jscalendar_types::AlertTrigger
 pub fn jmap_jscalendar_types::AlertTrigger::eq(&self, &jmap_jscalendar_types::AlertTrigger) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::AlertTrigger
@@ -23,6 +24,7 @@ pub jmap_jscalendar_types::AbsoluteTrigger::extra: serde_json::map::Map<alloc::s
 pub jmap_jscalendar_types::AbsoluteTrigger::when: jmap_types::id::UTCDate
 impl core::clone::Clone for jmap_jscalendar_types::AbsoluteTrigger
 pub fn jmap_jscalendar_types::AbsoluteTrigger::clone(&self) -> jmap_jscalendar_types::AbsoluteTrigger
+impl core::cmp::Eq for jmap_jscalendar_types::AbsoluteTrigger
 impl core::cmp::PartialEq for jmap_jscalendar_types::AbsoluteTrigger
 pub fn jmap_jscalendar_types::AbsoluteTrigger::eq(&self, &jmap_jscalendar_types::AbsoluteTrigger) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::AbsoluteTrigger
@@ -41,6 +43,7 @@ pub jmap_jscalendar_types::Alert::related_to: core::option::Option<alloc::collec
 pub jmap_jscalendar_types::Alert::trigger: jmap_jscalendar_types::AlertTrigger
 impl core::clone::Clone for jmap_jscalendar_types::Alert
 pub fn jmap_jscalendar_types::Alert::clone(&self) -> jmap_jscalendar_types::Alert
+impl core::cmp::Eq for jmap_jscalendar_types::Alert
 impl core::cmp::PartialEq for jmap_jscalendar_types::Alert
 pub fn jmap_jscalendar_types::Alert::eq(&self, &jmap_jscalendar_types::Alert) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::Alert
@@ -86,6 +89,7 @@ pub jmap_jscalendar_types::Link::size: core::option::Option<u64>
 pub jmap_jscalendar_types::Link::title: core::option::Option<alloc::string::String>
 impl core::clone::Clone for jmap_jscalendar_types::Link
 pub fn jmap_jscalendar_types::Link::clone(&self) -> jmap_jscalendar_types::Link
+impl core::cmp::Eq for jmap_jscalendar_types::Link
 impl core::cmp::PartialEq for jmap_jscalendar_types::Link
 pub fn jmap_jscalendar_types::Link::eq(&self, &jmap_jscalendar_types::Link) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::Link
@@ -134,6 +138,7 @@ pub jmap_jscalendar_types::Location::relative_to: core::option::Option<alloc::st
 pub jmap_jscalendar_types::Location::time_zone: core::option::Option<alloc::string::String>
 impl core::clone::Clone for jmap_jscalendar_types::Location
 pub fn jmap_jscalendar_types::Location::clone(&self) -> jmap_jscalendar_types::Location
+impl core::cmp::Eq for jmap_jscalendar_types::Location
 impl core::cmp::PartialEq for jmap_jscalendar_types::Location
 pub fn jmap_jscalendar_types::Location::eq(&self, &jmap_jscalendar_types::Location) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::Location
@@ -167,6 +172,7 @@ pub jmap_jscalendar_types::OffsetTrigger::offset: jmap_jscalendar_types::SignedD
 pub jmap_jscalendar_types::OffsetTrigger::relative_to: core::option::Option<alloc::string::String>
 impl core::clone::Clone for jmap_jscalendar_types::OffsetTrigger
 pub fn jmap_jscalendar_types::OffsetTrigger::clone(&self) -> jmap_jscalendar_types::OffsetTrigger
+impl core::cmp::Eq for jmap_jscalendar_types::OffsetTrigger
 impl core::cmp::PartialEq for jmap_jscalendar_types::OffsetTrigger
 pub fn jmap_jscalendar_types::OffsetTrigger::eq(&self, &jmap_jscalendar_types::OffsetTrigger) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::OffsetTrigger
@@ -207,6 +213,7 @@ pub jmap_jscalendar_types::Participant::send_to: core::option::Option<alloc::col
 pub jmap_jscalendar_types::Participant::sent_by: core::option::Option<alloc::string::String>
 impl core::clone::Clone for jmap_jscalendar_types::Participant
 pub fn jmap_jscalendar_types::Participant::clone(&self) -> jmap_jscalendar_types::Participant
+impl core::cmp::Eq for jmap_jscalendar_types::Participant
 impl core::cmp::PartialEq for jmap_jscalendar_types::Participant
 pub fn jmap_jscalendar_types::Participant::eq(&self, &jmap_jscalendar_types::Participant) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::Participant
@@ -237,6 +244,7 @@ pub jmap_jscalendar_types::RecurrenceRule::skip: core::option::Option<alloc::str
 pub jmap_jscalendar_types::RecurrenceRule::until: core::option::Option<jmap_jscalendar_types::LocalDateTime>
 impl core::clone::Clone for jmap_jscalendar_types::RecurrenceRule
 pub fn jmap_jscalendar_types::RecurrenceRule::clone(&self) -> jmap_jscalendar_types::RecurrenceRule
+impl core::cmp::Eq for jmap_jscalendar_types::RecurrenceRule
 impl core::cmp::PartialEq for jmap_jscalendar_types::RecurrenceRule
 pub fn jmap_jscalendar_types::RecurrenceRule::eq(&self, &jmap_jscalendar_types::RecurrenceRule) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::RecurrenceRule
@@ -252,6 +260,7 @@ pub jmap_jscalendar_types::Relation::extra: serde_json::map::Map<alloc::string::
 pub jmap_jscalendar_types::Relation::relation: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
 impl core::clone::Clone for jmap_jscalendar_types::Relation
 pub fn jmap_jscalendar_types::Relation::clone(&self) -> jmap_jscalendar_types::Relation
+impl core::cmp::Eq for jmap_jscalendar_types::Relation
 impl core::cmp::PartialEq for jmap_jscalendar_types::Relation
 pub fn jmap_jscalendar_types::Relation::eq(&self, &jmap_jscalendar_types::Relation) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::Relation
@@ -296,6 +305,7 @@ pub jmap_jscalendar_types::TimeZone::url: core::option::Option<alloc::string::St
 pub jmap_jscalendar_types::TimeZone::valid_until: core::option::Option<jmap_types::id::UTCDate>
 impl core::clone::Clone for jmap_jscalendar_types::TimeZone
 pub fn jmap_jscalendar_types::TimeZone::clone(&self) -> jmap_jscalendar_types::TimeZone
+impl core::cmp::Eq for jmap_jscalendar_types::TimeZone
 impl core::cmp::PartialEq for jmap_jscalendar_types::TimeZone
 pub fn jmap_jscalendar_types::TimeZone::eq(&self, &jmap_jscalendar_types::TimeZone) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::TimeZone
@@ -317,6 +327,7 @@ pub jmap_jscalendar_types::TimeZoneRule::recurrence_rules: core::option::Option<
 pub jmap_jscalendar_types::TimeZoneRule::start: jmap_jscalendar_types::LocalDateTime
 impl core::clone::Clone for jmap_jscalendar_types::TimeZoneRule
 pub fn jmap_jscalendar_types::TimeZoneRule::clone(&self) -> jmap_jscalendar_types::TimeZoneRule
+impl core::cmp::Eq for jmap_jscalendar_types::TimeZoneRule
 impl core::cmp::PartialEq for jmap_jscalendar_types::TimeZoneRule
 pub fn jmap_jscalendar_types::TimeZoneRule::eq(&self, &jmap_jscalendar_types::TimeZoneRule) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::TimeZoneRule
@@ -358,6 +369,7 @@ pub jmap_jscalendar_types::VirtualLocation::name: core::option::Option<alloc::st
 pub jmap_jscalendar_types::VirtualLocation::uri: alloc::string::String
 impl core::clone::Clone for jmap_jscalendar_types::VirtualLocation
 pub fn jmap_jscalendar_types::VirtualLocation::clone(&self) -> jmap_jscalendar_types::VirtualLocation
+impl core::cmp::Eq for jmap_jscalendar_types::VirtualLocation
 impl core::cmp::PartialEq for jmap_jscalendar_types::VirtualLocation
 pub fn jmap_jscalendar_types::VirtualLocation::eq(&self, &jmap_jscalendar_types::VirtualLocation) -> bool
 impl core::fmt::Debug for jmap_jscalendar_types::VirtualLocation
