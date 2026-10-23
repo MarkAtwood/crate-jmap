@@ -319,11 +319,13 @@ pub fn now_utc_string_checked() -> Option<UTCDate> {
 /// in the [`now_utc_string`] format, or `None` if the year does not fit
 /// in `i32`.
 fn utc_date_from_epoch_millis(secs: i64, millis: u32) -> Option<UTCDate> {
-    let s = secs.rem_euclid(60);
-    let m = (secs / 60).rem_euclid(60);
-    let h = (secs / 3600).rem_euclid(24);
-    let days = secs.div_euclid(86400);
-    let (year, month, day) = civil_from_days(days)?;
+    let time_of_day = secs.rem_euclid(86400);
+    let (h, m, s) = (
+        time_of_day / 3600,
+        time_of_day % 3600 / 60,
+        time_of_day % 60,
+    );
+    let (year, month, day) = civil_from_days(secs.div_euclid(86400))?;
 
     // RFC 8620 §1.4: a zero time-secfrac MUST be omitted.
     let frac = if millis == 0 {
@@ -1728,6 +1730,23 @@ mod tests {
             let d = utc_date_from_epoch_millis(1_414_649_520, millis).unwrap();
             assert_eq!(d.as_ref(), expected, "millis = {millis}");
             assert!(UTCDate::new_validated(expected).is_ok(), "{expected}");
+        }
+    }
+
+    /// Oracle: GNU `date -u -d @<secs> +%FT%TZ` (coreutils). Pre-epoch
+    /// seconds must take the time of day from the floored day, not from
+    /// truncating division (bd:JMAP-yt1w.40: -1 used to yield 00:00:59).
+    #[test]
+    fn utc_date_from_epoch_millis_pre_epoch_time_of_day() {
+        for (secs, expected) in [
+            (-1, "1969-12-31T23:59:59Z"),
+            (-61, "1969-12-31T23:58:59Z"),
+            (-3601, "1969-12-31T22:59:59Z"),
+            (-86401, "1969-12-30T23:59:59Z"),
+            (-90061, "1969-12-30T22:58:59Z"),
+        ] {
+            let d = utc_date_from_epoch_millis(secs, 0).unwrap();
+            assert_eq!(d.as_ref(), expected, "secs = {secs}");
         }
     }
 
