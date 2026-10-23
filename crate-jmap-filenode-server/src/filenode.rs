@@ -49,8 +49,8 @@ use serde_json::{Value, json};
 
 use crate::FileNodeBackend;
 use crate::helpers::{
-    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    parents_first, resolve_refs,
+    SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, parents_first, resolve_refs,
 };
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
@@ -335,14 +335,21 @@ async fn report_created_files_rights<B: FileNodeBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_changes<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
-    jmap_server::handle_changes::<FileNode, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<FileNode, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -406,12 +413,21 @@ const FILENODE_ID_PROPERTIES: &[&str] = &["parentId", "spaceId"];
 /// against a create of this call, which runs parents first (RFC 8620
 /// §5.3). An unknown reference is `invalidProperties` naming the property.
 ///
+/// ## Metadata
+///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_set<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
@@ -496,6 +512,13 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         for (create_id, mut obj_val) in parents_first(create_map, "parentId") {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<FileNode>) {
                 not_created.insert(create_id, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             if let Err(err) = resolve_refs(&mut obj_val, FILENODE_ID_PROPERTIES, &created_ids) {
@@ -925,6 +948,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     continue;
                 }
             };
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
 
             // draft-ietf-jmap-filenode-16 §3.1: setting a property not
             // defined for the node's @type to a non-null value is
@@ -3182,12 +3209,18 @@ mod tests {
             let args = build_args(json!(null));
             let err = match *method {
                 "FileNode/get" => handle_filenode_get(&backend, &(), args).await.err(),
-                "FileNode/changes" => handle_filenode_changes(&backend, &(), args).await.err(),
-                "FileNode/set" => {
-                    handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-                        .await
-                        .err()
-                }
+                "FileNode/changes" => handle_filenode_changes(&backend, &(), args, &[])
+                    .await
+                    .err(),
+                "FileNode/set" => handle_filenode_set(
+                    &backend,
+                    &(),
+                    &std::collections::BTreeMap::new(),
+                    args,
+                    &[],
+                )
+                .await
+                .err(),
                 "FileNode/copy" => handle_filenode_copy(&backend, &(), args, "c0").await.err(),
                 "FileNode/query" => handle_filenode_query(&backend, &(), args).await.err(),
                 "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args)
@@ -3232,12 +3265,18 @@ mod tests {
             });
             let err = match method {
                 "FileNode/get" => handle_filenode_get(&backend, &(), args).await.err(),
-                "FileNode/changes" => handle_filenode_changes(&backend, &(), args).await.err(),
-                "FileNode/set" => {
-                    handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-                        .await
-                        .err()
-                }
+                "FileNode/changes" => handle_filenode_changes(&backend, &(), args, &[])
+                    .await
+                    .err(),
+                "FileNode/set" => handle_filenode_set(
+                    &backend,
+                    &(),
+                    &std::collections::BTreeMap::new(),
+                    args,
+                    &[],
+                )
+                .await
+                .err(),
                 "FileNode/copy" => handle_filenode_copy(
                     &backend,
                     &(),
@@ -3426,7 +3465,7 @@ mod tests {
             }
         });
         let result =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args).await;
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[]).await;
         let err = result
             .expect_err("blob_exists Err must surface as a JmapError, not Ok with notCreated");
         assert_eq!(
@@ -3571,10 +3610,11 @@ mod tests {
             "accountId": "acc1",
             "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
         });
-        let resp = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await
-            .expect("set")
-            .primary;
+        let resp =
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("set")
+                .primary;
         assert_eq!(resp["created"]["d1"]["id"], "node-1", "{resp}");
         assert_eq!(
             resp["created"]["d1"]["myRights"],
@@ -3597,10 +3637,11 @@ mod tests {
             "accountId": "acc1",
             "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
         });
-        let resp = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await
-            .expect("files_rights Err after the insert must not fail the call")
-            .primary;
+        let resp =
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("files_rights Err after the insert must not fail the call")
+                .primary;
         let created = &resp["created"]["d1"];
         assert!(created.is_object(), "the create must stand: {resp}");
 
@@ -3695,7 +3736,7 @@ mod tests {
             "accountId": "acc1",
             "create": { "d1": { "@type": "Directory", "name": "docs", "parentId": null } }
         });
-        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect_err("cid_advertised Err must surface as a JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
@@ -3715,7 +3756,7 @@ mod tests {
     async fn changes_returns_standard_shape() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_changes(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_changes(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -4060,7 +4101,7 @@ mod tests {
             "destroy": ["dir1"]
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4107,7 +4148,7 @@ mod tests {
             "destroy": ["dir1"]
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4149,7 +4190,7 @@ mod tests {
             "destroy": ["dir1"]
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4196,7 +4237,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4242,7 +4283,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4283,7 +4324,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4333,7 +4374,7 @@ mod tests {
             // onDestroyRemoveChildren is absent (defaults to false)
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4373,7 +4414,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4405,7 +4446,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         assert!(resp["created"].is_null(), "nothing may be created: {resp}");
@@ -4427,7 +4468,7 @@ mod tests {
             "create": { "c1": { "@type": "directory", "name": "mydir" } }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         let err = &resp["notCreated"]["c1"];
@@ -4448,7 +4489,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         assert!(resp["notCreated"].is_null(), "{resp}");
@@ -4476,7 +4517,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4521,7 +4562,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4555,7 +4596,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4598,7 +4639,7 @@ mod tests {
             // onExists absent → default Reject
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -4634,7 +4675,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         // With rename, creation should succeed (mock create_object returns Ok).
@@ -4688,7 +4729,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -4716,7 +4757,7 @@ mod tests {
     async fn set_non_string_destroy_element_does_not_echo_value() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "destroy": [{ "note": "CANARY-zegc" }] });
-        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect_err("non-string destroy element must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -4733,7 +4774,7 @@ mod tests {
     async fn set_invalid_on_exists_does_not_echo_value() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "onExists": { "note": "CANARY-zegc" } });
-        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect_err("object onExists must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");

@@ -59,7 +59,7 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -69,7 +69,15 @@ use crate::{
 };
 use jmap_cid_types::Sha256;
 use jmap_filenode_types::{FileNode, FileNodeFilter, NodeRole, NodeType};
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
+use jmap_metadata_server::{
+    ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
+    changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
+    metadata_path_exists, metadata_text_contains, metadata_text_equals,
+};
+use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_server::{
+    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+};
 use jmap_types::{Filter, Id, JmapError, Operator, State};
 
 // ---------------------------------------------------------------------------
@@ -158,6 +166,22 @@ struct ChangeEntry {
     state: u64,
     change_type: ChangeType,
     id: Id,
+    /// For an update, the top-level properties it altered, or `None` when
+    /// not known (always `None` for a create or destroy). Feeds
+    /// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges` and
+    /// `updatedProperties`.
+    updated_props: Option<BTreeSet<String>>,
+}
+
+impl ChangeEntry {
+    /// `true` for an update that changed only `metadata` and/or
+    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    fn is_metadata_only_update(&self) -> bool {
+        matches!(self.change_type, ChangeType::Updated)
+            && self.updated_props.as_ref().is_some_and(|props| {
+                !props.is_empty() && props.iter().all(|p| is_metadata_property(p))
+            })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -218,12 +242,18 @@ impl AccountStore {
         }
     }
 
-    fn bump_state(&mut self, change_type: ChangeType, id: Id) {
+    fn bump_state(
+        &mut self,
+        change_type: ChangeType,
+        id: Id,
+        updated_props: Option<BTreeSet<String>>,
+    ) {
         self.state += 1;
         self.change_log.push(ChangeEntry {
             state: self.state,
             change_type,
             id,
+            updated_props,
         });
     }
 }
@@ -234,6 +264,10 @@ impl AccountStore {
 
 struct MemoryState {
     accounts: HashMap<String, AccountStore>,
+    /// The draft-ietf-jmap-metadata-04 §1.2.1 DataTypeMetadataInfo of
+    /// FileNode, set by [`MemoryBackend::with_metadata_info`]. `None`:
+    /// FileNode does not have the metadata properties.
+    metadata_info: Option<DataTypeMetadataInfo>,
 }
 
 impl MemoryState {
@@ -285,6 +319,7 @@ impl MemoryBackend {
         Self {
             inner: Arc::new(Mutex::new(MemoryState {
                 accounts: HashMap::new(),
+                metadata_info: None,
             })),
         }
     }
@@ -319,6 +354,48 @@ impl MemoryBackend {
             .accounts
             .entry(account_id.as_ref().to_owned())
             .or_insert_with(AccountStore::new);
+        self
+    }
+
+    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// §1.2.1).
+    ///
+    /// Without this call FileNode has no metadata: `FileNode/set` rejects a
+    /// write to `metadata` or `privateMetadata` with `invalidProperties`
+    /// and `FileNode/query` rejects a metadata filter condition with
+    /// `unsupportedFilter`. With it, `FileNode/set` validates metadata
+    /// writes (-04 §3.2, §4.1), `FileNode/query` evaluates the -04 §3.6
+    /// conditions, and `FileNode/changes` honours
+    /// `ignoreMetadataOnlyChanges` and reports `updatedProperties` (-04
+    /// §3.3). Advertising the capability in the session is the server's
+    /// job: list `info` under `"FileNode"` in the account's
+    /// `urn:ietf:params:jmap:metadata` `dataTypes`.
+    ///
+    /// A FileNode has a rights object of its own (-04 §4.1 names FileNode
+    /// among the types with `myRights`), so an update that writes
+    /// `metadata` needs `myRights.maySetMetadata` on the node itself; an
+    /// absent `maySetMetadata` allows the write (fail-open, JMAP-bghk).
+    /// This backend never sets `changed`, so a metadata-only change leaves
+    /// it alone, as -04 §3.1 requires.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `data_type` is not `"FileNode"`, the one type this backend
+    /// stores, or if `info.supports_private` is true: this backend has no
+    /// per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
+    /// (-04 §2).
+    #[must_use]
+    pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
+        assert!(
+            data_type == FileNode::TYPE_NAME,
+            "MemoryBackend supports metadata only on FileNode, not {data_type:?}"
+        );
+        assert!(
+            !info.supports_private,
+            "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
+        );
+        self.inner.lock().unwrap().metadata_info = Some(info);
         self
     }
 
@@ -555,6 +632,13 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
+        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // already folded a `using` without the capability into this flag.
+        let mode = if params.ignore_metadata_only_changes {
+            MetadataOnlyChanges::Ignore
+        } else {
+            MetadataOnlyChanges::Report
+        };
         let since: u64 = since_state
             .as_ref()
             .parse()
@@ -576,11 +660,19 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = State::from(store.state.to_string());
 
-        // Collect all changes after since_state.
+        // Collect all changes after since_state. Under Ignore a
+        // metadata-only update entry is dropped here: each entry names one
+        // id, so an id stays in `updated` exactly when one of its updates
+        // since sinceState touched more than metadata (-04 §3.3: "exclude
+        // from the updated array any id whose only changes since
+        // sinceState ... are confined to metadata and/or privateMetadata"),
+        // and the dropped entries do not count toward maxChanges ("Excluded
+        // ids do not count toward maxChanges").
         let all: Vec<&ChangeEntry> = store
             .change_log
             .iter()
             .filter(|e| e.state > since)
+            .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
             .collect();
 
         // Apply max_changes limit.
@@ -594,22 +686,26 @@ impl JmapBackend for MemoryBackend {
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
         let mut destroyed: Vec<Id> = Vec::new();
+        let mut window_props = ChangedProperties::new();
 
         for e in entries {
             match e.change_type {
                 ChangeType::Created => created.push(e.id.clone()),
-                ChangeType::Updated => updated.push(e.id.clone()),
+                ChangeType::Updated => {
+                    window_props.record(e.id.as_ref(), e.updated_props.as_ref());
+                    updated.push(e.id.clone());
+                }
                 ChangeType::Destroyed => destroyed.push(e.id.clone()),
             }
         }
 
-        Ok(ChangesResult::new(
-            created,
-            updated,
-            destroyed,
-            has_more_changes,
-            current_state,
-        ))
+        // -04 §3.3 `updatedProperties`; FileNode has none of the RFC 8621
+        // §2.2 count properties that only Mailbox/changes may list.
+        let updated_properties = window_props.updated_properties(&updated, mode, &[]);
+        Ok(
+            ChangesResult::new(created, updated, destroyed, has_more_changes, current_state)
+                .with_updated_properties(updated_properties),
+        )
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(
@@ -647,11 +743,17 @@ impl JmapBackend for MemoryBackend {
         // silently dropped — silent-drop on filter parse degenerates into
         // an unfiltered query, which is a query-correctness bug
         // (workspace AGENTS.md "Filter algebra exclusion §1"; bd:JMAP-510h.53).
+        //
+        // draft-ietf-jmap-metadata-04 §3.6: [`check_metadata_filter`]
+        // validates the `metadata*` conditions first, so a malformed path is
+        // `invalidArguments` and a condition while FileNode is not opted in
+        // ([`MemoryBackend::with_metadata_info`]) is `unsupportedFilter`.
         let fc: Option<FileNodeFilter> = match filter {
             None => None,
             Some(f) => {
                 let v = serde_json::to_value(f)
                     .map_err(|e| MemoryError::serde("serialize filter", &e))?;
+                check_metadata_filter(&v, guard.metadata_info.as_ref())?;
                 Some(
                     serde_json::from_value(v)
                         .map_err(|e| MemoryError::serde("parse filter", &e))?,
@@ -750,6 +852,7 @@ impl FileNodeBackend for MemoryBackend {
         }
 
         let mut guard = self.inner.lock().unwrap();
+        let metadata_info = guard.metadata_info.clone();
         let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::InvalidProperties)))
         })?;
@@ -762,6 +865,9 @@ impl FileNodeBackend for MemoryBackend {
                 &e,
             ))
         })?;
+        if let Some(obj) = v.as_object() {
+            check_metadata_create(metadata_info.as_ref(), obj)?;
+        }
         let node: FileNode = serde_json::from_value(v).map_err(|e| {
             BackendSetError::Other(MemoryError::serde(
                 "create_object: deserialize FileNode",
@@ -769,7 +875,7 @@ impl FileNodeBackend for MemoryBackend {
             ))
         })?;
         store.nodes.insert(new_id.clone(), node);
-        store.bump_state(ChangeType::Created, new_id.clone());
+        store.bump_state(ChangeType::Created, new_id.clone(), None);
 
         Ok((new_id, obj))
     }
@@ -797,8 +903,25 @@ impl FileNodeBackend for MemoryBackend {
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("update_object: serialize patch", &e))
         })?;
+        let invalid_patch = |description: String| {
+            BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidPatch).with_description(description),
+            ))
+        };
+        // draft-ietf-jmap-metadata-04 §3.2: "Patch errors that can be
+        // determined from the request alone (for example, two paths where
+        // one is a prefix of the other) MUST be reported with
+        // "invalidPatch" before rule 1 is evaluated."
+        if let serde_json::Value::Object(patch_map) = &patch_val {
+            check_patch_paths(patch_map)
+                .map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
+        }
 
         let mut guard = self.inner.lock().unwrap();
+        let metadata_info = guard.metadata_info.clone();
+        // -04 §3.2 rule 1: "If the user cannot read the related object,
+        // reject with "notFound"" comes before "forbidden". Here only a
+        // missing account or node is unreadable.
         let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
         })?;
@@ -820,12 +943,44 @@ impl FileNodeBackend for MemoryBackend {
             ))
         })?;
 
+        let mut updated_props = None;
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
-            apply_patch_object(obj, patch_obj).map_err(|e| {
-                BackendSetError::SetError(Box::new(
-                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                ))
-            })?;
+            // -04 §3.2 rules 1 to 3 run before the patch is applied.
+            let info = check_metadata_set(
+                metadata_info.as_ref(),
+                SetKind::Update,
+                patch_obj,
+                Some(obj),
+            )?;
+            // -04 §2 `metadata` has "default: {}", so a
+            // `metadata/<namespace>` pointer finds its parent.
+            if info.is_some() {
+                obj.entry("metadata")
+                    .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+            }
+            let before = obj.clone();
+            // The value-dependent patch errors (missing parent, path through
+            // an array) land here, after rule 3 and before rule 4 (-04 §3.2).
+            apply_patch_object(obj, patch_obj).map_err(|e| invalid_patch(e.to_string()))?;
+            if let Some(info) = info {
+                // -04 §3.2: "In an update, null is equivalent to {}"; the
+                // patch removed the property instead.
+                for property in ["metadata", "privateMetadata"] {
+                    if patch_obj
+                        .get(property)
+                        .is_some_and(serde_json::Value::is_null)
+                    {
+                        obj.insert(
+                            property.to_owned(),
+                            serde_json::Value::Object(serde_json::Map::new()),
+                        );
+                    }
+                }
+                // -04 §3.2 rule 4 runs on the value as it would be stored.
+                check_metadata_depth(patch_obj, obj, info)
+                    .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+            }
+            updated_props = Some(changed_properties(&before, obj));
         }
 
         // A patched value of the wrong type is the client's error, not ours.
@@ -836,7 +991,7 @@ impl FileNodeBackend for MemoryBackend {
         })?;
 
         store.nodes.insert(id.clone(), updated_node.clone());
-        store.bump_state(ChangeType::Updated, id.clone());
+        store.bump_state(ChangeType::Updated, id.clone(), updated_props);
 
         let result_v = serde_json::to_value(&updated_node).map_err(|e| {
             BackendSetError::Other(MemoryError::serde(
@@ -870,7 +1025,7 @@ impl FileNodeBackend for MemoryBackend {
                 SetErrorType::NotFound,
             ))));
         }
-        store.bump_state(ChangeType::Destroyed, id.clone());
+        store.bump_state(ChangeType::Destroyed, id.clone(), None);
         Ok(())
     }
 
@@ -1332,7 +1487,173 @@ fn node_matches_filter(
         return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
     }
 
-    Ok(true)
+    // draft-ietf-jmap-metadata-04 §3.6 shared-metadata conditions, already
+    // validated by `check_metadata_filter`. The `privateMetadata*` ones
+    // never reach this point: with `supportsPrivate` false it rejects them.
+    Ok(metadata_matches(
+        node.metadata.as_ref(),
+        fc.metadata_exists.as_deref(),
+        fc.metadata_text_contains.as_ref(),
+        fc.metadata_text_equals.as_ref(),
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// draft-ietf-jmap-metadata-04 helpers
+// ---------------------------------------------------------------------------
+
+fn invalid_metadata_property(property: &str, description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties([property])
+            .with_description(description),
+    ))
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 rules 1 to 3 for a metadata write on a
+/// FileNode, before the write is applied. Returns the DataTypeMetadataInfo
+/// for the rule 4 check after applying, or `None` when `entry` writes no
+/// metadata.
+///
+/// `entry` is the create object or update patch and `stored` the node
+/// before an update (`None` on create). Rule 1's `notFound` is the
+/// caller's: this backend has no read rights, so only a missing node is
+/// unreadable.
+fn check_metadata_set<'a>(
+    info: Option<&'a DataTypeMetadataInfo>,
+    kind: SetKind,
+    entry: &serde_json::Map<String, serde_json::Value>,
+    stored: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> Result<Option<&'a DataTypeMetadataInfo>, BackendSetError<MemoryError>> {
+    let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
+        return Ok(None);
+    };
+    // -04 §1.2.1: an unlisted type "does not gain the metadata or
+    // privateMetadata properties".
+    let Some(info) = info else {
+        return Err(invalid_metadata_property(
+            first,
+            "metadata is not supported on this data type",
+        ));
+    };
+    // Rule 1 / -04 §4.1: "A write to metadata without maySetMetadata MUST
+    // be rejected with a "forbidden" SetError". A FileNode has its own
+    // rights object; a node being created has none yet. An absent right
+    // allows the write (fail-open, JMAP-bghk).
+    let writes_shared = entry.keys().any(|k| {
+        crate::helpers::is_metadata_key(k)
+            && k.split_once('/').map_or(k.as_str(), |(root, _)| root) == "metadata"
+    });
+    let denied = stored
+        .and_then(|n| n.get("myRights"))
+        .and_then(|r| r.get("maySetMetadata"))
+        .and_then(serde_json::Value::as_bool)
+        == Some(false);
+    if writes_shared && denied {
+        return Err(BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("maySetMetadata is required to write metadata"),
+        )));
+    }
+    check_metadata_write(kind, entry, stored, info)
+        .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    Ok(Some(info))
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 checks for a created FileNode `obj`:
+/// rules 1 to 3 on its metadata properties, then rule 4 on the stored
+/// value.
+fn check_metadata_create(
+    info: Option<&DataTypeMetadataInfo>,
+    obj: &serde_json::Map<String, serde_json::Value>,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let entry: serde_json::Map<String, serde_json::Value> = obj
+        .iter()
+        .filter(|(k, _)| is_metadata_property(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    if let Some(info) = check_metadata_set(info, SetKind::Create, &entry, None)? {
+        check_metadata_depth(&entry, obj, info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    }
+    Ok(())
+}
+
+/// The six draft-ietf-jmap-metadata-04 §3.6 FilterCondition fields.
+const METADATA_CONDITION_KEYS: [&str; 6] = [
+    "metadataExists",
+    "privateMetadataExists",
+    "metadataTextContains",
+    "privateMetadataTextContains",
+    "metadataTextEquals",
+    "privateMetadataTextEquals",
+];
+
+/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// before any node is matched.
+///
+/// Without `info` FileNode has no metadata (-04 §1.2.1: it "does not gain
+/// the metadata or privateMetadata properties"), so a metadata leaf is
+/// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
+/// but the server cannot process it"). Otherwise
+/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// `invalidArguments`, and a `privateMetadata*` condition is
+/// `unsupportedFilter` because `supportsPrivate` is false.
+fn check_metadata_filter(
+    filter: &serde_json::Value,
+    info: Option<&DataTypeMetadataInfo>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    let unsupported = |description: String| {
+        let mut err = JmapError::unsupported_filter();
+        err.description = Some(description);
+        BackendQueryError::Method(err)
+    };
+    if filter.get("operator").is_some() {
+        return filter
+            .get("conditions")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .try_for_each(|f| check_metadata_filter(f, info));
+    }
+    let Some(leaf) = filter.as_object() else {
+        return Ok(());
+    };
+    if !METADATA_CONDITION_KEYS
+        .iter()
+        .any(|k| leaf.get(*k).is_some_and(|v| !v.is_null()))
+    {
+        return Ok(());
+    }
+    let Some(info) = info else {
+        return Err(unsupported(
+            "metadata filter conditions are not supported".to_owned(),
+        ));
+    };
+    MetadataCondition::take_from(&mut leaf.clone(), info)
+        .map(drop)
+        .map_err(|e| match e {
+            MetadataFilterError::InvalidArguments(d) => {
+                BackendQueryError::Method(JmapError::invalid_arguments(d))
+            }
+            other => unsupported(other.to_string()),
+        })
+}
+
+/// Match the draft-ietf-jmap-metadata-04 §3.6 shared-metadata conditions of
+/// one filter leaf against a node's `metadata` (absent means `{}`, -04 §2).
+fn metadata_matches(
+    metadata: Option<&serde_json::Map<String, serde_json::Value>>,
+    exists: Option<&str>,
+    contains: Option<&MetadataTextMatch>,
+    equals: Option<&MetadataTextMatch>,
+) -> bool {
+    let empty = serde_json::Map::new();
+    let metadata = metadata.unwrap_or(&empty);
+    exists.is_none_or(|p| metadata_path_exists(metadata, p))
+        && contains.is_none_or(|m| metadata_text_contains(metadata, m))
+        && equals.is_none_or(|m| metadata_text_equals(metadata, m))
 }
 
 /// Case-insensitive glob matcher.

@@ -77,7 +77,7 @@ async fn filenode_set_over_limit_create_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+    let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect_err("501-entry FileNode/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
@@ -95,7 +95,7 @@ async fn filenode_set_over_limit_destroy_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "destroy": destroy_array_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+    let err = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect_err("501-entry FileNode/set destroy batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
@@ -124,7 +124,8 @@ async fn filenode_set_at_limit_passes_cap_check() {
     // because it means the cap path is wrong; the per-entry validation
     // failures live inside the Ok(...) wire shape, not in the method-
     // level Err.
-    let result = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args).await;
+    let result =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[]).await;
     if let Err(ref err) = result {
         assert_ne!(
             err.error_type.to_string(),

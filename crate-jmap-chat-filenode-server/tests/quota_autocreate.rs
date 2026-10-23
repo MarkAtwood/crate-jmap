@@ -160,6 +160,7 @@ async fn auto_created_root_is_in_filenode_changes() {
         &files,
         &(),
         json!({ "accountId": ACCOUNT, "sinceState": "0" }),
+        &[],
     )
     .await
     .expect("FileNode/changes");
@@ -173,6 +174,7 @@ async fn auto_created_root_is_in_filenode_changes() {
         &files,
         &(),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
+        &[],
     )
     .await
     .expect("FileNode/changes");

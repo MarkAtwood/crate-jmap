@@ -91,6 +91,7 @@ impl Fixture {
                 "create": { "r": { "@type": "Directory", "name": space_id, "parentId": null,
                                    "role": ROLE, "spaceId": space_id } }
             }),
+            &[],
         )
         .await
         .expect("FileNode/set");

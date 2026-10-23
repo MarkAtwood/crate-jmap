@@ -2087,6 +2087,8 @@ dependencies = [
  "jmap-cid-types",
  "jmap-filenode-server",
  "jmap-filenode-types",
+ "jmap-metadata-server",
+ "jmap-metadata-types",
  "jmap-server",
  "jmap-types",
  "serde_json",
@@ -2098,6 +2100,7 @@ name = "jmap-filenode-types"
 version = "0.3.0"
 dependencies = [
  "jmap-cid-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",

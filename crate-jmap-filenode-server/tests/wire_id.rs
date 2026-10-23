@@ -40,6 +40,7 @@ async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
         &(),
         &std::collections::BTreeMap::new(),
         args_with_account(args),
+        &[],
     )
     .await
     .expect("/set must not fail as a method")
