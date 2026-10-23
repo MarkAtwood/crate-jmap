@@ -124,7 +124,7 @@ Run all four before considering any work done.
 | Async | `impl Future + Send` return types on backend trait methods, no `async fn`. Crate has NO tokio runtime dep — consumers pick the runtime. `tokio` is a dev-dep only, used to run integration tests (see `bd:JMAP-tco1`). |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
-| Dependencies | jmap-types, jmap-mail-types, jmap-server, serde, serde_json, mime-tree (runtime); uuid + jmap-mime (optional, gated behind `memory` feature). `mime-tree` is the workspace's single RFC 5322 parsing gateway — see `bd:JMAP-g7wu.11`. `tokio` is dev-only. No `thiserror`. |
+| Dependencies | jmap-types, jmap-mail-types, jmap-server, serde, serde_json, mime-tree (runtime); uuid + jmap-mime (optional, gated behind `memory` feature). `mime-tree` is the workspace's single RFC 5322 parsing gateway — see `bd:JMAP-g7wu.11`. `tokio` is dev-only. |
 | Method names | Must match RFC 8621 exactly (`Email/get`, `Mailbox/set`, etc.) |
 | Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
 
