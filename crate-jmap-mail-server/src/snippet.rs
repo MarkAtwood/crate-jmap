@@ -21,11 +21,11 @@
 use jmap_mail_types::{EmailFilter, SearchSnippet};
 use jmap_types::{Id, JmapError};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::helpers::extract_account_id;
 use crate::MailBackend;
-use jmap_server::{server_fail_from_backend, HandlerOutput};
+use crate::helpers::extract_account_id;
+use jmap_server::{HandlerOutput, server_fail_from_backend};
 
 /// Handle a `SearchSnippet/get` method call (RFC 8621 §5.1).
 ///

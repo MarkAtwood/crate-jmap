@@ -12,7 +12,7 @@ use jmap_scene_server::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_set,
 };
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The region of the draft's examples, owned by [`BOB`].
 const REGION: &str = "01J5ABC0000000000000000001";

@@ -8,9 +8,9 @@
 
 use jmap_chat_federation_types::*;
 use jmap_chat_types::{BodyType, ChatKind, ChatMemberRole, Clearable, Presence, ReadDisposition};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 /// Parse `wire`, then assert it serializes back unchanged.
 fn round_trip<T: Serialize + DeserializeOwned>(wire: Value) -> T {

@@ -9,11 +9,11 @@
 
 mod common;
 
-use common::{make_space, MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, make_space};
 use jmap_chat_server::{handle_contact_query, handle_space_get, handle_space_query};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// `ids` of a `/query` response.
 fn ids(resp: &Value) -> Vec<String> {

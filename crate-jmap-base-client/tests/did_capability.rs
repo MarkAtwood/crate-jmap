@@ -9,7 +9,7 @@
 
 use jmap_base_client::{ClientError, Session};
 use jmap_did_types::KeyCustody;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Wraps the draft's `capabilities` and `accounts` fragments in the
 /// remaining RFC 8620 §2 Session members, which the fragments omit.

@@ -15,7 +15,7 @@ use jmap_scene_server::JmapBackend;
 use jmap_scene_vtc_server::may_see_region_avatars;
 use jmap_types::Id;
 use jmap_vtc_types::VtcCall;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const MEMBER: &str = "user:member@example.com";
 const DEPARTED: &str = "user:departed@example.com";

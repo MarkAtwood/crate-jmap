@@ -29,16 +29,16 @@
 
 use jmap_contacts_types::{AddressBook, ContactCard, ContactCardFilterCondition};
 use jmap_types::{Filter, Id, JmapError, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    set_error_value,
 };
 use crate::{BackendSetError, ContactsBackend, SetError, SetErrorType};
 use jmap_server::{
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryParams,
+    HandlerOutput, QueryParams, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// RFC 9610 §7.4.1 — IANA-registered JMAP error type for AddressBook/set
@@ -174,10 +174,10 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     // bd:JMAP-qz9v.57 — capture the set of currently-default AddressBook ids
@@ -471,43 +471,41 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     // -----------------------------------------------------------------------
     let main_ops_all_succeeded =
         not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
-    if main_ops_all_succeeded {
-        if let Some(id_str) = on_success_set_is_default {
-            // Resolve creation reference: if id_str starts with '#', look up in created map.
-            let resolved: Option<Id> = if let Some(create_id) = id_str.strip_prefix('#') {
-                created
-                    .get(create_id)
-                    .and_then(|v| v.get("id"))
-                    .and_then(|v| v.as_str())
-                    .map(Id::from)
-            } else {
-                Id::new_validated(id_str.as_str()).ok()
-            };
-            if let Some(target_id) = resolved {
-                // Build a one-key PatchObject {"isDefault": true} via
-                // the typed constructor. RFC 8620 §5.3.
-                let mut patch_map = serde_json::Map::new();
-                patch_map.insert("isDefault".to_owned(), Value::Bool(true));
-                let patch = PatchObject::from_map(patch_map);
-                // §2.3: errors here are silently ignored.
-                match backend
-                    .update_object::<AddressBook>(caller, &account_id, &target_id, patch)
-                    .await
-                {
-                    Ok(Some(obj)) => {
-                        mutated = true;
-                        updated.insert(
-                            target_id.to_string(),
-                            serde_json::to_value(&obj)
-                                .expect("derive(Serialize) on plain data is infallible"),
-                        );
-                    }
-                    Ok(None) => {
-                        mutated = true;
-                        updated.insert(target_id.to_string(), Value::Null);
-                    }
-                    Err(_) => {} // silently ignored per §2.3
+    if main_ops_all_succeeded && let Some(id_str) = on_success_set_is_default {
+        // Resolve creation reference: if id_str starts with '#', look up in created map.
+        let resolved: Option<Id> = if let Some(create_id) = id_str.strip_prefix('#') {
+            created
+                .get(create_id)
+                .and_then(|v| v.get("id"))
+                .and_then(|v| v.as_str())
+                .map(Id::from)
+        } else {
+            Id::new_validated(id_str.as_str()).ok()
+        };
+        if let Some(target_id) = resolved {
+            // Build a one-key PatchObject {"isDefault": true} via
+            // the typed constructor. RFC 8620 §5.3.
+            let mut patch_map = serde_json::Map::new();
+            patch_map.insert("isDefault".to_owned(), Value::Bool(true));
+            let patch = PatchObject::from_map(patch_map);
+            // §2.3: errors here are silently ignored.
+            match backend
+                .update_object::<AddressBook>(caller, &account_id, &target_id, patch)
+                .await
+            {
+                Ok(Some(obj)) => {
+                    mutated = true;
+                    updated.insert(
+                        target_id.to_string(),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
                 }
+                Ok(None) => {
+                    mutated = true;
+                    updated.insert(target_id.to_string(), Value::Null);
+                }
+                Err(_) => {} // silently ignored per §2.3
             }
         }
     } // end if main_ops_all_succeeded
@@ -536,27 +534,26 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     // changes isDefault (RFC 9610 §2: it is server-set), so it reports that
     // demotion too.
     // -----------------------------------------------------------------------
-    if !previously_default_ids.is_empty() {
-        if let Ok((current_books, _)) = backend
+    if !previously_default_ids.is_empty()
+        && let Ok((current_books, _)) = backend
             .get_objects::<AddressBook>(caller, &account_id, None, None)
             .await
-        {
-            for book in current_books {
-                let book_id_str = book.id.to_string();
-                if !previously_default_ids.contains(&book.id) {
-                    continue; // not previously default → not a demotion candidate
-                }
-                if book.is_default {
-                    continue; // still default → not demoted
-                }
-                if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
-                    continue; // already authoritatively recorded
-                }
-                let v = serde_json::to_value(&book)
-                    .expect("derive(Serialize) on plain data is infallible");
-                updated.insert(book_id_str, v);
-                mutated = true;
+    {
+        for book in current_books {
+            let book_id_str = book.id.to_string();
+            if !previously_default_ids.contains(&book.id) {
+                continue; // not previously default → not a demotion candidate
             }
+            if book.is_default {
+                continue; // still default → not demoted
+            }
+            if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
+                continue; // already authoritatively recorded
+            }
+            let v =
+                serde_json::to_value(&book).expect("derive(Serialize) on plain data is infallible");
+            updated.insert(book_id_str, v);
+            mutated = true;
         }
     }
 

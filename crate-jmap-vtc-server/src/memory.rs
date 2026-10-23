@@ -55,18 +55,18 @@ use jmap_vtc_types::{
     VtcParticipantComparator, VtcParticipantFilter, VtcRecordingFilter,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::query::{
     call_matches, compare_calls, compare_livestreams, compare_participants, compare_recordings,
     livestream_matches, participant_matches, recording_matches,
 };
-use crate::{call_already_active_on_chat, StatefulObject};
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
     SetError, SetErrorType, SetObject, VtcBackend,
 };
+use crate::{StatefulObject, call_already_active_on_chat};
 
 /// How one id changed in one state step.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -154,14 +154,13 @@ impl Inner {
             .filter(|c| c.state == CallState::Ended)
             .and_then(|c| c.parent_call_id);
         let calls = self.objects_mut(O::TYPE_NAME, account_id);
-        if let Some(parent_id) = &ended_child {
-            if let Some(Value::Array(rooms)) = calls
+        if let Some(parent_id) = &ended_child
+            && let Some(Value::Array(rooms)) = calls
                 .get_mut(parent_id)
                 .and_then(|p| p.get_mut("breakoutRoomIds"))
-            {
-                rooms.retain(|r| r.as_str() != Some(id.as_ref()));
-                changes.push((parent_id.clone(), Change::Updated));
-            }
+        {
+            rooms.retain(|r| r.as_str() != Some(id.as_ref()));
+            changes.push((parent_id.clone(), Change::Updated));
         }
         calls.insert(id.clone(), current);
         self.commit(O::TYPE_NAME, account_id, changes);
@@ -204,14 +203,14 @@ impl Inner {
             .extend(changes.into_iter().map(|(id, c)| (state, id, c)));
     }
 
-    fn calls(&self, account_id: &Id) -> impl Iterator<Item = VtcCall> + '_ {
+    fn calls(&self, account_id: &Id) -> impl Iterator<Item = VtcCall> + '_ + use<'_> {
         self.objects(VtcCall::TYPE_NAME, account_id)
             .into_iter()
             .flat_map(HashMap::values)
             .filter_map(|v| VtcCall::deserialize(v).ok())
     }
 
-    fn participants(&self, account_id: &Id) -> impl Iterator<Item = VtcParticipant> + '_ {
+    fn participants(&self, account_id: &Id) -> impl Iterator<Item = VtcParticipant> + '_ + use<'_> {
         self.all(account_id)
     }
 
@@ -351,7 +350,7 @@ impl Inner {
     }
 
     /// Every stored object of type `O` that decodes.
-    fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ {
+    fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ + use<'_, O> {
         self.objects(O::TYPE_NAME, account_id)
             .into_iter()
             .flat_map(HashMap::values)
@@ -688,7 +687,7 @@ impl JmapBackend for MemoryBackend {
             other => {
                 return Err(BackendQueryError::Other(MemoryError::new(format!(
                     "query of {other} is not implemented"
-                ))))
+                ))));
             }
         };
         let store = inner.objects(O::TYPE_NAME, account_id);
@@ -995,14 +994,13 @@ impl VtcBackend for MemoryBackend {
             .then(|| VtcCall::deserialize(&removed).ok())
             .flatten()
             .and_then(|c| c.parent_call_id);
-        if let Some(parent_id) = &parent_id {
-            if let Some(Value::Array(rooms)) = calls
+        if let Some(parent_id) = &parent_id
+            && let Some(Value::Array(rooms)) = calls
                 .get_mut(parent_id)
                 .and_then(|p| p.get_mut("breakoutRoomIds"))
-            {
-                rooms.retain(|r| r.as_str() != Some(id.as_ref()));
-                changes.push((parent_id.clone(), Change::Updated));
-            }
+        {
+            rooms.retain(|r| r.as_str() != Some(id.as_ref()));
+            changes.push((parent_id.clone(), Change::Updated));
         }
         inner.commit(O::TYPE_NAME, account_id, changes);
         if let Some(parent_id) = parent_id {

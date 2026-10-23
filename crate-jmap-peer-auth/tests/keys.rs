@@ -2,11 +2,11 @@
 //! (draft-atwood-jmap-chat-federation-00 §Key Publication, §DNSSEC Key
 //! Binding).
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_peer_auth::ed25519_dalek::VerifyingKey;
-use jmap_peer_auth::{usable_keys, DnssecAnswer, PeerSigningKey, Rejection};
-use serde_json::{json, Value};
+use jmap_peer_auth::{DnssecAnswer, PeerSigningKey, Rejection, usable_keys};
+use serde_json::{Value, json};
 
 /// RFC 8037 Appendix A.3: the thumbprint of the Appendix A.1/A.2 key.
 const A3_KID: &str = "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";
@@ -157,7 +157,9 @@ fn bogus_answer_rejects() {
 
 #[test]
 fn non_array_peer_signing_keys_has_no_usable_keys() {
-    assert!(usable_keys(&draft_example(), &DnssecAnswer::Insecure)
-        .unwrap()
-        .is_empty());
+    assert!(
+        usable_keys(&draft_example(), &DnssecAnswer::Insecure)
+            .unwrap()
+            .is_empty()
+    );
 }

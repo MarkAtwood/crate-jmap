@@ -40,7 +40,7 @@ use jmap_mail_types::{
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
@@ -48,8 +48,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    bool_arg, filter_arg, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryChangesParams, QueryParams,
+    HandlerOutput, QueryChangesParams, QueryParams, bool_arg, filter_arg, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ pub async fn handle_submission_query<B: MailBackend>(
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
-                )))
+                )));
             }
         },
     };
@@ -216,7 +216,7 @@ pub async fn handle_submission_query<B: MailBackend>(
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
-            )))
+            )));
         }
     };
     let anchor_offset: i64 = match args.get("anchorOffset") {
@@ -297,10 +297,8 @@ pub async fn handle_submission_query<B: MailBackend>(
         "position": reported_position,
         "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
-    if calculate_total {
-        if let Some(t) = total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -350,7 +348,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         Some(_) => {
             return Err(JmapError::invalid_arguments(
                 "upToId must be a string Id or null",
-            ))
+            ));
         }
     };
 
@@ -389,10 +387,8 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         "removed": result.removed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "added": added,
     });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -438,10 +434,10 @@ pub async fn handle_submission_set<B: MailBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();

@@ -11,7 +11,7 @@
 mod common;
 
 use jmap_types::{Id, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

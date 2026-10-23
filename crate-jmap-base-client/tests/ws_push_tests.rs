@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use futures::StreamExt as _;
 use jmap_base_client::ClientError;
-use jmap_base_client::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::{DEFAULT_WS_MAX_MESSAGE_BYTES, connect_ws_allow_plaintext};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -160,8 +160,8 @@ async fn keepalive_reports_dead_peer() {
 /// transport error instead of waiting forever behind the blocked sender.
 #[tokio::test]
 async fn keepalive_reports_dead_peer_while_sender_blocked() {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     let (listener, url) = listen().await;
     let (release_tx, release_rx) = futures::channel::oneshot::channel::<()>();

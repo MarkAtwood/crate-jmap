@@ -52,7 +52,7 @@ pub use methods::{
     AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
     SessionClient, SetError, SetResponse,
 };
-pub use ws::{parse_graph_edit_ws_frame, GraphEditWsExt, GraphEditWsFrame};
+pub use ws::{GraphEditWsExt, GraphEditWsFrame, parse_graph_edit_ws_frame};
 
 /// Extension trait adding JMAP Graph methods to [`jmap_base_client::JmapClient`].
 ///

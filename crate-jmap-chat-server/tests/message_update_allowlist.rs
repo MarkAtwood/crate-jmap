@@ -12,13 +12,13 @@
 
 mod common;
 
-use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::message::{handle_message_get, handle_message_set};
+use common::{ACCOUNT_ID, MemoryBackend, seed_group_chat};
 use jmap_chat_server::ChatBackend;
+use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 async fn create_message(backend: &MemoryBackend) -> String {
     seed_group_chat(backend, "c1");

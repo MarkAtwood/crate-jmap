@@ -11,15 +11,15 @@ use std::collections::BTreeMap;
 use jmap_graph_types::GraphComparator;
 use jmap_graph_types::{Graph, GraphCapability, GraphRights};
 use jmap_types::{Id, JmapError};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
-use crate::helpers::{
-    backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
-    handle_get_visible, handle_set, invalid, mistyped, not_found, patched, patched_properties,
-    reject_unsupported_sort, set_error_value, to_map, SetOps, TypeCheck,
-};
 use crate::GraphBackend;
-use jmap_server::{now_utc_string, reject_read_only_patch, reject_server_set, HandlerOutput};
+use crate::helpers::{
+    SetOps, TypeCheck, backend_set_error_value, check_annotations, decode_patch, fetch_one,
+    forbidden, handle_get_visible, handle_set, invalid, mistyped, not_found, patched,
+    patched_properties, reject_unsupported_sort, set_error_value, to_map,
+};
+use jmap_server::{HandlerOutput, now_utc_string, reject_read_only_patch, reject_server_set};
 
 /// The properties with a draft default, echoed in `created` when the
 /// client omits them (RFC 8620 §5.3).

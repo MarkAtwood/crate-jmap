@@ -37,7 +37,7 @@ use jmap_chat_types::ChatTasksCapability;
 use jmap_tasks_server::SetErrorType;
 use jmap_tasks_types::Task;
 use jmap_types::{Id, PatchObject, State, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 

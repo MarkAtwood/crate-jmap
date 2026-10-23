@@ -9,12 +9,12 @@
 
 mod common;
 
-use common::{IdentityBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, IdentityBackend};
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_server::{handle_chat_get, handle_chat_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Create a group Chat as the owner (admin) with `bob` and `carol` as
 /// members and return its id.
@@ -127,10 +127,12 @@ async fn close(backend: &IdentityBackend, chat_id: &str) {
 async fn last_admin_leaving_with_members_remaining_sets_closed_at() {
     let backend = IdentityBackend::new();
     let chat_id = group_of_three(&backend).await;
-    assert!(stored_chat(&backend, &chat_id)
-        .await
-        .get("closedAt")
-        .is_none());
+    assert!(
+        stored_chat(&backend, &chat_id)
+            .await
+            .get("closedAt")
+            .is_none()
+    );
 
     close(&backend, &chat_id).await;
 

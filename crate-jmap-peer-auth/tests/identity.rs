@@ -1,7 +1,7 @@
 //! Identity binding and peer domains
 //! (draft-atwood-jmap-chat-federation-00 §Identity Binding, §Terminology).
 
-use jmap_peer_auth::{bind_identity, IdentityBinding, PeerDomain};
+use jmap_peer_auth::{IdentityBinding, PeerDomain, bind_identity};
 
 fn domain(name: &str) -> PeerDomain {
     PeerDomain::parse(name).unwrap()

@@ -28,16 +28,16 @@
 
 use jmap_sharing_types::Principal;
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    set_error_value,
 };
 use crate::{BackendSetError, SharingBackend};
 use jmap_server::{
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -130,10 +130,10 @@ pub async fn handle_principal_set<B: SharingBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();

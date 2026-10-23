@@ -26,18 +26,19 @@
 use jmap_chat_types::CustomEmoji;
 use jmap_chat_types::{CustomEmojiComparator, CustomEmojiFilter};
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
+use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
-    default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_sort,
-    serialize_value, set_error_value, SetAccumulators,
+    SetAccumulators, default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set,
+    extract_account_id, finalize_set_response, not_found_json, now_utc_string, optional_arg,
+    reject_unsupported_sort, serialize_value, set_error_value,
 };
-use crate::helpers::{mistyped_create_props, PropType};
 use crate::{BackendSetError, ChatBackend, EmojiSetOp};
 use jmap_server::{
-    filter_arg, is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+    HandlerOutput, QueryParams, filter_arg, is_client_updatable, query_anchor_args,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -170,7 +171,7 @@ pub async fn handle_emoji_query<B: ChatBackend>(
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
-                )))
+                )));
             }
         },
     };
@@ -215,10 +216,8 @@ pub async fn handle_emoji_query<B: ChatBackend>(
         "position": result.position,
         "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -288,10 +287,10 @@ pub async fn handle_emoji_set<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();

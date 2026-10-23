@@ -6,10 +6,10 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_chat_get, handle_chat_set, ChatLimits};
+use common::{ACCOUNT_ID, MemoryBackend};
+use jmap_chat_server::{ChatLimits, handle_chat_get, handle_chat_set};
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 async fn chat_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;

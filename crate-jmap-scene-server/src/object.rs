@@ -14,22 +14,22 @@
 use std::collections::HashMap;
 
 use jmap_scene_types::SceneObjectComparator;
-use jmap_scene_types::{SceneObject, SceneRegion, IDENTITY_ORIENTATION};
+use jmap_scene_types::{IDENTITY_ORIENTATION, SceneObject, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
+use crate::SceneBackend;
 use crate::asset::GLTF_BINARY;
 use crate::helpers::{
-    backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
-    extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
-    invalid, is_visible, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
-    set_error_value, SetAccumulators,
+    SetAccumulators, backend_set_error_value, check_region_filter, default_sort,
+    enforce_max_objects_in_set, extract_account_id, fetch_one, finalize_set_response, finite3,
+    forbidden, handle_get_visible, invalid, is_visible, normalized_quaternion, not_found,
+    orientation_ok, reject_unsupported_sort, set_error_value,
 };
-use crate::SceneBackend;
 use jmap_server::{
-    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, SetError,
-    SetErrorType,
+    HandlerOutput, SetError, SetErrorType, apply_patch_object, now_utc_string,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 /// "`physicsMode` is not one of `\"static\"`, `\"dynamic\"`,
@@ -118,15 +118,13 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 /// [`check_region_filter`], and "If `physicsMode` contains a value not in
 /// the defined set, the server MUST return `invalidArguments`."
 fn check_filter(filter: &Value) -> Result<(), JmapError> {
-    check_region_filter(filter, &|c| {
-        match c.get("physicsMode") {
+    check_region_filter(filter, &|c| match c.get("physicsMode") {
         Some(m) if !m.as_str().is_some_and(|m| PHYSICS_MODES.contains(&m)) => {
             Err(JmapError::invalid_arguments(format!(
                 "filter physicsMode must be \"static\", \"dynamic\", \"kinematic\" or \"none\"; got {m}"
             )))
         }
         _ => Ok(()),
-    }
     })
 }
 
@@ -162,10 +160,10 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut acc = SetAccumulators::default();
@@ -613,42 +611,42 @@ async fn update_scene_object<B: SceneBackend>(
     // patch leaves it.
     refuse_malformed(malformed(&result))?;
     let touched = |k: &str| patched.iter().any(|p| p == k);
-    if touched("visualType") {
-        if let Some(t) = result.get("visualType").and_then(Value::as_str) {
-            check_visual_type(backend, caller, account_id, t).await?;
-        }
+    if touched("visualType")
+        && let Some(t) = result.get("visualType").and_then(Value::as_str)
+    {
+        check_visual_type(backend, caller, account_id, t).await?;
     }
-    if touched("visualRef") {
-        if let Some(r) = result.get("visualRef").and_then(Value::as_str) {
-            check_visual_ref(backend, caller, account_id, r).await?;
-        }
+    if touched("visualRef")
+        && let Some(r) = result.get("visualRef").and_then(Value::as_str)
+    {
+        check_visual_ref(backend, caller, account_id, r).await?;
     }
-    if touched("parentId") {
-        if let Some(p) = result.get("parentId").and_then(Value::as_str) {
-            let height = subtree_height(backend, caller, account_id, id).await?;
-            check_parent(
-                backend,
-                caller,
-                account_id,
-                &object.region_id,
-                Some(id),
-                &Id::new_validated(p).map_err(|e| invalid(&["parentId"], &e.to_string()))?,
-                height,
-            )
-            .await?;
-        }
+    if touched("parentId")
+        && let Some(p) = result.get("parentId").and_then(Value::as_str)
+    {
+        let height = subtree_height(backend, caller, account_id, id).await?;
+        check_parent(
+            backend,
+            caller,
+            account_id,
+            &object.region_id,
+            Some(id),
+            &Id::new_validated(p).map_err(|e| invalid(&["parentId"], &e.to_string()))?,
+            height,
+        )
+        .await?;
     }
 
     let now = now_utc_string();
     let mut echo = Map::new();
     echo.insert("updatedAt".to_owned(), json!(now));
     let map = patch.as_map_mut();
-    if touched("orientation") {
-        if let Some(q) = normalized_quaternion(&result, "orientation") {
-            map.retain(|k, _| top(k) != "orientation");
-            map.insert("orientation".to_owned(), q.clone());
-            echo.insert("orientation".to_owned(), q);
-        }
+    if touched("orientation")
+        && let Some(q) = normalized_quaternion(&result, "orientation")
+    {
+        map.retain(|k, _| top(k) != "orientation");
+        map.insert("orientation".to_owned(), q.clone());
+        echo.insert("orientation".to_owned(), q);
     }
     map.insert("updatedAt".to_owned(), json!(now));
     match backend

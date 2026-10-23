@@ -21,7 +21,7 @@
 #![allow(unused_imports)]
 
 // Re-exports — keep `use common::MemoryBackend;` working for tests.
-pub use jmap_mail_server::memory::{seed, MemoryBackend, MemoryError};
+pub use jmap_mail_server::memory::{MemoryBackend, MemoryError, seed};
 
 use jmap_mail_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,

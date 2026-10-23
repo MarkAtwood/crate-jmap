@@ -7,7 +7,7 @@
 
 mod common;
 
-use common::{MemoryBackend, INVALID_MDN_BLOB, VALID_MDN_BLOB};
+use common::{INVALID_MDN_BLOB, MemoryBackend, VALID_MDN_BLOB};
 use jmap_mail_server::mdn::{handle_mdn_parse, handle_mdn_send};
 use jmap_mail_server::{JmapBackend, MailBackend};
 use jmap_mail_types::Identity;

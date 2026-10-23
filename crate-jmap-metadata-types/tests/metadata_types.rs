@@ -13,8 +13,8 @@
 mod common;
 
 use jmap_metadata_types::{
-    is_registered_namespace, is_valid_namespace, is_vendor_namespace, DataTypeMetadataInfo,
-    MetadataTextMatch, WithMetadata, JMAP_METADATA_URI,
+    DataTypeMetadataInfo, JMAP_METADATA_URI, MetadataTextMatch, WithMetadata,
+    is_registered_namespace, is_valid_namespace, is_vendor_namespace,
 };
 
 // ---------------------------------------------------------------------------

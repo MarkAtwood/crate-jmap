@@ -34,7 +34,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, MemoryBackend, SPACE_ID};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
     handle_chat_changes, handle_chat_get, handle_chat_set, handle_position_changes,
@@ -42,7 +42,7 @@ use jmap_chat_server::{
 };
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // Hand-picked ULIDs (Crockford base32, 26 chars) in ascending order:
 // "ULIDs are lexicographically ordered by time" (draft L675).

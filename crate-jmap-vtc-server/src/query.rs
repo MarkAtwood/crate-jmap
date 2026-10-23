@@ -113,7 +113,7 @@ pub fn compare_calls(a: &VtcCall, b: &VtcCall, sort: &[VtcCallComparator]) -> Or
                         (Some(_), None) => Ordering::Less,
                         (None, Some(_)) => Ordering::Greater,
                         (None, None) => Ordering::Equal,
-                    }
+                    };
                 }
                 _ => Ordering::Equal,
             };
@@ -124,11 +124,7 @@ pub fn compare_calls(a: &VtcCall, b: &VtcCall, sort: &[VtcCallComparator]) -> Or
 }
 
 fn directed(ord: Ordering, c: &VtcCallComparator) -> Ordering {
-    if c.is_ascending {
-        ord
-    } else {
-        ord.reverse()
-    }
+    if c.is_ascending { ord } else { ord.reverse() }
 }
 
 /// `true` if `participant` matches `filter` (§VTCParticipant/query): "All
@@ -184,11 +180,7 @@ pub fn compare_participants(
                 VtcParticipantSortProperty::DisplayName => a.display_name.cmp(&b.display_name),
                 _ => Ordering::Equal,
             };
-            if c.is_ascending {
-                ord
-            } else {
-                ord.reverse()
-            }
+            if c.is_ascending { ord } else { ord.reverse() }
         })
         .find(|o| o.is_ne())
         .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))
@@ -264,11 +256,7 @@ fn compare_started(
             VtcMediaSortProperty::StartedAt => match (a, b) {
                 (Some(x), Some(y)) => {
                     let ord = utc_key(x).cmp(utc_key(y));
-                    if c.is_ascending {
-                        ord
-                    } else {
-                        ord.reverse()
-                    }
+                    if c.is_ascending { ord } else { ord.reverse() }
                 }
                 (Some(_), None) => Ordering::Less,
                 (None, Some(_)) => Ordering::Greater,

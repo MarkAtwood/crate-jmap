@@ -137,10 +137,10 @@ pub use calendars::{
     AvailabilityMetadata, CalendarEventMetadata, LookupWindow, SPACE_CALENDAR_ID_PROPERTY,
 };
 pub use capability::{
-    may_advertise_chat_did, ChatCalendarsCapability, ChatCapability, ChatCapabilityRole,
-    ChatFilenodeCapability, ChatPushCapability, ChatTasksCapability, CHAT_FILENODE_SPACE_ROLE,
-    JMAP_CHAT_CALENDARS_URI, JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI,
-    JMAP_CHAT_TASKS_URI, JMAP_CHAT_URI, JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS,
+    CHAT_FILENODE_SPACE_ROLE, ChatCalendarsCapability, ChatCapability, ChatCapabilityRole,
+    ChatFilenodeCapability, ChatPushCapability, ChatTasksCapability, JMAP_CHAT_CALENDARS_URI,
+    JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_TASKS_URI,
+    JMAP_CHAT_URI, JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS, may_advertise_chat_did,
 };
 pub use chat::{
     ChannelPermission, ChannelPermissionTargetType, Chat, ChatKind, ChatMember, ChatMemberRole,
@@ -153,9 +153,9 @@ pub use ephemeral::{
     EphemeralMessage,
 };
 pub use message::{
-    Attachment, AttachmentCreate, BodyType, BroadcastMention, BroadcastScope, DeliveryReceipt,
-    DeliveryState, Mention, Message, MessageAction, MessageRevision, Reaction, ReadDisposition,
-    BROADCAST_MENTION_SCOPES,
+    Attachment, AttachmentCreate, BROADCAST_MENTION_SCOPES, BodyType, BroadcastMention,
+    BroadcastScope, DeliveryReceipt, DeliveryState, Mention, Message, MessageAction,
+    MessageRevision, Reaction, ReadDisposition,
 };
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};
@@ -175,8 +175,8 @@ pub use space_set::{
     RolePatch, SpaceMetadataPatch, SpacePatchOp,
 };
 pub use tasks::{
-    task_chat_id, TaskMetadata, JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY,
-    TASK_CHAT_ID_PROPERTY,
+    JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY, TASK_CHAT_ID_PROPERTY, TaskMetadata,
+    task_chat_id,
 };
 pub use vocabulary::{
     CHAT_CAP_AVAILABILITY, CHAT_CAP_CALENDAR_EVENT, CHAT_CAP_TASK, CHAT_CAP_VTC,

@@ -12,11 +12,11 @@
 
 mod common;
 
-use common::{make_space, MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, make_space};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{handle_chat_set, handle_emoji_set, handle_invite_set, handle_space_set};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Asserts the hand-written RFC 8620 §5.3 SetError for a malformed id.
 fn assert_invalid_id(entry: &Value, resp: &Value) {

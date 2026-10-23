@@ -78,13 +78,13 @@ pub use auth::{
     CustomTransportBuilder, DefaultTransport, HttpClient, NoneAuth, TransportConfig,
 };
 pub use blob::{
-    expand_url_template, upload_body_from_reader, BlobDownloadStream, BlobUploadBody,
-    BlobUploadResponse, DownloadBlobParams, DownloadBlobSessionParams, UploadBlobParams,
-    UploadBlobSessionParams, UploadBlobStreamParams,
+    BlobDownloadStream, BlobUploadBody, BlobUploadResponse, DownloadBlobParams,
+    DownloadBlobSessionParams, UploadBlobParams, UploadBlobSessionParams, UploadBlobStreamParams,
+    expand_url_template, upload_body_from_reader,
 };
 pub use client::{
-    extract_response, method_error_details, ClientConfig, CloseAfter, JmapClient,
-    SseReconnectPolicy, SubscribeEventsSessionParams,
+    ClientConfig, CloseAfter, JmapClient, SseReconnectPolicy, SubscribeEventsSessionParams,
+    extract_response, method_error_details,
 };
 pub use error::{
     ClientError, HttpError, HttpErrorKind, InvalidHeaderValueError, ParseCategory, ParseError,
@@ -96,8 +96,8 @@ pub use request::{
     AccountInfo, AccountName, JmapRequestBuilder, JmapUrl, JmapUrlTemplate, Session, Username,
     WebSocketCapability,
 };
-pub use sse::{parse_sse_block, SseEvent, SseFrame};
+pub use sse::{SseEvent, SseFrame, parse_sse_block};
 pub use ws::{
-    connect_ws, connect_ws_allow_plaintext, connect_ws_with_limit, WsFrame, WsReceiver,
-    WsRequestError, WsSender, WsSession, DEFAULT_WS_MAX_MESSAGE_BYTES,
+    DEFAULT_WS_MAX_MESSAGE_BYTES, WsFrame, WsReceiver, WsRequestError, WsSender, WsSession,
+    connect_ws, connect_ws_allow_plaintext, connect_ws_with_limit,
 };

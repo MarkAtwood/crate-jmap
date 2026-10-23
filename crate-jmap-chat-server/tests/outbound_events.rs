@@ -72,16 +72,16 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
-    handle_chat_set, handle_chat_typing, handle_presence_set, GroupUpdateAction, OutboundEvent,
-    ReactionAction,
+    GroupUpdateAction, OutboundEvent, ReactionAction, handle_chat_set, handle_chat_typing,
+    handle_presence_set,
 };
 use jmap_chat_types::ReadDisposition;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn backend() -> MemoryBackend {
     let backend = MemoryBackend::new();

@@ -6,7 +6,7 @@
 //! "decoded from the KeyMaterialResponse" (draft-ietf-mimi-protocol-06
 //! §5.2). The status codes are written as their MIMI code names.
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::Base64Url;

@@ -67,12 +67,12 @@ pub mod memory;
 mod participant;
 pub mod query;
 
-pub use backend::{call_already_active_on_chat, StatefulObject, VtcBackend};
+pub use backend::{StatefulObject, VtcBackend, call_already_active_on_chat};
 pub use call::{
-    end_call, expire_ring, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_call_query,
-    handle_vtc_call_query_changes, handle_vtc_call_set, RING_TIMEOUT,
+    RING_TIMEOUT, end_call, expire_ring, handle_vtc_call_changes, handle_vtc_call_get,
+    handle_vtc_call_query, handle_vtc_call_query_changes, handle_vtc_call_set,
 };
-pub use ephemeral::{should_deliver, CallScope, VtcEphemeralSubscription, VtcStreamFilter};
+pub use ephemeral::{CallScope, VtcEphemeralSubscription, VtcStreamFilter, should_deliver};
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,

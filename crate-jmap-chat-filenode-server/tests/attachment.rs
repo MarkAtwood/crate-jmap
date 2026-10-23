@@ -39,7 +39,7 @@ use jmap_filenode_server::memory::MemoryBackend as FilesMemory;
 use jmap_filenode_types::FileNode;
 use jmap_server::JmapBackend;
 use jmap_types::{Id, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";
@@ -295,11 +295,12 @@ async fn everyone_view_grants_read() {
     let f = Fixture::new(&[]);
     f.chat
         .set_everyone_permissions(HashSet::from([jmap_chat_types::ChatPermission::View]));
-    assert!(f
-        .resolve(json!({ "filenodeId": "f1" }))
-        .await
-        .expect("accepted")
-        .is_some());
+    assert!(
+        f.resolve(json!({ "filenodeId": "f1" }))
+            .await
+            .expect("accepted")
+            .is_some()
+    );
 }
 
 /// The stored `f1` and the FileNode state.

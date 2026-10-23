@@ -9,7 +9,7 @@
 //! `responseCode` is ..." are `Option`; deserialize does not check that
 //! they are present exactly for that code, so check before use.
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::Base64Url;
@@ -431,7 +431,7 @@ impl RoomUnbindResponse {
 mod tests {
     use super::*;
     use serde::de::DeserializeOwned;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     // The draft's §Examples payloads are shortened with "...". These tests
     // drop the "..." and keep the prefixes, which are themselves valid

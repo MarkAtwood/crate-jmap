@@ -10,7 +10,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_server::HandlerOutput;
 use jmap_tasks_server::{handle_task_get, handle_task_set};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A backend holding Task `t1` with one participant `p1`.
 fn backend_with_participant() -> MemoryBackend {

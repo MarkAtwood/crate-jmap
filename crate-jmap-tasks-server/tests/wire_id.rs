@@ -15,7 +15,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_tasks_server::handle_task_list_set;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Asserts the hand-written RFC 8620 §5.3 SetError for a malformed id.
 fn assert_invalid_id(entry: &Value, resp: &Value) {

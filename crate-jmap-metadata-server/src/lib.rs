@@ -43,7 +43,7 @@ mod filter;
 mod validate;
 
 pub use changes::{
-    is_metadata_only_change, is_metadata_property, METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY,
+    METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY, is_metadata_only_change, is_metadata_property,
 };
 pub use filter::{
     is_well_formed_metadata_path, metadata_path_exists, metadata_text_contains,

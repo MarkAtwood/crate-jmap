@@ -3,8 +3,8 @@
 //! Oracles: quoted draft/RFC text and hand-written JSON copied from the
 //! published examples in RFC 8984 and draft-ietf-jmap-calendars-26.
 
-use jmap_chat_client::{own_participant_key, rsvp_patch, RsvpStatus};
-use serde_json::{json, Value};
+use jmap_chat_client::{RsvpStatus, own_participant_key, rsvp_patch};
+use serde_json::{Value, json};
 
 fn patch_json(key: &str, status: RsvpStatus) -> Value {
     serde_json::to_value(rsvp_patch(key, status)).expect("PatchObject serializes")

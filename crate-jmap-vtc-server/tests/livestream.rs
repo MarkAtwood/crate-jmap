@@ -11,7 +11,7 @@ use jmap_vtc_server::{
     handle_vtc_livestream_changes, handle_vtc_livestream_get, handle_vtc_livestream_query,
     handle_vtc_livestream_set,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 async fn set(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
     call!(handle_vtc_livestream_set, backend, caller, args)

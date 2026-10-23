@@ -6,7 +6,7 @@
 //! The generic [`Filter`], [`FilterOperator`], and [`Operator`] types used here
 //! are defined in `jmap-types` (RFC 8620 §5.5).
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::keyword::Keyword;
@@ -504,13 +504,13 @@ where
     D: serde::Deserializer<'de>,
 {
     let v: Option<Vec<String>> = Option::deserialize(deserializer)?;
-    if let Some(ref h) = v {
-        if h.is_empty() || h.len() > 2 {
-            return Err(serde::de::Error::custom(format!(
-                "header must have 1 or 2 elements (RFC 8621 §4.4.1), got {}",
-                h.len()
-            )));
-        }
+    if let Some(ref h) = v
+        && (h.is_empty() || h.len() > 2)
+    {
+        return Err(serde::de::Error::custom(format!(
+            "header must have 1 or 2 elements (RFC 8621 §4.4.1), got {}",
+            h.len()
+        )));
     }
     Ok(v)
 }

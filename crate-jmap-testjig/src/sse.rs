@@ -469,10 +469,10 @@ async fn poll_loop(
         if tx.is_closed() {
             return;
         }
-        if emitted.is_some() {
-            if let CloseAfter::State = close_after {
-                return;
-            }
+        if emitted.is_some()
+            && let CloseAfter::State = close_after
+        {
+            return;
         }
     }
 }

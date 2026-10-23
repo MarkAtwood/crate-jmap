@@ -19,8 +19,8 @@
 //! keys appear below.
 
 use jmap_chat_mimi_client::{
-    account_has_left, group_info_names_hub_sender, verify_group_info_response,
-    GroupInfoResponseError,
+    GroupInfoResponseError, account_has_left, group_info_names_hub_sender,
+    verify_group_info_response,
 };
 use openmls::messages::group_info::VerifiableGroupInfo;
 use openmls::prelude::{

@@ -5,8 +5,8 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use http::{HeaderMap, HeaderValue, Method};
 use jmap_peer_auth::ed25519_dalek::{Signer as _, SigningKey};
 use jmap_peer_auth::{Accepted, PeerDomain, PeerSigningKey, Rejection, Request, SignedRequest};
@@ -30,13 +30,15 @@ fn alice_key() -> SigningKey {
 
 /// alice.example's usable keys: the draft's `peerSigningKeys` example.
 fn alice_keys() -> Vec<PeerSigningKey> {
-    vec![PeerSigningKey::from_jwk(&json!({
-        "kty": "OKP",
-        "crv": "Ed25519",
-        "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
-        "kid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
-    }))
-    .unwrap()]
+    vec![
+        PeerSigningKey::from_jwk(&json!({
+            "kty": "OKP",
+            "crv": "Ed25519",
+            "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+            "kid": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
+        }))
+        .unwrap(),
+    ]
 }
 
 fn at(secs: i64) -> SystemTime {

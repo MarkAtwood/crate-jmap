@@ -7,8 +7,8 @@
 
 use std::sync::Arc;
 
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use reqwest::header::HeaderValue;
 use zeroize::Zeroizing;
 

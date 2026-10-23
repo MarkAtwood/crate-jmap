@@ -25,12 +25,12 @@ use std::hint::black_box;
 
 use std::sync::Arc;
 
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use jmap_server::{
-    parse_request, resolve_args, CallContext, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler,
+    CallContext, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler, parse_request, resolve_args,
 };
 use jmap_types::{Invocation, JmapRequest};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::runtime::Runtime;
 
 /// A representative 3-call JMAP request body matching the canonical

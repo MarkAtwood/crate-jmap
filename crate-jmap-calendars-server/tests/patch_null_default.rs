@@ -14,7 +14,7 @@ use jmap_calendars_server::{
     handle_participant_identity_set,
 };
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Seed `acc1` with Calendar `cal1` whose `sortOrder` and `isVisible`
 /// hold non-default values.

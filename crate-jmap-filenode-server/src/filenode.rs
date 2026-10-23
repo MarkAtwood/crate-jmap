@@ -33,16 +33,16 @@
 
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    set_error_value,
 };
 use crate::{BackendSetError, FileNodeBackend};
 use jmap_server::{
-    now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, now_utc_string, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -208,20 +208,17 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     // "FileNode objects MUST include" `sha256`, which "MUST be `null` for
     // directory FileNodes". FileNode omits a `None` digest, so fill the
     // null here (directories, and files created before the capability).
-    if wants_sha256 {
-        if let Some(account_id) = response.get("accountId").and_then(Value::as_str) {
-            // Id::from: the accountId this handler already validated and echoed.
-            let account_id = Id::from(account_id);
-            if backend
-                .cid_advertised(caller, &account_id)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?
-            {
-                if let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) {
-                    for node in list.iter_mut().filter_map(Value::as_object_mut) {
-                        node.entry("sha256").or_insert(Value::Null);
-                    }
-                }
+    if wants_sha256 && let Some(account_id) = response.get("accountId").and_then(Value::as_str) {
+        // Id::from: the accountId this handler already validated and echoed.
+        let account_id = Id::from(account_id);
+        if backend
+            .cid_advertised(caller, &account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+            && let Some(list) = response.get_mut("list").and_then(Value::as_array_mut)
+        {
+            for node in list.iter_mut().filter_map(Value::as_object_mut) {
+                node.entry("sha256").or_insert(Value::Null);
             }
         }
     }
@@ -415,10 +412,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     // Parse FileNode-specific set arguments.
@@ -529,28 +526,28 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // For file nodes, verify the blob exists. A transient backend
             // error propagates as a top-level serverFail so the client
             // retries instead of silently mis-classifying as blob-not-found.
-            if matches!(node.node_type.as_ref(), Some(NodeType::File)) {
-                if let Some(ref blob_id) = node.blob_id {
-                    match backend.blob_exists(caller, &account_id, blob_id).await {
-                        Ok(true) => {}
-                        Ok(false) => {
-                            not_created.insert(
+            if matches!(node.node_type.as_ref(), Some(NodeType::File))
+                && let Some(ref blob_id) = node.blob_id
+            {
+                match backend.blob_exists(caller, &account_id, blob_id).await {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        not_created.insert(
                                 create_id,
                                 json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
                             );
-                            continue;
-                        }
-                        Err(e) => return Err(server_fail_from_backend(&e)),
+                        continue;
                     }
-                    // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256`
-                    // is server-set from the stored blob, and exists only
-                    // when urn:ietf:params:jmap:cid is advertised.
-                    match backend.blob_sha256(caller, &account_id, blob_id).await {
-                        Ok(digest) => node.sha256 = digest,
-                        Err(e) => {
-                            not_created.insert(create_id, server_fail_value_from_backend(&e));
-                            continue;
-                        }
+                    Err(e) => return Err(server_fail_from_backend(&e)),
+                }
+                // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256`
+                // is server-set from the stored blob, and exists only
+                // when urn:ietf:params:jmap:cid is advertised.
+                match backend.blob_sha256(caller, &account_id, blob_id).await {
+                    Ok(digest) => node.sha256 = digest,
+                    Err(e) => {
+                        not_created.insert(create_id, server_fail_value_from_backend(&e));
+                        continue;
                     }
                 }
             }
@@ -1527,10 +1524,10 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         .map_err(|e| server_fail_from_backend(&e))?;
 
     // ifInState: check destination account state (RFC 8620 §5.4).
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     // draft-ietf-jmap-filenode-16 §3.2.4: "This is a standard Foo/copy
@@ -1638,18 +1635,19 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             // parentId must be a string or null. Silently coercing a
             // non-string non-null value to None would surface as a
             // 'moved to root' side effect with no error signal.
-            if let Some(new_parent) = obj_val.get("parentId") {
-                if !new_parent.is_null() && new_parent.as_str().is_none() {
-                    not_copied.insert(
-                        create_id,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["parentId"],
-                            "description": "parentId must be a string Id or null",
-                        }),
-                    );
-                    continue;
-                }
+            if let Some(new_parent) = obj_val.get("parentId")
+                && !new_parent.is_null()
+                && new_parent.as_str().is_none()
+            {
+                not_copied.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["parentId"],
+                        "description": "parentId must be a string Id or null",
+                    }),
+                );
+                continue;
             }
 
             // RFC 8620 §5.4: "a copy of the source object with the given
@@ -1686,14 +1684,14 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             // nor an override's value is kept. Computed before any onExists
             // destroy so a failure has no side effects.
             source_node.sha256 = None;
-            if matches!(source_node.node_type.as_ref(), Some(NodeType::File)) {
-                if let Some(ref blob_id) = source_node.blob_id {
-                    match backend.blob_sha256(caller, &account_id, blob_id).await {
-                        Ok(digest) => source_node.sha256 = digest,
-                        Err(e) => {
-                            not_copied.insert(create_id, server_fail_value_from_backend(&e));
-                            continue;
-                        }
+            if matches!(source_node.node_type.as_ref(), Some(NodeType::File))
+                && let Some(ref blob_id) = source_node.blob_id
+            {
+                match backend.blob_sha256(caller, &account_id, blob_id).await {
+                    Ok(digest) => source_node.sha256 = digest,
+                    Err(e) => {
+                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
+                        continue;
                     }
                 }
             }
@@ -1707,26 +1705,27 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             // resulting tree. Mirror the FileNode/set update cycle
             // guard. Skipped for cross-account copies because the
             // destination tree is unrelated to the source.
-            if from_account_id == account_id {
-                if let Some(ref new_parent) = source_node.parent_id {
-                    if new_parent == &source_id {
-                        not_copied.insert(
-                            create_id,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["parentId"],
-                                "description": "a node cannot be its own parent"
-                            }),
-                        );
-                        continue;
-                    }
-                    match backend
-                        .get_descendant_ids(caller, &from_account_id, &source_id)
-                        .await
-                    {
-                        Ok(descendants) => {
-                            if descendants.iter().any(|d| d == new_parent) {
-                                not_copied.insert(
+            if from_account_id == account_id
+                && let Some(ref new_parent) = source_node.parent_id
+            {
+                if new_parent == &source_id {
+                    not_copied.insert(
+                        create_id,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["parentId"],
+                            "description": "a node cannot be its own parent"
+                        }),
+                    );
+                    continue;
+                }
+                match backend
+                    .get_descendant_ids(caller, &from_account_id, &source_id)
+                    .await
+                {
+                    Ok(descendants) => {
+                        if descendants.iter().any(|d| d == new_parent) {
+                            not_copied.insert(
                                     create_id,
                                     json!({
                                         "type": "invalidProperties",
@@ -1734,13 +1733,12 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                         "description": "copying this node under its own descendant would create a cycle"
                                     }),
                                 );
-                                continue;
-                            }
-                        }
-                        Err(e) => {
-                            not_copied.insert(create_id, server_fail_value_from_backend(&e));
                             continue;
                         }
+                    }
+                    Err(e) => {
+                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
+                        continue;
                     }
                 }
             }
@@ -2158,15 +2156,15 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
         // mismatch aborts that whole call with a method-level stateMismatch
         // error in place of the FileNode/set response. Nothing is destroyed.
-        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
-            if if_in_state != from_old_state.as_ref() {
-                let err = json!({ "type": "stateMismatch" });
-                return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
-                    "error",
-                    err,
-                    call_id.to_owned(),
-                )]));
-            }
+        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str)
+            && if_in_state != from_old_state.as_ref()
+        {
+            let err = json!({ "type": "stateMismatch" });
+            return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
+                "error",
+                err,
+                call_id.to_owned(),
+            )]));
         }
 
         let mut destroyed_ids: Vec<Value> = Vec::new();

@@ -10,7 +10,7 @@ use jmap_graph_server::memory::MemoryBackend;
 use jmap_graph_server::{
     handle_graph_edge_changes, handle_graph_get, handle_graph_node_changes, handle_graph_set,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 async fn set(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
     call!(handle_graph_set, backend, caller, args)

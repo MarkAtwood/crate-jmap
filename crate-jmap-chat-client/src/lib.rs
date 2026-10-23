@@ -38,35 +38,35 @@ mod types;
 mod utils;
 mod ws;
 
-pub use calendars::{own_participant_key, rsvp_patch, RsvpStatus};
+pub use calendars::{RsvpStatus, own_participant_key, rsvp_patch};
 pub use jmap_base_client::ClientError;
 pub use jmap_chat_types::BodyType;
 pub use methods::batch::{Batch, BatchResponse, CallHandle};
 pub use methods::blob::{BlobConvertResponse, BlobLookupEntry, BlobLookupResponse, BlobObject};
 pub use methods::quota::Quota;
 pub use methods::{
-    server_retry_after, AddMemberInput, AddedItem, ChangesResponse, ChatContactPatch,
-    ChatCreateInput, ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch, GetResponse,
-    MessageCreateInput, MessagePatch, PartialObject, Patch, PresenceStatusPatch,
-    PushSubscriptionCreateInput, PushSubscriptionCreateResponse, PushSubscriptionPatch,
-    QueryChangesResponse, QueryResponse, ReactionChange, ServerRetryAfterError, SessionClient,
-    SetError, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput,
-    SpaceAddRoleInput, SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput,
-    SpaceInviteCreateInput, SpaceJoinInput, SpaceJoinResponse, SpacePatch,
-    SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
-    SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput, CALL_ID,
+    AddMemberInput, AddedItem, CALL_ID, ChangesResponse, ChatContactPatch, ChatCreateInput,
+    ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch, GetResponse, MessageCreateInput,
+    MessagePatch, PartialObject, Patch, PresenceStatusPatch, PushSubscriptionCreateInput,
+    PushSubscriptionCreateResponse, PushSubscriptionPatch, QueryChangesResponse, QueryResponse,
+    ReactionChange, ServerRetryAfterError, SessionClient, SetError, SetResponse,
+    SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput,
+    SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput, SpaceInviteCreateInput, SpaceJoinInput,
+    SpaceJoinResponse, SpacePatch, SpaceUpdateCategoryInput, SpaceUpdateChannelInput,
+    SpaceUpdateMemberInput, SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput,
+    server_retry_after,
 };
 pub use session::{
     ChatCapability, ChatCapabilityRole, ChatFilenodeCapability, ChatPushCapability, ChatSessionExt,
     Endpoint,
 };
-pub use sse::{parse_chat_sse_block, ChatSseEvent, ChatSseFrame};
+pub use sse::{ChatSseEvent, ChatSseFrame, parse_chat_sse_block};
 pub use types::{ChatMemberRole, QuotaResourceType, QuotaScope};
 pub use utils::{
-    broadcast_mentions_from_spans, format_receipt_timestamp, format_receipt_timestamp_at,
-    mentions_from_spans, TypingIndicators, TYPING_DECAY,
+    TYPING_DECAY, TypingIndicators, broadcast_mentions_from_spans, format_receipt_timestamp,
+    format_receipt_timestamp_at, mentions_from_spans,
 };
-pub use ws::{parse_chat_ws_frame, ChatWsExt, ChatWsFrame};
+pub use ws::{ChatWsExt, ChatWsFrame, parse_chat_ws_frame};
 
 /// Extension trait adding JMAP Chat methods to [`jmap_base_client::JmapClient`].
 ///

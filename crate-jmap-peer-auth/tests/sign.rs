@@ -4,11 +4,11 @@
 
 use std::time::{Duration, UNIX_EPOCH};
 
-use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use http::Method;
 use jmap_peer_auth::ed25519_dalek::{Signature, SigningKey};
-use jmap_peer_auth::{sign, PeerDomain, SignError, SignatureHeaders};
+use jmap_peer_auth::{PeerDomain, SignError, SignatureHeaders, sign};
 
 /// RFC 8037 Appendix A.1 private key `d`; its thumbprint is the draft's
 /// `kPrK_...` keyid example.

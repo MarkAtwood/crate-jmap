@@ -1,10 +1,10 @@
 //! Shared helper utilities for FileNode method handlers.
 
 use jmap_types::{Id, JmapError, JmapObject, State};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::FileNodeBackend;
-use jmap_server::{server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, server_fail_from_backend};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 

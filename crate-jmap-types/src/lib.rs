@@ -48,7 +48,7 @@ mod wire;
 // visibility. See bd JMAP-wk77.
 mod string_enum;
 
-pub use backend::{check_property_classification, GetObject, JmapObject, QueryObject, SetObject};
+pub use backend::{GetObject, JmapObject, QueryObject, SetObject, check_property_classification};
 pub use error::{JmapError, MethodErrorType};
 pub use id::{Date, Id, State, UTCDate, ValidationError};
 pub use jmap_uri::{JmapUri, JmapUriError};

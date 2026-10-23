@@ -6,7 +6,7 @@
 //! task lists the user is subscribed to.  Notifications are stored in the
 //! same Account as the Task that was changed.
 
-use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
+use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::task::Person;

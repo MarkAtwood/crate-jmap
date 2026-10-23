@@ -14,7 +14,7 @@ use jmap_graph_server::{
 };
 use jmap_graph_types::GraphSearchCapability;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// [`backend`] advertising search with `maxDepth` 10 and `supportsText`
 /// `text` (L134-143).
@@ -325,9 +325,11 @@ async fn comparison_semantics() {
     // Logical operators (L227-234): "An empty array is true" for `$and`,
     // "An empty array is false" for `$or`.
     assert_eq!(nodes_where(&backend, &g, json!({ "$and": [] })).await, all);
-    assert!(nodes_where(&backend, &g, json!({ "$or": [] }))
-        .await
-        .is_empty());
+    assert!(
+        nodes_where(&backend, &g, json!({ "$or": [] }))
+            .await
+            .is_empty()
+    );
     assert_eq!(
         nodes_where(&backend, &g, json!({ "$not": { "/annotations/v": "1" } }))
             .await
@@ -420,19 +422,23 @@ async fn collations() {
         nodes_where(&backend, &g, eq("\u{1c6}", Some("i;unicode-casemap"))).await,
         vec![dz]
     );
-    assert!(nodes_where(&backend, &g, eq("\u{1c6}", Some("i;octet")))
-        .await
-        .is_empty());
+    assert!(
+        nodes_where(&backend, &g, eq("\u{1c6}", Some("i;octet")))
+            .await
+            .is_empty()
+    );
     // RFC 5051 §2: U+01C4 prepares to U+0044 U+007A U+030C ("Dz" and a
     // caron), and "dz" to "DZ" (each code point titlecased; nothing is
     // re-cased after decomposition), so it does not contain "dz".
-    assert!(nodes_where(
-        &backend,
-        &g,
-        json!({ "/annotations/s": { "$contains": "dz", "$collation": "i;unicode-casemap" } })
-    )
-    .await
-    .is_empty());
+    assert!(
+        nodes_where(
+            &backend,
+            &g,
+            json!({ "/annotations/s": { "$contains": "dz", "$collation": "i;unicode-casemap" } })
+        )
+        .await
+        .is_empty()
+    );
     // Ordering by code point: "ABC" (U+0041...) sorts below "abc".
     assert_eq!(
         nodes_where(&backend, &g, json!({ "/annotations/s": { "$lt": "abc" } })).await,

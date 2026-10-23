@@ -14,8 +14,8 @@
 //! trailing bits are all rejected with [`Sha256Base64Error`].
 
 use crate::Sha256;
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use std::fmt;
 
 /// Error from [`Sha256::from_base64`].

@@ -12,7 +12,7 @@ use jmap_scene_server::{
     handle_scene_asset_query_changes, handle_scene_asset_set,
 };
 use jmap_types::JmapError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn unsupported_backend() -> MemoryBackend {
     let mut cap = capability();

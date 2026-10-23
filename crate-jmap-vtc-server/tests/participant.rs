@@ -14,11 +14,11 @@ use jmap_server::{
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
 use jmap_vtc_server::{
-    expire_ring, handle_vtc_participant_get, handle_vtc_participant_query,
-    handle_vtc_participant_set, StatefulObject, VtcBackend, RING_TIMEOUT,
+    RING_TIMEOUT, StatefulObject, VtcBackend, expire_ring, handle_vtc_participant_get,
+    handle_vtc_participant_query, handle_vtc_participant_set,
 };
 use jmap_vtc_types::{SignalDirection, VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const CAROL: &str = "user:carol@example.com";
@@ -1123,9 +1123,11 @@ async fn declining_does_not_fork_answered_elsewhere() {
     pupdate(&backend, ALICE, &alice, json!({"callResponse": "declined"}))
         .await
         .expect("decline");
-    assert!(call_end_events(&backend)
-        .iter()
-        .all(|e| e["endReason"] != "answered_elsewhere"));
+    assert!(
+        call_end_events(&backend)
+            .iter()
+            .all(|e| e["endReason"] != "answered_elsewhere")
+    );
 }
 
 #[tokio::test]

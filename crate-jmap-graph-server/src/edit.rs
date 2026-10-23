@@ -5,8 +5,8 @@
 //! [`check_node_edit`] is a pure function so that `GraphNode/set` and a
 //! backend re-verifying atomically apply the same rules.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_graph_types::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
 use serde_json::{Map, Value};
 

@@ -24,22 +24,22 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
+    Router,
     body::Body,
     extract::State as AxumState,
-    http::{header, HeaderValue},
+    http::{HeaderValue, header},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Router,
 };
 use http_body_util::LengthLimitError;
 use jmap_server::{
-    parse_request, request_error, CallContext, Dispatcher, HandlerOutput, JmapError, JmapHandler,
-    RequestError,
+    CallContext, Dispatcher, HandlerOutput, JmapError, JmapHandler, RequestError, parse_request,
+    request_error,
 };
 use jmap_types::{Id, State};
 use serde_json::Value;
 
-use crate::auth::{require_bearer_token, AuthState};
+use crate::auth::{AuthState, require_bearer_token};
 use crate::session;
 
 /// Maximum size, in bytes, of a single `POST /jmap` request body.

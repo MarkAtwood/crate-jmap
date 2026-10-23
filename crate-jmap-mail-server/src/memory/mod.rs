@@ -215,15 +215,14 @@ impl Inner {
         id_and_date.sort_by_key(|pair| pair.1);
 
         // Write the sorted list back to the Thread object.
-        if let Some(store) = self.objects.get_mut(&("Thread", account_id.to_owned())) {
-            if let Some(thread_val) = store.get_mut(thread_id) {
-                if let Some(arr) = thread_val["emailIds"].as_array_mut() {
-                    *arr = id_and_date
-                        .into_iter()
-                        .map(|(eid, _)| serde_json::Value::String(eid))
-                        .collect();
-                }
-            }
+        if let Some(store) = self.objects.get_mut(&("Thread", account_id.to_owned()))
+            && let Some(thread_val) = store.get_mut(thread_id)
+            && let Some(arr) = thread_val["emailIds"].as_array_mut()
+        {
+            *arr = id_and_date
+                .into_iter()
+                .map(|(eid, _)| serde_json::Value::String(eid))
+                .collect();
         }
     }
 }
@@ -429,36 +428,35 @@ fn mailbox_matches_condition(m: &Mailbox, f: &MailboxFilterCondition) -> bool {
     // parentId and role are three-way: absent (None) = no filter;
     // explicit null (Some(None)) = the mailbox's value must be null;
     // a value (Some(Some(v))) = the mailbox's value must equal v.
-    if let Some(want) = &f.parent_id {
-        if m.parent_id.as_ref() != want.as_ref() {
-            return false;
-        }
+    if let Some(want) = &f.parent_id
+        && m.parent_id.as_ref() != want.as_ref()
+    {
+        return false;
     }
 
-    if let Some(ref name_substr) = f.name {
-        if !m.name.contains(name_substr.as_str()) {
-            return false;
-        }
+    if let Some(ref name_substr) = f.name
+        && !m.name.contains(name_substr.as_str())
+    {
+        return false;
     }
 
-    if let Some(want) = &f.role {
-        if m.role.as_ref().map(MailboxRole::to_wire_str)
+    if let Some(want) = &f.role
+        && m.role.as_ref().map(MailboxRole::to_wire_str)
             != want.as_ref().map(MailboxRole::to_wire_str)
-        {
-            return false;
-        }
+    {
+        return false;
     }
 
-    if let Some(want_any_role) = f.has_any_role {
-        if m.role.is_some() != want_any_role {
-            return false;
-        }
+    if let Some(want_any_role) = f.has_any_role
+        && m.role.is_some() != want_any_role
+    {
+        return false;
     }
 
-    if let Some(want_subscribed) = f.is_subscribed {
-        if m.is_subscribed != want_subscribed {
-            return false;
-        }
+    if let Some(want_subscribed) = f.is_subscribed
+        && m.is_subscribed != want_subscribed
+    {
+        return false;
     }
 
     true
@@ -1092,10 +1090,10 @@ impl JmapBackend for MemoryBackend {
         let mut added: Vec<AddedItem> = Vec::new();
         for (pos, id) in current_result.iter().enumerate() {
             // If up_to_id is set, stop before reaching (and including) its position.
-            if let Some(cutoff) = up_to_pos {
-                if pos >= cutoff {
-                    break;
-                }
+            if let Some(cutoff) = up_to_pos
+                && pos >= cutoff
+            {
+                break;
             }
             if created_set.contains(id) || updated_set.contains(id) {
                 added.push(AddedItem::new(id.clone(), pos as u64));
@@ -1155,29 +1153,29 @@ impl MailBackend for MemoryBackend {
         // assigning the real value. MemoryBackend uses a UUID since it does
         // not store raw blobs on this path. Real backends should store the
         // blob and use a content hash here.
-        if val.get("blobId").and_then(|v| v.as_str()) == Some(crate::helpers::PLACEHOLDER_BLOB_ID) {
-            if let serde_json::Value::Object(ref mut map) = val {
-                let blob_uuid = Id::from(uuid::Uuid::new_v4().to_string());
-                map.insert(
-                    "blobId".to_owned(),
-                    serde_json::Value::String(blob_uuid.to_string()),
-                );
-            }
+        if val.get("blobId").and_then(|v| v.as_str()) == Some(crate::helpers::PLACEHOLDER_BLOB_ID)
+            && let serde_json::Value::Object(ref mut map) = val
+        {
+            let blob_uuid = Id::from(uuid::Uuid::new_v4().to_string());
+            map.insert(
+                "blobId".to_owned(),
+                serde_json::Value::String(blob_uuid.to_string()),
+            );
         }
         // Update size from the serialized JSON length. email.rs sets size=0 as a
         // placeholder (it has no raw bytes on the Email/set create path); the backend
         // is responsible for assigning the real value. MemoryBackend uses the
         // serialized-JSON byte length as a proxy — non-zero and stable within a test.
-        if val.get("size").and_then(|v| v.as_u64()) == Some(0) {
-            if let serde_json::Value::Object(ref mut map) = val {
-                let json_size = serde_json::to_vec(&serde_json::Value::Object(map.clone()))
-                    .map(|b| b.len() as u64)
-                    .unwrap_or(1);
-                map.insert(
-                    "size".to_owned(),
-                    serde_json::Value::Number(json_size.into()),
-                );
-            }
+        if val.get("size").and_then(|v| v.as_u64()) == Some(0)
+            && let serde_json::Value::Object(ref mut map) = val
+        {
+            let json_size = serde_json::to_vec(&serde_json::Value::Object(map.clone()))
+                .map(|b| b.len() as u64)
+                .unwrap_or(1);
+            map.insert(
+                "size".to_owned(),
+                serde_json::Value::Number(json_size.into()),
+            );
         }
         let created_obj: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
@@ -1226,31 +1224,31 @@ impl MailBackend for MemoryBackend {
         // "mailboxIds/abc123"), applied all-or-nothing by the shared
         // `apply_patch_object`, so an invalidPatch leaves the stored object
         // unchanged.
-        if let serde_json::Value::Object(base) = existing {
-            if let serde_json::Value::Object(patch_map) = patch_val {
-                // RFC 8621 §4.1.1 defines Email `keywords` with "default: {}",
-                // but the stored JSON omits it when empty, so materialize the
-                // default for `keywords/<keyword>` pointers to find their parent.
-                // Work on a copy so a rejected patch leaves storage untouched.
-                let mut patched = base.clone();
-                if O::TYPE_NAME == Email::TYPE_NAME {
-                    patched
-                        .entry("keywords")
-                        .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
-                }
-                apply_patch_object(&mut patched, &patch_map).map_err(|e| {
-                    BackendSetError::SetError(Box::new(
-                        SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                    ))
-                })?;
-                // A null or wrong-typed value on a required property must
-                // not reach storage, or every later /get fails to decode it.
-                let patched = serde_json::Value::Object(patched);
-                if O::deserialize(&patched).is_err() {
-                    return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
-                }
-                *existing = patched;
+        if let serde_json::Value::Object(base) = existing
+            && let serde_json::Value::Object(patch_map) = patch_val
+        {
+            // RFC 8621 §4.1.1 defines Email `keywords` with "default: {}",
+            // but the stored JSON omits it when empty, so materialize the
+            // default for `keywords/<keyword>` pointers to find their parent.
+            // Work on a copy so a rejected patch leaves storage untouched.
+            let mut patched = base.clone();
+            if O::TYPE_NAME == Email::TYPE_NAME {
+                patched
+                    .entry("keywords")
+                    .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
             }
+            apply_patch_object(&mut patched, &patch_map).map_err(|e| {
+                BackendSetError::SetError(Box::new(
+                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+                ))
+            })?;
+            // A null or wrong-typed value on a required property must
+            // not reach storage, or every later /get fails to decode it.
+            let patched = serde_json::Value::Object(patched);
+            if O::deserialize(&patched).is_err() {
+                return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
+            }
+            *existing = patched;
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -1345,15 +1343,15 @@ impl MailBackend for MemoryBackend {
             let mut inner = self.inner.lock().unwrap();
 
             // Check for duplicate Message-ID (RFC 8621 §4.8).
-            if let Some(msg_ids) = &parsed.message_id {
-                if let Some(index) = inner.message_id_index.get(account_id.as_ref()) {
-                    for msg_id in msg_ids {
-                        if let Some(existing_id) = index.get(msg_id) {
-                            return Err(BackendSetError::SetError(Box::new(
-                                SetError::new(SetErrorType::AlreadyExists)
-                                    .with_existing_id(existing_id.clone()),
-                            )));
-                        }
+            if let Some(msg_ids) = &parsed.message_id
+                && let Some(index) = inner.message_id_index.get(account_id.as_ref())
+            {
+                for msg_id in msg_ids {
+                    if let Some(existing_id) = index.get(msg_id) {
+                        return Err(BackendSetError::SetError(Box::new(
+                            SetError::new(SetErrorType::AlreadyExists)
+                                .with_existing_id(existing_id.clone()),
+                        )));
                     }
                 }
             }
@@ -1443,30 +1441,29 @@ impl MailBackend for MemoryBackend {
                 if let Some(v) = inner
                     .objects_mut("Mailbox", account_id.as_ref())
                     .get_mut(mbox_id)
+                    && let Some(obj) = v.as_object_mut()
                 {
-                    if let Some(obj) = v.as_object_mut() {
-                        let te = obj.get("totalEmails").and_then(|x| x.as_u64()).unwrap_or(0);
-                        obj.insert("totalEmails".to_owned(), (te + 1).into());
+                    let te = obj.get("totalEmails").and_then(|x| x.as_u64()).unwrap_or(0);
+                    obj.insert("totalEmails".to_owned(), (te + 1).into());
+                    if is_unread {
+                        let ue = obj
+                            .get("unreadEmails")
+                            .and_then(|x| x.as_u64())
+                            .unwrap_or(0);
+                        obj.insert("unreadEmails".to_owned(), (ue + 1).into());
+                    }
+                    if !thread_existed {
+                        let tt = obj
+                            .get("totalThreads")
+                            .and_then(|x| x.as_u64())
+                            .unwrap_or(0);
+                        obj.insert("totalThreads".to_owned(), (tt + 1).into());
                         if is_unread {
-                            let ue = obj
-                                .get("unreadEmails")
+                            let ut = obj
+                                .get("unreadThreads")
                                 .and_then(|x| x.as_u64())
                                 .unwrap_or(0);
-                            obj.insert("unreadEmails".to_owned(), (ue + 1).into());
-                        }
-                        if !thread_existed {
-                            let tt = obj
-                                .get("totalThreads")
-                                .and_then(|x| x.as_u64())
-                                .unwrap_or(0);
-                            obj.insert("totalThreads".to_owned(), (tt + 1).into());
-                            if is_unread {
-                                let ut = obj
-                                    .get("unreadThreads")
-                                    .and_then(|x| x.as_u64())
-                                    .unwrap_or(0);
-                                obj.insert("unreadThreads".to_owned(), (ut + 1).into());
-                            }
+                            obj.insert("unreadThreads".to_owned(), (ut + 1).into());
                         }
                     }
                 }
@@ -1542,12 +1539,11 @@ impl MailBackend for MemoryBackend {
         for val in store.values() {
             if let Some(ids) = val.get("messageId").and_then(|v| v.as_array()) {
                 for id in ids {
-                    if let Some(s) = id.as_str() {
-                        if message_ids.contains(&s) {
-                            if let Some(tid) = val.get("threadId").and_then(|v| v.as_str()) {
-                                return Ok(Some(Id::from(tid)));
-                            }
-                        }
+                    if let Some(s) = id.as_str()
+                        && message_ids.contains(&s)
+                        && let Some(tid) = val.get("threadId").and_then(|v| v.as_str())
+                    {
+                        return Ok(Some(Id::from(tid)));
                     }
                 }
             }
@@ -1747,26 +1743,26 @@ impl MailBackend for MemoryBackend {
         for id in email_ids {
             let mut snippet = SearchSnippet::new(id.clone());
 
-            if let Some(store) = store {
-                if let Some(val) = store.get(id) {
-                    let subject = val.get("subject").and_then(|s| s.as_str()).unwrap_or("");
-                    let preview = val.get("preview").and_then(|s| s.as_str()).unwrap_or("");
+            if let Some(store) = store
+                && let Some(val) = store.get(id)
+            {
+                let subject = val.get("subject").and_then(|s| s.as_str()).unwrap_or("");
+                let preview = val.get("preview").and_then(|s| s.as_str()).unwrap_or("");
 
-                    // Build subject snippet.
-                    let subj_needle = subject_needle.or(text_needle);
-                    if let Some(needle) = subj_needle {
-                        if !subject.is_empty() {
-                            snippet.subject = Some(highlight(subject, needle));
-                        }
-                    }
+                // Build subject snippet.
+                let subj_needle = subject_needle.or(text_needle);
+                if let Some(needle) = subj_needle
+                    && !subject.is_empty()
+                {
+                    snippet.subject = Some(highlight(subject, needle));
+                }
 
-                    // Build preview snippet from preview or body needle.
-                    let prev_needle = body_needle.or(text_needle);
-                    if let Some(needle) = prev_needle {
-                        if !preview.is_empty() {
-                            snippet.preview = Some(highlight(preview, needle));
-                        }
-                    }
+                // Build preview snippet from preview or body needle.
+                let prev_needle = body_needle.or(text_needle);
+                if let Some(needle) = prev_needle
+                    && !preview.is_empty()
+                {
+                    snippet.preview = Some(highlight(preview, needle));
                 }
             }
 
@@ -2013,18 +2009,17 @@ fn assign_thread_inner(
         .map(|s| s.as_str())
         .collect();
 
-    if !refs.is_empty() {
-        if let Some(store) = inner.objects_ref("Email", account_id.as_ref()) {
-            for val in store.values() {
-                if let Some(msg_ids) = val.get("messageId").and_then(|v| v.as_array()) {
-                    for msg_id in msg_ids {
-                        if let Some(s) = msg_id.as_str() {
-                            if refs.contains(&s) {
-                                if let Some(tid) = val.get("threadId").and_then(|v| v.as_str()) {
-                                    return Id::from(tid);
-                                }
-                            }
-                        }
+    if !refs.is_empty()
+        && let Some(store) = inner.objects_ref("Email", account_id.as_ref())
+    {
+        for val in store.values() {
+            if let Some(msg_ids) = val.get("messageId").and_then(|v| v.as_array()) {
+                for msg_id in msg_ids {
+                    if let Some(s) = msg_id.as_str()
+                        && refs.contains(&s)
+                        && let Some(tid) = val.get("threadId").and_then(|v| v.as_str())
+                    {
+                        return Id::from(tid);
                     }
                 }
             }
@@ -2052,14 +2047,14 @@ fn highlight(haystack: &str, needle: &str) -> String {
     // Byte offsets into lower_haystack and haystack respectively.
     let mut lower_pos = 0usize; // position in lower_haystack
     let mut orig_pos = 0usize; // corresponding byte position in haystack
-                               // Build a parallel char-index table: lower_char_starts[i] = byte offset of
-                               // the i-th char in lower_haystack; orig_char_starts[i] = byte offset of
-                               // the i-th char in haystack.
-                               //
-                               // Unicode lowercasing can change a character's byte length, so a byte
-                               // offset into the lowercased string is not a valid byte offset into the
-                               // original. The char-index tables map match positions in the lowercased
-                               // string back to the original correctly regardless of Unicode expansion.
+    // Build a parallel char-index table: lower_char_starts[i] = byte offset of
+    // the i-th char in lower_haystack; orig_char_starts[i] = byte offset of
+    // the i-th char in haystack.
+    //
+    // Unicode lowercasing can change a character's byte length, so a byte
+    // offset into the lowercased string is not a valid byte offset into the
+    // original. The char-index tables map match positions in the lowercased
+    // string back to the original correctly regardless of Unicode expansion.
     let lower_chars: Vec<usize> = lower_haystack.char_indices().map(|(i, _)| i).collect();
     let orig_chars: Vec<usize> = haystack.char_indices().map(|(i, _)| i).collect();
     // char_pos tracks which char index lower_pos corresponds to.
@@ -2253,10 +2248,10 @@ fn email_matches_condition(
     cond: &EmailFilterCondition,
     excluded_set: Option<&std::collections::HashSet<&Id>>,
 ) -> bool {
-    if let Some(ref mbox_id) = cond.in_mailbox {
-        if !email.mailbox_ids.contains_key(mbox_id) {
-            return false;
-        }
+    if let Some(ref mbox_id) = cond.in_mailbox
+        && !email.mailbox_ids.contains_key(mbox_id)
+    {
+        return false;
     }
     if let Some(exclude_ids) = &cond.in_mailbox_other_than {
         // Email must be in at least one mailbox NOT in the exclusion list.
@@ -2273,20 +2268,20 @@ fn email_matches_condition(
             return false;
         }
     }
-    if let Some(ref kw) = cond.has_keyword {
-        if !email.keywords.contains_key(kw) {
-            return false;
-        }
+    if let Some(ref kw) = cond.has_keyword
+        && !email.keywords.contains_key(kw)
+    {
+        return false;
     }
-    if let Some(ref kw) = cond.not_keyword {
-        if email.keywords.contains_key(kw) {
-            return false;
-        }
+    if let Some(ref kw) = cond.not_keyword
+        && email.keywords.contains_key(kw)
+    {
+        return false;
     }
-    if let Some(want_attach) = cond.has_attachment {
-        if email.has_attachment != want_attach {
-            return false;
-        }
+    if let Some(want_attach) = cond.has_attachment
+        && email.has_attachment != want_attach
+    {
+        return false;
     }
     if let Some(ref before) = cond.before {
         // receivedAt must be strictly before `before` (epoch-seconds comparison avoids
@@ -2312,10 +2307,10 @@ fn email_matches_condition(
             return false;
         }
     }
-    if let Some(min) = cond.min_size {
-        if email.size < min {
-            return false;
-        }
+    if let Some(min) = cond.min_size
+        && email.size < min
+    {
+        return false;
     }
     // All specified conditions pass.
     true
@@ -2391,11 +2386,7 @@ fn sort_submission_pairs(
                         }
                         _ => std::cmp::Ordering::Equal,
                     };
-                    if c.is_ascending {
-                        ord
-                    } else {
-                        ord.reverse()
-                    }
+                    if c.is_ascending { ord } else { ord.reverse() }
                 })
                 .find(|o| o.is_ne())
                 .unwrap_or(std::cmp::Ordering::Equal),
@@ -2443,25 +2434,25 @@ fn submission_matches_condition(
     cond: &EmailSubmissionFilterCondition,
     sets: &SubmissionConditionSets<'_>,
 ) -> bool {
-    if let Some(ref id_set) = sets.identity_ids {
-        if !id_set.contains(&sub.identity_id) {
-            return false;
-        }
+    if let Some(ref id_set) = sets.identity_ids
+        && !id_set.contains(&sub.identity_id)
+    {
+        return false;
     }
-    if let Some(ref id_set) = sets.email_ids {
-        if !id_set.contains(&sub.email_id) {
-            return false;
-        }
+    if let Some(ref id_set) = sets.email_ids
+        && !id_set.contains(&sub.email_id)
+    {
+        return false;
     }
-    if let Some(ref id_set) = sets.thread_ids {
-        if !id_set.contains(&sub.thread_id) {
-            return false;
-        }
+    if let Some(ref id_set) = sets.thread_ids
+        && !id_set.contains(&sub.thread_id)
+    {
+        return false;
     }
-    if let Some(ref status) = cond.undo_status {
-        if &sub.undo_status != status {
-            return false;
-        }
+    if let Some(ref status) = cond.undo_status
+        && &sub.undo_status != status
+    {
+        return false;
     }
     if let Some(ref before) = cond.before {
         // sendAt must be strictly before `before` (lexicographic ISO 8601 comparison).

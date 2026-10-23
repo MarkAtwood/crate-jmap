@@ -9,7 +9,7 @@ use jmap_types::Invocation;
 use std::sync::Arc;
 
 use jmap_server::{Dispatcher, JmapRequest, State};
-use jmap_sharing_server::{register_sharing_handlers, SharingBackend};
+use jmap_sharing_server::{SharingBackend, register_sharing_handlers};
 use jmap_sharing_types::ShareNotification;
 use jmap_types::Id;
 use serde_json::json;

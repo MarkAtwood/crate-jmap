@@ -364,9 +364,9 @@ impl QueryObject for crate::TaskNotification {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_per_user_task_property, PER_USER_TASK_PROPERTIES};
-    use jmap_types::{check_property_classification, Id, PatchObject, UTCDate};
-    use serde_json::{json, Map, Value};
+    use super::{PER_USER_TASK_PROPERTIES, is_per_user_task_property};
+    use jmap_types::{Id, PatchObject, UTCDate, check_property_classification};
+    use serde_json::{Map, Value, json};
     use std::collections::BTreeMap;
 
     fn de<T: serde::de::DeserializeOwned>(v: Value) -> T {

@@ -28,8 +28,8 @@
 //! The §GraphCursorEvent rate limits are SHOULD rules for the transport or
 //! deployment; nothing here counts or times events.
 
+use jmap_graph_types::{DATA_TYPE_CURSORS, DATA_TYPE_OPS, GraphEditEvent, GraphEditStreamEnable};
 use jmap_graph_types::{Graph, GraphNode};
-use jmap_graph_types::{GraphEditEvent, GraphEditStreamEnable, DATA_TYPE_CURSORS, DATA_TYPE_OPS};
 use jmap_types::{Id, JmapError};
 
 use crate::{GraphBackend, JmapBackend};

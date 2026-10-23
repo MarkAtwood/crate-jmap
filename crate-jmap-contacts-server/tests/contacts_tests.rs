@@ -15,7 +15,7 @@ use jmap_contacts_server::{
 };
 use jmap_server::HandlerOutput;
 use jmap_types::Invocation;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ---------------------------------------------------------------------------
 // Fixture helpers

@@ -11,13 +11,13 @@
 //! draft-mahy-mls-ratchet-tree-options-04, independently of the crate's
 //! decoders. The Chat is bound by a real Welcome, as in `tests/fanout.rs`.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_server::memory::MemoryBackend;
 use jmap_chat_mimi_server::{
+    HubReply, HubUnavailable, KeyMaterialRequirements, MimiBackend, MimiEndpoint,
     handle_group_info_fetch, handle_key_material_fetch, handle_key_package_set, handle_room_send,
-    handle_room_unbind, handle_room_update, parse_fanout_messages, HubReply, HubUnavailable,
-    KeyMaterialRequirements, MimiBackend, MimiEndpoint,
+    handle_room_unbind, handle_room_update, parse_fanout_messages,
 };
 use jmap_chat_mimi_types::MimiCapability;
 use jmap_types::Id;
@@ -28,7 +28,7 @@ use openmls::prelude::{
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::{OpenMlsRustCrypto, RustCrypto};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tls_codec::{Deserialize as _, Serialize as _};
 
 const SUITE: Ciphersuite = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;

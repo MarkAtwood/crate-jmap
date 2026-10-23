@@ -42,11 +42,11 @@ mod common;
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::message::{handle_message_changes, handle_message_get};
 use jmap_chat_server::{handle_chat_changes, handle_chat_get, handle_presence_get, sweep_expired};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// 2024-01-01T00:00:00Z.
 const T0: u64 = 1_704_067_200;

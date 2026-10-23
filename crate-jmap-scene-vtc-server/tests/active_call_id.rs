@@ -11,7 +11,7 @@ use common::*;
 use jmap_types::Id;
 use jmap_vtc_server::end_call;
 use jmap_vtc_types::{CallEndReason, CallState};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A moderator ends the call through `VTCCall/set` (vtc L444: "A
 /// moderator explicitly closes the room"). Only the region bound to that

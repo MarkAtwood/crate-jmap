@@ -19,17 +19,17 @@
 use jmap_scene_types::SceneAssetComparator;
 use jmap_scene_types::{SceneAsset, SceneCapability};
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
-use crate::helpers::{
-    backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, not_found, over_quota,
-    reject_unsupported_sort, set_error_value, SetAccumulators,
-};
 use crate::SceneBackend;
+use crate::helpers::{
+    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
+    extract_account_id, fetch_one, finalize_set_response, forbidden, invalid, not_found,
+    over_quota, reject_unsupported_sort, set_error_value,
+};
 use jmap_server::{
-    now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, SetError, SetErrorType,
+    HandlerOutput, SetError, SetErrorType, now_utc_string, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// The mandatory-to-implement visual asset media type: "The IANA media
@@ -173,10 +173,10 @@ pub async fn handle_scene_asset_set<B: SceneBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut acc = SetAccumulators::default();
@@ -283,10 +283,10 @@ fn is_lowercase_sha256(s: &str) -> bool {
 /// properties must be a string or `null`, and `sha256` lowercase hex.
 fn malformed<'a>(m: &'a Map<String, Value>, cap: &SceneCapability) -> Vec<&'a str> {
     let mut bad = Vec::new();
-    if let Some((key, v)) = m.get_key_value("mediaType") {
-        if !v.as_str().is_some_and(|t| media_type_supported(cap, t)) {
-            bad.push(key.as_str());
-        }
+    if let Some((key, v)) = m.get_key_value("mediaType")
+        && !v.as_str().is_some_and(|t| media_type_supported(cap, t))
+    {
+        bad.push(key.as_str());
     }
     for (key, v) in m
         .iter()

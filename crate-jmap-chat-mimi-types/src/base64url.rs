@@ -125,7 +125,7 @@ impl Base64Url {
             1 => {
                 return Err(Base64UrlError::InvalidLength {
                     len: u32::try_from(bytes.len()).unwrap_or(u32::MAX),
-                })
+                });
             }
             2 => 0b1111,
             _ => 0b11,

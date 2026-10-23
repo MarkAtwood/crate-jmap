@@ -9,9 +9,9 @@
 //! (router wiring, auth, MemoryBackend mounting, spawn helper),
 //! this test will catch it.
 
-use jmap_testjig::{spawn_in_process, TestjigConfig};
+use jmap_testjig::{TestjigConfig, spawn_in_process};
 use reqwest::StatusCode;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Oracle: bd:JMAP-cf7p.7 acceptance — the spawned jig serves
 /// `GET /.well-known/jmap` with all 9 advertised capability URIs

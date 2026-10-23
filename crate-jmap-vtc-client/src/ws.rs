@@ -7,7 +7,7 @@
 
 use jmap_base_client::{ClientError, WsFrame, WsSession};
 use jmap_vtc_types::{
-    VtcEvent, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage, VTC_EVENT_TYPES,
+    VTC_EVENT_TYPES, VtcEvent, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage,
 };
 use serde::Deserialize as _;
 

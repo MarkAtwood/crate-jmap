@@ -16,7 +16,7 @@
 
 mod common;
 
-use common::{seed_space, seed_with_admin, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, IdentityBackend, MemoryBackend, SPACE_ID, seed_space, seed_with_admin};
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;

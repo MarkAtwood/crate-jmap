@@ -6,12 +6,12 @@ use std::num::NonZeroUsize;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 
-use jmap_peer_auth::{usable_keys, PeerDomain, PeerSigningKey, Rejection};
+use jmap_peer_auth::{PeerDomain, PeerSigningKey, Rejection, usable_keys};
 use serde_json::Value;
 
-use crate::dns::DnssecLookup;
-use crate::fetch::{freshness_lifetime, Fetch};
 use crate::Error;
+use crate::dns::DnssecLookup;
+use crate::fetch::{Fetch, freshness_lifetime};
 
 /// The longest a peer domain's keys are cached. §Key Publication: "for no
 /// longer than one hour".

@@ -10,7 +10,7 @@ use common::*;
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{handle_scene_avatar_query, handle_scene_avatar_query_changes};
 use jmap_types::JmapError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const REGION: &str = "01J5ABC0000000000000000001";
 const OTHER_REGION: &str = "01J5ABC0000000000000000002";

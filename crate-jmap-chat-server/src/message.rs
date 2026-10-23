@@ -24,13 +24,13 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::{
-    Attachment, AttachmentCreate, BroadcastMention, Chat, DeliveryState, Mention, Message,
-    MessageAction, PresenceStatus, ReadPosition, Space, BROADCAST_MENTION_SCOPES,
+    Attachment, AttachmentCreate, BROADCAST_MENTION_SCOPES, BroadcastMention, Chat, DeliveryState,
+    Mention, Message, MessageAction, PresenceStatus, ReadPosition, Space,
 };
 use jmap_chat_types::{Filter, MessageComparator, MessageFilter, MessageFilterCondition};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::chat::record_unread_count_changes;
 use crate::outbound::{OutboundEvent, ReactionAction};
@@ -38,15 +38,15 @@ use crate::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
 use std::collections::{HashMap, HashSet};
 use subtle::ConstantTimeEq;
 
+use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
-    default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response, iso8601_before, not_found_json, now_utc_string,
-    optional_arg, reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
+    SetAccumulators, default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set,
+    extract_account_id, filter_properties, finalize_set_response, iso8601_before, not_found_json,
+    now_utc_string, optional_arg, reject_unsupported_sort, serialize_value, set_error_value,
 };
-use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{
-    filter_arg, is_client_updatable, query_anchor_args, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+    HandlerOutput, QueryParams, filter_arg, is_client_updatable, query_anchor_args,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -281,7 +281,7 @@ pub async fn handle_message_query<B: ChatBackend>(
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
-                )))
+                )));
             }
         },
     };
@@ -351,10 +351,8 @@ pub async fn handle_message_query<B: ChatBackend>(
         "position": position,
         "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
-    if calculate_total {
-        if let Some(t) = total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -449,14 +447,13 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 
     // §Message/query: "messages in channels the caller cannot view MUST be
     // omitted", so changes to such a Chat's messages are not reported.
-    if let (Some(account_id), Some(chat_id)) = (account_id, chat_id) {
-        if !backend
+    if let (Some(account_id), Some(chat_id)) = (account_id, chat_id)
+        && !backend
             .may_view_chat(caller, &account_id, &chat_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?
-        {
-            return Err(JmapError::cannot_calculate_changes());
-        }
+    {
+        return Err(JmapError::cannot_calculate_changes());
     }
     jmap_server::handle_query_changes::<Message, B>(backend, caller, args).await
 }
@@ -573,13 +570,13 @@ fn body_type_field_conflicts(
 ///
 /// Returns the SetError, or `None` when the edit passes.
 fn edit_limit_error(msg: &Message, patch: &Value, limits: &ChatLimits) -> Option<Value> {
-    if let Some(body) = patch.get("body").and_then(Value::as_str) {
-        if u64::try_from(body.len()).map_or(true, |n| n > limits.max_body_bytes) {
-            return Some(json!({
-                "type": "tooLarge",
-                "description": format!("body exceeds maxBodyBytes ({})", limits.max_body_bytes),
-            }));
-        }
+    if let Some(body) = patch.get("body").and_then(Value::as_str)
+        && u64::try_from(body.len()).map_or(true, |n| n > limits.max_body_bytes)
+    {
+        return Some(json!({
+            "type": "tooLarge",
+            "description": format!("body exceeds maxBodyBytes ({})", limits.max_body_bytes),
+        }));
     }
     let mut merged = serde_json::to_value(msg).ok()?;
     if let (Some(dst), Some(src)) = (merged.as_object_mut(), patch.as_object()) {
@@ -613,7 +610,9 @@ const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 ///
 /// On error, returns the wire name of the first offending property, for an
 /// `invalidProperties` SetError.
-fn apply_create_optionals(obj: &Value) -> Result<impl FnOnce(&mut Message) + Send, &'static str> {
+fn apply_create_optionals(
+    obj: &Value,
+) -> Result<impl FnOnce(&mut Message) + Send + use<>, &'static str> {
     let get = |key: &str| obj.get(key).filter(|v| !v.is_null());
     let mentions = get("mentions")
         .map(|v| Vec::<Mention>::deserialize(v).map_err(|_| "mentions"))
@@ -1041,10 +1040,10 @@ pub async fn handle_message_set<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -1770,10 +1769,10 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             // Build augmented patch with server-side timestamps.
             let mut augmented = patch_val;
-            if augmented.get("body").is_some() {
-                if let Some(obj) = augmented.as_object_mut() {
-                    obj.insert("editedAt".to_owned(), json!(now_utc_string()));
-                }
+            if augmented.get("body").is_some()
+                && let Some(obj) = augmented.as_object_mut()
+            {
+                obj.insert("editedAt".to_owned(), json!(now_utc_string()));
             }
             // draft-atwood-jmap-chat-00 §Message deletedAt: a deleted
             // Message has an empty `body`, empty `attachments`, and no
@@ -1782,15 +1781,13 @@ pub async fn handle_message_set<B: ChatBackend>(
             // merely hiding them.
             let deletes =
                 deletes_for_all || augmented.get("deletedAt").is_some_and(|v| !v.is_null());
-            if deletes {
-                if let Some(obj) = augmented.as_object_mut() {
-                    if deletes_for_all {
-                        obj.insert("deletedAt".to_owned(), json!(now_utc_string()));
-                    }
-                    obj.insert("body".to_owned(), json!(""));
-                    obj.insert("attachments".to_owned(), json!([]));
-                    obj.insert("editHistory".to_owned(), Value::Null);
+            if deletes && let Some(obj) = augmented.as_object_mut() {
+                if deletes_for_all {
+                    obj.insert("deletedAt".to_owned(), json!(now_utc_string()));
                 }
+                obj.insert("body".to_owned(), json!(""));
+                obj.insert("attachments".to_owned(), json!([]));
+                obj.insert("editHistory".to_owned(), Value::Null);
             }
             // Spec §557 + §1029: when readAt is set without readDisposition, default to "displayed".
             // draft-atwood-jmap-chat-00 §Message `readDisposition`: "Absent
@@ -2108,10 +2105,11 @@ pub async fn handle_message_set<B: ChatBackend>(
             // `Peer/deliver` carrying an `edit` payload to all
             // recipients". A patch that also deletes or burns the Message
             // leaves nothing to deliver.
-            if let Some(event @ OutboundEvent::Edit { .. }) = &outbound {
-                if !deletes && !burns {
-                    backend.on_outbound_event(caller, &account_id, event).await;
-                }
+            if let Some(event @ OutboundEvent::Edit { .. }) = &outbound
+                && !deletes
+                && !burns
+            {
+                backend.on_outbound_event(caller, &account_id, event).await;
             }
             // draft-atwood-jmap-chat-00 §Adding and Removing Reactions:
             // propagate each add and removal "via `Peer/deliver`
@@ -2125,10 +2123,10 @@ pub async fn handle_message_set<B: ChatBackend>(
             // §Peer/receipt "Sender Behavior": "If the effective preference
             // is `false`, the server MUST NOT invoke `Peer/receipt`". A
             // burned Message was still read, so its receipt is reported.
-            if let Some(event @ OutboundEvent::Receipt { chat_id, .. }) = &receipt {
-                if shares_receipts(backend, caller, &account_id, chat_id).await {
-                    backend.on_outbound_event(caller, &account_id, event).await;
-                }
+            if let Some(event @ OutboundEvent::Receipt { chat_id, .. }) = &receipt
+                && shares_receipts(backend, caller, &account_id, chat_id).await
+            {
+                backend.on_outbound_event(caller, &account_id, event).await;
             }
             match maybe_updated_obj {
                 Some(obj) => {

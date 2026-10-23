@@ -48,7 +48,7 @@ use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_chat_types::{ChatCalendarsCapability, Space};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const OTHER_ACCOUNT: &str = "A2";

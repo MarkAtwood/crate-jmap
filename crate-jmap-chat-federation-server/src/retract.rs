@@ -4,12 +4,12 @@
 use jmap_chat_federation_types::{PeerRetractArgs, PeerRetractResponse};
 use jmap_chat_server::message::find_message_by_sender_msg_id;
 use jmap_chat_types::Message;
-use jmap_server::{now_utc_string, serialize_value, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, now_utc_string, serialize_value, server_fail_from_backend};
 use jmap_types::{JmapError, PatchObject, UTCDate};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
-use crate::deliver::{authenticate, check_account, set_failure, Identities, Who};
 use crate::FederationBackend;
+use crate::deliver::{Identities, Who, authenticate, check_account, set_failure};
 
 /// Handle a `Peer/retract` method call.
 ///
@@ -64,10 +64,10 @@ pub async fn handle_peer_retract<B: FederationBackend>(
             PeerRetractResponse::new(account_id.clone(), retracted_at),
         )?))
     };
-    if msg.deleted_for_all == Some(true) {
-        if let Some(deleted_at) = msg.deleted_at {
-            return respond(deleted_at);
-        }
+    if msg.deleted_for_all == Some(true)
+        && let Some(deleted_at) = msg.deleted_at
+    {
+        return respond(deleted_at);
     }
     let now = now_utc_string();
     let mut patch = Map::new();

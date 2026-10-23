@@ -6,15 +6,15 @@
 
 mod common;
 
-use common::{IdentityBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, IdentityBackend, SPACE_ID};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
-    handle_invite_set, handle_space_get, handle_space_join, handle_space_set, JmapBackend,
+    JmapBackend, handle_invite_set, handle_space_get, handle_space_join, handle_space_set,
 };
 use jmap_chat_types::Space;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Seed a public, publicly-previewable Space with `members`, where
 /// members listed with `r-admin` hold the only `manage_space` role. The

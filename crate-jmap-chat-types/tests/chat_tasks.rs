@@ -8,11 +8,11 @@
 //! they define.
 
 use jmap_chat_types::{
-    task_chat_id, ChatTasksCapability, MessageAction, Space, TaskMetadata, JMAP_CHAT_TASKS_URI,
-    JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY, TASK_CHAT_ID_PROPERTY,
+    ChatTasksCapability, JMAP_CHAT_TASKS_URI, JMAP_URI_TASK_TYPE, MessageAction,
+    SPACE_TASK_LIST_ID_PROPERTY, Space, TASK_CHAT_ID_PROPERTY, TaskMetadata, task_chat_id,
 };
 use jmap_types::JmapUri;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 #[test]
 fn capability_uri_matches_draft() {

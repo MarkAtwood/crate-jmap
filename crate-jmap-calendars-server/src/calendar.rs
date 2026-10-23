@@ -30,16 +30,16 @@
 
 use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilterCondition};
 use jmap_types::{Filter, Id, JmapError, PatchObject};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
+    SetAccumulators, apply_default_change_to_response, enforce_max_objects_in_set,
+    extract_account_id, finalize_set_response, resolve_on_success_set_is_default, set_error_value,
 };
 use crate::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{
-    bool_arg, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryParams,
+    HandlerOutput, QueryParams, bool_arg, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -136,10 +136,10 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -415,24 +415,23 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     // and the requested default change is skipped silently.
     let all_succeeded =
         not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
-    if all_succeeded {
-        if let Some(raw) = on_success_set_is_default.as_ref() {
-            if let Some(target) = resolve_on_success_set_is_default(raw, &created) {
-                match backend
-                    .set_default_calendar(caller, &account_id, &target)
-                    .await
-                {
-                    Ok(result) => {
-                        if apply_default_change_to_response(&mut created, &mut updated, &result) {
-                            mutated = true;
-                        }
-                    }
-                    Err(_e) => {
-                        // §4.3: silently swallow — "No error is returned to
-                        // the client". Genuine storage errors lose the
-                        // default change but do not fail the /set.
-                    }
+    if all_succeeded
+        && let Some(raw) = on_success_set_is_default.as_ref()
+        && let Some(target) = resolve_on_success_set_is_default(raw, &created)
+    {
+        match backend
+            .set_default_calendar(caller, &account_id, &target)
+            .await
+        {
+            Ok(result) => {
+                if apply_default_change_to_response(&mut created, &mut updated, &result) {
+                    mutated = true;
                 }
+            }
+            Err(_e) => {
+                // §4.3: silently swallow — "No error is returned to
+                // the client". Genuine storage errors lose the
+                // default change but do not fail the /set.
             }
         }
     }

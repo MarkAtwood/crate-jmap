@@ -12,7 +12,7 @@ mod common;
 
 use common::*;
 use jmap_types::Id;
-use jmap_vtc_server::{should_deliver, VtcEphemeralSubscription};
+use jmap_vtc_server::{VtcEphemeralSubscription, should_deliver};
 use jmap_vtc_types::{VtcEvent, VtcStreamEnable};
 use serde_json::json;
 

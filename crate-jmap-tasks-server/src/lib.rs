@@ -576,8 +576,8 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use jmap_types::Invocation;
-    use std::sync::atomic::Ordering;
     use std::sync::Arc;
+    use std::sync::atomic::Ordering;
 
     use jmap_server::{Dispatcher, JmapRequest, State};
     use serde_json::json;
@@ -808,14 +808,14 @@ mod tests {
             arguments: args, ..
         } = &resp.method_responses[0];
         // The patch must NOT be pre-rejected with invalidProperties.
-        if let Some(not_updated) = args["notUpdated"].as_object() {
-            if let Some(err) = not_updated.get("t1") {
-                assert_ne!(
-                    err["type"].as_str(),
-                    Some("invalidProperties"),
-                    "isDraft:false must not produce invalidProperties: {args}"
-                );
-            }
+        if let Some(not_updated) = args["notUpdated"].as_object()
+            && let Some(err) = not_updated.get("t1")
+        {
+            assert_ne!(
+                err["type"].as_str(),
+                Some("invalidProperties"),
+                "isDraft:false must not produce invalidProperties: {args}"
+            );
         }
     }
 
@@ -890,8 +890,8 @@ mod tests {
         use jmap_tasks_types::Task;
         use jmap_types::{Id, UTCDate};
 
-        use crate::test_support::MockError;
         use crate::TasksBackend;
+        use crate::test_support::MockError;
 
         /// Minimal recording backend that returns exactly one Task on
         /// `get_objects::<Task>` (so the handler's augmentation loop fires

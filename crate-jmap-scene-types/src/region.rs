@@ -1,6 +1,6 @@
 //! draft-atwood-jmap-scene-00 §SceneRegion, including GeoAnchor.
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::coordinates::identity_orientation;

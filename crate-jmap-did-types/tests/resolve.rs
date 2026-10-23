@@ -21,9 +21,9 @@
 //!   (<https://web.plc.directory/spec/v0.1/did-plc>).
 
 use jmap_did_types::{
-    verify_plc_audit_log, Did, DidKey, DidKeyError, KeyType, PlcError, PlcStatus,
+    Did, DidKey, DidKeyError, KeyType, PlcError, PlcStatus, verify_plc_audit_log,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn did(s: &str) -> Did {
     s.parse().unwrap()

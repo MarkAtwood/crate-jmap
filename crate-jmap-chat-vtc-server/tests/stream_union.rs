@@ -7,10 +7,10 @@
 
 use jmap_chat_vtc_server::should_deliver_vtc;
 use jmap_types::Id;
-use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::VtcEphemeralSubscription;
+use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_types::{VtcCapability, VtcEvent, VtcStreamEnable};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const BOB: &str = "user:bob@example.com";

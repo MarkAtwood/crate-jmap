@@ -31,16 +31,16 @@
 use jmap_tasks_types::Task;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    set_error_value,
 };
 use crate::{BackendSetError, TasksBackend};
 use jmap_server::{
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -95,19 +95,17 @@ pub async fn handle_task_get<B: TasksBackend>(
     } = jmap_server::handle_get::<Task, B>(backend, caller, args).await?;
 
     // If utcStart or utcDue were requested, augment each returned task.
-    if want_utc {
-        if let Some(Value::Array(list)) = response.get_mut("list") {
-            for item in list.iter_mut() {
-                if let Ok(task) = Task::deserialize(&*item) {
-                    let (utc_start, utc_due) = backend
-                        .compute_utc_times(caller, &account_id, &task, None)
-                        .await;
-                    if let Some(s) = utc_start {
-                        item["utcStart"] = Value::String(s.into_inner());
-                    }
-                    if let Some(d) = utc_due {
-                        item["utcDue"] = Value::String(d.into_inner());
-                    }
+    if want_utc && let Some(Value::Array(list)) = response.get_mut("list") {
+        for item in list.iter_mut() {
+            if let Ok(task) = Task::deserialize(&*item) {
+                let (utc_start, utc_due) = backend
+                    .compute_utc_times(caller, &account_id, &task, None)
+                    .await;
+                if let Some(s) = utc_start {
+                    item["utcStart"] = Value::String(s.into_inner());
+                }
+                if let Some(d) = utc_due {
+                    item["utcDue"] = Value::String(d.into_inner());
                 }
             }
         }
@@ -186,10 +184,10 @@ pub async fn handle_task_set<B: TasksBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -507,10 +505,10 @@ pub async fn handle_task_copy<B: TasksBackend>(
 
     // RFC 8620 §5.4 `ifInState`: if supplied, the destination-account Task
     // state MUST match; otherwise abort with stateMismatch.
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     // RFC 8620 §5.4 `onSuccessDestroyOriginal` / `destroyFromIfInState`:
@@ -680,10 +678,10 @@ pub async fn handle_task_copy<B: TasksBackend>(
         // mismatch yields a stateMismatch top-level error on the synthesized
         // response (§5.4 inheriting §5.3 semantics on the chained call).
         let mut destroy_state_mismatch = false;
-        if let Some(if_state) = destroy_from_if_in_state.as_deref() {
-            if if_state != from_old_state.as_ref() {
-                destroy_state_mismatch = true;
-            }
+        if let Some(if_state) = destroy_from_if_in_state.as_deref()
+            && if_state != from_old_state.as_ref()
+        {
+            destroy_state_mismatch = true;
         }
 
         let mut destroyed_arr: Vec<Value> = Vec::new();
@@ -1149,14 +1147,14 @@ mod tests {
         // The handler passes the patch to the backend (which returns Forbidden
         // in the mock). The important thing is it is NOT pre-rejected here —
         // it must NOT appear in notUpdated with type=="invalidProperties".
-        if let Some(not_updated) = resp["notUpdated"].as_object() {
-            if let Some(err) = not_updated.get("t2") {
-                assert_ne!(
-                    err["type"].as_str(),
-                    Some("invalidProperties"),
-                    "isDraft:true on an existing draft must not produce invalidProperties"
-                );
-            }
+        if let Some(not_updated) = resp["notUpdated"].as_object()
+            && let Some(err) = not_updated.get("t2")
+        {
+            assert_ne!(
+                err["type"].as_str(),
+                Some("invalidProperties"),
+                "isDraft:true on an existing draft must not produce invalidProperties"
+            );
         }
     }
 
@@ -1178,14 +1176,14 @@ mod tests {
             .expect("must not return a top-level error");
 
         // Like above: the patch must NOT be pre-rejected with invalidProperties.
-        if let Some(not_updated) = resp["notUpdated"].as_object() {
-            if let Some(err) = not_updated.get("t3") {
-                assert_ne!(
-                    err["type"].as_str(),
-                    Some("invalidProperties"),
-                    "isDraft:false must never produce invalidProperties"
-                );
-            }
+        if let Some(not_updated) = resp["notUpdated"].as_object()
+            && let Some(err) = not_updated.get("t3")
+        {
+            assert_ne!(
+                err["type"].as_str(),
+                Some("invalidProperties"),
+                "isDraft:false must never produce invalidProperties"
+            );
         }
     }
 

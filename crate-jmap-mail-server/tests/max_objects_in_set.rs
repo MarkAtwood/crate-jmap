@@ -16,7 +16,7 @@ use jmap_mail_server::{
     handle_submission_set, handle_vacation_set,
 };
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // Default cap value returned by `JmapBackend::max_objects_in_set` in the
 // foundation crate. Tests below construct batches relative to this value

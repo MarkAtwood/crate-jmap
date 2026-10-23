@@ -1401,6 +1401,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **workspace**: every crate moves to Rust edition 2024 (bd JMAP-i3cz),
+  unlocking let-chains. MSRV stays 1.91 (edition 2024 needs 1.85), and the
+  public API is unchanged. The source was migrated with
+  `cargo fix --edition`, reformatted under the 2024 style edition, and nested
+  `if let` blocks were collapsed into let-chains per clippy
+  `collapsible_if`.
 - **BREAKING** **jmap-server**, **jmap-mail-server**: wire ids are validated
   against RFC 8620 §1.2 (1-255 octets of `A-Za-z0-9-_`) instead of being
   wrapped unchecked with `Id::from` (bd JMAP-k9va). A malformed `/set`

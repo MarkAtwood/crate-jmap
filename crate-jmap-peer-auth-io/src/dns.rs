@@ -4,13 +4,13 @@
 use std::future::Future;
 use std::time::{Duration, Instant};
 
+use hickory_resolver::Resolver;
 use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 use hickory_resolver::lookup::Lookup;
 use hickory_resolver::net::runtime::TokioRuntimeProvider;
 use hickory_resolver::net::{DnsError, NetError};
 use hickory_resolver::proto::dnssec::Proof;
 use hickory_resolver::proto::rr::{RData, Record, RecordType};
-use hickory_resolver::Resolver;
 use jmap_peer_auth::DnssecAnswer;
 
 /// The validated result of a TXT query, and how long it may be cached.
@@ -192,8 +192,8 @@ mod tests {
 
     use hickory_resolver::net::NoRecords;
     use hickory_resolver::proto::op::{Query, ResponseCode};
-    use hickory_resolver::proto::rr::rdata::{SOA, TXT};
     use hickory_resolver::proto::rr::Name;
+    use hickory_resolver::proto::rr::rdata::{SOA, TXT};
 
     use super::*;
 

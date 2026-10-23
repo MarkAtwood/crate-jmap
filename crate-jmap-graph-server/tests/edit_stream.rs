@@ -10,11 +10,11 @@ mod common;
 use common::*;
 use jmap_graph_server::memory::MemoryBackend;
 use jmap_graph_server::{
-    handle_graph_node_set, handle_graph_set, should_deliver, GraphEditSubscription,
+    GraphEditSubscription, handle_graph_node_set, handle_graph_set, should_deliver,
 };
 use jmap_graph_types::{GraphEditEvent, GraphEditStreamMessage};
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn enable(frame: Value) -> GraphEditStreamMessage {
     serde_json::from_value(frame).expect("stream frame")

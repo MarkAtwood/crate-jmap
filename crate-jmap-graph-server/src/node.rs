@@ -9,20 +9,20 @@
 
 use jmap_graph_types::CandidateKind;
 use jmap_graph_types::GraphNodeComparator;
-use jmap_graph_types::{GraphCapability, GraphNode, GraphRights};
 use jmap_graph_types::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
+use jmap_graph_types::{GraphCapability, GraphNode, GraphRights};
 use jmap_types::{Id, JmapError, SetObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::edit::check_node_edit;
 use crate::helpers::{
-    backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
-    handle_get_visible, handle_graph_item_query, handle_graph_item_query_changes, handle_set,
-    invalid, is_uri, mistyped, not_found, patched, patched_properties, readable_rights,
-    set_error_value, string_or_null, to_map, SetOps, TypeCheck,
+    SetOps, TypeCheck, backend_set_error_value, check_annotations, decode_patch, fetch_one,
+    forbidden, handle_get_visible, handle_graph_item_query, handle_graph_item_query_changes,
+    handle_set, invalid, is_uri, mistyped, not_found, patched, patched_properties, readable_rights,
+    set_error_value, string_or_null, to_map,
 };
 use crate::{EditLog, GraphBackend, JmapBackend};
-use jmap_server::{now_utc_string, reject_read_only_patch, reject_server_set, HandlerOutput};
+use jmap_server::{HandlerOutput, now_utc_string, reject_read_only_patch, reject_server_set};
 
 /// The properties with a draft default, echoed in `created` when the
 /// client omits them (RFC 8620 §5.3).

@@ -1,10 +1,10 @@
 //! Private helper utilities shared across handler modules.
 
 use jmap_types::{Id, JmapError, JmapObject, State};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::{CalendarsBackend, SetDefaultResult};
-use jmap_server::{server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, server_fail_from_backend};
 
 pub(crate) use jmap_server::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
@@ -196,11 +196,11 @@ pub(crate) fn apply_default_change_to_response(
         state_changed = true;
     }
 
-    if let Some(previous) = result.previous_default.as_ref() {
-        if previous != new_default {
-            merge_is_default(updated, previous.as_ref(), false);
-            state_changed = true;
-        }
+    if let Some(previous) = result.previous_default.as_ref()
+        && previous != new_default
+    {
+        merge_is_default(updated, previous.as_ref(), false);
+        state_changed = true;
     }
 
     state_changed

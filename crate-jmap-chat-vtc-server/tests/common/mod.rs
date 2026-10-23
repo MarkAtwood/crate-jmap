@@ -16,9 +16,9 @@ use jmap_server::{
 };
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend as VtcMemory, MemoryError as VtcError};
-use jmap_vtc_server::{handle_vtc_call_get, handle_vtc_call_set, StatefulObject, VtcBackend};
+use jmap_vtc_server::{StatefulObject, VtcBackend, handle_vtc_call_get, handle_vtc_call_set};
 use jmap_vtc_types::{VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub const ACCOUNT: &str = "A1";
 pub const OWNER: &str = "user:owner@example.com";

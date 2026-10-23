@@ -20,7 +20,7 @@ use jmap_chat_types::{Attachment, AttachmentCreate, BodyType, ChatKind, Mention,
 use jmap_chat_types::{
     MessageComparator, MessageComparatorProperty, MessageFilter, MessageFilterCondition,
 };
-use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
+use jmap_testjig::{TestjigConfig, TestjigHandle, spawn_in_process};
 use jmap_types::{Id, UTCDate};
 
 const SENT_AT: &str = "2026-01-01T00:00:00Z";

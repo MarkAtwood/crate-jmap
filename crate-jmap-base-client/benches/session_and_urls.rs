@@ -27,8 +27,8 @@
 use std::fmt::Write as _;
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, Criterion};
-use jmap_base_client::{expand_url_template, Session};
+use criterion::{Criterion, criterion_group, criterion_main};
+use jmap_base_client::{Session, expand_url_template};
 
 // ---------- Fixture builders ----------
 

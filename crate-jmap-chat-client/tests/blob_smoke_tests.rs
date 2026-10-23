@@ -17,7 +17,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use helpers::{jmap_response, mock_jmap_post, recorded_args, recorded_body, TEST_ACCOUNT_ID};
+use helpers::{TEST_ACCOUNT_ID, jmap_response, mock_jmap_post, recorded_args, recorded_body};
 use jmap_chat_client::CALL_ID;
 use jmap_types::Id;
 use serde_json::json;

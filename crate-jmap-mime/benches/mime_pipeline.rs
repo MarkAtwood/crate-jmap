@@ -48,10 +48,10 @@
 
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use jmap_mime::message_to_jmap_body;
 use jmap_types::Id;
-use mime_tree::{parse, ParsedMessage};
+use mime_tree::{ParsedMessage, parse};
 
 #[path = "../tests/common/mod.rs"]
 mod common;

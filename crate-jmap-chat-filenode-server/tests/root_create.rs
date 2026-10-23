@@ -33,7 +33,7 @@ use jmap_filenode_server::handle_filenode_set;
 use jmap_filenode_server::memory::MemoryBackend as FilesMemory;
 use jmap_filenode_types::FileNode;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";

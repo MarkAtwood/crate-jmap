@@ -7,7 +7,7 @@
 
 use jmap_chat_server::fit_chat_message_push;
 use jmap_chat_types::ChatMessagePush;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// One full channel entry with every optional field present.
 fn full_entry(n: u32) -> Value {

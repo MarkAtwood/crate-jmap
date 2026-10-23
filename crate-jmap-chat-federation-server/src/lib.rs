@@ -124,15 +124,15 @@ mod receipt;
 mod retract;
 mod typing;
 
-pub use deliver::{handle_peer_deliver, AuthenticatedPeer, FederationBackend, FetchedBlob};
+pub use deliver::{AuthenticatedPeer, FederationBackend, FetchedBlob, handle_peer_deliver};
 pub use group_update::handle_peer_group_update;
 pub use outbound::{
-    aggregate_delivery_state, is_transient, other_participants, outbound_reference,
-    peer_group_update_args, DeliveryFailure, OutboundError, SenderIdentities,
+    DeliveryFailure, OutboundError, SenderIdentities, aggregate_delivery_state, is_transient,
+    other_participants, outbound_reference, peer_group_update_args,
 };
 pub use presence::{
-    handle_peer_presence, handle_peer_subscribe_presence, handle_peer_unsubscribe_presence,
-    FederationPresenceBackend,
+    FederationPresenceBackend, handle_peer_presence, handle_peer_subscribe_presence,
+    handle_peer_unsubscribe_presence,
 };
 pub use receipt::handle_peer_receipt;
 pub use retract::handle_peer_retract;

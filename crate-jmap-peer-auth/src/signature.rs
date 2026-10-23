@@ -4,13 +4,13 @@
 use std::fmt::Write as _;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ed25519_dalek::{Signature, Signer as _, SigningKey, VerifyingKey};
 use http::{HeaderMap, HeaderValue, Method, Uri};
 use sfv::{
-    key_ref, string_ref, BareItem, DictSerializer, Dictionary, InnerList, Integer, ListEntry,
-    ListSerializer, Parameters, Parser, StringRef, Version,
+    BareItem, DictSerializer, Dictionary, InnerList, Integer, ListEntry, ListSerializer,
+    Parameters, Parser, StringRef, Version, key_ref, string_ref,
 };
 use sha2::{Digest, Sha256};
 

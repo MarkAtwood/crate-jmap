@@ -13,7 +13,7 @@ mod common;
 
 use common::*;
 use jmap_graph_server::{handle_graph_node_set, handle_graph_set};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Asserts the hand-written RFC 8620 §5.3 SetError for a malformed id.
 fn assert_invalid_id(entry: &Value, resp: &Value) {

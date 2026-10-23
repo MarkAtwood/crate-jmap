@@ -4,12 +4,12 @@
 use jmap_chat_federation_types::{PeerAck, PeerTypingArgs};
 use jmap_chat_server::should_deliver_typing;
 use jmap_chat_types::ChatTypingEvent;
-use jmap_server::{serialize_value, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, serialize_value, server_fail_from_backend};
 use jmap_types::JmapError;
 use serde_json::json;
 
-use crate::deliver::{authenticate, check_account, get_chat, is_participant, Identities, Who};
 use crate::FederationBackend;
+use crate::deliver::{Identities, Who, authenticate, check_account, get_chat, is_participant};
 
 /// Handle a `Peer/typing` method call.
 ///

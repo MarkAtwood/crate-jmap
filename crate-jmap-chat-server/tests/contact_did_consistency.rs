@@ -15,11 +15,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::{handle_contact_get, handle_contact_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const DID_A: &str = "did:example:123456789abcdefghi";
 const DID_B: &str = "did:web:w3c-ccg.github.io:user:alice";

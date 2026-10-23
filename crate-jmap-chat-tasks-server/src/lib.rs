@@ -33,16 +33,16 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{
-    task_chat_id, ChatTasksCapability, Space, JMAP_CHAT_URI, SPACE_TASK_LIST_ID_PROPERTY,
-    TASK_CHAT_ID_PROPERTY,
+    ChatTasksCapability, JMAP_CHAT_URI, SPACE_TASK_LIST_ID_PROPERTY, Space, TASK_CHAT_ID_PROPERTY,
+    task_chat_id,
 };
 use jmap_tasks_server::{BackendSetError, SetError, SetErrorType, TasksBackend};
-use jmap_tasks_types::{Task, TaskList, JMAP_TASKS_URI};
+use jmap_tasks_types::{JMAP_TASKS_URI, Task, TaskList};
 use jmap_types::{Id, PatchObject};
 use serde_json::Value;
 
@@ -125,14 +125,14 @@ pub async fn check_task_list_id<K: TasksBackend>(
                 return Ok(Err(invalid(
                     SPACE_TASK_LIST_ID_PROPERTY,
                     "taskListId must be a valid Id",
-                )))
+                )));
             }
         },
         _ => {
             return Ok(Err(invalid(
                 SPACE_TASK_LIST_ID_PROPERTY,
                 "taskListId must be a String or null",
-            )))
+            )));
         }
     };
     let ids = std::slice::from_ref(&task_list_id);

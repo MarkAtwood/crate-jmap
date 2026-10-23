@@ -121,8 +121,8 @@ pub mod query;
 mod region;
 
 pub use asset::{
-    handle_scene_asset_changes, handle_scene_asset_get, handle_scene_asset_query,
-    handle_scene_asset_query_changes, handle_scene_asset_set, GLTF_BINARY,
+    GLTF_BINARY, handle_scene_asset_changes, handle_scene_asset_get, handle_scene_asset_query,
+    handle_scene_asset_query_changes, handle_scene_asset_set,
 };
 pub use avatar::{
     handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_avatar_query,
@@ -130,8 +130,8 @@ pub use avatar::{
 };
 pub use backend::{BindingProperty, BindingTarget, SceneBackend};
 pub use ephemeral::{
-    should_deliver, validate_interaction, RegionScope, SceneEphemeralSubscription,
-    SceneStreamFilter,
+    RegionScope, SceneEphemeralSubscription, SceneStreamFilter, should_deliver,
+    validate_interaction,
 };
 pub use interact::handle_scene_object_interact;
 pub use jmap_server::{
@@ -143,7 +143,7 @@ pub use object::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,
     handle_scene_object_query_changes, handle_scene_object_set,
 };
-pub use push::{push_urgency, SceneEvent, Urgency, SCENE_DATA_TYPES};
+pub use push::{SCENE_DATA_TYPES, SceneEvent, Urgency, push_urgency};
 pub use region::{
     handle_scene_region_changes, handle_scene_region_get, handle_scene_region_query,
     handle_scene_region_query_changes, handle_scene_region_set,

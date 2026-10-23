@@ -18,7 +18,7 @@ use jmap_chat_client::{
     SpaceInviteCreateInput, SpacePatch,
 };
 use jmap_types::{Id, State, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

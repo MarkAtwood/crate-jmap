@@ -11,7 +11,7 @@
 
 mod common;
 
-use common::{make_chat_group, seed_group_chat, MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, make_chat_group, seed_group_chat};
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_server::{
     handle_ban_get, handle_ban_set, handle_chat_get, handle_chat_set, handle_contact_get,
@@ -19,7 +19,7 @@ use jmap_chat_server::{
     handle_position_set, handle_presence_get, handle_presence_set,
 };
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Assert a `/set` response rejected `id` with `invalidProperties`.
 fn assert_rejected(resp: &Value, id: &str) {

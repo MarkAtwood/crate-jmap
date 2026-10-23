@@ -7,8 +7,8 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use http::header::{AGE, CACHE_CONTROL, DATE, EXPIRES};
 use http::HeaderMap;
+use http::header::{AGE, CACHE_CONTROL, DATE, EXPIRES};
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use reqwest::redirect;
 

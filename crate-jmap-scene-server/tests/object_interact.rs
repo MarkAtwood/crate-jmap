@@ -16,7 +16,7 @@ use jmap_scene_server::{handle_scene_object_interact, register_scene_handlers};
 use jmap_scene_types::SceneObject;
 use jmap_server::{Dispatcher, JmapBackend};
 use jmap_types::{Id, JmapRequest, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The region of the example request.
 const R1: &str = "01J5ABC0000000000000000001";

@@ -180,7 +180,7 @@ pub trait SceneBackend: JmapBackend {
         create_id: &str,
         build: F,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
-           + Send
+    + Send
     where
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;

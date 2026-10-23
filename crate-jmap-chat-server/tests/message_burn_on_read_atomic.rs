@@ -9,11 +9,11 @@
 
 mod common;
 
-use common::{seed_group_chat, InjectableBackend};
+use common::{InjectableBackend, seed_group_chat};
 use jmap_chat_server::message::{handle_message_changes, handle_message_get, handle_message_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT_ID: &str = "a1";
 const READ_AT: &str = "2024-01-02T00:00:00Z";

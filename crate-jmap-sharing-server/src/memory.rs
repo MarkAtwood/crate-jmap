@@ -314,7 +314,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         }
                     }
@@ -332,7 +332,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         },
                         None => not_found.push(id.clone()),
@@ -377,10 +377,10 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
-        if let Some(max) = max_changes {
-            if relevant.len() as u64 > max {
-                return Err(BackendChangesError::TooManyChanges { limit: max });
-            }
+        if let Some(max) = max_changes
+            && relevant.len() as u64 > max
+        {
+            return Err(BackendChangesError::TooManyChanges { limit: max });
         }
 
         // Compute each id's NET outcome across the change interval.

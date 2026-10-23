@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
+use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::collision::{self, CollisionError};

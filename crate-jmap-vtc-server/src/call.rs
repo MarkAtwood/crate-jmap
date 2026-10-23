@@ -18,19 +18,19 @@ use jmap_vtc_types::{
 };
 use jmap_vtc_types::{VtcCallComparator, VtcCallFilter};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::helpers::{
-    backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, peek_filter, reject_unsupported_sort,
-    set_error_value, state_refused, utc_key, SetAccumulators,
+    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
+    extract_account_id, fetch_one, finalize_set_response, forbidden, invalid, peek_filter,
+    reject_unsupported_sort, set_error_value, state_refused, utc_key,
 };
 use crate::media::{stop_livestreams, stop_recordings};
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
-    now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, now_utc_string, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// Capability URI of draft-atwood-jmap-chat-00, which gates the Chat binding
@@ -170,10 +170,10 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut acc = SetAccumulators::default();
@@ -287,7 +287,7 @@ async fn create_call<B: VtcBackend>(
             return Err(invalid(
                 &["callType"],
                 "callType must be \"ring\", \"room\" or \"scheduled\"",
-            ))
+            ));
         }
     };
 
@@ -563,7 +563,7 @@ async fn update_call<B: VtcBackend>(
                 return Err(invalid(
                     &["state"],
                     "this state transition is not permitted by the state machine",
-                ))
+                ));
             }
         };
         // §Ending a Call: "The server sets `endedAt` ... The server sets

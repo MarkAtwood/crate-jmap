@@ -13,19 +13,19 @@
 use jmap_scene_types::SceneRegionComparator;
 use jmap_scene_types::{GeoAnchor, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::helpers::{
-    backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid,
+    SetAccumulators, backend_set_error_value, default_sort, enforce_max_objects_in_set,
+    extract_account_id, fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid,
     normalized_quaternion, not_found, numbers, orientation_ok, reject_unsupported_sort,
-    set_error_value, SetAccumulators,
+    set_error_value,
 };
 use crate::{BindingProperty, BindingTarget, SceneBackend};
 use jmap_server::{
-    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, SetError,
-    SetErrorType,
+    HandlerOutput, SetError, SetErrorType, apply_patch_object, now_utc_string,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
@@ -163,10 +163,10 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut acc = SetAccumulators::default();
@@ -395,27 +395,26 @@ async fn check_bindings<B: SceneBackend>(
             _ => {}
         }
     }
-    if touched("channelId") || touched("spaceId") {
-        if let (Some(channel), Some(space)) = (
+    if (touched("channelId") || touched("spaceId"))
+        && let (Some(channel), Some(space)) = (
             m.get("channelId").and_then(Value::as_str),
             m.get("spaceId").and_then(Value::as_str),
-        ) {
-            let in_space = backend
-                .channel_in_space(
-                    caller,
-                    account_id,
-                    &Id::new_validated(channel)
-                        .map_err(|e| invalid(&["channelId"], &e.to_string()))?,
-                    &Id::new_validated(space).map_err(|e| invalid(&["spaceId"], &e.to_string()))?,
-                )
-                .await
-                .map_err(|e| server_fail_value_from_backend(&e))?;
-            if !in_space {
-                return Err(invalid(
-                    &["channelId"],
-                    "channelId is not a channel of the Space named by spaceId",
-                ));
-            }
+        )
+    {
+        let in_space = backend
+            .channel_in_space(
+                caller,
+                account_id,
+                &Id::new_validated(channel).map_err(|e| invalid(&["channelId"], &e.to_string()))?,
+                &Id::new_validated(space).map_err(|e| invalid(&["spaceId"], &e.to_string()))?,
+            )
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        if !in_space {
+            return Err(invalid(
+                &["channelId"],
+                "channelId is not a channel of the Space named by spaceId",
+            ));
         }
     }
     Ok(())
@@ -591,12 +590,12 @@ async fn update_region<B: SceneBackend>(
     let mut echo = Map::new();
     echo.insert("updatedAt".to_owned(), json!(now));
     let map = patch.as_map_mut();
-    if touched("spawnOrientation") {
-        if let Some(q) = normalized_quaternion(&result, "spawnOrientation") {
-            map.retain(|k, _| top(k) != "spawnOrientation");
-            map.insert("spawnOrientation".to_owned(), q.clone());
-            echo.insert("spawnOrientation".to_owned(), q);
-        }
+    if touched("spawnOrientation")
+        && let Some(q) = normalized_quaternion(&result, "spawnOrientation")
+    {
+        map.retain(|k, _| top(k) != "spawnOrientation");
+        map.insert("spawnOrientation".to_owned(), q.clone());
+        echo.insert("spawnOrientation".to_owned(), q);
     }
     map.insert("updatedAt".to_owned(), json!(now));
     match backend

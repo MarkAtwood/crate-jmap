@@ -62,11 +62,11 @@ mod key;
 mod plc;
 mod webvh;
 
-pub use capability::{DidAccountCapability, DidCapability, KeyCustody, JMAP_DID_URI};
+pub use capability::{DidAccountCapability, DidCapability, JMAP_DID_URI, KeyCustody};
 pub use did::{Did, DidError};
 pub use key::{DidKey, DidKeyError, KeyType};
-pub use plc::{verify_plc_audit_log, PlcError, PlcService, PlcState, PlcStatus};
+pub use plc::{PlcError, PlcService, PlcState, PlcStatus, verify_plc_audit_log};
 pub use webvh::{
-    verify_webvh_log, webvh_log_url, WebvhError, WebvhLog, WebvhParameters, WebvhVersion,
-    WebvhWitness,
+    WebvhError, WebvhLog, WebvhParameters, WebvhVersion, WebvhWitness, verify_webvh_log,
+    webvh_log_url,
 };

@@ -30,18 +30,18 @@ use jmap_chat_types::SPEC_CHAT_MEMBER_ROLES;
 use jmap_chat_types::{Chat, ChatKind, ChatMember, ChatMemberRole, Message, ReadPosition};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
+use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
-    default_sort, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    now_utc_string, reject_unsupported_sort, set_error_value, SetAccumulators,
+    SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, now_utc_string, reject_unsupported_sort, set_error_value,
 };
-use crate::helpers::{mistyped_create_props, PropType};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    is_client_updatable, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, is_client_updatable, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 /// `Chat/set` update keys that change a group Chat's member list
@@ -561,10 +561,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = serde_json::Map::new();
@@ -1147,36 +1147,34 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 let top = k.split('/').next().unwrap_or(k);
                 MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
             });
-            if touches_closed_keys {
-                if let Some(chat) = &stored {
-                    if chat.closed_at.is_some() {
-                        not_updated.insert(
-                            id_str,
-                            json!({ "type": "forbidden", "description": "the group is closed" }),
-                        );
-                        continue;
-                    }
-                    // "For group chats, admins additionally may update:
-                    // `name`, `description`, `avatarBlobId`."
-                    let touches_admin_keys = patch
-                        .as_map()
-                        .keys()
-                        .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
-                    if touches_admin_keys
-                        && !(chat.kind == ChatKind::Group && is_chat_admin(chat, &account_id))
-                    {
-                        not_updated.insert(
+            if touches_closed_keys && let Some(chat) = &stored {
+                if chat.closed_at.is_some() {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "forbidden", "description": "the group is closed" }),
+                    );
+                    continue;
+                }
+                // "For group chats, admins additionally may update:
+                // `name`, `description`, `avatarBlobId`."
+                let touches_admin_keys = patch
+                    .as_map()
+                    .keys()
+                    .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
+                if touches_admin_keys
+                    && !(chat.kind == ChatKind::Group && is_chat_admin(chat, &account_id))
+                {
+                    not_updated.insert(
                             id_str,
                             json!({
                                 "type": "forbidden",
                                 "description": "only group chat admins may update name, description and avatarBlobId",
                             }),
                         );
-                        continue;
-                    }
-                    if chat.kind == ChatKind::Group {
-                        group_before = Some(chat.members.clone().unwrap_or_default());
-                    }
+                    continue;
+                }
+                if chat.kind == ChatKind::Group {
+                    group_before = Some(chat.members.clone().unwrap_or_default());
                 }
             }
 
@@ -1191,32 +1189,30 @@ pub async fn handle_chat_set<B: ChatBackend>(
             if MEMBER_PATCH_KEYS
                 .iter()
                 .any(|k| patch.as_map().contains_key(*k))
+                && let Some(stored) = &stored
             {
-                if let Some(stored) = &stored {
-                    let max_members = backend.limits(caller, &account_id).max_group_chat_members;
-                    match apply_member_patch_keys(stored, &account_id, patch.as_map(), max_members)
-                    {
-                        Ok((members, closes)) => {
-                            member_change = Some((members.clone(), closes));
-                            let map = patch.as_map_mut();
-                            for key in MEMBER_PATCH_KEYS {
-                                map.remove(*key);
-                            }
-                            map.insert(
-                                "members".to_owned(),
-                                serde_json::to_value(members)
-                                    .expect("derive(Serialize) on plain data is infallible"),
-                            );
-                            // "the server MUST set `closedAt` ({{chat}}) in
-                            // the same operation".
-                            if closes {
-                                map.insert("closedAt".to_owned(), json!(now_utc_string()));
-                            }
+                let max_members = backend.limits(caller, &account_id).max_group_chat_members;
+                match apply_member_patch_keys(stored, &account_id, patch.as_map(), max_members) {
+                    Ok((members, closes)) => {
+                        member_change = Some((members.clone(), closes));
+                        let map = patch.as_map_mut();
+                        for key in MEMBER_PATCH_KEYS {
+                            map.remove(*key);
                         }
-                        Err(set_err) => {
-                            not_updated.insert(id_str, set_error_value(&set_err));
-                            continue;
+                        map.insert(
+                            "members".to_owned(),
+                            serde_json::to_value(members)
+                                .expect("derive(Serialize) on plain data is infallible"),
+                        );
+                        // "the server MUST set `closedAt` ({{chat}}) in
+                        // the same operation".
+                        if closes {
+                            map.insert("closedAt".to_owned(), json!(now_utc_string()));
                         }
+                    }
+                    Err(set_err) => {
+                        not_updated.insert(id_str, set_error_value(&set_err));
+                        continue;
                     }
                 }
             }
@@ -1255,38 +1251,38 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // ponytail: check-then-update is not atomic; a Message
             // hard-deleted between the two leaves a stale pin. A backend
             // needing strictness re-checks inside its update transaction.
-            if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds") {
-                if let Some(stored) = &stored {
-                    let pins = match new_pins
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(|s| jmap_server::parse_wire_id(s, "pinnedMessageIds"))
-                        .collect::<Result<Vec<Id>, _>>()
+            if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds")
+                && let Some(stored) = &stored
+            {
+                let pins = match new_pins
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(|s| jmap_server::parse_wire_id(s, "pinnedMessageIds"))
+                    .collect::<Result<Vec<Id>, _>>()
+                {
+                    Ok(pins) => pins,
+                    Err(err) => {
+                        not_updated.insert(id_str, set_error_value(&err));
+                        continue;
+                    }
+                };
+                let added: Vec<Id> = pins
+                    .into_iter()
+                    .filter(|pin| !stored.pinned_message_ids.contains(pin))
+                    .collect();
+                if !added.is_empty() {
+                    match backend
+                        .validate_pinned_message_ids(caller, &account_id, &id, &added)
+                        .await
                     {
-                        Ok(pins) => pins,
-                        Err(err) => {
-                            not_updated.insert(id_str, set_error_value(&err));
+                        Ok(Ok(())) => {}
+                        Ok(Err(set_err)) => {
+                            not_updated.insert(id_str, set_error_value(&set_err));
                             continue;
                         }
-                    };
-                    let added: Vec<Id> = pins
-                        .into_iter()
-                        .filter(|pin| !stored.pinned_message_ids.contains(pin))
-                        .collect();
-                    if !added.is_empty() {
-                        match backend
-                            .validate_pinned_message_ids(caller, &account_id, &id, &added)
-                            .await
-                        {
-                            Ok(Ok(())) => {}
-                            Ok(Err(set_err)) => {
-                                not_updated.insert(id_str, set_error_value(&set_err));
-                                continue;
-                            }
-                            Err(e) => {
-                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                                continue;
-                            }
+                        Err(e) => {
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                            continue;
                         }
                     }
                 }

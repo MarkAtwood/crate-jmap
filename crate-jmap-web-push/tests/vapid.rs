@@ -3,8 +3,8 @@
 //! Oracles: the RFC 8292 §2.4 example token (header and claims segments)
 //! and the RFC 8291 §5 example sender key pair (the `k` parameter).
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_web_push::p256::ecdsa::signature::Verifier as _;
 use jmap_web_push::p256::ecdsa::{Signature, SigningKey, VerifyingKey};
 use jmap_web_push::url::Url;

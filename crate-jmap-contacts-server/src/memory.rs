@@ -512,7 +512,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         }
                     }
@@ -530,7 +530,7 @@ impl JmapBackend for MemoryBackend {
                                 return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
-                                )))
+                                )));
                             }
                         },
                         None => not_found.push(id.clone()),
@@ -575,10 +575,10 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
-        if let Some(max) = max_changes {
-            if relevant.len() as u64 > max {
-                return Err(BackendChangesError::TooManyChanges { limit: max });
-            }
+        if let Some(max) = max_changes
+            && relevant.len() as u64 > max
+        {
+            return Err(BackendChangesError::TooManyChanges { limit: max });
         }
 
         // bd:JMAP-ic0j.75 — RFC 8620 §5.2 SHOULD-preferred path: if an id is
@@ -861,19 +861,18 @@ impl ContactsBackend for MemoryBackend {
         // RFC 9610 §3: a ContactCard's uid MUST be unique within an
         // Account. Reject the create if another card in the same
         // account already has the same uid (bd:JMAP-qz9v.6).
-        if O::TYPE_NAME == "ContactCard" {
-            if let Some(new_uid) = val.get("uid").and_then(|v| v.as_str()) {
-                if account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, None) {
-                    return Err(BackendSetError::SetError(Box::new(
-                        SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(["uid"])
-                            .with_description(
-                                "ContactCard.uid must be unique within an Account \
+        if O::TYPE_NAME == "ContactCard"
+            && let Some(new_uid) = val.get("uid").and_then(|v| v.as_str())
+            && account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, None)
+        {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["uid"])
+                    .with_description(
+                        "ContactCard.uid must be unique within an Account \
                                  (RFC 9610 §3)",
-                            ),
-                    )));
-                }
-            }
+                    ),
+            )));
         }
 
         // bd:JMAP-qz9v.5 — RFC 9610 §2 AddressBook single-default invariant.
@@ -898,11 +897,11 @@ impl ContactsBackend for MemoryBackend {
         if O::TYPE_NAME == "AddressBook" && address_book_is_default(&val) {
             let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
             for (other_id, other_val) in store.iter_mut() {
-                if address_book_is_default(other_val) {
-                    if let Some(map) = other_val.as_object_mut() {
-                        map.insert("isDefault".to_owned(), serde_json::Value::Bool(false));
-                        demoted_ids.push(other_id.clone());
-                    }
+                if address_book_is_default(other_val)
+                    && let Some(map) = other_val.as_object_mut()
+                {
+                    map.insert("isDefault".to_owned(), serde_json::Value::Bool(false));
+                    demoted_ids.push(other_id.clone());
                 }
             }
         }
@@ -1005,19 +1004,18 @@ impl ContactsBackend for MemoryBackend {
         // changes uid to a value another card already uses, reject
         // (bd:JMAP-qz9v.6). The card being updated is excluded so a
         // no-op patch (or a patch that keeps the same uid) is allowed.
-        if O::TYPE_NAME == "ContactCard" {
-            if let Some(new_uid) = current.get("uid").and_then(|v| v.as_str()) {
-                if account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, Some(id)) {
-                    return Err(BackendSetError::SetError(Box::new(
-                        SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(["uid"])
-                            .with_description(
-                                "ContactCard.uid must be unique within an Account \
+        if O::TYPE_NAME == "ContactCard"
+            && let Some(new_uid) = current.get("uid").and_then(|v| v.as_str())
+            && account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, Some(id))
+        {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["uid"])
+                    .with_description(
+                        "ContactCard.uid must be unique within an Account \
                                  (RFC 9610 §3)",
-                            ),
-                    )));
-                }
-            }
+                    ),
+            )));
         }
 
         // bd:JMAP-qz9v.11 — AddressBook single-default invariant.
@@ -1041,11 +1039,11 @@ impl ContactsBackend for MemoryBackend {
                 if other_id == id {
                     continue;
                 }
-                if address_book_is_default(other_val) {
-                    if let Some(map) = other_val.as_object_mut() {
-                        map.insert("isDefault".to_owned(), serde_json::Value::Bool(false));
-                        demoted_ids.push(other_id.clone());
-                    }
+                if address_book_is_default(other_val)
+                    && let Some(map) = other_val.as_object_mut()
+                {
+                    map.insert("isDefault".to_owned(), serde_json::Value::Bool(false));
+                    demoted_ids.push(other_id.clone());
                 }
             }
         }
@@ -1257,10 +1255,10 @@ fn contact_card_matches_filter(card: &serde_json::Value, f: &ContactCardFilterCo
     }
 
     // uid: exact match on the top-level uid string.
-    if let Some(ref want_uid) = f.uid {
-        if card.get("uid").and_then(|v| v.as_str()) != Some(want_uid.as_str()) {
-            return false;
-        }
+    if let Some(ref want_uid) = f.uid
+        && card.get("uid").and_then(|v| v.as_str()) != Some(want_uid.as_str())
+    {
+        return false;
     }
 
     // hasMember: card.members map must contain the requested uid as a key.
@@ -1275,10 +1273,10 @@ fn contact_card_matches_filter(card: &serde_json::Value, f: &ContactCardFilterCo
     }
 
     // kind: exact match on the top-level kind string.
-    if let Some(ref want_kind) = f.kind {
-        if card.get("kind").and_then(|v| v.as_str()) != Some(want_kind.as_str()) {
-            return false;
-        }
+    if let Some(ref want_kind) = f.kind
+        && card.get("kind").and_then(|v| v.as_str()) != Some(want_kind.as_str())
+    {
+        return false;
     }
 
     // createdBefore / createdAfter: lexicographic string comparison on
@@ -1316,10 +1314,10 @@ fn contact_card_matches_filter(card: &serde_json::Value, f: &ContactCardFilterCo
     // card. The exact field set is implementation-defined per §3.3.1; a
     // recursive scan covers all current and future typed fields without
     // requiring updates as the JSContact surface grows.
-    if let Some(ref needle) = f.text {
-        if !json_contains_substring_recursive(card, needle) {
-            return false;
-        }
+    if let Some(ref needle) = f.text
+        && !json_contains_substring_recursive(card, needle)
+    {
+        return false;
     }
 
     // name: substring match on card.name.full OR any NameComponent.value.
@@ -2173,7 +2171,7 @@ mod address_book_card_counts_tests {
     fn contact_card(
         uid: &str,
         book_ids: &[&str],
-    ) -> impl FnOnce(&Id) -> jmap_contacts_types::ContactCard + Send {
+    ) -> impl FnOnce(&Id) -> jmap_contacts_types::ContactCard + Send + use<> {
         let mut book_id_map = serde_json::Map::new();
         for b in book_ids {
             book_id_map.insert((*b).to_owned(), serde_json::Value::Bool(true));

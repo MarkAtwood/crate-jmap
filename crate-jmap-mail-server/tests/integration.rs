@@ -8,15 +8,15 @@
 
 mod common;
 
-use common::{seed::setup_seed_data, FaultyBackend, MemoryBackend, FAULTY_BACKEND_CANARY};
+use common::{FAULTY_BACKEND_CANARY, FaultyBackend, MemoryBackend, seed::setup_seed_data};
 use jmap_mail_server::{
-    handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
-    handle_email_query_changes, handle_email_set, handle_identity_changes, handle_identity_get,
-    handle_identity_set, handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query,
-    handle_mailbox_query_changes, handle_mailbox_set, handle_search_snippet_get,
-    handle_submission_get, handle_submission_query, handle_submission_query_changes,
-    handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
-    handle_vacation_set, JmapBackend, JmapObject, MailBackend, SetErrorType,
+    JmapBackend, JmapObject, MailBackend, SetErrorType, handle_email_changes, handle_email_get,
+    handle_email_import, handle_email_query, handle_email_query_changes, handle_email_set,
+    handle_identity_changes, handle_identity_get, handle_identity_set, handle_mailbox_changes,
+    handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes, handle_mailbox_set,
+    handle_search_snippet_get, handle_submission_get, handle_submission_query,
+    handle_submission_query_changes, handle_submission_set, handle_thread_changes,
+    handle_thread_get, handle_vacation_get, handle_vacation_set,
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_server::{HandlerOutput, QueryChangesParams, QueryParams};

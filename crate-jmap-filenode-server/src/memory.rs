@@ -189,12 +189,11 @@ impl AccountStore {
     /// not to collide with the `node-N` allocator anyway.
     fn sync_counter_with_seeded_id(&mut self, id: &Id) {
         let s = id.as_ref();
-        if let Some(rest) = s.strip_prefix("node-") {
-            if let Ok(n) = rest.parse::<u64>() {
-                if n > self.node_counter {
-                    self.node_counter = n;
-                }
-            }
+        if let Some(rest) = s.strip_prefix("node-")
+            && let Ok(n) = rest.parse::<u64>()
+            && n > self.node_counter
+        {
+            self.node_counter = n;
         }
     }
 
@@ -471,7 +470,7 @@ impl JmapBackend for MemoryBackend {
                     vec![],
                     false,
                     State::from("0"),
-                ))
+                ));
             }
         };
 
@@ -541,7 +540,7 @@ impl JmapBackend for MemoryBackend {
                     Some(0),
                     State::from("0"),
                     false,
-                ))
+                ));
             }
         };
         let current_state = State::from(store.state.to_string());
@@ -616,7 +615,7 @@ impl JmapBackend for MemoryBackend {
                     Some(0),
                     vec![],
                     vec![],
-                ))
+                ));
             }
         };
         let current_state = State::from(store.state.to_string());
@@ -1057,10 +1056,10 @@ fn node_matches_filter(
         None => return Ok(true), // No filter — all nodes match.
     };
 
-    if let Some(ref pid) = fc.parent_id {
-        if node.parent_id.as_ref() != Some(pid) {
-            return Ok(false);
-        }
+    if let Some(ref pid) = fc.parent_id
+        && node.parent_id.as_ref() != Some(pid)
+    {
+        return Ok(false);
     }
 
     if let Some(is_top) = fc.is_top_level {
@@ -1136,10 +1135,10 @@ fn node_matches_filter(
         }
     }
 
-    if let Some(ref sid) = fc.space_id {
-        if node.space_id.as_ref() != Some(sid) {
-            return Ok(false);
-        }
+    if let Some(ref sid) = fc.space_id
+        && node.space_id.as_ref() != Some(sid)
+    {
+        return Ok(false);
     }
 
     if let Some(has_role) = fc.has_any_role {
@@ -1149,28 +1148,28 @@ fn node_matches_filter(
         }
     }
 
-    if let Some(ref bid) = fc.blob_id {
-        if node.blob_id.as_ref() != Some(bid) {
-            return Ok(false);
-        }
+    if let Some(ref bid) = fc.blob_id
+        && node.blob_id.as_ref() != Some(bid)
+    {
+        return Ok(false);
     }
 
-    if let Some(ref mt) = fc.media_type {
-        if node.media_type.as_deref() != Some(mt.as_str()) {
-            return Ok(false);
-        }
+    if let Some(ref mt) = fc.media_type
+        && node.media_type.as_deref() != Some(mt.as_str())
+    {
+        return Ok(false);
     }
 
-    if let Some(ref name) = fc.name {
-        if node.name != *name {
-            return Ok(false);
-        }
+    if let Some(ref name) = fc.name
+        && node.name != *name
+    {
+        return Ok(false);
     }
 
-    if let Some(ref pattern) = fc.name_match {
-        if !glob_match_case_insensitive(pattern, &node.name) {
-            return Ok(false);
-        }
+    if let Some(ref pattern) = fc.name_match
+        && !glob_match_case_insensitive(pattern, &node.name)
+    {
+        return Ok(false);
     }
 
     if let Some(ref pattern) = fc.media_type_match {
@@ -1180,53 +1179,53 @@ fn node_matches_filter(
         }
     }
 
-    if let Some(is_exec) = fc.is_executable {
-        if node.executable.unwrap_or(false) != is_exec {
-            return Ok(false);
-        }
+    if let Some(is_exec) = fc.is_executable
+        && node.executable.unwrap_or(false) != is_exec
+    {
+        return Ok(false);
     }
 
-    if let Some(min) = fc.min_size {
-        if node.size.unwrap_or(0) < min {
-            return Ok(false);
-        }
+    if let Some(min) = fc.min_size
+        && node.size.unwrap_or(0) < min
+    {
+        return Ok(false);
     }
 
-    if let Some(max) = fc.max_size {
-        if node.size.unwrap_or(0) >= max {
-            return Ok(false);
-        }
+    if let Some(max) = fc.max_size
+        && node.size.unwrap_or(0) >= max
+    {
+        return Ok(false);
     }
 
-    if let Some(ref before) = fc.created_before {
-        if !date_strictly_before(node.created.as_ref(), before) {
-            return Ok(false);
-        }
+    if let Some(ref before) = fc.created_before
+        && !date_strictly_before(node.created.as_ref(), before)
+    {
+        return Ok(false);
     }
-    if let Some(ref after) = fc.created_after {
-        if !date_on_or_after(node.created.as_ref(), after) {
-            return Ok(false);
-        }
+    if let Some(ref after) = fc.created_after
+        && !date_on_or_after(node.created.as_ref(), after)
+    {
+        return Ok(false);
     }
-    if let Some(ref before) = fc.modified_before {
-        if !date_strictly_before(node.modified.as_ref(), before) {
-            return Ok(false);
-        }
+    if let Some(ref before) = fc.modified_before
+        && !date_strictly_before(node.modified.as_ref(), before)
+    {
+        return Ok(false);
     }
-    if let Some(ref after) = fc.modified_after {
-        if !date_on_or_after(node.modified.as_ref(), after) {
-            return Ok(false);
-        }
+    if let Some(ref after) = fc.modified_after
+        && !date_on_or_after(node.modified.as_ref(), after)
+    {
+        return Ok(false);
     }
-    if let Some(ref before) = fc.accessed_before {
-        if !date_strictly_before(node.accessed.as_ref(), before) {
-            return Ok(false);
-        }
+    if let Some(ref before) = fc.accessed_before
+        && !date_strictly_before(node.accessed.as_ref(), before)
+    {
+        return Ok(false);
     }
-    if let Some(ref after) = fc.accessed_after {
-        if !date_on_or_after(node.accessed.as_ref(), after) {
-            return Ok(false);
-        }
+    if let Some(ref after) = fc.accessed_after
+        && !date_on_or_after(node.accessed.as_ref(), after)
+    {
+        return Ok(false);
     }
 
     if fc.body.is_some() {

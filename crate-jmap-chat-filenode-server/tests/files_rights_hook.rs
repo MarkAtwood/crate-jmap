@@ -29,7 +29,7 @@ use jmap_filenode_server::{
 };
 use jmap_filenode_types::{FileNode, FilesRights};
 use jmap_types::{Id, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";

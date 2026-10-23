@@ -11,7 +11,7 @@
 
 mod common;
 
-use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, MemoryBackend, SPACE_ID, TrackingBackend};
 use jmap_chat_server::message::{
     handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
 };
@@ -19,7 +19,7 @@ use jmap_chat_server::{ChatBackend, JmapBackend, QueryChangesParams};
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 
 const CHANNEL_ID: &str = "ch1";
@@ -273,10 +273,12 @@ async fn default_everyone_floor_grants_view_and_send() {
     let members = json!([{ "id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }]);
     seed_channel_with_members(&backend, json!([]), members, json!([]));
     assert_created(&create_message(&backend, CHANNEL_ID).await);
-    assert!(backend
-        .may_view_chat(&(), &Id::from(ACCOUNT_ID), &Id::from(CHANNEL_ID))
-        .await
-        .expect("may_view_chat"));
+    assert!(
+        backend
+            .may_view_chat(&(), &Id::from(ACCOUNT_ID), &Id::from(CHANNEL_ID))
+            .await
+            .expect("may_view_chat")
+    );
 }
 
 /// §ChannelPermission `targetId` (jmap-chat-spec 29e9a41, L853): "A

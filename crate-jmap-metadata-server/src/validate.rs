@@ -7,7 +7,7 @@
 //! - [`is_namespace_supported`] — check whether a namespace identifier
 //!   is supported by a given [`DataTypeMetadataInfo`] capability.
 
-use jmap_metadata_types::{is_registered_namespace, is_vendor_namespace, DataTypeMetadataInfo};
+use jmap_metadata_types::{DataTypeMetadataInfo, is_registered_namespace, is_vendor_namespace};
 use serde_json::Value;
 
 /// Compute the depth of a metadata namespace value per

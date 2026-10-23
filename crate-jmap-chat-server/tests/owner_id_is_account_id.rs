@@ -10,10 +10,10 @@
 
 mod common;
 
-use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, seed_group_chat};
 use jmap_chat_server::message::{handle_message_get, handle_message_query, handle_message_set};
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn insert_message(backend: &MemoryBackend, id: &str, sender_id: &str, extra: Value) {
     let mut msg = json!({

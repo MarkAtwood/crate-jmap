@@ -20,14 +20,14 @@
 use std::collections::HashSet;
 
 use jmap_types::{Id, JmapError};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
+use crate::MailBackend;
 use crate::helpers::{
     enforce_max_objects_in_get, extract_account_id, filter_properties, not_found_json,
     serialize_value,
 };
-use crate::MailBackend;
-use jmap_server::{server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, server_fail_from_backend};
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
 ///

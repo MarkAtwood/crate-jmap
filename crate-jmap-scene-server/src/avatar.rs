@@ -17,19 +17,19 @@
 use jmap_scene_types::SceneAvatarComparator;
 use jmap_scene_types::{SceneAvatar, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
-use crate::helpers::{
-    backend_set_error_value, check_region_filter, default_sort, enforce_max_objects_in_set,
-    extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
-    invalid, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
-    set_error_value, SetAccumulators,
-};
 use crate::SceneBackend;
+use crate::helpers::{
+    SetAccumulators, backend_set_error_value, check_region_filter, default_sort,
+    enforce_max_objects_in_set, extract_account_id, fetch_one, finalize_set_response, finite3,
+    forbidden, handle_get_visible, invalid, normalized_quaternion, not_found, orientation_ok,
+    reject_unsupported_sort, set_error_value,
+};
 use jmap_server::{
-    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, SetError,
-    SetErrorType,
+    HandlerOutput, SetError, SetErrorType, apply_patch_object, now_utc_string,
+    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 /// "The server sets `id`, `userId` (to the caller's userId), `position`
@@ -158,10 +158,10 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut acc = SetAccumulators::default();
@@ -579,13 +579,13 @@ async fn update_avatar<B: SceneBackend>(
         refuse_reserved_name(backend, caller, account_id, &result).await?;
     }
 
-    if touched("orientation") {
-        if let Some(q) = normalized_quaternion(&result, "orientation") {
-            let map = patch.as_map_mut();
-            map.retain(|k, _| top(k) != "orientation");
-            map.insert("orientation".to_owned(), q.clone());
-            echo.insert("orientation".to_owned(), q);
-        }
+    if touched("orientation")
+        && let Some(q) = normalized_quaternion(&result, "orientation")
+    {
+        let map = patch.as_map_mut();
+        map.retain(|k, _| top(k) != "orientation");
+        map.insert("orientation".to_owned(), q.clone());
+        echo.insert("orientation".to_owned(), q);
     }
     match backend
         .update_object::<SceneAvatar>(caller, account_id, id, patch)

@@ -43,7 +43,7 @@
 
 use axum::{
     extract::{Request, State as AxumState},
-    http::{header, HeaderValue, StatusCode},
+    http::{HeaderValue, StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -141,10 +141,10 @@ pub async fn require_bearer_token(
 /// on `None`, which would re-introduce a timing oracle on "header
 /// present vs absent".
 fn extract_token(request: &Request) -> Vec<u8> {
-    if let Some(header_value) = request.headers().get(header::AUTHORIZATION) {
-        if let Some(token) = parse_bearer_header(header_value) {
-            return token;
-        }
+    if let Some(header_value) = request.headers().get(header::AUTHORIZATION)
+        && let Some(token) = parse_bearer_header(header_value)
+    {
+        return token;
     }
     parse_query_token(request).unwrap_or_default()
 }
@@ -271,9 +271,9 @@ fn unauthorized() -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::Router;
     use axum::body::Body as AxumBody;
     use axum::routing::get;
-    use axum::Router;
     use tower::ServiceExt;
 
     fn protected_router(state: AuthState) -> Router {
@@ -297,12 +297,13 @@ mod tests {
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
-        assert!(resp
-            .headers()
-            .get(header::WWW_AUTHENTICATE)
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("")
-            .starts_with("Bearer "));
+        assert!(
+            resp.headers()
+                .get(header::WWW_AUTHENTICATE)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .starts_with("Bearer ")
+        );
     }
 
     /// Oracle: the configured token authenticates successfully via

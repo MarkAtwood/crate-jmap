@@ -24,7 +24,7 @@
 //! let filter = VtcCallFilter::Condition(cond);
 //! ```
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -338,11 +338,13 @@ mod tests {
         // Oracle: RFC 8620 §5.5 "unsupportedFilter"; workspace policy maps
         // an unknown clause to a decode failure.
         assert!(serde_json::from_value::<VtcCallFilter>(json!({"bogus": 1})).is_err());
-        assert!(serde_json::from_value::<VtcCallFilter>(json!({
-            "operator": "AND",
-            "conditions": [{"state": "ended"}, {"bogus": 1}]
-        }))
-        .is_err());
+        assert!(
+            serde_json::from_value::<VtcCallFilter>(json!({
+                "operator": "AND",
+                "conditions": [{"state": "ended"}, {"bogus": 1}]
+            }))
+            .is_err()
+        );
     }
 
     #[test]

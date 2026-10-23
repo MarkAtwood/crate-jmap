@@ -10,8 +10,8 @@
 //! (copied from jmap-peer-auth-io, made with OpenSSL). They are test-only
 //! keys. The digests are FIPS 180-4 example vectors.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use jmap_cid_types::Sha256;
 use jmap_scene_client::{AssetFetchError, AssetFetcher};

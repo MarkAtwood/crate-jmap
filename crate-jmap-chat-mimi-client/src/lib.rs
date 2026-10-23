@@ -64,8 +64,8 @@ mod membership;
 mod methods;
 
 pub use group_info::{
-    group_info_names_hub_sender, verify_group_info_response, GroupInfoResponseError,
-    VerifiedGroupInfoResponse,
+    GroupInfoResponseError, VerifiedGroupInfoResponse, group_info_names_hub_sender,
+    verify_group_info_response,
 };
 pub use jmap_base_client::ClientError;
 pub use jmap_chat_mimi_types::MimiCapability;

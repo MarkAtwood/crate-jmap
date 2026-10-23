@@ -12,7 +12,7 @@ use common::*;
 use jmap_chat_federation_server::AuthenticatedPeer;
 use jmap_chat_types::ChatContact;
 use jmap_peer_auth::PeerDomain;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const SEEN: &str = "2026-10-20T12:00:00Z";
 const DAVE: &str = "dave@peer.example";

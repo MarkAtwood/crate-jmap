@@ -46,8 +46,8 @@ use jmap_chat_types::{
 };
 use jmap_types::{Id, JmapError};
 
-use crate::push::owner_is_member;
 use crate::ChatBackend;
+use crate::push::owner_is_member;
 
 /// Which ids a subscribed data type covers.
 #[non_exhaustive]

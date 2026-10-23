@@ -1,10 +1,10 @@
 //! `peerSigningKeys` (draft-atwood-jmap-chat-federation-00 §Key
 //! Publication) and the DNSSEC precedence rule (§DNSSEC Key Binding).
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use ed25519_dalek::VerifyingKey;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::Rejection;

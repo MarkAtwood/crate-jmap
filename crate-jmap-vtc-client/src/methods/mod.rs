@@ -16,7 +16,7 @@ pub mod vtc_recording;
 use std::collections::BTreeMap;
 
 use jmap_types::{Filter, Id, PatchObject, State};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 // ---------------------------------------------------------------------------
 // Response types (RFC 8620 §5)

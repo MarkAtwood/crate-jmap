@@ -2,14 +2,14 @@
 //! §Room/send, §Room/unbind and §GroupInfo/fetch: the methods that reach a
 //! room's hub through [`MimiBackend::mimi_request`].
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_types::{
     Base64Url, ClientKeyMaterial, GroupInfoCode, GroupInfoFetchResponse, KeyMaterialClientCode,
     KeyMaterialFetchResponse, KeyMaterialUserCode, RoomSendResponse, RoomUnbindResponse,
     RoomUpdateResponse, SubmitResponseCode, UpdateResponseCode,
 };
-use jmap_server::{extract_account_id, server_fail_from_backend, HandlerOutput};
+use jmap_server::{HandlerOutput, extract_account_id, server_fail_from_backend};
 use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{Map, Value};
 

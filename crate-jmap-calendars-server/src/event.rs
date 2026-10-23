@@ -33,19 +33,19 @@ use jmap_calendars_types::{
     CalendarEvent, CalendarEventFilter, CalendarEventFilterCondition, ParticipantIdentity,
 };
 use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, set_error_value, SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, set_error_value,
 };
 use crate::{
     BackendSetError, CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs,
     CalendarsBackend,
 };
 use jmap_server::{
-    bool_arg, filter_arg, query_anchor_args, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
+    HandlerOutput, QueryParams, bool_arg, filter_arg, query_anchor_args, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -379,10 +379,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     // §5.9: sendSchedulingMessages — Boolean (default false). When true, the
@@ -524,12 +524,11 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 }
             };
 
-            if let Some(map) = patch_val.as_object_mut() {
-                if let Err(err) = prepare_event_patch(backend, caller, &account_id, &id, map).await
-                {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
+            if let Some(map) = patch_val.as_object_mut()
+                && let Err(err) = prepare_event_patch(backend, caller, &account_id, &id, map).await
+            {
+                not_updated.insert(id_str, err);
+                continue;
             }
 
             // Convert wire-format Value into a typed PatchObject at the
@@ -799,10 +798,10 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         .map_err(|e| server_fail_from_backend(&e))?;
 
     // ifInState: verify destination account state matches (RFC 8620 §5.4).
-    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str())
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let on_success_destroy_original: bool = bool_arg(&args, "onSuccessDestroyOriginal", false);
@@ -998,15 +997,15 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
         // mismatch aborts that whole call with a method-level stateMismatch
         // error in place of the CalendarEvent/set response. Nothing is destroyed.
-        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
-            if if_in_state != destroy_old_state.as_ref() {
-                let err = json!({ "type": "stateMismatch" });
-                return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
-                    "error",
-                    err,
-                    call_id.to_owned(),
-                )]));
-            }
+        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str)
+            && if_in_state != destroy_old_state.as_ref()
+        {
+            let err = json!({ "type": "stateMismatch" });
+            return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
+                "error",
+                err,
+                call_id.to_owned(),
+            )]));
         }
 
         let mut destroyed_ids: Vec<Value> = Vec::new();
@@ -1122,7 +1121,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
-                )))
+                )));
             }
         },
     };
@@ -1164,13 +1163,14 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     // both bounds would let the backend produce an unbounded number of
     // synthetic ids, which the spec explicitly forbids.
     if expand_recurrences {
-        let condition =
-            match &filter {
-                Some(Filter::Condition(c)) if c.before.is_some() && c.after.is_some() => c,
-                _ => return Err(JmapError::invalid_arguments(
+        let condition = match &filter {
+            Some(Filter::Condition(c)) if c.before.is_some() && c.after.is_some() => c,
+            _ => {
+                return Err(JmapError::invalid_arguments(
                     "expandRecurrences requires a FilterCondition with both 'before' and 'after'",
-                )),
-            };
+                ));
+            }
+        };
 
         // bd:JMAP-ic0j.71 — defense-in-depth handler-side pre-check against
         // the account's `maxExpandedQueryDuration` cap (§10.8.3). Computes
@@ -1193,10 +1193,10 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
             // inverted-bound case. Positive durations are compared in
             // `u64` space so a cap of `u64::MAX` (effectively
             // unlimited) is honoured rather than wrapping through `i64`.
-            if let Ok(secs_u64) = u64::try_from(secs) {
-                if secs_u64 > limits.max_expanded_query_duration_seconds {
-                    return Err(JmapError::custom("expandDurationTooLarge"));
-                }
+            if let Ok(secs_u64) = u64::try_from(secs)
+                && secs_u64 > limits.max_expanded_query_duration_seconds
+            {
+                return Err(JmapError::custom("expandDurationTooLarge"));
             }
         }
     }
@@ -1234,10 +1234,8 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         "position": result.position,
         "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -3069,7 +3067,7 @@ mod tests {
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
             JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-            QueryParams, QueryResult, SetObject, SERVER_FAIL_INTERNAL_DESC,
+            QueryParams, QueryResult, SERVER_FAIL_INTERNAL_DESC, SetObject,
         };
         use jmap_types::State;
 
@@ -3295,7 +3293,7 @@ mod tests {
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
             JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-            QueryParams, QueryResult, SetObject, SERVER_FAIL_INTERNAL_DESC,
+            QueryParams, QueryResult, SERVER_FAIL_INTERNAL_DESC, SetObject,
         };
         use jmap_types::State;
 

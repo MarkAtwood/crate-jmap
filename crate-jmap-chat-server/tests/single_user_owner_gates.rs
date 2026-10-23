@@ -9,11 +9,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
+use common::{ACCOUNT_ID, MemoryBackend, SPACE_ID};
 use jmap_chat_server::{handle_ban_set, handle_space_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A backend holding one Space whose only member is the owner (member
 /// entry id = accountId) with a role at position 10 granting

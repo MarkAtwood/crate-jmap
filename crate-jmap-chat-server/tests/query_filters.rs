@@ -32,7 +32,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::message::{handle_message_query, handle_message_query_changes};
 use jmap_chat_server::{
     handle_chat_query, handle_contact_query, handle_emoji_query, handle_emoji_query_changes,
@@ -40,7 +40,7 @@ use jmap_chat_server::{
 };
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, JmapError};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn sorted_ids(resp: &Value) -> Vec<String> {
     let mut ids: Vec<String> = resp["ids"]

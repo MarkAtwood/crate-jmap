@@ -18,7 +18,7 @@ use jmap_calendars_server::{
     handle_participant_identity_get, handle_participant_identity_set,
 };
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ---------------------------------------------------------------------------
 // Calendar fixture helpers

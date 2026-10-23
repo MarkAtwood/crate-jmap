@@ -12,7 +12,7 @@ use jmap_types::Id;
 use jmap_vtc_server::{
     handle_vtc_call_changes, handle_vtc_participant_changes, handle_vtc_participant_get,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 
 const SPACE: &str = "S1";

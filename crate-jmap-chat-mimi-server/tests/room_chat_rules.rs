@@ -6,7 +6,7 @@ use jmap_chat_mimi_server::SetError;
 use jmap_chat_mimi_server::{
     may_create_room_message, may_update_room_chat, may_update_room_message,
 };
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 fn extra(value: Value) -> Map<String, Value> {
     value.as_object().expect("object").clone()

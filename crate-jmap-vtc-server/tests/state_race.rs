@@ -17,15 +17,15 @@ use jmap_server::{
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend, MemoryError};
 use jmap_vtc_server::{
-    after_leave, end_call, expire_ring, handle_vtc_call_get, handle_vtc_call_set,
-    handle_vtc_livestream_get, handle_vtc_livestream_set, handle_vtc_participant_query,
-    handle_vtc_participant_set, handle_vtc_recording_get, handle_vtc_recording_set, StatefulObject,
-    VtcBackend,
+    StatefulObject, VtcBackend, after_leave, end_call, expire_ring, handle_vtc_call_get,
+    handle_vtc_call_set, handle_vtc_livestream_get, handle_vtc_livestream_set,
+    handle_vtc_participant_query, handle_vtc_participant_set, handle_vtc_recording_get,
+    handle_vtc_recording_set,
 };
 use jmap_vtc_types::{
     CallEndReason, CallRole, CallState, VtcCall, VtcCapability, VtcEvent, VtcRecordingStateEvent,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// [`MemoryBackend`] that stores one record, as a concurrent request
 /// would, right after the first `get_objects` of that record's type (or a

@@ -15,7 +15,7 @@ use jmap_chat_server::{chat_state_change_for, strip_unsupported_chat_push, valid
 use jmap_chat_types::ChatPushCapability;
 use jmap_server::SetErrorType;
 use jmap_types::{Id, PushSubscription, State};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 const PUSH_ACCOUNT: &str = "acct-push";
 const PLAIN_ACCOUNT: &str = "acct-plain";

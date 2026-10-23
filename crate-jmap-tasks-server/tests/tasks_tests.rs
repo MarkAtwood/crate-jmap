@@ -15,7 +15,7 @@ use jmap_tasks_server::{
     handle_task_list_set, handle_task_notification_query, handle_task_notification_set,
     handle_task_query, handle_task_query_changes, handle_task_set,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ---------------------------------------------------------------------------
 // Fixture helpers

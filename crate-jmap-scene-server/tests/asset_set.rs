@@ -11,7 +11,7 @@ use jmap_scene_server::{
     handle_scene_asset_changes, handle_scene_asset_get, handle_scene_asset_set,
 };
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The L657-663 create, verbatim.
 fn spec_create() -> Value {
@@ -77,9 +77,10 @@ async fn create_returns_the_server_set_properties() {
     // L215 `id`: "A ULID assigned at creation": 26 Crockford base32 chars.
     let id = created["id"].as_str().unwrap();
     assert_eq!(id.len(), 26);
-    assert!(id
-        .bytes()
-        .all(|b| b"0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains(&b)));
+    assert!(
+        id.bytes()
+            .all(|b| b"0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains(&b))
+    );
 }
 
 #[tokio::test]

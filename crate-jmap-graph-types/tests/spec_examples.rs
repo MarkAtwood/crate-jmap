@@ -12,8 +12,8 @@ mod common;
 
 use jmap_graph_types::{
     Graph, GraphCapability, GraphEdge, GraphNode, GraphProjectionCapability, GraphRights,
-    PrincipalGraphCapability, JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE,
-    JMAP_URI_GRAPH_TYPE,
+    JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE, JMAP_URI_GRAPH_TYPE,
+    PrincipalGraphCapability,
 };
 use jmap_graph_types::{
     GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition, GraphEdgeSortProperty,
@@ -21,9 +21,9 @@ use jmap_graph_types::{
     GraphSortProperty,
 };
 use jmap_types::{Id, JmapObject, JmapUri};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 /// L356-393, "Building a small graph in one request", verbatim.
 fn build_request() -> String {
@@ -454,10 +454,12 @@ fn projection_object_uri_filter_matches_example() {
     assert_eq!(cond.graph_id, Id::from("PG1"));
     assert_eq!(cond.object_uri, Some(vec!["jmap:email:A1:M42".to_owned()]));
     // L285: the filter still MUST include `graphId`.
-    assert!(serde_json::from_value::<GraphNodeFilterCondition>(
-        json!({ "objectUri": ["jmap:email:A1:M42"] })
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<GraphNodeFilterCondition>(
+            json!({ "objectUri": ["jmap:email:A1:M42"] })
+        )
+        .is_err()
+    );
 }
 
 #[test]

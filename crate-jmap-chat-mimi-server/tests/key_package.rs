@@ -1,8 +1,8 @@
 //! KeyPackage/get and KeyPackage/set against draft-atwood-jmap-chat-mimi-00
 //! (jmap-chat-spec 6bcd9d8). Each test quotes the draft line it checks.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_server::memory::MemoryBackend;
 use jmap_chat_mimi_server::{handle_key_package_get, handle_key_package_set};
 use jmap_chat_mimi_types::MimiCapability;
@@ -14,7 +14,7 @@ use openmls::prelude::{
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::{OpenMlsRustCrypto, RustCrypto};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tls_codec::Serialize as _;
 

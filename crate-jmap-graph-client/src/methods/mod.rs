@@ -16,7 +16,7 @@ pub mod graph_node_op;
 use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 // ---------------------------------------------------------------------------
 // Response types (RFC 8620 §5)

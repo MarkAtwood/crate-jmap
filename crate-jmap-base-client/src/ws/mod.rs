@@ -12,10 +12,10 @@ use std::time::Duration;
 
 use futures::SinkExt as _;
 use futures::StreamExt as _;
-use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
-use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
-use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
 use crate::push::StateChange;
 
@@ -431,12 +431,12 @@ impl WsReceiver {
                             match sent {
                                 Ok(Ok(())) => {}
                                 Ok(Err(e)) => {
-                                    return Some(Err(crate::error::ClientError::from_ws(e)))
+                                    return Some(Err(crate::error::ClientError::from_ws(e)));
                                 }
                                 Err(_elapsed) => {
                                     return Some(Err(keepalive_timed_out(
                                         "WebSocket keepalive: could not send Ping in time",
-                                    )))
+                                    )));
                                 }
                             }
                             ka.ping_sent_at = Some(tokio::time::Instant::now());
@@ -492,11 +492,9 @@ impl WsReceiver {
                 MessageDisposition::Skip => {
                     consecutive_skips = consecutive_skips.saturating_add(1);
                     if consecutive_skips > MAX_CONSECUTIVE_NON_TEXT_FRAMES {
-                        return Some(Err(crate::error::ClientError::UnexpectedResponse(
-                            format!(
-                                "WebSocket: exceeded {MAX_CONSECUTIVE_NON_TEXT_FRAMES} consecutive non-text frames; possible server misbehaviour"
-                            ),
-                        )));
+                        return Some(Err(crate::error::ClientError::UnexpectedResponse(format!(
+                            "WebSocket: exceeded {MAX_CONSECUTIVE_NON_TEXT_FRAMES} consecutive non-text frames; possible server misbehaviour"
+                        ))));
                     }
                 }
             }

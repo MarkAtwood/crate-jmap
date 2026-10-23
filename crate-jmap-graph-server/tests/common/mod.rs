@@ -6,7 +6,7 @@
 use jmap_graph_server::memory::MemoryBackend;
 use jmap_graph_types::GraphCapability;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// The account of the L354-393 example.
 pub const ACCOUNT: &str = "A1";

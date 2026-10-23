@@ -48,7 +48,7 @@ use jmap_chat_types::{ChatTasksCapability, Space};
 use jmap_tasks_server::handle_task_list_get;
 use jmap_tasks_server::memory::MemoryBackend as TasksMemory;
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const OTHER_ACCOUNT: &str = "A2";

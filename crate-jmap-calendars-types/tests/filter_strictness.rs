@@ -10,7 +10,7 @@
 //! defines.
 
 use serde::de::DeserializeOwned;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn assert_strict<T: DeserializeOwned>(known: Value, typo: Value) {
     if let Err(e) = serde_json::from_value::<T>(known.clone()) {

@@ -28,16 +28,16 @@ use jmap_mail_types::{
     MailboxComparatorProperty, MailboxFilter,
 };
 use jmap_types::{Id, JmapError, PatchObject, State};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
+    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    bool_arg, filter_arg, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryChangesParams, QueryParams,
+    HandlerOutput, QueryChangesParams, QueryParams, bool_arg, filter_arg, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -203,7 +203,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
-                )))
+                )));
             }
         },
     };
@@ -224,7 +224,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
                 "anchor: expected an Id string or null, got {v}"
-            )))
+            )));
         }
     };
     let anchor_offset: i64 = match args.get("anchorOffset") {
@@ -386,7 +386,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         Some(_) => {
             return Err(JmapError::invalid_arguments(
                 "upToId must be a string Id or null",
-            ))
+            ));
         }
     };
 
@@ -431,10 +431,8 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         "removed": removed,
         "added": added,
     });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
     }
 
     Ok(HandlerOutput::new(resp))
@@ -484,10 +482,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(Value::String(if_in_state)) = args.get("ifInState") {
-        if if_in_state.as_str() != current_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(Value::String(if_in_state)) = args.get("ifInState")
+        && if_in_state.as_str() != current_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let on_destroy_remove_emails = bool_arg(&args, "onDestroyRemoveEmails", false);
@@ -527,15 +525,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     .as_object()
                     .and_then(|o| o.get("role"))
                     .is_some_and(|v| v.is_null());
-                if sets_role_null {
-                    if let Some(role) = all_mailboxes
+                if sets_role_null
+                    && let Some(role) = all_mailboxes
                         .iter()
                         .find(|m| m.id.as_ref() == id_str.as_str())
                         .and_then(|m| m.role.as_ref())
                         .map(|r| r.to_wire_str().to_owned())
-                    {
-                        vacated.insert(role);
-                    }
+                {
+                    vacated.insert(role);
                 }
             }
         }
@@ -567,33 +564,29 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             }
 
             // Role uniqueness check.
-            if let Some(role_val) = props.get("role").filter(|v| !v.is_null()) {
-                if let Some(role_str) = role_val.as_str() {
-                    // Exclude roles that are being vacated by an update in this
-                    // same request (pre-computed above).  No mailbox id to exclude:
-                    // we are creating a new object, not updating an existing one.
-                    let role_taken = role_already_held(
-                        role_str,
-                        &all_mailboxes,
-                        &roles_intended_to_vacate,
-                        None,
+            if let Some(role_val) = props.get("role").filter(|v| !v.is_null())
+                && let Some(role_str) = role_val.as_str()
+            {
+                // Exclude roles that are being vacated by an update in this
+                // same request (pre-computed above).  No mailbox id to exclude:
+                // we are creating a new object, not updating an existing one.
+                let role_taken =
+                    role_already_held(role_str, &all_mailboxes, &roles_intended_to_vacate, None);
+                // Also check what we already successfully created in this request.
+                // MailboxRole always serializes as a bare JSON string (via
+                // impl_string_enum!), so as_str() is always correct here.
+                let role_just_created = created
+                    .values()
+                    .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
+                if role_taken || role_just_created {
+                    not_created.insert(
+                        create_id.clone(),
+                        set_error_value(
+                            &SetError::new(SetErrorType::InvalidProperties)
+                                .with_properties(["role"]),
+                        ),
                     );
-                    // Also check what we already successfully created in this request.
-                    // MailboxRole always serializes as a bare JSON string (via
-                    // impl_string_enum!), so as_str() is always correct here.
-                    let role_just_created = created
-                        .values()
-                        .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
-                    if role_taken || role_just_created {
-                        not_created.insert(
-                            create_id.clone(),
-                            set_error_value(
-                                &SetError::new(SetErrorType::InvalidProperties)
-                                    .with_properties(["role"]),
-                            ),
-                        );
-                        continue;
-                    }
+                    continue;
                 }
             }
 
@@ -853,34 +846,34 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // already claimed by an earlier update in this pass, plus
             // any role claimed by the create loop.
             let obj = patch.as_map();
-            if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
-                if let Some(role_str) = role_val.as_str() {
-                    // Exclude the mailbox being updated (id) — it may
-                    // already hold this role and is about to change it.
-                    let role_taken = role_already_held(
-                        role_str,
-                        &all_mailboxes,
-                        &roles_successfully_vacated,
-                        Some(&id),
+            if let Some(role_val) = obj.get("role").filter(|v| !v.is_null())
+                && let Some(role_str) = role_val.as_str()
+            {
+                // Exclude the mailbox being updated (id) — it may
+                // already hold this role and is about to change it.
+                let role_taken = role_already_held(
+                    role_str,
+                    &all_mailboxes,
+                    &roles_successfully_vacated,
+                    Some(&id),
+                );
+                let role_just_claimed = roles_claimed_this_request.contains(role_str);
+                // MailboxRole always serializes as a bare JSON string (via
+                // impl_string_enum!), so as_str() is always correct here.
+                let role_just_created = created
+                    .values()
+                    .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
+                if role_taken || role_just_claimed || role_just_created {
+                    not_updated.insert(
+                        id_str,
+                        set_error_value(
+                            &SetError::new(SetErrorType::InvalidProperties)
+                                .with_properties(["role"]),
+                        ),
                     );
-                    let role_just_claimed = roles_claimed_this_request.contains(role_str);
-                    // MailboxRole always serializes as a bare JSON string (via
-                    // impl_string_enum!), so as_str() is always correct here.
-                    let role_just_created = created
-                        .values()
-                        .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
-                    if role_taken || role_just_claimed || role_just_created {
-                        not_updated.insert(
-                            id_str,
-                            set_error_value(
-                                &SetError::new(SetErrorType::InvalidProperties)
-                                    .with_properties(["role"]),
-                            ),
-                        );
-                        continue;
-                    }
-                    roles_claimed_this_request.insert(role_str.to_owned());
+                    continue;
                 }
+                roles_claimed_this_request.insert(role_str.to_owned());
             }
 
             match backend
@@ -1150,7 +1143,9 @@ fn role_already_held(
 /// makes the [`Mailbox`] for the id the backend assigns.
 ///
 /// Returns an error value suitable for `notCreated` on failure.
-fn build_mailbox_from_props(props: &Value) -> Result<impl FnOnce(&Id) -> Mailbox + Send, Value> {
+fn build_mailbox_from_props(
+    props: &Value,
+) -> Result<impl FnOnce(&Id) -> Mailbox + Send + use<>, Value> {
     let name = match props.get("name").and_then(|v| v.as_str()) {
         Some(s) => s.to_owned(),
         None => {

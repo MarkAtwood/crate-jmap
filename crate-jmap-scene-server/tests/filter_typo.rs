@@ -23,7 +23,7 @@ use jmap_scene_server::{
 };
 use jmap_server::HandlerOutput;
 use jmap_types::JmapError;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const REGION: &str = "01J5ABC0000000000000000001";
 

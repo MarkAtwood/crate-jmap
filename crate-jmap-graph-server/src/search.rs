@@ -27,7 +27,7 @@ use icu_casemap::CaseMapper;
 use icu_normalizer::DecomposingNormalizerBorrowed;
 use jmap_graph_types::{
     Bound, CandidateKind, Direction, EdgeTest, Expression, FieldTest, GraphSearchCapability,
-    ReachTest, QUERY_TOO_COMPLEX,
+    QUERY_TOO_COMPLEX, ReachTest,
 };
 use jmap_graph_types::{GraphEdge, GraphNode};
 use jmap_types::{Id, JmapError};
@@ -238,7 +238,7 @@ impl<'a> GraphView<'a> {
         &'s self,
         id: &Id,
         direction: Direction,
-    ) -> impl Iterator<Item = (&'a GraphEdge, &'a Id)> + 's {
+    ) -> impl Iterator<Item = (&'a GraphEdge, &'a Id)> + 's + use<'a, 's> {
         let (out, inc) = match direction {
             Direction::Out => (true, false),
             Direction::In => (false, true),

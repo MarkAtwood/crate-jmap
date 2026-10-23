@@ -6,16 +6,16 @@
 mod common;
 
 use jmap_graph_types::{
+    GRAPH_EDIT_DATA_TYPES, GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY,
     GraphCursorEvent, GraphEditDataType, GraphEditEvent, GraphEditStreamDisable,
     GraphEditStreamMessage, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
-    GraphNodeOpFilterCondition, GraphNodeOpSortProperty, GRAPH_EDIT_DATA_TYPES,
-    GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY, OPS_COMPACTED,
+    GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
 use jmap_graph_types::{GraphEditCapability, GraphNode, GraphNodeOp, JMAP_GRAPH_EDIT_URI};
 use jmap_types::{Id, JmapError, JmapObject};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 
 /// L377-386, "Submitting an op", verbatim.
 fn submit_request() -> String {
@@ -122,14 +122,18 @@ fn account_capability_round_trips() {
     assert_eq!(cap.op_retention, None);
     assert_eq!(cap.extra["com.example.x"], json!(true));
     // UnsignedInt: negative values and a missing required field fail.
-    assert!(serde_json::from_value::<GraphEditCapability>(
-        json!({ "maxOpSize": -1, "maxCursorSize": 1, "opRetention": null })
-    )
-    .is_err());
-    assert!(serde_json::from_value::<GraphEditCapability>(
-        json!({ "maxCursorSize": 1, "opRetention": null })
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<GraphEditCapability>(
+            json!({ "maxOpSize": -1, "maxCursorSize": 1, "opRetention": null })
+        )
+        .is_err()
+    );
+    assert!(
+        serde_json::from_value::<GraphEditCapability>(
+            json!({ "maxCursorSize": 1, "opRetention": null })
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -287,10 +291,12 @@ fn cursor_request_and_response_round_trip() {
         resp,
         GraphNodeCursorResponse::new(Id::from("A1"), Id::from("N1"))
     );
-    assert!(serde_json::from_value::<GraphNodeCursorRequest>(
-        json!({ "accountId": "A1", "nodeId": "N1" })
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<GraphNodeCursorRequest>(
+            json!({ "accountId": "A1", "nodeId": "N1" })
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -354,10 +360,12 @@ fn stream_message_unknown_and_malformed() {
         if type_name == "WebSocketPushEnable")
     );
     // L298 `nodeIds` (Id[]) and L301 `dataTypes` (String[]) are required.
-    assert!(serde_json::from_value::<GraphEditStreamMessage>(
-        json!({ "@type": "GraphEditStreamEnable", "dataTypes": ["ops"] })
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<GraphEditStreamMessage>(
+            json!({ "@type": "GraphEditStreamEnable", "dataTypes": ["ops"] })
+        )
+        .is_err()
+    );
     assert!(
         serde_json::from_value::<GraphEditStreamMessage>(json!({ "nodeIds": ["N1"] })).is_err()
     );
@@ -409,8 +417,10 @@ fn event_unknown_and_malformed() {
     assert_eq!(ev.type_name(), "StateChange");
     assert!(matches!(ev, GraphEditEvent::Unknown { .. }));
     // L324 `op` (GraphNodeOp) is required.
-    assert!(serde_json::from_value::<GraphEditEvent>(
-        json!({ "@type": "GraphNodeOpEvent", "accountId": "A1" })
-    )
-    .is_err());
+    assert!(
+        serde_json::from_value::<GraphEditEvent>(
+            json!({ "@type": "GraphNodeOpEvent", "accountId": "A1" })
+        )
+        .is_err()
+    );
 }

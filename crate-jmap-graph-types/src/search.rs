@@ -341,7 +341,7 @@ impl Expression {
                 n => {
                     return Err(malformed(&format!(
                         "member {n:?} is neither a JSON Pointer nor an operator"
-                    )))
+                    )));
                 }
             }
         }
@@ -577,7 +577,7 @@ fn parse_field_test(v: &Value) -> Result<FieldTest, WhereError> {
             n => {
                 return Err(malformed(&format!(
                     "operator object mixes $-prefixed names with {n:?}"
-                )))
+                )));
             }
         }
     }

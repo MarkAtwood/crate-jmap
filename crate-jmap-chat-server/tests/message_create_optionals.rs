@@ -14,11 +14,11 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend};
 use jmap_chat_server::handle_chat_set;
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_server::HandlerOutput;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 const SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 

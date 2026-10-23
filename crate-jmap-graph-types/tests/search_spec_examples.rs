@@ -6,13 +6,13 @@
 mod common;
 
 use jmap_graph_types::{
-    Bound, CandidateKind, Direction, Expression, FieldTest, WhereError, QUERY_TOO_COMPLEX,
+    Bound, CandidateKind, Direction, Expression, FieldTest, QUERY_TOO_COMPLEX, WhereError,
 };
 use jmap_graph_types::{GraphEdgeFilterCondition, GraphNodeFilterCondition};
 use jmap_graph_types::{GraphSearchCapability, JMAP_GRAPH_SEARCH_URI};
 use jmap_types::{Id, JmapError};
 use serde::de::DeserializeOwned;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// L336-351, "Annotation tests", verbatim.
 fn annotation_tests() -> String {

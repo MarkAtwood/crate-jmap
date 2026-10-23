@@ -17,7 +17,7 @@ use jmap_chat_server::{
     handle_position_set, handle_presence_set, handle_space_set,
 };
 use jmap_types::Id;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const DEFAULT_CAP: usize = 500;
 

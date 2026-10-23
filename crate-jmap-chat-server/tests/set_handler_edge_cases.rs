@@ -20,13 +20,13 @@
 
 mod common;
 
-use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID};
+use common::{ACCOUNT_ID, MemoryBackend, TrackingBackend};
 use jmap_chat_server::handle_chat_set;
-use jmap_chat_server::message::{handle_message_set, store_server_message, StoreOutcome};
+use jmap_chat_server::message::{StoreOutcome, handle_message_set, store_server_message};
 use jmap_chat_types::{DeliveryState, Message};
 use jmap_server::HandlerOutput;
 use jmap_types::{Id, UTCDate};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const GROUP: &str = "g1";
 const OWN_MSG: &str = "m1";

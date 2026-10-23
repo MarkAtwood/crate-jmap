@@ -463,44 +463,44 @@ impl super::SessionClient {
         {
             patch_map.insert("avatarBlobId".into(), entry);
         }
-        if let Some(members) = patch.add_members {
-            if !members.is_empty() {
-                let arr = members
-                    .iter()
-                    .map(|m: &AddMemberInput<'_>| {
-                        let mut obj = serde_json::json!({ "id": m.id });
-                        if let Some(role) = &m.role {
-                            obj["role"] = serde_json::to_value(role)
-                                .map_err(jmap_base_client::ClientError::from_parse)?;
-                        }
-                        Ok(obj)
-                    })
-                    .collect::<Result<Vec<_>, jmap_base_client::ClientError>>()?;
-                patch_map.insert("addMembers".into(), serde_json::Value::Array(arr));
-            }
+        if let Some(members) = patch.add_members
+            && !members.is_empty()
+        {
+            let arr = members
+                .iter()
+                .map(|m: &AddMemberInput<'_>| {
+                    let mut obj = serde_json::json!({ "id": m.id });
+                    if let Some(role) = &m.role {
+                        obj["role"] = serde_json::to_value(role)
+                            .map_err(jmap_base_client::ClientError::from_parse)?;
+                    }
+                    Ok(obj)
+                })
+                .collect::<Result<Vec<_>, jmap_base_client::ClientError>>()?;
+            patch_map.insert("addMembers".into(), serde_json::Value::Array(arr));
         }
-        if let Some(rm) = patch.remove_members {
-            if !rm.is_empty() {
-                patch_map.insert(
-                    "removeMembers".into(),
-                    serde_json::to_value(rm).map_err(jmap_base_client::ClientError::from_parse)?,
-                );
-            }
+        if let Some(rm) = patch.remove_members
+            && !rm.is_empty()
+        {
+            patch_map.insert(
+                "removeMembers".into(),
+                serde_json::to_value(rm).map_err(jmap_base_client::ClientError::from_parse)?,
+            );
         }
-        if let Some(umr) = patch.update_member_roles {
-            if !umr.is_empty() {
-                let arr = umr
-                    .iter()
-                    .map(|u: &UpdateMemberRoleInput<'_>| {
-                        Ok(serde_json::json!({
-                            "id": u.id,
-                            "role": serde_json::to_value(&u.role)
-                                .map_err(jmap_base_client::ClientError::from_parse)?,
-                        }))
-                    })
-                    .collect::<Result<Vec<_>, jmap_base_client::ClientError>>()?;
-                patch_map.insert("updateMemberRoles".into(), serde_json::Value::Array(arr));
-            }
+        if let Some(umr) = patch.update_member_roles
+            && !umr.is_empty()
+        {
+            let arr = umr
+                .iter()
+                .map(|u: &UpdateMemberRoleInput<'_>| {
+                    Ok(serde_json::json!({
+                        "id": u.id,
+                        "role": serde_json::to_value(&u.role)
+                            .map_err(jmap_base_client::ClientError::from_parse)?,
+                    }))
+                })
+                .collect::<Result<Vec<_>, jmap_base_client::ClientError>>()?;
+            patch_map.insert("updateMemberRoles".into(), serde_json::Value::Array(arr));
         }
 
         // Wrap the constructed map in a PatchObject (RFC 8620 §5.3) before

@@ -15,8 +15,8 @@
 
 use std::time::Duration;
 
-use jmap_testjig::{spawn_in_process, TestjigConfig};
-use serde_json::{json, Value};
+use jmap_testjig::{TestjigConfig, spawn_in_process};
+use serde_json::{Value, json};
 
 const SSE_WAIT_BUDGET: Duration = Duration::from_secs(5);
 

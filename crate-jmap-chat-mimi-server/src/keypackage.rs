@@ -1,11 +1,11 @@
 //! draft-atwood-jmap-chat-mimi-00 §KeyPackage/get and §KeyPackage/set.
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_types::{Base64Url, KeyPackage, KeyPackageCreate, MimiCapability};
 use jmap_server::{
-    enforce_max_objects_in_set, extract_account_id, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput,
+    HandlerOutput, enforce_max_objects_in_set, extract_account_id, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 use jmap_types::{JmapError, SetObject};
 use openmls::ciphersuite::hash_ref::make_key_package_ref;
@@ -14,7 +14,7 @@ use openmls::prelude::{
     BasicCredential, CredentialType, Extension, KeyPackageIn, KeyPackageVerifyError, OpenMlsCrypto,
     ProtocolVersion,
 };
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use tls_codec::{Deserialize as _, Serialize as _};
 
 use crate::{BackendSetError, MimiBackend, NewKeyPackage, SetError, SetErrorType};
@@ -235,10 +235,10 @@ pub async fn handle_key_package_set<B: MimiBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str) {
-        if if_in_state != old_state.as_ref() {
-            return Err(JmapError::state_mismatch());
-        }
+    if let Some(if_in_state) = args.get("ifInState").and_then(Value::as_str)
+        && if_in_state != old_state.as_ref()
+    {
+        return Err(JmapError::state_mismatch());
     }
 
     let mut created = Map::new();

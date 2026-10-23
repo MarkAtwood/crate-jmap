@@ -7,11 +7,11 @@
 
 mod common;
 
-use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::message::handle_message_set;
+use common::{ACCOUNT_ID, MemoryBackend, seed_group_chat};
 use jmap_chat_server::ChatLimits;
+use jmap_chat_server::message::handle_message_set;
 use jmap_server::HandlerOutput;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Send one `Message/set` create per `(createId, bodyType)` pair and return
 /// the whole response. A `None` bodyType omits the property.

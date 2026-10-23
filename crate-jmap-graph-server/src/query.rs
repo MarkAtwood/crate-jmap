@@ -45,11 +45,7 @@ fn utc_key(d: &UTCDate) -> &str {
 
 /// Apply `is_ascending` to `o`.
 fn direction(o: Ordering, is_ascending: bool) -> Ordering {
-    if is_ascending {
-        o
-    } else {
-        o.reverse()
-    }
+    if is_ascending { o } else { o.reverse() }
 }
 
 /// `true` if `graph`, as the caller sees it, matches `filter`: "The

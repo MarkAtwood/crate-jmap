@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{impl_string_enum, Id, UTCDate};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 /// Identifies the entity that made a permission change (RFC 9670 §3).

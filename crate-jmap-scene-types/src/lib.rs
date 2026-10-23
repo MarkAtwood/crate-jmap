@@ -66,9 +66,9 @@ mod wire;
 
 pub use asset::SceneAsset;
 pub use avatar::SceneAvatar;
-pub use capability::{SceneCapability, JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI};
+pub use capability::{JMAP_SCENE_URI, JMAP_SCENE_WEBSOCKET_URI, SceneCapability};
 pub use coordinates::{
-    Orientation, Position, Scale, SceneBounds, IDENTITY_ORIENTATION, IDENTITY_SCALE,
+    IDENTITY_ORIENTATION, IDENTITY_SCALE, Orientation, Position, Scale, SceneBounds,
 };
 pub use event::{
     AvatarEventKind, ObjectEventKind, SceneAvatarEvent, SceneEvent, SceneInteractionEvent,
@@ -86,5 +86,5 @@ pub use query::{
 pub use region::{AccessPolicy, GeoAnchor, SceneRegion, ViewHint};
 pub use set_error::CONTENT_POLICY;
 pub use stream::{
-    SceneEventType, SceneStreamDisable, SceneStreamEnable, SceneStreamMessage, SCENE_EVENT_TYPES,
+    SCENE_EVENT_TYPES, SceneEventType, SceneStreamDisable, SceneStreamEnable, SceneStreamMessage,
 };
