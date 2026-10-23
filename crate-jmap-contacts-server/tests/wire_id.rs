@@ -13,7 +13,7 @@
 mod common;
 
 use common::MemoryBackend;
-use jmap_contacts_server::handle_address_book_set;
+use jmap_contacts_server::{handle_address_book_set, handle_contact_card_copy};
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -42,4 +42,22 @@ async fn address_book_set_rejects_malformed_update_and_destroy_ids() {
         .primary;
     assert_invalid_id(&resp["notUpdated"]["bad id"], &resp);
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
+}
+
+/// RFC 8620 §5.4 `fromAccountId` is an Id argument; a malformed one is
+/// the method-level `invalidArguments` error (RFC 8620 §3.6.2).
+#[tokio::test]
+async fn contact_card_copy_rejects_malformed_from_account_id() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+    let args = json!({
+        "accountId": account_id.as_ref(),
+        "fromAccountId": "bad id",
+        "create": {}
+    });
+    let err = handle_contact_card_copy(&backend, &(), args, "c0")
+        .await
+        .expect_err("a malformed fromAccountId must fail the method");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
 }

@@ -11,6 +11,7 @@
 mod common;
 
 use common::*;
+use jmap_vtc_server::handle_vtc_participant_set;
 use serde_json::{json, Value};
 
 /// Asserts the hand-written RFC 8620 §5.3 SetError for a malformed id.
@@ -29,4 +30,22 @@ async fn vtc_call_set_rejects_malformed_update_and_destroy_ids() {
     let resp = set(&backend, ALICE, args).await;
     assert_invalid_id(&resp["notUpdated"]["bad id"], &resp);
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
+}
+
+/// draft-atwood-jmap-vtc-00 §VTCParticipant: "`callId` (String,
+/// required)" names a VTCCall Id; a malformed one fails the create naming it.
+#[tokio::test]
+async fn vtc_participant_set_rejects_malformed_call_id() {
+    let backend = backend();
+    let args = json!({
+        "accountId": ACCOUNT,
+        "create": { "p0": { "callId": "bad id", "joinMethod": "webrtc" } }
+    });
+    let resp = handle_vtc_participant_set(&backend, &ALICE.to_owned(), args)
+        .await
+        .expect("/set must not fail as a method")
+        .primary;
+    let entry = &resp["notCreated"]["p0"];
+    assert_eq!(entry["type"], "invalidProperties", "{resp}");
+    assert_eq!(entry["properties"], json!(["callId"]), "{resp}");
 }

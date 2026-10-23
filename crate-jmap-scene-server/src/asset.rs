@@ -347,11 +347,11 @@ async fn create_asset<B: SceneBackend>(
     let blob_id = m
         .get("blobId")
         .and_then(Value::as_str)
-        .filter(|s| !s.is_empty());
+        .and_then(|s| Id::new_validated(s).ok());
     if blob_id.is_none() {
         bad.push("blobId");
     }
-    let Some(blob_id) = blob_id.map(Id::from).filter(|_| bad.is_empty()) else {
+    let Some(blob_id) = blob_id.filter(|_| bad.is_empty()) else {
         bad.sort_unstable();
         return Err(invalid(
             &bad,

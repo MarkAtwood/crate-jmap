@@ -326,8 +326,8 @@ async fn create_participant<B: VtcBackend>(
     let call_id = m
         .get("callId")
         .and_then(Value::as_str)
-        .map(Id::from)
-        .ok_or_else(|| invalid(&["callId"], "callId is required"))?;
+        .and_then(|s| Id::new_validated(s).ok())
+        .ok_or_else(|| invalid(&["callId"], "callId is required and must be an Id"))?;
     let join_method = m
         .get("joinMethod")
         .and_then(|v| JoinMethod::deserialize(v).ok())

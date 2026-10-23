@@ -1332,15 +1332,28 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
 
-            let reply_to: Option<Id> = obj_val
-                .get("replyTo")
-                .and_then(|v| v.as_str())
-                .map(Id::from);
+            let reply_to: Option<Id> = match obj_val.get("replyTo").and_then(|v| v.as_str()) {
+                Some(s) => match jmap_server::parse_wire_id(s, "replyTo") {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), set_error_value(&err));
+                        continue;
+                    }
+                },
+                None => None,
+            };
 
-            let supplied_root: Option<Id> = obj_val
-                .get("threadRootId")
-                .and_then(|v| v.as_str())
-                .map(Id::from);
+            let supplied_root: Option<Id> =
+                match obj_val.get("threadRootId").and_then(|v| v.as_str()) {
+                    Some(s) => match jmap_server::parse_wire_id(s, "threadRootId") {
+                        Ok(id) => Some(id),
+                        Err(err) => {
+                            not_created.insert(create_id.clone(), set_error_value(&err));
+                            continue;
+                        }
+                    },
+                    None => None,
+                };
 
             // §Message `replyTo`: "Servers MUST validate that this ID
             // exists in the same Chat before storing." §Thread Model:
@@ -2146,10 +2159,11 @@ pub async fn handle_message_set<B: ChatBackend>(
         }
         // The destroyed Messages' Chats, read before the destroy, for
         // `record_unread_count_changes` (§Chat `unreadCount`).
+        // A malformed id is skipped here and rejected per entry below.
         let destroy_ids: Vec<Id> = destroy_arr
             .iter()
             .filter_map(Value::as_str)
-            .map(Id::from)
+            .filter_map(|s| Id::new_validated(s).ok())
             .collect();
         let chat_of: HashMap<Id, Id> = backend
             .get_objects::<Message>(caller, &account_id, Some(&destroy_ids), None)
