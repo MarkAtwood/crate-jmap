@@ -1478,6 +1478,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-graph-server**: **BREAKING** `search::GraphView::new` returns
+  `Result<GraphView, JmapError>`: a node or edge that fails to serialize
+  is a `serverFail`, not a panic (bd JMAP-ic0j.38).
 - **jmap-mail-server**: **BREAKING** `MailBackend` gains `create_email`
   and `read_blob`, and `Email/set` create no longer calls
   `create_object::<Email>`. The handler composes the RFC 5322 message the

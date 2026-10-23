@@ -33,8 +33,6 @@ use jmap_graph_types::{GraphEdge, GraphNode};
 use jmap_types::{Id, JmapError};
 use serde_json::{Number, Value};
 
-use crate::helpers::to_map;
-
 /// The `$collation` values the evaluator implements: `i;ascii-casemap`
 /// (RFC 4790 §9.2), `i;octet` (RFC 4790 §9.3) and `i;unicode-casemap`
 /// (RFC 5051).
@@ -167,11 +165,15 @@ pub struct GraphView<'a> {
 
 impl<'a> GraphView<'a> {
     /// A view of `nodes` and `edges`, the visible contents of one Graph.
-    pub fn new(nodes: &'a [GraphNode], edges: &'a [GraphEdge]) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// `serverFail` if a node or edge fails to serialize.
+    pub fn new(nodes: &'a [GraphNode], edges: &'a [GraphEdge]) -> Result<Self, JmapError> {
         let nodes: HashMap<&Id, Value> = nodes
             .iter()
-            .map(|n| (&n.id, Value::Object(to_map(n))))
-            .collect();
+            .map(|n| Ok((&n.id, jmap_server::serialize_value(n)?)))
+            .collect::<Result<_, JmapError>>()?;
         let mut outgoing: HashMap<&Id, Vec<&GraphEdge>> = HashMap::new();
         let mut incoming: HashMap<&Id, Vec<&GraphEdge>> = HashMap::new();
         for e in edges {
@@ -182,14 +184,14 @@ impl<'a> GraphView<'a> {
         }
         let edges = edges
             .iter()
-            .map(|e| (&e.id, (e, Value::Object(to_map(e)))))
-            .collect();
-        Self {
+            .map(|e| Ok((&e.id, (e, jmap_server::serialize_value(e)?))))
+            .collect::<Result<_, JmapError>>()?;
+        Ok(Self {
             nodes,
             edges,
             outgoing,
             incoming,
-        }
+        })
     }
 
     /// `true` if `expr` is true for the node `id` of the view; `false` for

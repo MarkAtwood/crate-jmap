@@ -16,19 +16,10 @@ use jmap_server::{
     server_fail_value_from_backend,
 };
 
-/// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
-/// `notDestroyed` map.
-///
-/// `SetError` is plain data with a derived `Serialize`, so the `.expect`
-/// is unreachable.
-pub(crate) fn set_error_value(e: &SetError) -> Value {
-    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
-}
-
 /// An `invalidProperties` SetError naming `properties` (none when empty).
 pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
     let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
-    set_error_value(&if properties.is_empty() {
+    serde_json::Value::from(&if properties.is_empty() {
         err
     } else {
         err.with_properties(properties.iter().copied())
@@ -130,24 +121,32 @@ where
 
 /// A `forbidden` SetError.
 pub(crate) fn forbidden(description: &str) -> Value {
-    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(description))
+    serde_json::Value::from(&SetError::new(SetErrorType::Forbidden).with_description(description))
 }
 
 /// A `notFound` SetError.
 pub(crate) fn not_found() -> Value {
-    set_error_value(&SetError::new(SetErrorType::NotFound))
+    serde_json::Value::from(&SetError::new(SetErrorType::NotFound))
 }
 
 /// An `invalidPatch` SetError.
 pub(crate) fn invalid_patch(description: &str) -> Value {
-    set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(description))
+    serde_json::Value::from(
+        &SetError::new(SetErrorType::InvalidPatch).with_description(description),
+    )
 }
 
 /// `o` as a JSON object.
-pub(crate) fn to_map(o: &impl serde::Serialize) -> Map<String, Value> {
-    match serde_json::to_value(o).expect("derive(Serialize) on plain data is infallible") {
-        Value::Object(m) => m,
-        _ => unreachable!("a Graph data type serializes as a JSON object"),
+///
+/// # Errors
+///
+/// A `serverFail` entry for a `notCreated` / `notUpdated` map if `o` fails
+/// to serialize or is not a JSON object.
+pub(crate) fn to_map(o: &impl serde::Serialize) -> Result<Map<String, Value>, Value> {
+    match jmap_server::serialize_value(o) {
+        Ok(Value::Object(m)) => Ok(m),
+        Ok(_) => Err(server_fail_value_from_backend("not a JSON object")),
+        Err(e) => Err(server_fail_value_from_backend(&e)),
     }
 }
 
@@ -377,7 +376,7 @@ pub(crate) fn check_annotations(
     }
     let size = serde_json::to_vec(a).map_or(usize::MAX, |v| v.len()) as u64;
     if cap.max_annotation_size.is_some_and(|max| size > max) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &SetError::new(SetErrorType::TooLarge)
                 .with_description("annotations exceed maxAnnotationSize"),
         ));
@@ -447,7 +446,7 @@ pub(crate) fn patched(
     object: &impl serde::Serialize,
     patch: &PatchObject,
 ) -> Result<Map<String, Value>, Value> {
-    let mut m = to_map(object);
+    let mut m = to_map(object)?;
     jmap_server::apply_patch_object(&mut m, patch.as_map())
         .map_err(|e| invalid_patch(&e.to_string()))?;
     Ok(m)
@@ -604,7 +603,7 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -634,7 +633,7 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };

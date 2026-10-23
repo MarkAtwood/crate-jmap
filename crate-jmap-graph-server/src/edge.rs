@@ -19,7 +19,7 @@ use crate::GraphBackend;
 use crate::helpers::{
     SetOps, TypeCheck, check_annotations, decode_patch, fetch_one, handle_get_visible,
     handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, mistyped,
-    not_found, patched, patched_properties, set_error_value, to_map,
+    not_found, patched, patched_properties, to_map,
 };
 use crate::node::{create_graph_id, created_entry, fill_server_set, item_graph_writable, touch};
 use jmap_server::{
@@ -183,7 +183,7 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             return Err(invalid(&[], "a GraphEdge create must be a JSON object"));
         };
         if let Some(e) = reject_server_set::<GraphEdge>(&m) {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &e.with_description("these properties are set by the server"),
             ));
         }
@@ -220,7 +220,7 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             })
             .await
             .map_err(backend_set_error_value)?;
-        Ok(created_entry(&id, &stored, &omitted))
+        created_entry(&id, &stored, &omitted)
     }
 
     async fn update(
@@ -237,8 +237,9 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             .ok_or_else(not_found)?;
         item_graph_writable(backend, caller, account_id, &edge.graph_id).await?;
         let keys = patched_properties(&patch);
-        if let Some(e) = reject_read_only_patch::<GraphEdge>(patch.as_map(), Some(&to_map(&edge))) {
-            return Err(set_error_value(
+        if let Some(e) = reject_read_only_patch::<GraphEdge>(patch.as_map(), Some(&to_map(&edge)?))
+        {
+            return Err(serde_json::Value::from(
                 &e.with_description("these properties are immutable or server-set"),
             ));
         }
@@ -255,7 +256,7 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             .await
             .map_err(backend_set_error_value)?
         {
-            Some(e) => Ok(Value::Object(to_map(&e))),
+            Some(e) => Ok(Value::Object(to_map(&e)?)),
             None => Ok(echo),
         }
     }

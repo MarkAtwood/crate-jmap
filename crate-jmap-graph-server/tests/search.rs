@@ -621,13 +621,13 @@ fn hidden_endpoint_edge_is_not_followed() {
     // Control: with B visible, A has an outgoing edge and reaches B in one
     // step (L247, L255).
     let both = [view_node("A"), view_node("B")];
-    let view = GraphView::new(&both, &edges);
+    let view = GraphView::new(&both, &edges).expect("plain GraphNode/GraphEdge serialize");
     assert!(view.node_matches(&has_edge, &a));
     assert!(view.node_matches(&reaches, &a));
 
     // B hidden: the edge to it has no effect.
     let only_a = [view_node("A")];
-    let view = GraphView::new(&only_a, &edges);
+    let view = GraphView::new(&only_a, &edges).expect("plain GraphNode/GraphEdge serialize");
     assert!(!view.node_matches(&has_edge, &a));
     assert!(!view.node_matches(&reaches, &a));
 }
