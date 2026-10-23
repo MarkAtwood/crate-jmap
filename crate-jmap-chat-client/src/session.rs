@@ -91,10 +91,11 @@ pub trait ChatSessionExt: sealed::Sealed {
 
     /// Returns the VAPID public key advertised by the server, if present.
     ///
-    /// Reads `capabilities["urn:ietf:params:jmap:webpush-vapid"]["vapidPublicKey"]`.
+    /// Reads `capabilities["urn:ietf:params:jmap:webpush-vapid"]["applicationServerKey"]`
+    /// (RFC 9749 §3): the base64url-encoded uncompressed P-256 public key.
     ///
-    /// Returns `None` when the capability is absent or when `vapidPublicKey` is missing
-    /// or not a string value.
+    /// Returns `None` when the capability is absent or when `applicationServerKey` is
+    /// missing or not a string value.
     fn vapid_public_key(&self) -> Option<&str>;
 
     /// Returns `true` if the server supports JMAP RefPlus result references.
@@ -211,7 +212,7 @@ impl ChatSessionExt for jmap_base_client::Session {
     fn vapid_public_key(&self) -> Option<&str> {
         self.capabilities
             .get("urn:ietf:params:jmap:webpush-vapid")?
-            .get("vapidPublicKey")?
+            .get("applicationServerKey")?
             .as_str()
     }
 
@@ -438,6 +439,106 @@ mod tests {
             !session.supports_chat_websocket(),
             "expected false when capability key is absent"
         );
+    }
+
+    /// Oracle: RFC 9425 §2.1 — servers supporting JMAP Quotas advertise
+    /// `urn:ietf:params:jmap:quota` in the Session capabilities object;
+    /// absence means no support.
+    #[test]
+    fn supports_quotas_follows_capability_key() {
+        let with = make_session(
+            json!({"urn:ietf:params:jmap:quota": {}}),
+            json!({}),
+            json!({}),
+        );
+        assert!(with.supports_quotas());
+        let without = make_session(json!({}), json!({}), json!({}));
+        assert!(!without.supports_quotas());
+    }
+
+    /// Oracle: draft-ietf-jmap-refplus-02 §1.2.1 — servers supporting RefPlus
+    /// advertise `urn:ietf:params:jmap:refplus` in the Session
+    /// capabilities object; absence means no support. An unrelated
+    /// capability key must not be mistaken for it.
+    #[test]
+    fn supports_refplus_follows_capability_key() {
+        let with = make_session(
+            json!({"urn:ietf:params:jmap:refplus": {}}),
+            json!({}),
+            json!({}),
+        );
+        assert!(with.supports_refplus());
+        let other = make_session(
+            json!({"urn:ietf:params:jmap:quota": {}}),
+            json!({}),
+            json!({}),
+        );
+        assert!(!other.supports_refplus());
+    }
+
+    /// Oracle: RFC 9749 §3 — the `urn:ietf:params:jmap:webpush-vapid`
+    /// capability object "MUST contain ... applicationServerKey: String",
+    /// the base64url uncompressed P-256 key. The key below is the
+    /// application server public key from RFC 8292 §2.4's example.
+    #[test]
+    fn vapid_public_key_reads_application_server_key() {
+        const KEY: &str = "BA1Hxzyi1RUM1b5wjxsn7nGxAszw2u61m164i3MrAIxHF6YK5h4SDYic-dRuU_RCPCfA5aq9ojSwk5Y2EmClBPs";
+        let session = make_session(
+            json!({"urn:ietf:params:jmap:webpush-vapid": {"applicationServerKey": KEY}}),
+            json!({}),
+            json!({}),
+        );
+        assert_eq!(session.vapid_public_key(), Some(KEY));
+    }
+
+    /// Oracle: RFC 9749 §3 defines only `applicationServerKey`; an absent
+    /// capability, a capability without that property, or a non-string
+    /// value carries no usable key.
+    #[test]
+    fn vapid_public_key_absent_or_malformed_is_none() {
+        for caps in [
+            json!({}),
+            json!({"urn:ietf:params:jmap:webpush-vapid": {}}),
+            json!({"urn:ietf:params:jmap:webpush-vapid": {"applicationServerKey": 42}}),
+        ] {
+            let session = make_session(caps.clone(), json!({}), json!({}));
+            assert_eq!(session.vapid_public_key(), None, "caps: {caps}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §2 — `accounts` is a map keyed by account id; an
+    /// id not in the map has no account capabilities, and an account
+    /// whose `accountCapabilities` lacks the chat URNs does not support
+    /// them. Both are `Ok(None)`, not errors.
+    #[test]
+    fn chat_capabilities_unknown_account_or_absent_key_is_none() {
+        let session = make_session(
+            json!({}),
+            json!({
+                "acct1": {
+                    "name": "test@example.com",
+                    "isPersonal": true,
+                    "isReadOnly": false,
+                    "accountCapabilities": {}
+                }
+            }),
+            json!({}),
+        );
+        for id in ["acct1", "no-such-account"] {
+            assert!(session.chat_capability(id).expect("must not Err").is_none());
+            assert!(
+                session
+                    .chat_push_capability(id)
+                    .expect("must not Err")
+                    .is_none()
+            );
+            assert!(
+                session
+                    .chat_filenode_capability(id)
+                    .expect("must not Err")
+                    .is_none()
+            );
+        }
     }
 
     // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
