@@ -2425,6 +2425,9 @@ mod tests {
 
     struct QueryObjectsErrConfig {
         msg: String,
+        /// When `Some`, the fault is this RFC 8620 §5.5 method error
+        /// (`BackendQueryError::Method`) instead of `MemoryError::new(msg)`.
+        method: Option<JmapError>,
         /// Number of calls to allow through before failing. `0` means the
         /// very next call fails.
         after_calls: u64,
@@ -2478,6 +2481,7 @@ mod tests {
         fn inject_query_objects_err(&self, msg: &str) {
             self.faults.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
                 msg: msg.to_owned(),
+                method: None,
                 after_calls: 0,
             });
         }
@@ -2489,6 +2493,17 @@ mod tests {
         fn inject_query_objects_err_after(&self, msg: &str, after_calls: u64) {
             self.faults.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
                 msg: msg.to_owned(),
+                method: None,
+                after_calls,
+            });
+        }
+
+        /// Like [`Self::inject_query_objects_err_after`], but the fault is
+        /// `BackendQueryError::Method(err)`.
+        fn inject_query_objects_method_err_after(&self, err: JmapError, after_calls: u64) {
+            self.faults.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
+                msg: String::new(),
+                method: Some(err),
                 after_calls,
             });
         }
@@ -2592,12 +2607,14 @@ mod tests {
                     .as_ref()
                     .is_some_and(|cfg| call_index >= cfg.after_calls);
                 if fire {
-                    let msg = guard
-                        .query_objects_err
-                        .take()
-                        .map(|c| c.msg)
-                        .unwrap_or_default();
-                    return Err(BackendQueryError::Other(MemoryError::new(msg)));
+                    return Err(match guard.query_objects_err.take() {
+                        Some(QueryObjectsErrConfig {
+                            method: Some(err), ..
+                        }) => BackendQueryError::Method(err),
+                        cfg => BackendQueryError::Other(MemoryError::new(
+                            cfg.map(|c| c.msg).unwrap_or_default(),
+                        )),
+                    });
                 }
             }
             self.inner
@@ -3909,6 +3926,46 @@ mod tests {
             "depth>0 + backend failure during expansion must produce \
              JMAP error, not a silently-downgraded flat result. got Ok: {:?}",
             result.ok()
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.5 (https://www.rfc-editor.org/rfc/rfc8620.txt,
+    /// Section 5.5 "/query"):
+    ///
+    /// > The following additional errors may be returned instead of the
+    /// > "Foo/query" response:
+    /// >
+    /// > "unsupportedFilter": The "filter" is syntactically valid, but the
+    /// > server cannot process it.
+    ///
+    /// A backend `BackendQueryError::Method` raised while `query_subtree`
+    /// expands `depth > 0` (draft-ietf-jmap-filenode-16 §3.2.5) MUST reach
+    /// the client unchanged, not as `serverFail` (bd JMAP-yt1w.24).
+    #[tokio::test]
+    async fn query_depth_gt_zero_passes_backend_method_error_through() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("root", None, "root"));
+        let mut injected = JmapError::unsupported_filter();
+        injected.description = Some("backend cannot expand this subtree".into());
+        // Call 0 is the top-level query; call 1 is the first per-level
+        // query inside query_subtree.
+        backend.inject_query_objects_method_err_after(injected, 1);
+
+        let args = json!({
+            "accountId": "acc1",
+            "depth": 1,
+            "filter": {"isTopLevel": true},
+        });
+        let err = handle_filenode_query(&backend, &(), args)
+            .await
+            .expect_err("a backend method error during expansion must fail the call");
+
+        assert_eq!(
+            serde_json::to_value(&err).expect("JmapError must serialize"),
+            json!({
+                "type": "unsupportedFilter",
+                "description": "backend cannot expand this subtree",
+            }),
         );
     }
 

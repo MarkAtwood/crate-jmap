@@ -53,9 +53,19 @@ pub const FAULTY_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3a2";
 /// The injected error text always contains [`FAULTY_BACKEND_CANARY`] so a
 /// redaction-leak assertion can be written generically.
 ///
+/// The `(O::TYPE_NAME, "query")` pair is different: the next
+/// `query_objects` call for type `O` returns `BackendQueryError::Method`
+/// carrying `unsupportedFilter` with description
+/// [`INJECTED_QUERY_METHOD_ERROR_DESCRIPTION`] (RFC 8620 §5.5).
+///
 /// Test-only — kept in the test harness rather than the public reference
 /// implementation to avoid promoting "fault-injection" as part of the
 /// stable public API.
+/// Description of the `unsupportedFilter` an injected `"query"` fault
+/// returns; seeing this text on the wire proves the backend's error passed
+/// through the handler.
+pub const INJECTED_QUERY_METHOD_ERROR_DESCRIPTION: &str = "backend cannot process this filter";
+
 pub struct FaultyBackend {
     pub inner: MemoryBackend,
     failures:
@@ -140,6 +150,11 @@ impl JmapBackend for FaultyBackend {
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        if self.take_fault(O::TYPE_NAME, "query") {
+            let mut err = jmap_types::JmapError::unsupported_filter();
+            err.description = Some(INJECTED_QUERY_METHOD_ERROR_DESCRIPTION.into());
+            return Err(BackendQueryError::Method(err));
+        }
         self.inner.query_objects::<O>(&(), account_id, params).await
     }
 
