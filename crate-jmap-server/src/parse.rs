@@ -51,6 +51,11 @@ use serde_json::Value;
 ///   internal helper that carries its own depth cap, so integrators do not
 ///   need additional guards on the path string itself once the body-size
 ///   and JSON-depth limits are in place.
+/// - **Filter nesting.** [`crate::Dispatcher::dispatch`] rejects a call
+///   whose `filter` nests FilterOperators more than 32 levels deep with
+///   `unsupportedFilter`, so filter walkers behind it need no guard of
+///   their own. A handler invoked directly, not through the dispatcher,
+///   does not get this cap.
 ///
 /// Failing to enforce these limits exposes the dispatcher to memory and
 /// stack-exhaustion DoS on adversarial input. The library cannot apply them
@@ -239,6 +244,50 @@ pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<
     }
 
     Ok(())
+}
+
+/// Maximum FilterOperator nesting a method call's `filter` argument may
+/// have when it passes through [`crate::Dispatcher::dispatch`].
+///
+/// Every filter walker in the workspace (`Filter::matches`, the
+/// `*-server` validators and reference backends) recurses once per
+/// `conditions` array, so this cap bounds their stack use without each
+/// carrying its own (bd:JMAP-xmvz). It matches the ~32-level JSON-depth
+/// contract on [`parse_request`] and [`MAX_JSON_POINTER_DEPTH`].
+const MAX_FILTER_DEPTH: usize = 32;
+
+/// Reject a call whose `filter` argument nests FilterOperator `conditions`
+/// more than [`MAX_FILTER_DEPTH`] levels deep. A bare FilterCondition is
+/// depth 0; each enclosing operator adds one.
+///
+/// # Errors
+///
+/// `unsupportedFilter`: "The "filter" is syntactically valid, but the
+/// server cannot process it. If the filter was the result of a user's
+/// search input, the client SHOULD suggest that the user simplify their
+/// search." (RFC 8620 §5.5, rfc8620.txt:2626-2629).
+pub(crate) fn check_filter_depth(args: &Value) -> Result<(), JmapError> {
+    match args.get("filter") {
+        Some(filter) if nests_deeper_than(filter, MAX_FILTER_DEPTH) => {
+            let mut err = JmapError::unsupported_filter();
+            err.description = Some(format!(
+                "filter: FilterOperator nesting exceeds {MAX_FILTER_DEPTH} levels"
+            ));
+            Err(err)
+        }
+        _ => Ok(()),
+    }
+}
+
+/// `true` if `filter` has more than `levels` nested `conditions` arrays.
+/// Recurses at most `levels + 1` times.
+fn nests_deeper_than(filter: &Value, levels: usize) -> bool {
+    match filter.get("conditions") {
+        Some(Value::Array(children)) => {
+            levels == 0 || children.iter().any(|c| nests_deeper_than(c, levels - 1))
+        }
+        _ => false,
+    }
 }
 
 /// Maximum recursion depth for JSON Pointer resolution.

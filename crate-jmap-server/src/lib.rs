@@ -431,7 +431,9 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
         } in request.method_calls
         {
             // Resolve ResultReferences from prior responses.
-            if let Err(e) = resolve_args(&mut args, &method_responses) {
+            if let Err(e) = resolve_args(&mut args, &method_responses)
+                .and_then(|()| parse::check_filter_depth(&args))
+            {
                 method_responses.push(error_invocation(&call_id, e));
                 continue;
             }
@@ -799,6 +801,50 @@ mod tests {
         assert_eq!(method, "Foo/get");
         assert_eq!(call_id, "c1");
         assert_eq!(args["list"], json!([]));
+    }
+
+    /// A FilterCondition wrapped in `levels` nested `AND` operators.
+    fn nested_filter(levels: usize) -> Value {
+        (0..levels).fold(
+            json!({ "text": "x" }),
+            |inner, _| json!({ "operator": "AND", "conditions": [inner] }),
+        )
+    }
+
+    /// Oracle: RFC 8620 §5.5 (rfc8620.txt:2626) — `unsupportedFilter`
+    /// "The "filter" is syntactically valid, but the server cannot process
+    /// it", and the 32-level cap documented on `parse_request`. A filter
+    /// one operator level past the cap is refused before the handler runs.
+    #[tokio::test]
+    async fn filter_nested_past_cap_is_unsupported_filter() {
+        let slot = Arc::new(Mutex::new(None));
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register("Foo/query", Arc::new(CaptureArgsHandler(slot.clone())));
+        let req = single_call("Foo/query", json!({ "filter": nested_filter(33) }), "c0");
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        let Invocation {
+            name, arguments, ..
+        } = &resp.method_responses[0];
+        assert_eq!(name, "error");
+        assert_eq!(arguments["type"], "unsupportedFilter");
+        assert!(
+            slot.lock().expect("test: mutex poisoned").is_none(),
+            "handler must not run on a refused filter"
+        );
+    }
+
+    /// Positive control for the cap: 32 operator levels, the documented
+    /// limit, still reach the handler unchanged.
+    #[tokio::test]
+    async fn filter_nested_at_cap_reaches_handler() {
+        let slot = Arc::new(Mutex::new(None));
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register("Foo/query", Arc::new(CaptureArgsHandler(slot.clone())));
+        let args = json!({ "filter": nested_filter(32) });
+        let req = single_call("Foo/query", args.clone(), "c0");
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        assert_eq!(resp.method_responses[0].name, "Foo/query");
+        assert_eq!(*slot.lock().expect("test: mutex poisoned"), Some(args));
     }
 
     /// Oracle: RFC 8620 §3.6.2 — method-level errors appear in methodResponses.

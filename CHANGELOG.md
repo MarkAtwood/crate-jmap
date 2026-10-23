@@ -1408,6 +1408,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server**: `Dispatcher::dispatch` now answers a method
+  call whose `filter` nests FilterOperator `conditions` more than 32 levels
+  deep with `unsupportedFilter` (RFC 8620 §5.5, rfc8620.txt:2626-2629),
+  before the handler runs. This one cap bounds the stack use of every
+  filter walker in the `*-server` crates, which used to recurse as deep as
+  the JSON parser allowed. Handlers called directly, outside the
+  dispatcher, are not capped (bd JMAP-xmvz).
 - **BREAKING** **jmap-server**: `PushSubscription/get` now rejects a
   `properties` entry that is neither an RFC 8620 §7.2 property nor listed in
   the new `PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES`
