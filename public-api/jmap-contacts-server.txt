@@ -4,6 +4,7 @@ pub use jmap_contacts_server::AddressBookProperty
 pub use jmap_contacts_server::BackendChangesError
 pub use jmap_contacts_server::BackendQueryError
 pub use jmap_contacts_server::BackendSetError
+pub use jmap_contacts_server::ChangesParams
 pub use jmap_contacts_server::ChangesResult
 pub use jmap_contacts_server::ContactCardProperty
 pub use jmap_contacts_server::GetObject
@@ -25,7 +26,7 @@ pub fn jmap_contacts_server::memory::MemoryBackend::new() -> Self
 pub fn jmap_contacts_server::memory::MemoryBackend::seed_object(&self, &str, &str, &str, serde_json::value::Value)
 pub fn jmap_contacts_server::memory::MemoryBackend::with_account(self, &str) -> Self
 impl core::clone::Clone for jmap_contacts_server::memory::MemoryBackend
-pub fn jmap_contacts_server::memory::MemoryBackend::clone(&self) -> jmap_contacts_server::memory::MemoryBackend
+pub fn jmap_contacts_server::memory::MemoryBackend::clone(&self) -> Self
 impl core::default::Default for jmap_contacts_server::memory::MemoryBackend
 pub fn jmap_contacts_server::memory::MemoryBackend::default() -> jmap_contacts_server::memory::MemoryBackend
 impl jmap_contacts_server::ContactsBackend for jmap_contacts_server::memory::MemoryBackend
@@ -39,7 +40,7 @@ impl jmap_server::backend::JmapBackend for jmap_contacts_server::memory::MemoryB
 pub type jmap_contacts_server::memory::MemoryBackend::CallerCtx = ()
 pub type jmap_contacts_server::memory::MemoryBackend::Error = jmap_contacts_server::memory::MemoryError
 pub async fn jmap_contacts_server::memory::MemoryBackend::account_exists(&self, &(), &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
-pub async fn jmap_contacts_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
+pub async fn jmap_contacts_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
 pub async fn jmap_contacts_server::memory::MemoryBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>
 pub async fn jmap_contacts_server::memory::MemoryBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, Self::Error>
 pub async fn jmap_contacts_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>

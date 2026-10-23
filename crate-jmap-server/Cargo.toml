@@ -12,6 +12,7 @@ categories = ["network-programming", "web-programming::http-server"]
 
 [dependencies]
 jmap-types = { workspace = true }
+jmap-metadata-types = { workspace = true }
 subtle = { workspace = true }
 http = { workspace = true }
 serde = { workspace = true }

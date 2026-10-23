@@ -3,6 +3,7 @@ pub use jmap_chat_server::AddedItem
 pub use jmap_chat_server::BackendChangesError
 pub use jmap_chat_server::BackendQueryError
 pub use jmap_chat_server::BackendSetError
+pub use jmap_chat_server::ChangesParams
 pub use jmap_chat_server::ChangesResult
 pub use jmap_chat_server::ChatContactProperty
 pub use jmap_chat_server::ChatProperty
@@ -29,7 +30,7 @@ pub fn jmap_chat_server::memory::MemoryBackend::new() -> Self
 pub fn jmap_chat_server::memory::MemoryBackend::set_everyone_permissions(&self, std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>)
 pub fn jmap_chat_server::memory::MemoryBackend::set_space_everyone_permissions(&self, &jmap_types::id::Id, std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>)
 impl core::clone::Clone for jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_server::memory::MemoryBackend::clone(&self) -> jmap_chat_server::memory::MemoryBackend
+pub fn jmap_chat_server::memory::MemoryBackend::clone(&self) -> Self
 impl core::default::Default for jmap_chat_server::memory::MemoryBackend
 pub fn jmap_chat_server::memory::MemoryBackend::default() -> Self
 impl jmap_chat_server::ChatBackend for jmap_chat_server::memory::MemoryBackend
@@ -75,7 +76,7 @@ impl jmap_server::backend::JmapBackend for jmap_chat_server::memory::MemoryBacke
 pub type jmap_chat_server::memory::MemoryBackend::CallerCtx = ()
 pub type jmap_chat_server::memory::MemoryBackend::Error = jmap_chat_server::memory::MemoryError
 pub async fn jmap_chat_server::memory::MemoryBackend::account_exists(&self, &(), &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
-pub async fn jmap_chat_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
+pub async fn jmap_chat_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
 pub async fn jmap_chat_server::memory::MemoryBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>
 pub async fn jmap_chat_server::memory::MemoryBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, Self::Error>
 pub async fn jmap_chat_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
@@ -487,7 +488,7 @@ pub fn jmap_chat_server::memory::MemoryBackend::space_extension_properties(&self
 pub fn jmap_chat_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub async fn jmap_chat_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
 pub fn jmap_chat_server::memory::MemoryBackend::validate_pinned_message_ids(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
-pub fn jmap_chat_server::build_chat_message_push(&jmap_types::id::Id, jmap_types::id::State, &jmap_chat_types::push::ChatPushConfig, &jmap_chat_types::capability::ChatPushCapability, jmap_chat_server::OwnerFlags, jmap_chat_server::PushItem<'_>) -> jmap_chat_server::BuiltPush
+pub fn jmap_chat_server::build_chat_message_push(&jmap_types::id::Id, jmap_types::id::State, &jmap_chat_types::push::ChatPushConfig, &jmap_chat_types::capability::ChatPushCapability, jmap_chat_server::OwnerFlags, jmap_chat_server::PushItem<'_>, core::option::Option<u64>) -> jmap_chat_server::BuiltPush
 pub fn jmap_chat_server::chat_state_change_for(&jmap_types::push::PushSubscription, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::id::State>>, &std::collections::hash::set::HashSet<jmap_types::id::Id>) -> core::option::Option<jmap_types::push::StateChange>
 pub fn jmap_chat_server::fit_chat_message_push(jmap_chat_types::push::ChatMessagePush, usize) -> alloc::vec::Vec<core::option::Option<jmap_chat_types::push::ChatMessagePush>>
 pub async fn jmap_chat_server::handle_ban_changes<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
@@ -524,6 +525,7 @@ pub async fn jmap_chat_server::handle_space_join<B: jmap_chat_server::ChatBacken
 pub async fn jmap_chat_server::handle_space_query<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_chat_server::handle_space_query_changes<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_chat_server::handle_space_set<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_chat_server::owner_unread_count<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id) -> core::result::Result<u64, <B as jmap_server::backend::JmapBackend>::Error>
 pub async fn jmap_chat_server::project_presence<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::ephemeral::ChatPresenceEvent) -> core::result::Result<core::option::Option<jmap_chat_types::ephemeral::ChatPresenceEvent>, <B as jmap_server::backend::JmapBackend>::Error>
 pub fn jmap_chat_server::register_chat_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_chat_server::ChatBackend + 'static
 pub fn jmap_chat_server::required_permissions_for_op(&jmap_chat_types::space_set::SpacePatchOp) -> jmap_chat_server::RequiredPermissions

@@ -701,9 +701,10 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        let since_state = params.since_state;
+        let max_changes = params.max_changes;
         let inner = self.inner.lock().unwrap();
 
         let since_n: u64 = since_state
@@ -948,7 +949,11 @@ impl JmapBackend for MemoryBackend {
             ..
         } = params;
         let changes = self
-            .get_changes::<O>(&(), account_id, since_query_state, max_changes)
+            .get_changes::<O>(
+                &(),
+                account_id,
+                jmap_server::ChangesParams::new(since_query_state).max_changes(max_changes),
+            )
             .await?;
 
         let inner = self.inner.lock().unwrap();
@@ -1389,7 +1394,11 @@ mod change_log_dedup_tests {
         // The dedup loop walks entries 1..=3 because since_n=0.
         // Processing entry K=3's `created` triggers the debug_assert.
         let _ = backend
-            .get_changes::<Calendar>(&(), &acc_id, &State::from("0"), None)
+            .get_changes::<Calendar>(
+                &(),
+                &acc_id,
+                jmap_server::ChangesParams::new(&State::from("0")),
+            )
             .await;
     }
 
@@ -1431,7 +1440,11 @@ mod change_log_dedup_tests {
         );
 
         let _ = backend
-            .get_changes::<Calendar>(&(), &acc_id, &State::from("0"), None)
+            .get_changes::<Calendar>(
+                &(),
+                &acc_id,
+                jmap_server::ChangesParams::new(&State::from("0")),
+            )
             .await;
     }
 
@@ -1473,7 +1486,11 @@ mod change_log_dedup_tests {
         );
 
         let result = backend
-            .get_changes::<Calendar>(&(), &acc_id, &State::from("0"), None)
+            .get_changes::<Calendar>(
+                &(),
+                &acc_id,
+                jmap_server::ChangesParams::new(&State::from("0")),
+            )
             .await
             .expect("must not error");
 

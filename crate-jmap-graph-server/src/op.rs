@@ -97,7 +97,7 @@ pub async fn handle_graph_node_op_changes<B: GraphBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     require_edit(backend, caller, &args).await?;
-    jmap_server::handle_changes::<GraphNodeOp, B>(backend, caller, args).await
+    jmap_server::handle_changes::<GraphNodeOp, B>(backend, caller, args, &[]).await
 }
 
 /// The `/query` and `/queryChanges` filter and sort checks: "The `filter`

@@ -128,5 +128,5 @@ pub async fn handle_thread_changes<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<jmap_mail_types::Thread, B>(backend, caller, args).await
+    jmap_server::handle_changes::<jmap_mail_types::Thread, B>(backend, caller, args, &[]).await
 }

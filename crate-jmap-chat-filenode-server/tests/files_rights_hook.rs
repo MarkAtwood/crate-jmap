@@ -114,12 +114,9 @@ impl JmapBackend for Deployment {
         &self,
         _caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-        self.files
-            .get_changes::<O>(&(), account_id, since_state, max_changes)
-            .await
+        self.files.get_changes::<O>(&(), account_id, params).await
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(

@@ -100,7 +100,7 @@ pub async fn handle_scene_asset_changes<B: SceneBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_scene_asset_supported(backend, caller, &args).await?;
-    jmap_server::handle_changes::<SceneAsset, B>(backend, caller, args).await
+    jmap_server::handle_changes::<SceneAsset, B>(backend, caller, args, &[]).await
 }
 
 /// Handle `SceneAsset/query` (draft-atwood-jmap-scene-00

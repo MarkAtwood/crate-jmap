@@ -73,7 +73,7 @@ pub async fn handle_share_notification_changes<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<ShareNotification, B>(backend, caller, args).await
+    jmap_server::handle_changes::<ShareNotification, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------

@@ -81,7 +81,7 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<ContactCard, B>(backend, caller, args).await
+    jmap_server::handle_changes::<ContactCard, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------

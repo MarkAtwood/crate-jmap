@@ -565,7 +565,7 @@ pub async fn handle_space_changes<B: ChatBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Space, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Space, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------

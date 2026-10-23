@@ -53,9 +53,9 @@ pub use card::{
 };
 pub use jmap_contacts_types::{AddressBookProperty, ContactCardProperty};
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 
 /// Capability URI for the JMAP for Contacts extension (RFC 9610 §1.4.1).
@@ -428,8 +428,7 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_state: &State,
-            _max_changes: Option<u64>,
+            _params: jmap_server::ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
             Ok(ChangesResult::new(
                 vec![],

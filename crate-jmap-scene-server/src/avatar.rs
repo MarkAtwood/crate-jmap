@@ -69,7 +69,7 @@ pub async fn handle_scene_avatar_changes<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<SceneAvatar, B>(backend, caller, args).await
+    jmap_server::handle_changes::<SceneAvatar, B>(backend, caller, args, &[]).await
 }
 
 /// Handle `SceneAvatar/query` (draft-atwood-jmap-scene-00

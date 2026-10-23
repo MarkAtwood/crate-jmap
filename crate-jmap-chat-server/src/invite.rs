@@ -160,7 +160,11 @@ pub async fn handle_invite_changes<B: ChatBackend>(
     let max_changes = jmap_server::parse_max_changes(args.get("maxChanges"))?;
 
     let result = backend
-        .get_changes::<SpaceInvite>(caller, &account_id, &since_state, max_changes)
+        .get_changes::<SpaceInvite>(
+            caller,
+            &account_id,
+            jmap_server::ChangesParams::new(&since_state).max_changes(max_changes),
+        )
         .await
         .map_err(JmapError::from)?;
 

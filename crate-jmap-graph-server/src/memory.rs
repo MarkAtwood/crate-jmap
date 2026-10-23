@@ -711,9 +711,10 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &Id,
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
+        let since_state = params.since_state;
+        let max_changes = params.max_changes;
         let inner = self.lock();
         let since: u64 = since_state
             .as_ref()

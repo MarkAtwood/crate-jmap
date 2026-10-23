@@ -123,12 +123,9 @@ impl JmapBackend for Bound {
         &self,
         caller: &String,
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<VtcError>> {
-        self.vtc
-            .get_changes::<O>(caller, account_id, since_state, max_changes)
-            .await
+        self.vtc.get_changes::<O>(caller, account_id, params).await
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(

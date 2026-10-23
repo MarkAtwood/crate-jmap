@@ -146,7 +146,7 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Mailbox, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Mailbox, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------

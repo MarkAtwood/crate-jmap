@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: **BREAKING** draft-ietf-jmap-metadata-04 `/changes`
+  plumbing. `JmapBackend::get_changes` takes a `#[non_exhaustive]`
+  `ChangesParams` (`since_state`, `max_changes`,
+  `ignore_metadata_only_changes`; build with `ChangesParams::new` and the
+  setters) in place of the `since_state` and `max_changes` arguments;
+  every backend in the workspace is updated. `handle_changes` takes the
+  request's `using` list as a fourth argument: with
+  `urn:ietf:params:jmap:metadata` it parses `ignoreMetadataOnlyChanges`
+  (a non-boolean is `invalidArguments`), and without it tells the backend
+  to ignore metadata-only changes (-04 §3: "MUST behave as if
+  ignoreMetadataOnlyChanges were true"). Extension servers pass `&[]`
+  until they opt in. `CallContext::using` (set by `Dispatcher::dispatch`)
+  carries the list. `ChangesResult::updated_properties` and
+  `with_updated_properties` supply the `updatedProperties` response
+  argument, sent as `null` whenever `updated` is empty (-04 §3.3). Each
+  extension server re-exports `ChangesParams` (bd JMAP-cbhv).
 - **jmap-types**: `From<&SetError>` and `From<SetError>` for
   `serde_json::Value` build the RFC 8620 §5.3 wire object directly, with
   no fallible serde step (bd JMAP-ic0j.38).

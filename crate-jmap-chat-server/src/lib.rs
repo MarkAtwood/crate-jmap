@@ -115,9 +115,9 @@ pub use jmap_chat_types::{
 };
 pub use jmap_chat_types::{SpaceMetadataPatch, SpacePatchOp};
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use outbound::{GroupUpdateAction, OutboundEvent, ReactionAction};
 pub use permissions::{

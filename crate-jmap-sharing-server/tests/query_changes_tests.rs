@@ -116,12 +116,9 @@ impl JmapBackend for FilteringBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-        self.0
-            .get_changes::<O>(caller, account_id, since_state, max_changes)
-            .await
+        self.0.get_changes::<O>(caller, account_id, params).await
     }
 
     /// For Principal: apply `accountIds` filtering in-memory.

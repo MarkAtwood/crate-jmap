@@ -72,8 +72,7 @@ impl JmapBackend for FaultyBackend {
         &self,
         _caller: &(),
         _account_id: &Id,
-        _since_state: &State,
-        _max_changes: Option<u64>,
+        _params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         Err(BackendChangesError::Other(MemoryError::new(
             "storage unavailable",
@@ -514,11 +513,10 @@ impl JmapBackend for TrackingBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         self.inner
-            .get_changes::<O>(caller, account_id, since_state, max_changes)
+            .get_changes::<O>(caller, account_id, params)
             .await
     }
 
@@ -958,12 +956,9 @@ impl JmapBackend for IdentityBackend {
         &self,
         _caller: &Id,
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-        self.inner
-            .get_changes::<O>(&(), account_id, since_state, max_changes)
-            .await
+        self.inner.get_changes::<O>(&(), account_id, params).await
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(
@@ -1440,11 +1435,10 @@ impl JmapBackend for InjectableBackend {
         &self,
         caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         self.inner
-            .get_changes::<O>(caller, account_id, since_state, max_changes)
+            .get_changes::<O>(caller, account_id, params)
             .await
     }
 

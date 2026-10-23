@@ -68,7 +68,7 @@ pub async fn handle_scene_region_changes<B: SceneBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<SceneRegion, B>(backend, caller, args).await
+    jmap_server::handle_changes::<SceneRegion, B>(backend, caller, args, &[]).await
 }
 
 /// Handle `SceneRegion/query` (draft-atwood-jmap-scene-00

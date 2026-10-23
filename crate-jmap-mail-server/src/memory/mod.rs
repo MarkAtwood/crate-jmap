@@ -682,9 +682,10 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        let since_state = params.since_state;
+        let max_changes = params.max_changes;
         let since: u64 = since_state.as_ref().parse().map_err(|_| {
             BackendChangesError::Other(MemoryError::new(format!(
                 "invalid state token: {since_state}"
@@ -1043,7 +1044,11 @@ impl JmapBackend for MemoryBackend {
 
         // Step 2: Get the raw delta (created/updated/destroyed) since the given state.
         let changes = self
-            .get_changes::<O>(_caller, account_id, since_query_state, None)
+            .get_changes::<O>(
+                _caller,
+                account_id,
+                jmap_server::ChangesParams::new(since_query_state),
+            )
             .await?;
         let new_query_state = changes.new_state.clone();
 

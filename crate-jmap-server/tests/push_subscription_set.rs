@@ -125,8 +125,7 @@ impl JmapBackend for MockBackend {
         &self,
         _caller: &Id,
         _account_id: &Id,
-        _since_state: &State,
-        _max_changes: Option<u64>,
+        _params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MockError>> {
         unreachable!("not exercised")
     }
