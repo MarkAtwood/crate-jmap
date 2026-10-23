@@ -2114,37 +2114,38 @@ async fn filenode_query_role_filter_excludes_non_matching() {
 }
 
 // ---------------------------------------------------------------------------
-// FileNode/query — body (full-text) filter is explicitly unsupported.
-// Oracle: bd:JMAP-510h.9 — unsupported conditions MUST surface as a
-// backend Err (mapped to serverFail by the handler), not be silently
-// passed through. Closes the reference-impl footgun where a downstream
-// contributor would copy the silent match-all pattern.
+// FileNode/query — full-text `body` / `text` filters are explicitly
+// unsupported by the reference MemoryBackend.
+// Oracle: RFC 8620 §5.5 — "A server MUST reject the call with an
+// `unsupportedFilter` error if it cannot process the given filter."
+// bd:JMAP-510h.9 (no silent match-all), bd:JMAP-yt1w.25 (error type).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn filenode_query_body_filter_returns_server_fail() {
+async fn filenode_query_full_text_filter_is_unsupported_filter() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let _ = create_node(&backend, "acc1", "doc", None, "s").await;
 
-    let result = handle_filenode_query(
-        &backend,
-        &(),
-        json!({
-            "accountId": "acc1",
-            "filter": { "body": "search-term" },
-            "sort": null
-        }),
-    )
-    .await;
+    for filter in [json!({ "body": "search-term" }), json!({ "text": "doc" })] {
+        let result = handle_filenode_query(
+            &backend,
+            &(),
+            json!({
+                "accountId": "acc1",
+                "filter": filter,
+                "sort": null
+            }),
+        )
+        .await;
 
-    let err = result.expect_err("body filter must surface as a JmapError, not silently match all");
-    assert_eq!(
-        err.error_type.to_string(),
-        "serverFail",
-        "unsupported filter condition must surface as serverFail (the \
-         MemoryBackend explicitly returns Err so downstream backends do not \
-         silently match-all); got: {err:?}"
-    );
+        let err = result
+            .expect_err("full-text filter must surface as a JmapError, not silently match all");
+        assert_eq!(
+            err.error_type.to_string(),
+            "unsupportedFilter",
+            "filter {filter}: got {err:?}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -3780,7 +3781,9 @@ async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
 // conditions must match. draft-ietf-jmap-filenode `role` / `hasAnyRole`.
 // Expected nodes are read off the hand-written create: d1 has role
 // documents, d2 role downloads, d3 no role. An unsupported `body`
-// condition nested in a tree still surfaces as serverFail.
+// condition nested in a tree still surfaces as unsupportedFilter (RFC 8620
+// §5.5: "A server MUST reject the call with an `unsupportedFilter` error if
+// it cannot process the given filter").
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -3855,5 +3858,5 @@ async fn filenode_query_evaluates_operator_tree() {
     )
     .await
     .expect_err("a nested body condition must not silently match");
-    assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }

@@ -762,11 +762,11 @@ impl JmapBackend for MemoryBackend {
             ..
         } = params;
         // Fail loud on any non-trivial filter. A `None` or all-fields-None
-        // filter passes (matches everything); any populated field rejects.
-        // An RFC 8620 §5.5 operator tree is answered with `unsupportedFilter`
-        // ("A server MUST reject the call with an unsupportedFilter error if
-        // it cannot process the given filter"), since this backend evaluates
-        // no FilterOperator.
+        // filter passes (matches everything); any populated field this
+        // backend cannot evaluate, and any operator tree, is answered with
+        // `unsupportedFilter` (RFC 8620 §5.5: "A server MUST reject the call
+        // with an unsupportedFilter error if it cannot process the given
+        // filter").
         //
         // The generic `O::Filter` is the concrete `TaskFilter`,
         // `TaskNotificationFilter` or (TaskList) `Value` here. A serializer
@@ -804,13 +804,7 @@ impl JmapBackend for MemoryBackend {
                 None => true,
             };
             if any_field_set {
-                return Err(BackendQueryError::Other(MemoryError::new(format!(
-                    "MemoryBackend does not support filter on {}/query — reference \
-                     implementation; a production backend MUST honor RFC 8620 §5.5 \
-                     filter / supported_filter for {}",
-                    O::TYPE_NAME,
-                    O::TYPE_NAME
-                ))));
+                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
             }
             if is_task {
                 task_condition = Some(serde_json::from_value(v).map_err(|e| {
@@ -819,17 +813,12 @@ impl JmapBackend for MemoryBackend {
             }
         }
 
-        // Fail loud on any non-empty sort. RFC 8620 §5.5 default order is
-        // implementation-defined; this reference impl returns ids in
-        // id-lexicographic order, which a client must not assume.
+        // Fail loud on any non-empty sort: this reference impl returns ids
+        // in id-lexicographic order and honors no comparator. RFC 8620 §5.5:
+        // "A server MUST reject the call with an unsupportedSort error if it
+        // cannot sort by the given properties."
         if sort.is_some_and(|s| !s.is_empty()) {
-            return Err(BackendQueryError::Other(MemoryError::new(format!(
-                "MemoryBackend does not support sort on {}/query — reference \
-                 implementation returns id-lexicographic order; a production \
-                 backend MUST honor RFC 8620 §5.5 sort / supported_sort for {}",
-                O::TYPE_NAME,
-                O::TYPE_NAME
-            ))));
+            return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
         }
 
         let mut ids: Vec<Id> = inner
