@@ -1,6 +1,9 @@
 //! The in-memory backend rejects draft-ietf-jmap-metadata-04 §3.6 filter
-//! conditions on Email and Mailbox with `unsupportedFilter` until it
-//! evaluates them (bd JMAP-xdp4; JMAP-s4kp.1 adds evaluation).
+//! conditions on Email and Mailbox with `unsupportedFilter` unless
+//! `with_metadata_info` gave the type metadata (bd JMAP-xdp4; evaluation
+//! for opted-in types is in `metadata.rs`, JMAP-s4kp.1). -04 §1.2.1: an
+//! unlisted type "does not gain the metadata or privateMetadata
+//! properties".
 //!
 //! Oracle: RFC 8620 §5.5 (https://www.rfc-editor.org/rfc/rfc8620.txt):
 //!

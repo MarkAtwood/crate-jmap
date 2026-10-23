@@ -40,8 +40,9 @@ use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{Value, json};
 
 use crate::helpers::{
-    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response, not_found_json, resolve_ref, serialize_value,
+    SetAccumulators, check_metadata_entry, create_metadata, enforce_max_objects_in_get,
+    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
+    not_found_json, resolve_ref, serialize_value,
 };
 use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -140,13 +141,20 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Mailbox, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<Mailbox, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -529,6 +537,11 @@ fn parents_first(creates: &serde_json::Map<String, Value>) -> Vec<(&String, &Val
 /// - `parentId` `#creationId` references (RFC 8620 §5.3), resolved against
 ///   `created_ids` (pass [`jmap_server::CallContext::created_ids`]) and
 ///   against the creates of this call, which run parents first
+/// - draft-ietf-jmap-metadata-04 §3 and §3.2: a write to `metadata` or
+///   `privateMetadata` is `invalidProperties` without
+///   `urn:ietf:params:jmap:metadata` in `using` (pass
+///   [`jmap_server::CallContext::using`]), as is `null` for either in a
+///   create; the backend validates the rest
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_set<B: MailBackend>(
@@ -536,6 +549,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -627,6 +641,13 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         for (create_id, props) in parents_first(creates) {
             if let Some(err) = props.as_object().and_then(reject_server_set::<Mailbox>) {
                 not_created.insert(create_id.clone(), serde_json::Value::from(&err));
+                continue;
+            }
+            if let Some(Err(err)) = props
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
             let mut props = props.clone();
@@ -811,11 +832,18 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             });
 
         // Returns the InvalidProperties error value if `patch` names a
-        // server-set Mailbox property (RFC 8621 §2), or None if the patch is
-        // clean. Used in both passes to avoid duplicating the check block.
+        // server-set Mailbox property (RFC 8621 §2) or writes metadata the
+        // request may not write (draft-ietf-jmap-metadata-04 §3), or None
+        // if the patch is clean. Used in both passes to avoid duplicating
+        // the check block.
         let server_set_error = |patch: &PatchObject| -> Option<Value> {
             reject_read_only_patch::<Mailbox>(patch.as_map(), None)
                 .map(|e| serde_json::Value::from(&e))
+                .or_else(|| {
+                    check_metadata_entry(patch.as_map(), false, using)
+                        .err()
+                        .map(|e| serde_json::Value::from(&*e))
+                })
         };
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---
@@ -1259,6 +1287,14 @@ fn build_mailbox_from_props(
         }
     };
 
+    // draft-ietf-jmap-metadata-04 §3.2: the create sets the metadata
+    // properties; the backend validates them.
+    let (metadata, private_metadata) = props
+        .as_object()
+        .map(create_metadata)
+        .transpose()?
+        .unwrap_or_default();
+
     Ok(move |id: &Id| {
         let mut mailbox = Mailbox::new(
             id.clone(),
@@ -1273,6 +1309,8 @@ fn build_mailbox_from_props(
         );
         mailbox.parent_id = parent_id;
         mailbox.role = role;
+        mailbox.metadata = metadata;
+        mailbox.private_metadata = private_metadata;
         mailbox
     })
 }

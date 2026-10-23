@@ -2184,6 +2184,8 @@ version = "0.3.0"
 dependencies = [
  "jmap-mail-server",
  "jmap-mail-types",
+ "jmap-metadata-server",
+ "jmap-metadata-types",
  "jmap-mime",
  "jmap-server",
  "jmap-types",

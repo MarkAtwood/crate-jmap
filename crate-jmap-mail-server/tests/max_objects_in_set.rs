@@ -73,7 +73,7 @@ async fn mailbox_set_over_limit_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+    let err = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect_err("501-entry batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
@@ -99,7 +99,7 @@ async fn mailbox_set_at_limit_passes_cap_check() {
     // because it means the cap path is wrong; the per-entry validation
     // failures live inside the Ok(...) wire shape, not in the method-
     // level Err.
-    let result = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args).await;
+    let result = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[]).await;
     if let Err(ref err) = result {
         assert_ne!(
             err.error_type.to_string(),
@@ -122,7 +122,7 @@ async fn email_set_over_limit_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_email_set(&backend, &(), &BTreeMap::new(), args)
+    let err = handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect_err("501-entry Email/set batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();

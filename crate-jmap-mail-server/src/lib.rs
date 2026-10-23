@@ -165,11 +165,12 @@ where
     // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
     // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
     //
-    // The optional `$ids` binds `CallContext::created_ids`, the
-    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
-    // use to resolve `#creationId` references.
+    // Each optional trailing ident binds the `CallContext` field of that name:
+    // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
+    // `/set` handlers use to resolve `#creationId` references, or `using`,
+    // the request's capability list (draft-ietf-jmap-metadata-04 §3).
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -178,7 +179,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
-                        $(created_ids: $ids,)?
+                        $($field,)*
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -192,8 +193,8 @@ where
     reg!("Mailbox/get", backend, |b, _ci, a, ctx| {
         handle_mailbox_get(&*b, &ctx, a).await
     });
-    reg!("Mailbox/changes", backend, |b, _ci, a, ctx| {
-        handle_mailbox_changes(&*b, &ctx, a).await
+    reg!("Mailbox/changes", backend, |b, _ci, a, ctx, using| {
+        handle_mailbox_changes(&*b, &ctx, a, &using).await
     });
     reg!("Mailbox/query", backend, |b, _ci, a, ctx| {
         handle_mailbox_query(&*b, &ctx, a).await
@@ -201,9 +202,13 @@ where
     reg!("Mailbox/queryChanges", backend, |b, _ci, a, ctx| {
         handle_mailbox_query_changes(&*b, &ctx, a).await
     });
-    reg!("Mailbox/set", backend, |b, _ci, a, ctx, ids| {
-        handle_mailbox_set(&*b, &ctx, &ids, a).await
-    });
+    reg!(
+        "Mailbox/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, using| {
+            handle_mailbox_set(&*b, &ctx, &created_ids, a, &using).await
+        }
+    );
 
     // Thread
     reg!("Thread/get", backend, |b, _ci, a, ctx| {
@@ -217,8 +222,8 @@ where
     reg!("Email/get", backend, |b, _ci, a, ctx| {
         handle_email_get(&*b, &ctx, a).await
     });
-    reg!("Email/changes", backend, |b, _ci, a, ctx| {
-        handle_email_changes(&*b, &ctx, a).await
+    reg!("Email/changes", backend, |b, _ci, a, ctx, using| {
+        handle_email_changes(&*b, &ctx, a, &using).await
     });
     reg!("Email/query", backend, |b, _ci, a, ctx| {
         handle_email_query(&*b, &ctx, a).await
@@ -226,9 +231,13 @@ where
     reg!("Email/queryChanges", backend, |b, _ci, a, ctx| {
         handle_email_query_changes(&*b, &ctx, a).await
     });
-    reg!("Email/set", backend, |b, _ci, a, ctx, ids| {
-        handle_email_set(&*b, &ctx, &ids, a).await
-    });
+    reg!(
+        "Email/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, using| {
+            handle_email_set(&*b, &ctx, &created_ids, a, &using).await
+        }
+    );
     reg!("Email/copy", backend, |b, ci, a, ctx| {
         handle_email_copy(&*b, &ctx, a, &ci).await
     });
@@ -268,9 +277,13 @@ where
     reg!("EmailSubmission/queryChanges", backend, |b, _ci, a, ctx| {
         handle_submission_query_changes(&*b, &ctx, a).await
     });
-    reg!("EmailSubmission/set", backend, |b, ci, a, ctx, ids| {
-        handle_submission_set(&*b, &ctx, &ids, a, &ci).await
-    });
+    reg!(
+        "EmailSubmission/set",
+        backend,
+        |b, ci, a, ctx, created_ids| {
+            handle_submission_set(&*b, &ctx, &created_ids, a, &ci).await
+        }
+    );
 
     // VacationResponse
     reg!("VacationResponse/get", backend, |b, _ci, a, ctx| {

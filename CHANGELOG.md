@@ -14,6 +14,29 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
+  Email and Mailbox. `handle_email_set`, `handle_mailbox_set`,
+  `handle_email_changes` and `handle_mailbox_changes` take the request's
+  `using` list as a new last argument (`register_mail_handlers` passes
+  `CallContext::using`): `/changes` hands it to `jmap_server::handle_changes`
+  (`ignoreMetadataOnlyChanges`, `updatedProperties`, -04 §3.3), and `/set`
+  rejects a `metadata`/`privateMetadata` write with `invalidProperties`
+  when it lacks `urn:ietf:params:jmap:metadata` (-04 §3) or sets either to
+  `null` in a create (-04 §3.2). Email and Mailbox creates now store the
+  `metadata` they carry instead of dropping it. The in-memory backend opts
+  a type in with `MemoryBackend::with_metadata_info("Email" | "Mailbox",
+  info)` (panics for other types or `supportsPrivate: true`); nothing is
+  advertised or enabled by default. An opted-in type evaluates the -04
+  §3.6 `metadata*` filter conditions (`privateMetadata*` is
+  `unsupportedFilter`, a malformed path `invalidArguments`), validates
+  writes in -04 §3.2 rule order (`notFound`, `forbidden` without
+  `maySetMetadata` on the Mailbox or on every Mailbox of the Email before
+  and after the update, then namespace and `maxDepth` checks), stores an
+  update's `metadata: null` as `{}`, and drops metadata-only updates from
+  `/changes` under `ignoreMetadataOnlyChanges` without counting them
+  toward `maxChanges`. A type that is not opted in rejects metadata
+  writes with `invalidProperties` (-04 §1.2.1) and metadata filters with
+  `unsupportedFilter`, as before (bd JMAP-s4kp.1).
 - **jmap-mail-types**: **BREAKING** draft-ietf-jmap-metadata-04 fields on
   Email and Mailbox. `Email` and `Mailbox` gain typed `metadata` and
   `privateMetadata` properties (`Option<Map<String, Value>>`, -04 §2)
