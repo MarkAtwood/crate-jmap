@@ -109,6 +109,18 @@ impl MemoryError {
     pub fn description(&self) -> &str {
         &self.description
     }
+
+    /// Construct a [`MemoryError`] for a `serde_json` failure during
+    /// `context` (the operation that failed).
+    ///
+    /// Only the error's [`serde_json::error::Category`] is kept. A serde
+    /// data error quotes the offending value (`invalid type: string
+    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// contract forbids PII and blob content in `Display` output
+    /// (bd:JMAP-510h.37).
+    pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
+        Self::new(format!("{context}: serde_json {:?} error", e.classify()))
+    }
 }
 
 impl std::fmt::Display for MemoryError {
@@ -408,13 +420,13 @@ impl JmapBackend for MemoryBackend {
                 let mut nodes: Vec<O> = Vec::new();
                 for node in store.nodes.values() {
                     let v = serde_json::to_value(node).map_err(|e| {
-                        MemoryError::new(format!("get_objects all: serialize FileNode: {e}"))
+                        MemoryError::serde("get_objects all: serialize FileNode", &e)
                     })?;
                     let obj: O = serde_json::from_value(v).map_err(|e| {
-                        MemoryError::new(format!(
-                            "get_objects all: deserialize {}: {e}",
-                            O::TYPE_NAME
-                        ))
+                        MemoryError::serde(
+                            format_args!("get_objects all: deserialize {}", O::TYPE_NAME),
+                            &e,
+                        )
                     })?;
                     nodes.push(obj);
                 }
@@ -426,13 +438,13 @@ impl JmapBackend for MemoryBackend {
                 for id in id_slice {
                     if let Some(node) = store.nodes.get(id) {
                         let v = serde_json::to_value(node).map_err(|e| {
-                            MemoryError::new(format!("get_objects by-ids: serialize FileNode: {e}"))
+                            MemoryError::serde("get_objects by-ids: serialize FileNode", &e)
                         })?;
                         let obj: O = serde_json::from_value(v).map_err(|e| {
-                            MemoryError::new(format!(
-                                "get_objects by-ids: deserialize {}: {e}",
-                                O::TYPE_NAME
-                            ))
+                            MemoryError::serde(
+                                format_args!("get_objects by-ids: deserialize {}", O::TYPE_NAME),
+                                &e,
+                            )
                         })?;
                         found.push(obj);
                     } else {
@@ -560,10 +572,10 @@ impl JmapBackend for MemoryBackend {
             None => None,
             Some(f) => {
                 let v = serde_json::to_value(f)
-                    .map_err(|e| MemoryError::new(format!("serialize filter: {e}")))?;
+                    .map_err(|e| MemoryError::serde("serialize filter", &e))?;
                 Some(
                     serde_json::from_value(v)
-                        .map_err(|e| MemoryError::new(format!("parse filter: {e}")))?,
+                        .map_err(|e| MemoryError::serde("parse filter", &e))?,
                 )
             }
         };
@@ -666,15 +678,16 @@ impl FileNodeBackend for MemoryBackend {
         let obj = build(&new_id);
         // Store as a typed FileNode: serialize the built O and read it back.
         let v = serde_json::to_value(&obj).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "create_object: serialize {}: {e}",
-                O::TYPE_NAME
-            )))
+            BackendSetError::Other(MemoryError::serde(
+                format_args!("create_object: serialize {}", O::TYPE_NAME),
+                &e,
+            ))
         })?;
         let node: FileNode = serde_json::from_value(v).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "create_object: deserialize FileNode: {e}"
-            )))
+            BackendSetError::Other(MemoryError::serde(
+                "create_object: deserialize FileNode",
+                &e,
+            ))
         })?;
         store.nodes.insert(new_id.clone(), node);
         store.bump_state(ChangeType::Created, new_id.clone());
@@ -703,9 +716,7 @@ impl FileNodeBackend for MemoryBackend {
         // remove the target key; non-null values overwrite or create it.
         // A pointer whose leading parts do not exist is invalidPatch.
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "update_object: serialize patch: {e}"
-            )))
+            BackendSetError::Other(MemoryError::serde("update_object: serialize patch", &e))
         })?;
 
         let mut guard = self.inner.lock().unwrap();
@@ -724,9 +735,10 @@ impl FileNodeBackend for MemoryBackend {
         // Serialize the stored node to JSON, apply the patch as a JMAP patch,
         // then deserialize back to FileNode.
         let mut node_val = serde_json::to_value(&node).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "update_object: serialize stored FileNode: {e}"
-            )))
+            BackendSetError::Other(MemoryError::serde(
+                "update_object: serialize stored FileNode",
+                &e,
+            ))
         })?;
 
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
@@ -748,15 +760,16 @@ impl FileNodeBackend for MemoryBackend {
         store.bump_state(ChangeType::Updated, id.clone());
 
         let result_v = serde_json::to_value(&updated_node).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "update_object: serialize updated FileNode: {e}"
-            )))
+            BackendSetError::Other(MemoryError::serde(
+                "update_object: serialize updated FileNode",
+                &e,
+            ))
         })?;
         let result_obj: O = serde_json::from_value(result_v).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "update_object: deserialize result {}: {e}",
-                O::TYPE_NAME
-            )))
+            BackendSetError::Other(MemoryError::serde(
+                format_args!("update_object: deserialize result {}", O::TYPE_NAME),
+                &e,
+            ))
         })?;
 
         Ok(Some(result_obj))
@@ -1675,6 +1688,33 @@ mod tests {
         assert!(
             !sw.contains_key(&Id::from("existing")),
             "existing must be gone after path-style null patch: {sw:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod memory_error_tests {
+    use super::MemoryError;
+
+    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// include ... PII shaped like an email address" in `Display`
+    /// output. serde_json data errors quote the offending value, so
+    /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
+    #[test]
+    fn serde_error_display_omits_offending_value() {
+        let canary = "alice@example.com";
+        let e = serde_json::from_value::<u64>(serde_json::Value::String(canary.into()))
+            .expect_err("a string is not a u64");
+        assert!(
+            e.to_string().contains(canary),
+            "precondition: serde_json quotes the value"
+        );
+
+        let shown = MemoryError::serde("decode", &e).to_string();
+        assert!(!shown.contains(canary), "canary leaked: {shown}");
+        assert!(
+            shown.contains("decode") && shown.contains("Data"),
+            "{shown}"
         );
     }
 }

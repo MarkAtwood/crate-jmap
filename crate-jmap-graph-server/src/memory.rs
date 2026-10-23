@@ -520,6 +520,18 @@ impl MemoryError {
     pub fn description(&self) -> &str {
         &self.description
     }
+
+    /// Construct a [`MemoryError`] for a `serde_json` failure during
+    /// `context` (the operation that failed).
+    ///
+    /// Only the error's [`serde_json::error::Category`] is kept. A serde
+    /// data error quotes the offending value (`invalid type: string
+    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// contract forbids PII and blob content in `Display` output
+    /// (bd:JMAP-510h.37).
+    pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
+        Self::new(format!("{context}: serde_json {:?} error", e.classify()))
+    }
 }
 
 impl std::fmt::Display for MemoryError {
@@ -546,12 +558,12 @@ fn invalid<E>(properties: &[&str], description: &str) -> BackendSetError<E> {
     ))
 }
 
-fn other<E: std::fmt::Display>(e: E) -> BackendSetError<MemoryError> {
-    BackendSetError::Other(MemoryError::new(e.to_string()))
+fn other(e: serde_json::Error) -> BackendSetError<MemoryError> {
+    BackendSetError::Other(MemoryError::serde("serialize", &e))
 }
 
 fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
-    O::deserialize(v).map_err(|e| MemoryError::new(format!("decode {}: {e}", O::TYPE_NAME)))
+    O::deserialize(v).map_err(|e| MemoryError::serde(format_args!("decode {}", O::TYPE_NAME), &e))
 }
 
 /// Re-decode `v`, a value of a generic `QueryObject` associated type, as
@@ -559,7 +571,7 @@ fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
 fn recode<T: DeserializeOwned>(v: &impl Serialize) -> Result<T, BackendQueryError<MemoryError>> {
     serde_json::to_value(v)
         .and_then(T::deserialize)
-        .map_err(|e| BackendQueryError::Other(MemoryError::new(e.to_string())))
+        .map_err(|e| BackendQueryError::Other(MemoryError::serde("recode query argument", &e)))
 }
 
 /// The ids of `list` that `keep` accepts, ordered by `cmp`.
@@ -1182,4 +1194,31 @@ fn sequence(
     value["seq"] = json!(log.head);
     value["graphId"] = json!(graph_id);
     Ok(())
+}
+
+#[cfg(test)]
+mod memory_error_tests {
+    use super::MemoryError;
+
+    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// include ... PII shaped like an email address" in `Display`
+    /// output. serde_json data errors quote the offending value, so
+    /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
+    #[test]
+    fn serde_error_display_omits_offending_value() {
+        let canary = "alice@example.com";
+        let e = serde_json::from_value::<u64>(serde_json::Value::String(canary.into()))
+            .expect_err("a string is not a u64");
+        assert!(
+            e.to_string().contains(canary),
+            "precondition: serde_json quotes the value"
+        );
+
+        let shown = MemoryError::serde("decode", &e).to_string();
+        assert!(!shown.contains(canary), "canary leaked: {shown}");
+        assert!(
+            shown.contains("decode") && shown.contains("Data"),
+            "{shown}"
+        );
+    }
 }

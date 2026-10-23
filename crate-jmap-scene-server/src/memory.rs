@@ -266,7 +266,7 @@ impl Inner {
         let (mut changes, mut regions) = self.admit(account_id, &avatar)?;
         let id = avatar.id.clone();
         let value = serde_json::to_value(&avatar)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize SceneAvatar", &e)))?;
         self.objects_mut(SceneAvatar::TYPE_NAME, account_id)
             .insert(id.clone(), value.clone());
         changes.push((id, Change::Created));
@@ -546,6 +546,18 @@ impl MemoryError {
     pub fn description(&self) -> &str {
         &self.description
     }
+
+    /// Construct a [`MemoryError`] for a `serde_json` failure during
+    /// `context` (the operation that failed).
+    ///
+    /// Only the error's [`serde_json::error::Category`] is kept. A serde
+    /// data error quotes the offending value (`invalid type: string
+    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// contract forbids PII and blob content in `Display` output
+    /// (bd:JMAP-510h.37).
+    pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
+        Self::new(format!("{context}: serde_json {:?} error", e.classify()))
+    }
 }
 
 impl std::fmt::Display for MemoryError {
@@ -561,18 +573,19 @@ fn not_found<E>() -> BackendSetError<E> {
 }
 
 fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
-    O::deserialize(v).map_err(|e| MemoryError::new(format!("decode {}: {e}", O::TYPE_NAME)))
+    O::deserialize(v).map_err(|e| MemoryError::serde(format_args!("decode {}", O::TYPE_NAME), &e))
 }
 
 fn recode_as<T: DeserializeOwned>(v: &Value) -> Result<T, BackendQueryError<MemoryError>> {
-    T::deserialize(v).map_err(|e| BackendQueryError::Other(MemoryError::new(e.to_string())))
+    T::deserialize(v)
+        .map_err(|e| BackendQueryError::Other(MemoryError::serde("recode query argument", &e)))
 }
 
 /// Re-decode `v`, a value of a generic `QueryObject` associated type, as
 /// the concrete type `T` it is once `O::TYPE_NAME` is known.
 fn recode<T: DeserializeOwned>(v: &impl Serialize) -> Result<T, BackendQueryError<MemoryError>> {
     let v = serde_json::to_value(v)
-        .map_err(|e| BackendQueryError::Other(MemoryError::new(e.to_string())))?;
+        .map_err(|e| BackendQueryError::Other(MemoryError::serde("recode query argument", &e)))?;
     recode_as(&v)
 }
 
@@ -838,8 +851,9 @@ impl SceneBackend for MemoryBackend {
         F: FnOnce(&Id) -> O + Send,
     {
         let id = Id::from(ulid::Ulid::new().to_string());
-        let mut value = serde_json::to_value(build(&id))
-            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+        let mut value = serde_json::to_value(build(&id)).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde("serialize created object", &e))
+        })?;
         let mut inner = self.lock();
         if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
             let avatar: SceneAvatar = decode(&value).map_err(BackendSetError::Other)?;
@@ -923,7 +937,7 @@ impl SceneBackend for MemoryBackend {
 
         let was_left = current.get("leftAt").is_some_and(|l| !l.is_null());
         let patch = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
         let (Value::Object(patch), Value::Object(base)) = (patch, &mut current) else {
             return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::InvalidPatch,
@@ -1223,5 +1237,32 @@ impl SceneBackend for MemoryBackend {
             SceneAvatar::TYPE_NAME,
         ]
         .contains(&O::TYPE_NAME)
+    }
+}
+
+#[cfg(test)]
+mod memory_error_tests {
+    use super::MemoryError;
+
+    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// include ... PII shaped like an email address" in `Display`
+    /// output. serde_json data errors quote the offending value, so
+    /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
+    #[test]
+    fn serde_error_display_omits_offending_value() {
+        let canary = "alice@example.com";
+        let e = serde_json::from_value::<u64>(serde_json::Value::String(canary.into()))
+            .expect_err("a string is not a u64");
+        assert!(
+            e.to_string().contains(canary),
+            "precondition: serde_json quotes the value"
+        );
+
+        let shown = MemoryError::serde("decode", &e).to_string();
+        assert!(!shown.contains(canary), "canary leaked: {shown}");
+        assert!(
+            shown.contains("decode") && shown.contains("Data"),
+            "{shown}"
+        );
     }
 }
