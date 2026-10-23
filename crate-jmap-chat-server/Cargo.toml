@@ -20,7 +20,7 @@ categories = ["network-programming", "web-programming::http-server"]
 # Enabling `memory` pulls in `getrandom` so the reference
 # `generate_invite_code` impl can satisfy the CSPRNG contract documented on
 # the `ChatBackend::generate_invite_code` trait method (bd:JMAP-sc1b.93).
-memory = ["dep:getrandom", "dep:uuid"]
+memory = ["dep:getrandom", "dep:ulid"]
 # Test-only seams on MemoryBackend (the `*_for_test` methods): seeding and
 # policy knobs for integration tests, here and in sibling crates. Not part of
 # any supported API surface. Integration tests enable it via the self
@@ -50,7 +50,7 @@ subtle = { workspace = true }
 # Hoisted to [workspace.dependencies] so a future second consumer of
 # getrandom in the workspace pins to the same version. See bd:JMAP-x2gd.66.
 getrandom = { workspace = true, optional = true }
-uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
+ulid = { version = "1", optional = true }
 
 [dev-dependencies]
 http = { workspace = true }

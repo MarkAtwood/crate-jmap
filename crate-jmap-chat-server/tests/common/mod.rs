@@ -1334,8 +1334,8 @@ impl InjectableBackend {
     /// `MemoryBackend` will assign to the about-to-be-created Chat —
     /// otherwise the race-detection code picks the new id as canonical
     /// and the cleanup-destroy branch never runs. `MemoryBackend` mints
-    /// uuid v4 ids (36 chars of `[0-9a-f-]` starting with a hex digit),
-    /// so `"0"` is lex-smaller than every id it can assign.
+    /// ULIDs (26 Crockford base32 chars), so `"0"`, a proper prefix of
+    /// every current ULID, is lex-smaller than every id it can assign.
     ///
     /// Fire-once.
     pub fn queue_chat_race_phantom(&self, account_id: &str, phantom_id: &str, contact_id: &str) {

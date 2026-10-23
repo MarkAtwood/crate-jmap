@@ -1942,7 +1942,7 @@ dependencies = [
  "serde_json",
  "subtle",
  "tokio",
- "uuid",
+ "ulid",
 ]
 
 [[package]]

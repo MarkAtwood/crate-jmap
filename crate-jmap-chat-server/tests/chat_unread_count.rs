@@ -217,6 +217,42 @@ async fn compliance_11_1_unread_count_from_read_position() {
     assert_eq!(unread_of(&backend, "g").await, 0);
 }
 
+/// Compliance §11.1 with server-assigned ids: "Send 5 messages. Set
+/// ReadPosition to message 3. Call `Chat/get`. Verify `unreadCount` is
+/// 2 (messages 4 and 5)." The count holds only if, per L675, "Message
+/// IDs are ULIDs [...] lexicographically ordered by time", including
+/// for messages sent within the same millisecond (bd:JMAP-nls1).
+#[tokio::test]
+async fn compliance_11_1_with_assigned_ids() {
+    // ULID spec: 26 chars of Crockford base32 (no I, L, O, U).
+    const CROCKFORD: &str = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from(ACCOUNT_ID));
+    seed_group(&backend, "s");
+    seed_position(&backend, "rp-s", "s");
+
+    let mut sent = Vec::new();
+    for _ in 0..5 {
+        let resp = message_set(
+            &backend,
+            json!({ "create": { "m": {
+                "chatId": "s",
+                "body": "hi",
+                "bodyType": "text/plain",
+                "sentAt": "2026-01-01T00:00:00Z",
+            } } }),
+        )
+        .await;
+        let id = resp["created"]["m"]["id"].as_str().expect("created id");
+        assert_eq!(id.len(), 26, "{id}");
+        assert!(id.chars().all(|c| CROCKFORD.contains(c)), "{id}");
+        sent.push(id.to_owned());
+    }
+
+    set_last_read(&backend, "rp-s", json!({ "lastReadMessageId": sent[2] })).await;
+    assert_eq!(unread_of(&backend, "s").await, 2, "{sent:?}");
+}
+
 /// `unreadCount` is computed for a full `Chat/get` (no `ids`) as well.
 #[tokio::test]
 async fn unread_count_in_full_get() {
