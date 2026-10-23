@@ -2403,9 +2403,14 @@ fn apply_space_patch_impl(
             SpacePatchOp::AddRole(_) => {
                 apply_add_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
             }
-            SpacePatchOp::RemoveRole(_) => {
-                apply_remove_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
-            }
+            SpacePatchOp::RemoveRole(_) => apply_remove_role(
+                inner,
+                account_id.as_ref(),
+                space_id,
+                op,
+                &mut chats_updated,
+                &mut space_mutated,
+            ),
             SpacePatchOp::UpdateRole { .. } => {
                 apply_update_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
             }
@@ -3560,6 +3565,7 @@ fn apply_remove_role(
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
+    chats_updated: &mut HashSet<Id>,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, Box<SetError>> {
     let target_id = match op {
@@ -3608,6 +3614,31 @@ fn apply_remove_role(
         .objects_mut("Space", account_id)
         .insert(space_id.clone(), space_val);
     *space_mutated = true;
+
+    // Draft §Space/set `removeRoles`: "Servers SHOULD also remove each
+    // channel's `permissionOverrides` entries whose `targetId` is a
+    // removed role". Each channel changed here is reported as updated.
+    for (chat_id, chat) in inner.objects_mut("Chat", account_id).iter_mut() {
+        if chat.get("kind").and_then(|k| k.as_str()) != Some("channel")
+            || chat.get("spaceId").and_then(|s| s.as_str()) != Some(space_id.as_ref())
+        {
+            continue;
+        }
+        let Some(overrides) = chat
+            .get_mut("permissionOverrides")
+            .and_then(|v| v.as_array_mut())
+        else {
+            continue;
+        };
+        let before = overrides.len();
+        overrides.retain(|o| {
+            o.get("targetType").and_then(|t| t.as_str()) != Some("role")
+                || o.get("targetId").and_then(|t| t.as_str()) != Some(target_id.as_ref())
+        });
+        if overrides.len() != before {
+            chats_updated.insert(chat_id.clone());
+        }
+    }
     Ok(None)
 }
 

@@ -3309,6 +3309,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: **BREAKING** `MemoryBackend` `Space/set`
+  `removeRoles` also removes every channel's `permissionOverrides`
+  entries with `targetType` `"role"` and the removed role's
+  `targetId`, and reports each changed channel Chat as updated in
+  `Chat/changes` (draft-atwood-jmap-chat-00 §Space/set `removeRoles`:
+  "Servers SHOULD also remove each channel's `permissionOverrides`
+  entries whose `targetId` is a removed role") (bd JMAP-yt1w.18).
 - **jmap-chat-server**: `MemoryBackend` assigns monotonic ULIDs, not
   uuid v4, to every object it creates (Chats, Messages, Roles,
   Categories, channels, push subscriptions), so `unreadCount` and

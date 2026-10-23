@@ -520,6 +520,123 @@ async fn remove_role_cascades_demotion_to_everyone() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set `removeRoles`
+/// (jmap-chat-spec 2ac2603): "Servers SHOULD also remove each
+/// channel's `permissionOverrides` entries whose `targetId` is a
+/// removed role". The fixture is hand-written: `ch-a` carries an
+/// override for the removed role plus two that must survive, `ch-b`
+/// carries none for the removed role. Only `ch-a` changes, and
+/// `Chat/changes` reports it as updated (bd:JMAP-yt1w.18).
+#[tokio::test]
+async fn remove_role_cascades_channel_permission_overrides() {
+    let backend = IdentityBackend::new();
+    let caller = Id::from("admin-user");
+
+    seed_space(
+        &backend,
+        json!([
+            { "id": "r-admin", "name": "Admin", "permissions": ["manage_roles"], "position": 100 },
+            { "id": "r-mod", "name": "Mod", "permissions": [], "position": 50 }
+        ]),
+        json!([
+            { "id": ACCOUNT_ID, "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" }
+        ]),
+    );
+    let mod_override = json!({
+        "targetId": "r-mod", "targetType": "role", "allow": ["send_message"], "deny": []
+    });
+    let admin_override = json!({
+        "targetId": "r-admin", "targetType": "role", "allow": [], "deny": ["send_message"]
+    });
+    let member_override = json!({
+        "targetId": "u-x", "targetType": "member", "allow": [], "deny": ["send_message"]
+    });
+    for (chat_id, overrides) in [
+        (
+            "ch-a",
+            json!([mod_override, admin_override, member_override]),
+        ),
+        ("ch-b", json!([admin_override])),
+    ] {
+        backend.inner().insert_object_for_test(
+            "Chat",
+            ACCOUNT_ID,
+            chat_id,
+            json!({
+                "id": chat_id,
+                "kind": "channel",
+                "spaceId": SPACE_ID,
+                "name": chat_id,
+                "createdAt": "2026-01-01T00:00:00Z",
+                "unreadCount": 0,
+                "pinnedMessageIds": [],
+                "muted": false,
+                "receiveTypingIndicators": true,
+                "permissionOverrides": overrides
+            }),
+        );
+    }
+
+    let HandlerOutput {
+        primary: before, ..
+    } = jmap_chat_server::handle_chat_get(
+        &backend,
+        &caller,
+        json!({ "accountId": ACCOUNT_ID, "ids": [] }),
+    )
+    .await
+    .expect("Chat/get before");
+    let since_state = before["state"].clone();
+
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
+        &backend,
+        &caller,
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { SPACE_ID: { "removeRoles": ["r-mod"] }}
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+    assert!(
+        resp["notUpdated"][SPACE_ID].is_null(),
+        "RemoveRole should succeed: {resp:?}"
+    );
+
+    let HandlerOutput { primary: got, .. } = jmap_chat_server::handle_chat_get(
+        &backend,
+        &caller,
+        json!({ "accountId": ACCOUNT_ID, "ids": ["ch-a", "ch-b"] }),
+    )
+    .await
+    .expect("Chat/get after");
+    let list = got["list"].as_array().expect("list");
+    let overrides_of = |id: &str| {
+        list.iter()
+            .find(|c| c["id"] == id)
+            .unwrap_or_else(|| panic!("{id} in {got:?}"))["permissionOverrides"]
+            .clone()
+    };
+    assert_eq!(
+        overrides_of("ch-a"),
+        json!([admin_override, member_override])
+    );
+    assert_eq!(overrides_of("ch-b"), json!([admin_override]));
+
+    let HandlerOutput {
+        primary: changes, ..
+    } = jmap_chat_server::handle_chat_changes(
+        &backend,
+        &caller,
+        json!({ "accountId": ACCOUNT_ID, "sinceState": since_state }),
+    )
+    .await
+    .expect("Chat/changes");
+    assert_eq!(changes["updated"], json!(["ch-a"]), "{changes:?}");
+    assert_eq!(changes["created"], json!([]), "{changes:?}");
+    assert_eq!(changes["destroyed"], json!([]), "{changes:?}");
+}
+
 // ---------------------------------------------------------------------------
 // Criterion 3 replacement: last-admin protection knob
 // ---------------------------------------------------------------------------
