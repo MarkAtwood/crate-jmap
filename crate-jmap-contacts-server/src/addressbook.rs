@@ -33,7 +33,6 @@ use serde_json::{Value, json};
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    set_error_value,
 };
 use crate::{ContactsBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -216,7 +215,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 .as_object()
                 .and_then(reject_server_set::<AddressBook>)
             {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             // `AddressBook.id` is required, so the parse fills it with "",
@@ -265,11 +264,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
                     not_created.insert(create_id, backend_set_error_value(e));
@@ -286,7 +281,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -305,7 +300,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 }
             };
             if let Some(err) = reject_read_only_patch::<AddressBook>(patch.as_map(), None) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -315,11 +310,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -355,7 +346,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, set_error_value(&err));
+                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -382,7 +373,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     Ok(true) => {
                         not_destroyed.insert(
                             id_str,
-                            set_error_value(&SetError::new(SetErrorType::from(
+                            serde_json::Value::from(&SetError::new(SetErrorType::from(
                                 ADDRESS_BOOK_HAS_CONTENTS,
                             ))),
                         );
@@ -453,11 +444,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        target_id.to_string(),
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(target_id.to_string(), jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -508,8 +495,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
                 continue; // already authoritatively recorded
             }
-            let v =
-                serde_json::to_value(&book).expect("derive(Serialize) on plain data is infallible");
+            let v = jmap_server::serialize_value(&book)?;
             updated.insert(book_id_str, v);
             mutated = true;
         }
