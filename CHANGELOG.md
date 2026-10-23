@@ -1389,6 +1389,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server**: the `Dispatcher::dispatch` docs now state the
+  cancellation contract as intended behaviour: dropping the dispatch
+  future does not cancel method calls already running in their spawned
+  tasks; they run to completion and only the response is lost, so a
+  client disconnect never interrupts a backend mid-write. No
+  cancellation token will be added (bd JMAP-wlip.34).
 - **BREAKING** **jmap-types**, **jmap-server**: `RESERVED_SET_ERROR_WIRE_NAMES`
   is no longer public, and `jmap_server` no longer re-exports it. A public
   list would make every new typed `SetError` field a silent break for
