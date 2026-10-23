@@ -579,6 +579,44 @@ async fn calendar_event_query_unknown_anchor_is_anchor_not_found() {
     assert_eq!(err.error_type.to_string(), "anchorNotFound");
 }
 
+/// RFC 8620 §1.3 bounds `Int` to "-2^53+1 <= value <= 2^53-1" and
+/// `UnsignedInt` to "0 <= value <= 2^53-1". §5.5 position: "the negative
+/// value MUST be added to the total number of results given the filter,
+/// and if still negative, it's clamped to "0"", so the most negative
+/// legal `position` starts at index 0, and the largest legal `limit`
+/// returns all four results (bd:JMAP-uqhn.3).
+#[tokio::test]
+async fn calendar_event_query_extreme_position_and_limit_saturate() {
+    let backend = backend_with_four_events();
+    let args = json!({
+        "accountId": "acc1",
+        "position": -9_007_199_254_740_991_i64,
+        "limit": 9_007_199_254_740_991_u64
+    });
+
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect("/query must not return top-level error");
+
+    assert_eq!(resp["ids"], json!(["e1", "e2", "e3", "e4"]), "{resp}");
+    assert_eq!(resp["position"], 0, "{resp}");
+}
+
+/// RFC 8620 §5.5 position: "If the index is greater than or equal to the
+/// total number of objects in the results list, then the "ids" array in
+/// the response will be empty, but this is not an error."
+#[tokio::test]
+async fn calendar_event_query_largest_position_is_empty_page_not_error() {
+    let backend = backend_with_four_events();
+    let args = json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 });
+
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect("/query must not return top-level error");
+
+    assert_eq!(resp["ids"], json!([]), "{resp}");
+}
+
 /// RFC 8620 §5.5: "anchor: "Id" (default: null)"; any other JSON type is
 /// `invalidArguments`, which RFC 8620 §3.6.2 defines as "One of the
 /// arguments is of the wrong type or otherwise invalid".
