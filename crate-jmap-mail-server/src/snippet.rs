@@ -13,10 +13,13 @@
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `accountNotSupportedByMethod`, `invalidArguments`,
-//! `requestTooLarge`, `serverFail` — per RFC 8620 §3.6 and §5, and
-//! RFC 8621 §5.1).
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `accountNotSupportedByMethod`,
+//!   `invalidArguments`, `serverFail`;
+//! - `/get`: `requestTooLarge` past `maxObjectsInGet` (RFC 8621 §5.1),
+//!   `unsupportedFilter`.
 
 use jmap_mail_types::{EmailFilter, SearchSnippet};
 use jmap_types::{Id, JmapError};

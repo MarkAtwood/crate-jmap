@@ -13,9 +13,12 @@
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
-//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5).
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/get`: `requestTooLarge` past `maxObjectsInGet`;
+//! - `/changes`: `cannotCalculateChanges`, `tooManyChanges`.
 
 use std::collections::HashSet;
 

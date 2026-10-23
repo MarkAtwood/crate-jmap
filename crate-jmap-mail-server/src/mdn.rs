@@ -18,11 +18,14 @@
 //! `onSuccessUpdateEmail` is present (RFC 9007 §3.1); `handle_mdn_parse`
 //! is **always empty** (read-only).
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `invalidArguments`, `requestTooLarge`,
-//! `serverFail` — per RFC 8620 §3.6 and §5; `forbiddenToSend` etc. per
-//! RFC 9007 §3.1). Per-target failures inside `/send` surface in the
-//! `notSent` map within `Ok((Value, ...))`, not as `Err`.
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`,
+//!   `requestTooLarge`, `serverFail`.
+//!
+//! Per-target failures inside `/send` surface in the `notSent` map within
+//! `Ok((Value, ...))`, not as `Err`.
 
 use std::collections::BTreeMap;
 

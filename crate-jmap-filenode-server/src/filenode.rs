@@ -23,13 +23,23 @@
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `accountNotSupportedByMethod`, `invalidArguments`,
-//! `stateMismatch`, `serverFail`, `unsupportedFilter`, `unsupportedSort`,
-//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5). Per-target
-//! failures inside a `/set` or `/copy` call surface in the `notCreated`
-//! / `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not
-//! as `Err`.
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `accountNotSupportedByMethod`,
+//!   `invalidArguments`, `serverFail`;
+//! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
+//!   `maxObjectsInSet`;
+//! - `/set`, `/copy`: `stateMismatch`;
+//! - `/copy`: `fromAccountNotFound`, `fromAccountNotSupportedByMethod`;
+//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`,
+//!   `tooManyChanges`;
+//! - `/query`, `/queryChanges`: `unsupportedFilter`, `unsupportedSort`;
+//! - `/query`: `anchorNotFound`.
+//!
+//! Per-target failures inside a `/set` or `/copy` call surface in the
+//! `notCreated` / `notUpdated` / `notDestroyed` maps within
+//! `Ok((Value, ...))`, not as `Err`.
 
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject, UTCDate};
