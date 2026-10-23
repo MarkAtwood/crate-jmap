@@ -32,6 +32,15 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Re-exported types
+//!
+//! [`ClientError`] and the shared method response types (`GetResponse`,
+//! `SetResponse`, `ChangesResponse`, `QueryResponse` and the rest) are
+//! re-exports from `jmap-base-client` and `jmap-types`, not types defined
+//! here. The `jmap-*` workspace crates are versioned and released together:
+//! depend on the same version of this crate, `jmap-base-client` and
+//! `jmap-types`.
 
 #![forbid(unsafe_code)]
 
