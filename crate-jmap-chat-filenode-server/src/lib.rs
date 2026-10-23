@@ -502,7 +502,7 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
         || attachment
             .sha256
             .as_ref()
-            .is_some_and(|h| node.sha256.as_ref().map(|d| d.as_str()) != Some(h.as_str()));
+            .is_some_and(|h| node.sha256.as_ref() != Some(h));
     let invalid = |description: &str| {
         Ok(Err(SetError::new(SetErrorType::InvalidProperties)
             .with_properties(["attachments"])

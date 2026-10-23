@@ -15,6 +15,7 @@ jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
 jmap-chat-server = { workspace = true }
 jmap-chat-federation-types = { workspace = true }
+jmap-cid-types = { workspace = true }
 jmap-peer-auth = { workspace = true }
 jmap-server = { workspace = true }
 serde_json = { workspace = true }

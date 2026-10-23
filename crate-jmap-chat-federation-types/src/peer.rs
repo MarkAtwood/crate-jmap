@@ -20,6 +20,7 @@ use jmap_chat_types::{
     Attachment, BodyType, BroadcastMention, ChatKind, ChatMemberRole, Clearable, MessageAction,
     Presence, ReadDisposition,
 };
+use jmap_cid_types::Sha256;
 use jmap_types::{Id, UTCDate};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -629,8 +630,9 @@ pub struct PeerAvatar {
     pub content_type: String,
     /// Size of the blob in bytes.
     pub size: u64,
-    /// Lowercase hex SHA-256 of the blob.
-    pub sha256: String,
+    /// Lowercase hex SHA-256 of the blob, the same [`Sha256`] wire shape
+    /// as [`Attachment::sha256`].
+    pub sha256: Sha256,
     /// The URL from which the receiver fetches the blob.
     pub fetch_url: String,
     /// Catch-all for extension fields; see workspace AGENTS.md.
@@ -644,13 +646,13 @@ impl PeerAvatar {
     pub fn new(
         content_type: impl Into<String>,
         size: u64,
-        sha256: impl Into<String>,
+        sha256: Sha256,
         fetch_url: impl Into<String>,
     ) -> Self {
         Self {
             content_type: content_type.into(),
             size,
-            sha256: sha256.into(),
+            sha256,
             fetch_url: fetch_url.into(),
             extra: serde_json::Map::new(),
         }

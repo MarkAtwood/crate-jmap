@@ -158,7 +158,12 @@ fn group_update_with_avatar(
 const AVATAR_URL: &str = "https://home.example/blob/avatar-1";
 
 fn avatar() -> PeerAvatar {
-    PeerAvatar::new("image/png", 3, ABC_SHA256, AVATAR_URL)
+    PeerAvatar::new(
+        "image/png",
+        3,
+        ABC_SHA256.parse().expect("sha256"),
+        AVATAR_URL,
+    )
 }
 
 // L615: `senderUserId` is "The identity string of the user making the

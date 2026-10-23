@@ -11,6 +11,7 @@ keywords = ["jmap", "chat", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
 
 [dependencies]
+jmap-cid-types = { workspace = true }
 jmap-did-types = { workspace = true }
 jmap-types = { workspace = true }
 serde = { workspace = true }
