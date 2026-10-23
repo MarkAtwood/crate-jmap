@@ -16,15 +16,18 @@ use jmap_graph_types::{
     GraphCursorEvent, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
     GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
-use jmap_server::{HandlerOutput, now_utc_string, reject_server_set, server_fail_from_backend};
+use jmap_server::{
+    HandlerOutput, backend_set_error_value, now_utc_string, reject_server_set,
+    server_fail_from_backend,
+};
 use jmap_types::{Id, JmapError, SetObject};
 use serde::Deserialize as _;
 use serde_json::{Map, Value, json};
 
 use crate::edit::base64url_len;
 use crate::helpers::{
-    SetOps, backend_set_error_value, fetch_one, forbidden, handle_get_visible, handle_set, invalid,
-    readable_rights, set_error_value, to_map,
+    SetOps, fetch_one, forbidden, handle_get_visible, handle_set, invalid, readable_rights,
+    set_error_value, to_map,
 };
 use crate::{GraphBackend, JmapBackend, SetError, SetErrorType};
 

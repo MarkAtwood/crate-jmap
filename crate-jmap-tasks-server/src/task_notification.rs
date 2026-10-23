@@ -33,8 +33,8 @@ use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     set_error_value,
 };
-use crate::{BackendSetError, SetError, SetErrorType, TasksBackend};
-use jmap_server::{HandlerOutput, server_fail_from_backend, server_fail_value_from_backend};
+use crate::{SetError, SetErrorType, TasksBackend};
+use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // TaskNotification/get
@@ -195,14 +195,8 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(other) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&other));
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }

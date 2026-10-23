@@ -35,14 +35,14 @@ use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject, UTCDate};
 use serde_json::{Value, json};
 
+use crate::FileNodeBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     set_error_value,
 };
-use crate::{BackendSetError, FileNodeBackend};
 use jmap_server::{
-    HandlerOutput, now_utc_string, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -627,29 +627,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                             destroyed_list
                                                 .push(Value::String(desc_id.as_ref().to_owned()));
                                         }
-                                        Err(BackendSetError::SetError(set_err)) => {
+                                        Err(e) => {
                                             not_created.insert(
                                                 create_id.clone(),
-                                                set_error_value(&set_err),
-                                            );
-                                            cascade_failed = true;
-                                            break;
-                                        }
-                                        Err(BackendSetError::Other(e)) => {
-                                            not_created.insert(
-                                                create_id.clone(),
-                                                server_fail_value_from_backend(&e),
-                                            );
-                                            cascade_failed = true;
-                                            break;
-                                        }
-                                        Err(_) => {
-                                            not_created.insert(
-                                                create_id.clone(),
-                                                json!({
-                                                    "type": "serverFail",
-                                                    "description": "unhandled backend error variant",
-                                                }),
+                                                backend_set_error_value(e),
                                             );
                                             cascade_failed = true;
                                             break;
@@ -669,23 +650,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                         destroyed_list
                                             .push(Value::String(existing_id.as_ref().to_owned()));
                                     }
-                                    Err(BackendSetError::SetError(set_err)) => {
-                                        not_created.insert(create_id, set_error_value(&set_err));
-                                        continue;
-                                    }
-                                    Err(BackendSetError::Other(e)) => {
-                                        not_created
-                                            .insert(create_id, server_fail_value_from_backend(&e));
-                                        continue;
-                                    }
-                                    Err(_) => {
-                                        not_created.insert(
-                                            create_id,
-                                            json!({
-                                                "type": "serverFail",
-                                                "description": "unhandled backend error variant",
-                                            }),
-                                        );
+                                    Err(e) => {
+                                        not_created.insert(create_id, backend_set_error_value(e));
                                         continue;
                                     }
                                 }
@@ -807,29 +773,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                             destroyed_list
                                                 .push(Value::String(desc_id.as_ref().to_owned()));
                                         }
-                                        Err(BackendSetError::SetError(set_err)) => {
+                                        Err(e) => {
                                             not_created.insert(
                                                 create_id.clone(),
-                                                set_error_value(&set_err),
-                                            );
-                                            cascade_failed = true;
-                                            break;
-                                        }
-                                        Err(BackendSetError::Other(e)) => {
-                                            not_created.insert(
-                                                create_id.clone(),
-                                                server_fail_value_from_backend(&e),
-                                            );
-                                            cascade_failed = true;
-                                            break;
-                                        }
-                                        Err(_) => {
-                                            not_created.insert(
-                                                create_id.clone(),
-                                                json!({
-                                                    "type": "serverFail",
-                                                    "description": "unhandled backend error variant",
-                                                }),
+                                                backend_set_error_value(e),
                                             );
                                             cascade_failed = true;
                                             break;
@@ -848,23 +795,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                         destroyed_list
                                             .push(Value::String(existing_id.as_ref().to_owned()));
                                     }
-                                    Err(BackendSetError::SetError(set_err)) => {
-                                        not_created.insert(create_id, set_error_value(&set_err));
-                                        continue;
-                                    }
-                                    Err(BackendSetError::Other(e)) => {
-                                        not_created
-                                            .insert(create_id, server_fail_value_from_backend(&e));
-                                        continue;
-                                    }
-                                    Err(_) => {
-                                        not_created.insert(
-                                            create_id,
-                                            json!({
-                                                "type": "serverFail",
-                                                "description": "unhandled backend error variant",
-                                            }),
-                                        );
+                                    Err(e) => {
+                                        not_created.insert(create_id, backend_set_error_value(e));
                                         continue;
                                     }
                                 }
@@ -922,20 +854,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     .await;
                     created.insert(create_id, value);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -1251,20 +1171,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         new_sha256.map_or(Value::Null, |d| json!({ "sha256": d })),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -1355,25 +1263,9 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                     mutated = true;
                                     destroyed_list.push(Value::String(desc_id.as_ref().to_owned()));
                                 }
-                                Err(BackendSetError::SetError(set_err)) => {
-                                    not_destroyed.insert(id_str.clone(), set_error_value(&set_err));
-                                    cascade_failed = true;
-                                    break;
-                                }
-                                Err(BackendSetError::Other(e)) => {
+                                Err(e) => {
                                     not_destroyed
-                                        .insert(id_str.clone(), server_fail_value_from_backend(&e));
-                                    cascade_failed = true;
-                                    break;
-                                }
-                                Err(_) => {
-                                    not_destroyed.insert(
-                                        id_str.clone(),
-                                        json!({
-                                            "type": "serverFail",
-                                            "description": "unhandled backend error variant",
-                                        }),
-                                    );
+                                        .insert(id_str.clone(), backend_set_error_value(e));
                                     cascade_failed = true;
                                     break;
                                 }
@@ -1398,20 +1290,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -1817,28 +1697,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                         mutated = true;
                                         destroyed.push(desc_id.clone());
                                     }
-                                    Err(BackendSetError::SetError(set_err)) => {
+                                    Err(e) => {
                                         not_copied
-                                            .insert(create_id.clone(), set_error_value(&set_err));
-                                        cascade_failed = true;
-                                        break;
-                                    }
-                                    Err(BackendSetError::Other(e)) => {
-                                        not_copied.insert(
-                                            create_id.clone(),
-                                            server_fail_value_from_backend(&e),
-                                        );
-                                        cascade_failed = true;
-                                        break;
-                                    }
-                                    Err(_) => {
-                                        not_copied.insert(
-                                            create_id.clone(),
-                                            json!({
-                                                "type": "serverFail",
-                                                "description": "unhandled backend error variant",
-                                            }),
-                                        );
+                                            .insert(create_id.clone(), backend_set_error_value(e));
                                         cascade_failed = true;
                                         break;
                                     }
@@ -1856,23 +1717,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                     mutated = true;
                                     destroyed.push(existing_id.clone());
                                 }
-                                Err(BackendSetError::SetError(set_err)) => {
-                                    not_copied.insert(create_id, set_error_value(&set_err));
-                                    continue;
-                                }
-                                Err(BackendSetError::Other(e)) => {
-                                    not_copied
-                                        .insert(create_id, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                                Err(_) => {
-                                    not_copied.insert(
-                                        create_id,
-                                        json!({
-                                            "type": "serverFail",
-                                            "description": "unhandled backend error variant",
-                                        }),
-                                    );
+                                Err(e) => {
+                                    not_copied.insert(create_id, backend_set_error_value(e));
                                     continue;
                                 }
                             }
@@ -1997,28 +1843,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                         mutated = true;
                                         destroyed.push(desc_id.clone());
                                     }
-                                    Err(BackendSetError::SetError(set_err)) => {
+                                    Err(e) => {
                                         not_copied
-                                            .insert(create_id.clone(), set_error_value(&set_err));
-                                        cascade_failed = true;
-                                        break;
-                                    }
-                                    Err(BackendSetError::Other(e)) => {
-                                        not_copied.insert(
-                                            create_id.clone(),
-                                            server_fail_value_from_backend(&e),
-                                        );
-                                        cascade_failed = true;
-                                        break;
-                                    }
-                                    Err(_) => {
-                                        not_copied.insert(
-                                            create_id.clone(),
-                                            json!({
-                                                "type": "serverFail",
-                                                "description": "unhandled backend error variant",
-                                            }),
-                                        );
+                                            .insert(create_id.clone(), backend_set_error_value(e));
                                         cascade_failed = true;
                                         break;
                                     }
@@ -2035,23 +1862,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                     mutated = true;
                                     destroyed.push(existing_id.clone());
                                 }
-                                Err(BackendSetError::SetError(set_err)) => {
-                                    not_copied.insert(create_id, set_error_value(&set_err));
-                                    continue;
-                                }
-                                Err(BackendSetError::Other(e)) => {
-                                    not_copied
-                                        .insert(create_id, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                                Err(_) => {
-                                    not_copied.insert(
-                                        create_id,
-                                        json!({
-                                            "type": "serverFail",
-                                            "description": "unhandled backend error variant",
-                                        }),
-                                    );
+                                Err(e) => {
+                                    not_copied.insert(create_id, backend_set_error_value(e));
                                     continue;
                                 }
                             }
@@ -2096,20 +1908,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     copied_source_ids.push((create_id.clone(), source_id));
                     copied.insert(create_id, value);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_copied.insert(create_id, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_copied.insert(create_id, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_copied.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_copied.insert(create_id, backend_set_error_value(e));
                 }
             }
         }
@@ -2207,19 +2007,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                         .destroy_object::<FileNode>(caller, &from_account_id, desc_id)
                         .await
                     {
-                        not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            match e {
-                                BackendSetError::SetError(set_err) => set_error_value(&set_err),
-                                BackendSetError::Other(inner) => {
-                                    server_fail_value_from_backend(&inner)
-                                }
-                                _ => json!({
-                                    "type": "serverFail",
-                                    "description": "unhandled backend error variant",
-                                }),
-                            },
-                        );
+                        not_destroyed
+                            .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
                         cascade_failed = true;
                         break;
                     }
@@ -2236,23 +2025,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 Ok(()) => {
                     destroyed_ids.push(Value::String(source_id.as_ref().to_owned()));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(inner)) => {
-                    not_destroyed.insert(
-                        source_id.as_ref().to_owned(),
-                        server_fail_value_from_backend(&inner),
-                    );
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        source_id.as_ref().to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
                 }
             }
         }
@@ -2545,6 +2319,7 @@ mod tests {
         JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
         SetObject,
     };
+    use jmap_server::BackendSetError;
     use jmap_types::State;
 
     // -----------------------------------------------------------------------

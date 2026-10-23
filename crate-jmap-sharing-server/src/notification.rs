@@ -29,14 +29,14 @@
 
 use jmap_sharing_types::ShareNotification;
 use jmap_types::JmapError;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     set_error_value,
 };
-use crate::{BackendSetError, SetError, SetErrorType, SharingBackend};
-use jmap_server::{HandlerOutput, server_fail_from_backend, server_fail_value_from_backend};
+use crate::{SetError, SetErrorType, SharingBackend};
+use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // ShareNotification/get
@@ -202,20 +202,8 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }

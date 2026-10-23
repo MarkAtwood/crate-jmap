@@ -33,14 +33,14 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     filter_properties, finalize_set_response, not_found_json, serialize_value, set_error_value,
 };
-use crate::{BackendSetError, MailBackend};
 use jmap_server::{
-    HandlerOutput, QueryChangesParams, QueryParams, bool_arg, filter_arg, reject_read_only_patch,
-    reject_server_set, resolve_query_offset, server_fail_from_backend,
+    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
+    reject_read_only_patch, reject_server_set, resolve_query_offset, server_fail_from_backend,
     server_fail_value_from_backend, take_bool_arg,
 };
 
@@ -1221,20 +1221,8 @@ pub async fn handle_email_set<B: MailBackend>(
                         }),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id.clone(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id.clone(), backend_set_error_value(e));
                 }
             }
         }
@@ -1289,20 +1277,8 @@ pub async fn handle_email_set<B: MailBackend>(
                     mutated = true;
                     updated.insert(id_str.clone(), Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str.clone(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str.clone(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str.clone(), backend_set_error_value(e));
                 }
             }
         }
@@ -1340,20 +1316,8 @@ pub async fn handle_email_set<B: MailBackend>(
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
@@ -2122,20 +2086,8 @@ pub async fn handle_email_import<B: MailBackend>(
                 });
                 created.insert(import_id, obj);
             }
-            Err(BackendSetError::SetError(set_err)) => {
-                not_created.insert(import_id, set_error_value(&set_err));
-            }
-            Err(BackendSetError::Other(e)) => {
-                not_created.insert(import_id, server_fail_value_from_backend(&e));
-            }
-            Err(_) => {
-                not_created.insert(
-                    import_id,
-                    json!({
-                        "type": "serverFail",
-                        "description": "unhandled backend error variant",
-                    }),
-                );
+            Err(e) => {
+                not_created.insert(import_id, backend_set_error_value(e));
             }
         }
     }
@@ -2550,20 +2502,8 @@ pub async fn handle_email_copy<B: MailBackend>(
                 created.insert(copy_id.clone(), obj);
                 copied_source_ids.push((copy_id, source_id));
             }
-            Err(BackendSetError::SetError(set_err)) => {
-                not_created.insert(copy_id, set_error_value(&set_err));
-            }
-            Err(BackendSetError::Other(e)) => {
-                not_created.insert(copy_id, server_fail_value_from_backend(&e));
-            }
-            Err(_) => {
-                not_created.insert(
-                    copy_id,
-                    json!({
-                        "type": "serverFail",
-                        "description": "unhandled backend error variant",
-                    }),
-                );
+            Err(e) => {
+                not_created.insert(copy_id, backend_set_error_value(e));
             }
         }
     }
@@ -2639,24 +2579,9 @@ pub async fn handle_email_copy<B: MailBackend>(
                     Ok(()) => {
                         email_destroyed.push(Value::String(source_id.as_ref().to_owned()));
                     }
-                    Err(BackendSetError::SetError(set_err)) => {
+                    Err(e) => {
                         email_not_destroyed
-                            .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
-                    }
-                    Err(BackendSetError::Other(e)) => {
-                        email_not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            server_fail_value_from_backend(&e),
-                        );
-                    }
-                    Err(_) => {
-                        email_not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            json!({
-                                "type": "serverFail",
-                                "description": "unhandled backend error variant",
-                            }),
-                        );
+                            .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
                     }
                 }
             }
@@ -2703,24 +2628,9 @@ pub async fn handle_email_copy<B: MailBackend>(
                         Ok(None) => {
                             email_updated.insert(source_id.as_ref().to_owned(), Value::Null);
                         }
-                        Err(BackendSetError::SetError(set_err)) => {
+                        Err(e) => {
                             email_not_updated
-                                .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
-                        }
-                        Err(BackendSetError::Other(e)) => {
-                            email_not_updated.insert(
-                                source_id.as_ref().to_owned(),
-                                server_fail_value_from_backend(&e),
-                            );
-                        }
-                        Err(_) => {
-                            email_not_updated.insert(
-                                source_id.as_ref().to_owned(),
-                                json!({
-                                    "type": "serverFail",
-                                    "description": "unhandled backend error variant",
-                                }),
-                            );
+                                .insert(source_id.as_ref().to_owned(), backend_set_error_value(e));
                         }
                     }
                 }

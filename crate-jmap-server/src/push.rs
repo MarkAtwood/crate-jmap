@@ -23,7 +23,9 @@ use jmap_types::{Id, JmapError, PushSubscription, SetObject, State, StateChange,
 use serde_json::{Map, Value, json};
 use subtle::ConstantTimeEq;
 
-use crate::backend::{BackendSetError, JmapBackend, SetError, SetErrorType};
+use crate::backend::{
+    BackendSetError, JmapBackend, SetError, SetErrorType, backend_set_error_value,
+};
 use crate::handlers::{server_fail_from_backend, server_fail_value_from_backend};
 use crate::helpers::{
     apply_patch_object, enforce_max_objects_in_get, enforce_max_objects_in_set, not_found_json,
@@ -646,16 +648,6 @@ fn codes_match(sent: &str, expected: &str) -> bool {
 /// An `invalidProperties` SetError naming `property`.
 fn invalid_property(property: &str) -> Value {
     set_error_value(&SetError::new(SetErrorType::InvalidProperties).with_properties([property]))
-}
-
-/// The `notCreated` / `notUpdated` / `notDestroyed` value for a backend
-/// error: a [`BackendSetError::SetError`] verbatim, anything else as a
-/// redacted `serverFail`.
-fn backend_set_error_value<E: fmt::Display>(e: BackendSetError<E>) -> Value {
-    match e {
-        BackendSetError::SetError(se) => set_error_value(&se),
-        BackendSetError::Other(e) => server_fail_value_from_backend(&e),
-    }
 }
 
 /// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /

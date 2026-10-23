@@ -38,10 +38,10 @@ use crate::helpers::{
     finalize_set_response, now_utc_string, reject_unsupported_sort, set_error_value,
 };
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
-use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
+use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, is_client_updatable, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, is_client_updatable, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// `Chat/set` update keys that change a group Chat's member list
@@ -1030,20 +1030,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id.clone(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_created.insert(create_id.clone(), backend_set_error_value(e));
                 }
             }
         }
@@ -1319,20 +1307,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     mutated = true;
                     updated.insert(id_str, Value::Null);
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
@@ -1411,20 +1387,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     destroyed_list.push(Value::String(id_str.to_owned()));
                     backend.on_chat_destroyed(caller, &account_id, &id).await;
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(e) => {
+                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }

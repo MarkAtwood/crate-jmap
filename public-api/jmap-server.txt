@@ -273,6 +273,7 @@ pub fn jmap_server::PushSubscriptionBackend::list_push_subscriptions(&self, &Sel
 pub fn jmap_server::PushSubscriptionBackend::update_push_subscription(&self, &Self::CallerCtx, jmap_types::push::PushSubscription) -> impl core::future::future::Future<Output = core::result::Result<jmap_types::push::PushSubscription, jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::apply_jmap_patch(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &str, serde_json::value::Value) -> core::result::Result<(), jmap_server::PatchPathError>
 pub fn jmap_server::apply_patch_object(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(), jmap_server::PatchPathError>
+pub fn jmap_server::backend_set_error_value<E: core::fmt::Display>(jmap_server::BackendSetError<E>) -> serde_json::value::Value
 pub fn jmap_server::bool_arg(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &str, bool) -> bool
 pub fn jmap_server::check_known_capabilities<S: core::convert::AsRef<str>>(&jmap_types::wire::JmapRequest, &[S]) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_server::enforce_max_objects_in_get(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, u64) -> core::result::Result<(), jmap_types::error::JmapError>

@@ -9,7 +9,7 @@ use serde_json::{Map, Value, json};
 use jmap_graph_types::CandidateKind;
 
 use crate::search::{check_search_filter, uses_search};
-use crate::{BackendSetError, GraphBackend, QueryObject, SetError, SetErrorType};
+use crate::{GraphBackend, QueryObject, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     not_found_json, optional_arg, serialize_value, server_fail_from_backend,
@@ -141,19 +141,6 @@ pub(crate) fn not_found() -> Value {
 /// An `invalidPatch` SetError.
 pub(crate) fn invalid_patch(description: &str) -> Value {
     set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(description))
-}
-
-/// The SetError JSON for a backend `/set` failure; storage errors become
-/// `serverFail` without their `Display` text.
-pub(crate) fn backend_set_error_value<E: std::fmt::Display>(e: BackendSetError<E>) -> Value {
-    match e {
-        BackendSetError::SetError(se) => set_error_value(&se),
-        BackendSetError::Other(e) => server_fail_value_from_backend(&e),
-        _ => json!({
-            "type": "serverFail",
-            "description": "unhandled backend error variant",
-        }),
-    }
 }
 
 /// `o` as a JSON object.

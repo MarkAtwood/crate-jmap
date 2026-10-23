@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `backend_set_error_value(BackendSetError<E>) -> Value` is
+  the one RFC 8620 §5.3 `notCreated`/`notUpdated`/`notDestroyed` mapping for
+  backend `/set` failures: a `SetError` verbatim, `Other` as the redacted
+  `serverFail` (bd JMAP-jfia.36). Every `*-server` crate now calls it instead
+  of its own three-arm match or private copy, and the unreachable
+  `"unhandled backend error variant"` fallback is gone from those sites
+  (bd JMAP-1xze).
 - **workspace**: committed public-API snapshots (`public-api/<crate>.txt`,
   `scripts/public-api.sh`) and a CI `public-api` job that fails when they
   are stale, so every public-surface change appears in review diffs

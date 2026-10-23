@@ -39,7 +39,7 @@ mod helpers;
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject,
+    QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject, backend_set_error_value,
 };
 pub use handlers::{
     SERVER_FAIL_INTERNAL_DESC, handle_changes, handle_get, handle_query, handle_query_changes,
