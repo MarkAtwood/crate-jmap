@@ -37,12 +37,13 @@
 //! surface in the `notCreated` / `notUpdated` / `notDestroyed` maps
 //! within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_calendars_types::CalendarEventNotification;
+use jmap_calendars_types::{CalendarEventNotification, CalendarEventNotificationComparator};
 use jmap_types::JmapError;
 use serde_json::Value;
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    reject_unsupported_sort,
 };
 use crate::{CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
@@ -244,6 +245,7 @@ pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<CalendarEventNotificationComparator>(args.get("sort"))?;
     jmap_server::handle_query::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
@@ -267,6 +269,7 @@ pub async fn handle_calendar_event_notification_query_changes<B: CalendarsBacken
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<CalendarEventNotificationComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
@@ -280,6 +283,47 @@ mod tests {
     use serde_json::json;
 
     use crate::test_support::MockBackend;
+
+    /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
+    /// valid, but includes a property the server does not support sorting
+    /// on". draft-ietf-jmap-calendars-33 §7.4.2: "The \"created\" property MUST be
+    /// supported for sorting." and lists no other; `calendarEventId` is not among them.
+    #[tokio::test]
+    async fn query_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "calendarEventId" }] });
+        let err = handle_calendar_event_notification_query(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: as above; `CalendarEventNotification/queryChanges` carries the same `sort`
+    /// (RFC 8620 §5.6).
+    #[tokio::test]
+    async fn query_changes_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "sort": [{ "property": "created" }, { "property": "calendarEventId" }]
+        });
+        let err = handle_calendar_event_notification_query_changes(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §7.4.2: "The \"created\" property MUST be
+    /// supported for sorting." and lists no other, so a `created` sort is accepted.
+    #[tokio::test]
+    async fn query_listed_sort_property_is_accepted() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "created" }] });
+        handle_calendar_event_notification_query(&backend, &(), args)
+            .await
+            .expect("listed sort property must not be rejected");
+    }
 
     /// Oracle: create entries must produce `forbidden` in notCreated.
     /// Source: draft-ietf-jmap-calendars-33 §7.3 — notifications are server-created.

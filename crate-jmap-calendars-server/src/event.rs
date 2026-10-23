@@ -30,14 +30,15 @@
 use std::collections::BTreeMap;
 
 use jmap_calendars_types::{
-    CalendarEvent, CalendarEventFilter, CalendarEventFilterCondition, ParticipantIdentity,
+    CalendarEvent, CalendarEventComparator, CalendarEventFilter, CalendarEventFilterCondition,
+    ParticipantIdentity,
 };
 use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{Value, json};
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, resolve_map_key_refs,
+    finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
 };
 use crate::{CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend};
 use jmap_server::{
@@ -1049,6 +1050,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<CalendarEventComparator>(args.get("sort"))?;
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -1092,8 +1094,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     // with a `filter: ` description (bd:JMAP-ic0j.45).
     let filter: Option<CalendarEventFilter> = filter_arg(&mut args)?;
 
-    let sort: Option<Vec<jmap_calendars_types::CalendarEventComparator>> = match args.remove("sort")
-    {
+    let sort: Option<Vec<CalendarEventComparator>> = match args.remove("sort") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
             serde_json::from_value(v)
@@ -1243,6 +1244,7 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<CalendarEventComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<CalendarEvent, B>(backend, caller, args).await
 }
 
@@ -1343,6 +1345,47 @@ mod tests {
     use serde_json::json;
 
     use crate::test_support::MockBackend;
+
+    /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
+    /// valid, but includes a property the server does not support sorting
+    /// on". draft-ietf-jmap-calendars-33 §5.11.2 lists the sort properties "id,
+    /// uid, start" (MUST) and "created, updated" (SHOULD); `title` is not among them.
+    #[tokio::test]
+    async fn query_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "title" }] });
+        let err = handle_calendar_event_query(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: as above; `CalendarEvent/queryChanges` carries the same `sort`
+    /// (RFC 8620 §5.6).
+    #[tokio::test]
+    async fn query_changes_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "sort": [{ "property": "start" }, { "property": "title" }]
+        });
+        let err = handle_calendar_event_query_changes(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §5.11.2 lists the sort properties "id,
+    /// uid, start" (MUST) and "created, updated" (SHOULD), so a `start` sort is accepted.
+    #[tokio::test]
+    async fn query_listed_sort_property_is_accepted() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "start" }] });
+        handle_calendar_event_query(&backend, &(), args)
+            .await
+            .expect("listed sort property must not be rejected");
+    }
 
     /// Oracle: CalendarEvent/get with unknown accountId returns accountNotFound.
     #[tokio::test]

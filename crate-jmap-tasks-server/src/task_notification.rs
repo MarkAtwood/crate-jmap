@@ -25,12 +25,13 @@
 //! per RFC 8620 §3.6 and §5). Per-target failures inside `/set` surface
 //! in the `notDestroyed` map within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_tasks_types::TaskNotification;
+use jmap_tasks_types::{TaskNotification, TaskNotificationComparator};
 use jmap_types::JmapError;
 use serde_json::Value;
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    reject_unsupported_sort,
 };
 use crate::{SetError, SetErrorType, TasksBackend};
 use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
@@ -241,6 +242,7 @@ pub async fn handle_task_notification_query<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<TaskNotificationComparator>(args.get("sort"))?;
     jmap_server::handle_query::<TaskNotification, B>(backend, caller, args).await
 }
 
@@ -263,6 +265,7 @@ pub async fn handle_task_notification_query_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<TaskNotificationComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<TaskNotification, B>(backend, caller, args).await
 }
 
@@ -276,6 +279,47 @@ mod tests {
     use serde_json::json;
 
     use crate::test_support::MockBackend;
+
+    /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
+    /// valid, but includes a property the server does not support sorting
+    /// on". draft-ietf-jmap-tasks-06 §5.5.2: "The \"created\" property MUST be
+    /// supported for sorting." and lists no other; `taskId` is not among them.
+    #[tokio::test]
+    async fn query_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "taskId" }] });
+        let err = handle_task_notification_query(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: as above; `TaskNotification/queryChanges` carries the same `sort`
+    /// (RFC 8620 §5.6).
+    #[tokio::test]
+    async fn query_changes_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "sort": [{ "property": "created" }, { "property": "taskId" }]
+        });
+        let err = handle_task_notification_query_changes(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: draft-ietf-jmap-tasks-06 §5.5.2: "The \"created\" property MUST be
+    /// supported for sorting." and lists no other, so a `created` sort is accepted.
+    #[tokio::test]
+    async fn query_listed_sort_property_is_accepted() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "created" }] });
+        handle_task_notification_query(&backend, &(), args)
+            .await
+            .expect("listed sort property must not be rejected");
+    }
 
     /// Oracle: TaskNotification/set create entries must produce `forbidden` in notCreated.
     /// No backend call is made for create (pure handler-layer enforcement).

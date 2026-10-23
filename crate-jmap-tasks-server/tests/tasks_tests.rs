@@ -724,6 +724,9 @@ async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
 // carrying one must surface a method-level error rather than silently
 // returning ids in id-creation order (which a client following the
 // `task<n:016x>` demo id scheme might mistake for working sort).
+// `start` is a listed Task sort property (draft-ietf-jmap-tasks-06 §4.13
+// via CalendarEvent/query), so the handler forwards it to the backend; an
+// unlisted property is rejected earlier with unsupportedSort (bd JMAP-86o9).
 //
 // Bead: JMAP-h47t.5.
 // ---------------------------------------------------------------------------
@@ -736,7 +739,7 @@ async fn task_query_with_sort_fails_loud_on_memory_backend() {
 
     let args = json!({
         "accountId": "acc1",
-        "sort": [ { "property": "due", "isAscending": true } ]
+        "sort": [ { "property": "start", "isAscending": true } ]
     });
     let err = handle_task_query(&backend, &(), args)
         .await

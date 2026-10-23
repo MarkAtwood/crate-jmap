@@ -30,7 +30,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_tasks_types::Task;
+use jmap_tasks_types::{Task, TaskComparator};
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -38,7 +38,7 @@ use serde_json::{Value, json};
 use crate::TasksBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    resolve_refs,
+    reject_unsupported_sort, resolve_refs,
 };
 use jmap_server::{
     HandlerOutput, backend_set_error_value, bool_arg, reject_read_only_patch, reject_server_set,
@@ -745,6 +745,7 @@ pub async fn handle_task_query<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<TaskComparator>(args.get("sort"))?;
     jmap_server::handle_query::<Task, B>(backend, caller, args).await
 }
 
@@ -767,6 +768,7 @@ pub async fn handle_task_query_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<TaskComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<Task, B>(backend, caller, args).await
 }
 
@@ -780,6 +782,47 @@ mod tests {
     use serde_json::json;
 
     use crate::test_support::MockBackend;
+
+    /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
+    /// valid, but includes a property the server does not support sorting
+    /// on". draft-ietf-jmap-tasks-06 §4.13 defers to CalendarEvent/query, whose sort
+    /// properties are start, uid, recurrenceId, created and updated; `title` is not among them.
+    #[tokio::test]
+    async fn query_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "title" }] });
+        let err = handle_task_query(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: as above; `Task/queryChanges` carries the same `sort`
+    /// (RFC 8620 §5.6).
+    #[tokio::test]
+    async fn query_changes_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "sort": [{ "property": "start" }, { "property": "title" }]
+        });
+        let err = handle_task_query_changes(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: draft-ietf-jmap-tasks-06 §4.13 defers to CalendarEvent/query, whose sort
+    /// properties are start, uid, recurrenceId, created and updated, so a `start` sort is accepted.
+    #[tokio::test]
+    async fn query_listed_sort_property_is_accepted() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "start" }] });
+        handle_task_query(&backend, &(), args)
+            .await
+            .expect("listed sort property must not be rejected");
+    }
 
     /// Oracle: Task/get with unknown accountId returns accountNotFound.
     #[tokio::test]

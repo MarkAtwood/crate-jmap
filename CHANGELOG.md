@@ -3423,6 +3423,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-calendars-server**, **jmap-tasks-server**,
+  **jmap-contacts-server**: **BREAKING** `CalendarEvent/query`,
+  `CalendarEventNotification/query`, `Task/query`,
+  `TaskNotification/query`, `ContactCard/query` and their `/queryChanges`
+  answer a comparator whose `property` the draft does not list (it decodes
+  to the comparator property's `Other`) with RFC 8620 §5.5
+  `unsupportedSort`, as jmap-chat-server, jmap-graph-server,
+  jmap-scene-server and jmap-vtc-server already do. The memory backends
+  used to ignore such a property (bd JMAP-86o9).
+
 - **jmap-mail-server**: Email/set and Mailbox/set updates report a
   request-only patch error (e.g. `"metadata"` with `"metadata/<ns>/k"`)
   as `invalidPatch` before `notFound`, `forbidden` or

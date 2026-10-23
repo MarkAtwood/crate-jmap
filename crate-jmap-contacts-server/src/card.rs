@@ -31,14 +31,14 @@
 
 use std::collections::BTreeMap;
 
-use jmap_contacts_types::ContactCard;
+use jmap_contacts_types::{ContactCard, ContactCardComparator};
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{Value, json};
 
 use crate::ContactsBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    resolve_map_key_refs,
+    reject_unsupported_sort, resolve_map_key_refs,
 };
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, reject_read_only_patch,
@@ -623,6 +623,7 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<ContactCardComparator>(args.get("sort"))?;
     jmap_server::handle_query::<ContactCard, B>(backend, caller, args).await
 }
 
@@ -645,6 +646,7 @@ pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    reject_unsupported_sort::<ContactCardComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<ContactCard, B>(backend, caller, args).await
 }
 
@@ -658,6 +660,60 @@ mod tests {
     use serde_json::json;
 
     use crate::test_support::MockBackend;
+
+    /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
+    /// valid, but includes a property the server does not support sorting
+    /// on". RFC 9610 §3.3.2 lists created and updated (MUST) and name/given,
+    /// name/surname and name/surname2 (SHOULD); `kind` is not among them.
+    #[tokio::test]
+    async fn query_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "kind" }] });
+        let err = handle_contact_card_query(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: as above; `ContactCard/queryChanges` carries the same `sort`
+    /// (RFC 8620 §5.6).
+    #[tokio::test]
+    async fn query_changes_unlisted_sort_property_returns_unsupported_sort() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "sort": [{ "property": "name/surname" }, { "property": "kind" }]
+        });
+        let err = handle_contact_card_query_changes(&backend, &(), args)
+            .await
+            .expect_err("unlisted sort property must be rejected");
+        assert_eq!(err.error_type.to_string(), "unsupportedSort");
+    }
+
+    /// Oracle: RFC 9610 §3.3.2 lists created and updated (MUST) and name/given,
+    /// name/surname and name/surname2 (SHOULD), so a `name/surname` sort is accepted.
+    #[tokio::test]
+    async fn query_listed_sort_property_is_accepted() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "property": "name/surname" }] });
+        handle_contact_card_query(&backend, &(), args)
+            .await
+            .expect("listed sort property must not be rejected");
+    }
+
+    /// Oracle: RFC 8620 §5.5 Comparator: "property: `String`" is required, so
+    /// a comparator without it is not syntactically valid and is
+    /// `invalidArguments` (RFC 8620 §3.6.2), not `unsupportedSort`.
+    #[tokio::test]
+    async fn query_comparator_without_property_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "sort": [{ "isAscending": false }] });
+        let err = handle_contact_card_query(&backend, &(), args)
+            .await
+            .expect_err("comparator without property must be rejected");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
+    }
 
     /// Oracle: ContactCard/get with unknown account → accountNotFound.
     #[tokio::test]
