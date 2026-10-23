@@ -434,7 +434,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             Some(Value::String(s)) if s == "newest" => OnExists::Newest,
             Some(other) => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "invalid onExists value: {other}"
+                    "invalid onExists value: expected \"replace\", \"rename\", \"newest\" or null; got {}",
+                    jmap_server::json_type_name(other)
                 )));
             }
         }
@@ -1430,7 +1431,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             Some(Value::String(s)) if s == "newest" => OnExists::Newest,
             Some(other) => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "invalid onExists value: {other}"
+                    "invalid onExists value: expected \"replace\", \"rename\", \"newest\" or null; got {}",
+                    jmap_server::json_type_name(other)
                 )));
             }
         }
@@ -4609,6 +4611,43 @@ mod tests {
         let err = handle_filenode_set(&backend, &(), args)
             .await
             .expect_err("non-string destroy element must be a method error");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
+        let desc = err.description.as_deref().unwrap_or_default();
+        assert!(desc.contains("got object"), "{desc}");
+        assert!(!desc.contains("CANARY"), "{desc}");
+    }
+
+    /// draft-ietf-jmap-filenode-16 §3.2.3 types `onExists` as one of
+    /// "replace", "rename", "newest" or null, so an object is the wrong type
+    /// (RFC 8620 §3.6.2 invalidArguments). The §3.6.1 description names
+    /// only the JSON type and never echoes the client value (bd JMAP-zegc).
+    #[tokio::test]
+    async fn set_invalid_on_exists_does_not_echo_value() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let args = json!({ "accountId": "acc1", "onExists": { "note": "CANARY-zegc" } });
+        let err = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect_err("object onExists must be a method error");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
+        let desc = err.description.as_deref().unwrap_or_default();
+        assert!(desc.contains("got object"), "{desc}");
+        assert!(!desc.contains("CANARY"), "{desc}");
+    }
+
+    /// §3.2.4 gives FileNode/copy the same `onExists` argument "with the
+    /// same behaviour" as FileNode/set, so the same no-echo rule applies.
+    #[tokio::test]
+    async fn copy_invalid_on_exists_does_not_echo_value() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let args = json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc1",
+            "onExists": { "note": "CANARY-zegc" },
+            "create": {}
+        });
+        let err = handle_filenode_copy(&backend, &(), args, "c0")
+            .await
+            .expect_err("object onExists must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
