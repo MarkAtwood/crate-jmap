@@ -60,7 +60,7 @@ use crate::{
 };
 use jmap_cid_types::Sha256;
 use jmap_filenode_types::{FileNode, FileNodeFilter, NodeRole, NodeType};
-use jmap_server::{apply_patch_object, resolve_query_start};
+use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Filter, Id, Operator, State};
 
 // ---------------------------------------------------------------------------
@@ -489,11 +489,7 @@ impl JmapBackend for MemoryBackend {
         } else {
             false
         };
-        let entries: Vec<&ChangeEntry> = if let Some(max) = max_changes {
-            all.into_iter().take(max as usize).collect()
-        } else {
-            all
-        };
+        let entries: Vec<&ChangeEntry> = all.into_iter().take(limit_or_max(max_changes)).collect();
 
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
@@ -583,7 +579,7 @@ impl JmapBackend for MemoryBackend {
             .map_err(BackendQueryError::Method)?;
         let ids: Vec<Id> = ids[start..]
             .iter()
-            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .take(limit_or_max(limit))
             .cloned()
             .collect();
 

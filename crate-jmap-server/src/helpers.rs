@@ -844,6 +844,32 @@ pub fn resolve_query_offset(position: i64, total: usize) -> usize {
     }
 }
 
+/// Convert an RFC 8620 `limit` / `maxChanges` argument (`UnsignedInt|null`)
+/// to a `usize` item count for [`Iterator::take`] (bd:JMAP-pgj7).
+///
+/// RFC 8620 §5.5: "The maximum number of results to return. If null, no
+/// limit presumed." `None` therefore maps to `usize::MAX`. A `Some(n)`
+/// larger than `usize::MAX` (only possible on 32-bit targets) saturates
+/// to `usize::MAX` instead of truncating, which is the same "take
+/// everything" outcome, since no in-memory list can exceed `usize::MAX`.
+///
+/// This replaces the per-crate `n as usize` idiom, which silently drops
+/// the high bits on 32-bit targets (a `limit` of `2^32` became `0`).
+///
+/// # Example
+///
+/// ```
+/// use jmap_server::limit_or_max;
+///
+/// assert_eq!(limit_or_max(None), usize::MAX);
+/// assert_eq!(limit_or_max(Some(0)), 0);
+/// assert_eq!(limit_or_max(Some(25)), 25);
+/// ```
+#[must_use]
+pub fn limit_or_max(limit: Option<u64>) -> usize {
+    limit.map_or(usize::MAX, |n| usize::try_from(n).unwrap_or(usize::MAX))
+}
+
 /// Parse the RFC 8620 §5.5 `/query` arguments `anchor` (`Id|null`) and
 /// `anchorOffset` (`Int`, default `0`) from `args`.
 ///
@@ -1221,10 +1247,10 @@ mod tests {
     use super::{
         MAX_MERGE_PATCH_DEPTH, MergePatchError, PatchPathError, apply_jmap_patch,
         apply_patch_object, civil_from_days, enforce_max_objects_in_set, extract_account_id,
-        filter_arg, is_client_updatable, json_merge_patch, now_utc_string, parse_max_changes,
-        parse_wire_id, query_anchor_args, reject_did_bearing_properties, reject_read_only_patch,
-        reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
-        utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
+        filter_arg, is_client_updatable, json_merge_patch, limit_or_max, now_utc_string,
+        parse_max_changes, parse_wire_id, query_anchor_args, reject_did_bearing_properties,
+        reject_read_only_patch, reject_server_set, resolve_creation_ref, resolve_query_offset,
+        resolve_query_start, utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
     };
     use jmap_types::{Id, PushSubscription, UTCDate};
     use serde_json::json;
@@ -2448,6 +2474,19 @@ mod tests {
     /// `0x8000_0000_0000_0000`. The point of the regression guard is
     /// that the call does NOT panic (which it would under the prior
     /// `(-position) as usize` idiom in debug builds).
+    /// Oracle: RFC 8620 §5.5 `limit` -- "If null, no limit presumed" --
+    /// so `None` is unbounded; `Some(n)` is exactly `n` items.
+    #[test]
+    fn limit_or_max_follows_rfc8620_limit_semantics() {
+        let items = [1u8, 2, 3, 4, 5];
+        assert_eq!(items.iter().take(limit_or_max(None)).count(), 5);
+        assert_eq!(items.iter().take(limit_or_max(Some(0))).count(), 0);
+        assert_eq!(items.iter().take(limit_or_max(Some(2))).count(), 2);
+        // u64::MAX never truncates to a small count: on 64-bit it is
+        // exactly usize::MAX, on 32-bit it saturates to usize::MAX.
+        assert_eq!(limit_or_max(Some(u64::MAX)), usize::MAX);
+    }
+
     #[test]
     fn resolve_query_offset_i64_min_does_not_overflow() {
         assert_eq!(resolve_query_offset(i64::MIN, 1), 0);

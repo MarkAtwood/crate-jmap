@@ -44,7 +44,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use jmap_server::{apply_patch_object, resolve_query_start};
+use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
 use jmap_vtc_types::{
     CallRole, CallState, VtcCall, VtcCapability, VtcEvent, VtcLivestream, VtcParticipant,
@@ -703,7 +703,7 @@ impl JmapBackend for MemoryBackend {
         let page = ids
             .into_iter()
             .skip(start)
-            .take(limit.map_or(usize::MAX, |n| n as usize))
+            .take(limit_or_max(limit))
             .collect();
         Ok(QueryResult::new(
             page,

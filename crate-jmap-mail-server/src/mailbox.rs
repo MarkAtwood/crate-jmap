@@ -37,7 +37,8 @@ use crate::helpers::{
 use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_start,
+    server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -277,7 +278,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     //   2. no anchor      → push limit/position to the backend so large
     //                       accounts (IMAP migration) do not pay an O(n)
     //                       full-fetch on every page.
-    let (start, page, total): (usize, Vec<String>, u64) = if let Some(anchor_id) = anchor.as_ref() {
+    let (start, page, total): (u64, Vec<String>, u64) = if let Some(anchor_id) = anchor.as_ref() {
         let full = backend
             .query_objects::<Mailbox>(
                 caller,
@@ -289,20 +290,14 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         query_state_str = full.query_state.as_ref().to_owned();
         let all_ids = full.ids;
         let total = all_ids.len() as u64;
-        let anchor_idx = all_ids
-            .iter()
-            .position(|id| id == anchor_id)
-            .ok_or_else(JmapError::anchor_not_found)?;
-        // RFC 8620 §5.5: clamp effective position to [0, len].
-        let raw = anchor_idx as i64 + anchor_offset;
-        let start = raw.max(0).min(all_ids.len() as i64) as usize;
+        let start = resolve_query_start(&all_ids, position, Some(anchor_id), anchor_offset)?;
         let page: Vec<String> = all_ids
             .into_iter()
             .skip(start)
-            .take(limit.map_or(usize::MAX, |n| n as usize))
+            .take(limit_or_max(limit))
             .map(|id| id.as_ref().to_owned())
             .collect();
-        (start, page, total)
+        (start as u64, page, total)
     } else {
         let result = backend
             .query_objects::<Mailbox>(
@@ -318,7 +313,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             .map_err(JmapError::from)?;
         query_state_str = result.query_state.as_ref().to_owned();
         let total = result.total.unwrap_or(result.ids.len() as u64);
-        let start = result.position as usize;
+        let start = result.position;
         let page: Vec<String> = result
             .ids
             .into_iter()
@@ -332,7 +327,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         "accountId": account_id.as_ref(),
         "queryState": query_state_str,
         "canCalculateChanges": can_calculate_changes,
-        "position": start as i64,
+        "position": start,
         "ids": page,
     });
     if calculate_total {

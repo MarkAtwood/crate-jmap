@@ -101,7 +101,7 @@ use jmap_scene_types::{
     SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
     SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
 };
-use jmap_server::{apply_patch_object, resolve_query_start};
+use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Id, State};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -766,7 +766,7 @@ impl JmapBackend for MemoryBackend {
         let page = ids
             .into_iter()
             .skip(start)
-            .take(limit.map_or(usize::MAX, |n| n as usize))
+            .take(limit_or_max(limit))
             .collect();
         Ok(QueryResult::new(
             page,

@@ -86,7 +86,7 @@ use jmap_mail_types::{
     MailboxComparator, MailboxComparatorProperty, MailboxFilter, MailboxFilterCondition,
     MailboxRole, Operator, SearchSnippet,
 };
-use jmap_server::{apply_patch_object, resolve_query_start};
+use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
 
@@ -405,7 +405,7 @@ impl MemoryBackend {
             .map_err(BackendQueryError::Method)?;
         let ids: Vec<Id> = all_ids[start..]
             .iter()
-            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .take(limit_or_max(limit))
             .cloned()
             .collect();
 
@@ -624,7 +624,7 @@ impl JmapBackend for MemoryBackend {
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
 
-            let limit = max_changes.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize);
+            let limit = limit_or_max(max_changes);
             // Binary search for the first entry with new_state > since.
             let start = log.partition_point(|e| e.new_state <= since);
             // Take limit+1 as sentinel to detect has_more.
@@ -998,7 +998,7 @@ impl JmapBackend for MemoryBackend {
 
         let ids: Vec<Id> = all_ids[start..]
             .iter()
-            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .take(limit_or_max(limit))
             .cloned()
             .collect();
 

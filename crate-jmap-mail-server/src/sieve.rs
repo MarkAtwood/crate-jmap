@@ -49,8 +49,9 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, filter_arg, reject_read_only_patch, reject_server_set,
-    resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
+    HandlerOutput, backend_set_error_value, filter_arg, limit_or_max, reject_read_only_patch,
+    reject_server_set, resolve_query_offset, server_fail_from_backend,
+    server_fail_value_from_backend, take_bool_arg,
 };
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
@@ -1090,24 +1091,25 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
             .iter()
             .position(|id| *id == anchor_id)
             .ok_or_else(JmapError::anchor_not_found)?;
-        // RFC 8620 §5.5: clamp to [0, len].
-        let raw = anchor_idx as i64 + anchor_offset;
-        raw.max(0).min(total_count as i64) as usize
+        // RFC 8620 §5.5: anchorOffset is relative to the anchor; a
+        // negative result clamps to 0 (not end-relative), then to len.
+        let raw = i64::try_from(anchor_idx)
+            .unwrap_or(i64::MAX)
+            .saturating_add(anchor_offset)
+            .max(0);
+        resolve_query_offset(raw, total_count)
     } else {
         // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
         resolve_query_offset(position, total_count)
     };
 
     // Step 8: apply limit.
-    let page_ids: Vec<&Id> = match limit {
-        Some(n) => all_ids
-            .iter()
-            .skip(start)
-            .take(n as usize)
-            .copied()
-            .collect(),
-        None => all_ids.iter().skip(start).copied().collect(),
-    };
+    let page_ids: Vec<&Id> = all_ids
+        .iter()
+        .skip(start)
+        .take(limit_or_max(limit))
+        .copied()
+        .collect();
 
     // Step 9: get query state.
     let query_state = backend

@@ -78,7 +78,7 @@ use jmap_graph_types::{
     GraphNodeComparator, GraphNodeFilterCondition,
 };
 use jmap_graph_types::{GraphCursorEvent, GraphNodeOpFilterCondition};
-use jmap_server::{apply_patch_object, resolve_query_start};
+use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Id, JmapError, State};
 use serde::Deserialize;
 use serde::Serialize;
@@ -811,7 +811,7 @@ impl JmapBackend for MemoryBackend {
         let page = ids
             .into_iter()
             .skip(start)
-            .take(limit.map_or(usize::MAX, |n| n as usize))
+            .take(limit_or_max(limit))
             .collect();
         Ok(QueryResult::new(
             page,

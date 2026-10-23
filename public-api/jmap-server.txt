@@ -290,6 +290,7 @@ pub async fn jmap_server::handle_query_changes<O: jmap_types::backend::QueryObje
 pub fn jmap_server::is_client_updatable<O: jmap_types::backend::SetObject>(&str) -> bool
 pub fn jmap_server::is_deliverable(&jmap_server::StoredPushSubscription, i64) -> bool
 pub fn jmap_server::json_merge_patch(&mut serde_json::value::Value, serde_json::value::Value) -> core::result::Result<(), jmap_server::MergePatchError>
+pub fn jmap_server::limit_or_max(core::option::Option<u64>) -> usize
 pub fn jmap_server::not_found_json(&[jmap_types::id::Id]) -> serde_json::value::Value
 pub fn jmap_server::now_utc_string() -> jmap_types::id::UTCDate
 pub fn jmap_server::now_utc_string_checked() -> core::option::Option<jmap_types::id::UTCDate>
