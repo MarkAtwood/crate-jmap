@@ -3059,6 +3059,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-server**: `now_utc_string` and `now_utc_string_checked` give the
+  right time of day on a pre-epoch clock. Hours and minutes came from
+  truncating division, so one second before the epoch formatted as
+  `1969-12-31T00:00:59Z` instead of `1969-12-31T23:59:59Z`
+  (bd JMAP-yt1w.40).
 - **jmap-scene-server**: `SceneBackend` rustdoc no longer requires
   `query_changes` to omit records hidden from the caller, and states the
   `query_objects` omission as SHOULD. draft-atwood-jmap-scene-00
