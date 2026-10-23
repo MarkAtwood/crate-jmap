@@ -336,7 +336,5 @@ pub async fn handle_room_create<B: MimiBackend>(
         .map_err(|e| server_fail_from_backend(&e))??;
 
     let response = RoomCreateResponse::new(account_id, room_id, chat_id);
-    Ok(HandlerOutput::new(
-        serde_json::to_value(response).expect("derive(Serialize) on plain data is infallible"),
-    ))
+    Ok(HandlerOutput::new(jmap_server::serialize_value(response)?))
 }

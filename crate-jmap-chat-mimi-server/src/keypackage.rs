@@ -176,12 +176,6 @@ fn decode_create(value: Value) -> Result<KeyPackageCreate, Box<SetError>> {
     })
 }
 
-/// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
-/// `notDestroyed` map.
-fn set_error_value(e: &SetError) -> Value {
-    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
-}
-
 /// Handle `KeyPackage/get` (draft-atwood-jmap-chat-mimi-00 §KeyPackage/get):
 /// "Standard JMAP `/get` (RFC 8620 §5.1)".
 pub async fn handle_key_package_get<B: MimiBackend>(
@@ -249,7 +243,7 @@ pub async fn handle_key_package_set<B: MimiBackend>(
             let (echo_last_resort, new) = match checked {
                 Ok(c) => c,
                 Err(e) => {
-                    not_created.insert(create_id, set_error_value(&e));
+                    not_created.insert(create_id, serde_json::Value::from(&*e));
                     continue;
                 }
             };
@@ -277,7 +271,7 @@ pub async fn handle_key_package_set<B: MimiBackend>(
     }
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        let forbidden = set_error_value(
+        let forbidden = serde_json::Value::from(
             &SetError::new(SetErrorType::Forbidden)
                 .with_description("KeyPackage records cannot be updated"),
         );
@@ -302,7 +296,7 @@ pub async fn handle_key_package_set<B: MimiBackend>(
             let key_package_id = match jmap_server::parse_wire_id(id, "id") {
                 Ok(key_package_id) => key_package_id,
                 Err(err) => {
-                    not_destroyed.insert(id.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
