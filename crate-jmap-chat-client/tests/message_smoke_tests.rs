@@ -1846,3 +1846,34 @@ async fn message_update_mentions_emits_wire_key() {
     let args = recorded_args(&server).await;
     assert_eq!(args["update"]["msg-1"]["mentions"], json!([{"id": "c2"}]));
 }
+
+/// `Message/set` update threads `deletedAt` and `deletedForAll`
+/// (bd:JMAP-w8fu.14). Oracle: draft-atwood-jmap-chat-00 at spec 29e9a41
+/// line 774 (`deletedAt` (UTCDate, optional)) and line 777
+/// (`deletedForAll` (Boolean, optional)).
+#[tokio::test]
+async fn message_update_deleted_at_and_for_all_serialise() {
+    let server = MockServer::start().await;
+    let resp_body =
+        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let at = UTCDate::from("2024-06-16T09:00:00Z");
+    let patch = jmap_chat_client::MessagePatch {
+        deleted_at: Some(&at),
+        deleted_for_all: Some(true),
+        ..Default::default()
+    };
+    let _ = sc
+        .message_update(&msg_id, &patch, None)
+        .await
+        .expect("message_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["msg-1"],
+        json!({ "deletedAt": "2024-06-16T09:00:00Z", "deletedForAll": true })
+    );
+}

@@ -1267,3 +1267,85 @@ async fn chat_create_created_is_partial_object() {
     assert_eq!(g1.extra["createdAt"], "2026-10-21T10:00:00Z");
     assert!(!g1.extra.contains_key("name"));
 }
+
+/// `Chat/set` create (Group) threads the optional creation properties
+/// (bd:JMAP-w8fu.14). Oracle: draft-atwood-jmap-chat-00 at spec 29e9a41
+/// line 1102 — "Optional at creation: `description` (String),
+/// `avatarBlobId` (String), `messageExpirySeconds` (UnsignedInt)" — with
+/// `memberIds` (String[], required) at line 1099.
+#[tokio::test]
+async fn chat_create_group_threads_optional_properties() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "created": { "g1": { "id": "chat-new-1" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let members = [Id::from("u-alice")];
+    let avatar = Id::from("blob-avatar");
+    let input = jmap_chat_client::ChatCreateInput::Group {
+        client_id: Some("g1"),
+        name: "Team",
+        member_ids: &members,
+        description: Some("Our team"),
+        avatar_blob_id: Some(&avatar),
+        message_expiry_seconds: Some(86400),
+    };
+    let _ = sc
+        .chat_create(&input, None)
+        .await
+        .expect("chat_create: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["create"]["g1"],
+        json!({
+            "kind": "group",
+            "name": "Team",
+            "memberIds": ["u-alice"],
+            "description": "Our team",
+            "avatarBlobId": "blob-avatar",
+            "messageExpirySeconds": 86400
+        })
+    );
+}
+
+/// `Chat/set` update threads `receiveTypingIndicators` and
+/// `pinnedMessageIds` (bd:JMAP-w8fu.14). Oracle: draft-atwood-jmap-chat-00
+/// at spec 29e9a41 line 1110 — "`update` supports the following patch
+/// keys for all chat kinds: `muted`, `muteUntil`,
+/// `receiveTypingIndicators`, `pinnedMessageIds`, ...".
+#[tokio::test]
+async fn chat_update_patch_typing_and_pins_serialise() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let pins = [Id::from("msg-1"), Id::from("msg-2")];
+    let patch = jmap_chat_client::ChatPatch {
+        receive_typing_indicators: Some(false),
+        pinned_message_ids: Some(&pins),
+        ..Default::default()
+    };
+    let _ = sc
+        .chat_update(&chat_id, &patch, None)
+        .await
+        .expect("chat_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["chat-1"],
+        json!({ "receiveTypingIndicators": false, "pinnedMessageIds": ["msg-1", "msg-2"] })
+    );
+}

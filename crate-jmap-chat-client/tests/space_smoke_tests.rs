@@ -938,3 +938,277 @@ async fn space_update_roles_accept_all_color_representations() {
         "updateRoles must carry the object color verbatim and Patch::Clear as null"
     );
 }
+
+/// `Space/set` update threading every channel, category and role patch
+/// key plus `iconBlobId` / `isPubliclyPreviewable` (bd:JMAP-w8fu.14).
+///
+/// Oracle: draft-atwood-jmap-chat-00 at spec 29e9a41 §Updating a Space
+/// (lines 1336-1380): "`addChannels` (Object[]): Each entry: `name`
+/// (String, required), optional `categoryId` (String), `position`
+/// (UnsignedInt), and `topic` (String)"; "`updateChannels` ... `id` ...
+/// and any of `name`, `topic`, `categoryId`, `position`,
+/// `slowModeSeconds`, `permissionOverrides`"; "`addCategories` ...
+/// `name` (String), optional `position` (UnsignedInt) and `channelIds`
+/// (String[])"; "`updateCategories` ... `id` (String) and any of `name`,
+/// `position`, `channelIds`"; "`addRoles` ... `name` (String),
+/// `permissions` (String[]), `position` (UnsignedInt)"; "`updateRoles`
+/// ... `id` (String) and any of `name`, `color`, `permissions`,
+/// `position`"; `removeChannels` / `removeCategories` / `removeRoles`
+/// are String[]. The ChannelPermission override is hand-written JSON per
+/// §ChannelPermission (line 848). `Patch::Clear` emits `null` per
+/// RFC 8620 §5.3.
+#[tokio::test]
+async fn space_update_channels_categories_roles_serialise() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        json!({ "updated": { "space-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let space_id = Id::from("space-1");
+    let icon = Id::from("blob-icon");
+    let cat_a = Id::from("cat-a");
+    let ch_x = Id::from("ch-x");
+    let ch_y = Id::from("ch-y");
+    let role_r = Id::from("role-r");
+    let override_json = json!({
+        "targetId": "role-r",
+        "targetType": "role",
+        "allow": ["send_messages"],
+        "deny": []
+    });
+    let overrides: Vec<jmap_chat_types::ChannelPermission> =
+        vec![serde_json::from_value(override_json.clone()).expect("ChannelPermission JSON")];
+
+    let add_channels = [
+        jmap_chat_client::SpaceAddChannelInput {
+            name: "general",
+            category_id: Some(&cat_a),
+            position: Some(2),
+            topic: Some("chit-chat"),
+        },
+        jmap_chat_client::SpaceAddChannelInput {
+            name: "bare",
+            category_id: None,
+            position: None,
+            topic: None,
+        },
+    ];
+    let remove_channels = [Id::from("ch-old")];
+    let update_channels = [
+        jmap_chat_client::SpaceUpdateChannelInput {
+            id: &ch_x,
+            name: Some("renamed"),
+            topic: jmap_chat_client::Patch::Set("new topic"),
+            category_id: jmap_chat_client::Patch::Set(&cat_a),
+            position: Some(0),
+            slow_mode_seconds: Some(30),
+            permission_overrides: Some(&overrides),
+        },
+        jmap_chat_client::SpaceUpdateChannelInput {
+            id: &ch_y,
+            name: None,
+            topic: jmap_chat_client::Patch::Clear,
+            category_id: jmap_chat_client::Patch::Clear,
+            position: None,
+            slow_mode_seconds: None,
+            permission_overrides: None,
+        },
+    ];
+    let perms = ["manage_channels", "send_messages"];
+    let add_roles = [jmap_chat_client::SpaceAddRoleInput {
+        name: "Mods",
+        permissions: &perms,
+        position: 5,
+        color: None,
+    }];
+    let remove_roles = [Id::from("role-gone")];
+    let new_perms = ["send_messages"];
+    let update_roles = [jmap_chat_client::SpaceUpdateRoleInput {
+        id: &role_r,
+        name: Some("Helpers"),
+        color: jmap_chat_client::Patch::Keep,
+        permissions: Some(&new_perms),
+        position: Some(3),
+    }];
+    let cat_channels = [ch_x.clone()];
+    let add_categories = [jmap_chat_client::SpaceAddCategoryInput {
+        name: "Voice",
+        position: Some(1),
+        channel_ids: Some(&cat_channels),
+    }];
+    let remove_categories = [Id::from("cat-gone")];
+    let update_categories = [jmap_chat_client::SpaceUpdateCategoryInput {
+        id: &cat_a,
+        name: Some("Text"),
+        position: Some(0),
+        channel_ids: Some(&cat_channels),
+    }];
+
+    let patch = jmap_chat_client::SpacePatch {
+        icon_blob_id: jmap_chat_client::Patch::Set(&icon),
+        is_publicly_previewable: Some(false),
+        add_channels: Some(&add_channels),
+        remove_channels: Some(&remove_channels),
+        update_channels: Some(&update_channels),
+        add_roles: Some(&add_roles),
+        remove_roles: Some(&remove_roles),
+        update_roles: Some(&update_roles),
+        add_categories: Some(&add_categories),
+        remove_categories: Some(&remove_categories),
+        update_categories: Some(&update_categories),
+        ..Default::default()
+    };
+    let _ = sc
+        .space_update(&space_id, &patch, None)
+        .await
+        .expect("space_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["space-1"],
+        json!({
+            "iconBlobId": "blob-icon",
+            "isPubliclyPreviewable": false,
+            "addChannels": [
+                { "name": "general", "categoryId": "cat-a", "position": 2, "topic": "chit-chat" },
+                { "name": "bare" }
+            ],
+            "removeChannels": ["ch-old"],
+            "updateChannels": [
+                {
+                    "id": "ch-x",
+                    "name": "renamed",
+                    "topic": "new topic",
+                    "categoryId": "cat-a",
+                    "position": 0,
+                    "slowModeSeconds": 30,
+                    "permissionOverrides": [override_json]
+                },
+                { "id": "ch-y", "topic": null, "categoryId": null }
+            ],
+            "addRoles": [
+                { "name": "Mods", "permissions": ["manage_channels", "send_messages"], "position": 5 }
+            ],
+            "removeRoles": ["role-gone"],
+            "updateRoles": [
+                { "id": "role-r", "name": "Helpers", "permissions": ["send_messages"], "position": 3 }
+            ],
+            "addCategories": [
+                { "name": "Voice", "position": 1, "channelIds": ["ch-x"] }
+            ],
+            "removeCategories": ["cat-gone"],
+            "updateCategories": [
+                { "id": "cat-a", "name": "Text", "position": 0, "channelIds": ["ch-x"] }
+            ]
+        })
+    );
+}
+
+/// `Space/set` update rejects an empty `name` in `addChannels`,
+/// `addRoles` or `addCategories` before any HTTP request. The spec
+/// requires a `name` (String) on each entry (29e9a41 lines 1343, 1363,
+/// 1372); an empty display name is refused client-side
+/// (bd:JMAP-w8fu.14).
+#[tokio::test]
+async fn space_update_empty_entry_names_rejected_before_send() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+    let space_id = Id::from("space-1");
+
+    let channels = [jmap_chat_client::SpaceAddChannelInput {
+        name: "",
+        category_id: None,
+        position: None,
+        topic: None,
+    }];
+    let roles = [jmap_chat_client::SpaceAddRoleInput {
+        name: "",
+        permissions: &[],
+        position: 0,
+        color: None,
+    }];
+    let categories = [jmap_chat_client::SpaceAddCategoryInput {
+        name: "",
+        position: None,
+        channel_ids: None,
+    }];
+    let patches = [
+        (
+            "channel",
+            jmap_chat_client::SpacePatch {
+                add_channels: Some(&channels),
+                ..Default::default()
+            },
+        ),
+        (
+            "role",
+            jmap_chat_client::SpacePatch {
+                add_roles: Some(&roles),
+                ..Default::default()
+            },
+        ),
+        (
+            "category",
+            jmap_chat_client::SpacePatch {
+                add_categories: Some(&categories),
+                ..Default::default()
+            },
+        ),
+    ];
+    for (what, patch) in &patches {
+        match sc.space_update(&space_id, patch, None).await {
+            Err(jmap_base_client::ClientError::InvalidArgument(msg)) => assert!(
+                msg.contains(&format!("{what} name may not be empty")),
+                "{what}: unexpected message {msg:?}"
+            ),
+            other => panic!("{what}: expected InvalidArgument, got {other:?}"),
+        }
+    }
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("received_requests must succeed");
+    assert!(reqs.is_empty(), "no HTTP request may be sent");
+}
+
+/// `Space/set` create threads the optional `description` and
+/// `iconBlobId` when supplied (bd:JMAP-w8fu.14). Oracle: the Space
+/// object's `description` and `iconBlobId` properties named in
+/// draft-atwood-jmap-chat-00 at spec 29e9a41 line 1340 ("`name`,
+/// `description`, `iconBlobId`, `isPublic`, `isPubliclyPreviewable`").
+#[tokio::test]
+async fn space_create_threads_description_and_icon() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        json!({ "created": { "k1": { "id": "space-new-1" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let icon = Id::from("blob-icon");
+    let input = jmap_chat_client::SpaceCreateInput {
+        client_id: Some("k1"),
+        name: "Engineering",
+        description: Some("Builders"),
+        icon_blob_id: Some(&icon),
+    };
+    let _ = sc
+        .space_create(&input, None)
+        .await
+        .expect("space_create: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["create"]["k1"],
+        json!({ "name": "Engineering", "description": "Builders", "iconBlobId": "blob-icon" })
+    );
+}
