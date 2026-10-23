@@ -77,7 +77,7 @@
 
 pub mod seed;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -92,6 +92,12 @@ use jmap_mail_types::{
     MailboxComparatorProperty, MailboxFilter, MailboxFilterCondition, MailboxRole, Operator,
     SearchSnippet,
 };
+use jmap_metadata_server::{
+    ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
+    changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
+    metadata_path_exists, metadata_text_contains, metadata_text_equals,
+};
+use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
@@ -108,6 +114,11 @@ struct ChangeEntry {
     created: Vec<Id>,
     updated: Vec<Id>,
     destroyed: Vec<Id>,
+    /// The top-level properties this change altered on every id in
+    /// `updated`, or `None` when not known. Feeds
+    /// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges` and
+    /// `updatedProperties`.
+    updated_props: Option<BTreeSet<String>>,
 }
 
 /// Shared inner state, behind Arc<Mutex>.
@@ -134,6 +145,22 @@ struct Inner {
     message_id_index: HashMap<String, HashMap<String, Id>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
+    /// `type_name` → the draft-ietf-jmap-metadata-04 §1.2.1
+    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// A type without an entry does not have the metadata properties.
+    metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+}
+
+impl ChangeEntry {
+    /// `true` for an update that changed only `metadata` and/or
+    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    fn is_metadata_only_update(&self) -> bool {
+        self.created.is_empty()
+            && self.destroyed.is_empty()
+            && self.updated_props.as_ref().is_some_and(|props| {
+                !props.is_empty() && props.iter().all(|p| is_metadata_property(p))
+            })
+    }
 }
 
 impl Inner {
@@ -311,6 +338,52 @@ impl MemoryBackend {
     /// stored objects. Equivalent to [`Self::default`].
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// §1.2.1).
+    ///
+    /// Without this call a type has no metadata: `Foo/set` rejects a
+    /// write to `metadata` or `privateMetadata` with `invalidProperties`
+    /// and `Foo/query` rejects a metadata filter condition with
+    /// `unsupportedFilter`. With it, `Foo/set` validates metadata writes
+    /// (-04 §3.2, §4.1), `Foo/query` evaluates the -04 §3.6 conditions,
+    /// and `Foo/changes` honours `ignoreMetadataOnlyChanges` and reports
+    /// `updatedProperties` (-04 §3.3). Advertising the capability in the
+    /// session is the server's job: list `info` under `data_type` in the
+    /// account's `urn:ietf:params:jmap:metadata` `dataTypes`.
+    ///
+    /// Mailbox writes need `myRights.maySetMetadata` on the Mailbox, and
+    /// Email writes need it on every Mailbox the Email is in before and
+    /// after the update (-04 §4.1). An absent `maySetMetadata` allows the
+    /// write.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `data_type` is not `"Email"` or `"Mailbox"`, the two
+    /// types this backend supports metadata on, or if
+    /// `info.supports_private` is true: this backend has no per-user
+    /// identity (`CallerCtx` is `()`) to own `privateMetadata` (-04 §2).
+    #[must_use]
+    pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
+        let type_name = match data_type {
+            "Email" => Email::TYPE_NAME,
+            "Mailbox" => Mailbox::TYPE_NAME,
+            other => {
+                panic!("MemoryBackend supports metadata only on Email and Mailbox, not {other:?}")
+            }
+        };
+        assert!(
+            !info.supports_private,
+            "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
+        );
+        self.inner
+            .lock()
+            .unwrap()
+            .metadata_info
+            .insert(type_name, info);
+        self
     }
 
     /// Store a blob so that [`import_email`](MemoryBackend::import_email) can find it.
@@ -507,7 +580,12 @@ fn mailbox_matches_condition(m: &Mailbox, f: &MailboxFilterCondition) -> bool {
         return false;
     }
 
-    true
+    metadata_matches(
+        m.metadata.as_ref(),
+        f.metadata_exists.as_deref(),
+        f.metadata_text_contains.as_ref(),
+        f.metadata_text_equals.as_ref(),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -588,6 +666,229 @@ fn invalid_patched_properties(
     })
 }
 
+/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// of `filter` before any object is matched.
+///
+/// A type without `info` has no metadata (-04 §1.2.1: it "does not gain
+/// the metadata or privateMetadata properties"), so a metadata leaf is
+/// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
+/// but the server cannot process it"). Otherwise
+/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// `invalidArguments`, and a `privateMetadata*` condition is
+/// `unsupportedFilter` because `supportsPrivate` is false.
+fn check_metadata_filter<T: serde::Serialize>(
+    filter: Option<&Filter<T>>,
+    is_metadata: fn(&T) -> bool,
+    info: Option<&DataTypeMetadataInfo>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    let Some(filter) = filter else {
+        return Ok(());
+    };
+    match filter {
+        Filter::Condition(c) if is_metadata(c) => {
+            let Some(info) = info else {
+                let mut err = jmap_types::JmapError::unsupported_filter();
+                err.description = Some("metadata filter conditions are not supported".to_owned());
+                return Err(BackendQueryError::Method(err));
+            };
+            let mut leaf: serde_json::Map<String, serde_json::Value> = retype(c)?;
+            MetadataCondition::take_from(&mut leaf, info)
+                .map(drop)
+                .map_err(|e| {
+                    BackendQueryError::Method(match e {
+                        MetadataFilterError::InvalidArguments(d) => {
+                            jmap_types::JmapError::invalid_arguments(d)
+                        }
+                        other => {
+                            let mut err = jmap_types::JmapError::unsupported_filter();
+                            err.description = Some(other.to_string());
+                            err
+                        }
+                    })
+                })
+        }
+        Filter::Operator(op) => op
+            .conditions
+            .iter()
+            .try_for_each(|f| check_metadata_filter(Some(f), is_metadata, info)),
+        _ => Ok(()),
+    }
+}
+
+/// Match the draft-ietf-jmap-metadata-04 §3.6 shared-metadata conditions of
+/// one filter leaf against an object's `metadata` (absent means `{}`, -04
+/// §2). The `privateMetadata*` conditions never reach this point:
+/// [`check_metadata_filter`] rejects them, since this backend has
+/// `supportsPrivate` false.
+fn metadata_matches(
+    metadata: Option<&serde_json::Map<String, serde_json::Value>>,
+    exists: Option<&str>,
+    contains: Option<&MetadataTextMatch>,
+    equals: Option<&MetadataTextMatch>,
+) -> bool {
+    let empty = serde_json::Map::new();
+    let metadata = metadata.unwrap_or(&empty);
+    exists.is_none_or(|p| metadata_path_exists(metadata, p))
+        && contains.is_none_or(|m| metadata_text_contains(metadata, m))
+        && equals.is_none_or(|m| metadata_text_equals(metadata, m))
+}
+
+/// The `/set` keys of `entry` that write draft-ietf-jmap-metadata-04
+/// `metadata` or `privateMetadata` (the property itself or a patch path
+/// below it).
+fn metadata_keys(entry: &serde_json::Map<String, serde_json::Value>) -> Vec<&str> {
+    entry
+        .keys()
+        .map(String::as_str)
+        .filter(|k| is_metadata_property(k.split_once('/').map_or(*k, |(root, _)| root)))
+        .collect()
+}
+
+fn invalid_metadata_property(property: &str, description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties([property])
+            .with_description(description),
+    ))
+}
+
+impl Inner {
+    /// draft-ietf-jmap-metadata-04 §3.2 rules 1 to 3 for a metadata write
+    /// on a `type_name` object, before the write is applied. Returns the
+    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// or `None` when `entry` writes no metadata.
+    ///
+    /// `entry` is the create object or update patch, `stored` the object
+    /// before an update (`None` on create), and `containers` the Mailbox
+    /// ids whose `maySetMetadata` an Email write needs (-04 §4.1). Rule 1's
+    /// `notFound` is the caller's: this backend has no read rights, so only
+    /// a missing object is unreadable.
+    fn check_metadata_set(
+        &self,
+        type_name: &'static str,
+        account_id: &str,
+        kind: SetKind,
+        entry: &serde_json::Map<String, serde_json::Value>,
+        stored: Option<&serde_json::Map<String, serde_json::Value>>,
+        containers: &[&str],
+    ) -> Result<Option<DataTypeMetadataInfo>, BackendSetError<MemoryError>> {
+        let keys = metadata_keys(entry);
+        let Some(first) = keys.first() else {
+            return Ok(None);
+        };
+        // -04 §1.2.1: an unlisted type "does not gain the metadata or
+        // privateMetadata properties".
+        let Some(info) = self.metadata_info.get(type_name) else {
+            return Err(invalid_metadata_property(
+                first,
+                "metadata is not supported on this data type",
+            ));
+        };
+        // Rule 1 / -04 §4.1: "A write to metadata without maySetMetadata
+        // MUST be rejected with a "forbidden" SetError". A Mailbox has its
+        // own rights; an Email "takes the right from its containers". An
+        // absent right or container allows the write (fail-open,
+        // JMAP-bghk).
+        let writes_shared = keys
+            .iter()
+            .any(|k| k.split_once('/').map_or(*k, |(root, _)| root) == "metadata");
+        let denies = |rights: Option<&serde_json::Value>| {
+            rights
+                .and_then(|r| r.get("maySetMetadata"))
+                .and_then(serde_json::Value::as_bool)
+                == Some(false)
+        };
+        let forbidden = writes_shared
+            && if type_name == Mailbox::TYPE_NAME {
+                denies(stored.and_then(|m| m.get("myRights")))
+            } else {
+                let mailboxes = self.objects_ref(Mailbox::TYPE_NAME, account_id);
+                containers.iter().any(|id| {
+                    denies(
+                        mailboxes
+                            .and_then(|m| m.get(*id))
+                            .and_then(|mb| mb.get("myRights")),
+                    )
+                })
+            };
+        if forbidden {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("maySetMetadata is required to write metadata"),
+            )));
+        }
+        check_metadata_write(kind, entry, stored, info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+        Ok(Some(info.clone()))
+    }
+}
+
+/// The Mailbox ids an Email update's metadata write needs
+/// `maySetMetadata` on: every Mailbox the Email is in before the update
+/// and every one `patch` adds (-04 §4.1: "on every container both before
+/// and after the change").
+fn email_update_containers<'a>(
+    stored: &'a serde_json::Map<String, serde_json::Value>,
+    patch: &'a serde_json::Map<String, serde_json::Value>,
+) -> Vec<&'a str> {
+    let before = stored
+        .get("mailboxIds")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flat_map(|m| m.keys().map(String::as_str));
+    let replaced = patch
+        .get("mailboxIds")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flat_map(|m| m.iter())
+        .filter(|(_, v)| v.as_bool() == Some(true))
+        .map(|(k, _)| k.as_str());
+    let added = patch.iter().filter_map(|(k, v)| {
+        k.strip_prefix("mailboxIds/")
+            .filter(|_| v.as_bool() == Some(true))
+    });
+    before.chain(replaced).chain(added).collect()
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
+/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
+/// on the stored value.
+fn check_metadata_create(
+    inner: &Inner,
+    type_name: &'static str,
+    account_id: &str,
+    val: &serde_json::Value,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let Some(obj) = val.as_object() else {
+        return Ok(());
+    };
+    let entry: serde_json::Map<String, serde_json::Value> = obj
+        .iter()
+        .filter(|(k, _)| is_metadata_property(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let containers: Vec<&str> = if type_name == Email::TYPE_NAME {
+        obj.get("mailboxIds")
+            .and_then(serde_json::Value::as_object)
+            .map(|m| m.keys().map(String::as_str).collect())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    if let Some(info) = inner.check_metadata_set(
+        type_name,
+        account_id,
+        SetKind::Create,
+        &entry,
+        None,
+        &containers,
+    )? {
+        check_metadata_depth(&entry, obj, &info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    }
+    Ok(())
+}
+
 /// Re-type a generic query filter or sort as the concrete type that
 /// `O::TYPE_NAME` names, through a JSON roundtrip.
 ///
@@ -595,32 +896,6 @@ fn invalid_patched_properties(
 /// `O::TYPE_NAME` dispatch guarantees. A failure means the dispatch and the
 /// `QueryObject` impls have drifted; it surfaces as `serverFail` rather than
 /// a panic or a silently dropped filter (bd:JMAP-ic0j.38).
-/// Reject a filter with any draft-ietf-jmap-metadata-04 §3.6 condition
-/// leaf as `unsupportedFilter` (RFC 8620 §5.5: "The filter is
-/// syntactically valid, but the server cannot process it").
-///
-/// ponytail: MemoryBackend does not evaluate metadata conditions yet, and
-/// ignoring them would match every record; JMAP-s4kp.1 replaces this
-/// rejection with evaluation.
-fn reject_metadata_conditions<T>(
-    filter: Option<&Filter<T>>,
-    is_metadata: fn(&T) -> bool,
-) -> Result<(), BackendQueryError<MemoryError>> {
-    fn any_leaf<T>(f: &Filter<T>, pred: fn(&T) -> bool) -> bool {
-        match f {
-            Filter::Condition(c) => pred(c),
-            Filter::Operator(op) => op.conditions.iter().any(|f| any_leaf(f, pred)),
-            _ => false,
-        }
-    }
-    if filter.is_some_and(|f| any_leaf(f, is_metadata)) {
-        let mut err = jmap_types::JmapError::unsupported_filter();
-        err.description = Some("metadata filter conditions are not supported".to_owned());
-        return Err(BackendQueryError::Method(err));
-    }
-    Ok(())
-}
-
 fn retype<A: serde::Serialize, B: serde::de::DeserializeOwned>(
     a: A,
 ) -> Result<B, BackendQueryError<MemoryError>> {
@@ -712,6 +987,13 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
+        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // already folded a `using` without the capability into this flag.
+        let mode = if params.ignore_metadata_only_changes {
+            MetadataOnlyChanges::Ignore
+        } else {
+            MetadataOnlyChanges::Report
+        };
         let since: u64 = since_state.as_ref().parse().map_err(|_| {
             BackendChangesError::Other(MemoryError::new(format!(
                 "invalid state token: {since_state}"
@@ -731,15 +1013,23 @@ impl JmapBackend for MemoryBackend {
             let limit = limit_or_max(max_changes);
             // Binary search for the first entry with new_state > since.
             let start = log.partition_point(|e| e.new_state <= since);
-            // Take limit+1 as sentinel to detect has_more.
-            let mut entries: Vec<ChangeEntry> = log[start..]
-                .iter()
-                .take(limit.saturating_add(1))
-                .cloned()
-                .collect();
-            let has_more = entries.len() > limit;
-            if has_more {
-                entries.pop();
+            // Each entry counts as one change toward the limit, except a
+            // metadata-only update under Ignore: -04 §3.3 "Excluded ids do
+            // not count toward maxChanges". An id reported in `updated`
+            // under Ignore has at least one counted entry, so the response
+            // still holds at most `limit` changes.
+            let mut entries: Vec<ChangeEntry> = Vec::new();
+            let mut counted = 0usize;
+            let mut has_more = false;
+            for entry in &log[start..] {
+                if !(mode == MetadataOnlyChanges::Ignore && entry.is_metadata_only_update()) {
+                    if counted == limit {
+                        has_more = true;
+                        break;
+                    }
+                    counted += 1;
+                }
+                entries.push(entry.clone());
             }
             // If nothing changed, new_state == since_state (client is already up to date).
             let new_state = entries
@@ -751,11 +1041,13 @@ impl JmapBackend for MemoryBackend {
 
         // RFC 8620 §5.6 ID deduplication across the window.
         let mut fates: HashMap<Id, IdFate> = HashMap::new();
+        let mut window_props = ChangedProperties::new();
         for entry in &relevant {
             for id in &entry.created {
                 fates.insert(id.clone(), IdFate::Created);
             }
             for id in &entry.updated {
+                window_props.record(id.as_ref(), entry.updated_props.as_ref());
                 let fate = match fates.get(id) {
                     Some(IdFate::Created) => IdFate::Created,
                     Some(IdFate::Destroyed) => IdFate::Destroyed,
@@ -782,14 +1074,34 @@ impl JmapBackend for MemoryBackend {
         for (id, fate) in fates {
             match fate {
                 IdFate::Created => created.push(id),
+                // -04 §3.3: under Ignore, "exclude from the updated array
+                // any id whose only changes since sinceState ... are
+                // confined to metadata and/or privateMetadata".
+                IdFate::Updated
+                    if mode == MetadataOnlyChanges::Ignore
+                        && window_props.is_metadata_only(id.as_ref()) => {}
                 IdFate::Updated => updated.push(id),
                 IdFate::Destroyed => destroyed.push(id),
             }
         }
 
-        Ok(ChangesResult::new(
-            created, updated, destroyed, has_more, new_state,
-        ))
+        // RFC 8621 §2.2 lets Mailbox/changes name the count properties;
+        // -04 §3.3 adds the metadata properties for every listed type.
+        let count_props: &[&str] = if O::TYPE_NAME == Mailbox::TYPE_NAME {
+            &[
+                "totalEmails",
+                "unreadEmails",
+                "totalThreads",
+                "unreadThreads",
+            ]
+        } else {
+            &[]
+        };
+        let updated_properties = window_props.updated_properties(&updated, mode, count_props);
+        Ok(
+            ChangesResult::new(created, updated, destroyed, has_more, new_state)
+                .with_updated_properties(updated_properties),
+        )
     }
 
     // -----------------------------------------------------------------------
@@ -827,14 +1139,22 @@ impl JmapBackend for MemoryBackend {
         // self-contained Mailbox handler. Mailbox filter/sort surfaces are small
         // enough that the dispatch is cleaner than retrofitting the Email
         // pipeline below.
+        let metadata_info = self
+            .inner
+            .lock()
+            .unwrap()
+            .metadata_info
+            .get(O::TYPE_NAME)
+            .cloned();
         if O::TYPE_NAME == "Mailbox" {
             // When O::TYPE_NAME == "Mailbox" the generic O::Filter and
             // O::Comparator are MailboxFilter and MailboxComparator (see the
             // QueryObject impl in jmap-mail-types src/backend.rs).
             let mailbox_filter: Option<MailboxFilter> = filter.map(retype).transpose()?;
-            reject_metadata_conditions(
+            check_metadata_filter(
                 mailbox_filter.as_ref(),
                 MailboxFilterCondition::has_metadata_condition,
+                metadata_info.as_ref(),
             )?;
             let mailbox_sort: Vec<MailboxComparator> =
                 sort.map(retype).transpose()?.unwrap_or_default();
@@ -857,9 +1177,10 @@ impl JmapBackend for MemoryBackend {
         } else {
             None
         };
-        reject_metadata_conditions(
+        check_metadata_filter(
             email_filter.as_ref(),
             EmailFilterCondition::has_metadata_condition,
+            metadata_info.as_ref(),
         )?;
         let email_sort: Option<Vec<EmailComparator>> = if O::TYPE_NAME == "Email" {
             sort.map(retype).transpose()?
@@ -1195,6 +1516,9 @@ impl MailBackend for MemoryBackend {
         })?;
 
         let mut inner = self.inner.lock().unwrap();
+        if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
+            check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val)?;
+        }
         let objects = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
         // Singleton types (backend.rs "# Singleton types"): an existing object
         // under the key is returned unchanged, so a racing create cannot
@@ -1214,6 +1538,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
 
         Ok((id, created_obj))
@@ -1241,6 +1566,7 @@ impl MailBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
+        check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val)?;
         inner.blobs.insert(blob_id, message);
         inner
             .objects_mut("Email", account_id.as_ref())
@@ -1253,6 +1579,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![email_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
         Ok((email_id, email))
     }
@@ -1281,18 +1608,43 @@ impl MailBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
-        let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
-        let existing = store.get_mut(id).ok_or_else(|| {
-            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
-        })?;
+        // draft-ietf-jmap-metadata-04 §3.2 rule 1: "If the user cannot read
+        // the related object, reject with "notFound"" comes before
+        // "forbidden". Here only a missing object is unreadable.
+        let existing = inner
+            .objects_ref(O::TYPE_NAME, account_id.as_ref())
+            .and_then(|s| s.get(id))
+            .ok_or_else(|| {
+                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+            })?;
 
         // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths (e.g.
         // "mailboxIds/abc123"), applied all-or-nothing by the shared
         // `apply_patch_object`, so an invalidPatch leaves the stored object
         // unchanged.
+        let mut updated_props = None;
         if let serde_json::Value::Object(base) = existing
             && let serde_json::Value::Object(patch_map) = patch_val
         {
+            // -04 §3.2 rules 1 to 3 run before the patch is applied.
+            let metadata_info =
+                if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
+                    let containers = if O::TYPE_NAME == Email::TYPE_NAME {
+                        email_update_containers(base, &patch_map)
+                    } else {
+                        Vec::new()
+                    };
+                    inner.check_metadata_set(
+                        O::TYPE_NAME,
+                        account_id.as_ref(),
+                        SetKind::Update,
+                        &patch_map,
+                        Some(base),
+                        &containers,
+                    )?
+                } else {
+                    None
+                };
             // RFC 8621 §4.1.1 defines Email `keywords` with "default: {}",
             // but the stored JSON omits it when empty, so materialize the
             // default for `keywords/<keyword>` pointers to find their parent.
@@ -1303,18 +1655,47 @@ impl MailBackend for MemoryBackend {
                     .entry("keywords")
                     .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
             }
+            // Likewise -04 §2 `metadata` has "default: {}", so a
+            // `metadata/<namespace>` pointer finds its parent.
+            if metadata_info.is_some() {
+                patched
+                    .entry("metadata")
+                    .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+            }
+            let before = patched.clone();
             apply_patch_object(&mut patched, &patch_map).map_err(|e| {
                 BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
                 ))
             })?;
+            if let Some(info) = &metadata_info {
+                // -04 §3.2: "In an update, null is equivalent to {}"; the
+                // patch removed the property instead.
+                for property in ["metadata", "privateMetadata"] {
+                    if patch_map
+                        .get(property)
+                        .is_some_and(serde_json::Value::is_null)
+                    {
+                        patched.insert(
+                            property.to_owned(),
+                            serde_json::Value::Object(serde_json::Map::new()),
+                        );
+                    }
+                }
+                // -04 §3.2 rule 4 runs on the value as it would be stored.
+                check_metadata_depth(&patch_map, &patched, info)
+                    .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+            }
+            updated_props = Some(changed_properties(&before, &patched));
             // A null or wrong-typed value on a required property must
             // not reach storage, or every later /get fails to decode it.
             let patched = serde_json::Value::Object(patched);
             if O::deserialize(&patched).is_err() {
                 return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
             }
-            *existing = patched;
+            inner
+                .objects_mut(O::TYPE_NAME, account_id.as_ref())
+                .insert(id.clone(), patched);
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -1325,6 +1706,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                updated_props,
             });
 
         Ok(None) // MemoryBackend does not echo server-modified fields
@@ -1353,6 +1735,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![id.clone()],
+                updated_props: None,
             });
         Ok(())
     }
@@ -1521,6 +1904,7 @@ impl MailBackend for MemoryBackend {
                     created: vec![email_id.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    updated_props: None,
                 });
             let new_thread_state = inner.bump_state("Thread", account_id.as_ref());
             inner
@@ -1538,6 +1922,7 @@ impl MailBackend for MemoryBackend {
                         vec![]
                     },
                     destroyed: vec![],
+                    updated_props: None,
                 });
 
             (email, email_id)
@@ -1676,6 +2061,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![new_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
 
         if let Some(thread_id) = thread_id {
@@ -1710,6 +2096,7 @@ impl MailBackend for MemoryBackend {
                     created,
                     updated,
                     destroyed: vec![],
+                    updated_props: None,
                 });
         }
 
@@ -1796,6 +2183,7 @@ impl MailBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        updated_props: None,
                     });
                 None
             } else {
@@ -2145,8 +2533,12 @@ fn email_matches_condition(
     {
         return false;
     }
-    // All specified conditions pass.
-    true
+    metadata_matches(
+        email.metadata.as_ref(),
+        cond.metadata_exists.as_deref(),
+        cond.metadata_text_contains.as_ref(),
+        cond.metadata_text_equals.as_ref(),
+    )
 }
 
 /// Evaluate a full `EmailFilter` (which may be a logical combination of conditions).

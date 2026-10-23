@@ -1032,7 +1032,7 @@ async fn mailbox_set_create_and_get() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Mailbox/set must not error");
 
@@ -1110,7 +1110,7 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
         "destroy": [mb_id.as_ref()]
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args, &[])
             .await
             .expect("Mailbox/set must not error");
 
@@ -1174,7 +1174,7 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
         "destroy": [mb_id.as_ref()]
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args, &[])
             .await
             .expect("Mailbox/set must not error");
 
@@ -1223,7 +1223,7 @@ async fn mailbox_role_uniqueness_enforced() {
         }
     });
     let HandlerOutput { primary: resp1, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), first_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), first_args, &[])
             .await
             .expect("first Mailbox/set");
     let created1 = resp1["created"]
@@ -1239,7 +1239,7 @@ async fn mailbox_role_uniqueness_enforced() {
         }
     });
     let HandlerOutput { primary: resp2, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), second_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), second_args, &[])
             .await
             .expect("second Mailbox/set");
 
@@ -1280,7 +1280,7 @@ async fn mailbox_set_create_rejects_non_string_role() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must not error");
 
@@ -1331,7 +1331,7 @@ async fn mailbox_set_create_rejects_non_string_parent_id() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must not error");
 
@@ -1380,7 +1380,7 @@ async fn mailbox_set_create_accepts_null_role_and_parent_id() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must not error");
 
@@ -3036,7 +3036,7 @@ async fn email_set_create_and_get() {
         primary: set_resp,
         extra_invocations: extra,
         ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must succeed");
     assert!(extra.is_empty());
@@ -3146,7 +3146,7 @@ async fn email_set_create_keyword_false_value_not_stored() {
 
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must not fail at method level");
 
@@ -3202,7 +3202,7 @@ async fn email_set_create_all_false_mailbox_ids_rejected() {
 
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must not fail at method level");
 
@@ -3260,7 +3260,7 @@ async fn email_set_create_with_malformed_received_at_rejected() {
 
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must not fail at method level");
 
@@ -3317,7 +3317,7 @@ async fn email_set_create_with_non_string_received_at_rejected() {
 
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must not fail at method level");
 
@@ -3367,7 +3367,7 @@ async fn email_get_not_found_is_empty_array_when_all_found() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3422,7 +3422,7 @@ async fn email_get_with_property_filter() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3477,7 +3477,7 @@ async fn email_get_default_properties_excludes_headers() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3540,7 +3540,7 @@ async fn email_get_body_value_fetch_args_parsed() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3582,7 +3582,7 @@ async fn email_get_max_body_value_bytes_zero_accepted() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3739,7 +3739,7 @@ async fn email_set_update_immutable_field_rejected() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set create");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3757,7 +3757,7 @@ async fn email_set_update_immutable_field_rejected() {
     });
     let HandlerOutput {
         primary: upd_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), update_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), update_args, &[])
         .await
         .expect("Email/set update must return a response");
 
@@ -3808,7 +3808,7 @@ async fn email_set_update_keywords() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set create");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3827,7 +3827,7 @@ async fn email_set_update_keywords() {
     });
     let HandlerOutput {
         primary: upd_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), update_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), update_args, &[])
         .await
         .expect("Email/set update");
 
@@ -3850,7 +3850,7 @@ async fn email_set_update_keywords() {
     });
     let HandlerOutput {
         primary: chg_resp, ..
-    } = handle_email_changes(&backend, &(), changes_args)
+    } = handle_email_changes(&backend, &(), changes_args, &[])
         .await
         .expect("Email/changes");
 
@@ -3887,7 +3887,7 @@ async fn email_query_by_mailbox() {
                 }
             }
         });
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set for inbox email");
     }
@@ -3900,7 +3900,7 @@ async fn email_query_by_mailbox() {
             }
         }
     });
-    handle_email_set(&backend, &(), &BTreeMap::new(), args)
+    handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect("Email/set for sent email");
 
@@ -4576,7 +4576,7 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must not return JmapError");
 
@@ -4631,7 +4631,7 @@ async fn email_set_create_malformed_keywords_rejected() {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect("Email/set must not return a JmapError");
     assert!(extra.is_empty());
@@ -4673,7 +4673,7 @@ async fn keyword_256_chars_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a JmapError");
     let not_created = resp["notCreated"]
@@ -4710,7 +4710,7 @@ async fn keyword_255_chars_accepted() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a JmapError");
     assert!(
@@ -4744,7 +4744,7 @@ async fn keyword_forbidden_char_open_paren_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a JmapError");
     let not_created = resp["notCreated"]
@@ -4782,7 +4782,7 @@ async fn keyword_normalized_to_lowercase() {
     let HandlerOutput {
         primary: create_resp,
         ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), create_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), create_args, &[])
         .await
         .expect("Email/set must not return a JmapError");
     let email_id = create_resp["created"]["c0"]["id"]
@@ -4830,7 +4830,7 @@ async fn keyword_empty_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a JmapError");
     let not_created = resp["notCreated"]
@@ -4866,7 +4866,7 @@ async fn keyword_tilde_accepted() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a JmapError");
     assert!(
@@ -4900,7 +4900,7 @@ async fn keyword_dollar_sign_accepted() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a JmapError");
     assert!(
@@ -5898,7 +5898,7 @@ async fn mailbox_set_role_uniqueness_create_then_update() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must return a response");
 
@@ -5994,7 +5994,7 @@ async fn mailbox_set_role_swap_succeeds_in_single_request() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must return a response");
 
@@ -6033,7 +6033,7 @@ async fn email_set_create_malformed_in_reply_to_returns_error() {
     });
     let HandlerOutput {
         primary: mb_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args, &[])
         .await
         .expect("Mailbox/set must succeed");
     let mailbox_id = mb_resp["created"]["mb1"]["id"]
@@ -6053,7 +6053,7 @@ async fn email_set_create_malformed_in_reply_to_returns_error() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a method-level error");
 
@@ -6082,7 +6082,7 @@ async fn email_set_create_malformed_references_returns_error() {
     });
     let HandlerOutput {
         primary: mb_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args, &[])
         .await
         .expect("Mailbox/set must succeed");
     let mailbox_id = mb_resp["created"]["mb1"]["id"]
@@ -6101,7 +6101,7 @@ async fn email_set_create_malformed_references_returns_error() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must not return a method-level error");
 
@@ -6127,7 +6127,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
         "accountId": account_id.as_ref(),
         "create": { "mb1": { "name": "Inbox" } },
     });
-    handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args)
+    handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args, &[])
         .await
         .expect("Mailbox/set must succeed");
 
@@ -6309,7 +6309,7 @@ async fn mailbox_set_create_backend_other_goes_to_not_created() {
         "create": { "c1": { "name": "Inbox" } }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
     assert!(
@@ -6354,7 +6354,7 @@ async fn mailbox_set_update_backend_other_goes_to_not_updated() {
         "update": { mbox_id.as_ref(): { "name": "Updated" } }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
     assert!(
@@ -6398,7 +6398,7 @@ async fn mailbox_set_destroy_backend_other_goes_to_not_destroyed() {
         "destroy": [mbox_id.as_ref()]
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
     assert!(
@@ -6425,7 +6425,7 @@ async fn email_set_create_backend_other_goes_to_not_created() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
     assert!(
@@ -6467,7 +6467,7 @@ async fn email_set_update_backend_other_goes_to_not_updated() {
         "update": { email_id.as_ref(): { "keywords/$seen": true } }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
     assert!(
@@ -6509,7 +6509,7 @@ async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
         "destroy": [email_id.as_ref()]
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
     assert!(
@@ -6722,7 +6722,7 @@ async fn mailbox_set_sort_order_overflow_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("handler must not return a JmapError");
 
@@ -6786,7 +6786,7 @@ async fn set_per_id_server_fail_redacts_backend_display_create() {
         "create": { "c1": { "name": "Inbox" } }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
 
@@ -6841,7 +6841,7 @@ async fn set_per_id_server_fail_redacts_backend_display_update() {
         "update": { mbox_id.as_ref(): { "name": "Updated" } }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
 
@@ -6888,7 +6888,7 @@ async fn set_per_id_server_fail_redacts_backend_display_destroy() {
         "destroy": [mbox_id.as_ref()]
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .unwrap();
 
@@ -7017,7 +7017,7 @@ async fn email_query_anchor_resolves_position() {
             "c2": { "mailboxIds": { "inbox": true } },
         }
     });
-    handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("email create must succeed");
 
@@ -7087,7 +7087,7 @@ async fn email_query_in_mailbox_filter() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("email create must succeed");
     assert!(set_resp["notCreated"].is_null(), "all creates must succeed");
@@ -7163,7 +7163,7 @@ async fn mailbox_query_anchor_resolves_position() {
             "m2": { "name": "Gamma" },
         }
     });
-    handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args)
+    handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("mailbox create must succeed");
 
@@ -7324,7 +7324,7 @@ async fn email_changes_rejects_max_changes_zero() {
         "sinceState": "0",
         "maxChanges": 0,
     });
-    let err = handle_email_changes(&backend, &(), args)
+    let err = handle_email_changes(&backend, &(), args, &[])
         .await
         .expect_err("maxChanges=0 must return invalidArguments");
     assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -7340,7 +7340,7 @@ async fn mailbox_changes_rejects_max_changes_zero() {
         "sinceState": "0",
         "maxChanges": 0,
     });
-    let err = handle_mailbox_changes(&backend, &(), args)
+    let err = handle_mailbox_changes(&backend, &(), args, &[])
         .await
         .expect_err("maxChanges=0 must return invalidArguments");
     assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -7363,7 +7363,7 @@ async fn thread_changes_second_import_logs_thread_as_updated_not_created() {
             "create": { "mb1": { "name": "Inbox" } },
         });
         let HandlerOutput { primary: r, .. } =
-            handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args)
+            handle_mailbox_set(&backend, &(), &BTreeMap::new(), mb_args, &[])
                 .await
                 .expect("mailbox create");
         r["created"]["mb1"]["id"].as_str().unwrap().to_owned()
@@ -7662,7 +7662,7 @@ async fn email_set_create_body_structure_with_text_body_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must return a response");
 
@@ -7703,7 +7703,7 @@ async fn email_set_create_text_body_wrong_type_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must return a response");
 
@@ -7748,7 +7748,7 @@ async fn email_set_create_text_body_multiple_parts_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must return a response");
 
@@ -7793,7 +7793,7 @@ async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must return a response");
 
@@ -7833,7 +7833,7 @@ async fn email_set_create_body_values_missing_for_part_id_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must return a response");
 
@@ -7878,7 +7878,7 @@ async fn email_set_create_body_value_is_truncated_true_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must return a response");
 
@@ -8476,7 +8476,7 @@ async fn email_set_destroy_non_string_returns_invalid_arguments() {
         "accountId": "acct1",
         "destroy": [123],
     });
-    let result = handle_email_set(&backend, &(), &BTreeMap::new(), args).await;
+    let result = handle_email_set(&backend, &(), &BTreeMap::new(), args, &[]).await;
     assert!(
         result.is_err(),
         "non-string destroy element must return an error; got Ok"
@@ -8502,7 +8502,7 @@ async fn email_set_destroy_non_string_does_not_echo_value() {
         "accountId": "acct1",
         "destroy": [{ "note": "CANARY-zegc" }],
     });
-    let err = handle_email_set(&backend, &(), &BTreeMap::new(), args)
+    let err = handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect_err("non-string destroy element must be a method error");
     assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -8654,7 +8654,7 @@ async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
         "accountId": "acct1",
         "destroy": [42],
     });
-    let result = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args).await;
+    let result = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[]).await;
     assert!(
         result.is_err(),
         "non-string destroy element must return an error; got Ok"
@@ -8982,7 +8982,7 @@ async fn mailbox_set_destroy_with_children() {
     let HandlerOutput {
         primary: child_resp,
         ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), create_child_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), create_child_args, &[])
         .await
         .expect("create child Mailbox/set must succeed");
     assert!(
@@ -8998,7 +8998,7 @@ async fn mailbox_set_destroy_with_children() {
         "destroy": [parent_id.as_ref()],
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args, &[])
             .await
             .expect("Mailbox/set must not return JmapError");
 
@@ -9063,7 +9063,7 @@ async fn mailbox_set_create_duplicate_name() {
     let HandlerOutput {
         primary: first_resp,
         ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), first_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), first_args, &[])
         .await
         .expect("first Mailbox/set must succeed");
     assert!(
@@ -9086,7 +9086,7 @@ async fn mailbox_set_create_duplicate_name() {
     let HandlerOutput {
         primary: second_resp,
         ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), second_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), second_args, &[])
         .await
         .expect("second Mailbox/set must not return JmapError");
 
@@ -9121,7 +9121,7 @@ async fn mailbox_set_create_duplicate_name() {
     });
     let HandlerOutput {
         primary: both_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), both_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), both_args, &[])
         .await
         .expect("combined Mailbox/set must not return JmapError");
 
@@ -9191,7 +9191,7 @@ async fn email_get_properties_filtering_restricts_fields() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must succeed");
     let email_id = set_resp["created"]["c1"]["id"]
@@ -9276,7 +9276,7 @@ async fn email_get_no_properties_returns_default_fields() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must succeed");
     let email_id = set_resp["created"]["c1"]["id"]
@@ -9345,7 +9345,7 @@ async fn mailbox_get_properties_filtering_restricts_fields() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Mailbox/set must succeed");
     let mailbox_id = set_resp["created"]["c1"]["id"]
@@ -10895,7 +10895,7 @@ async fn conformance_mailbox_set_create_basic() {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect("Mailbox/set must succeed");
 
@@ -10960,7 +10960,7 @@ async fn conformance_mailbox_set_create_with_parent() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set create with parent must succeed");
 
@@ -11016,7 +11016,7 @@ async fn conformance_mailbox_set_update_name() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), update_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), update_args, &[])
             .await
             .expect("Mailbox/set update must succeed");
 
@@ -11067,7 +11067,7 @@ async fn conformance_mailbox_set_destroy() {
     let HandlerOutput {
         primary: create_resp,
         ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), create_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), create_args, &[])
         .await
         .expect("Mailbox/set create must succeed");
     let mb_id = create_resp["created"]["c1"]["id"]
@@ -11083,7 +11083,7 @@ async fn conformance_mailbox_set_destroy() {
     let HandlerOutput {
         primary: destroy_resp,
         ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args, &[])
         .await
         .expect("Mailbox/set destroy must succeed");
 
@@ -11125,7 +11125,7 @@ async fn conformance_mailbox_set_destroy_with_children() {
         "destroy": [folder_a_id],
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args, &[])
             .await
             .expect("Mailbox/set destroy must return a set response (not a method error)");
 
@@ -11169,7 +11169,7 @@ async fn conformance_mailbox_set_create_duplicate_name() {
         }
     });
     let HandlerOutput { primary: resp1, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), create1_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), create1_args, &[])
             .await
             .expect("first Mailbox/set create must succeed");
     assert!(
@@ -11187,7 +11187,7 @@ async fn conformance_mailbox_set_create_duplicate_name() {
         }
     });
     let HandlerOutput { primary: resp2, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), create2_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), create2_args, &[])
             .await
             .expect("second Mailbox/set create must return a set response");
 
@@ -11223,6 +11223,7 @@ async fn conformance_mailbox_set_create_duplicate_name() {
             "accountId": "acct1",
             "destroy": [first_id],
         }),
+        &[],
     )
     .await;
 }
@@ -11244,7 +11245,7 @@ async fn conformance_mailbox_set_state_changes() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must succeed");
 
@@ -11281,7 +11282,7 @@ async fn conformance_mailbox_set_create_missing_name() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Mailbox/set must return a set response (not a method error)");
 
@@ -11332,7 +11333,7 @@ async fn conformance_mailbox_changes_from_state_zero() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Mailbox/set must succeed");
     let new_id = set_resp["created"]["newMb"]["id"]
@@ -11349,7 +11350,7 @@ async fn conformance_mailbox_changes_from_state_zero() {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_mailbox_changes(&backend, &(), changes_args)
+    } = handle_mailbox_changes(&backend, &(), changes_args, &[])
         .await
         .expect("Mailbox/changes must succeed");
 
@@ -11414,9 +11415,10 @@ async fn conformance_mailbox_changes_from_current_state() {
         "accountId": "acct1",
         "sinceState": current_state,
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_changes(&backend, &(), changes_args)
-        .await
-        .expect("Mailbox/changes must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_changes(&backend, &(), changes_args, &[])
+            .await
+            .expect("Mailbox/changes must succeed");
 
     // Oracle: all three lists must be empty.
     let created = resp["created"]
@@ -11472,7 +11474,7 @@ async fn conformance_mailbox_changes_invalid_state() {
     // Oracle: the handler must return Err(JmapError) rather than an empty-changes
     // success. The MemoryBackend can only parse numeric state tokens; anything else
     // results in BackendChangesError::Other → JmapError::server_fail.
-    let result = handle_mailbox_changes(&backend, &(), args).await;
+    let result = handle_mailbox_changes(&backend, &(), args, &[]).await;
     assert!(
         result.is_err(),
         "invalid sinceState must produce an error, not a success response"
@@ -12026,7 +12028,7 @@ async fn conformance_email_set_create_basic() {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must not return a protocol error");
     assert!(
@@ -12080,7 +12082,7 @@ async fn conformance_email_set_create_sets_state() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
             .await
             .expect("Email/set must not return a protocol error");
 
@@ -12118,7 +12120,7 @@ async fn conformance_email_set_create_with_keywords() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must not return a protocol error");
 
@@ -12180,6 +12182,7 @@ async fn conformance_email_set_update_keywords() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12203,6 +12206,7 @@ async fn conformance_email_set_update_keywords() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set update must not return a protocol error");
@@ -12272,6 +12276,7 @@ async fn conformance_email_set_update_mailbox_ids() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12295,6 +12300,7 @@ async fn conformance_email_set_update_mailbox_ids() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set update must not return a protocol error");
@@ -12364,6 +12370,7 @@ async fn conformance_email_set_update_adds_keyword() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12387,6 +12394,7 @@ async fn conformance_email_set_update_adds_keyword() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set update must not return a protocol error");
@@ -12450,6 +12458,7 @@ async fn conformance_email_set_update_removes_keyword() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12473,6 +12482,7 @@ async fn conformance_email_set_update_removes_keyword() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set update must not return a protocol error");
@@ -12537,6 +12547,7 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12560,6 +12571,7 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set update must not return a protocol error");
@@ -12626,6 +12638,7 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12649,6 +12662,7 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set update must not return a protocol error");
@@ -12706,6 +12720,7 @@ async fn conformance_email_set_destroy_basic() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12726,6 +12741,7 @@ async fn conformance_email_set_destroy_basic() {
             "accountId": account_id.as_ref(),
             "destroy": [email_id.clone()],
         }),
+        &[],
     )
     .await
     .expect("Email/set destroy must not return a protocol error");
@@ -12789,6 +12805,7 @@ async fn conformance_email_set_destroy_updates_state() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set create must succeed");
@@ -12809,6 +12826,7 @@ async fn conformance_email_set_destroy_updates_state() {
             "accountId": account_id.as_ref(),
             "destroy": [email_id],
         }),
+        &[],
     )
     .await
     .expect("Email/set destroy must not return a protocol error");
@@ -12849,6 +12867,7 @@ async fn conformance_email_set_update_not_found() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("Email/set must not return a protocol error");
@@ -12890,6 +12909,7 @@ async fn conformance_email_set_destroy_not_found() {
             "accountId": account_id.as_ref(),
             "destroy": ["nonexistent-email-xyz"],
         }),
+        &[],
     )
     .await
     .expect("Email/set must not return a protocol error");
@@ -13138,7 +13158,7 @@ async fn conformance_email_changes_from_zero() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set must succeed");
     let new_id = set_resp["created"]["c0"]["id"]
@@ -13153,7 +13173,7 @@ async fn conformance_email_changes_from_zero() {
     });
     let HandlerOutput {
         primary: chg_resp, ..
-    } = handle_email_changes(&backend, &(), changes_args)
+    } = handle_email_changes(&backend, &(), changes_args, &[])
         .await
         .expect("Email/changes must succeed");
 
@@ -13201,7 +13221,7 @@ async fn conformance_email_changes_from_current_state() {
     });
     let HandlerOutput {
         primary: chg_resp, ..
-    } = handle_email_changes(&backend, &(), changes_args)
+    } = handle_email_changes(&backend, &(), changes_args, &[])
         .await
         .expect("Email/changes must succeed");
 
@@ -13265,7 +13285,7 @@ async fn conformance_email_changes_after_update() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set create must succeed");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -13287,7 +13307,7 @@ async fn conformance_email_changes_after_update() {
     });
     let HandlerOutput {
         primary: upd_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), upd_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), upd_args, &[])
         .await
         .expect("Email/set update must succeed");
     assert!(
@@ -13304,7 +13324,7 @@ async fn conformance_email_changes_after_update() {
     });
     let HandlerOutput {
         primary: chg_resp, ..
-    } = handle_email_changes(&backend, &(), changes_args)
+    } = handle_email_changes(&backend, &(), changes_args, &[])
         .await
         .expect("Email/changes must succeed");
 
@@ -13349,7 +13369,7 @@ async fn conformance_email_changes_after_destroy() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), set_args, &[])
         .await
         .expect("Email/set create must succeed");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -13369,7 +13389,7 @@ async fn conformance_email_changes_after_destroy() {
     let HandlerOutput {
         primary: destroy_resp,
         ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), destroy_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), destroy_args, &[])
         .await
         .expect("Email/set destroy must succeed");
     let destroyed_list = destroy_resp["destroyed"]
@@ -13389,7 +13409,7 @@ async fn conformance_email_changes_after_destroy() {
     });
     let HandlerOutput {
         primary: chg_resp, ..
-    } = handle_email_changes(&backend, &(), changes_args)
+    } = handle_email_changes(&backend, &(), changes_args, &[])
         .await
         .expect("Email/changes must succeed");
 
@@ -13452,7 +13472,7 @@ async fn conformance_mailbox_changes_after_email_count_change() {
     });
     let HandlerOutput {
         primary: upd_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), upd_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), upd_args, &[])
         .await
         .expect("Mailbox/set update must succeed");
     assert!(
@@ -13469,7 +13489,7 @@ async fn conformance_mailbox_changes_after_email_count_change() {
     });
     let HandlerOutput {
         primary: chg_resp, ..
-    } = handle_mailbox_changes(&backend, &(), changes_args)
+    } = handle_mailbox_changes(&backend, &(), changes_args, &[])
         .await
         .expect("Mailbox/changes must succeed");
 
@@ -13707,7 +13727,7 @@ async fn email_set_create_size_is_nonzero() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_set(&backend, &(), &BTreeMap::new(), args)
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
             .await
             .expect("Email/set must succeed");
 
@@ -13768,7 +13788,7 @@ async fn mailbox_set_destroy_child_then_parent_in_one_request() {
     let HandlerOutput {
         primary: child_resp,
         ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), create_child)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), create_child, &[])
         .await
         .expect("create child must not error");
     let child_id_str = child_resp["created"]["c0"]["id"]
@@ -13784,7 +13804,7 @@ async fn mailbox_set_destroy_child_then_parent_in_one_request() {
         "destroy": [child_id_str.as_str(), parent_id.as_ref()],
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), destroy_args, &[])
             .await
             .expect("Mailbox/set destroy must not return JmapError");
 
@@ -13901,7 +13921,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
     });
     let HandlerOutput {
         primary: mbox_resp, ..
-    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), mbox_args)
+    } = handle_mailbox_set(&backend, &(), &BTreeMap::new(), mbox_args, &[])
         .await
         .expect("mailbox create must succeed");
     let inbox_id = mbox_resp["created"]["inbox"]["id"]
@@ -13920,7 +13940,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
             "pre": { "mailboxIds": { folder_a_id.clone(): true } }
         }
     });
-    handle_email_set(&backend, &(), &BTreeMap::new(), pre_args)
+    handle_email_set(&backend, &(), &BTreeMap::new(), pre_args, &[])
         .await
         .expect("pre-email create must succeed");
 
@@ -13946,7 +13966,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
     });
     let HandlerOutput {
         primary: add_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), add_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), add_args, &[])
         .await
         .expect("email creates must succeed");
     let inbox_email_id = add_resp["created"]["inbox_new"]["id"]
@@ -14011,6 +14031,7 @@ async fn query_changes_reports_updated_id_in_removed_and_added() {
             "accountId": "acct1",
             "create": { "e0": { "mailboxIds": { "inbox": true } } }
         }),
+        &[],
     )
     .await
     .expect("create must succeed");
@@ -14037,6 +14058,7 @@ async fn query_changes_reports_updated_id_in_removed_and_added() {
             "accountId": "acct1",
             "update": { &email_id: { "keywords/$seen": true } }
         }),
+        &[],
     )
     .await
     .expect("update must succeed");
@@ -14080,7 +14102,7 @@ async fn query_changes_up_to_id_truncates_added() {
             "e2": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-03T00:00:00Z" },
         }
     });
-    handle_email_set(&backend, &(), &BTreeMap::new(), pre_args)
+    handle_email_set(&backend, &(), &BTreeMap::new(), pre_args, &[])
         .await
         .expect("pre-create must succeed");
 
@@ -14108,7 +14130,7 @@ async fn query_changes_up_to_id_truncates_added() {
     });
     let HandlerOutput {
         primary: new_resp, ..
-    } = handle_email_set(&backend, &(), &BTreeMap::new(), new_args)
+    } = handle_email_set(&backend, &(), &BTreeMap::new(), new_args, &[])
         .await
         .expect("new creates must succeed");
 
@@ -14216,6 +14238,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
         &(),
         &BTreeMap::new(),
         serde_json::json!({ "accountId": account_id, "create": create_map }),
+        &[],
     )
     .await
     .expect("pre-create must succeed");
@@ -14269,6 +14292,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
             "create": new_create,
             "destroy": destroy_ids,
         }),
+        &[],
     )
     .await
     .expect("create+destroy must succeed");
@@ -14476,6 +14500,7 @@ async fn mailbox_set_update_sort_order_null_resets_to_default() {
             "accountId": "a1",
             "create": { "c0": { "name": "Sorted", "sortOrder": 5 } }
         }),
+        &[],
     )
     .await
     .expect("create mailbox");
@@ -14495,6 +14520,7 @@ async fn mailbox_set_update_sort_order_null_resets_to_default() {
             "accountId": "a1",
             "update": { &id: { "sortOrder": null } }
         }),
+        &[],
     )
     .await
     .expect("update sortOrder to null");
@@ -14609,6 +14635,7 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
         &(),
         &BTreeMap::new(),
         serde_json::json!({ "accountId": "acct1", "create": { "c0": { "name": "Keep" } } }),
+        &[],
     )
     .await
     .expect("Mailbox/set create");
@@ -14624,6 +14651,7 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
         &(),
         &BTreeMap::new(),
         serde_json::json!({ "accountId": "acct1", "update": { &id: { "name": null } } }),
+        &[],
     )
     .await
     .expect("Mailbox/set update must not return a protocol error");
@@ -14670,6 +14698,7 @@ async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
             "accountId": "account1",
             "create": { "c0": { "mailboxIds": { "inbox": true } } }
         }),
+        &[],
     )
     .await
     .expect("Email/set create");
@@ -14685,6 +14714,7 @@ async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
         &(),
         &BTreeMap::new(),
         serde_json::json!({ "accountId": "account1", "update": { &id: { "mailboxIds": null } } }),
+        &[],
     )
     .await
     .expect("Email/set update must not return a protocol error");
@@ -14982,6 +15012,7 @@ async fn create_mailboxes(backend: &MemoryBackend, names: &[&str]) -> Vec<String
         &(),
         &BTreeMap::new(),
         serde_json::json!({ "accountId": "acct1", "create": create }),
+        &[],
     )
     .await
     .expect("mailbox create must succeed");
@@ -15286,6 +15317,7 @@ async fn mailbox_set_update_inside_server_set_property_rejected() {
         &(),
         &BTreeMap::new(),
         serde_json::json!({ "accountId": "acct1", "create": { "c0": { "name": "Keep" } } }),
+        &[],
     )
     .await
     .expect("Mailbox/set create");
@@ -15304,6 +15336,7 @@ async fn mailbox_set_update_inside_server_set_property_rejected() {
             "accountId": "acct1",
             "update": { &id: { "myRights/mayDelete": false } },
         }),
+        &[],
     )
     .await
     .expect("Mailbox/set update must not return a protocol error");
@@ -15330,7 +15363,7 @@ async fn mailbox_set_and_query_reject_malformed_ids() {
         "destroy": ["bad id"]
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args)
+        handle_mailbox_set(&backend, &(), &BTreeMap::new(), set_args, &[])
             .await
             .expect("Mailbox/set must not error");
     assert_eq!(

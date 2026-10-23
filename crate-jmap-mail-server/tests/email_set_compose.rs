@@ -32,7 +32,7 @@ fn backend() -> MemoryBackend {
 
 async fn set(backend: &MemoryBackend, create: Value) -> Value {
     let args = json!({ "accountId": "a1", "create": { "c0": create } });
-    let HandlerOutput { primary, .. } = handle_email_set(backend, &(), &BTreeMap::new(), args)
+    let HandlerOutput { primary, .. } = handle_email_set(backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect("Email/set must succeed");
     primary

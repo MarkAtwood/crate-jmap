@@ -45,8 +45,9 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::helpers::{
-    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response, not_found_json, resolve_ref, serialize_value,
+    SetAccumulators, check_metadata_entry, create_metadata, enforce_max_objects_in_get,
+    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
+    not_found_json, resolve_ref, serialize_value,
 };
 use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -760,13 +761,20 @@ pub async fn handle_email_get<B: MailBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Email, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<Email, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -1132,12 +1140,19 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 /// against `created_ids` (pass [`jmap_server::CallContext::created_ids`];
 /// RFC 8620 §5.3).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -1178,6 +1193,13 @@ pub async fn handle_email_set<B: MailBackend>(
         for (create_id, obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Email>) {
                 not_created.insert(create_id.clone(), serde_json::Value::from(&err));
+                continue;
+            }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
             let mut obj_val = obj_val.clone();
@@ -1282,6 +1304,10 @@ pub async fn handle_email_set<B: MailBackend>(
             // Check for immutable field violations in the patch keys.
             if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
                 not_updated.insert(id_str.clone(), serde_json::Value::from(&err));
+                continue;
+            }
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str.clone(), serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -1790,6 +1816,14 @@ async fn build_email_from_create<B: MailBackend>(
         |description| json!({ "type": "invalidProperties", "description": description }),
     )?;
 
+    // draft-ietf-jmap-metadata-04 §3.2: the create sets the metadata
+    // properties; the backend validates them.
+    let (metadata, private_metadata) = obj_val
+        .as_object()
+        .map(create_metadata)
+        .transpose()?
+        .unwrap_or_default();
+
     let mut draft = EmailDraft::default();
     draft.from = field(obj_val, "from")?;
     draft.sender = field(obj_val, "sender")?;
@@ -1882,6 +1916,8 @@ async fn build_email_from_create<B: MailBackend>(
         email.keywords = keywords;
         let parsed = crate::parse::parse_rfc5322_headers(bytes);
         crate::parse::fill_from_message(&mut email, parsed, bytes, blob_id);
+        email.metadata = metadata;
+        email.private_metadata = private_metadata;
         email
     }))
 }
