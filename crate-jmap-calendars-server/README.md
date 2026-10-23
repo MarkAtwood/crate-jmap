@@ -249,6 +249,118 @@ the full canonical signatures.
 - `BackendQueryError::Other(E)` — a storage-layer error that becomes a
   `serverFail` response
 
+## Permission enforcement responsibilities
+
+The handlers in this crate do **no** permission checking. Per the
+workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
+are canonical for authorization: the handler computes the candidate
+mutation and the backend's `/set` impl is the canonical point of
+enforcement. Caller identity is read via
+`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+parameter every backend method receives.
+
+The reference `memory::MemoryBackend` does **not** implement any of
+the checks below — it returns `None` from `principal_id`, stores
+whatever the handler hands it, and inherits the fail-open defaults of
+`privacy_conflicts` and `may_copy_calendar_event`. Production backends
+MUST implement each of the following or they will silently accept JMAP
+requests that draft-ietf-jmap-calendars-33 mandates the server to
+reject. ACL denials are `forbidden` SetErrors unless noted.
+
+### Calendar/set (draft-ietf-jmap-calendars-33 §1.5.1, §4, §4.3)
+
+1. **Create requires the account's `mayCreateCalendar`** (§1.5.1).
+
+2. **`shareWith` write requires `mayShare`**, and "the user cannot
+   give a right to a Principal if the Principal did not already have
+   that right and the user making the change also does not have that
+   right" (§4.3).
+
+3. **Destroy requires `mayDelete`** (§4).
+
+4. **`isSubscribed` policy hook (optional).** "The server MAY forbid
+   users from subscribing to certain calendars even though they have
+   permission to see them" (§4.3).
+
+5. **Per-user properties are stored per user.** `name`, `color`,
+   `sortOrder`, `isVisible`, `timeZone`, `includeInAvailability`,
+   `defaultAlertsWithoutTime` and `defaultAlertsWithTime` "may be set
+   by anyone who is subscribed to the calendar and are always stored
+   per-user" (§4.3), keyed on `principal_id`.
+
+### CalendarEvent/set and CalendarEvent/copy (§4, §5.9, §5.10)
+
+"Servers MUST enforce the user's permissions as returned in the
+"myRights" property of the Calendar objects and reject changes with a
+forbidden SetError if not allowed" (§5.9). For an event in several
+calendars, the caller may remove it from a calendar with the right on
+that calendar, and "may make other changes to the event if they have
+the right to do so in *all* calendars to which the event belongs"
+(§4).
+
+6. **Create, update and destroy require `mayWriteAll`, or
+   `mayWriteOwn` when the caller is an owner of the event or it has
+   no owner** (§4). This covers `create_object`, `update_object`,
+   `destroy_object` and their `create_calendar_event`,
+   `update_calendar_event` and `destroy_calendar_event` overrides.
+
+7. **Per-user property updates require `mayUpdatePrivate`**, checked
+   in `update_per_user_properties` instead of the write-access rule
+   (§4, §5.4).
+
+8. **`mayRSVP` participant updates.** Without write access the caller
+   may change only `participationStatus`, `expectReply`,
+   `scheduleSequence` and `scheduleUpdated` on its own Participant,
+   and may add participants only as `mayInviteSelf` /
+   `mayInviteOthers` allow (§4).
+
+9. **`privacy: "private"` events** "may only be destroyed or updated
+   by the owner of the calendar it is in", "even if only modifying
+   per-user properties" (§5.9).
+
+10. **`CalendarEvent/copy` of a foreign `private` event is
+    `forbidden`** (§5.10), via `may_copy_calendar_event`; destination
+    writes follow check 6.
+
+### Reads (§4, §5.9)
+
+11. **Visibility.** "The user may fetch the event if they have the
+    mayReadItems right on any calendar the event is in" (§4), and for
+    `privacy: "secret"` "the server MUST behave as though the event
+    does not exist for all users other than the Principal that owns
+    the calendar" (§5.9). `get_calendar_events`, `query_calendar_events`
+    and `get_objects` leave such events out.
+
+### ParticipantIdentity/set (§3.3)
+
+12. **Address claims.** "The server MAY restrict the URI values the
+    user may claim"; servers that manage identities out of band reject
+    "all creates, updates and destroys with a forbidden SetError".
+
+### Principal/getAvailability (§2.2)
+
+13. **Availability is scoped to the caller.** `get_availability`
+    counts only events in calendars on which "the user has the
+    "mayReadFreeBusy" permission", returns `forbidden` when "the user
+    does not have permission to query this Principal's availability",
+    and `notFound` when the caller may not "see that this Principal
+    exists".
+
+CalendarEventNotification create and update are rejected with
+`forbidden` by the handler itself (§7.3); the backend sees only
+destroys.
+
+### Caller-identity-less backends
+
+The reference `MemoryBackend` returns `None` from `principal_id` and
+is intentionally permissive (fail-open, bd:JMAP-bghk) — it is suitable
+for single-user dev servers, fixtures, and the workspace's own
+integration tests, but NOT for any deployment where more than one
+principal can reach the JMAP dispatcher. A deployment that needs ACL
+enforcement MUST override `JmapBackend::principal_id` and implement
+each of the checks above; the workspace ships no production-grade
+reference impl.
+
 ## How it works
 
 ### Registration

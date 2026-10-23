@@ -109,6 +109,73 @@ pub trait SharingBackend: JmapBackend {
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a
   `serverFail` response
 
+## Permission enforcement responsibilities
+
+The handlers in this crate do **no** permission checking. Per the
+workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
+are canonical for authorization: the handler computes the candidate
+mutation and the backend's `/set` impl is the canonical point of
+enforcement, returning
+`BackendSetError::SetError(SetError::new(SetErrorType::Forbidden))`
+from `create_object`, `update_object` or `destroy_object`; the handler
+routes it to `notCreated`, `notUpdated` or `notDestroyed`. Caller
+identity is read via `JmapBackend::principal_id` on the
+`caller: &Self::CallerCtx` parameter every backend method receives.
+
+The reference `memory::MemoryBackend` does **not** implement any of
+the checks below — it returns `None` from `principal_id` and stores
+whatever the handler hands it. Production backends MUST implement each
+of the following or they will silently accept JMAP requests that
+[RFC 9670] mandates the server to reject.
+
+### Principal/set ([RFC 9670] §2.3, §6.4)
+
+1. **Reject every change the server does not allow.** "A server MUST
+   reject any change it doesn't allow with a "forbidden" SetError."
+   Where changes are supported, the server "SHOULD allow an update to
+   the "name", "description", and "timeZone" properties of the
+   Principal with the same id as the "currentUserPrincipalId"".
+
+2. **Principal creation is controlled.** "The set of Principals within
+   a shared environment MUST be strictly controlled" (§6.4); a backend
+   that accepts `create` restricts it to authorized callers.
+
+### ShareNotification/set ([RFC 9670] §3, §3.3)
+
+3. **Destroy only the caller's own notifications.** The handler
+   rejects create and update with `forbidden` itself ("Only destroy is
+   supported"), so the backend sees only destroys and MUST refuse one
+   that targets another user's notification.
+
+### Reads ([RFC 9670] §1.4, §3)
+
+4. **Per-user scope.** A ShareNotification "records when the user's
+   permissions to access a shared object changes", so `get_objects`
+   and `query_objects` return only the caller's own. Principal
+   records carry an Account object only "for all Accounts where the
+   user has permission to access data for that Principal" (§1.4).
+
+### Shared data in other extensions ([RFC 9670] §4)
+
+`myRights` and `shareWith` on shareable data (Mailbox, Calendar,
+AddressBook, TaskList, FileNode) are enforced by the backend of the
+crate that serves that data type, as each one's "Permission
+enforcement responsibilities" section lists. This crate enforces
+nothing on their behalf. When those backends change a user's
+permissions, "the server SHOULD create a ShareNotification" (§3) in
+the account holding the Principals.
+
+### Caller-identity-less backends
+
+The reference `MemoryBackend` returns `None` from `principal_id` and
+is intentionally permissive (fail-open, bd:JMAP-bghk) — it is suitable
+for single-user dev servers, fixtures, and the workspace's own
+integration tests, but NOT for any deployment where more than one
+principal can reach the JMAP dispatcher. A deployment that needs ACL
+enforcement MUST override `JmapBackend::principal_id` and implement
+each of the checks above; the workspace ships no production-grade
+reference impl.
+
 ## How it works
 
 ### Registration
@@ -151,17 +218,6 @@ The `destroy` array in a `/set` request must contain only string IDs per RFC
 8620 §5.3. If a non-string element is encountered during pre-flight validation,
 the entire request returns a top-level `invalidArguments` error before any
 backend calls are made.
-
-### Permission enforcement
-
-`Principal/set` supports `create`, `update`, and `destroy` at the wire level,
-but RFC 9670 §2.3 specifies that the server may reject any of these with
-`forbidden` if the caller does not have sufficient permission. Permission
-enforcement is entirely the backend's responsibility: backends return
-`BackendSetError::SetError(SetError::new(SetErrorType::Forbidden))` from
-`create_object`, `update_object`, or `destroy_object` as appropriate. The
-handler routes these `forbidden` errors back to the caller in `notCreated`,
-`notUpdated`, or `notDestroyed`.
 
 ### onSuccessSetIsDefault
 

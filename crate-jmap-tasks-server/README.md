@@ -138,6 +138,86 @@ mutating — is documented per-method on the trait itself (`backend.rs`).
   (`notFound`, `invalidProperties`, `forbidden`, `taskListHasTask`, etc.)
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a `serverFail` response
 
+## Permission enforcement responsibilities
+
+The handlers in this crate do **no** permission checking. Per the
+workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
+are canonical for authorization: the handler computes the candidate
+mutation and the backend's `/set` impl is the canonical point of
+enforcement. Caller identity is read via
+`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+parameter every backend method receives.
+
+The reference `memory::MemoryBackend` does **not** implement any of
+the checks below — it returns `None` from `principal_id` and stores
+whatever the handler hands it. Production backends MUST implement each
+of the following or they will silently accept JMAP requests that
+draft-ietf-jmap-tasks-06 mandates the server to reject. ACL denials
+are `forbidden` SetErrors. The rights are the `TaskRights` of the
+TaskList (§3).
+
+### TaskList/set (draft-ietf-jmap-tasks-06 §1.6.1, §3, §3.4)
+
+1. **Create requires the account's `mayCreateTaskList`** (§1.6.1).
+
+2. **`shareWith` write requires `mayAdmin`**, and "the user cannot
+   give a right to a principal if the principal did not already have
+   that right and the user making the change also does not have that
+   right" (§3.4).
+
+3. **Destroy requires `mayDelete`**, which "MUST be false if the
+   account to which this task list belongs has the _isReadOnly_
+   property set to true" (§3).
+
+4. **`isSubscribed` policy hook (optional).** "The server MAY forbid
+   users from subscribing to certain task lists even though they have
+   permission to see them" (§3.4).
+
+5. **Per-user TaskList properties.** `name`, `color`, `sortOrder`,
+   `timeZone`, `defaultAlertsWithoutTime` and `defaultAlertsWithTime`
+   "may be set by anyone who is subscribed to the task list, and are
+   all stored per-user" (§3.4), keyed on `principal_id`.
+
+### Task/set and Task/copy (§3, §4.5.1)
+
+6. **Create, update and destroy require `mayWriteAll`, or
+   `mayWriteOwn` when the caller is an owner of the task or it has no
+   owner** (§3). Moving a task between lists needs the right on both.
+   `Task/copy` writes through `create_object` in the destination
+   account and treats a source the caller cannot read as `notFound`.
+
+7. **Per-user Task properties.** `keywords`, `color`,
+   `freeBusyStatus`, `useDefaultAlerts` and `alerts` "MUST be stored
+   per-user" (§4.5.1); `mayUpdatePrivate` lets the user modify them
+   "even if they would not otherwise have permission to modify that
+   task" (§3). The handler routes such patches to
+   `update_task_per_user`.
+
+8. **`mayRSVP` participant updates.** Without write access the caller
+   may change only `participationStatus`, `participationComment` and
+   `expectReply` on its own Participant, and may add participants only
+   as `mayInviteSelf` / `mayInviteOthers` allow (§3).
+
+### Reads (§3)
+
+9. **Visibility.** "The user may fetch the task if they have the
+   mayReadItems right on any task list the task is in" (§3).
+   `get_objects` and `query_objects` leave out the others.
+
+TaskNotification create and update are rejected with `forbidden` by
+the handler itself (§5.4); the backend sees only destroys.
+
+### Caller-identity-less backends
+
+The reference `MemoryBackend` returns `None` from `principal_id` and
+is intentionally permissive (fail-open, bd:JMAP-bghk) — it is suitable
+for single-user dev servers, fixtures, and the workspace's own
+integration tests, but NOT for any deployment where more than one
+principal can reach the JMAP dispatcher. A deployment that needs ACL
+enforcement MUST override `JmapBackend::principal_id` and implement
+each of the checks above; the workspace ships no production-grade
+reference impl.
+
 ## How it works
 
 ### Registration

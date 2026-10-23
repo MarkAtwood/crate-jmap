@@ -166,6 +166,111 @@ pub trait MailBackend: JmapBackend {
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a
   `serverFail` response
 
+## Permission enforcement responsibilities
+
+The handlers in this crate do **no** permission checking. Per the
+workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
+are canonical for authorization: the handler computes the candidate
+mutation and the backend's `/set` impl is the canonical point of
+enforcement. Caller identity is read via
+`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+parameter every backend method receives. The full contract is the
+"Permission enforcement (backend canonical)" rustdoc on `MailBackend`.
+
+The reference `memory::MemoryBackend` does **not** implement any of
+the checks below — it returns `None` from `principal_id` and stores
+whatever the handler hands it. Production backends MUST implement each
+of the following or they will silently accept JMAP requests that
+[RFC 8621] mandates the server to reject. ACL denials are `forbidden`
+SetErrors unless noted.
+
+### Mailbox/set ([RFC 8621] §2, §2.5)
+
+1. **Create requires `mayCreateChild` on the parent**, or the
+   account's `mayCreateTopLevelMailbox` ([RFC 8621] §1.3.1) when
+   `parentId` is null.
+
+2. **Update of `name` or `parentId` requires `mayRename`.**
+
+3. **Destroy requires `mayDelete`.**
+
+4. **`role` uniqueness is atomic in the backend.** "There MUST NOT be
+   two Mailboxes in the same account with the same role" ([RFC 8621]
+   §2). The handler checks this against a pre-mutation snapshot, which
+   concurrent requests can race past; the backend MUST re-verify it
+   atomically with the write.
+
+5. **`isSubscribed` is per user.** It "MUST be stored separately per
+   user where multiple users have access to a shared Mailbox"
+   ([RFC 8621] §2), keyed on `principal_id`.
+
+### Email/set, Email/import and Email/copy ([RFC 8621] §2, §4.6–§4.8)
+
+6. **Create, import and copy require `mayAddItems` on every Mailbox in
+   `mailboxIds`.** `Email/copy` also requires that the caller can read
+   the source Email in `fromAccountId`; an unreadable source is
+   `notFound`.
+
+7. **Update of `mailboxIds` requires `mayAddItems` on each Mailbox
+   added and `mayRemoveItems` on each one removed.**
+
+8. **Keyword updates require the right on *all* of the Email's
+   Mailboxes:** `maySetSeen` to change `$seen`, `maySetKeywords` to
+   change any other keyword.
+
+9. **Destroy requires `mayRemoveItems` on every Mailbox the Email is
+   in**, including the per-id overrides of `batch_destroy_emails`.
+
+### Reads ([RFC 8621] §2, §9.5)
+
+10. **Partial account access is invisible.** "Email objects may be
+    fetched if they are in *at least one* Mailbox with" `mayReadItems`
+    ([RFC 8621] §2), and the server "MUST treat any data the user does
+    not have permission to access the same as if it did not exist"
+    (§9.5). `get_objects` and `query_objects` leave out Mailboxes,
+    Emails and Thread members the caller cannot read.
+
+### Identity/set ([RFC 8621] §6, §6.3, §9.6)
+
+11. **Create requires permission to send from `email`.** The server
+    "MUST reject it with the appropriate error if the user does not
+    have permission to use that email address to send from" (§9.6):
+    the `forbiddenFrom` SetError (§6.3).
+
+12. **Destroy honours `mayDelete`.** The handler refuses to destroy an
+    Identity whose stored `mayDelete` is false; that pre-check is not
+    atomic with the write, so the backend MUST re-verify it.
+
+### EmailSubmission/set ([RFC 8621] §7.5, §9.6)
+
+13. **The Identity must belong to the caller**, and servers "SHOULD
+    reject submissions where the From header field of the message does
+    not correspond to the associated Identity" (§9.6): `forbiddenFrom`.
+
+14. **Envelope `mailFrom` restrictions.** The server "MUST also
+    enforce appropriate restrictions on the MAIL FROM address" (§9.6):
+    `forbiddenMailFrom`.
+
+15. **Send policy.** A caller not permitted to send at all right now
+    gets `forbiddenToSend` (§7.5).
+
+### VacationResponse/set ([RFC 8621] §8)
+
+16. **Update requires write access to the account.** The handler
+    enforces the singleton shape (`singleton` id, no create or
+    destroy); the backend's `update_object` owns the ACL.
+
+### Caller-identity-less backends
+
+The reference `MemoryBackend` returns `None` from `principal_id` and
+is intentionally permissive (fail-open, bd:JMAP-bghk) — it is suitable
+for single-user dev servers, fixtures, and the workspace's own
+integration tests, but NOT for any deployment where more than one
+principal can reach the JMAP dispatcher. A deployment that needs ACL
+enforcement MUST override `JmapBackend::principal_id` and implement
+each of the checks above; the workspace ships no production-grade
+reference impl.
+
 ## How it works
 
 ### Registration
