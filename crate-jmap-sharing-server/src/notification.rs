@@ -181,7 +181,8 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
             .collect::<Result<_, _>>()
             .map_err(|bad| {
                 JmapError::invalid_arguments(format!(
-                    "destroy: every element must be a string Id; got {bad}"
+                    "destroy: every element must be a string Id; got {}",
+                    jmap_server::json_type_name(bad)
                 ))
             })?;
         for id_str_ref in ids {

@@ -288,7 +288,8 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
             Some(n) => Some(n),
             None => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "limit: expected a non-negative integer, got {v}"
+                    "limit: expected a non-negative integer, got {}",
+                    crate::helpers::json_type_name(v)
                 )));
             }
         },
@@ -297,7 +298,10 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     let position: i64 = match args.get("position") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+            JmapError::invalid_arguments(format!(
+                "position: expected an integer, got {}",
+                crate::helpers::json_type_name(v)
+            ))
         })?,
     };
 
@@ -1452,6 +1456,27 @@ mod tests {
         for result in results {
             let err = result.expect_err("unknown account must fail");
             assert_eq!(err.error_type.to_string(), "accountNotFound");
+        }
+    }
+
+    /// RFC 8620 §5.5 types `limit` as "UnsignedInt|null" and `position` as
+    /// "Int"; wrong types are `invalidArguments` (§3.6.2). The description
+    /// names only the JSON type and never echoes the client value
+    /// (§3.6.1: "unstructured English text"; bd JMAP-zegc).
+    #[tokio::test]
+    async fn handle_query_does_not_echo_wrongly_typed_value() {
+        for name in ["limit", "position"] {
+            let backend = RecordingQueryBackend::default();
+            let mut args = json!({ "accountId": "a1" });
+            args[name] = json!({ "note": "CANARY-zegc" });
+            let err = handle_query::<QueryProbe, _>(&backend, &(), args)
+                .await
+                .expect_err("wrongly typed argument must be rejected");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{name}");
+            let desc = err.description.as_deref().unwrap_or_default();
+            assert!(desc.starts_with(name), "{desc}");
+            assert!(desc.contains("got object"), "{desc}");
+            assert!(!desc.contains("CANARY"), "{desc}");
         }
     }
 }

@@ -17,6 +17,27 @@ pub fn serialize_value<T: serde::Serialize>(val: T) -> Result<serde_json::Value,
     serde_json::to_value(val).map_err(|e| JmapError::server_fail(e.to_string()))
 }
 
+/// Name the top-level JSON type of `v` (`null`, `boolean`, `number`,
+/// `string`, `array` or `object`) for an error description.
+///
+/// Malformed-argument errors interpolate this tag instead of the value
+/// itself. `Value`'s `Display` re-serialises arbitrary client-supplied JSON,
+/// so echoing it would let a request amplify its own error response and
+/// copy attacker-controlled text into the `description` that RFC 8620
+/// §3.6.1 reserves for "unstructured English text suitable for displaying
+/// to a developer" (and into any log that buffers responses).
+#[must_use]
+pub fn json_type_name(v: &Value) -> &'static str {
+    match v {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
+
 /// Convert a slice of [`Id`]s to a JSON `notFound` value.
 ///
 /// RFC 8620 §5.1 specifies `notFound` as `Id[]` — always an array, never
@@ -107,7 +128,8 @@ where
             err
         }),
         v => Err(JmapError::invalid_arguments(format!(
-            "filter: expected an object, got {v}"
+            "filter: expected an object, got {}",
+            json_type_name(&v)
         ))),
     }
 }
@@ -887,14 +909,18 @@ pub fn query_anchor_args(args: &Map<String, Value>) -> Result<(Option<Id>, i64),
         ),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
-                "anchor: expected an Id string or null, got {v}"
+                "anchor: expected an Id string or null, got {}",
+                json_type_name(v)
             )));
         }
     };
     let anchor_offset = match args.get("anchorOffset") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!("anchorOffset: expected an integer, got {v}"))
+            JmapError::invalid_arguments(format!(
+                "anchorOffset: expected an integer, got {}",
+                json_type_name(v)
+            ))
         })?,
     };
     Ok((anchor, anchor_offset))
@@ -1247,10 +1273,11 @@ mod tests {
     use super::{
         MAX_MERGE_PATCH_DEPTH, MergePatchError, PatchPathError, apply_jmap_patch,
         apply_patch_object, civil_from_days, enforce_max_objects_in_set, extract_account_id,
-        filter_arg, is_client_updatable, json_merge_patch, limit_or_max, now_utc_string,
-        parse_max_changes, parse_wire_id, query_anchor_args, reject_did_bearing_properties,
-        reject_read_only_patch, reject_server_set, resolve_creation_ref, resolve_query_offset,
-        resolve_query_start, utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
+        filter_arg, is_client_updatable, json_merge_patch, json_type_name, limit_or_max,
+        now_utc_string, parse_max_changes, parse_wire_id, query_anchor_args,
+        reject_did_bearing_properties, reject_read_only_patch, reject_server_set,
+        resolve_creation_ref, resolve_query_offset, resolve_query_start,
+        utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
     };
     use jmap_types::{Id, PushSubscription, UTCDate};
     use serde_json::json;
@@ -2567,6 +2594,48 @@ mod tests {
                 Err("invalidArguments".to_owned()),
                 "maxChanges = {bad} must be rejected"
             );
+        }
+    }
+
+    /// Oracle: the six JSON value kinds of RFC 8259 §3 ("object, array,
+    /// number, string ... false, null, true"), with `true`/`false` named
+    /// "boolean", written out by hand.
+    #[test]
+    fn json_type_name_names_each_json_kind() {
+        let cases = [
+            (json!(null), "null"),
+            (json!(true), "boolean"),
+            (json!(false), "boolean"),
+            (json!(-1.5), "number"),
+            (json!("CANARY-zegc"), "string"),
+            (json!([1, 2]), "array"),
+            (json!({ "note": "CANARY-zegc" }), "object"),
+        ];
+        for (value, want) in cases {
+            assert_eq!(json_type_name(&value), want, "{value}");
+        }
+    }
+
+    /// RFC 8620 §5.5 types `anchor` as "Id|null" and `anchorOffset` as
+    /// "Int"; wrong types are `invalidArguments` (§3.6.2). The description
+    /// names only the JSON type and never echoes the client value
+    /// (§3.6.1: "unstructured English text"; bd JMAP-zegc).
+    #[test]
+    fn query_anchor_args_does_not_echo_wrongly_typed_value() {
+        for (name, args) in [
+            ("anchor", json!({ "anchor": { "note": "CANARY-zegc" } })),
+            (
+                "anchorOffset",
+                json!({ "anchorOffset": { "note": "CANARY-zegc" } }),
+            ),
+        ] {
+            let err = query_anchor_args(args.as_object().expect("object"))
+                .expect_err("wrongly typed argument must be rejected");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{name}");
+            let desc = err.description.as_deref().unwrap_or_default();
+            assert!(desc.starts_with(name), "{desc}");
+            assert!(desc.contains("got object"), "{desc}");
+            assert!(!desc.contains("CANARY"), "{desc}");
         }
     }
 }

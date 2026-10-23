@@ -800,7 +800,8 @@ pub async fn handle_email_query<B: MailBackend>(
             Some(n) => (n, Some(n)),
             None => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "limit: expected a non-negative integer, got {v}"
+                    "limit: expected a non-negative integer, got {}",
+                    jmap_server::json_type_name(&v)
                 )));
             }
         },
@@ -809,7 +810,10 @@ pub async fn handle_email_query<B: MailBackend>(
     let position: i64 = match args.remove("position") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+            JmapError::invalid_arguments(format!(
+                "position: expected an integer, got {}",
+                jmap_server::json_type_name(&v)
+            ))
         })?,
     };
 
@@ -826,14 +830,18 @@ pub async fn handle_email_query<B: MailBackend>(
         ),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(
-                "anchor: expected an Id string or null, got {v}"
+                "anchor: expected an Id string or null, got {}",
+                jmap_server::json_type_name(&v)
             )));
         }
     };
     let anchor_offset: i64 = match args.remove("anchorOffset") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!("anchorOffset: expected an integer, got {v}"))
+            JmapError::invalid_arguments(format!(
+                "anchorOffset: expected an integer, got {}",
+                jmap_server::json_type_name(&v)
+            ))
         })?,
     };
 
@@ -1287,7 +1295,8 @@ pub async fn handle_email_set<B: MailBackend>(
         // silently skipping it, which would produce a misleading response.
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
+                "destroy: every element must be a string Id; got {}",
+                jmap_server::json_type_name(bad)
             )));
         }
         for id_val in destroy_arr {

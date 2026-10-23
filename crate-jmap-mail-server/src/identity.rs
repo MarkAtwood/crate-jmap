@@ -408,7 +408,8 @@ pub async fn handle_identity_set<B: MailBackend>(
         // malformed request; return invalidArguments for the whole request.
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
-                "destroy array must contain only Id strings; got: {bad}"
+                "destroy array must contain only Id strings; got {}",
+                jmap_server::json_type_name(bad)
             )));
         }
         for id_val in destroy_arr {

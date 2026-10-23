@@ -8440,6 +8440,50 @@ async fn email_set_destroy_non_string_returns_invalid_arguments() {
     );
 }
 
+/// RFC 8620 §5.3 types `destroy` as "Id[]|null", so an object element is
+/// "invalidArguments: One of the arguments is of the wrong type" (§3.6.2).
+/// The description names only the JSON type: §3.6.1 reserves it for
+/// "unstructured English text suitable for displaying to a developer", so
+/// the client-supplied value is never echoed (bd JMAP-zegc).
+#[tokio::test]
+async fn email_set_destroy_non_string_does_not_echo_value() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "destroy": [{ "note": "CANARY-zegc" }],
+    });
+    let err = handle_email_set(&backend, &(), args)
+        .await
+        .expect_err("non-string destroy element must be a method error");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
+    let desc = err.description.as_deref().unwrap_or_default();
+    assert!(desc.contains("got object"), "{desc}");
+    assert!(!desc.contains("CANARY"), "{desc}");
+}
+
+/// RFC 8620 §5.5 types `limit` as "UnsignedInt|null", `position` and
+/// `anchorOffset` as "Int", and `anchor` as "Id|null"; wrong types are
+/// `invalidArguments` (§3.6.2). The description names only the JSON type
+/// and never echoes the client value (§3.6.1; bd JMAP-zegc).
+#[tokio::test]
+async fn mailbox_query_wrongly_typed_args_do_not_echo_value() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    for name in ["limit", "position", "anchor", "anchorOffset"] {
+        let mut args = serde_json::json!({ "accountId": "account1" });
+        args[name] = serde_json::json!({ "note": "CANARY-zegc" });
+        let err = handle_mailbox_query(&backend, &(), args)
+            .await
+            .expect_err("wrongly typed argument must be rejected");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{name}");
+        let desc = err.description.as_deref().unwrap_or_default();
+        assert!(desc.starts_with(name), "{desc}");
+        assert!(desc.contains("got object"), "{desc}");
+        assert!(!desc.contains("CANARY"), "{desc}");
+    }
+}
+
 /// Oracle: EmailSubmission/set with a non-string element in `destroy` returns
 /// `invalidArguments` for the whole method call (RFC 8620 §5.3).
 #[tokio::test]

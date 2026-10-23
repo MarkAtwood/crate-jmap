@@ -356,7 +356,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
         // silently skipping it, which would produce a misleading response.
         if let Some(bad) = destroy.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
+                "destroy: every element must be a string Id; got {}",
+                jmap_server::json_type_name(bad)
             )));
         }
 

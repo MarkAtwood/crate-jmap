@@ -294,7 +294,8 @@ pub async fn handle_key_package_set<B: MimiBackend>(
             .collect::<Result<_, _>>()
             .map_err(|bad| {
                 JmapError::invalid_arguments(format!(
-                    "destroy: every element must be a string Id; got {bad}"
+                    "destroy: every element must be a string Id; got {}",
+                    jmap_server::json_type_name(bad)
                 ))
             })?;
         for id in ids {

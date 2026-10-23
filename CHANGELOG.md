@@ -14,6 +14,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `json_type_name(&Value) -> &'static str` names a JSON
+  value's top-level type (`null`, `boolean`, `number`, `string`, `array`,
+  `object`) for error descriptions (bd JMAP-zegc).
 - **jmap-types**: `impl_string_enum!` now emits an inherent
   `pub fn as_str(&self) -> &str`, and its `Serialize` and `Display` impls
   call it, so every string-backed wire enum has one wire mapping (bd
@@ -3102,6 +3105,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **all extension servers, jmap-server**: `invalidArguments`
+  descriptions for a wrongly typed `/set` `destroy` element or `/query`
+  `filter`, `limit`, `position`, `anchor` or `anchorOffset` (plus
+  SieveScript/set `onSuccessActivateScript` and SceneRegion filter
+  `accessPolicy`) name only the JSON type of the offending value instead
+  of re-serialising it, so a request can no longer copy arbitrary JSON
+  into its own error response (RFC 8620 §3.6.1; bd JMAP-zegc).
+  jmap-chat-server's private `json_value_kind` is replaced by the shared
+  helper.
 - **jmap-server**: `now_utc_string` and `now_utc_string_checked` give the
   right time of day on a pre-epoch clock. Hours and minutes came from
   truncating division, so one second before the epoch formatted as

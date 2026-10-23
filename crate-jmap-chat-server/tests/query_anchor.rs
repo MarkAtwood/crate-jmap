@@ -11,7 +11,7 @@
 mod common;
 
 use common::{ACCOUNT_ID, MemoryBackend};
-use jmap_chat_server::handle_chat_query;
+use jmap_chat_server::{handle_chat_query, handle_emoji_query};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{Value, json};
@@ -170,5 +170,28 @@ async fn anchor_arguments_of_wrong_type_are_invalid_arguments() {
             .await
             .expect_err("wrongly typed anchor arguments must be rejected");
         assert_eq!(err["type"], "invalidArguments", "args: {extra}");
+    }
+}
+
+/// RFC 8620 §5.5 types `limit` as "UnsignedInt|null" and `position` as
+/// "Int"; wrong types are `invalidArguments` (§3.6.2). The description
+/// names only the JSON type: §3.6.1 reserves it for "unstructured English
+/// text suitable for displaying to a developer", so the client-supplied
+/// value is never echoed (bd JMAP-zegc). `CustomEmoji/query` parses these
+/// arguments itself rather than through `jmap_server::handle_query`.
+#[tokio::test]
+async fn emoji_query_wrongly_typed_args_do_not_echo_value() {
+    let backend = seeded_backend();
+    for name in ["limit", "position"] {
+        let mut args = json!({ "accountId": ACCOUNT_ID });
+        args[name] = json!({ "note": "CANARY-zegc" });
+        let err = handle_emoji_query(&backend, &(), args)
+            .await
+            .expect_err("wrongly typed argument must be rejected");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{name}");
+        let desc = err.description.as_deref().unwrap_or_default();
+        assert!(desc.starts_with(name), "{desc}");
+        assert!(desc.contains("got object"), "{desc}");
+        assert!(!desc.contains("CANARY"), "{desc}");
     }
 }
