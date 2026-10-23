@@ -65,7 +65,7 @@ fn assert_invalid_broadcast_mentions(err: &Value) {
 
 #[tokio::test]
 async fn create_rejects_broadcast_mention_without_scope() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let resp = create(&backend, &chat_id, json!([{ "offset": 3, "length": 9 }])).await;
     assert_invalid_broadcast_mentions(&resp["notCreated"]["m"]);
@@ -73,7 +73,7 @@ async fn create_rejects_broadcast_mention_without_scope() {
 
 #[tokio::test]
 async fn update_rejects_broadcast_mention_without_scope() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let resp = create(&backend, &chat_id, json!([])).await;
     let msg_id = resp["created"]["m"]["id"]

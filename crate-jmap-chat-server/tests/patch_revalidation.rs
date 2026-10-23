@@ -11,7 +11,7 @@
 
 mod common;
 
-use common::{ACCOUNT_ID, MemoryBackend, make_chat_group, seed_group_chat};
+use common::{ACCOUNT_ID, make_chat_group, seed_group_chat};
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_server::{
     handle_ban_get, handle_ban_set, handle_chat_get, handle_chat_set, handle_contact_get,
@@ -53,7 +53,7 @@ fn single(resp: Value) -> Value {
 /// "`"direct"`, `"group"`, or `"channel"`." `null` is none of those.
 #[tokio::test]
 async fn chat_kind_null_rejected_and_get_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let id = make_chat_group(&backend, "g").await;
 
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
@@ -78,7 +78,7 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
 /// The property is a String with no default; `null` is not a String.
 #[tokio::test]
 async fn message_body_null_rejected_and_get_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -119,7 +119,7 @@ async fn message_body_null_rejected_and_get_succeeds() {
 /// required String property with no default; `null` is not a String.
 #[tokio::test]
 async fn emoji_blob_id_null_rejected_and_get_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "CustomEmoji",
         ACCOUNT_ID,
@@ -155,7 +155,7 @@ async fn emoji_blob_id_null_rejected_and_get_succeeds() {
 /// A String is not a Boolean.
 #[tokio::test]
 async fn contact_blocked_wrong_type_rejected_and_get_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "ChatContact",
         ACCOUNT_ID,
@@ -191,7 +191,7 @@ async fn contact_blocked_wrong_type_rejected_and_get_succeeds() {
 /// `"offline"`." A Number is none of those.
 #[tokio::test]
 async fn presence_wrong_type_rejected_and_get_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "PresenceStatus",
         ACCOUNT_ID,
@@ -229,7 +229,7 @@ async fn presence_wrong_type_rejected_and_get_succeeds() {
 /// has read in this Chat." A Number is not a String id.
 #[tokio::test]
 async fn position_wrong_type_rejected_and_get_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "ReadPosition",
         ACCOUNT_ID,
@@ -259,7 +259,7 @@ async fn position_wrong_type_rejected_and_get_succeeds() {
 /// String.
 #[tokio::test]
 async fn ban_reason_wrong_type_rejected_and_get_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "SpaceBan",
         ACCOUNT_ID,

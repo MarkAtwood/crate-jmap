@@ -319,9 +319,12 @@ fn is_room_chat(chat: &jmap_chat_types::Chat) -> bool {
 impl TrackingBackend {
     /// Fresh `TrackingBackend` with all policy hooks at their default
     /// no-op behaviour (slow-mode allows everything, emoji-set
-    /// authorization allows everything).
+    /// authorization allows everything), wrapping [`account_backend`].
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            inner: account_backend(),
+            ..Self::default()
+        }
     }
 
     /// Configure the wrapper so [`ChatBackend::slow_mode_check`] always
@@ -330,7 +333,7 @@ impl TrackingBackend {
     pub fn with_slow_mode_blocking(retry_after: UTCDate) -> Self {
         Self {
             slow_mode_block: Some(retry_after),
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -340,7 +343,7 @@ impl TrackingBackend {
     pub fn with_emoji_set_denied() -> Self {
         Self {
             emoji_set_deny: true,
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -350,7 +353,7 @@ impl TrackingBackend {
     pub fn with_broadcast_mention_denied() -> Self {
         Self {
             broadcast_mention_deny: true,
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -359,7 +362,7 @@ impl TrackingBackend {
     pub fn with_chat_view_denied() -> Self {
         Self {
             chat_view_deny: true,
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -369,7 +372,7 @@ impl TrackingBackend {
     pub fn with_room_restrictions() -> Self {
         Self {
             room_restricted: true,
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -379,7 +382,7 @@ impl TrackingBackend {
     pub fn with_get_objects_failing(type_name: &'static str) -> Self {
         Self {
             get_objects_fail: Some(type_name),
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -389,7 +392,7 @@ impl TrackingBackend {
     pub fn with_attachment_blob_rejected(set_error: SetError) -> Self {
         Self {
             attachment_blob_reject: Some(set_error),
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -399,7 +402,7 @@ impl TrackingBackend {
     pub fn with_attachment_blob_failing() -> Self {
         Self {
             attachment_blob_fail: true,
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -409,7 +412,7 @@ impl TrackingBackend {
     pub fn with_filenode_attachment(result: Result<jmap_chat_types::Attachment, SetError>) -> Self {
         Self {
             filenode_attachment: Some(result),
-            ..Self::default()
+            ..Self::new()
         }
     }
 
@@ -1296,11 +1299,11 @@ struct ChatRacePhantom {
 }
 
 impl InjectableBackend {
-    /// Fresh `InjectableBackend` wrapping an empty [`MemoryBackend`] with
-    /// no faults queued.
+    /// Fresh `InjectableBackend` wrapping [`account_backend`] with no
+    /// faults queued.
     pub fn new() -> Self {
         Self {
-            inner: MemoryBackend::new(),
+            inner: account_backend(),
             failures: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
             chat_race_phantom: std::sync::Arc::new(std::sync::Mutex::new(None)),
             chat_get_fault_after_create: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
@@ -1647,6 +1650,14 @@ pub const ACCOUNT_ID: &str = "a1";
 /// Secondary account id used by integration.rs cross-account
 /// isolation tests. Sibling apply-test files do not use this.
 pub const ACCOUNT_ID_B: &str = "a2";
+
+/// A [`MemoryBackend`] with [`ACCOUNT_ID`] registered, so `/set` calls
+/// on it pass the RFC 8620 §3.6.2 `accountNotFound` gate (bd:JMAP-fo38).
+pub fn account_backend() -> MemoryBackend {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from(ACCOUNT_ID));
+    backend
+}
 
 /// Default Space id used by the apply_space_patch test suites.
 pub const SPACE_ID: &str = "s1";

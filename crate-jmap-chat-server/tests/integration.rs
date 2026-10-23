@@ -34,7 +34,7 @@ use serde_json::json;
 /// RFC 8620 §5.2 — sinceState "0" means "no prior synchronization".
 #[tokio::test]
 async fn memory_backend_initial_state_is_zero() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from("account1");
     let state = backend
         .get_state::<Chat>(&(), &account_id)
@@ -48,7 +48,7 @@ async fn memory_backend_initial_state_is_zero() {
 async fn memory_backend_state_advances_after_create() {
     use jmap_types::UTCDate;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from("account1");
 
     let state_before = backend
@@ -87,7 +87,7 @@ async fn memory_backend_state_advances_after_create() {
 async fn memory_backend_create_then_get() {
     use jmap_types::UTCDate;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from("account1");
 
     let chat = |id: &Id| {
@@ -128,7 +128,7 @@ async fn memory_backend_create_then_get() {
 /// Oracle: Chat/get on empty backend returns empty list, state "0", notFound null.
 #[tokio::test]
 async fn chat_get_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
     let HandlerOutput {
@@ -153,7 +153,7 @@ async fn chat_get_empty() {
 /// Oracle: Chat/get with a missing id returns notFound entry.
 #[tokio::test]
 async fn chat_get_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
     let HandlerOutput { primary: resp, .. } = handle_chat_get(
@@ -171,7 +171,7 @@ async fn chat_get_not_found() {
 /// Oracle: Chat/get without accountId returns invalidArguments error.
 #[tokio::test]
 async fn chat_get_missing_account_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let err = handle_chat_get(&backend, &(), json!({})).await.unwrap_err();
     assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
@@ -183,7 +183,7 @@ async fn chat_get_missing_account_id() {
 /// Oracle: Chat/set create with kind "group" succeeds and returns the created object.
 #[tokio::test]
 async fn chat_set_create_group() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -206,7 +206,7 @@ async fn chat_set_create_group() {
 /// Oracle: Chat/set create with kind "direct" and contactId succeeds.
 #[tokio::test]
 async fn chat_set_create_direct_with_contact_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -228,7 +228,7 @@ async fn chat_set_create_direct_with_contact_id() {
 /// Oracle: Chat/set create with kind "direct" and no contactId is rejected.
 #[tokio::test]
 async fn chat_set_create_direct_missing_contact_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -255,7 +255,7 @@ async fn chat_set_create_direct_missing_contact_id() {
 /// `forbidden` and carries no `properties`.
 #[tokio::test]
 async fn chat_set_create_channel_missing_space_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -277,7 +277,7 @@ async fn chat_set_create_channel_missing_space_id() {
 /// Oracle: Chat/set create without kind is rejected with invalidProperties.
 #[tokio::test]
 async fn chat_set_create_missing_kind() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -307,7 +307,7 @@ async fn chat_set_create_missing_kind() {
 /// client-supplied string on create (bd:JMAP-x2gd.12).
 #[tokio::test]
 async fn chat_set_create_unknown_kind_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -349,7 +349,7 @@ async fn chat_set_create_unknown_kind_rejected() {
 /// values come from the function under test.
 #[tokio::test]
 async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let chat_id = make_chat_group(&backend, "Original").await;
 
@@ -410,7 +410,7 @@ async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
 /// Oracle: Chat/set update of a server-set field (createdAt) is rejected.
 #[tokio::test]
 async fn chat_set_update_readonly_field_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     // Create a chat first.
     let chat_id = make_chat_group(&backend, "G").await;
@@ -436,7 +436,7 @@ async fn chat_set_update_readonly_field_rejected() {
 /// Oracle: Chat/set destroy removes the object.
 #[tokio::test]
 async fn chat_set_destroy() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let chat_id = make_chat_group(&backend, "Temp").await;
 
@@ -459,7 +459,7 @@ async fn chat_set_destroy() {
 /// Oracle: Chat/set ifInState mismatch returns stateMismatch error.
 #[tokio::test]
 async fn chat_set_if_in_state_mismatch() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let err = handle_chat_set(
         &backend,
         &(),
@@ -482,7 +482,7 @@ async fn chat_set_if_in_state_mismatch() {
 /// Oracle: Chat/changes with sinceState "0" on empty backend returns empty deltas.
 #[tokio::test]
 async fn chat_changes_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
     let HandlerOutput { primary: resp, .. } = handle_chat_changes(
@@ -502,7 +502,7 @@ async fn chat_changes_empty() {
 /// Oracle: Chat/changes missing sinceState returns invalidArguments.
 #[tokio::test]
 async fn chat_changes_missing_since_state() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
     let err = handle_chat_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
@@ -514,7 +514,7 @@ async fn chat_changes_missing_since_state() {
 /// Oracle: after creating a chat, Chat/changes from state "0" shows it in created.
 #[tokio::test]
 async fn chat_changes_after_create() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     handle_chat_set(
         &backend,
@@ -547,7 +547,7 @@ async fn chat_changes_after_create() {
 /// Oracle: Chat/query on empty backend returns empty ids and position 0.
 #[tokio::test]
 async fn chat_query_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     // Register the account so account_exists() returns true (the generic
     // handle_query checks this before querying).
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
@@ -563,7 +563,7 @@ async fn chat_query_empty() {
 /// Oracle: Chat/query with calculateTotal=true includes total field.
 #[tokio::test]
 async fn chat_query_with_calculate_total() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     handle_chat_set(
         &backend,
         &(),
@@ -592,7 +592,7 @@ async fn chat_query_with_calculate_total() {
 /// Oracle: Chat/queryChanges missing sinceQueryState returns invalidArguments.
 #[tokio::test]
 async fn chat_query_changes_missing_since() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
     let err = handle_chat_query_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
@@ -604,7 +604,7 @@ async fn chat_query_changes_missing_since() {
 /// Oracle: after creating a chat, queryChanges from "0" shows it in added.
 #[tokio::test]
 async fn chat_query_changes_after_create() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     handle_chat_set(
         &backend,
@@ -637,7 +637,7 @@ async fn chat_query_changes_after_create() {
 /// "removed" array". Removing then reinserting leaves one copy at index 0.
 #[tokio::test]
 async fn chat_query_changes_reports_updated_id_in_removed_and_added() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = make_chat_group(&backend, "Original").await;
 
     let HandlerOutput { primary: query, .. } =
@@ -685,7 +685,7 @@ async fn chat_query_changes_reports_updated_id_in_removed_and_added() {
 async fn chat_typing_returns_success_when_contact_not_blocked() {
     use jmap_chat_server::handle_chat_typing;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     // Seed a direct chat referencing a known contact id.
     backend.insert_object_for_test(
         "Chat",
@@ -723,7 +723,7 @@ async fn chat_typing_returns_success_when_contact_not_blocked() {
 async fn chat_typing_returns_success_when_contact_blocked() {
     use jmap_chat_server::handle_chat_typing;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -797,7 +797,7 @@ fn seed_group_chat(backend: &MemoryBackend, id: &str, member_id: &str) {
 async fn chat_typing_unknown_or_non_participant_chat_is_invalid_arguments() {
     use jmap_chat_server::handle_chat_typing;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_group_chat(&backend, "g1", "someone-else");
 
     let mut errors = Vec::new();
@@ -825,7 +825,7 @@ async fn chat_typing_unknown_or_non_participant_chat_is_invalid_arguments() {
 async fn chat_typing_group_member_succeeds() {
     use jmap_chat_server::handle_chat_typing;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_group_chat(&backend, "g1", ACCOUNT_ID);
 
     let HandlerOutput { primary: resp, .. } = handle_chat_typing(
@@ -844,7 +844,7 @@ async fn chat_typing_group_member_succeeds() {
 /// transport layer would consult the predicate before a fan-out.
 #[tokio::test]
 async fn memory_backend_is_contact_blocked_reads_chat_contact_blocked_field() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     let blocked_id = Id::from("blocked-user");
     let allowed_id = Id::from("allowed-user");
@@ -970,7 +970,7 @@ async fn chat_typing_does_not_check_block_in_sender_account() {
 /// resolved in another account's list.
 #[tokio::test]
 async fn memory_backend_is_contact_blocked_reads_only_the_owner_list() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let recipient = Id::from("acct-recipient");
     let sender = Id::from("acct-sender");
 
@@ -1107,7 +1107,7 @@ async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
 /// Oracle: Message/set create requires chatId and body.
 #[tokio::test]
 async fn message_set_create_missing_chat_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1130,7 +1130,7 @@ async fn message_set_create_missing_chat_id() {
 /// Oracle: Message/set create with chatId and body succeeds.
 #[tokio::test]
 async fn message_set_create_success() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -1154,7 +1154,7 @@ async fn message_set_create_success() {
 /// Oracle: Message/set update of server-set field deliveryState is rejected.
 #[tokio::test]
 async fn message_set_update_readonly_field() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput {
@@ -1194,7 +1194,7 @@ async fn message_set_update_readonly_field() {
 /// Oracle: Message/get returns created message.
 #[tokio::test]
 async fn message_get_returns_created() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
@@ -1227,7 +1227,7 @@ async fn message_get_returns_created() {
 /// Oracle: Message/changes after create shows new message in created list.
 #[tokio::test]
 async fn message_changes_after_create() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     handle_message_set(
@@ -1256,7 +1256,7 @@ async fn message_changes_after_create() {
 /// Oracle: Message/query returns messages in deterministic order.
 #[tokio::test]
 async fn message_query_order() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     for i in 0..3u32 {
@@ -1286,7 +1286,7 @@ async fn message_query_order() {
 /// Oracle: updating body injects server-side editedAt.
 #[tokio::test]
 async fn message_set_update_body_injects_edited_at() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
@@ -1339,7 +1339,7 @@ async fn message_set_update_body_injects_edited_at() {
 /// Oracle: setting deletedForAll: true injects server-side deletedAt.
 #[tokio::test]
 async fn message_set_update_delete_for_all_injects_deleted_at() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
@@ -1395,7 +1395,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
 /// than filtered out by the retention rule.
 #[tokio::test]
 async fn message_set_update_delete_for_all_purges_content() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_retains_edit_history_for_test(true);
     backend.insert_object_for_test(
         "Message",
@@ -1523,7 +1523,7 @@ fn insert_deletable_message(backend: &MemoryBackend, sender_id: &str) {
 /// `attachments` are cleared on this mailbox").
 #[tokio::test]
 async fn message_set_update_local_delete_purges_content() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     insert_deletable_message(&backend, "self");
 
     let HandlerOutput {
@@ -1570,7 +1570,7 @@ async fn message_set_update_local_delete_purges_content() {
 /// accountId"). The rejected update leaves the stored Message unchanged.
 #[tokio::test]
 async fn message_set_update_delete_for_all_rejects_other_sender() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     insert_deletable_message(&backend, "contact-alice");
 
     let HandlerOutput {
@@ -1614,7 +1614,7 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
 /// SetError."). Here the target's `senderId` is not the accountId.
 #[tokio::test]
 async fn message_set_update_edit_rejects_other_sender() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     insert_deletable_message(&backend, "contact-alice");
 
     let HandlerOutput {
@@ -1655,7 +1655,7 @@ async fn message_set_update_edit_rejects_other_sender() {
 /// SetError."). Here the target is the owner's own, already-deleted Message.
 #[tokio::test]
 async fn message_set_update_edit_rejects_deleted_message() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     insert_deletable_message(&backend, ACCOUNT_ID);
 
     let HandlerOutput {
@@ -1708,7 +1708,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
 /// Oracle: setting readAt stores the client-provided timestamp.
 #[tokio::test]
 async fn message_set_update_mark_as_read() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
@@ -1760,7 +1760,7 @@ async fn message_set_update_mark_as_read() {
 /// Oracle: spec §557 + §1029 — server MUST store "displayed" when readAt is set without readDisposition.
 #[tokio::test]
 async fn message_set_read_at_defaults_disposition() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1796,7 +1796,7 @@ async fn message_set_read_at_defaults_disposition() {
 /// Oracle: spec §1029 — explicit readDisposition is preserved, not overridden to "displayed".
 #[tokio::test]
 async fn message_set_explicit_disposition_preserved() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1831,7 +1831,7 @@ async fn message_set_explicit_disposition_preserved() {
 /// Oracle: spec §335 — unrecognized readDisposition values MUST be stored as-is.
 #[tokio::test]
 async fn message_set_extension_disposition_stored_as_is() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1866,7 +1866,7 @@ async fn message_set_extension_disposition_stored_as_is() {
 /// Oracle: spec §557 — readDisposition is absent when readAt is not set.
 #[tokio::test]
 async fn message_set_no_read_at_no_disposition_injected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1909,7 +1909,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
 /// `readAt: null` clears `readAt` (RFC 8620 §5.3), so it does not set it.
 #[tokio::test]
 async fn message_set_lone_read_disposition_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -1962,7 +1962,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
 /// `properties` names the offending property."
 #[tokio::test]
 async fn message_set_unsupported_body_type_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": {
@@ -2010,7 +2010,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
 /// an earlier disposition behind (bd:JMAP-yt1w.5).
 #[tokio::test]
 async fn message_set_read_at_null_clears_read_disposition() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
@@ -2068,7 +2068,7 @@ async fn message_set_read_at_null_clears_read_disposition() {
 /// `Message/changes` results (row removal, not tombstone).
 #[tokio::test]
 async fn message_set_burn_on_read_fires_on_read_at() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     // Create a burn-on-read message.
@@ -2173,7 +2173,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
 /// `readAt` event specifically, not to any mutation of a burnable message.
 #[tokio::test]
 async fn message_set_burn_on_read_no_fire_without_read_at() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -2239,7 +2239,7 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
 /// only the `burnOnRead: true` precondition triggers the hard-delete.
 #[tokio::test]
 async fn message_set_no_burn_when_burn_on_read_absent() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -2303,7 +2303,7 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
 /// owner marking its own sent `burnOnRead` message read keeps the row.
 #[tokio::test]
 async fn message_set_burn_on_read_spares_senders_own_copy() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     backend.insert_object_for_test(
         "Message",
@@ -2359,7 +2359,7 @@ async fn message_set_burn_on_read_spares_senders_own_copy() {
 /// NOT fire on a clear.
 #[tokio::test]
 async fn message_set_burn_on_read_no_fire_on_read_at_null() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -2427,7 +2427,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
 /// timer elapses.
 #[tokio::test]
 async fn memory_backend_expire_message_direct_call() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -2506,7 +2506,7 @@ async fn memory_backend_expire_message_direct_call() {
 /// SetError::NotFound.
 #[tokio::test]
 async fn memory_backend_expire_message_idempotent_on_missing() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     let missing_id = Id::from("never-existed");
 
@@ -2952,7 +2952,7 @@ async fn chat_set_direct_lost_race_cleanup_failure_new_state_matches_get() {
 /// underlying stored Message carries it. Spec MUST.
 #[tokio::test]
 async fn message_get_default_omits_edit_history() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -3004,7 +3004,7 @@ async fn message_get_default_omits_edit_history() {
 /// `Message/get` returns the stored `editHistory` verbatim.
 #[tokio::test]
 async fn message_get_with_retention_returns_edit_history() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_retains_edit_history_for_test(true);
     backend.insert_object_for_test(
         "Message",
@@ -3058,7 +3058,7 @@ async fn message_get_with_retention_returns_edit_history() {
 /// the client's properties selector.
 #[tokio::test]
 async fn message_get_properties_does_not_force_edit_history_when_retention_off() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -3115,7 +3115,7 @@ async fn message_get_properties_does_not_force_edit_history_when_retention_off()
 /// (no retention) and production backends opt in.
 #[tokio::test]
 async fn memory_backend_retains_edit_history_default_is_false() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     assert!(
         !backend.retains_edit_history(),
         "default MemoryBackend must report retains_edit_history() == false"
@@ -3132,7 +3132,7 @@ async fn memory_backend_retains_edit_history_default_is_false() {
 /// defines the hook, the consumer enforces the throttle policy.
 #[tokio::test]
 async fn message_set_create_no_slow_mode_on_memory_backend() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
@@ -3296,7 +3296,7 @@ async fn message_set_create_slow_mode_skipped_when_validation_fails() {
 /// Oracle: Message/set create with replyTo set stores and returns the field.
 #[tokio::test]
 async fn message_set_create_with_reply_to() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     // Create the message that will be replied to.
@@ -3350,7 +3350,7 @@ async fn message_set_create_with_reply_to() {
 /// undefined ordering semantics.
 #[tokio::test]
 async fn message_set_create_with_malformed_expiry_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
@@ -3388,7 +3388,7 @@ async fn message_set_create_with_malformed_expiry_rejected() {
 /// invalidProperties: ["senderExpiresAt"].
 #[tokio::test]
 async fn message_set_create_with_past_expiry_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
@@ -3429,7 +3429,7 @@ async fn message_set_create_with_past_expiry_rejected() {
 /// RFC 8620 §5.3 defines `invalidProperties` as a SetError type.
 #[tokio::test]
 async fn message_set_past_expiry_set_error_matches_draft() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
@@ -3467,7 +3467,7 @@ async fn message_set_past_expiry_set_error_matches_draft() {
 /// `helpers::iso8601_before` assume a validated shape.
 #[tokio::test]
 async fn message_set_create_with_malformed_sent_at_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -3509,7 +3509,7 @@ async fn message_set_create_with_malformed_sent_at_rejected() {
 /// so the rejection is `forbidden`, not `invalidProperties`.
 #[tokio::test]
 async fn position_set_create_with_malformed_last_read_at_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
@@ -3544,7 +3544,7 @@ async fn position_set_create_with_malformed_last_read_at_rejected() {
 /// server injects `senderId` and `sentAt`.
 #[tokio::test]
 async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
@@ -3608,7 +3608,7 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
 /// defense in depth per draft-atwood-jmap-chat-00 §Reaction.
 #[tokio::test]
 async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -3666,7 +3666,7 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
 /// caller MUST be rejected with a `forbidden` SetError. Spec MUST.
 #[tokio::test]
 async fn message_set_update_reaction_remove_others_rejected_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     // Seed a Message with a pre-existing reaction whose senderId is
     // NOT the accountId — simulates a reaction authored by a peer.
     backend.insert_object_for_test(
@@ -3744,7 +3744,7 @@ async fn message_set_update_reaction_remove_others_rejected_forbidden() {
 /// sender may modify their own reactions.
 #[tokio::test]
 async fn message_set_update_reaction_modify_others_rejected_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -3795,7 +3795,7 @@ async fn message_set_update_reaction_modify_others_rejected_forbidden() {
 /// escape characters; the chat-client also rejects them.
 #[tokio::test]
 async fn message_set_update_reaction_pointer_with_slash_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -3841,7 +3841,7 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
 /// object; a bare string / number / boolean is malformed.
 #[tokio::test]
 async fn message_set_update_reaction_non_object_value_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -3886,7 +3886,7 @@ async fn message_set_update_reaction_non_object_value_rejected() {
 /// succeeds. The reaction is removed from the stored Message.
 #[tokio::test]
 async fn message_set_update_reaction_remove_self_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -3966,7 +3966,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
 /// merge) and a single patch must not attempt both.
 #[tokio::test]
 async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
@@ -4017,7 +4017,7 @@ async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
 /// Oracle: Space/set create requires name.
 #[tokio::test]
 async fn space_set_create_missing_name() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
@@ -4039,7 +4039,7 @@ async fn space_set_create_missing_name() {
 /// Oracle: Space/set create with name succeeds.
 #[tokio::test]
 async fn space_set_create_success() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
@@ -4058,7 +4058,7 @@ async fn space_set_create_success() {
 /// Oracle: Space/get returns created space.
 #[tokio::test]
 async fn space_get_returns_created() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "The Space").await;
 
@@ -4078,7 +4078,7 @@ async fn space_get_returns_created() {
 /// Oracle: Space/set update rejects direct writes to server-managed array fields.
 #[tokio::test]
 async fn space_set_update_readonly_fields_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Readonly Test").await;
 
@@ -4121,7 +4121,7 @@ async fn space_set_update_readonly_fields_rejected() {
 /// rather than Forbidden.
 #[tokio::test]
 async fn space_set_update_role_member_variants_dispatch_to_backend() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Mutation Test").await;
 
@@ -4275,7 +4275,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
 /// an empty patch (no fields to apply) and rejected as `invalidPatch`.
 #[tokio::test]
 async fn space_set_update_structural_empty_array_is_empty_patch() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Empty Test").await;
 
@@ -4300,7 +4300,7 @@ async fn space_set_update_structural_empty_array_is_empty_patch() {
 /// at the parsing layer with `invalidProperties` naming the offending key.
 #[tokio::test]
 async fn space_set_update_malformed_structural_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Malformed Test").await;
 
@@ -4350,7 +4350,7 @@ async fn space_set_update_malformed_structural_rejected() {
 /// `c3ea5d9` — position 0 is reserved for the implicit @everyone role.
 #[tokio::test]
 async fn space_set_add_roles_position_zero_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Test").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4401,7 +4401,7 @@ async fn space_set_add_roles_position_zero_rejected() {
 /// the handler-level position check did not fire.
 #[tokio::test]
 async fn space_set_add_roles_position_one_passes_handler_check() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Test").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4445,7 +4445,7 @@ async fn space_set_add_roles_position_one_passes_handler_check() {
 /// patches just as it does to add entries (spec MUST).
 #[tokio::test]
 async fn space_set_update_roles_position_zero_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Test").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4478,7 +4478,7 @@ async fn space_set_update_roles_position_zero_rejected() {
 /// `notUpdated`.
 #[tokio::test]
 async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Atomic").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4531,7 +4531,7 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
 /// identity-checked Role/Member ops).
 #[tokio::test]
 async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Original Name").await;
 
@@ -4577,7 +4577,7 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
 /// is rejected as `invalidProperties` naming the unknown key.
 #[tokio::test]
 async fn space_set_update_unknown_property_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Unknown Property Test").await;
 
@@ -4653,7 +4653,7 @@ fn seed_channel(
 /// the category into Space.categories.
 #[tokio::test]
 async fn space_set_category_add_assigns_id_and_pushes() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Add Test").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4715,7 +4715,7 @@ async fn space_set_category_add_assigns_id_and_pushes() {
 /// and give the new category an id of its own (bd:JMAP-yt1w.14).
 #[tokio::test]
 async fn space_set_category_add_without_id_is_accepted() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat No Id Test").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4774,7 +4774,7 @@ async fn space_set_category_add_without_id_is_accepted() {
 /// separate Spaces must each get a distinct id (bd:JMAP-yt1w.15).
 #[tokio::test]
 async fn space_set_category_add_assigns_unique_ids() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_a = make_space(&backend, "Cat Unique A").await;
     let space_b = make_space(&backend, "Cat Unique B").await;
 
@@ -4831,7 +4831,7 @@ async fn space_set_category_add_assigns_unique_ids() {
 /// out of uncategorizedChannelIds.
 #[tokio::test]
 async fn space_set_category_add_reassigns_existing_channels() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Reassign Test").await;
 
     // Seed two channels into the Space; they start uncategorized.
@@ -4884,7 +4884,7 @@ async fn space_set_category_add_reassigns_existing_channels() {
 /// channels of this Space (invalidProperties on `channelIds`).
 #[tokio::test]
 async fn space_set_category_add_unknown_channel_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Unknown Channel Test").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4929,7 +4929,7 @@ async fn space_set_category_add_unknown_channel_rejected() {
 /// names which category was not found).
 #[tokio::test]
 async fn space_set_category_remove_unknown_yields_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Remove Unknown").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -4954,7 +4954,7 @@ async fn space_set_category_remove_unknown_yields_not_found() {
 /// uncategorizedChannelIds (draft §Space/set L1292).
 #[tokio::test]
 async fn space_set_category_remove_cascades_channels_to_uncategorized() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Cascade Test").await;
 
     // Create a category with two channels via addCategories.
@@ -5050,7 +5050,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
 /// when channelIds is replaced, keeps channel.categoryId consistent.
 #[tokio::test]
 async fn space_set_category_update_rename_and_reassign_channels() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Update Test").await;
 
     seed_channel(&backend, ACCOUNT_ID, "ch-x", &space_id, None);
@@ -5183,7 +5183,7 @@ async fn seed_two_categories(backend: &MemoryBackend, space_id: &str) {
 /// A moves the channel: A.channelIds must no longer list it.
 #[tokio::test]
 async fn space_set_category_add_moves_channel_out_of_previous_category() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Add Move Test").await;
     seed_two_categories(&backend, &space_id).await;
 
@@ -5246,7 +5246,7 @@ async fn space_set_category_add_moves_channel_out_of_previous_category() {
 /// list it.
 #[tokio::test]
 async fn space_set_category_update_moves_channel_out_of_previous_category() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Update Move Test").await;
     seed_two_categories(&backend, &space_id).await;
 
@@ -5302,7 +5302,7 @@ async fn space_set_category_update_moves_channel_out_of_previous_category() {
 /// unaware of the categoryId change.
 #[tokio::test]
 async fn space_set_category_cascade_emits_chat_changes() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Cat Cascade Chat-changes Test").await;
 
     // Seed two channels using direct injection so the Chat state stays
@@ -5373,7 +5373,7 @@ async fn space_set_category_cascade_emits_chat_changes() {
 /// `spaceId`, `name`, `kind: "channel"`) are all set.
 #[tokio::test]
 async fn space_set_channel_add_assigns_id_and_lands_uncategorized() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Add Test").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -5444,7 +5444,7 @@ async fn space_set_channel_add_assigns_id_and_lands_uncategorized() {
 /// categoryId.
 #[tokio::test]
 async fn space_set_channel_add_into_existing_category() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Add Into Cat").await;
 
     // First, create an empty category to add the new channel into.
@@ -5540,7 +5540,7 @@ async fn space_set_channel_add_into_existing_category() {
 /// and no Chat record is created.
 #[tokio::test]
 async fn space_set_channel_add_unknown_category_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Add Unknown Cat").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -5600,7 +5600,7 @@ async fn space_set_channel_add_unknown_category_rejected() {
 /// does not destroy any other channel or Message.
 #[tokio::test]
 async fn space_set_channel_remove_unknown_yields_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Remove Unknown").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -5627,7 +5627,7 @@ async fn space_set_channel_remove_unknown_yields_not_found() {
 /// pruned. Other channels in the Space are untouched.
 #[tokio::test]
 async fn space_set_channel_remove_cascades_messages() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Remove Cascade").await;
 
     // Add two channels via Space/set so we exercise the real path.
@@ -5787,7 +5787,7 @@ async fn space_set_channel_remove_cascades_messages() {
 /// fields in place. Required fields and other optionals are preserved.
 #[tokio::test]
 async fn space_set_channel_update_name_and_position() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Update Basic").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -5852,7 +5852,7 @@ async fn space_set_channel_update_name_and_position() {
 /// (Clearable::Clear semantics) without touching other fields.
 #[tokio::test]
 async fn space_set_channel_update_topic_cleared_by_null() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Update Clearable").await;
 
     let HandlerOutput { .. } = handle_space_set(
@@ -5914,7 +5914,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
 /// Space-side arrays consistent.
 #[tokio::test]
 async fn space_set_channel_update_category_move() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Update Move Cat").await;
 
     let HandlerOutput { .. } = handle_space_set(
@@ -6009,7 +6009,7 @@ async fn space_set_channel_update_category_move() {
 /// channel id from its prior category's `channelIds`.
 #[tokio::test]
 async fn space_set_channel_update_category_cleared_by_null() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Update Clear Cat").await;
 
     // Seed: create a category with one channel inside it.
@@ -6120,7 +6120,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
 /// and the existing assignment is preserved.
 #[tokio::test]
 async fn space_set_channel_update_unknown_category_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Update Unknown Cat").await;
 
     let HandlerOutput { .. } = handle_space_set(
@@ -6180,7 +6180,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
 /// `notFound`.
 #[tokio::test]
 async fn space_set_channel_update_unknown_channel_yields_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Update Unknown Channel").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -6212,7 +6212,7 @@ async fn space_set_channel_update_unknown_channel_yields_not_found() {
 /// to the most-impactful list per call.)
 #[tokio::test]
 async fn space_set_channel_changelog_dedups_create_then_destroy() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Channel Changelog Dedup").await;
 
     // Establish a baseline state for Chat so we know we are looking at
@@ -6351,7 +6351,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
 /// Oracle: Space/set update accepts metadata fields (name, description, isPublic, etc.).
 #[tokio::test]
 async fn space_set_update_metadata_success() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Original Name").await;
 
@@ -6406,7 +6406,7 @@ async fn space_set_update_metadata_success() {
 /// rejected with `invalidProperties` naming each of them.
 #[tokio::test]
 async fn contact_set_create_without_identity_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
@@ -6433,7 +6433,7 @@ async fn contact_set_create_without_identity_invalid_properties() {
 /// Oracle: ChatContact/set destroy is always forbidden (server-managed objects).
 #[tokio::test]
 async fn contact_set_destroy_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
@@ -6458,7 +6458,7 @@ async fn contact_set_destroy_forbidden() {
 /// in bd:JMAP-x2gd.8.
 #[tokio::test]
 async fn contact_set_update_allowed_fields_apply() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "ChatContact",
@@ -6511,7 +6511,7 @@ async fn contact_set_update_allowed_fields_apply() {
 /// bd:JMAP-x2gd.8.
 #[tokio::test]
 async fn contact_set_update_rejects_server_set_fields() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "ChatContact",
@@ -6577,7 +6577,7 @@ async fn contact_set_update_rejects_server_set_fields() {
 /// either (bd:JMAP-405z.1).
 #[tokio::test]
 async fn contact_set_update_identity_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "ChatContact",
@@ -6628,7 +6628,7 @@ async fn contact_set_update_identity_rejected() {
 /// same patch is not applied either.
 #[tokio::test]
 async fn contact_set_update_mixed_patch_with_server_set_field_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "ChatContact",
@@ -6678,7 +6678,7 @@ async fn contact_set_update_mixed_patch_with_server_set_field_rejected() {
 /// Oracle: ChatContact/get on an empty backend returns an empty list.
 #[tokio::test]
 async fn contact_get_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: get_resp, ..
     } = handle_contact_get(
@@ -6695,7 +6695,7 @@ async fn contact_get_empty() {
 /// Oracle: ChatContact/changes on an empty backend returns empty change lists.
 #[tokio::test]
 async fn contact_changes_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_contact_changes(
         &backend,
         &(),
@@ -6720,7 +6720,7 @@ async fn contact_changes_empty() {
 /// so the rejection is `forbidden` rather than naming `chatId`.
 #[tokio::test]
 async fn position_set_create_missing_chat_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
@@ -6743,7 +6743,7 @@ async fn position_set_create_missing_chat_id() {
 /// are not supported; both MUST return a SetError of type `forbidden`."
 #[tokio::test]
 async fn position_set_create_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
@@ -6768,7 +6768,7 @@ async fn position_set_create_forbidden() {
 /// so both creates are rejected and nothing is stored.
 #[tokio::test]
 async fn position_set_create_duplicate_chat_id_sequential_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: first, .. } = handle_position_set(
         &backend,
         &(),
@@ -6814,7 +6814,7 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
 /// so both creates are rejected.
 #[tokio::test]
 async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
@@ -6842,7 +6842,7 @@ async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
 /// Oracle: ReadPosition/set update of chatId is rejected (immutable).
 #[tokio::test]
 async fn position_set_update_chat_id_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     // Seeded directly: §ReadPosition/set "`create` and `destroy` are not
     // supported; both MUST return a SetError of type `forbidden`."
@@ -6873,7 +6873,7 @@ async fn position_set_update_chat_id_rejected() {
 /// Oracle: ReadPosition/get returns created position.
 #[tokio::test]
 async fn position_get_returns_created() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     // Seeded directly: §ReadPosition/set "`create` and `destroy` are not
     // supported; both MUST return a SetError of type `forbidden`."
@@ -6939,7 +6939,7 @@ async fn chat_set_backend_error_maps_to_server_fail() {
 /// with SetError type "alreadyExists" and the existingId set to the first chat.
 #[tokio::test]
 async fn chat_set_create_direct_duplicate_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     // First create succeeds.
     let HandlerOutput { primary: resp1, .. } = handle_chat_set(
@@ -6993,7 +6993,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
 /// Oracle: direct chats with different contactIds are allowed (no false positive dedup).
 #[tokio::test]
 async fn chat_set_create_direct_different_contacts_allowed() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let HandlerOutput { primary: resp1, .. } = handle_chat_set(
         &backend,
@@ -7033,7 +7033,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
 /// Oracle: objects created in account A are not visible in account B.
 #[tokio::test]
 async fn accounts_are_isolated() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let a1 = Id::from(ACCOUNT_ID);
     let a2 = Id::from(ACCOUNT_ID_B);
     backend.register_account(&a1);
@@ -7067,7 +7067,7 @@ async fn accounts_are_isolated() {
 /// Oracle: ChatContact/query on empty backend returns empty ids and position 0.
 #[tokio::test]
 async fn contact_query_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: resp,
         extra_invocations: invocations,
@@ -7085,7 +7085,7 @@ async fn contact_query_empty() {
 /// Oracle: ChatContact/queryChanges without sinceQueryState returns invalidArguments.
 #[tokio::test]
 async fn contact_query_changes_requires_since_state() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let err = handle_contact_query_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
@@ -7100,7 +7100,7 @@ async fn contact_query_changes_requires_since_state() {
 /// Oracle: SpaceInvite/get on empty backend returns empty list.
 #[tokio::test]
 async fn invite_get_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: resp,
         extra_invocations: invocations,
@@ -7122,7 +7122,7 @@ async fn invite_get_empty() {
 /// Oracle: SpaceInvite/set create without spaceId returns notCreated invalidProperties.
 #[tokio::test]
 async fn invite_set_create_missing_space_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
@@ -7146,7 +7146,7 @@ async fn invite_set_create_missing_space_id() {
 /// UTCDate form) is rejected with invalidProperties: ["expiresAt"].
 #[tokio::test]
 async fn invite_set_create_with_malformed_expiry_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
@@ -7175,7 +7175,7 @@ async fn invite_set_create_with_malformed_expiry_rejected() {
 /// Oracle: SpaceInvite/set create with valid spaceId succeeds and returns a code field.
 #[tokio::test]
 async fn invite_set_create_success() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
@@ -7199,7 +7199,7 @@ async fn invite_set_create_success() {
 /// Oracle: SpaceInvite/set update always returns notUpdated forbidden.
 #[tokio::test]
 async fn invite_set_update_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     // Create an invite first so we have a real id.
     let HandlerOutput {
@@ -7244,7 +7244,7 @@ async fn invite_set_update_forbidden() {
 /// Oracle: SpaceInvite/get returns the invite that was just created.
 #[tokio::test]
 async fn invite_get_returns_created() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let HandlerOutput {
         primary: create_resp,
@@ -7286,7 +7286,7 @@ async fn invite_get_returns_created() {
 async fn emoji_get_empty() {
     use jmap_chat_server::handle_emoji_get;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: resp,
         extra_invocations: invocations,
@@ -7311,7 +7311,7 @@ async fn emoji_get_empty() {
 async fn emoji_set_create_missing_name() {
     use jmap_chat_server::handle_emoji_set;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
@@ -7336,7 +7336,7 @@ async fn emoji_set_create_missing_name() {
 async fn emoji_set_create_invalid_name() {
     use jmap_chat_server::handle_emoji_set;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
@@ -7362,7 +7362,7 @@ async fn emoji_set_create_invalid_name() {
 async fn emoji_set_create_success() {
     use jmap_chat_server::handle_emoji_set;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
@@ -7386,7 +7386,7 @@ async fn emoji_set_create_success() {
 async fn emoji_get_returns_created() {
     use jmap_chat_server::{handle_emoji_get, handle_emoji_set};
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -7434,7 +7434,7 @@ async fn emoji_get_returns_created() {
 async fn emoji_set_create_server_global_no_authz_block() {
     use jmap_chat_server::handle_emoji_set;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
@@ -7465,7 +7465,7 @@ async fn emoji_set_create_server_global_no_authz_block() {
 async fn emoji_set_create_space_scoped_no_authz_block() {
     use jmap_chat_server::handle_emoji_set;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
@@ -7651,7 +7651,7 @@ async fn emoji_set_update_missing_id_does_not_consult_gate() {
 /// Oracle: SpaceBan/get on empty backend returns empty list.
 #[tokio::test]
 async fn ban_get_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: resp,
         extra_invocations: invocations,
@@ -7673,7 +7673,7 @@ async fn ban_get_empty() {
 /// Oracle: SpaceBan/set create without spaceId returns notCreated invalidProperties.
 #[tokio::test]
 async fn ban_set_create_missing_space_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
@@ -7697,7 +7697,7 @@ async fn ban_set_create_missing_space_id() {
 /// UTCDate form) is rejected with invalidProperties: ["expiresAt"].
 #[tokio::test]
 async fn ban_set_create_with_malformed_expiry_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
@@ -7730,7 +7730,7 @@ async fn ban_set_create_with_malformed_expiry_rejected() {
 /// Oracle: SpaceBan/set create without userId returns notCreated invalidProperties.
 #[tokio::test]
 async fn ban_set_create_missing_user_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
@@ -7753,7 +7753,7 @@ async fn ban_set_create_missing_user_id() {
 /// Oracle: SpaceBan/set create with valid spaceId and userId succeeds; bannedBy equals accountId.
 #[tokio::test]
 async fn ban_set_create_success() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
@@ -7777,7 +7777,7 @@ async fn ban_set_create_success() {
 /// Oracle: SpaceBan/get after create returns the created object.
 #[tokio::test]
 async fn ban_get_returns_created() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let HandlerOutput {
         primary: create_resp,
@@ -7823,7 +7823,7 @@ async fn ban_get_returns_created() {
 /// Oracle: PresenceStatus/get on empty backend returns empty list, state "0".
 #[tokio::test]
 async fn presence_get_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: resp,
         extra_invocations: invocations,
@@ -7846,7 +7846,7 @@ async fn presence_get_empty() {
 /// Oracle: PresenceStatus/set create is always rejected with forbidden.
 #[tokio::test]
 async fn presence_set_create_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
@@ -7870,7 +7870,7 @@ async fn presence_set_create_forbidden() {
 /// Oracle: PresenceStatus/set destroy is always rejected with forbidden.
 #[tokio::test]
 async fn presence_set_destroy_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
@@ -7892,7 +7892,7 @@ async fn presence_set_destroy_forbidden() {
 /// Oracle: PresenceStatus/set update with readonly field `id` returns invalidProperties.
 #[tokio::test]
 async fn presence_set_update_readonly_id_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
@@ -7915,7 +7915,7 @@ async fn presence_set_update_readonly_id_rejected() {
 /// Oracle: PresenceStatus/set update with readonly field `updatedAt` returns invalidProperties.
 #[tokio::test]
 async fn presence_set_update_readonly_updated_at_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
@@ -7938,7 +7938,7 @@ async fn presence_set_update_readonly_updated_at_rejected() {
 /// Oracle: PresenceStatus/set update on non-existent id returns notUpdated (notFound from backend).
 #[tokio::test]
 async fn presence_set_update_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
@@ -7963,7 +7963,7 @@ async fn presence_set_update_not_found() {
 /// Oracle: PresenceStatus/changes on empty backend returns empty arrays.
 #[tokio::test]
 async fn presence_changes_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput {
         primary: resp,
         extra_invocations: invocations,
@@ -7988,7 +7988,7 @@ async fn presence_changes_empty() {
 /// Oracle: PresenceStatus/changes without sinceState returns invalidArguments.
 #[tokio::test]
 async fn presence_changes_requires_since_state() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let err = handle_presence_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();
@@ -8002,7 +8002,7 @@ async fn presence_changes_requires_since_state() {
 /// Oracle: Space/join with neither inviteCode nor spaceId returns invalidArguments.
 #[tokio::test]
 async fn space_join_requires_exactly_one_arg() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let err = handle_space_join(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();
@@ -8012,7 +8012,7 @@ async fn space_join_requires_exactly_one_arg() {
 /// Oracle: Space/join with both inviteCode and spaceId returns invalidArguments.
 #[tokio::test]
 async fn space_join_both_args_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let err = handle_space_join(
         &backend,
         &(),
@@ -8030,7 +8030,7 @@ async fn space_join_both_args_rejected() {
 /// Oracle: Space/join with an unknown invite code returns invalidArguments.
 #[tokio::test]
 async fn space_join_invalid_invite_code() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let err = handle_space_join(
         &backend,
         &(),
@@ -8050,7 +8050,7 @@ async fn space_join_invalid_invite_code() {
 /// error."
 #[tokio::test]
 async fn space_join_public_space_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let err = handle_space_join(
         &backend,
         &(),
@@ -8070,7 +8070,7 @@ async fn space_join_public_space_not_found() {
 async fn space_join_via_invite_code_success() {
     use jmap_chat_server::handle_invite_get;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     // Create a real Space so the member-add step has an object to patch.
     let HandlerOutput {
@@ -8185,7 +8185,7 @@ async fn space_join_via_invite_code_success() {
 async fn space_join_invite_code_from_other_account_not_found() {
     use jmap_chat_server::handle_invite_get;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let HandlerOutput {
         primary: space_resp,
@@ -8261,7 +8261,7 @@ async fn space_join_invite_at_max_uses_rejected() {
     use jmap_chat_types::SpaceInvite;
     use jmap_types::UTCDate;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
 
     // Insert a pre-exhausted invite directly via the backend:
@@ -8303,7 +8303,7 @@ async fn space_join_invite_at_max_uses_rejected() {
 /// error."
 #[tokio::test]
 async fn space_join_private_space_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space_with_props(
         &backend,
@@ -8328,7 +8328,7 @@ async fn space_join_private_space_forbidden() {
 /// spaceId.
 #[tokio::test]
 async fn space_join_public_space_success() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let space_id = make_space_with_props(
         &backend,
@@ -8401,7 +8401,7 @@ async fn clear_members(backend: &MemoryBackend, space_id: &str) {
 /// `forbidden` method error."
 #[tokio::test]
 async fn space_join_public_space_banned_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space_with_props(
         &backend,
         json!({ "name": "Public Space", "isPublic": true }),
@@ -8425,7 +8425,7 @@ async fn space_join_public_space_banned_forbidden() {
 /// `forbidden` method error." The ban applies to the invite path too.
 #[tokio::test]
 async fn space_join_via_invite_banned_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space_with_props(&backend, json!({ "name": "Invite Space" })).await;
     let HandlerOutput {
         primary: invite_resp,
@@ -8462,7 +8462,7 @@ async fn space_join_via_invite_banned_forbidden() {
 /// is not active, so the join succeeds.
 #[tokio::test]
 async fn space_join_expired_ban_does_not_block() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space_with_props(
         &backend,
         json!({ "name": "Public Space", "isPublic": true }),
@@ -8488,7 +8488,7 @@ async fn space_join_expired_ban_does_not_block() {
 /// check that fails."
 #[tokio::test]
 async fn space_join_argument_check_precedes_ban_check() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space_with_props(
         &backend,
         json!({ "name": "Public Space", "isPublic": true }),
@@ -8516,7 +8516,7 @@ async fn space_join_argument_check_precedes_ban_check() {
 /// `Message/set` the rejection is a `tooLarge` SetError."
 #[tokio::test]
 async fn message_set_create_body_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let long_body: String = "a".repeat(100_001);
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -8540,7 +8540,7 @@ async fn message_set_create_body_too_large() {
 async fn emoji_set_create_name_too_long() {
     use jmap_chat_server::handle_emoji_set;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let long_name: String = "a".repeat(65);
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
@@ -8565,7 +8565,7 @@ async fn emoji_set_create_name_too_long() {
 /// Oracle: Space/set create with name of 257 chars is rejected.
 #[tokio::test]
 async fn space_set_create_name_too_long() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let long_name: String = "a".repeat(257);
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
@@ -8589,7 +8589,7 @@ async fn space_set_create_name_too_long() {
 /// Oracle: SpaceInvite/set create with maxUses=0 is rejected.
 #[tokio::test]
 async fn invite_set_create_max_uses_zero() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
@@ -8613,7 +8613,7 @@ async fn invite_set_create_max_uses_zero() {
 /// Oracle: SpaceBan/set create with reason exceeding 1,000 chars is rejected.
 #[tokio::test]
 async fn ban_set_create_reason_too_long() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let long_reason: String = "a".repeat(1001);
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
@@ -8650,7 +8650,7 @@ async fn ban_set_create_reason_too_long() {
 /// addCategories patch (well under the 100-category cap).
 #[tokio::test]
 async fn space_set_count_limits_default_caps_allow_normal_patch() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "Default Caps").await;
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -8684,7 +8684,7 @@ async fn space_set_count_limits_default_caps_allow_normal_patch() {
 /// with an overQuota SetError naming the offending collection.
 #[tokio::test]
 async fn space_set_count_limits_add_categories_over_cap_rejects() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(
         jmap_chat_server::ChatLimits::default().with_max_categories_per_space(1),
     ));
@@ -8756,7 +8756,7 @@ async fn space_set_count_limits_add_categories_over_cap_rejects() {
 /// cross the cap is rejected atomically — none of the entries are applied.
 #[tokio::test]
 async fn space_set_count_limits_atomic_reject_whole_target() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(
         jmap_chat_server::ChatLimits::default().with_max_categories_per_space(2),
     ));
@@ -8808,7 +8808,7 @@ async fn space_set_count_limits_atomic_reject_whole_target() {
 /// Oracle: addChannels at-cap is rejected. Channel count = uncategorized + categorized.
 #[tokio::test]
 async fn space_set_count_limits_add_channels_over_cap_rejects() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(
         jmap_chat_server::ChatLimits::default().with_max_channels_per_space(2),
     ));
@@ -8864,7 +8864,7 @@ async fn space_set_count_limits_add_channels_over_cap_rejects() {
 /// declaration order: roles, members, channels, categories.
 #[tokio::test]
 async fn space_set_count_limits_first_offender_surfaces() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(
         jmap_chat_server::ChatLimits::default()
             .with_max_channels_per_space(0)
@@ -8910,7 +8910,7 @@ async fn space_set_count_limits_first_offender_surfaces() {
 /// circuited by the cap check.
 #[tokio::test]
 async fn space_set_count_limits_no_add_ops_bypasses_check() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     // Set roles cap to 0; if the check were running unconditionally, a
     // bare removeRoles patch would falsely trip a cap.
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
@@ -8948,7 +8948,7 @@ async fn space_set_count_limits_no_add_ops_bypasses_check() {
 /// arm has its own creation logic and does not pre-fetch the Space.
 #[tokio::test]
 async fn space_set_count_limits_create_only_unaffected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
 
     let HandlerOutput { primary: resp, .. } = handle_space_set(
@@ -8991,7 +8991,7 @@ async fn apply_space_patch_direct_call_enforces_roles_cap() {
     use jmap_chat_server::SpacePatchOp;
     use jmap_chat_types::RoleCreate;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     // Tight cap: only 0 roles allowed.
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 1024, 1024, 1024)));
     let space_id = make_space(&backend, "Direct Caller Cap Test").await;
@@ -9041,7 +9041,7 @@ async fn apply_space_patch_direct_call_enforces_roles_cap() {
 async fn apply_space_patch_direct_call_no_add_ops_bypasses_cap_check() {
     use jmap_chat_server::SpacePatchOp;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
     let space_id = make_space(&backend, "No-Add Direct").await;
 
@@ -9092,7 +9092,7 @@ async fn apply_space_patch_direct_call_no_add_ops_bypasses_cap_check() {
 /// (`existing`, `cap`, `would have`, `adding`) appear.
 #[tokio::test]
 async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(
         jmap_chat_server::ChatLimits::default().with_max_categories_per_space(1),
     ));
@@ -9173,7 +9173,7 @@ async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
 async fn apply_space_patch_direct_call_overquota_description_does_not_leak_counts_or_caps() {
     use jmap_chat_server::SpacePatchOp;
 
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
     let space_id = make_space(&backend, "Direct Leak Canary").await;
 
@@ -9270,7 +9270,7 @@ fn seed_message_for_mention_test(
 /// broadcastMentions=[{scope:"everyone"}] and empty direct mentions.
 #[tokio::test]
 async fn query_has_mention_matches_broadcast_everyone() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_message_for_mention_test(
         &backend,
         "m-everyone",
@@ -9300,7 +9300,7 @@ async fn query_has_mention_matches_broadcast_everyone() {
 /// broadcastMentions=[{scope:"here"}] and empty direct mentions.
 #[tokio::test]
 async fn query_has_mention_matches_broadcast_here() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_message_for_mention_test(&backend, "m-here", json!([]), json!([{"scope": "here"}]));
 
     let HandlerOutput { primary: resp, .. } = handle_message_query(
@@ -9328,7 +9328,7 @@ async fn query_has_mention_matches_broadcast_here() {
 /// ChatMember `role` of `"admin"` is that authority.
 #[tokio::test]
 async fn query_has_mention_matches_broadcast_admins() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_message_for_mention_test(
         &backend,
         "m-admins",
@@ -9369,7 +9369,7 @@ async fn query_has_mention_matches_broadcast_admins() {
 /// empty broadcastMentions.
 #[tokio::test]
 async fn query_has_mention_no_broadcast_no_mention() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_message_for_mention_test(&backend, "m-none", json!([]), json!([]));
 
     let HandlerOutput { primary: resp, .. } = handle_message_query(
@@ -9393,7 +9393,7 @@ async fn query_has_mention_no_broadcast_no_mention() {
 /// scope (defensive: unrecognized scope is conservative no-match).
 #[tokio::test]
 async fn query_has_mention_unknown_scope_no_match() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_message_for_mention_test(
         &backend,
         "m-unknown",

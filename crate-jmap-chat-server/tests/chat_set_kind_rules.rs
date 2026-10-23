@@ -53,7 +53,7 @@ fn store_chat(backend: &MemoryBackend, id: &str, kind: &str, members: Value) {
 /// server MUST return a SetError of type `forbidden`."
 #[tokio::test]
 async fn channel_destroy_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(&backend, "ch1", "channel", json!(null));
 
     let resp = chat_set(&backend, json!({ "destroy": ["ch1"] })).await;
@@ -72,7 +72,7 @@ async fn channel_destroy_is_forbidden() {
 /// from the caller's view."
 #[tokio::test]
 async fn group_destroy_still_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(&backend, "g1", "group", json!([]));
 
     let resp = chat_set(&backend, json!({ "destroy": ["g1"] })).await;
@@ -86,7 +86,7 @@ async fn group_destroy_still_succeeds() {
 /// than being skipped while the valid id is destroyed.
 #[tokio::test]
 async fn non_string_destroy_element_is_invalid_arguments() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(&backend, "g1", "group", json!([]));
 
     let err = handle_chat_set(
@@ -107,7 +107,7 @@ async fn non_string_destroy_element_is_invalid_arguments() {
 /// not.
 #[tokio::test]
 async fn non_admin_group_metadata_update_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(
         &backend,
         "g1",
@@ -133,7 +133,7 @@ async fn non_admin_group_metadata_update_is_forbidden() {
 /// `description`, `avatarBlobId`."
 #[tokio::test]
 async fn admin_group_metadata_update_applies() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(
         &backend,
         "g1",
@@ -160,7 +160,7 @@ async fn admin_group_metadata_update_applies() {
 /// L1026 does not list `name` among the keys "for all chat kinds".
 #[tokio::test]
 async fn direct_chat_name_update_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(&backend, "d1", "direct", json!(null));
 
     let resp = chat_set(&backend, json!({ "update": { "d1": { "name": "x" } } })).await;
@@ -175,7 +175,7 @@ async fn direct_chat_name_update_is_forbidden() {
 /// record given is invalid in some way."
 #[tokio::test]
 async fn update_key_outside_spec_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(
         &backend,
         "g1",
@@ -196,7 +196,7 @@ async fn update_key_outside_spec_is_invalid_properties() {
 /// L1026: the keys for all chat kinds are accepted on a direct Chat.
 #[tokio::test]
 async fn all_kind_update_keys_apply_to_direct_chat() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     store_chat(&backend, "d1", "direct", json!(null));
 
     let resp = chat_set(
@@ -222,7 +222,7 @@ async fn all_kind_update_keys_apply_to_direct_chat() {
 /// (String), `messageExpirySeconds` (UnsignedInt)."
 #[tokio::test]
 async fn group_create_optional_fields_round_trip() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let resp = chat_set(
         &backend,
@@ -249,7 +249,7 @@ async fn group_create_optional_fields_round_trip() {
 /// 0 <= value <= 2^53-1".
 #[tokio::test]
 async fn group_create_negative_message_expiry_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
 
     let resp = chat_set(
         &backend,
@@ -273,7 +273,7 @@ async fn group_create_negative_message_expiry_is_invalid_properties() {
 /// creator plus two members is three.
 #[tokio::test]
 async fn group_create_over_member_limit_is_over_quota() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(ChatLimits::default().with_max_group_chat_members(2)));
 
     let resp = chat_set(

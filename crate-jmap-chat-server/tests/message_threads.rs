@@ -178,7 +178,7 @@ fn by_id<'a>(list: &'a [Value], id: &str) -> &'a Value {
 /// `invalidProperties` naming `replyTo`).
 #[tokio::test]
 async fn cross_chat_reply_to_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (chat, _) = fixture(&backend).await;
     let resp = create(&backend, reply(&chat, OTHER_CHAT_MSG, None)).await;
     assert_eq!(
@@ -195,7 +195,7 @@ async fn cross_chat_reply_to_rejected() {
 /// L632-633: a `replyTo` naming no Message at all is rejected the same way.
 #[tokio::test]
 async fn unknown_reply_to_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (chat, _) = fixture(&backend).await;
     let resp = create(&backend, reply(&chat, "01J00000000000000000000ZZZ", None)).await;
     assert_eq!(
@@ -209,7 +209,7 @@ async fn unknown_reply_to_rejected() {
 /// rejected with `invalidProperties` naming `threadRootId`.
 #[tokio::test]
 async fn invalid_thread_root_id_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (chat, _) = fixture(&backend).await;
     let no_reply = json!({
         "chatId": chat,
@@ -244,7 +244,7 @@ async fn invalid_thread_root_id_rejected() {
 /// set by the server ("MAY correct") to the value the rules give.
 #[tokio::test]
 async fn thread_root_id_accepted_or_filled_in() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (chat, _) = fixture(&backend).await;
     let cases = [
         (reply(&chat, ROOT, Some(ROOT)), ROOT),
@@ -270,7 +270,7 @@ async fn thread_root_id_accepted_or_filled_in() {
 /// - B, C: no replies -> replyCount 0, no unreadReplyCount.
 #[tokio::test]
 async fn reply_counts_match_fixture() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let _ = fixture(&backend).await;
     threads_on(&backend);
     let list = get(&backend, &[ROOT, A, B, C]).await;
@@ -291,7 +291,7 @@ async fn reply_counts_match_fixture() {
 /// unread count equals the reply count (ROOT: A and C -> 2).
 #[tokio::test]
 async fn unread_reply_count_without_read_position() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (chat, _) = fixture(&backend).await;
     backend.insert_object_for_test(
         "ReadPosition",
@@ -308,7 +308,7 @@ async fn unread_reply_count_without_read_position() {
 /// default `supportsThreads: false` neither count is returned.
 #[tokio::test]
 async fn counts_absent_without_supports_threads() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let _ = fixture(&backend).await;
     let list = get(&backend, &[ROOT, A]).await;
     for m in &list {
@@ -322,7 +322,7 @@ async fn counts_absent_without_supports_threads() {
 /// `threadRootId` is ROOT, which are A, B and C.
 #[tokio::test]
 async fn thread_root_id_filter_with_supports_threads() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (chat, _) = fixture(&backend).await;
     threads_on(&backend);
     let HandlerOutput { primary: resp, .. } = handle_message_query(
@@ -377,7 +377,7 @@ async fn message_changes(backend: &MemoryBackend, since: &str) -> Value {
 /// so `Message/changes` lists A as updated and the reply as created.
 #[tokio::test]
 async fn reply_create_lists_parent_updated() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (chat, _) = fixture(&backend).await;
     threads_on(&backend);
     let since = message_state(&backend).await;
@@ -392,7 +392,7 @@ async fn reply_create_lists_parent_updated() {
 /// 0, so `Message/changes` lists A as updated and B as destroyed.
 #[tokio::test]
 async fn reply_destroy_lists_parent_updated() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let _ = fixture(&backend).await;
     threads_on(&backend);
     let since = message_state(&backend).await;
@@ -417,7 +417,7 @@ async fn reply_destroy_lists_parent_updated() {
 /// `unreadReplyCount`, and is not listed.
 #[tokio::test]
 async fn read_position_update_lists_thread_root_updated() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let _ = fixture(&backend).await;
     threads_on(&backend);
     let since = message_state(&backend).await;

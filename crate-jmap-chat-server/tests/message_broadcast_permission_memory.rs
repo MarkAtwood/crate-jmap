@@ -102,7 +102,7 @@ fn broadcast_message(chat_id: &str) -> Value {
 /// `"mention_broadcast"` permission in its Space."
 #[tokio::test]
 async fn create_in_channel_without_mention_broadcast_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (space_id, channel_id) = create_channel(&backend).await;
 
     let allowed = message_set(
@@ -127,7 +127,7 @@ async fn create_in_channel_without_mention_broadcast_is_forbidden() {
 /// to updates that add or retain a broadcast mention."
 #[tokio::test]
 async fn update_retaining_broadcast_without_mention_broadcast_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (space_id, channel_id) = create_channel(&backend).await;
     let created = message_set(
         &backend,
@@ -157,7 +157,7 @@ async fn update_retaining_broadcast_without_mention_broadcast_is_forbidden() {
 /// to updates that add or retain a broadcast mention."
 #[tokio::test]
 async fn update_adding_broadcast_without_mention_broadcast_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (space_id, channel_id) = create_channel(&backend).await;
     revoke_mention_broadcast(&backend, &space_id).await;
     let created = message_set(

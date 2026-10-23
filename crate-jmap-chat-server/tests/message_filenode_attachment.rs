@@ -22,7 +22,7 @@
 
 mod common;
 
-use common::{ACCOUNT_ID, MemoryBackend, TrackingBackend};
+use common::{ACCOUNT_ID, TrackingBackend};
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_server::{ChatBackend, ChatLimits, SetError, SetErrorType, handle_chat_set};
 use jmap_server::HandlerOutput;
@@ -92,7 +92,7 @@ async fn create<B: ChatBackend<CallerCtx = ()>>(
 /// L277-290 fields required, so a `filenodeId`-only entry is malformed.
 #[tokio::test]
 async fn filenode_id_only_without_the_extension_is_invalid() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let resp = create(&backend, &chat_id, json!([{ "filenodeId": "F1" }])).await;
     assert_eq!(

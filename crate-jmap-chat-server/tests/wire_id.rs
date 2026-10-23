@@ -67,7 +67,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
 
 #[tokio::test]
 async fn space_set_rejects_malformed_update_and_destroy_ids() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args_with_account = |mut args: Value| {
@@ -88,7 +88,7 @@ async fn space_set_rejects_malformed_update_and_destroy_ids() {
 
 #[tokio::test]
 async fn chat_set_rejects_malformed_destroy_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let resp = handle_chat_set(
         &backend,
         &(),
@@ -105,7 +105,7 @@ async fn chat_set_rejects_malformed_destroy_id() {
 /// `avatarBlobId` are Ids; a malformed one fails the create naming it.
 #[tokio::test]
 async fn chat_set_create_rejects_malformed_id_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (entry, resp) = create_entry!(
         handle_chat_set,
         &backend,
@@ -128,7 +128,7 @@ async fn chat_set_create_rejects_malformed_id_properties() {
 
 #[tokio::test]
 async fn chat_set_update_rejects_malformed_pinned_message_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let resp = handle_chat_set(
         &backend,
@@ -147,7 +147,7 @@ async fn chat_set_update_rejects_malformed_pinned_message_id() {
 
 #[tokio::test]
 async fn message_set_create_rejects_malformed_reply_to_and_thread_root() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     for property in ["replyTo", "threadRootId"] {
         let mut obj = json!({
@@ -164,7 +164,7 @@ async fn message_set_create_rejects_malformed_reply_to_and_thread_root() {
 
 #[tokio::test]
 async fn invite_set_create_rejects_malformed_default_channel_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "S").await;
     let (entry, resp) = create_entry!(
         handle_invite_set,
@@ -176,7 +176,7 @@ async fn invite_set_create_rejects_malformed_default_channel_id() {
 
 #[tokio::test]
 async fn emoji_set_create_rejects_malformed_space_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let (entry, resp) = create_entry!(
         handle_emoji_set,
         &backend,
