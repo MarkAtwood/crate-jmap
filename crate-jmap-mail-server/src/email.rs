@@ -29,8 +29,8 @@
 //! - `/copy`: `fromAccountNotFound`;
 //! - `/changes`, `/queryChanges`: `cannotCalculateChanges`,
 //!   `tooManyChanges`;
-//! - `/query`, `/queryChanges`: `unsupportedFilter`, `unsupportedSort`;
-//! - `/query`: `anchorNotFound`.
+//! - `/query`, `/queryChanges`: `unsupportedFilter`;
+//! - `/query`: `unsupportedSort`, `anchorNotFound`.
 //!
 //! Per-target failures inside a `/set` or `/copy` call surface in the
 //! `notCreated` / `notUpdated` / `notDestroyed` maps within
