@@ -706,12 +706,10 @@ async fn task_set_isdraft_true_on_absent_rejected_by_memory_backend() {
 // Oracle: RFC 8620 §5.5 — "A server MUST reject the call with an
 // `unsupportedFilter` error if it cannot process the given filter."
 // The reference MemoryBackend cannot process this filter, so a query
-// carrying one must surface a method-level error rather than silently
-// matching all objects. The reference impl uses `serverFail` as a
-// workspace-canonical approximation (a richer error variant on
-// JmapBackend would be needed to plumb `unsupportedFilter` proper).
+// carrying one must surface `unsupportedFilter` rather than silently
+// matching all objects.
 //
-// Bead: JMAP-h47t.5.
+// Beads: JMAP-h47t.5, JMAP-yt1w.25.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -737,13 +735,7 @@ async fn task_query_with_filter_fails_loud_on_memory_backend() {
     let err = handle_task_query(&backend, &(), args)
         .await
         .expect_err("Task/query with filter must fail loud on the reference MemoryBackend");
-    assert_eq!(
-        err.error_type.to_string(),
-        "serverFail",
-        "fail-loud should surface as serverFail (the workspace-canonical \
-         approximation of RFC 8620 §5.5 unsupportedFilter when the backend \
-         cannot signal it directly): {err:?}"
-    );
+    assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
 }
 
 // ---------------------------------------------------------------------------
@@ -810,7 +802,7 @@ async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
 // via CalendarEvent/query), so the handler forwards it to the backend; an
 // unlisted property is rejected earlier with unsupportedSort (bd JMAP-86o9).
 //
-// Bead: JMAP-h47t.5.
+// Beads: JMAP-h47t.5, JMAP-yt1w.25.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -836,13 +828,7 @@ async fn task_query_with_sort_fails_loud_on_memory_backend() {
     let err = handle_task_query(&backend, &(), args)
         .await
         .expect_err("Task/query with sort must fail loud on the reference MemoryBackend");
-    assert_eq!(
-        err.error_type.to_string(),
-        "serverFail",
-        "fail-loud should surface as serverFail (the workspace-canonical \
-         approximation of RFC 8620 §5.5 unsupportedSort when the backend \
-         cannot signal it directly): {err:?}"
-    );
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
 }
 
 // ---------------------------------------------------------------------------

@@ -3508,6 +3508,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-tasks-server**, **jmap-filenode-server**: **BREAKING** (wire)
+  the reference `MemoryBackend`s answer a `*/query` they cannot evaluate
+  with the RFC 8620 §5.5 `unsupportedFilter` / `unsupportedSort` method
+  errors instead of `serverFail`. Tasks: any populated filter field other
+  than `taskListId` and the opted-in `metadata*` conditions, and any
+  non-empty `sort`. FileNode: the full-text `body` / `text` conditions and
+  an unknown filter operator. FileNode's ancestor-chain cycle guard stays
+  `serverFail`.
+
 - **jmap-calendars-server**, **jmap-tasks-server**,
   **jmap-contacts-server**: **BREAKING** `CalendarEvent/query`,
   `CalendarEventNotification/query`, `Task/query`,

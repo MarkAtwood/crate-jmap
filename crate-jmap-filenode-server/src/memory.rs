@@ -70,7 +70,7 @@ use crate::{
 use jmap_cid_types::Sha256;
 use jmap_filenode_types::{FileNode, FileNodeFilter, NodeRole, NodeType};
 use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
-use jmap_types::{Filter, Id, Operator, State};
+use jmap_types::{Filter, Id, JmapError, Operator, State};
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -1082,17 +1082,17 @@ impl FileNodeBackend for MemoryBackend {
 ///
 /// Every child is evaluated, without short-circuiting, so an unsupported
 /// condition anywhere in the tree is an `Err` regardless of its position.
-/// An operator or filter variant this version does not know is an `Err`
-/// too, rather than a guessed match.
+/// An operator or filter variant this version does not know is
+/// `unsupportedFilter` too, rather than a guessed match (RFC 8620 §5.5).
 fn node_matches_tree(
     node: &FileNode,
     filter: &FileNodeFilter,
     nodes: &HashMap<Id, FileNode>,
-) -> Result<bool, MemoryError> {
+) -> Result<bool, BackendQueryError<MemoryError>> {
     let op = match filter {
         Filter::Condition(c) => return node_matches_filter(node, Some(c), nodes),
         Filter::Operator(op) => op,
-        _ => return Err(MemoryError::new("unknown filter variant")),
+        _ => return Err(BackendQueryError::Method(JmapError::unsupported_filter())),
     };
     let mut any = false;
     let mut all = true;
@@ -1105,12 +1105,12 @@ fn node_matches_tree(
         Operator::And => Ok(all),
         Operator::Or => Ok(any),
         Operator::Not => Ok(!any),
-        _ => Err(MemoryError::new("unknown filter operator")),
+        _ => Err(BackendQueryError::Method(JmapError::unsupported_filter())),
     }
 }
 
 /// Returns `Ok(true)` if `node` satisfies the filter condition `fc`,
-/// `Ok(false)` if it does not match, and `Err(MemoryError(...))` if the
+/// `Ok(false)` if it does not match, and `unsupportedFilter` if the
 /// filter condition references a field that the reference implementation
 /// does not support.
 ///
@@ -1132,9 +1132,9 @@ fn node_matches_tree(
 /// - `modifiedBefore` / `modifiedAfter`
 /// - `accessedBefore` / `accessedAfter`
 ///
-/// Explicitly NOT supported (returns Err so a test that uses one of these
-/// gets a clear backend error rather than a silent match-all that would
-/// look like a passing query):
+/// Explicitly NOT supported (answered with `unsupportedFilter`, RFC 8620
+/// §5.5, rather than a silent match-all that would look like a passing
+/// query):
 /// - `body` (full-text search in blob content)
 /// - `text` (full-text search OR name OR media type)
 ///
@@ -1147,7 +1147,7 @@ fn node_matches_filter(
     node: &FileNode,
     fc: Option<&jmap_filenode_types::FileNodeFilterCondition>,
     nodes: &HashMap<Id, FileNode>,
-) -> Result<bool, MemoryError> {
+) -> Result<bool, BackendQueryError<MemoryError>> {
     let fc = match fc {
         Some(f) => f,
         None => return Ok(true), // No filter — all nodes match.
@@ -1179,9 +1179,9 @@ fn node_matches_filter(
             // Cycle safeguard: a malformed tree must not loop forever.
             depth += 1;
             if depth > 10_000 {
-                return Err(MemoryError::new(
+                return Err(BackendQueryError::Other(MemoryError::new(
                     "node_matches_filter: ancestor chain exceeds 10_000 depth, suspected cycle",
-                ));
+                )));
             }
             cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
         }
@@ -1207,9 +1207,9 @@ fn node_matches_filter(
             }
             depth += 1;
             if depth > 10_000 {
-                return Err(MemoryError::new(
+                return Err(BackendQueryError::Other(MemoryError::new(
                     "node_matches_filter: descendant chain exceeds 10_000 depth, suspected cycle",
-                ));
+                )));
             }
             cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
         }
@@ -1325,17 +1325,11 @@ fn node_matches_filter(
         return Ok(false);
     }
 
-    if fc.body.is_some() {
-        return Err(MemoryError::new(
-            "node_matches_filter: 'body' (full-text search) is not supported by the reference \
-             MemoryBackend",
-        ));
-    }
-    if fc.text.is_some() {
-        return Err(MemoryError::new(
-            "node_matches_filter: 'text' (full-text search) is not supported by the reference \
-             MemoryBackend",
-        ));
+    // Full-text search is not implemented here. RFC 8620 §5.5: "A server
+    // MUST reject the call with an unsupportedFilter error if it cannot
+    // process the given filter."
+    if fc.body.is_some() || fc.text.is_some() {
+        return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
     }
 
     Ok(true)
