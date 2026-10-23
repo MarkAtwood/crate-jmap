@@ -1,0 +1,6 @@
+{
+        "id": "event-001",
+        "calendarIds": {
+            "cal-001": true
+        }
+    }

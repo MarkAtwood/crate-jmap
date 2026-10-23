@@ -1,0 +1,12 @@
+{
+        "@type": "Event",
+        "id": "ev-rt",
+        "calendarIds": {"cal-rt": true},
+        "uid": "uid-rt-001",
+        "title": "RT event",
+        "start": "2024-07-04T10:00:00",
+        "duration": "PT2H",
+        "timeZone": "UTC",
+        "updated": "2024-07-01T00:00:00Z",
+        "isDraft": false
+    }

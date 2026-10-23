@@ -1,0 +1,7 @@
+{
+        "@type": "Participant",
+        "email": "alice@example.com",
+        "roles": { "attendee": true },
+        "scheduleSequence": 3,
+        "scheduleUpdated": "2024-06-15T10:30:00Z"
+    }

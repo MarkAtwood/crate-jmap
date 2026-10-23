@@ -1,0 +1,9 @@
+{
+        "id": "ev-loc",
+        "calendarIds": {"cal-001": true},
+        "title": "Lunch",
+        "localizations": {
+            "fr": {"title": "Déjeuner"},
+            "es": {"title": "Almuerzo"}
+        }
+    }

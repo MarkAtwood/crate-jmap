@@ -1,0 +1,25 @@
+{
+        "id": "cal-001",
+        "name": "Personal",
+        "description": "My personal calendar",
+        "color": "#4287f5",
+        "sortOrder": 5,
+        "isSubscribed": true,
+        "isVisible": true,
+        "isDefault": true,
+        "includeInAvailability": "all",
+        "defaultAlertsWithTime": null,
+        "defaultAlertsWithoutTime": null,
+        "timeZone": "America/New_York",
+        "shareWith": null,
+        "myRights": {
+            "mayReadFreeBusy": true,
+            "mayReadItems": true,
+            "mayWriteAll": true,
+            "mayWriteOwn": true,
+            "mayUpdatePrivate": true,
+            "mayRSVP": true,
+            "mayShare": true,
+            "mayDelete": true
+        }
+    }

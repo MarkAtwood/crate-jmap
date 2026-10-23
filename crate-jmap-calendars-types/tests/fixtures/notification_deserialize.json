@@ -1,0 +1,22 @@
+{
+        "id": "notif-001",
+        "created": "2024-06-15T10:05:00Z",
+        "changedBy": {
+            "name": "Alice Smith",
+            "email": "alice@example.com",
+            "principalId": "principal-alice",
+            "calendarAddress": "mailto:alice@example.com"
+        },
+        "comment": null,
+        "type": "updated",
+        "calendarEventId": "event-001",
+        "isDraft": false,
+        "event": {
+            "@type": "Event",
+            "uid": "uid-event-001",
+            "title": "Original Title"
+        },
+        "eventPatch": {
+            "title": "New Title"
+        }
+    }

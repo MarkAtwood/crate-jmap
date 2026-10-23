@@ -1,0 +1,5 @@
+{
+        "id": "ev-ord",
+        "calendarIds": {"cal-2": true, "cal-1": true},
+        "localizations": {"fr": {"title": "Dejeuner"}, "es": {"title": "Almuerzo"}}
+    }

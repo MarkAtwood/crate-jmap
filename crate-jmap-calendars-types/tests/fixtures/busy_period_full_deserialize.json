@@ -1,0 +1,11 @@
+{
+        "utcStart": "2024-06-15T09:00:00Z",
+        "utcEnd": "2024-06-15T10:00:00Z",
+        "busyStatus": "confirmed",
+        "event": {
+            "@type": "Event",
+            "uid": "evt-001",
+            "title": "Team meeting"
+        },
+        "accountId": "acc-42"
+    }

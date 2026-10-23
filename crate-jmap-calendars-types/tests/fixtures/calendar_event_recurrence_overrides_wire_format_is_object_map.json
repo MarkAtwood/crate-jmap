@@ -1,0 +1,7 @@
+{
+        "id": "ev-rt-overrides",
+        "calendarIds": {"cal-001": true},
+        "recurrenceOverrides": {
+            "2024-06-22T09:00:00": {"title": "Rescheduled"}
+        }
+    }

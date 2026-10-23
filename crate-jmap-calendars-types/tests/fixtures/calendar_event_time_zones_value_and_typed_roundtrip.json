@@ -1,0 +1,18 @@
+{
+        "id": "ev-tz",
+        "calendarIds": {"cal-001": true},
+        "timeZones": {
+            "/example/custom/UTC+05:30:00": {
+                "@type": "TimeZone",
+                "tzId": "/example/custom/UTC+05:30:00",
+                "standard": [
+                    {
+                        "@type": "TimeZoneRule",
+                        "start": "1970-01-01T00:00:00",
+                        "offsetFrom": "+0530",
+                        "offsetTo": "+0530"
+                    }
+                ]
+            }
+        }
+    }

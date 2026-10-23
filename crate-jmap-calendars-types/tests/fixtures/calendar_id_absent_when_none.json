@@ -1,0 +1,24 @@
+{
+        "name": "Pending",
+        "description": null,
+        "color": null,
+        "sortOrder": 0,
+        "isSubscribed": false,
+        "isVisible": true,
+        "isDefault": false,
+        "includeInAvailability": "none",
+        "defaultAlertsWithTime": null,
+        "defaultAlertsWithoutTime": null,
+        "timeZone": null,
+        "shareWith": null,
+        "myRights": {
+            "mayReadFreeBusy": false,
+            "mayReadItems": false,
+            "mayWriteAll": false,
+            "mayWriteOwn": false,
+            "mayUpdatePrivate": false,
+            "mayRSVP": false,
+            "mayShare": false,
+            "mayDelete": false
+        }
+    }

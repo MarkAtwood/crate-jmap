@@ -1,0 +1,7 @@
+{
+        "utcStart": "2024-07-01T08:00:00Z",
+        "utcEnd": "2024-07-01T09:00:00Z",
+        "busyStatus": "tentative",
+        "event": { "@type": "Event", "uid": "rt-evt" },
+        "accountId": "acc-rt"
+    }

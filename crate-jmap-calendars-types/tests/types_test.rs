@@ -10,6 +10,8 @@
 //! NOTE: JSON containing the sequence `"#` (e.g. CSS hex colors) requires
 //! `r##"..."##` raw string delimiters because `"#` would terminate `r#"..."#`.
 
+mod common;
+
 use jmap_calendars_types::{
     Alert, AlertTrigger, BusyPeriod, BusyStatus, Calendar, CalendarAlert, CalendarEvent,
     CalendarEventFilterCondition, CalendarEventNotification, CalendarRights,
@@ -26,31 +28,7 @@ use jmap_types::Id;
 #[test]
 fn calendar_deserialize_full() {
     // r##"..."## needed because color value contains `"#`.
-    let json = r##"{
-        "id": "cal-001",
-        "name": "Personal",
-        "description": "My personal calendar",
-        "color": "#4287f5",
-        "sortOrder": 5,
-        "isSubscribed": true,
-        "isVisible": true,
-        "isDefault": true,
-        "includeInAvailability": "all",
-        "defaultAlertsWithTime": null,
-        "defaultAlertsWithoutTime": null,
-        "timeZone": "America/New_York",
-        "shareWith": null,
-        "myRights": {
-            "mayReadFreeBusy": true,
-            "mayReadItems": true,
-            "mayWriteAll": true,
-            "mayWriteOwn": true,
-            "mayUpdatePrivate": true,
-            "mayRSVP": true,
-            "mayShare": true,
-            "mayDelete": true
-        }
-    }"##;
+    let json = &common::fixture("calendar_deserialize_full.json");
 
     let cal: Calendar = serde_json::from_str(json).expect("Calendar deserialize");
 
@@ -77,31 +55,7 @@ fn calendar_deserialize_full() {
 /// Calendar round-trip: serialize then re-deserialize, verify equality.
 #[test]
 fn calendar_roundtrip() {
-    let json = r#"{
-        "id": "cal-rt",
-        "name": "RT Calendar",
-        "description": null,
-        "color": null,
-        "sortOrder": 0,
-        "isSubscribed": false,
-        "isVisible": true,
-        "isDefault": false,
-        "includeInAvailability": "none",
-        "defaultAlertsWithTime": null,
-        "defaultAlertsWithoutTime": null,
-        "timeZone": null,
-        "shareWith": null,
-        "myRights": {
-            "mayReadFreeBusy": false,
-            "mayReadItems": false,
-            "mayWriteAll": false,
-            "mayWriteOwn": false,
-            "mayUpdatePrivate": false,
-            "mayRSVP": false,
-            "mayShare": false,
-            "mayDelete": false
-        }
-    }"#;
+    let json = &common::fixture("calendar_roundtrip.json");
     let original: Calendar = serde_json::from_str(json).expect("first deserialize");
     let serialized = serde_json::to_string(&original).expect("serialize");
     let recovered: Calendar = serde_json::from_str(&serialized).expect("second deserialize");
@@ -119,30 +73,7 @@ fn calendar_roundtrip() {
 #[test]
 fn calendar_id_absent_when_none() {
     // JSON without an `id` field (matches /set create payload shape).
-    let json = r#"{
-        "name": "Pending",
-        "description": null,
-        "color": null,
-        "sortOrder": 0,
-        "isSubscribed": false,
-        "isVisible": true,
-        "isDefault": false,
-        "includeInAvailability": "none",
-        "defaultAlertsWithTime": null,
-        "defaultAlertsWithoutTime": null,
-        "timeZone": null,
-        "shareWith": null,
-        "myRights": {
-            "mayReadFreeBusy": false,
-            "mayReadItems": false,
-            "mayWriteAll": false,
-            "mayWriteOwn": false,
-            "mayUpdatePrivate": false,
-            "mayRSVP": false,
-            "mayShare": false,
-            "mayDelete": false
-        }
-    }"#;
+    let json = &common::fixture("calendar_id_absent_when_none.json");
     let cal: Calendar = serde_json::from_str(json).expect("Calendar must deserialize without id");
     assert!(cal.id.is_none(), "id must be None when absent from input");
 
@@ -157,42 +88,7 @@ fn calendar_id_absent_when_none() {
 /// shareWith with actual rights deserializes correctly.
 #[test]
 fn calendar_share_with() {
-    let json = r#"{
-        "id": "cal-shared",
-        "name": "Shared",
-        "description": null,
-        "color": null,
-        "sortOrder": 0,
-        "isSubscribed": true,
-        "isVisible": true,
-        "isDefault": false,
-        "includeInAvailability": "attending",
-        "defaultAlertsWithTime": null,
-        "defaultAlertsWithoutTime": null,
-        "timeZone": null,
-        "shareWith": {
-            "principal-42": {
-                "mayReadFreeBusy": true,
-                "mayReadItems": true,
-                "mayWriteAll": false,
-                "mayWriteOwn": false,
-                "mayUpdatePrivate": false,
-                "mayRSVP": false,
-                "mayShare": false,
-                "mayDelete": false
-            }
-        },
-        "myRights": {
-            "mayReadFreeBusy": true,
-            "mayReadItems": true,
-            "mayWriteAll": true,
-            "mayWriteOwn": true,
-            "mayUpdatePrivate": true,
-            "mayRSVP": true,
-            "mayShare": true,
-            "mayDelete": true
-        }
-    }"#;
+    let json = &common::fixture("calendar_share_with.json");
     let cal: Calendar = serde_json::from_str(json).expect("calendar with shareWith");
     let share = cal.share_with.as_ref().expect("shareWith not None");
     let rights = share.values().next().expect("at least one entry");
@@ -222,16 +118,7 @@ fn calendar_rights_default_all_false() {
 #[test]
 fn calendar_rights_wire_names() {
     // Deserialize from known-good JSON then re-serialize to check wire names.
-    let json = r#"{
-        "mayReadFreeBusy": true,
-        "mayReadItems": true,
-        "mayWriteAll": true,
-        "mayWriteOwn": true,
-        "mayUpdatePrivate": true,
-        "mayRSVP": true,
-        "mayShare": true,
-        "mayDelete": true
-    }"#;
+    let json = &common::fixture("calendar_rights_wire_names.json");
     let rights: CalendarRights = serde_json::from_str(json).expect("deserialize rights");
     let out = serde_json::to_value(&rights).expect("serialize");
 
@@ -281,12 +168,7 @@ fn include_in_availability_deserialize() {
 /// Oracle: draft §5 mandatory fields.
 #[test]
 fn calendar_event_minimal() {
-    let json = r#"{
-        "id": "event-001",
-        "calendarIds": {
-            "cal-001": true
-        }
-    }"#;
+    let json = &common::fixture("calendar_event_minimal.json");
     let ev: CalendarEvent = serde_json::from_str(json).expect("minimal CalendarEvent");
     let id_val = ev.id.as_ref().expect("id present");
     assert_eq!(id_val.as_ref(), "event-001");
@@ -315,8 +197,10 @@ fn calendar_event_all_none() {
 /// "Boolean (default: false)".
 #[test]
 fn calendar_event_is_draft_and_use_default_alerts_always_serialized() {
-    let ev: CalendarEvent =
-        serde_json::from_str(r#"{"id": "ev-1", "calendarIds": {"cal-1": true}}"#).unwrap();
+    let ev: CalendarEvent = serde_json::from_str(&common::fixture(
+        "calendar_event_is_draft_and_use_default_alerts_always_serialized.json",
+    ))
+    .unwrap();
     let out = serde_json::to_value(&ev).unwrap();
     assert_eq!(out["isDraft"], serde_json::Value::Bool(false), "{out}");
     assert_eq!(
@@ -330,30 +214,7 @@ fn calendar_event_is_draft_and_use_default_alerts_always_serialized() {
 /// Oracle: RFC 8984 §6.1 simple event example (adapted).
 #[test]
 fn calendar_event_scalar_fields() {
-    let json = r#"{
-        "@type": "Event",
-        "uid": "2a358cee-6489-4f14-a57f-c104db4dc357",
-        "id": "ev-42",
-        "calendarIds": {
-            "cal-main": true
-        },
-        "title": "Team meeting",
-        "description": "Monthly all-hands",
-        "start": "2024-06-15T09:00:00",
-        "duration": "PT1H",
-        "timeZone": "America/New_York",
-        "status": "confirmed",
-        "isDraft": false,
-        "isOrigin": true,
-        "showWithoutTime": false,
-        "priority": 5,
-        "freeBusyStatus": "busy",
-        "privacy": "public",
-        "created": "2024-05-01T12:00:00Z",
-        "updated": "2024-06-01T08:00:00Z",
-        "sequence": 0,
-        "color": "red"
-    }"#;
+    let json = &common::fixture("calendar_event_scalar_fields.json");
 
     let ev: CalendarEvent = serde_json::from_str(json).expect("CalendarEvent deserialize");
 
@@ -383,23 +244,7 @@ fn calendar_event_scalar_fields() {
 /// Oracle: RFC 8984 §4.3.2 recurrenceOverrides description.
 #[test]
 fn calendar_event_recurrence_overrides_passthrough() {
-    let json = r#"{
-        "id": "ev-recur",
-        "calendarIds": {"cal-001": true},
-        "recurrenceRules": [
-            {
-                "@type": "RecurrenceRule",
-                "frequency": "weekly",
-                "count": 4
-            }
-        ],
-        "recurrenceOverrides": {
-            "2024-06-22T09:00:00": {
-                "title": "Rescheduled meeting",
-                "start": "2024-06-22T11:00:00"
-            }
-        }
-    }"#;
+    let json = &common::fixture("calendar_event_recurrence_overrides_passthrough.json");
 
     let ev: CalendarEvent = serde_json::from_str(json).expect("recurrence CalendarEvent");
     let overrides = ev
@@ -422,13 +267,8 @@ fn calendar_event_recurrence_overrides_passthrough() {
 /// Oracle: hand-written JSON literal (independent of the type under test).
 #[test]
 fn calendar_event_recurrence_overrides_wire_format_is_object_map() {
-    let json = r#"{
-        "id": "ev-rt-overrides",
-        "calendarIds": {"cal-001": true},
-        "recurrenceOverrides": {
-            "2024-06-22T09:00:00": {"title": "Rescheduled"}
-        }
-    }"#;
+    let json =
+        &common::fixture("calendar_event_recurrence_overrides_wire_format_is_object_map.json");
     let ev: CalendarEvent = serde_json::from_str(json).expect("deserialize");
     let out: serde_json::Value = serde_json::to_value(&ev).expect("serialize");
     let expected: serde_json::Value = serde_json::from_str(json).expect("expected as Value");
@@ -451,24 +291,7 @@ fn calendar_event_recurrence_overrides_wire_format_is_object_map() {
 fn calendar_event_time_zones_value_and_typed_roundtrip() {
     use jmap_calendars_types::TimeZone;
 
-    let json = r#"{
-        "id": "ev-tz",
-        "calendarIds": {"cal-001": true},
-        "timeZones": {
-            "/example/custom/UTC+05:30:00": {
-                "@type": "TimeZone",
-                "tzId": "/example/custom/UTC+05:30:00",
-                "standard": [
-                    {
-                        "@type": "TimeZoneRule",
-                        "start": "1970-01-01T00:00:00",
-                        "offsetFrom": "+0530",
-                        "offsetTo": "+0530"
-                    }
-                ]
-            }
-        }
-    }"#;
+    let json = &common::fixture("calendar_event_time_zones_value_and_typed_roundtrip.json");
 
     let ev: CalendarEvent = serde_json::from_str(json).expect("CalendarEvent must deserialize");
     let tz_field = ev.time_zones.as_ref().expect("timeZones must be Some");
@@ -504,15 +327,7 @@ fn calendar_event_time_zones_value_and_typed_roundtrip() {
 /// Oracle: RFC 8984 §4.6 localizations description.
 #[test]
 fn calendar_event_localizations_passthrough() {
-    let json = r#"{
-        "id": "ev-loc",
-        "calendarIds": {"cal-001": true},
-        "title": "Lunch",
-        "localizations": {
-            "fr": {"title": "Déjeuner"},
-            "es": {"title": "Almuerzo"}
-        }
-    }"#;
+    let json = &common::fixture("calendar_event_localizations_passthrough.json");
     let ev: CalendarEvent = serde_json::from_str(json).expect("localizations CalendarEvent");
     let locs = ev.localizations.as_ref().expect("localizations");
     let fr = locs.get("fr").expect("fr override");
@@ -534,18 +349,7 @@ fn calendar_event_localizations_passthrough() {
 /// CalendarEvent round-trip preserves all present fields.
 #[test]
 fn calendar_event_roundtrip() {
-    let json = r#"{
-        "@type": "Event",
-        "id": "ev-rt",
-        "calendarIds": {"cal-rt": true},
-        "uid": "uid-rt-001",
-        "title": "RT event",
-        "start": "2024-07-04T10:00:00",
-        "duration": "PT2H",
-        "timeZone": "UTC",
-        "updated": "2024-07-01T00:00:00Z",
-        "isDraft": false
-    }"#;
+    let json = &common::fixture("calendar_event_roundtrip.json");
     let original: CalendarEvent = serde_json::from_str(json).expect("first deserialize");
     let serialized = serde_json::to_string(&original).expect("serialize");
     let recovered: CalendarEvent = serde_json::from_str(&serialized).expect("second deserialize");
@@ -575,13 +379,7 @@ fn calendar_event_filter_condition_empty() {
 /// Oracle: draft §5.11.1 filter field names.
 #[test]
 fn calendar_event_filter_condition_wire_names() {
-    let json = r#"{
-        "inCalendar": "cal-001",
-        "after": "2024-01-01T00:00:00",
-        "before": "2024-12-31T23:59:59",
-        "text": "meeting",
-        "title": "team"
-    }"#;
+    let json = &common::fixture("calendar_event_filter_condition_wire_names.json");
     let fc: CalendarEventFilterCondition = serde_json::from_str(json).expect("filter condition");
 
     assert_eq!(
@@ -614,16 +412,20 @@ fn calendar_event_filter_condition_wire_names() {
 /// -26 name is now an unknown key, which the filter refuses.
 #[test]
 fn calendar_event_filter_condition_participant_replaces_attendee() {
-    let fc: CalendarEventFilterCondition =
-        serde_json::from_str(r#"{"participant":"tom@foobar.example.com"}"#)
-            .expect("participant condition");
+    let fc: CalendarEventFilterCondition = serde_json::from_str(&common::fixture(
+        "calendar_event_filter_condition_participant_replaces_attendee.json",
+    ))
+    .expect("participant condition");
     assert_eq!(fc.participant.as_deref(), Some("tom@foobar.example.com"));
     assert_eq!(
         serde_json::to_value(&fc).expect("serialize"),
         serde_json::json!({ "participant": "tom@foobar.example.com" })
     );
     assert!(
-        serde_json::from_str::<CalendarEventFilterCondition>(r#"{"attendee":"tom"}"#).is_err(),
+        serde_json::from_str::<CalendarEventFilterCondition>(&common::fixture(
+            "calendar_event_filter_condition_participant_replaces_attendee_2.json"
+        ))
+        .is_err(),
         "the draft-26 `attendee` condition must no longer parse"
     );
 }
@@ -634,28 +436,7 @@ fn calendar_event_filter_condition_participant_replaces_attendee() {
 /// Oracle: draft-ietf-jmap-calendars-33 §7 field descriptions.
 #[test]
 fn notification_deserialize() {
-    let json = r#"{
-        "id": "notif-001",
-        "created": "2024-06-15T10:05:00Z",
-        "changedBy": {
-            "name": "Alice Smith",
-            "email": "alice@example.com",
-            "principalId": "principal-alice",
-            "calendarAddress": "mailto:alice@example.com"
-        },
-        "comment": null,
-        "type": "updated",
-        "calendarEventId": "event-001",
-        "isDraft": false,
-        "event": {
-            "@type": "Event",
-            "uid": "uid-event-001",
-            "title": "Original Title"
-        },
-        "eventPatch": {
-            "title": "New Title"
-        }
-    }"#;
+    let json = &common::fixture("notification_deserialize.json");
 
     let n: CalendarEventNotification =
         serde_json::from_str(json).expect("CalendarEventNotification deserialize");
@@ -693,20 +474,7 @@ fn notification_deserialize() {
 /// A `created` notification has no eventPatch.
 #[test]
 fn notification_created_no_patch() {
-    let json = r#"{
-        "id": "notif-002",
-        "created": "2024-06-16T08:00:00Z",
-        "changedBy": {
-            "name": "Bob Jones",
-            "email": null,
-            "principalId": null,
-            "calendarAddress": null
-        },
-        "type": "created",
-        "calendarEventId": "event-002",
-        "isDraft": true,
-        "event": {"@type": "Event", "uid": "uid-event-002", "title": "Draft event"}
-    }"#;
+    let json = &common::fixture("notification_created_no_patch.json");
 
     let n: CalendarEventNotification = serde_json::from_str(json).expect("created notification");
     assert_eq!(
@@ -757,12 +525,16 @@ fn notification_type_other_roundtrip() {
 fn notification_filter_type_is_notification_type() {
     use jmap_calendars_types::{NotificationFilterCondition, NotificationType};
 
-    let known: NotificationFilterCondition =
-        serde_json::from_str(r#"{"type":"updated"}"#).expect("known type");
+    let known: NotificationFilterCondition = serde_json::from_str(&common::fixture(
+        "notification_filter_type_is_notification_type.json",
+    ))
+    .expect("known type");
     assert_eq!(known.notification_type, Some(NotificationType::Updated));
 
-    let unknown: NotificationFilterCondition =
-        serde_json::from_str(r#"{"type":"rescheduled"}"#).expect("unknown type");
+    let unknown: NotificationFilterCondition = serde_json::from_str(&common::fixture(
+        "notification_filter_type_is_notification_type_2.json",
+    ))
+    .expect("unknown type");
     assert_eq!(
         serde_json::to_value(&unknown).expect("serialize"),
         serde_json::json!({"type": "rescheduled"})
@@ -775,12 +547,7 @@ fn notification_filter_type_is_notification_type() {
 /// Oracle: draft §3 field descriptions.
 #[test]
 fn participant_identity_roundtrip() {
-    let json = r#"{
-        "id": "pi-001",
-        "name": "Joe Bloggs",
-        "calendarAddress": "mailto:joe@example.com",
-        "isDefault": true
-    }"#;
+    let json = &common::fixture("participant_identity_roundtrip.json");
 
     let pi: ParticipantIdentity = serde_json::from_str(json).expect("ParticipantIdentity");
 
@@ -800,12 +567,7 @@ fn participant_identity_roundtrip() {
 /// Oracle: draft §3 field list.
 #[test]
 fn participant_identity_wire_names() {
-    let json = r#"{
-        "id": "pi-002",
-        "name": "Jane Doe",
-        "calendarAddress": "mailto:jane@example.com",
-        "isDefault": false
-    }"#;
+    let json = &common::fixture("participant_identity_wire_names.json");
     let pi: ParticipantIdentity = serde_json::from_str(json).expect("ParticipantIdentity");
     let out = serde_json::to_value(&pi).expect("serialize");
     assert_eq!(out["id"], "pi-002");
@@ -826,11 +588,7 @@ fn participant_identity_wire_names() {
 #[test]
 fn participant_identity_id_absent_when_none() {
     // JSON without an `id` field (matches /set create payload shape).
-    let json = r#"{
-        "name": "Joe (work)",
-        "calendarAddress": "mailto:joe@work.example.com",
-        "isDefault": false
-    }"#;
+    let json = &common::fixture("participant_identity_id_absent_when_none.json");
     let pi: ParticipantIdentity =
         serde_json::from_str(json).expect("ParticipantIdentity must deserialize without id");
     assert!(pi.id.is_none(), "id must be None when absent from input");
@@ -857,14 +615,7 @@ fn calendars_capability_empty_object() {
 /// Oracle: draft §1.5.1 field descriptions.
 #[test]
 fn calendars_account_capability_roundtrip() {
-    let json = r#"{
-        "maxCalendarsPerEvent": 5,
-        "minDateTime": "1970-01-01T00:00:00Z",
-        "maxDateTime": "2099-12-31T23:59:59Z",
-        "maxExpandedQueryDuration": "P1Y",
-        "maxParticipantsPerEvent": null,
-        "mayCreateCalendar": true
-    }"#;
+    let json = &common::fixture("calendars_account_capability_roundtrip.json");
 
     let cap: CalendarsAccountCapability =
         serde_json::from_str(json).expect("CalendarsAccountCapability");
@@ -887,11 +638,11 @@ fn calendars_account_capability_roundtrip() {
 /// "maxAvailabilityDuration: Duration"; hand-written fixture.
 #[test]
 fn principals_availability_account_capability_roundtrip() {
-    let json = r#"{"maxAvailabilityDuration":"P56D"}"#;
+    let json = &common::fixture("principals_availability_account_capability_roundtrip.json");
     let cap: PrincipalsAvailabilityAccountCapability =
         serde_json::from_str(json).expect("must deserialize");
     assert_eq!(cap.max_availability_duration.as_ref(), "P56D");
-    assert_eq!(serde_json::to_string(&cap).expect("serialize"), json);
+    assert_eq!(serde_json::to_string(&cap).expect("serialize"), *json);
 }
 
 /// JMAP_CALENDARS_URI constant matches spec §1.5.1.
@@ -906,11 +657,7 @@ fn calendars_uri_constant() {
 /// Oracle: RFC 8984 §4.5.2.
 #[test]
 fn alert_offset_trigger_roundtrip() {
-    let json = r#"{
-        "@type": "OffsetTrigger",
-        "offset": "-PT15M",
-        "relativeTo": "start"
-    }"#;
+    let json = &common::fixture("alert_offset_trigger_roundtrip.json");
 
     let trigger: AlertTrigger = serde_json::from_str(json).expect("OffsetTrigger");
     match &trigger {
@@ -931,10 +678,7 @@ fn alert_offset_trigger_roundtrip() {
 /// Oracle: RFC 8984 §4.5.2.
 #[test]
 fn alert_absolute_trigger_roundtrip() {
-    let json = r#"{
-        "@type": "AbsoluteTrigger",
-        "when": "2024-06-15T08:45:00Z"
-    }"#;
+    let json = &common::fixture("alert_absolute_trigger_roundtrip.json");
 
     let trigger: AlertTrigger = serde_json::from_str(json).expect("AbsoluteTrigger");
     match &trigger {
@@ -954,10 +698,7 @@ fn alert_absolute_trigger_roundtrip() {
 /// Oracle: RFC 8984 §4.5.2 "Implementations MUST preserve unknown trigger types."
 #[test]
 fn alert_unknown_trigger_roundtrip() {
-    let json = r#"{
-        "@type": "CustomTrigger",
-        "customField": "customValue"
-    }"#;
+    let json = &common::fixture("alert_unknown_trigger_roundtrip.json");
 
     let trigger: AlertTrigger = serde_json::from_str(json).expect("unknown trigger");
     match &trigger {
@@ -979,14 +720,7 @@ fn alert_unknown_trigger_roundtrip() {
 /// Full Alert with OffsetTrigger deserializes correctly.
 #[test]
 fn alert_with_offset_trigger() {
-    let json = r#"{
-        "@type": "Alert",
-        "trigger": {
-            "@type": "OffsetTrigger",
-            "offset": "-PT15M"
-        },
-        "action": "display"
-    }"#;
+    let json = &common::fixture("alert_with_offset_trigger.json");
 
     let alert: Alert = serde_json::from_str(json).expect("Alert");
     assert_eq!(alert.at_type, "Alert");
@@ -1003,12 +737,7 @@ fn alert_with_offset_trigger() {
 /// Person wire field names match draft §7.
 #[test]
 fn person_wire_names() {
-    let json = r#"{
-        "name": "Charlie Brown",
-        "email": "charlie@example.com",
-        "principalId": "princ-007",
-        "calendarAddress": "mailto:charlie@example.com"
-    }"#;
+    let json = &common::fixture("person_wire_names.json");
     let p: Person = serde_json::from_str(json).expect("Person");
     let out = serde_json::to_value(&p).expect("serialize");
     assert_eq!(out["name"], "Charlie Brown");
@@ -1020,12 +749,7 @@ fn person_wire_names() {
 /// Person with null fields serializes correctly (nullable, not absent).
 #[test]
 fn person_null_fields() {
-    let json = r#"{
-        "name": "Eve",
-        "email": null,
-        "principalId": null,
-        "calendarAddress": null
-    }"#;
+    let json = &common::fixture("person_null_fields.json");
     let p: Person = serde_json::from_str(json).expect("Person");
     assert_eq!(p.name, "Eve");
     assert!(p.email.is_none());
@@ -1041,17 +765,7 @@ fn person_null_fields() {
 /// busyStatus values: "confirmed", "tentative", "unavailable".
 #[test]
 fn busy_period_full_deserialize() {
-    let json = r#"{
-        "utcStart": "2024-06-15T09:00:00Z",
-        "utcEnd": "2024-06-15T10:00:00Z",
-        "busyStatus": "confirmed",
-        "event": {
-            "@type": "Event",
-            "uid": "evt-001",
-            "title": "Team meeting"
-        },
-        "accountId": "acc-42"
-    }"#;
+    let json = &common::fixture("busy_period_full_deserialize.json");
 
     let bp: BusyPeriod = serde_json::from_str(json).expect("BusyPeriod deserialize");
     assert_eq!(bp.utc_start, "2024-06-15T09:00:00Z");
@@ -1069,11 +783,7 @@ fn busy_period_full_deserialize() {
 /// accountId are null (absent) in the response.
 #[test]
 fn busy_period_no_detail_access() {
-    let json = r#"{
-        "utcStart": "2024-06-15T14:00:00Z",
-        "utcEnd": "2024-06-15T15:30:00Z",
-        "busyStatus": "unavailable"
-    }"#;
+    let json = &common::fixture("busy_period_no_detail_access.json");
 
     let bp: BusyPeriod = serde_json::from_str(json).expect("BusyPeriod minimal deserialize");
     assert_eq!(bp.utc_start, "2024-06-15T14:00:00Z");
@@ -1095,13 +805,7 @@ fn busy_period_no_detail_access() {
 /// BusyPeriod round-trip: serialize then re-deserialize, verify equality.
 #[test]
 fn busy_period_roundtrip() {
-    let json = r#"{
-        "utcStart": "2024-07-01T08:00:00Z",
-        "utcEnd": "2024-07-01T09:00:00Z",
-        "busyStatus": "tentative",
-        "event": { "@type": "Event", "uid": "rt-evt" },
-        "accountId": "acc-rt"
-    }"#;
+    let json = &common::fixture("busy_period_roundtrip.json");
 
     let original: BusyPeriod = serde_json::from_str(json).expect("first deserialize");
     let serialized = serde_json::to_string(&original).expect("serialize");
@@ -1117,12 +821,7 @@ fn busy_period_roundtrip() {
 /// Wire key names for BusyPeriod match spec camelCase names.
 #[test]
 fn busy_period_wire_names() {
-    let json = r#"{
-        "utcStart": "2024-08-01T10:00:00Z",
-        "utcEnd": "2024-08-01T11:00:00Z",
-        "busyStatus": "confirmed",
-        "accountId": "acc-wn"
-    }"#;
+    let json = &common::fixture("busy_period_wire_names.json");
     let bp: BusyPeriod = serde_json::from_str(json).expect("deserialize");
     let v = serde_json::to_value(&bp).expect("serialize");
     let obj = v.as_object().expect("object");
@@ -1142,10 +841,7 @@ fn busy_period_wire_names() {
 /// "String (default: "unavailable")".
 #[test]
 fn busy_period_absent_busy_status_defaults_to_unavailable() {
-    let json = r#"{
-        "utcStart": "2024-06-15T14:00:00Z",
-        "utcEnd": "2024-06-15T15:30:00Z"
-    }"#;
+    let json = &common::fixture("busy_period_absent_busy_status_defaults_to_unavailable.json");
     let bp: BusyPeriod = serde_json::from_str(json).expect("deserialize");
     assert_eq!(bp.busy_status, BusyStatus::Unavailable);
 }
@@ -1156,11 +852,7 @@ fn busy_period_absent_busy_status_defaults_to_unavailable() {
 /// one of" "confirmed", "tentative", "unavailable". `"busy"` is not.
 #[test]
 fn busy_period_rejects_unknown_busy_status() {
-    let json = r#"{
-        "utcStart": "2024-06-15T14:00:00Z",
-        "utcEnd": "2024-06-15T15:30:00Z",
-        "busyStatus": "busy"
-    }"#;
+    let json = &common::fixture("busy_period_rejects_unknown_busy_status.json");
     assert!(serde_json::from_str::<BusyPeriod>(json).is_err());
 }
 
@@ -1185,12 +877,7 @@ fn busy_status_wire_strings() {
 /// Oracle: field names from draft-ietf-jmap-calendars-33 §2.1 field descriptions.
 #[test]
 fn principal_calendars_capability_with_account_id() {
-    let json = r#"{
-        "accountId": "acc-alice",
-        "mayGetAvailability": true,
-        "mayShareWith": true,
-        "calendarAddress": "mailto:alice@example.com"
-    }"#;
+    let json = &common::fixture("principal_calendars_capability_with_account_id.json");
 
     let cap: PrincipalCalendarsCapability =
         serde_json::from_str(json).expect("PrincipalCalendarsCapability deserialize");
@@ -1231,12 +918,7 @@ fn principal_calendars_capability_calendar_address_null() {
 /// accessible calendar account.
 #[test]
 fn principal_calendars_capability_account_id_null() {
-    let json = r#"{
-        "accountId": null,
-        "mayGetAvailability": false,
-        "mayShareWith": false,
-        "calendarAddress": "mailto:service@example.com"
-    }"#;
+    let json = &common::fixture("principal_calendars_capability_account_id_null.json");
 
     let cap: PrincipalCalendarsCapability =
         serde_json::from_str(json).expect("deserialize with null accountId");
@@ -1251,12 +933,7 @@ fn principal_calendars_capability_account_id_null() {
 /// appear on the wire.
 #[test]
 fn principal_calendars_capability_account_id_null_serializes() {
-    let json = r#"{
-        "accountId": null,
-        "mayGetAvailability": false,
-        "mayShareWith": false,
-        "calendarAddress": "mailto:noaccount@example.com"
-    }"#;
+    let json = &common::fixture("principal_calendars_capability_account_id_null_serializes.json");
     let cap: PrincipalCalendarsCapability = serde_json::from_str(json).expect("deserialize");
     let v = serde_json::to_value(&cap).expect("serialize");
     let obj = v.as_object().expect("object");
@@ -1274,12 +951,7 @@ fn principal_calendars_capability_account_id_null_serializes() {
 /// PrincipalCalendarsCapability round-trip.
 #[test]
 fn principal_calendars_capability_roundtrip() {
-    let json = r#"{
-        "accountId": "acc-rt",
-        "mayGetAvailability": true,
-        "mayShareWith": false,
-        "calendarAddress": "mailto:rt@example.com"
-    }"#;
+    let json = &common::fixture("principal_calendars_capability_roundtrip.json");
 
     let original: PrincipalCalendarsCapability =
         serde_json::from_str(json).expect("first deserialize");
@@ -1302,13 +974,7 @@ fn principal_calendars_capability_roundtrip() {
 /// UnsignedInt, scheduleUpdated is a UTCDateTime string.
 #[test]
 fn participant_schedule_fields_roundtrip() {
-    let json = r#"{
-        "@type": "Participant",
-        "email": "alice@example.com",
-        "roles": { "attendee": true },
-        "scheduleSequence": 3,
-        "scheduleUpdated": "2024-06-15T10:30:00Z"
-    }"#;
+    let json = &common::fixture("participant_schedule_fields_roundtrip.json");
 
     let p: Participant = serde_json::from_str(json).expect("Participant deserialize");
     assert_eq!(p.schedule_sequence, Some(3));
@@ -1343,11 +1009,7 @@ fn participant_schedule_fields_roundtrip() {
 /// tracking fields; absent when not involved in scheduling.
 #[test]
 fn participant_schedule_fields_absent_when_none() {
-    let json = r#"{
-        "@type": "Participant",
-        "email": "bob@example.com",
-        "roles": { "attendee": true }
-    }"#;
+    let json = &common::fixture("participant_schedule_fields_absent_when_none.json");
 
     let p: Participant = serde_json::from_str(json).expect("Participant deserialize");
     assert_eq!(p.schedule_sequence, None);
@@ -1390,7 +1052,7 @@ fn id_from_str_works() {
 #[test]
 fn link_with_href_roundtrip() {
     // Oracle: RFC 8984 §1.4.11 field definitions.
-    let json = r#"{"@type":"Link","href":"https://example.com/file.pdf","contentType":"application/pdf","size":4096,"rel":"enclosure","display":"report.pdf"}"#;
+    let json = &common::fixture("link_with_href_roundtrip.json");
     let link: Link =
         serde_json::from_str(json).expect("link_with_href_roundtrip: must deserialize");
     assert_eq!(link.at_type, "Link");
@@ -1415,7 +1077,7 @@ fn link_with_href_roundtrip() {
 #[test]
 fn link_with_blob_id_roundtrip() {
     // Oracle: draft-ietf-jmap-calendars-33 §5.3 — blobId may be set instead of href.
-    let json = r#"{"@type":"Link","blobId":"blob-abc123","contentType":"image/png","size":2048,"rel":"enclosure"}"#;
+    let json = &common::fixture("link_with_blob_id_roundtrip.json");
     let link: Link =
         serde_json::from_str(json).expect("link_with_blob_id_roundtrip: must deserialize");
     assert_eq!(link.blob_id, Some(Id::from("blob-abc123")));
@@ -1437,7 +1099,7 @@ fn link_with_blob_id_roundtrip() {
 fn link_blob_id_absent_when_none() {
     // Oracle: skip_serializing_if = Option::is_none — optional field absent when not set.
     // Construct via deserialization (Link is #[non_exhaustive]).
-    let json = r#"{"@type":"Link","href":"https://example.com/doc.pdf"}"#;
+    let json = &common::fixture("link_blob_id_absent_when_none.json");
     let link: Link =
         serde_json::from_str(json).expect("link_blob_id_absent_when_none: must deserialize");
     assert!(
@@ -1455,7 +1117,7 @@ fn link_blob_id_absent_when_none() {
 fn link_wire_names() {
     // Oracle: #[serde(rename_all = "camelCase")] on Link struct.
     // All camelCase wire keys must be present; snake_case must not appear.
-    let json = r#"{"@type":"Link","href":"https://example.com/","contentType":"text/html","size":100,"rel":"describedby","display":"Page","blobId":"b1"}"#;
+    let json = &common::fixture("link_wire_names.json");
     let link: Link = serde_json::from_str(json).expect("link_wire_names: must deserialize");
     let out = serde_json::to_value(&link).expect("link_wire_names: must serialize");
     // camelCase keys must be present
@@ -1488,7 +1150,7 @@ fn link_wire_names() {
 fn calendar_alert_with_recurrence_id_roundtrip() {
     // Oracle: draft-ietf-jmap-calendars-33 §6.4 CalendarAlert push-notification object.
     // A recurring-event alert: recurrenceId is present and non-null.
-    let json = r#"{"@type":"CalendarAlert","accountId":"acc-1","calendarEventId":"ev-42","uid":"abc-uid-123","recurrenceId":"2024-06-15T10:00:00","alertId":"alert-1"}"#;
+    let json = &common::fixture("calendar_alert_with_recurrence_id_roundtrip.json");
     let alert: CalendarAlert = serde_json::from_str(json)
         .expect("calendar_alert_with_recurrence_id_roundtrip: must deserialize");
     assert_eq!(
@@ -1518,7 +1180,7 @@ fn calendar_alert_recurrence_id_null_for_non_recurring() {
     // Oracle: draft-ietf-jmap-calendars-33 §6.4 — recurrenceId is null for non-recurring events.
     // It MUST serialize as null (not be omitted) so receivers can distinguish
     // recurring from non-recurring events.
-    let json = r#"{"@type":"CalendarAlert","accountId":"acc-2","calendarEventId":"ev-99","uid":"xyz-uid-999","recurrenceId":null,"alertId":"alert-2"}"#;
+    let json = &common::fixture("calendar_alert_recurrence_id_null_for_non_recurring.json");
     let alert: CalendarAlert = serde_json::from_str(json)
         .expect("calendar_alert_recurrence_id_null_for_non_recurring: must deserialize");
     assert!(
@@ -1543,7 +1205,7 @@ fn calendar_alert_recurrence_id_null_for_non_recurring() {
 fn calendar_alert_wire_names() {
     // Oracle: #[serde(rename_all = "camelCase")] + #[serde(rename = "@type")] on CalendarAlert.
     // All camelCase wire keys must be present; snake_case must not appear.
-    let json = r#"{"@type":"CalendarAlert","accountId":"A1","calendarEventId":"EV1","uid":"uid-1","recurrenceId":"2024-01-01T09:00:00","alertId":"al-1"}"#;
+    let json = &common::fixture("calendar_alert_wire_names.json");
     let alert: CalendarAlert =
         serde_json::from_str(json).expect("calendar_alert_wire_names: must deserialize");
     let out = serde_json::to_value(&alert).expect("calendar_alert_wire_names: must serialize");
@@ -1586,7 +1248,7 @@ fn virtual_location_uri_required() {
     // Oracle: RFC 8984 §4.2.6 — uri is a mandatory String field.
     // A well-formed VirtualLocation must include uri; deserialization must succeed
     // and preserve the uri value.
-    let json = r#"{"@type":"VirtualLocation","name":"Team Call","uri":"https://meet.example.com/room-42","features":{"video":true}}"#;
+    let json = &common::fixture("virtual_location_uri_required.json");
     let vl: VirtualLocation =
         serde_json::from_str(json).expect("virtual_location_uri_required: must deserialize");
     assert_eq!(
@@ -1600,7 +1262,7 @@ fn virtual_location_uri_required() {
 fn virtual_location_uri_missing_fails_deserialization() {
     // Oracle: RFC 8984 §4.2.6 — uri is mandatory; a VirtualLocation with no uri
     // must fail deserialization (the crate uses String, not Option<String>).
-    let json = r#"{"@type":"VirtualLocation","name":"Nameless Location"}"#;
+    let json = &common::fixture("virtual_location_uri_missing_fails_deserialization.json");
     let result: Result<VirtualLocation, _> = serde_json::from_str(json);
     assert!(
         result.is_err(),
@@ -1611,7 +1273,7 @@ fn virtual_location_uri_missing_fails_deserialization() {
 #[test]
 fn virtual_location_wire_names() {
     // Oracle: #[serde(rename_all = "camelCase")] on VirtualLocation.
-    let json = r#"{"@type":"VirtualLocation","uri":"https://meet.example.com/xyz","features":{"audio":true}}"#;
+    let json = &common::fixture("virtual_location_wire_names.json");
     let vl: VirtualLocation =
         serde_json::from_str(json).expect("virtual_location_wire_names: must deserialize");
     let out = serde_json::to_value(&vl).expect("virtual_location_wire_names: must serialize");
@@ -1632,7 +1294,7 @@ fn virtual_location_wire_names() {
 fn link_cid_roundtrip() {
     // Oracle: RFC 8984 §1.4.11 — cid is an optional field for inline image
     // references in text/html event descriptions via cid: URLs.
-    let json = r#"{"@type":"Link","href":"https://example.com/logo.png","cid":"logo@example.com","contentType":"image/png"}"#;
+    let json = &common::fixture("link_cid_roundtrip.json");
     let link: Link = serde_json::from_str(json).expect("link_cid_roundtrip: must deserialize");
     assert_eq!(
         link.cid.as_deref(),
@@ -1650,7 +1312,7 @@ fn link_cid_roundtrip() {
 #[test]
 fn link_cid_absent_when_none() {
     // Oracle: skip_serializing_if = Option::is_none — cid must be absent when not set.
-    let json = r#"{"@type":"Link","href":"https://example.com/doc.pdf"}"#;
+    let json = &common::fixture("link_blob_id_absent_when_none.json");
     let link: Link =
         serde_json::from_str(json).expect("link_cid_absent_when_none: must deserialize");
     assert!(link.cid.is_none(), "cid must be None when absent from JSON");
@@ -1665,7 +1327,7 @@ fn link_cid_absent_when_none() {
 fn link_title_roundtrip() {
     // Oracle: RFC 8984 §1.4.11 — title is an optional human-readable description
     // of the linked resource, distinct from display (file name).
-    let json = r#"{"@type":"Link","href":"https://example.com/report.pdf","title":"Annual Report 2024","display":"report.pdf"}"#;
+    let json = &common::fixture("link_title_roundtrip.json");
     let link: Link = serde_json::from_str(json).expect("link_title_roundtrip: must deserialize");
     assert_eq!(
         link.title.as_deref(),
@@ -1682,7 +1344,7 @@ fn link_title_roundtrip() {
 #[test]
 fn link_title_absent_when_none() {
     // Oracle: skip_serializing_if = Option::is_none — title must be absent when not set.
-    let json = r#"{"@type":"Link","href":"https://example.com/"}"#;
+    let json = &common::fixture("link_title_absent_when_none.json");
     let link: Link =
         serde_json::from_str(json).expect("link_title_absent_when_none: must deserialize");
     assert!(
@@ -1704,8 +1366,7 @@ fn link_title_absent_when_none() {
 fn participant_schedule_status_roundtrip() {
     // Oracle: RFC 8984 §4.4.6 — scheduleStatus is String[] (optional),
     // contains iTIP status codes (e.g. "1.0", "2.0").
-    let json =
-        r#"{"@type":"Participant","roles":{"attendee":true},"scheduleStatus":["1.0","2.0"]}"#;
+    let json = &common::fixture("participant_schedule_status_roundtrip.json");
     let p: Participant = serde_json::from_str(json)
         .expect("participant_schedule_status_roundtrip: must deserialize");
     let status = p
@@ -1761,7 +1422,7 @@ fn calendar_event_icalendar_roundtrip() {
 /// extras catch-all and round-trips under its own spelling.
 #[test]
 fn calendar_event_draft26_icalcomponent_lands_in_extras() {
-    let payload = r#"{"id":"e1","iCalComponent":"QkVHSU46VkVWRU5U"}"#;
+    let payload = &common::fixture("calendar_event_draft26_icalcomponent_lands_in_extras.json");
     let ev: CalendarEvent = serde_json::from_str(payload).expect("must still deserialize");
     assert!(ev.icalendar.is_none());
     assert_eq!(
@@ -1778,7 +1439,10 @@ fn calendar_event_draft26_icalcomponent_lands_in_extras() {
 /// from the wire.
 #[test]
 fn calendar_event_icalendar_absent_when_none() {
-    let event: CalendarEvent = serde_json::from_str(r#"{"id":"ev1"}"#).expect("must deserialize");
+    let event: CalendarEvent = serde_json::from_str(&common::fixture(
+        "calendar_event_icalendar_absent_when_none.json",
+    ))
+    .expect("must deserialize");
     assert!(event.icalendar.is_none());
     let out = serde_json::to_value(&event).expect("must serialize");
     assert!(out.get("iCalendar").is_none(), "{out}");
@@ -2045,11 +1709,7 @@ fn calendar_alert_at_type_explicit_value_round_trips_verbatim() {
 /// expected bytes are hand-written.
 #[test]
 fn calendar_event_maps_serialize_in_sorted_key_order() {
-    let raw = r#"{
-        "id": "ev-ord",
-        "calendarIds": {"cal-2": true, "cal-1": true},
-        "localizations": {"fr": {"title": "Dejeuner"}, "es": {"title": "Almuerzo"}}
-    }"#;
+    let raw = &common::fixture("calendar_event_maps_serialize_in_sorted_key_order.json");
     let ev: CalendarEvent = serde_json::from_str(raw).expect("deserialize");
     let j = serde_json::to_string(&ev).expect("serialize");
     assert!(
