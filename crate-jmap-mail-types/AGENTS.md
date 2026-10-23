@@ -88,6 +88,8 @@ Run all four before considering any work done.
 | Field names | Must match RFC 8621 exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from RFC 8621 examples — never from code under test |
+| Constructors | **Minimal** `::new()` and named alternates where they enforce a type invariant or absorb required-field boilerplate that callers would otherwise repeat for every struct (the workspace extras-preservation policy adds a public `extra: serde_json::Map<...>` field to every wire struct; thin `::new()` wrappers such as `EmailAddress::new` exist to insulate callers from initialising that field themselves). Otherwise prefer struct-literal construction. The earlier "no `::new()` methods" wording predated the extras-preservation policy (commit 2957e6e) and was retired by bd:JMAP-ly0n.7. Workspace-wide policy: applies to every `*-types` crate. |
+| Attribute order | `#[non_exhaustive]` → `#[derive(...)]` → `#[serde(...)]` on every type. Workspace-wide policy: applies to every `*-types` crate. |
 
 ## Subagent Guidance
 
