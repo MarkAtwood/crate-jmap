@@ -54,8 +54,13 @@ jmap-types
 ~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-wss-00.md     ← WebSocket events
 ~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-federation-00.md
 ~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-filenode-00.md
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt               ← base protocol
+~/PROJECT/IETF/specs/rfc8620.txt                                ← base protocol
 ```
+
+The `draft-atwood-*` files intentionally live at the top level of
+`~/PROJECT/jmap-chat-spec/`, not in a `references/` subdirectory, because
+this workspace authors those drafts. Do not move them or rewrite these paths
+to match the upstream-RFC paths used by other crates.
 
 Before implementing any method, read its section in the relevant
 draft. Method names, error conditions, and response shapes must
