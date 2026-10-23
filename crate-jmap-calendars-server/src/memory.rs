@@ -381,7 +381,7 @@ impl Inner {
 /// counter and records a change log entry. Used as both the integration-test
 /// harness and the canonical example for backend implementors.
 ///
-/// Cloning is cheap: every clone shares the same underlying `Arc<Mutex<…>>`.
+/// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
 ///
 /// # Caveats (bd:JMAP-ic0j.16)
 ///
@@ -414,10 +414,25 @@ impl Inner {
 /// All four caveats are out of scope for the reference impl's purpose —
 /// they are the *reason* production deployments override the backend
 /// trait rather than reusing `MemoryBackend`.
-#[derive(Clone, Default)]
+#[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
+}
+
+/// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
+///
+/// A clone copies no data. The original and the clone hold `Arc::clone`s
+/// of the same `Mutex`-guarded store and observe each other's mutations, so
+/// one handle can seed or inspect state while another serves requests. This
+/// impl must never become a deep copy; for independent state construct a
+/// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
+impl Clone for MemoryBackend {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl MemoryBackend {
@@ -2002,5 +2017,21 @@ mod memory_error_tests {
             shown.contains("decode") && shown.contains("Data"),
             "{shown}"
         );
+    }
+}
+
+#[cfg(test)]
+mod clone_tests {
+    use super::MemoryBackend;
+    use std::sync::Arc;
+
+    /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
+    /// `Arc` clone, never a deep copy, so a clone and its original hold
+    /// the same store while a fresh instance does not.
+    #[test]
+    fn clone_shares_store() {
+        let a = MemoryBackend::new();
+        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
+        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
     }
 }
