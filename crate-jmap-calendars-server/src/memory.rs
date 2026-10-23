@@ -472,33 +472,17 @@ impl MemoryBackend {
         Self::default()
     }
 
-    /// Register an account as known even if it has no objects yet.
-    /// Use this in tests that need an empty-but-valid account.
+    /// Register `account_id` as known and return `self`, for
+    /// builder-style fixture setup. Same as [`Self::register_account`]
+    /// (idempotent; the id is stored without RFC 8620 §1.2 validation).
     ///
-    /// Returns `self` to allow builder-style chaining:
+    /// # Panics
     ///
-    /// ```rust,ignore
-    /// let backend = MemoryBackend::new().with_account("acc1");
-    /// ```
-    ///
-    /// # Invariants (bd:JMAP-ic0j.65)
-    ///
-    /// - **No Id validation**: `account_id` is fed unchanged through
-    ///   [`Id::from`], which is infallible and accepts any string. The
-    ///   `MemoryBackend` silently accepts bogus account ids that
-    ///   violate RFC 8620 §1.2's Id alphabet (e.g. spaces, non-printable
-    ///   characters); only the empty string trips a `debug_assert!`
-    ///   (bd:JMAP-dx0s). Production backends MUST validate
-    ///   caller-supplied ids — e.g. via [`Id::new_validated`] — before
-    ///   invoking this. The reference impl is permissive to keep test
-    ///   fixtures concise.
-    /// - **Idempotent**: calling `with_account` with the same value
-    ///   multiple times is safe and has no additional effect (the
-    ///   underlying `HashSet::insert` simply returns `false` on dup).
-    ///   This property is stable; callers may rely on it.
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
     #[must_use]
-    pub fn with_account(self, account_id: &str) -> Self {
-        self.register_account(&Id::from(account_id));
+    pub fn with_account(self, account_id: &Id) -> Self {
+        self.register_account(account_id);
         self
     }
 
@@ -615,72 +599,51 @@ impl MemoryBackend {
     /// the source.
     pub fn seed_object(
         &self,
-        account_id: &str,
-        type_name: &str,
-        id: &str,
+        account_id: &Id,
+        type_name: &'static str,
+        id: &Id,
         value: serde_json::Value,
     ) {
-        // Catch typos in `type_name` at the seed boundary rather than letting
-        // them silently corrupt the fixture into a dead namespace.
-        //
-        // bd:JMAP-ic0j.69 — the type_name parameter is `&str` (not
-        // `&'static str`) so test authors can pass computed values from
-        // parameterised fixtures. The inner storage keys require
-        // `&'static str` though, so the dispatch below rebinds the
-        // accepted input to the matching `&'static str` literal.
-        const CALENDAR: &str = "Calendar";
-        const CALENDAR_EVENT: &str = "CalendarEvent";
-        const CALENDAR_EVENT_NOTIFICATION: &str = "CalendarEventNotification";
-        const PARTICIPANT_IDENTITY: &str = "ParticipantIdentity";
         const KNOWN_TYPES: &[&str] = &[
-            CALENDAR,
-            CALENDAR_EVENT,
-            CALENDAR_EVENT_NOTIFICATION,
-            PARTICIPANT_IDENTITY,
+            jmap_calendars_types::Calendar::TYPE_NAME,
+            jmap_calendars_types::CalendarEvent::TYPE_NAME,
+            jmap_calendars_types::CalendarEventNotification::TYPE_NAME,
+            jmap_calendars_types::ParticipantIdentity::TYPE_NAME,
         ];
-        let static_type_name: &'static str = match type_name {
-            CALENDAR => CALENDAR,
-            CALENDAR_EVENT => CALENDAR_EVENT,
-            CALENDAR_EVENT_NOTIFICATION => CALENDAR_EVENT_NOTIFICATION,
-            PARTICIPANT_IDENTITY => PARTICIPANT_IDENTITY,
-            _ => panic!(
-                "seed_object: type_name {type_name:?} is not one of the known \
-                 jmap-calendars-types TYPE_NAME values {KNOWN_TYPES:?}. \
-                 Likely a typo — the lookup would silently store into a dead \
-                 namespace no method reads from."
-            ),
-        };
-
-        // Validate the value's shape at the seed boundary so a malformed
-        // fixture fails fast HERE, not in the get_objects deserialize path.
-        let obj = value.as_object().unwrap_or_else(|| {
-            panic!(
-                "seed_object: value must be a JSON object with an `id` field, \
-                 got {value:?}"
-            )
-        });
-        let value_id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_else(|| {
-            panic!("seed_object: value must contain an `id` string field; got value = {value:?}")
-        });
-        assert_eq!(
-            value_id, id,
-            "seed_object: value's `id` field {value_id:?} does not match the \
-             `id` argument {id:?} — the object would be reachable by the arg \
-             id but its serialized form would carry the value-id, breaking \
-             round-trip"
+        assert!(
+            KNOWN_TYPES.contains(&type_name),
+            "seed_object: type_name {type_name:?} is not one of the known \
+             TYPE_NAME values {KNOWN_TYPES:?}"
         );
-
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!("seed_object: value must be a JSON object with an `id` field, got {value:?}")
+        });
+        let value_id = obj
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must contain an `id` string field; got value = {value:?}"
+                )
+            });
+        assert_eq!(
+            value_id,
+            id.as_ref(),
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?}"
+        );
+        let account_id = account_id.as_ref();
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
         inner
-            .objects_mut(static_type_name, account_id)
-            .insert(Id::from(id), value);
+            .objects_mut(type_name, account_id)
+            .insert(id.clone(), value);
         // bd:JMAP-ic0j.8 — seed_object bypasses the trait-impl mutators
         // so we have no before/after pair to feed
         // `apply_calendar_event_index_delta`; fall back to a full rebuild
         // of `calendar_event_counts`. seed_object is only called from
         // test fixtures, so the `O(N)` rebuild cost is acceptable here.
-        if static_type_name == CALENDAR_EVENT {
+        if type_name == jmap_calendars_types::CalendarEvent::TYPE_NAME {
             inner.recompute_calendar_event_counts(account_id);
         }
     }
@@ -1972,7 +1935,12 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "calendarevent", "ev1", json!({"id": "ev1"}));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "calendarevent",
+            &Id::from("ev1"),
+            json!({"id": "ev1"}),
+        );
     }
 
     /// Regression for bd:JMAP-ic0j.32: a non-object value panics
@@ -1982,7 +1950,7 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "must be a JSON object")]
     fn seed_object_rejects_non_object_value() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "Calendar", "cal1", json!(42));
+        backend.seed_object(&Id::from("acc1"), "Calendar", &Id::from("cal1"), json!(42));
     }
 
     /// Regression for bd:JMAP-ic0j.32: a value missing the `id` field
@@ -1992,7 +1960,12 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "must contain an `id` string field")]
     fn seed_object_rejects_value_without_id_field() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "Calendar", "cal1", json!({"name": "Work"}));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "Calendar",
+            &Id::from("cal1"),
+            json!({"name": "Work"}),
+        );
     }
 
     /// Regression for bd:JMAP-ic0j.32: a value whose `id` field does
@@ -2002,7 +1975,12 @@ mod seed_object_validation_tests {
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "Calendar", "cal1", json!({"id": "cal2"}));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "Calendar",
+            &Id::from("cal1"),
+            json!({"id": "cal2"}),
+        );
     }
 
     /// Positive control: the happy path still works for each of the
@@ -2010,30 +1988,30 @@ mod seed_object_validation_tests {
     #[test]
     fn seed_object_accepts_known_type_names() {
         let backend = MemoryBackend::new();
-        backend.seed_object("acc1", "Calendar", "c1", json!({"id": "c1"}));
-        backend.seed_object("acc1", "CalendarEvent", "e1", json!({"id": "e1"}));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
+            "Calendar",
+            &Id::from("c1"),
+            json!({"id": "c1"}),
+        );
+        backend.seed_object(
+            &Id::from("acc1"),
+            "CalendarEvent",
+            &Id::from("e1"),
+            json!({"id": "e1"}),
+        );
+        backend.seed_object(
+            &Id::from("acc1"),
             "CalendarEventNotification",
-            "n1",
+            &Id::from("n1"),
             json!({"id": "n1"}),
         );
-        backend.seed_object("acc1", "ParticipantIdentity", "p1", json!({"id": "p1"}));
-    }
-
-    /// Regression for bd:JMAP-ic0j.69: a non-`'static` `&str` (e.g. a
-    /// `String` slice produced by `format!`) is now accepted. The
-    /// original signature `type_name: &'static str` forced every caller
-    /// to use a string literal; the new signature lets parameterised
-    /// fixtures factor out their type names.
-    #[test]
-    fn seed_object_accepts_non_static_type_name() {
-        let backend = MemoryBackend::new();
-        // Compute the type name at runtime — would have failed to
-        // compile against the previous `&'static str` signature.
-        let prefix = "Calendar";
-        let kind = format!("{prefix}Event");
-        backend.seed_object("acc1", &kind, "e1", json!({"id": "e1"}));
+        backend.seed_object(
+            &Id::from("acc1"),
+            "ParticipantIdentity",
+            &Id::from("p1"),
+            json!({"id": "p1"}),
+        );
     }
 }
 
@@ -2118,11 +2096,11 @@ mod calendar_event_counts_tests {
     /// exactly 1 under cal1, and no entry for any other calendar.
     #[test]
     fn seed_single_event_single_calendar_count_is_one() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "evt1",
+            &Id::from("evt1"),
             serde_json::json!({"id": "evt1", "calendarIds": {"cal1": true}}),
         );
         assert_eq!(count(&backend, "acc1", "cal1"), 1);
@@ -2133,17 +2111,17 @@ mod calendar_event_counts_tests {
     /// of 2 — verifies the counter accumulates rather than overwriting.
     #[test]
     fn seed_two_events_same_calendar_count_is_two() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "evt1",
+            &Id::from("evt1"),
             serde_json::json!({"id": "evt1", "calendarIds": {"cal1": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "evt2",
+            &Id::from("evt2"),
             serde_json::json!({"id": "evt2", "calendarIds": {"cal1": true}}),
         );
         assert_eq!(count(&backend, "acc1", "cal1"), 2);
@@ -2154,11 +2132,11 @@ mod calendar_event_counts_tests {
     /// "event-in-multiple-calendars" case (§5.2 multi-calendar events).
     #[test]
     fn seed_event_with_multiple_calendars_each_gets_one() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "evt1",
+            &Id::from("evt1"),
             serde_json::json!({
                 "id": "evt1",
                 "calendarIds": {"cal1": true, "cal2": true}
@@ -2180,23 +2158,23 @@ mod calendar_event_counts_tests {
     /// oracle used elsewhere in this module is itself sound.
     #[test]
     fn seed_then_seed_yields_correct_counts() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "evt1",
+            &Id::from("evt1"),
             serde_json::json!({"id": "evt1", "calendarIds": {"cal1": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "evt2",
+            &Id::from("evt2"),
             serde_json::json!({"id": "evt2", "calendarIds": {"cal2": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "evt3",
+            &Id::from("evt3"),
             serde_json::json!({"id": "evt3", "calendarIds": {"cal2": true, "cal3": true}}),
         );
         assert_eq!(count(&backend, "acc1", "cal1"), 1);
@@ -2241,21 +2219,21 @@ mod calendar_event_counts_tests {
     /// equality check fails.
     #[tokio::test]
     async fn incremental_matches_full_rescan_under_mixed_workload() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
         // Seed two events: one in cal1, one in cal2. Seed triggers a
         // full rescan, so after this the index is whatever rescan
         // produces.
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "seed1",
+            &Id::from("seed1"),
             serde_json::json!({"id": "seed1", "calendarIds": {"cal1": true}}),
         );
         backend.seed_object(
-            "acc1",
+            &Id::from("acc1"),
             "CalendarEvent",
-            "seed2",
+            &Id::from("seed2"),
             serde_json::json!({"id": "seed2", "calendarIds": {"cal2": true}}),
         );
 
@@ -2317,7 +2295,7 @@ mod calendar_event_counts_tests {
     /// incremental path through both production code branches.
     #[tokio::test]
     async fn create_then_destroy_removes_entry() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let (id, _) = backend
             .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
@@ -2344,7 +2322,7 @@ mod calendar_event_counts_tests {
     /// retained. Verifies the counter doesn't collapse to 0 prematurely.
     #[tokio::test]
     async fn create_two_destroy_one_keeps_entry() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let (id1, _) = backend
             .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
@@ -2381,7 +2359,7 @@ mod calendar_event_counts_tests {
     /// removed; cal2 count rises to 1.
     #[test]
     fn apply_delta_old_to_new_swaps_calendar_ids() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let old = serde_json::json!({"calendarIds": {"cal1": true}});
         let new = serde_json::json!({"calendarIds": {"cal2": true}});
 
@@ -2405,7 +2383,7 @@ mod calendar_event_counts_tests {
     /// calendarIds, the delta is empty and counters are unchanged.
     #[test]
     fn apply_delta_identical_old_new_is_noop() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let v = serde_json::json!({"calendarIds": {"cal1": true, "cal2": true}});
 
         // Establish baseline.
@@ -2430,7 +2408,7 @@ mod calendar_event_counts_tests {
     /// JSON without panicking.
     #[test]
     fn apply_delta_value_without_calendar_ids_contributes_nothing() {
-        let backend = MemoryBackend::new().with_account("acc1");
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let bare = serde_json::json!({"id": "evt1"}); // no calendarIds
         let with_ids = serde_json::json!({"calendarIds": {"cal1": true}});
 

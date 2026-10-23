@@ -12,6 +12,7 @@ use jmap_contacts_server::{
     handle_contact_card_set,
 };
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// A minimal valid AddressBook.
@@ -34,13 +35,23 @@ fn address_book(id: &str) -> Value {
 /// A backend with AddressBooks `ab1` and `ab2` and ContactCard `card1`,
 /// which belongs to `ab1` and has `name.full` "Alice".
 fn seeded_backend() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_object("acc1", "AddressBook", "ab1", address_book("ab1"));
-    backend.seed_object("acc1", "AddressBook", "ab2", address_book("ab2"));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
+        "AddressBook",
+        &Id::from("ab1"),
+        address_book("ab1"),
+    );
+    backend.seed_object(
+        &Id::from("acc1"),
+        "AddressBook",
+        &Id::from("ab2"),
+        address_book("ab2"),
+    );
+    backend.seed_object(
+        &Id::from("acc1"),
         "ContactCard",
-        "card1",
+        &Id::from("card1"),
         json!({
             "id": "card1",
             "@type": "Card",
@@ -172,7 +183,7 @@ async fn update_address_book_sort_order_null_resets_to_default() {
     let backend = seeded_backend();
     let mut ab1 = address_book("ab1");
     ab1["sortOrder"] = json!(7);
-    backend.seed_object("acc1", "AddressBook", "ab1", ab1);
+    backend.seed_object(&Id::from("acc1"), "AddressBook", &Id::from("ab1"), ab1);
 
     let args = json!({ "accountId": "acc1", "update": { "ab1": { "sortOrder": null } } });
     let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)

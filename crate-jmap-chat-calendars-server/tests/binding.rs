@@ -74,10 +74,20 @@ fn calendar_json(id: &str) -> Value {
 /// Calendar `C1` on `A1`, Calendar `C2` on `A2`.
 fn calendars() -> CalendarsMemory {
     let calendars = CalendarsMemory::new()
-        .with_account(ACCOUNT)
-        .with_account(OTHER_ACCOUNT);
-    calendars.seed_object(ACCOUNT, "Calendar", "C1", calendar_json("C1"));
-    calendars.seed_object(OTHER_ACCOUNT, "Calendar", "C2", calendar_json("C2"));
+        .with_account(&Id::from(ACCOUNT))
+        .with_account(&Id::from(OTHER_ACCOUNT));
+    calendars.seed_object(
+        &Id::from(ACCOUNT),
+        "Calendar",
+        &Id::from("C1"),
+        calendar_json("C1"),
+    );
+    calendars.seed_object(
+        &Id::from(OTHER_ACCOUNT),
+        "Calendar",
+        &Id::from("C2"),
+        calendar_json("C2"),
+    );
     calendars
 }
 

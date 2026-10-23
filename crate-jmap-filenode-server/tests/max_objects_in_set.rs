@@ -58,7 +58,7 @@ fn expected_limit_error_shape() -> (&'static str, &'static str) {
 /// Set up a `MemoryBackend` with one account ready for `/set` dispatch.
 fn one_account_backend() -> (MemoryBackend, Id) {
     let account_id = Id::from("account1");
-    let backend = MemoryBackend::new().with_account(account_id.as_ref());
+    let backend = MemoryBackend::new().with_account(&account_id);
     (backend, account_id)
 }
 

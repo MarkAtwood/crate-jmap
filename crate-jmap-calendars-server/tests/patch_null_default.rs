@@ -14,16 +14,17 @@ use jmap_calendars_server::{
     handle_participant_identity_set,
 };
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// Seed `acc1` with Calendar `cal1` whose `sortOrder` and `isVisible`
 /// hold non-default values.
 fn backend_with_calendar() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "Calendar",
-        "cal1",
+        &Id::from("cal1"),
         json!({
             "id": "cal1",
             "name": "Work",
@@ -56,11 +57,11 @@ fn backend_with_calendar() -> MemoryBackend {
 
 /// Seed `acc1` with ParticipantIdentity `pi1` named "Alice".
 fn backend_with_identity() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ParticipantIdentity",
-        "pi1",
+        &Id::from("pi1"),
         json!({
             "id": "pi1",
             "name": "Alice",

@@ -77,7 +77,7 @@ impl Fixture {
         });
         chat.insert_object_for_test("Space", ACCOUNT, SPACE, space);
 
-        let files = FilesMemory::new().with_account(ACCOUNT);
+        let files = FilesMemory::new().with_account(&Id::from(ACCOUNT));
         for node in [
             json!({ "id": "root-s1", "@type": "Directory", "name": "S1", "parentId": null,
                     "role": ROLE, "spaceId": SPACE }),
@@ -90,7 +90,7 @@ impl Fixture {
                     "blobId": "b3", "size": 3, "sha256": SHA256_ABC, "mediaType": "text/plain" }),
         ] {
             files.seed_node(
-                ACCOUNT,
+                &Id::from(ACCOUNT),
                 serde_json::from_value(node).expect("FileNode fixture"),
             );
         }

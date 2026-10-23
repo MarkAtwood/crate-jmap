@@ -154,7 +154,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use jmap_types::Invocation;
+    use jmap_types::{Id, Invocation};
     use std::sync::Arc;
 
     use jmap_server::{Dispatcher, JmapRequest, State};
@@ -177,7 +177,7 @@ mod tests {
     /// dispatched with a valid account.
     #[tokio::test]
     async fn registers_all_6_methods() {
-        let backend = Arc::new(MemoryBackend::new().with_account("acc1"));
+        let backend = Arc::new(MemoryBackend::new().with_account(&Id::from("acc1")));
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         register_filenode_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -228,7 +228,7 @@ mod tests {
     /// Oracle: FileNode/set empty destroy returns valid empty set response.
     #[tokio::test]
     async fn set_empty_destroy_is_valid() {
-        let backend = Arc::new(MemoryBackend::new().with_account("acc1"));
+        let backend = Arc::new(MemoryBackend::new().with_account(&Id::from("acc1")));
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         register_filenode_handlers(&mut dispatcher, Arc::clone(&backend));
 

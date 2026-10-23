@@ -1594,6 +1594,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**, **jmap-chat-server**, **jmap-sharing-server**,
+  **jmap-calendars-server**, **jmap-contacts-server**,
+  **jmap-tasks-server**, **jmap-filenode-server**: **BREAKING** (`memory`
+  feature only) every `MemoryBackend` has the same fixture helpers:
+  `with_account(self, &Id) -> Self` and `seed_object(&self, account_id:
+  &Id, type_name: &'static str, id: &Id, value: serde_json::Value)`.
+  Mail, chat, sharing and filenode gain them; calendars, contacts, tasks
+  and filenode change `with_account` from `&str` to `&Id`, calendars and
+  contacts change `seed_object` from `&str` arguments to `&Id` ids and a
+  `&'static str` type name, tasks changes its ids to `&Id`, and filenode
+  `seed_node` takes `&Id`. `seed_object` panics on an unknown type name or
+  a `value` whose `id` differs from `id` in every backend; mail indexes a
+  seeded Email's `messageId` for `Email/import` duplicate detection
+  (bd JMAP-9f05).
 - **jmap-jscalendar-types**: `RecurrenceRule`, `Location`,
   `VirtualLocation`, `Link`, `Relation`, `Participant`, `OffsetTrigger`,
   `AbsoluteTrigger`, `AlertTrigger`, `Alert`, `TimeZoneRule` and `TimeZone`

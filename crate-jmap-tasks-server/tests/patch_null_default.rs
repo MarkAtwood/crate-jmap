@@ -11,17 +11,18 @@ mod common;
 use common::MemoryBackend;
 use jmap_server::HandlerOutput;
 use jmap_tasks_server::{handle_task_list_get, handle_task_list_set};
+use jmap_types::Id;
 use serde_json::json;
 
 /// draft-ietf-jmap-tasks-06 line 429:
 /// "*sortOrder*: UnsignedInt (default: 0)".
 #[tokio::test]
 async fn task_list_sort_order_null_resets_to_zero() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "TaskList",
-        "tl1",
+        &Id::from("tl1"),
         json!({
             "id": "tl1",
             "name": "Chores",

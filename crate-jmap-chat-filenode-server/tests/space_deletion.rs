@@ -37,7 +37,7 @@ fn node(v: Value) -> FileNode {
 /// Space S1's tree: root `r1` > `f1`, `d1` > `f2`. Space S2's tree: root
 /// `r2` > `f3`. A plain top-level directory `plain` > `f4`.
 fn fixture() -> MemoryBackend {
-    let files = MemoryBackend::new().with_account(ACCOUNT);
+    let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
     for v in [
         json!({ "id": "r1", "@type": "Directory", "name": "r1", "parentId": null,
                 "role": ROLE, "spaceId": "S1" }),
@@ -54,7 +54,7 @@ fn fixture() -> MemoryBackend {
         json!({ "id": "f4", "@type": "File", "name": "f4", "parentId": "plain",
                 "blobId": "b-f4", "size": 1 }),
     ] {
-        files.seed_node(ACCOUNT, node(v));
+        files.seed_node(&Id::from(ACCOUNT), node(v));
     }
     files
 }

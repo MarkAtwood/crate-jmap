@@ -44,7 +44,7 @@ fn seed_file(backend: &MemoryBackend, id: &str) {
         "accessed": null
     }))
     .expect("seed FileNode must deserialize");
-    backend.seed_node("acc1", node);
+    backend.seed_node(&Id::from("acc1"), node);
 }
 
 async fn stored(backend: &MemoryBackend, id: &str) -> Value {
@@ -58,7 +58,7 @@ async fn stored(backend: &MemoryBackend, id: &str) -> Value {
 /// Send `bad_patch` to node "bad" and `ok_patch` to control node "ok";
 /// assert "bad" is invalidPatch and unchanged, and "ok" is updated.
 async fn assert_invalid_patch(bad_patch: Value, ok_patch: Value) {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     seed_file(&backend, "bad");
     seed_file(&backend, "ok");
     let before = stored(&backend, "bad").await;

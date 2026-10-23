@@ -342,11 +342,17 @@ impl MemoryBackend {
         Self::default()
     }
 
-    /// Register an account as known even if it has no objects yet.
-    /// Returns `self` for builder-style chaining.
+    /// Register `account_id` as known and return `self`, for
+    /// builder-style fixture setup. Same as [`Self::register_account`]
+    /// (idempotent; the id is stored without RFC 8620 §1.2 validation).
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
     #[must_use]
-    pub fn with_account(self, account_id: &str) -> Self {
-        self.register_account(&Id::from(account_id));
+    pub fn with_account(self, account_id: &Id) -> Self {
+        self.register_account(account_id);
         self
     }
 
@@ -373,17 +379,54 @@ impl MemoryBackend {
         inner.aux.entry(account_id.as_ref().to_owned()).or_default();
     }
 
-    /// Seed a pre-existing object into the store without bumping the state
-    /// counter or recording a change-log entry. Intended for test fixture
-    /// setup; the `type_name` must match `O::TYPE_NAME` of the type being
-    /// seeded (e.g. `"TaskList"`, `"Task"`, `"TaskNotification"`).
+    /// Seed a pre-existing object into the store without bumping the
+    /// state counter or recording a change-log entry. Test-fixture setup
+    /// only; registers `account_id` as known. Mirrors
+    /// `jmap_mail_server::memory::MemoryBackend::seed_object`.
+    ///
+    /// `type_name` is the `TYPE_NAME` of a type this backend stores:
+    /// `"TaskList"`, `"Task"`, or `"TaskNotification"`. A seeded Task's
+    /// `taskListId` is counted in the TaskList reference index.
+    ///
+    /// # Panics
+    ///
+    /// If `type_name` is not one of the names above, or `value` is not a
+    /// JSON object whose `id` string equals `id`.
     pub fn seed_object(
         &self,
-        account_id: &str,
+        account_id: &Id,
         type_name: &'static str,
-        id: &str,
+        id: &Id,
         value: serde_json::Value,
     ) {
+        const KNOWN_TYPES: &[&str] = &[
+            jmap_tasks_types::TaskList::TYPE_NAME,
+            jmap_tasks_types::Task::TYPE_NAME,
+            jmap_tasks_types::TaskNotification::TYPE_NAME,
+        ];
+        assert!(
+            KNOWN_TYPES.contains(&type_name),
+            "seed_object: type_name {type_name:?} is not one of the known \
+             TYPE_NAME values {KNOWN_TYPES:?}"
+        );
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!("seed_object: value must be a JSON object with an `id` field, got {value:?}")
+        });
+        let value_id = obj
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must contain an `id` string field; got value = {value:?}"
+                )
+            });
+        assert_eq!(
+            value_id,
+            id.as_ref(),
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?}"
+        );
+        let account_id = account_id.as_ref();
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
         let list_id = if type_name == "Task" {
@@ -393,7 +436,7 @@ impl MemoryBackend {
         };
         let prev = inner
             .objects_mut(type_name, account_id)
-            .insert(Id::from(id), value);
+            .insert(id.clone(), value);
         if type_name == "Task" {
             // If this id was already seeded, decrement its prior taskListId
             // refcount first to keep the index correct on re-seed.
@@ -1054,6 +1097,69 @@ mod memory_error_tests {
         assert!(
             shown.contains("decode") && shown.contains("Data"),
             "{shown}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod fixture_helper_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// `with_account` makes the account known (RFC 8620 §3.6.2: an
+    /// unknown accountId is `accountNotFound`, so `account_exists` is the
+    /// observable).
+    #[tokio::test]
+    async fn with_account_registers_account() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new().with_account(&acc);
+        assert!(backend.account_exists(&(), &acc).await.unwrap());
+        assert!(
+            !backend
+                .account_exists(&(), &Id::from("acc2"))
+                .await
+                .unwrap()
+        );
+    }
+
+    /// A seeded Task counts toward its TaskList's reference index.
+    #[tokio::test]
+    async fn seeded_task_marks_task_list_non_empty() {
+        let acc = Id::from("acc1");
+        let backend = MemoryBackend::new();
+        backend.seed_object(
+            &acc,
+            "Task",
+            &Id::from("t1"),
+            json!({"id": "t1", "taskListId": "tl1"}),
+        );
+        assert!(
+            backend
+                .task_list_has_tasks(&(), &acc, &Id::from("tl1"))
+                .await
+                .unwrap()
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "not one of the known")]
+    fn seed_object_rejects_unknown_type_name() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "Tasklist",
+            &Id::from("tl1"),
+            json!({"id": "tl1"}),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "does not match the `id` argument")]
+    fn seed_object_rejects_id_mismatch() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "TaskList",
+            &Id::from("tl1"),
+            json!({"id": "tl2"}),
         );
     }
 }

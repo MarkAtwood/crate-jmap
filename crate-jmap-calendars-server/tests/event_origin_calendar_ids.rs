@@ -20,6 +20,7 @@ use jmap_calendars_server::{
     handle_calendar_event_copy, handle_calendar_event_get, handle_calendar_event_set,
 };
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use serde_json::{Value, json};
 
 const OWN: &str = "mailto:alice@example.com";
@@ -27,12 +28,12 @@ const FOREIGN: &str = "mailto:bob@example.org";
 
 fn backend() -> MemoryBackend {
     let backend = MemoryBackend::new()
-        .with_account("acc1")
-        .with_account("acc2");
+        .with_account(&Id::from("acc1"))
+        .with_account(&Id::from("acc2"));
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "ParticipantIdentity",
-        "pi1",
+        &Id::from("pi1"),
         json!({ "id": "pi1", "name": "Alice", "calendarAddress": OWN, "isDefault": true }),
     );
     backend
@@ -232,9 +233,9 @@ async fn copy_recomputes_is_origin_in_target_account() {
 async fn copy_fills_omitted_type_and_version() {
     let backend = backend();
     backend.seed_object(
-        "acc1",
+        &Id::from("acc1"),
         "CalendarEvent",
-        "src",
+        &Id::from("src"),
         json!({
             "id": "src",
             "uid": "u-bare",

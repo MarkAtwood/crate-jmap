@@ -16,6 +16,7 @@ use jmap_cid_types::Sha256;
 use jmap_filenode_server::{handle_filenode_copy, handle_filenode_get, handle_filenode_set};
 use jmap_filenode_types::FileNode;
 use jmap_server::HandlerOutput;
+use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// FIPS 180-4 example: SHA-256("abc").
@@ -75,7 +76,7 @@ fn seeded_file(blob_id: &str, sha256: Option<&str>) -> FileNode {
 /// the time the FileNode was created or last updated."
 #[tokio::test]
 async fn create_with_cid_sets_sha256_of_blob() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
 
     let resp = set(&backend, create_file("blob-abc", json!({}))).await;
@@ -91,7 +92,7 @@ async fn create_with_cid_sets_sha256_of_blob() {
 /// creating", and RFC 8620 §5.3 lists that under `invalidProperties`.
 #[tokio::test]
 async fn create_with_cid_rejects_client_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
 
     let resp = set(
@@ -112,7 +113,7 @@ async fn create_with_cid_rejects_client_sha256() {
 /// `sha256`.
 #[tokio::test]
 async fn create_without_cid_has_no_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let resp = set(&backend, create_file("blob-abc", json!({}))).await;
     let created = &resp["created"]["c1"];
@@ -127,10 +128,10 @@ async fn create_without_cid_has_no_sha256() {
 /// the new blob content before returning the response."
 #[tokio::test]
 async fn update_blob_with_cid_updates_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
     backend.seed_blob_sha256("acc1", "blob-two", digest(SHA256_TWO_BLOCK));
-    backend.seed_node("acc1", seeded_file("blob-abc", Some(SHA256_ABC)));
+    backend.seed_node(&Id::from("acc1"), seeded_file("blob-abc", Some(SHA256_ABC)));
 
     let resp = set(
         &backend,
@@ -148,8 +149,8 @@ async fn update_blob_with_cid_updates_sha256() {
 /// capability, no property).
 #[tokio::test]
 async fn update_blob_without_cid_drops_old_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_node("acc1", seeded_file("blob-abc", Some(SHA256_ABC)));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_node(&Id::from("acc1"), seeded_file("blob-abc", Some(SHA256_ABC)));
 
     let resp = set(
         &backend,
@@ -169,8 +170,8 @@ async fn update_blob_without_cid_drops_old_sha256() {
 /// the stored node has no `sha256` (L206-208) and a client digest differs.
 #[tokio::test]
 async fn update_client_sha256_without_cid_is_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_node("acc1", seeded_file("blob-abc", None));
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_node(&Id::from("acc1"), seeded_file("blob-abc", None));
 
     let resp = set(
         &backend,
@@ -187,9 +188,9 @@ async fn update_client_sha256_without_cid_is_rejected() {
 /// stored blob's is rejected and the stored digest is kept.
 #[tokio::test]
 async fn update_client_sha256_differing_is_rejected() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_file("blob-abc", Some(SHA256_ABC)));
+    backend.seed_node(&Id::from("acc1"), seeded_file("blob-abc", Some(SHA256_ABC)));
 
     let resp = set(
         &backend,
@@ -206,9 +207,9 @@ async fn update_client_sha256_differing_is_rejected() {
 /// if their value is identical to the current server value".
 #[tokio::test]
 async fn update_client_sha256_identical_is_accepted() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_file("blob-abc", Some(SHA256_ABC)));
+    backend.seed_node(&Id::from("acc1"), seeded_file("blob-abc", Some(SHA256_ABC)));
 
     let resp = set(
         &backend,
@@ -225,7 +226,7 @@ async fn update_client_sha256_identical_is_accepted() {
 /// with no associated blob)".
 #[tokio::test]
 async fn create_directory_has_no_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let resp = set(
         &backend,
@@ -259,9 +260,9 @@ fn seeded_directory() -> FileNode {
 /// directory FileNodes (FileNodes with no associated blob)".
 #[tokio::test]
 async fn get_directory_with_cid_has_null_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_directory());
+    backend.seed_node(&Id::from("acc1"), seeded_directory());
 
     let node = get_one(&backend, "d1").await;
     assert_eq!(node.get("sha256"), Some(&Value::Null), "{node}");
@@ -272,9 +273,9 @@ async fn get_directory_with_cid_has_null_sha256() {
 /// still one the FileNode "MUST include" (L201).
 #[tokio::test]
 async fn get_legacy_file_with_cid_has_null_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_file("blob-legacy", None));
+    backend.seed_node(&Id::from("acc1"), seeded_file("blob-legacy", None));
 
     let node = get_one(&backend, "f1").await;
     assert_eq!(node.get("sha256"), Some(&Value::Null), "{node}");
@@ -284,8 +285,8 @@ async fn get_legacy_file_with_cid_has_null_sha256() {
 /// the capability, so without it a directory has no `sha256`.
 #[tokio::test]
 async fn get_directory_without_cid_has_no_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
-    backend.seed_node("acc1", seeded_directory());
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_node(&Id::from("acc1"), seeded_directory());
 
     let node = get_one(&backend, "d1").await;
     assert!(node.get("sha256").is_none(), "{node}");
@@ -295,9 +296,9 @@ async fn get_directory_without_cid_has_no_sha256() {
 /// the array are returned for each object."
 #[tokio::test]
 async fn get_with_cid_respects_properties() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_directory());
+    backend.seed_node(&Id::from("acc1"), seeded_directory());
 
     let HandlerOutput { primary, .. } = handle_filenode_get(
         &backend,
@@ -317,7 +318,7 @@ async fn get_with_cid_respects_properties() {
 /// client and thus set to a default by the server".
 #[tokio::test]
 async fn create_directory_with_cid_created_has_null_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
 
     let resp = set(
@@ -338,12 +339,12 @@ async fn create_directory_with_cid_created_has_null_sha256() {
 /// draft-ietf-jmap-filenode `fetchParents` appends to `list`.
 #[tokio::test]
 async fn get_fetch_parents_with_cid_ancestor_has_null_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_directory());
+    backend.seed_node(&Id::from("acc1"), seeded_directory());
     let mut file = seeded_file("blob-abc", Some(SHA256_ABC));
     file.parent_id = Some("d1".into());
-    backend.seed_node("acc1", file);
+    backend.seed_node(&Id::from("acc1"), file);
 
     let HandlerOutput { primary, .. } = handle_filenode_get(
         &backend,
@@ -367,9 +368,9 @@ async fn get_fetch_parents_with_cid_ancestor_has_null_sha256() {
 /// directory's null (spec 33702a5 L205-206) is returned.
 #[tokio::test]
 async fn get_with_cid_properties_including_sha256() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_directory());
+    backend.seed_node(&Id::from("acc1"), seeded_directory());
 
     let HandlerOutput { primary, .. } = handle_filenode_get(
         &backend,
@@ -388,9 +389,9 @@ async fn get_with_cid_properties_including_sha256() {
 /// returned.
 #[tokio::test]
 async fn get_with_cid_properties_null() {
-    let backend = MemoryBackend::new().with_account("acc1");
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     backend.seed_blob_sha256("acc1", "blob-abc", digest(SHA256_ABC));
-    backend.seed_node("acc1", seeded_directory());
+    backend.seed_node(&Id::from("acc1"), seeded_directory());
 
     let HandlerOutput { primary, .. } = handle_filenode_get(
         &backend,
@@ -428,8 +429,10 @@ async fn copy(backend: &MemoryBackend, id: &str, overrides: Value) -> Value {
 /// with no digest gets the destination blob's.
 #[tokio::test]
 async fn copy_file_with_cid_sets_sha256_of_blob() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
-    backend.seed_node("src", seeded_file("blob-abc", None));
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    backend.seed_node(&Id::from("src"), seeded_file("blob-abc", None));
     backend.seed_blob_sha256("dst", "blob-abc", digest(SHA256_ABC));
 
     let resp = copy(&backend, "f1", json!({})).await;
@@ -441,8 +444,10 @@ async fn copy_file_with_cid_sets_sha256_of_blob() {
 /// blob, so an override's `sha256` does not survive the copy.
 #[tokio::test]
 async fn copy_file_with_cid_replaces_override_sha256() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
-    backend.seed_node("src", seeded_file("blob-abc", Some(SHA256_ABC)));
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    backend.seed_node(&Id::from("src"), seeded_file("blob-abc", Some(SHA256_ABC)));
     backend.seed_blob_sha256("dst", "blob-abc", digest(SHA256_ABC));
 
     let resp = copy(&backend, "f1", json!({ "sha256": SHA256_TWO_BLOCK })).await;
@@ -455,8 +460,10 @@ async fn copy_file_with_cid_replaces_override_sha256() {
 /// had one.
 #[tokio::test]
 async fn copy_file_without_cid_has_no_sha256() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
-    backend.seed_node("src", seeded_file("blob-abc", Some(SHA256_ABC)));
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    backend.seed_node(&Id::from("src"), seeded_file("blob-abc", Some(SHA256_ABC)));
 
     let resp = copy(&backend, "f1", json!({})).await;
     let created = &resp["created"]["c1"];
@@ -469,8 +476,10 @@ async fn copy_file_without_cid_has_no_sha256() {
 /// RFC 8620 §5.4: `created` is as for /set, holding server-set properties.
 #[tokio::test]
 async fn copy_directory_with_cid_created_has_null_sha256() {
-    let backend = MemoryBackend::new().with_account("src").with_account("dst");
-    backend.seed_node("src", seeded_directory());
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    backend.seed_node(&Id::from("src"), seeded_directory());
     backend.seed_blob_sha256("dst", "blob-abc", digest(SHA256_ABC));
 
     let resp = copy(&backend, "d1", json!({})).await;

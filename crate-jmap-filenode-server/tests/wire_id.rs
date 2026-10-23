@@ -26,7 +26,7 @@ fn assert_invalid_id(entry: &Value, resp: &Value) {
 #[tokio::test]
 async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
     let account_id = Id::from("account1");
-    let backend = MemoryBackend::new().with_account(account_id.as_ref());
+    let backend = MemoryBackend::new().with_account(&account_id);
     let args_with_account = |mut args: Value| {
         args["accountId"] = json!(account_id.as_ref());
         args

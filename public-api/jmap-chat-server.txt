@@ -27,8 +27,10 @@ pub mod jmap_chat_server::memory
 #[non_exhaustive] pub struct jmap_chat_server::memory::MemoryBackend
 impl jmap_chat_server::memory::MemoryBackend
 pub fn jmap_chat_server::memory::MemoryBackend::new() -> Self
+pub fn jmap_chat_server::memory::MemoryBackend::seed_object(&self, &jmap_types::id::Id, &'static str, &jmap_types::id::Id, serde_json::value::Value)
 pub fn jmap_chat_server::memory::MemoryBackend::set_everyone_permissions(&self, std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>)
 pub fn jmap_chat_server::memory::MemoryBackend::set_space_everyone_permissions(&self, &jmap_types::id::Id, std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>)
+pub fn jmap_chat_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
 pub fn jmap_chat_server::memory::MemoryBackend::with_metadata_info(self, &str, jmap_metadata_types::capability::DataTypeMetadataInfo) -> Self
 impl core::clone::Clone for jmap_chat_server::memory::MemoryBackend
 pub fn jmap_chat_server::memory::MemoryBackend::clone(&self) -> Self

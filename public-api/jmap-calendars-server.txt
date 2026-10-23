@@ -25,8 +25,8 @@ pub mod jmap_calendars_server::memory
 #[non_exhaustive] pub struct jmap_calendars_server::memory::MemoryBackend
 impl jmap_calendars_server::memory::MemoryBackend
 pub fn jmap_calendars_server::memory::MemoryBackend::new() -> Self
-pub fn jmap_calendars_server::memory::MemoryBackend::seed_object(&self, &str, &str, &str, serde_json::value::Value)
-pub fn jmap_calendars_server::memory::MemoryBackend::with_account(self, &str) -> Self
+pub fn jmap_calendars_server::memory::MemoryBackend::seed_object(&self, &jmap_types::id::Id, &'static str, &jmap_types::id::Id, serde_json::value::Value)
+pub fn jmap_calendars_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
 pub fn jmap_calendars_server::memory::MemoryBackend::with_metadata_info(self, &str, jmap_metadata_types::capability::DataTypeMetadataInfo) -> Self
 impl core::clone::Clone for jmap_calendars_server::memory::MemoryBackend
 pub fn jmap_calendars_server::memory::MemoryBackend::clone(&self) -> Self
