@@ -374,6 +374,36 @@ async fn op_query_filter_and_sort_rules() {
     }
 }
 
+/// A misspelt property next to `nodeId` is RFC 8620 §5.5
+/// `unsupportedFilter` ("The filter is syntactically valid, but the server
+/// cannot process it"), not a condition on `nodeId` alone (bd:JMAP-6azm).
+/// L227 names the property `afterSeq`.
+#[tokio::test]
+async fn op_query_misspelt_filter_property_is_unsupported_filter() {
+    let backend = edit_backend();
+    let ty = call_err!(
+        handle_graph_node_op_query,
+        &backend,
+        ALICE,
+        json!({ "filter": { "nodeId": "n", "afterseq": 0 } })
+    );
+    assert_eq!(ty, "unsupportedFilter");
+    let ty = call_err!(
+        handle_graph_node_op_query_changes,
+        &backend,
+        ALICE,
+        json!({ "filter": { "nodeId": "n", "afterseq": 0 }, "sinceQueryState": "0" })
+    );
+    assert_eq!(ty, "unsupportedFilter");
+    // Negative control: the spec property is accepted.
+    call!(
+        handle_graph_node_op_query,
+        &backend,
+        ALICE,
+        json!({ "filter": { "nodeId": "n", "afterSeq": 0 } })
+    );
+}
+
 /// L227-228 `afterSeq`: "The op's `seq` is greater than this value"; L230
 /// `seq` ascending "is also the order when `sort` is absent".
 #[tokio::test]
