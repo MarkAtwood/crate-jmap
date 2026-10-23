@@ -1499,6 +1499,15 @@ pub async fn handle_chat_typing<B: ChatBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
+    // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let chat_id: Id = match args.get("chatId").and_then(|v| v.as_str()) {
         Some(s) => Id::new_validated(s)
             .map_err(|e| JmapError::invalid_arguments(format!("chatId: {e}")))?,

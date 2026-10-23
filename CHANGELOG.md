@@ -3348,6 +3348,16 @@ wire behaviour that a conforming peer can observe.
   return the RFC 8620 §3.6.2 `accountNotFound` method error for an
   unknown `accountId`, as the canonical jmap-mail-server handlers do (bd
   JMAP-fo38). Before, they wrote to the unknown account.
+- **jmap-chat-server**: the custom handlers that do not delegate to the
+  generic jmap-server handlers (`SpaceBan/get`, `ChatContact/get`,
+  `/changes` and `/query`, `CustomEmoji/get`, `/changes` and `/query`,
+  `SpaceInvite/get` and `/changes`, `Message/get`, `/query` and
+  `/queryChanges`, `ReadPosition/get` and `/changes`,
+  `PresenceStatus/get` and `/changes`, `Space/get` and `/query`,
+  `Chat/typing`, `Space/join`) now return the RFC 8620 §3.6.2
+  `accountNotFound` method error for an unknown `accountId` (bd
+  JMAP-dtpe). Before, they answered with empty results or a different
+  error.
 - **jmap-chat-server**, **jmap-tasks-server**, **jmap-sharing-server**:
   `MemoryBackend::get_changes` now omits an id created and destroyed in
   the same window, the RFC 8620 §5.2 SHOULD path, instead of listing it

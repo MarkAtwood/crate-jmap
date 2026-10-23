@@ -67,6 +67,15 @@ pub async fn handle_message_get<B: ChatBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+
+    // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
@@ -270,6 +279,15 @@ pub async fn handle_message_query<B: ChatBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
+    // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
     let limit: Option<u64> = match args.remove("limit") {
@@ -438,6 +456,15 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
     // §Message/query `unsupportedFilter` refusals apply here too.
     let account_id = args.get("accountId").and_then(Value::as_str).map(Id::from);
     if let Some(account_id) = &account_id {
+        // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe), before the
+        // may_view_chat read below.
+        if !backend
+            .account_exists(caller, account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            return Err(JmapError::account_not_found());
+        }
         let mut probe = serde_json::Map::new();
         if let Some(f) = args.get("filter") {
             probe.insert("filter".into(), f.clone());
