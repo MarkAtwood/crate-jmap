@@ -4273,89 +4273,64 @@ async fn email_copy_with_malformed_received_at_rejected() {
     );
 }
 
-/// Oracle: Email/copy onSuccessUpdateOriginal that patches an immutable field
-/// (e.g. "messageId") is rejected with invalidProperties in the implicit
-/// Email/set response.
-///
-/// RFC 8621 §5.5.4 — immutable Email properties must not be mutable via any
-/// patch path, including onSuccessUpdateOriginal.
+/// Oracle: RFC 8621 §4.7 — Email/copy "is a standard "/copy" method as
+/// described in [RFC8620], Section 5.4", and RFC 8620 §5.4 lists the only
+/// side-effect arguments as onSuccessDestroyOriginal and
+/// destroyFromIfInState. A non-standard `onSuccessUpdateOriginal` must
+/// therefore not touch the original: no implicit Email/set, and the
+/// source email keeps its keywords. Regression for bd JMAP-sj4m.
 #[tokio::test]
-async fn email_copy_on_success_update_original_immutable_field_rejected() {
+async fn email_copy_ignores_on_success_update_original() {
     use jmap_mail_server::handle_email_copy;
 
     let backend = MemoryBackend::new();
-    backend.register_account(&Id::from("src-imm"));
-    backend.register_account(&Id::from("dst-imm"));
-    let src_account = Id::from("src-imm");
-    let dst_account = Id::from("dst-imm");
-
-    // Import a source email.
-    let msg = b"Subject: immutable test\r\n\r\nbody";
-    let blob_id = Id::from("blob-imm");
-    backend.store_blob(&blob_id, msg.to_vec());
+    let src_account = Id::from("src-osuo");
+    backend.register_account(&src_account);
+    backend.register_account(&Id::from("dst-osuo"));
+    let blob_id = Id::from("blob-osuo");
+    backend.store_blob(&blob_id, b"Subject: osuo\r\n\r\nbody".to_vec());
     let (src_id, _) = backend
         .import_email(&(), &src_account, &blob_id, &[Id::from("inbox")], &[], None)
         .await
         .expect("import source email");
 
     let args = serde_json::json!({
-        "accountId": dst_account.as_ref(),
-        "fromAccountId": src_account.as_ref(),
+        "accountId": "dst-osuo",
+        "fromAccountId": "src-osuo",
         "create": {
-            "c1": {
-                "id": src_id.as_ref(),
-                "mailboxIds": { "inbox": true },
-            }
+            "c1": { "id": src_id.as_ref(), "mailboxIds": { "inbox": true } }
         },
-        // Attempt to overwrite an immutable field on the original after copy.
-        "onSuccessUpdateOriginal": {
-            "c1": { "messageId": ["attacker@evil.com"] }
-        }
+        "onSuccessUpdateOriginal": { "c1": { "keywords/$flagged": true } }
     });
-
     let HandlerOutput {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_copy(&backend, &(), args, "call-imm")
+    } = handle_email_copy(&backend, &(), args, "call-osuo")
         .await
         .expect("Email/copy must not return a top-level JmapError");
+    assert!(
+        resp["created"]["c1"].is_object(),
+        "copy must succeed: {resp}"
+    );
+    assert!(extra.is_empty(), "no implicit Email/set: {extra:?}");
 
-    // The copy itself must succeed.
-    assert!(
-        resp["notCreated"].is_null(),
-        "copy notCreated must be null; got: {}",
-        resp["notCreated"]
-    );
-
-    // The implicit Email/set in extra must report notUpdated for the source id.
+    let HandlerOutput { primary: get, .. } = handle_email_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "src-osuo", "ids": [src_id.as_ref()] }),
+    )
+    .await
+    .expect("Email/get must succeed");
     assert_eq!(
-        extra.len(),
-        1,
-        "must have one extra invocation for onSuccessUpdateOriginal"
-    );
-    let set_resp = &extra[0].arguments;
-    let not_updated = &set_resp["notUpdated"];
-    assert!(
-        !not_updated.is_null(),
-        "notUpdated must be non-null; immutable field patch must be rejected"
-    );
-    let src_id_str = src_id.as_ref();
-    assert!(
-        not_updated.get(src_id_str).is_some(),
-        "source id must appear in notUpdated; got: {not_updated}"
-    );
-    assert_eq!(
-        not_updated[src_id_str]["type"].as_str(),
-        Some("invalidProperties"),
-        "error type must be invalidProperties; got: {}",
-        not_updated[src_id_str]
+        get["list"][0]["keywords"],
+        serde_json::json!({}),
+        "original must be unchanged: {get}"
     );
 }
 
 /// Import one email into `src`, then Email/copy it to `dst` with
-/// `onSuccessDestroyOriginal`, an `onSuccessUpdateOriginal` patch setting
-/// `$flagged`, and the given `destroyFromIfInState` (`None` = the state
+/// `onSuccessDestroyOriginal` and the given `destroyFromIfInState` (`None` = the state
 /// Email/get reports for `src`). Returns the extra invocations and the
 /// later Email/get `list` for the source id.
 async fn email_copy_with_destroy_from_if_in_state(
@@ -4394,7 +4369,6 @@ async fn email_copy_with_destroy_from_if_in_state(
         "fromAccountId": "src-dfis",
         "onSuccessDestroyOriginal": true,
         "destroyFromIfInState": state,
-        "onSuccessUpdateOriginal": { "c1": { "keywords/$flagged": true } },
         "create": {
             "c1": { "id": src_id.as_ref(), "mailboxIds": { "inbox": true } }
         }
@@ -4418,9 +4392,8 @@ async fn email_copy_with_destroy_from_if_in_state(
 /// "ifInState" argument to the implicit "Foo/set" call", and §5.3
 /// ifInState: "If supplied, the string must match the current state;
 /// otherwise, the method will be aborted and a "stateMismatch" error
-/// returned." Mail folds onSuccessUpdateOriginal into the same implicit
-/// Email/set, so a stale state aborts both: the source email survives
-/// without the `$flagged` patch. Regression for bd JMAP-2svx.
+/// returned." A stale state aborts the destroy: the source email survives.
+/// Regression for bd JMAP-2svx.
 #[tokio::test]
 async fn email_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
     let (extra, list) = email_copy_with_destroy_from_if_in_state(Some("stale-state")).await;
@@ -4435,11 +4408,6 @@ async fn email_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
     assert_eq!(call_id, "call-dfis");
     let list = list.as_array().expect("list array");
     assert_eq!(list.len(), 1, "source email must survive: {list:?}");
-    assert!(
-        list[0]["keywords"].get("$flagged").is_none(),
-        "onSuccessUpdateOriginal must not apply: {}",
-        list[0]
-    );
 }
 
 /// Oracle: RFC 8620 §5.4 / §5.3 as above — a destroyFromIfInState equal to
