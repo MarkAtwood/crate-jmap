@@ -282,3 +282,79 @@ async fn principal_changes_after_create() {
         "new id {new_id} must appear in changes.created: {changes_args}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Principal/query at the RFC 8620 §1.3 Int/UnsignedInt extremes
+// (bd:JMAP-uqhn.6).
+//
+// Oracle: RFC 8620 §1.3 bounds `Int` to "-2^53+1 <= value <= 2^53-1" and
+// `UnsignedInt` to "0 <= value <= 2^53-1". §5.5 position: "the negative
+// value MUST be added to the total number of results given the filter,
+// and if still negative, it's clamped to "0"", and "If the index is
+// greater than or equal to the total number of objects in the results
+// list, then the "ids" array in the response will be empty, but this is
+// not an error."
+// ---------------------------------------------------------------------------
+
+/// Seeds two Principals into "acc1"; returns the backend and their ids.
+async fn backend_with_two_principals() -> (Arc<MemoryBackend>, Vec<Id>) {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let a = seed_principal(&backend, "acc1", alice_json()).await;
+    let mut bob = alice_json();
+    bob["name"] = json!("Bob Jones");
+    bob["email"] = json!("bob@example.com");
+    let b = seed_principal(&backend, "acc1", bob).await;
+    (backend, vec![a, b])
+}
+
+async fn principal_query(
+    backend: &Arc<MemoryBackend>,
+    args: serde_json::Value,
+) -> serde_json::Value {
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_sharing_handlers(&mut dispatcher, Arc::clone(backend));
+    let resp = dispatcher
+        .dispatch(
+            single_call("Principal/query", args, "q0"),
+            (),
+            State::from("s0"),
+        )
+        .await;
+    resp.method_responses[0].arguments.clone()
+}
+
+#[tokio::test]
+async fn principal_query_extreme_position_and_limit_saturate() {
+    let (backend, mut seeded) = backend_with_two_principals().await;
+
+    let resp = principal_query(
+        &backend,
+        json!({
+            "accountId": "acc1",
+            "position": -9_007_199_254_740_991_i64,
+            "limit": 9_007_199_254_740_991_u64
+        }),
+    )
+    .await;
+
+    assert!(resp.get("type").is_none(), "must not be an error: {resp}");
+    let mut got: Vec<Id> = serde_json::from_value(resp["ids"].clone()).expect("ids array");
+    got.sort_by(|x, y| x.as_ref().cmp(y.as_ref()));
+    seeded.sort_by(|x, y| x.as_ref().cmp(y.as_ref()));
+    assert_eq!(got, seeded, "{resp}");
+    assert_eq!(resp["position"], 0, "{resp}");
+}
+
+#[tokio::test]
+async fn principal_query_largest_position_is_empty_page_not_error() {
+    let (backend, _) = backend_with_two_principals().await;
+
+    let resp = principal_query(
+        &backend,
+        json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 }),
+    )
+    .await;
+
+    assert!(resp.get("type").is_none(), "must not be an error: {resp}");
+    assert_eq!(resp["ids"], json!([]), "{resp}");
+}
