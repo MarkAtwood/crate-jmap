@@ -546,7 +546,7 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   - Control string enums (`Operator`) — see same. Comparator sort
     property enums are the one exception: they carry `Other(String)`.
   - Internal Rust API types: backend trait result types
-    (`SetDefaultResult`, `ParseResult`, `AvailabilityError`,
+    (`SetDefaultResult`, `ParseResult`, `BackendQueryError`,
     `BackendSetError`, `BackendChangesError`).
   - `MockBackend` state structs, `FaultyBackend`, `NoSnippetBackend`,
     `TrackingBackend`, anything under `tests/common/`.

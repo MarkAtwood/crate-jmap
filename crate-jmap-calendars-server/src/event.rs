@@ -41,7 +41,7 @@ use crate::helpers::{
 };
 use crate::{
     BackendSetError, CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs,
-    CalendarsBackend, QueryCalendarEventsError,
+    CalendarsBackend,
 };
 use jmap_server::{
     bool_arg, filter_arg, query_anchor_args, reject_read_only_patch, reject_server_set,
@@ -1193,7 +1193,12 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         time_zone,
     };
 
-    let result = match backend
+    // §10.8.3 expandDurationTooLarge, §10.8.4 cannotCalculateOccurrences
+    // and RFC 8620 §5.5 errors arrive as `BackendQueryError::Method` and
+    // reach the client unchanged. `Other` becomes the constant-description
+    // `serverFail` (bd:JMAP-ic0j.70): backend error text never reaches the
+    // wire.
+    let result = backend
         .query_calendar_events(
             caller,
             &account_id,
@@ -1207,23 +1212,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
             &query_args,
         )
         .await
-    {
-        Ok(r) => r,
-        Err(QueryCalendarEventsError::ExpandDurationTooLarge) => {
-            return Err(JmapError::custom("expandDurationTooLarge"));
-        }
-        Err(QueryCalendarEventsError::CannotCalculateOccurrences) => {
-            return Err(JmapError::custom("cannotCalculateOccurrences"));
-        }
-        Err(QueryCalendarEventsError::Method(e)) => return Err(e),
-        Err(QueryCalendarEventsError::Other(e)) => {
-            // bd:JMAP-ic0j.70 — route through server_fail_from_backend so the
-            // wire description is SERVER_FAIL_INTERNAL_DESC rather than the
-            // backend error's Display output, honoring the workspace-wide
-            // redaction contract (bd:JMAP-wlip.2 / bd:JMAP-ic0j.53).
-            return Err(server_fail_from_backend(&e));
-        }
-    };
+        .map_err(JmapError::from)?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
@@ -2167,9 +2156,7 @@ mod tests {
         };
         use jmap_types::{Id, PatchObject, State};
 
-        use crate::{
-            CalendarEventQueryArgs, CalendarsBackend, CalendarsLimits, QueryCalendarEventsError,
-        };
+        use crate::{CalendarEventQueryArgs, CalendarsBackend, CalendarsLimits};
 
         #[derive(Debug)]
         pub struct TrackError;
@@ -2368,7 +2355,7 @@ mod tests {
                 _account_id: &Id,
                 _params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
                 _args: &CalendarEventQueryArgs,
-            ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 *self.query_calendar_events_count.lock().unwrap() += 1;
                 Ok(QueryResult::new(
                     vec![],
@@ -2408,7 +2395,7 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, BackendQueryError<Self::Error>>
             {
                 Ok(vec![])
             }
@@ -3056,10 +3043,10 @@ mod tests {
     }
 
     /// Oracle (bd:JMAP-ic0j.70): a backend
-    /// [`QueryCalendarEventsError::Other`] carrying a canary literal in
+    /// `BackendQueryError::Other` carrying a canary literal in
     /// its [`Display`](std::fmt::Display) MUST NOT leak the canary onto
     /// the wire's top-level `serverFail.description`. Mirrors the
-    /// existing oracle in `principal.rs` for `AvailabilityError::Other`.
+    /// existing oracle in `principal.rs` for `get_availability`.
     ///
     /// Independent oracle: the canary literal is supplied by THIS test
     /// as the backend's `Display` output. The wire description must be
@@ -3239,8 +3226,8 @@ mod tests {
                 _account_id: &jmap_types::Id,
                 _params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
                 _args: &CalendarEventQueryArgs,
-            ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
-                Err(QueryCalendarEventsError::Other(FaultyError(CANARY)))
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+                Err(BackendQueryError::Other(FaultyError(CANARY)))
             }
 
             async fn parse_calendar_event_blobs(
@@ -3262,9 +3249,9 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, BackendQueryError<Self::Error>>
             {
-                Err(crate::AvailabilityError::Other(FaultyError(CANARY)))
+                Err(BackendQueryError::Other(FaultyError(CANARY)))
             }
         }
 
@@ -3478,9 +3465,9 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, BackendQueryError<Self::Error>>
             {
-                Err(crate::AvailabilityError::Other(FaultyError(CANARY)))
+                Err(BackendQueryError::Other(FaultyError(CANARY)))
             }
         }
 

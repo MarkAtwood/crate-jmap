@@ -807,9 +807,11 @@ mod tests {
                 _utc_end: &jmap_types::UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
-            {
-                Err(crate::AvailabilityError::Other(FaultyError(CANARY)))
+            ) -> Result<
+                Vec<jmap_calendars_types::BusyPeriod>,
+                jmap_server::BackendQueryError<Self::Error>,
+            > {
+                Err(jmap_server::BackendQueryError::Other(FaultyError(CANARY)))
             }
         }
 

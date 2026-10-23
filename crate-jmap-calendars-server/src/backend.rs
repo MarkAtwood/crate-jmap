@@ -727,14 +727,15 @@ pub trait CalendarsBackend: JmapBackend {
     /// conditions match only participants the caller can see under the
     /// `hideAttendees` filtering of §5.7.
     ///
-    /// Returns [`QueryCalendarEventsError::ExpandDurationTooLarge`] when
-    /// expansion is requested and the duration between `before` and `after`
-    /// exceeds the account's `maxExpandedQueryDuration` capability. Returns
-    /// [`QueryCalendarEventsError::CannotCalculateOccurrences`] when a
-    /// required recurrence cannot be expanded (e.g. unbounded recurrence
-    /// with no end). The handler maps these to method-level
-    /// `expandDurationTooLarge` / `cannotCalculateOccurrences` errors per
-    /// §10.8.3 / §10.8.4.
+    /// Returns [`BackendQueryError::Method`] carrying
+    /// `JmapError::custom("expandDurationTooLarge")` when expansion is
+    /// requested and the duration between `before` and `after` exceeds the
+    /// account's `maxExpandedQueryDuration` capability (§10.8.3), and
+    /// `JmapError::custom("cannotCalculateOccurrences")` when a required
+    /// recurrence cannot be expanded, e.g. an unbounded recurrence with no
+    /// end (§10.8.4). The handler returns a `Method` error to the client
+    /// unchanged and turns [`BackendQueryError::Other`] into a redacted
+    /// `serverFail`.
     ///
     /// The default implementation ignores `args` and delegates to
     /// [`query_objects`](JmapBackend::query_objects). Backends that support
@@ -745,19 +746,12 @@ pub trait CalendarsBackend: JmapBackend {
         account_id: &jmap_types::Id,
         params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
         args: &CalendarEventQueryArgs,
-    ) -> impl std::future::Future<Output = Result<QueryResult, QueryCalendarEventsError<Self::Error>>>
-           + Send {
+    ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send
+    {
         // Default ignores expandRecurrences/timeZone; backends with
         // recurrence expansion override this method.
         let _ = args;
-        async move {
-            self.query_objects::<jmap_calendars_types::CalendarEvent>(caller, account_id, params)
-                .await
-                .map_err(|e| match e {
-                    BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
-                    method => QueryCalendarEventsError::Method(method.into()),
-                })
-        }
+        self.query_objects::<jmap_calendars_types::CalendarEvent>(caller, account_id, params)
     }
 
     /// Set the default `Calendar` for the account
@@ -906,6 +900,12 @@ pub trait CalendarsBackend: JmapBackend {
     /// BusyPeriod `event` MUST be the caller's `hideAttendees`-filtered
     /// view (§2.2, §5.7).
     ///
+    /// The §2.2 errors (`notFound`, `forbidden`, `tooLarge`, `rateLimit`)
+    /// are returned as [`BackendQueryError::Method`], e.g.
+    /// `JmapError::custom("notFound")` or `JmapError::forbidden()`; the
+    /// handler sends them to the client unchanged. A storage failure is
+    /// [`BackendQueryError::Other`] and becomes a redacted `serverFail`.
+    ///
     /// There is no default implementation (bd:JMAP-ic0j.26): a default
     /// empty list would tell clients the principal is free for the whole
     /// window, which is wrong data rather than absent data.
@@ -920,7 +920,7 @@ pub trait CalendarsBackend: JmapBackend {
         show_details: bool,
         event_properties: Option<&[String]>,
     ) -> impl std::future::Future<
-        Output = Result<Vec<jmap_calendars_types::BusyPeriod>, AvailabilityError<Self::Error>>,
+        Output = Result<Vec<jmap_calendars_types::BusyPeriod>, BackendQueryError<Self::Error>>,
     > + Send;
 
     /// Implementation-defined per-account calendars caps for this caller and
@@ -952,7 +952,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// cap-advertisement uses the JMAP Quotas extension.
     ///
     /// Enforcement of per-call rejections (such as the
-    /// [`QueryCalendarEventsError::ExpandDurationTooLarge`] variant) is
+    /// `expandDurationTooLarge` method error) is
     /// canonically the backend's responsibility per workspace
     /// AGENTS.md "Caller identity (foundation seam)". Handler-side
     /// pre-checks against [`Self::limits`] are defense-in-depth and
@@ -1012,10 +1012,9 @@ pub struct CalendarsLimits {
     /// `CalendarEvent/query` is invoked with `expandRecurrences = true`
     /// (draft-ietf-jmap-calendars-33 §5.11, §10.8.3). Enforced against
     /// the difference between the filter's `before` and `after` values.
-    /// When exceeded, the backend returns
-    /// [`QueryCalendarEventsError::ExpandDurationTooLarge`] and the
-    /// handler maps it to the method-level `expandDurationTooLarge`
-    /// error per §10.8.3.
+    /// When exceeded, the backend returns the method-level
+    /// `expandDurationTooLarge` error per §10.8.3 as
+    /// [`BackendQueryError::Method`](jmap_server::BackendQueryError::Method).
     pub max_expanded_query_duration_seconds: u64,
 }
 
@@ -1240,31 +1239,6 @@ impl PrivacyConflicts {
     }
 }
 
-/// Error type for [`CalendarsBackend::get_availability`] backend calls.
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum AvailabilityError<E: std::error::Error + 'static> {
-    /// The requested principal was not found.
-    #[error("principal not found")]
-    NotFound,
-    /// The caller is not permitted to query this principal's availability.
-    #[error("forbidden")]
-    Forbidden,
-    /// The requested time range is too large.
-    #[error("requested time range is too large")]
-    TooLarge,
-    /// Rate limit exceeded.
-    #[error("rate limit exceeded")]
-    RateLimit,
-    /// An unexpected backend error.
-    ///
-    /// bd:JMAP-ic0j.59 — `#[from]` implies `#[source]`, so the
-    /// `?` operator lifts `E` into `AvailabilityError<E>` automatically
-    /// without explicit `.map_err(AvailabilityError::Other)`.
-    #[error("backend error: {0}")]
-    Other(#[from] E),
-}
-
 /// Per-call arguments for `CalendarEvent/get` operations
 /// (draft-ietf-jmap-calendars-33 §5.7).
 ///
@@ -1323,38 +1297,6 @@ pub struct CalendarEventQueryArgs {
     /// backend when evaluating `before` / `after` conditions against
     /// floating events.
     pub time_zone: Option<String>,
-}
-
-/// Error type for [`CalendarsBackend::query_calendar_events`] backend calls
-/// (draft-ietf-jmap-calendars-33 §10.8.3, §10.8.4).
-#[non_exhaustive]
-#[derive(Debug, thiserror::Error)]
-pub enum QueryCalendarEventsError<E: std::error::Error + 'static> {
-    /// `expandRecurrences` was requested but `before - after` exceeds the
-    /// account's `maxExpandedQueryDuration` capability (§5.11, §10.8.3).
-    /// The handler maps this to a method-level `expandDurationTooLarge`
-    /// error.
-    #[error("query duration exceeds maxExpandedQueryDuration")]
-    ExpandDurationTooLarge,
-    /// The backend cannot expand a recurrence required to return results
-    /// (e.g. unbounded recurrence with no end-date constraint, or a
-    /// reference to a recurrence rule the backend does not understand).
-    /// The handler maps this to a method-level `cannotCalculateOccurrences`
-    /// error (§5.11, §10.8.4).
-    #[error("server cannot expand a recurrence required by the query")]
-    CannotCalculateOccurrences,
-    /// An RFC 8620 §5.5 method error (e.g. `unsupportedFilter`), returned
-    /// to the client unchanged. See [`BackendQueryError::Method`].
-    #[error("{0}")]
-    Method(jmap_types::JmapError),
-    /// An unexpected backend error.
-    ///
-    /// bd:JMAP-ic0j.59 — `#[from]` implies `#[source]`, so the
-    /// `?` operator lifts `E` into `QueryCalendarEventsError<E>`
-    /// automatically without explicit
-    /// `.map_err(QueryCalendarEventsError::Other)`.
-    #[error("backend error: {0}")]
-    Other(#[from] E),
 }
 
 /// Per-call arguments for `CalendarEvent/set` operations

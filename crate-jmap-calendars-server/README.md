@@ -202,7 +202,7 @@ pub trait CalendarsBackend: JmapBackend {
         utc_end: &UTCDate,
         show_details: bool,
         event_properties: Option<&[String]>,
-    ) -> impl Future<Output = Result<Vec<BusyPeriod>, AvailabilityError<Self::Error>>> + Send
+    ) -> impl Future<Output = Result<Vec<BusyPeriod>, BackendQueryError<Self::Error>>> + Send
     { async { Ok(vec![]) } }
 
     /// Implementation-defined per-account caps for this caller and
@@ -239,9 +239,15 @@ the full canonical signatures.
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a
   `serverFail` response
 
-`AvailabilityError<E>` covers `NotFound`, `Forbidden`, `TooLarge`,
-`RateLimit`, and `Other(E)` — the handler maps these to the corresponding
-JMAP method-level errors defined in draft §2.2.
+`get_availability` and `query_calendar_events` return
+`BackendQueryError<E>`, the same shape as `query_objects`:
+
+- `BackendQueryError::Method(JmapError)` — a method-level error the
+  handler returns to the client unchanged: the draft §2.2 errors
+  (`notFound`, `forbidden`, `tooLarge`, `rateLimit`) and the §10.8.3 /
+  §10.8.4 errors (`expandDurationTooLarge`, `cannotCalculateOccurrences`)
+- `BackendQueryError::Other(E)` — a storage-layer error that becomes a
+  `serverFail` response
 
 ## How it works
 
@@ -315,8 +321,8 @@ is performed by the handler itself.
 
 `Principal/getAvailability` (draft §2.2) extracts `id`, `utcStart`,
 `utcEnd`, `showDetails`, and `eventProperties` from the request and
-delegates to `get_availability`. The handler maps `AvailabilityError`
-variants to the appropriate JMAP method-level errors.
+delegates to `get_availability`. The handler returns a
+`BackendQueryError::Method` error to the client unchanged.
 
 ## Gotchas
 
