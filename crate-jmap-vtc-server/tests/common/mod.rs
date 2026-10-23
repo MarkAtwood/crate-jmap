@@ -52,9 +52,14 @@ pub fn backend() -> MemoryBackend {
 /// `accountId`) and return the response.
 pub async fn set(backend: &MemoryBackend, caller: &str, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
-    let HandlerOutput { primary, .. } = handle_vtc_call_set(backend, &caller.to_owned(), args)
-        .await
-        .expect("VTCCall/set");
+    let HandlerOutput { primary, .. } = handle_vtc_call_set(
+        backend,
+        &caller.to_owned(),
+        &std::collections::BTreeMap::new(),
+        args,
+    )
+    .await
+    .expect("VTCCall/set");
     primary
 }
 
@@ -164,9 +169,23 @@ pub fn media_backend() -> MemoryBackend {
 }
 
 /// Run handler `$method` on [`ACCOUNT`] as `$caller` with `$args` (without
-/// `accountId`) and return the response.
+/// `accountId`) and return the response. The `ids` form calls a `/set`
+/// handler that takes `created_ids`, with an empty map.
 #[allow(unused_macros)]
 macro_rules! call {
+    (ids $method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
+        let mut args: serde_json::Value = $args;
+        args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
+        $method(
+            $backend,
+            &$caller.to_owned(),
+            &std::collections::BTreeMap::new(),
+            args,
+        )
+        .await
+        .expect("method")
+        .primary
+    }};
     ($method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
         let mut args: serde_json::Value = $args;
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);

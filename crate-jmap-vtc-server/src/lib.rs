@@ -107,13 +107,14 @@ pub fn register_vtc_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backe
 where
     B: VtcBackend + 'static,
 {
+    // `ids` marks a `/set` handler that resolves `#creationId` references
+    // against `CallContext::created_ids` (RFC 8620 §5.3).
     macro_rules! reg {
         ($method:expr, $handler:ident) => {{
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 Arc::clone(&backend),
                 move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
                     let CallContext {
-                        call_id: _ci,
                         args: a,
                         caller: ctx,
                         ..
@@ -123,16 +124,31 @@ where
             ));
             dispatcher.register($method, h);
         }};
+        ($method:expr, $handler:ident, ids) => {{
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+                Arc::clone(&backend),
+                move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+                    let CallContext {
+                        args: a,
+                        caller: ctx,
+                        created_ids: ids,
+                        ..
+                    } = cx;
+                    Box::pin(async move { $handler(&*b, &ctx, &ids, a).await }) as HandlerFuture
+                },
+            ));
+            dispatcher.register($method, h);
+        }};
     }
 
     reg!("VTCCall/get", handle_vtc_call_get);
     reg!("VTCCall/changes", handle_vtc_call_changes);
-    reg!("VTCCall/set", handle_vtc_call_set);
+    reg!("VTCCall/set", handle_vtc_call_set, ids);
     reg!("VTCCall/query", handle_vtc_call_query);
     reg!("VTCCall/queryChanges", handle_vtc_call_query_changes);
     reg!("VTCParticipant/get", handle_vtc_participant_get);
     reg!("VTCParticipant/changes", handle_vtc_participant_changes);
-    reg!("VTCParticipant/set", handle_vtc_participant_set);
+    reg!("VTCParticipant/set", handle_vtc_participant_set, ids);
     reg!("VTCParticipant/query", handle_vtc_participant_query);
     reg!(
         "VTCParticipant/queryChanges",
@@ -140,7 +156,7 @@ where
     );
     reg!("VTCRecording/get", handle_vtc_recording_get);
     reg!("VTCRecording/changes", handle_vtc_recording_changes);
-    reg!("VTCRecording/set", handle_vtc_recording_set);
+    reg!("VTCRecording/set", handle_vtc_recording_set, ids);
     reg!("VTCRecording/query", handle_vtc_recording_query);
     reg!(
         "VTCRecording/queryChanges",
@@ -148,7 +164,7 @@ where
     );
     reg!("VTCLivestream/get", handle_vtc_livestream_get);
     reg!("VTCLivestream/changes", handle_vtc_livestream_changes);
-    reg!("VTCLivestream/set", handle_vtc_livestream_set);
+    reg!("VTCLivestream/set", handle_vtc_livestream_set, ids);
     reg!("VTCLivestream/query", handle_vtc_livestream_query);
     reg!(
         "VTCLivestream/queryChanges",

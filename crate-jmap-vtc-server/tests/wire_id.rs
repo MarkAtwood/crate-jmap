@@ -41,10 +41,15 @@ async fn vtc_participant_set_rejects_malformed_call_id() {
         "accountId": ACCOUNT,
         "create": { "p0": { "callId": "bad id", "joinMethod": "webrtc" } }
     });
-    let resp = handle_vtc_participant_set(&backend, &ALICE.to_owned(), args)
-        .await
-        .expect("/set must not fail as a method")
-        .primary;
+    let resp = handle_vtc_participant_set(
+        &backend,
+        &ALICE.to_owned(),
+        &std::collections::BTreeMap::new(),
+        args,
+    )
+    .await
+    .expect("/set must not fail as a method")
+    .primary;
     let entry = &resp["notCreated"]["p0"];
     assert_eq!(entry["type"], "invalidProperties", "{resp}");
     assert_eq!(entry["properties"], json!(["callId"]), "{resp}");
@@ -60,9 +65,14 @@ async fn vtc_participant_set_non_string_destroy_element_does_not_echo_value() {
     let backend = backend();
     let mut args = json!({ "destroy": [{ "note": "CANARY-zegc" }] });
     args["accountId"] = json!(ACCOUNT);
-    let err = handle_vtc_participant_set(&backend, &ALICE.to_owned(), args)
-        .await
-        .expect_err("non-string destroy element must be a method error");
+    let err = handle_vtc_participant_set(
+        &backend,
+        &ALICE.to_owned(),
+        &std::collections::BTreeMap::new(),
+        args,
+    )
+    .await
+    .expect_err("non-string destroy element must be a method error");
     assert_eq!(err.error_type.to_string(), "invalidArguments");
     let desc = err.description.as_deref().unwrap_or_default();
     assert!(desc.contains("got object"), "{desc}");

@@ -299,9 +299,7 @@ async fn unknown_account_is_account_not_found() {
     .await
     .expect_err("accountNotFound");
     assert_eq!(err.error_type.to_string(), "accountNotFound");
-    let err = jmap_vtc_server::handle_vtc_call_set(
-        &backend,
-        &caller,
+    let err = jmap_vtc_server::handle_vtc_call_set(&backend, &caller, &std::collections::BTreeMap::new(),
         json!({ "accountId": "NOPE", "create": { "c0": { "callType": "room", "mediaTypes": ["audio"] } } }),
     )
     .await

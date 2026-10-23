@@ -14,7 +14,7 @@ use jmap_vtc_types::VtcEvent;
 use serde_json::{Value, json};
 
 async fn set(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
-    call!(handle_vtc_recording_set, backend, caller, args)
+    call!(ids handle_vtc_recording_set, backend, caller, args)
 }
 
 /// The `notCreated` / `notUpdated` / `notDestroyed` entry, or `None` when

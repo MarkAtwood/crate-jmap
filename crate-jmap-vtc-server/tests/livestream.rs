@@ -14,7 +14,7 @@ use jmap_vtc_server::{
 use serde_json::{Value, json};
 
 async fn set(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
-    call!(handle_vtc_livestream_set, backend, caller, args)
+    call!(ids handle_vtc_livestream_set, backend, caller, args)
 }
 
 async fn create(backend: &MemoryBackend, caller: &str, obj: Value) -> Result<Value, Value> {

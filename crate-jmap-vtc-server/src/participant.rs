@@ -32,9 +32,11 @@ use jmap_vtc_types::{
 use jmap_vtc_types::{Filter, Operator, VtcParticipantComparator, VtcParticipantFilter};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
+use std::collections::BTreeMap;
 use std::time::SystemTime;
 
 use crate::call::{deliver_call_end, end_call, is_state_refusal, ring_deadline, set_call_state};
+use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, invalid, not_found, peek_filter, reject_unsupported_sort,
@@ -161,6 +163,10 @@ fn is_scoped(filter: &VtcParticipantFilter) -> bool {
     }
 }
 
+/// The VTCParticipant properties that hold the id of another record, which
+/// a client may set to a `#creationId` reference (RFC 8620 §5.3).
+const PARTICIPANT_ID_PROPERTIES: &[&str] = &["callId", "breakoutCallId"];
+
 /// Handle `VTCParticipant/set` (draft-atwood-jmap-vtc-00
 /// §VTCParticipant/set).
 ///
@@ -172,9 +178,15 @@ fn is_scoped(filter: &VtcParticipantFilter) -> bool {
 /// Destroy is `forbidden`: the draft defines no destroy, and a record is
 /// the user's "single continuous participant identity" in the call, kept
 /// after they leave.
+///
+/// A `callId` or `breakoutCallId` that is a `#creationId` reference names
+/// a VTCCall created earlier in the request and resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3); an unknown reference is `invalidProperties` naming the property.
 pub async fn handle_vtc_participant_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -205,7 +217,11 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj) in create_map {
+        for (create_id, mut obj) in create_map {
+            if let Err(err) = resolve_refs(&mut obj, PARTICIPANT_ID_PROPERTIES, created_ids) {
+                acc.not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             match create_participant(backend, caller, &account_id, &create_id, obj).await {
                 Ok(created) => {
                     mutated = true;
@@ -219,7 +235,7 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
     }
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch) in update_map {
+        for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -227,6 +243,10 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_refs(&mut patch, PARTICIPANT_ID_PROPERTIES, created_ids) {
+                acc.not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
             match update_participant(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;

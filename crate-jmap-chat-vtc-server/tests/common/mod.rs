@@ -328,9 +328,14 @@ impl VtcBackend for Bound {
 /// `accountId`).
 pub async fn vtc_set(backend: &Bound, caller: &str, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
-    let HandlerOutput { primary, .. } = handle_vtc_call_set(backend, &caller.to_owned(), args)
-        .await
-        .expect("VTCCall/set");
+    let HandlerOutput { primary, .. } = handle_vtc_call_set(
+        backend,
+        &caller.to_owned(),
+        &std::collections::BTreeMap::new(),
+        args,
+    )
+    .await
+    .expect("VTCCall/set");
     primary
 }
 
