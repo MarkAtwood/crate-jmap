@@ -30,6 +30,8 @@ pub jmap_mail_types::ComparatorProperty::Size
 pub jmap_mail_types::ComparatorProperty::SomeInThreadHaveKeyword
 pub jmap_mail_types::ComparatorProperty::Subject
 pub jmap_mail_types::ComparatorProperty::To
+impl jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_mail_types::ComparatorProperty
 pub fn jmap_mail_types::ComparatorProperty::clone(&self) -> jmap_mail_types::ComparatorProperty
 impl core::cmp::Eq for jmap_mail_types::ComparatorProperty
@@ -56,6 +58,8 @@ pub jmap_mail_types::Delivered::Other(alloc::string::String)
 pub jmap_mail_types::Delivered::Queued
 pub jmap_mail_types::Delivered::Unknown
 pub jmap_mail_types::Delivered::Yes
+impl jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::as_str(&self) -> &str
 impl core::clone::Clone for jmap_mail_types::Delivered
 pub fn jmap_mail_types::Delivered::clone(&self) -> jmap_mail_types::Delivered
 impl core::cmp::Eq for jmap_mail_types::Delivered
@@ -80,6 +84,8 @@ pub fn jmap_mail_types::Delivered::deserialize<D: serde_core::de::Deserializer<'
 pub jmap_mail_types::Displayed::Other(alloc::string::String)
 pub jmap_mail_types::Displayed::Unknown
 pub jmap_mail_types::Displayed::Yes
+impl jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::as_str(&self) -> &str
 impl core::clone::Clone for jmap_mail_types::Displayed
 pub fn jmap_mail_types::Displayed::clone(&self) -> jmap_mail_types::Displayed
 impl core::cmp::Eq for jmap_mail_types::Displayed
@@ -161,6 +167,8 @@ pub jmap_mail_types::EmailSubmissionComparatorProperty::EmailId
 pub jmap_mail_types::EmailSubmissionComparatorProperty::Other(alloc::string::String)
 pub jmap_mail_types::EmailSubmissionComparatorProperty::SentAt
 pub jmap_mail_types::EmailSubmissionComparatorProperty::ThreadId
+impl jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_mail_types::EmailSubmissionComparatorProperty
 pub fn jmap_mail_types::EmailSubmissionComparatorProperty::clone(&self) -> jmap_mail_types::EmailSubmissionComparatorProperty
 impl core::cmp::Eq for jmap_mail_types::EmailSubmissionComparatorProperty
@@ -240,6 +248,8 @@ impl core::marker::StructuralPartialEq for jmap_mail_types::KeywordError
 pub jmap_mail_types::MailboxComparatorProperty::Name
 pub jmap_mail_types::MailboxComparatorProperty::Other(alloc::string::String)
 pub jmap_mail_types::MailboxComparatorProperty::SortOrder
+impl jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_mail_types::MailboxComparatorProperty
 pub fn jmap_mail_types::MailboxComparatorProperty::clone(&self) -> jmap_mail_types::MailboxComparatorProperty
 impl core::cmp::Eq for jmap_mail_types::MailboxComparatorProperty
@@ -293,6 +303,8 @@ pub jmap_mail_types::MailboxRole::Junk
 pub jmap_mail_types::MailboxRole::Other(alloc::string::String)
 pub jmap_mail_types::MailboxRole::Sent
 pub jmap_mail_types::MailboxRole::Trash
+impl jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::as_str(&self) -> &str
 impl jmap_mail_types::MailboxRole
 pub fn jmap_mail_types::MailboxRole::to_wire_str(&self) -> &str
 impl core::clone::Clone for jmap_mail_types::MailboxRole
@@ -379,6 +391,8 @@ pub jmap_mail_types::UndoStatus::Canceled
 pub jmap_mail_types::UndoStatus::Final
 pub jmap_mail_types::UndoStatus::Other(alloc::string::String)
 pub jmap_mail_types::UndoStatus::Pending
+impl jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::as_str(&self) -> &str
 impl core::clone::Clone for jmap_mail_types::UndoStatus
 pub fn jmap_mail_types::UndoStatus::clone(&self) -> jmap_mail_types::UndoStatus
 impl core::cmp::Eq for jmap_mail_types::UndoStatus
@@ -490,7 +504,9 @@ pub jmap_mail_types::Email::in_reply_to: core::option::Option<alloc::vec::Vec<al
 pub jmap_mail_types::Email::keywords: alloc::collections::btree::map::BTreeMap<jmap_mail_types::Keyword, bool>
 pub jmap_mail_types::Email::mailbox_ids: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, bool>
 pub jmap_mail_types::Email::message_id: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::Email::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_mail_types::Email::preview: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Email::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_mail_types::Email::received_at: jmap_types::id::UTCDate
 pub jmap_mail_types::Email::references: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub jmap_mail_types::Email::reply_to: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
@@ -643,13 +659,21 @@ pub jmap_mail_types::EmailFilterCondition::header: core::option::Option<alloc::v
 pub jmap_mail_types::EmailFilterCondition::in_mailbox: core::option::Option<jmap_types::id::Id>
 pub jmap_mail_types::EmailFilterCondition::in_mailbox_other_than: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
 pub jmap_mail_types::EmailFilterCondition::max_size: core::option::Option<u64>
+pub jmap_mail_types::EmailFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_mail_types::EmailFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_mail_types::EmailFilterCondition::min_size: core::option::Option<u64>
 pub jmap_mail_types::EmailFilterCondition::none_in_thread_have_keyword: core::option::Option<jmap_mail_types::Keyword>
 pub jmap_mail_types::EmailFilterCondition::not_keyword: core::option::Option<jmap_mail_types::Keyword>
+pub jmap_mail_types::EmailFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_mail_types::EmailFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_mail_types::EmailFilterCondition::some_in_thread_have_keyword: core::option::Option<jmap_mail_types::Keyword>
 pub jmap_mail_types::EmailFilterCondition::subject: core::option::Option<alloc::string::String>
 pub jmap_mail_types::EmailFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_mail_types::EmailFilterCondition::to: core::option::Option<alloc::string::String>
+impl jmap_mail_types::EmailFilterCondition
+pub fn jmap_mail_types::EmailFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_mail_types::EmailFilterCondition
 pub fn jmap_mail_types::EmailFilterCondition::clone(&self) -> jmap_mail_types::EmailFilterCondition
 impl core::cmp::Eq for jmap_mail_types::EmailFilterCondition
@@ -883,9 +907,11 @@ pub fn jmap_mail_types::MailCapability::deserialize<__D>(__D) -> core::result::R
 pub jmap_mail_types::Mailbox::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_mail_types::Mailbox::id: jmap_types::id::Id
 pub jmap_mail_types::Mailbox::is_subscribed: bool
+pub jmap_mail_types::Mailbox::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_mail_types::Mailbox::my_rights: jmap_mail_types::MailboxRights
 pub jmap_mail_types::Mailbox::name: alloc::string::String
 pub jmap_mail_types::Mailbox::parent_id: core::option::Option<jmap_types::id::Id>
+pub jmap_mail_types::Mailbox::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_mail_types::Mailbox::role: core::option::Option<jmap_mail_types::MailboxRole>
 pub jmap_mail_types::Mailbox::sort_order: u32
 pub jmap_mail_types::Mailbox::total_emails: u32
@@ -939,9 +965,17 @@ pub fn jmap_mail_types::MailboxComparator::deserialize<__D>(__D) -> core::result
 #[non_exhaustive] pub struct jmap_mail_types::MailboxFilterCondition
 pub jmap_mail_types::MailboxFilterCondition::has_any_role: core::option::Option<bool>
 pub jmap_mail_types::MailboxFilterCondition::is_subscribed: core::option::Option<bool>
+pub jmap_mail_types::MailboxFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_mail_types::MailboxFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_mail_types::MailboxFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_mail_types::MailboxFilterCondition::name: core::option::Option<alloc::string::String>
 pub jmap_mail_types::MailboxFilterCondition::parent_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_mail_types::MailboxFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_mail_types::MailboxFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_mail_types::MailboxFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_mail_types::MailboxFilterCondition::role: core::option::Option<core::option::Option<jmap_mail_types::MailboxRole>>
+impl jmap_mail_types::MailboxFilterCondition
+pub fn jmap_mail_types::MailboxFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_mail_types::MailboxFilterCondition
 pub fn jmap_mail_types::MailboxFilterCondition::clone(&self) -> jmap_mail_types::MailboxFilterCondition
 impl core::cmp::Eq for jmap_mail_types::MailboxFilterCondition

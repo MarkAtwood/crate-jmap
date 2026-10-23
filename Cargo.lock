@@ -2198,6 +2198,7 @@ dependencies = [
 name = "jmap-mail-types"
 version = "0.3.0"
 dependencies = [
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",

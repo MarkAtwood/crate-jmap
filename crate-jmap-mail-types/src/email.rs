@@ -341,6 +341,20 @@ pub struct Email {
     /// Short plaintext preview of the message body (≤256 characters).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
+
+    // --- draft-ietf-jmap-metadata-04 §2 ---
+    /// Shared metadata, keyed by namespace identifier
+    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+    /// The authenticated user's own metadata, keyed by namespace
+    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// handling as `metadata`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -388,6 +402,8 @@ impl Email {
             body_structure: None,
             has_attachment: false,
             preview: None,
+            metadata: None,
+            private_metadata: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -717,5 +733,49 @@ mod tests {
             j.contains(r#""keywords":{"$draft":true,"$seen":true}"#),
             "keywords keys must be sorted: {j}"
         );
+    }
+
+    /// Oracle: -04 §2 adds `metadata` and `privateMetadata` (objects keyed
+    /// by namespace) to Email; hand-written JSON. The values land in the
+    /// typed fields, not `extra`, and round-trip. -04 §3.2: in an update
+    /// "null is equivalent to {}", so `null` decodes as absent.
+    #[test]
+    fn email_metadata_properties() {
+        let mut raw = json!({
+            "id": "e1",
+            "blobId": "b1",
+            "threadId": "t1",
+            "mailboxIds": {"m1": true},
+            "size": 10,
+            "receivedAt": "2026-01-01T00:00:00Z",
+            "metadata": {"acme.example.com": {"memo": "follow up"}},
+            "privateMetadata": {"acme.example.com": {"flag": true}}
+        });
+        let email: Email = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            email
+                .metadata
+                .as_ref()
+                .map(|m| &m["acme.example.com"]["memo"]),
+            Some(&json!("follow up"))
+        );
+        assert_eq!(
+            email
+                .private_metadata
+                .as_ref()
+                .map(|m| &m["acme.example.com"]["flag"]),
+            Some(&json!(true))
+        );
+        assert!(email.extra.is_empty());
+        let back = serde_json::to_value(&email).unwrap();
+        assert_eq!(back["metadata"], raw["metadata"]);
+        assert_eq!(back["privateMetadata"], raw["privateMetadata"]);
+
+        raw["privateMetadata"] = json!(null);
+        let email: Email = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(email.private_metadata, None);
+
+        raw["metadata"] = json!([1]);
+        assert!(serde_json::from_value::<Email>(raw).is_err());
     }
 }

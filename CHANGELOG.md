@@ -14,6 +14,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-types**: **BREAKING** draft-ietf-jmap-metadata-04 fields on
+  Email and Mailbox. `Email` and `Mailbox` gain typed `metadata` and
+  `privateMetadata` properties (`Option<Map<String, Value>>`, -04 §2)
+  that previously landed in `extra`; a non-object value now fails to
+  decode, and `null` decodes as absent (-04 §3.2: "null is equivalent to
+  {}"). Both are `CLIENT_SETTABLE`. `EmailFilterCondition` and
+  `MailboxFilterCondition` carry the six -04 §3.6 conditions
+  (`metadataExists`, `privateMetadataExists`, `metadataTextContains`,
+  `privateMetadataTextContains`, `metadataTextEquals`,
+  `privateMetadataTextEquals`) as typed leaf fields, so they survive
+  `FilterOperator` trees while `deny_unknown_fields` still rejects every
+  other unknown key; `has_metadata_condition` reports whether any is set.
+  The crate now depends on `jmap-metadata-types`. jmap-mail-server's
+  in-memory backend answers such a filter with `unsupportedFilter` until
+  it evaluates them (bd JMAP-xdp4).
 - **jmap-server**: **BREAKING** draft-ietf-jmap-metadata-04 `/changes`
   plumbing. `JmapBackend::get_changes` takes a `#[non_exhaustive]`
   `ChangesParams` (`since_state`, `max_changes`,

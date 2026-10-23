@@ -6,6 +6,7 @@
 //! The generic [`Filter`], [`FilterOperator`], and [`Operator`] types used here
 //! are defined in `jmap-types` (RFC 8620 §5.5).
 
+use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
@@ -188,6 +189,51 @@ pub struct EmailFilterCondition {
         deserialize_with = "deserialize_header"
     )]
     pub header: Option<Vec<String>>,
+
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// present at this path in the object's `metadata`. The path is a
+    /// namespace identifier, optionally followed by an RFC 6901 JSON
+    /// Pointer into the namespace value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_exists: Option<String>,
+
+    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// authenticated user's `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_exists: Option<String>,
+
+    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// `i;unicode-casemap` collation on the `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_contains: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// `metadata_text_contains`, against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_contains: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_equals: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_equals: Option<MetadataTextMatch>,
+}
+
+impl EmailFilterCondition {
+    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `metadata*` / `privateMetadata*` fields is set.
+    pub fn has_metadata_condition(&self) -> bool {
+        self.metadata_exists.is_some()
+            || self.private_metadata_exists.is_some()
+            || self.metadata_text_contains.is_some()
+            || self.private_metadata_text_contains.is_some()
+            || self.metadata_text_equals.is_some()
+            || self.private_metadata_text_equals.is_some()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -880,6 +926,78 @@ mod tests {
         assert_eq!(
             json,
             r#"{"property":"hasKeyword","isAscending":false,"keyword":"$flagged"}"#
+        );
+    }
+
+    /// Oracle: the `filter` of the draft-ietf-jmap-metadata-02 §6.7 example
+    /// request, copied from the draft (-04 §3.6 still defines all three
+    /// leaf conditions). The metadata leaves decode inside the `AND` tree
+    /// and serialize back unchanged.
+    #[test]
+    fn metadata_conditions_survive_operator_tree() {
+        let wire = serde_json::json!({
+            "operator": "AND",
+            "conditions": [
+                { "inMailbox": "MB-inbox" },
+                { "privateMetadataExists": "acme.example.com/memo" },
+                {
+                    "privateMetadataTextContains": {
+                        "path":  "acme.example.com/memo",
+                        "value": "follow up"
+                    }
+                }
+            ]
+        });
+        let filter: EmailFilter = serde_json::from_value(wire.clone()).expect("decode");
+        let Filter::Operator(op) = &filter else {
+            panic!("expected an operator, got {filter:?}");
+        };
+        let leaves: Vec<&EmailFilterCondition> = op
+            .conditions
+            .iter()
+            .map(|f| match f {
+                Filter::Condition(c) => c,
+                other => panic!("expected a condition, got {other:?}"),
+            })
+            .collect();
+        assert!(!leaves[0].has_metadata_condition());
+        assert_eq!(
+            leaves[1].private_metadata_exists.as_deref(),
+            Some("acme.example.com/memo")
+        );
+        assert!(leaves[1].has_metadata_condition());
+        assert_eq!(
+            leaves[2].private_metadata_text_contains,
+            Some(MetadataTextMatch::new("acme.example.com/memo", "follow up"))
+        );
+        assert_eq!(serde_json::to_value(&filter).expect("encode"), wire);
+    }
+
+    /// Oracle: the six wire names of -04 §3.6 ("metadataExists",
+    /// "privateMetadataExists", "metadataTextContains",
+    /// "privateMetadataTextContains", "metadataTextEquals",
+    /// "privateMetadataTextEquals") each decode; a misspelt one is still
+    /// rejected by `deny_unknown_fields`.
+    #[test]
+    fn metadata_condition_names_decode_and_typos_reject() {
+        let m = serde_json::json!({"path": "ns/k", "value": "v"});
+        for (name, value) in [
+            ("metadataExists", serde_json::json!("ns")),
+            ("privateMetadataExists", serde_json::json!("ns")),
+            ("metadataTextContains", m.clone()),
+            ("privateMetadataTextContains", m.clone()),
+            ("metadataTextEquals", m.clone()),
+            ("privateMetadataTextEquals", m.clone()),
+        ] {
+            let c: EmailFilterCondition =
+                serde_json::from_value(serde_json::json!({ name: value })).expect(name);
+            assert!(c.has_metadata_condition(), "{name}");
+        }
+        assert!(
+            serde_json::from_value::<EmailFilterCondition>(serde_json::json!({
+                "metadataExist": "ns"
+            }))
+            .is_err()
         );
     }
 }
