@@ -11,7 +11,7 @@ use std::fmt;
 ///
 /// ```compile_fail
 /// let err = jmap_types::Id::new_validated("").unwrap_err();
-/// let jmap_types::ValidationError(msg) = err;
+/// let _ = err.0;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
