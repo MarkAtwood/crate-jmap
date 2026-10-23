@@ -6466,14 +6466,14 @@ async fn contact_set_update_allowed_fields_apply() {
     assert_eq!(get_resp["list"][0]["displayName"], json!("Alice"));
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §ChatContact/set says
-/// "update supports: blocked, displayName." A patch carrying ONLY
-/// non-allowed fields must not reach the backend. The handler
-/// surfaces `invalidPatch` so a client cannot silently overwrite
-/// server-derived state such as `presence`. Regression bead
+/// Oracle: draft-atwood-jmap-chat-00 §ChatContact: `presence` and
+/// `lastActiveAt` are "server-set"; RFC 8620 §5.3: an update changing a
+/// server-set property "MUST be rejected with an "invalidProperties"
+/// SetError". The patch must not reach the backend, so a client cannot
+/// overwrite server-derived state such as `presence`. Regression bead
 /// bd:JMAP-x2gd.8.
 #[tokio::test]
-async fn contact_set_update_drops_non_allowed_fields() {
+async fn contact_set_update_rejects_server_set_fields() {
     let backend = MemoryBackend::new();
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
@@ -6508,10 +6508,9 @@ async fn contact_set_update_drops_non_allowed_fields() {
     let not_updated = resp["notUpdated"]
         .as_object()
         .expect("notUpdated must be populated");
-    let entry = &not_updated["ct1"];
     assert_eq!(
-        entry["type"], "invalidPatch",
-        "patch with no spec-allowed fields must be invalidPatch: {entry:?}"
+        not_updated["ct1"],
+        json!({ "type": "invalidProperties", "properties": ["presence", "lastActiveAt"] }),
     );
 
     // The backend record must be unchanged.
@@ -6586,12 +6585,12 @@ async fn contact_set_update_identity_rejected() {
     assert_eq!(get_resp["list"][0]["blocked"], false);
 }
 
-/// Oracle: a mixed patch carrying one spec-allowed field and one
-/// non-allowed field applies only the allowed field. The non-allowed
-/// field is silently dropped before reaching the backend, matching
-/// the existing SpaceBan/set allowlist convention (ban.rs:250-263).
+/// Oracle: draft-atwood-jmap-chat-00 §ChatContact: `presence` is
+/// "server-set"; RFC 8620 §5.3: the update "MUST be rejected with an
+/// "invalidProperties" SetError", so the allowed `blocked` change in the
+/// same patch is not applied either.
 #[tokio::test]
-async fn contact_set_update_mixed_patch_applies_only_allowed() {
+async fn contact_set_update_mixed_patch_with_server_set_field_rejected() {
     let backend = MemoryBackend::new();
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
@@ -6619,9 +6618,9 @@ async fn contact_set_update_mixed_patch_applies_only_allowed() {
     .await
     .expect("handle_contact_set");
 
-    assert!(
-        resp["notUpdated"].is_null(),
-        "patch with at least one allowed field must update"
+    assert_eq!(
+        resp["notUpdated"]["ct1"],
+        json!({ "type": "invalidProperties", "properties": ["presence"] }),
     );
     let HandlerOutput {
         primary: get_resp, ..
@@ -6632,7 +6631,7 @@ async fn contact_set_update_mixed_patch_applies_only_allowed() {
     )
     .await
     .expect("handle_contact_get");
-    assert_eq!(get_resp["list"][0]["blocked"], json!(true));
+    assert_eq!(get_resp["list"][0]["blocked"], json!(false));
     assert!(
         get_resp["list"][0].get("presence").is_none(),
         "non-allowed `presence` field must not have leaked into the stored object"

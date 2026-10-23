@@ -15,14 +15,11 @@ use serde_json::{json, Map, Value};
 
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
-    handle_get_visible, handle_set, invalid, listed_in, mistyped, not_found, patched,
-    patched_properties, reject_unsupported_sort, to_map, SetOps, TypeCheck,
+    handle_get_visible, handle_set, invalid, mistyped, not_found, patched, patched_properties,
+    reject_unsupported_sort, set_error_value, to_map, SetOps, TypeCheck,
 };
 use crate::GraphBackend;
-use jmap_server::{now_utc_string, HandlerOutput};
-
-/// `id`, `created`, `updated` and `myRights` are server-set.
-const SERVER_SET: &[&str] = &["id", "created", "updated", "myRights"];
+use jmap_server::{now_utc_string, reject_read_only_patch, reject_server_set, HandlerOutput};
 
 /// The properties with a draft default, echoed in `created` when the
 /// client omits them (RFC 8620 §5.3).
@@ -136,9 +133,10 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
         let Value::Object(mut m) = obj else {
             return Err(invalid(&[], "a Graph create must be a JSON object"));
         };
-        let fixed = listed_in(m.keys().map(String::as_str), SERVER_SET);
-        if !fixed.is_empty() {
-            return Err(invalid(&fixed, "these properties are set by the server"));
+        if let Some(e) = reject_server_set::<Graph>(&m) {
+            return Err(set_error_value(
+                &e.with_description("these properties are set by the server"),
+            ));
         }
         validate(&m, cap)?;
         let omitted: Vec<&str> = DEFAULTED
@@ -193,9 +191,10 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
         let mut patch = decode_patch(patch)?;
         let graph = readable(backend, caller, account_id, id).await?;
         let keys = patched_properties(&patch);
-        let fixed = listed_in(keys.iter().map(String::as_str), SERVER_SET);
-        if !fixed.is_empty() {
-            return Err(invalid(&fixed, "these properties are set by the server"));
+        if let Some(e) = reject_read_only_patch::<Graph>(patch.as_map(), Some(&to_map(&graph))) {
+            return Err(set_error_value(
+                &e.with_description("these properties are set by the server"),
+            ));
         }
         let r = &graph.my_rights;
         if keys.iter().any(|k| k == "shareWith") && !r.may_admin {

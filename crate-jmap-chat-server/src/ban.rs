@@ -35,7 +35,10 @@ use crate::helpers::{
 };
 use crate::helpers::{mistyped_create_props, PropType};
 use crate::{BackendSetError, ChatBackend};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    is_client_updatable, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // SpaceBan/get
@@ -185,6 +188,10 @@ pub async fn handle_ban_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<SpaceBan>) {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(
@@ -303,22 +310,18 @@ pub async fn handle_ban_set<B: ChatBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // These fields are server-set or immutable after creation.
-            const BAN_READONLY: &[&str] = &["id", "spaceId", "userId", "bannedBy", "createdAt"];
-            let bad_props: Vec<&str> = BAN_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
+            // §SpaceBan: `id`, `bannedBy` and `createdAt` are server-set,
+            // `spaceId` and `userId` immutable.
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| reject_read_only_patch::<SpaceBan>(m, None))
+            {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 
-            const BAN_UPDATE_ALLOWED: &[&str] = &["reason", "expiresAt"];
+            // §SpaceBan/set: "`update` supports: `reason`, `expiresAt`", the
+            // client-settable properties that are not immutable.
             let Value::Object(mut patch_map) = patch_val else {
                 not_updated.insert(
                     id_str,
@@ -326,12 +329,8 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 );
                 continue;
             };
-            let mut clean_patch = serde_json::Map::new();
-            for &field in BAN_UPDATE_ALLOWED {
-                if let Some(v) = patch_map.remove(field) {
-                    clean_patch.insert(field.to_owned(), v);
-                }
-            }
+            patch_map.retain(|field, _| is_client_updatable::<SpaceBan>(field));
+            let clean_patch = patch_map;
             if clean_patch.is_empty() {
                 not_updated.insert(
                     id_str,

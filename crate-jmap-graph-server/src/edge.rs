@@ -15,15 +15,12 @@ use serde_json::{Map, Value};
 
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, handle_get_visible,
-    handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, listed_in,
-    mistyped, not_found, patched, patched_properties, to_map, SetOps, TypeCheck,
+    handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, mistyped,
+    not_found, patched, patched_properties, set_error_value, to_map, SetOps, TypeCheck,
 };
-use crate::node::{
-    create_graph_id, created_entry, fill_server_set, item_graph_writable, touch, IMMUTABLE,
-    SERVER_SET,
-};
+use crate::node::{create_graph_id, created_entry, fill_server_set, item_graph_writable, touch};
 use crate::GraphBackend;
-use jmap_server::HandlerOutput;
+use jmap_server::{reject_read_only_patch, reject_server_set, HandlerOutput};
 
 /// The properties with a draft default, echoed in `created` when the
 /// client omits them (RFC 8620 §5.3).
@@ -169,9 +166,10 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
         let Value::Object(mut m) = obj else {
             return Err(invalid(&[], "a GraphEdge create must be a JSON object"));
         };
-        let fixed = listed_in(m.keys().map(String::as_str), SERVER_SET);
-        if !fixed.is_empty() {
-            return Err(invalid(&fixed, "these properties are set by the server"));
+        if let Some(e) = reject_server_set::<GraphEdge>(&m) {
+            return Err(set_error_value(
+                &e.with_description("these properties are set by the server"),
+            ));
         }
         let missing: Vec<&str> = ["fromId", "toId"]
             .into_iter()
@@ -223,11 +221,9 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             .ok_or_else(not_found)?;
         item_graph_writable(backend, caller, account_id, &edge.graph_id).await?;
         let keys = patched_properties(&patch);
-        let fixed = listed_in(keys.iter().map(String::as_str), IMMUTABLE);
-        if !fixed.is_empty() {
-            return Err(invalid(
-                &fixed,
-                "these properties are immutable or server-set",
+        if let Some(e) = reject_read_only_patch::<GraphEdge>(patch.as_map(), Some(&to_map(&edge))) {
+            return Err(set_error_value(
+                &e.with_description("these properties are immutable or server-set"),
             ));
         }
         let result = patched(&edge, &patch)?;
