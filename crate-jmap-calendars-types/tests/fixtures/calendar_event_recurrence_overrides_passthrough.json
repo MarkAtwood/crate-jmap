@@ -1,0 +1,17 @@
+{
+        "id": "ev-recur",
+        "calendarIds": {"cal-001": true},
+        "recurrenceRules": [
+            {
+                "@type": "RecurrenceRule",
+                "frequency": "weekly",
+                "count": 4
+            }
+        ],
+        "recurrenceOverrides": {
+            "2024-06-22T09:00:00": {
+                "title": "Rescheduled meeting",
+                "start": "2024-06-22T11:00:00"
+            }
+        }
+    }

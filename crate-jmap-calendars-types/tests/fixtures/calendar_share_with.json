@@ -1,0 +1,36 @@
+{
+        "id": "cal-shared",
+        "name": "Shared",
+        "description": null,
+        "color": null,
+        "sortOrder": 0,
+        "isSubscribed": true,
+        "isVisible": true,
+        "isDefault": false,
+        "includeInAvailability": "attending",
+        "defaultAlertsWithTime": null,
+        "defaultAlertsWithoutTime": null,
+        "timeZone": null,
+        "shareWith": {
+            "principal-42": {
+                "mayReadFreeBusy": true,
+                "mayReadItems": true,
+                "mayWriteAll": false,
+                "mayWriteOwn": false,
+                "mayUpdatePrivate": false,
+                "mayRSVP": false,
+                "mayShare": false,
+                "mayDelete": false
+            }
+        },
+        "myRights": {
+            "mayReadFreeBusy": true,
+            "mayReadItems": true,
+            "mayWriteAll": true,
+            "mayWriteOwn": true,
+            "mayUpdatePrivate": true,
+            "mayRSVP": true,
+            "mayShare": true,
+            "mayDelete": true
+        }
+    }

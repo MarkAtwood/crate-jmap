@@ -1,0 +1,14 @@
+{
+        "id": "notif-002",
+        "created": "2024-06-16T08:00:00Z",
+        "changedBy": {
+            "name": "Bob Jones",
+            "email": null,
+            "principalId": null,
+            "calendarAddress": null
+        },
+        "type": "created",
+        "calendarEventId": "event-002",
+        "isDraft": true,
+        "event": {"@type": "Event", "uid": "uid-event-002", "title": "Draft event"}
+    }

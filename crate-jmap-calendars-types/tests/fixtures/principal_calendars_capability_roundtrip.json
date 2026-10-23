@@ -1,0 +1,6 @@
+{
+        "accountId": "acc-rt",
+        "mayGetAvailability": true,
+        "mayShareWith": false,
+        "calendarAddress": "mailto:rt@example.com"
+    }

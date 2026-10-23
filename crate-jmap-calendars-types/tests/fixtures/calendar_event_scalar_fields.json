@@ -1,0 +1,24 @@
+{
+        "@type": "Event",
+        "uid": "2a358cee-6489-4f14-a57f-c104db4dc357",
+        "id": "ev-42",
+        "calendarIds": {
+            "cal-main": true
+        },
+        "title": "Team meeting",
+        "description": "Monthly all-hands",
+        "start": "2024-06-15T09:00:00",
+        "duration": "PT1H",
+        "timeZone": "America/New_York",
+        "status": "confirmed",
+        "isDraft": false,
+        "isOrigin": true,
+        "showWithoutTime": false,
+        "priority": 5,
+        "freeBusyStatus": "busy",
+        "privacy": "public",
+        "created": "2024-05-01T12:00:00Z",
+        "updated": "2024-06-01T08:00:00Z",
+        "sequence": 0,
+        "color": "red"
+    }

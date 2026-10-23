@@ -1,0 +1,5 @@
+{
+        "@type": "OffsetTrigger",
+        "offset": "-PT15M",
+        "relativeTo": "start"
+    }

@@ -1,0 +1,6 @@
+{
+        "id": "pi-001",
+        "name": "Joe Bloggs",
+        "calendarAddress": "mailto:joe@example.com",
+        "isDefault": true
+    }

@@ -1,0 +1,5 @@
+{
+        "@type": "Participant",
+        "email": "bob@example.com",
+        "roles": { "attendee": true }
+    }

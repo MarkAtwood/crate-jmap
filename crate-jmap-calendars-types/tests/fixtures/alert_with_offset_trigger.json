@@ -1,0 +1,8 @@
+{
+        "@type": "Alert",
+        "trigger": {
+            "@type": "OffsetTrigger",
+            "offset": "-PT15M"
+        },
+        "action": "display"
+    }

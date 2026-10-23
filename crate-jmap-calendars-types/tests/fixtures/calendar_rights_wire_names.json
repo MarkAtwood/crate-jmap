@@ -1,0 +1,10 @@
+{
+        "mayReadFreeBusy": true,
+        "mayReadItems": true,
+        "mayWriteAll": true,
+        "mayWriteOwn": true,
+        "mayUpdatePrivate": true,
+        "mayRSVP": true,
+        "mayShare": true,
+        "mayDelete": true
+    }

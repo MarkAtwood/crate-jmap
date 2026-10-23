@@ -1,0 +1,4 @@
+{
+        "@type": "CustomTrigger",
+        "customField": "customValue"
+    }
