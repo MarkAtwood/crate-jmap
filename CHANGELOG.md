@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-client**: `SessionClient::scene_object_interact` binds
+  `SceneObject/interact` (draft-atwood-jmap-scene-00 §SceneObject/interact),
+  returning `SceneObjectInteractResponse` with the `accepted` ids and the
+  `notAccepted` SetErrors (bd JMAP-38uq.16).
 - **jmap-sharing-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
   Principal. `handle_principal_set` and `handle_principal_changes` take the
   request's `using` list as a new last argument (`register_sharing_handlers`

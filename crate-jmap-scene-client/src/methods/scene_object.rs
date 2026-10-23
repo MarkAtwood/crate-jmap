@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use jmap_scene_types::SceneObject;
 use jmap_scene_types::SceneObjectComparator;
+use jmap_scene_types::{SceneInteraction, SceneObjectInteractRequest, SceneObjectInteractResponse};
 use jmap_types::{Filter, Id, PatchObject, State};
 use serde::Serialize;
 
@@ -173,5 +174,39 @@ impl super::SessionClient {
             calculate_total,
         )
         .await
+    }
+
+    /// `SceneObject/interact` (draft-atwood-jmap-scene-00 L2019-L2114).
+    ///
+    /// Submits `interactions`, keyed by client-chosen ids, with objects in
+    /// regions of the targeted account. The call is ephemeral: it "does not
+    /// change any record or state string" (L2021). Each id comes back in
+    /// `accepted` or, with a SetError (`notFound`, `forbidden`,
+    /// `rateLimit`, `invalidProperties`), in `notAccepted`. Unlike the
+    /// `SceneInteractionEvent` frame sent with
+    /// [`SceneWsExt::send_scene_interaction`](crate::SceneWsExt::send_scene_interaction),
+    /// this reports whether each interaction was accepted.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:scene`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
+    ///   RFC 8620 §3.6.2 method-level errors.
+    pub async fn scene_object_interact(
+        &self,
+        interactions: BTreeMap<String, SceneInteraction>,
+    ) -> Result<SceneObjectInteractResponse, jmap_base_client::ClientError> {
+        let (api_url, account_id) = self.session_parts()?;
+        let args = jmap_base_client::to_args(&SceneObjectInteractRequest::new(
+            Id::from(account_id),
+            interactions,
+        ))?;
+        self.invoke(api_url, "SceneObject/interact", args).await
     }
 }
