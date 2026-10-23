@@ -305,6 +305,11 @@ first, then propagate**. When you change the canonical, the rule is:
 **propagate the change to every sibling in the same pass** (or file a
 follow-up sweep bead before merging).
 
+Mirroring copies flaws as faithfully as idioms. When a sibling copies a
+canonical pattern that breaks a rule (for example the "Public API
+constraints" below), fix the canonical first, then mirror the fix. Do
+not reproduce the flaw for consistency's sake.
+
 | Family | Canonical | Siblings (must mirror) |
 |---|---|---|
 | Foundation types | `jmap-types` | (none — sole foundation) |
@@ -901,6 +906,35 @@ optional extras while the base operation still works
 request (`onSuccessSetIsDefault`). Its rustdoc MUST say that backends
 override it for real semantics. Permission and policy hooks are a
 separate category and stay fail-open (bd:JMAP-bghk).
+
+## Public API constraints
+
+Generation-time rules for every `pub` item (bd:JMAP-698j.2). They exist
+to stop API debt from piling up between breaking-change sweeps.
+
+1. **Closed vocabularies are enums.** A field, argument or return value
+   whose values the spec closes MUST NOT be `String`/`&str` in a `pub`
+   type or signature. Declare it with `jmap_types::impl_string_enum!`
+   (`crate-jmap-types/src/string_enum.rs`), which keeps unknown wire
+   values round-tripping.
+2. **No in-band sentinels.** Do not encode "absent", "unknown" or "not
+   yet assigned" as a magic value of the normal type (`"placeholder"`,
+   `""`, `0`, `-1`). Use `Option`, an enum variant or a distinct type.
+3. **Params structs past four arguments.** A `pub fn` or trait method
+   that needs more than about four non-`self` arguments takes a params
+   struct instead, `#[non_exhaustive]` when it may gain fields.
+4. **No wrong-data trait defaults.** A trait default MUST NOT put wrong
+   data on the wire; see "Default bodies on spec-semantic backend
+   methods" above.
+5. **Growable types are `#[non_exhaustive]`.** Every `pub` enum or struct
+   that a spec revision or later feature may extend is
+   `#[non_exhaustive]`. The exception is builder-style `*Input`/`*Patch`
+   structs that callers build with struct literals.
+6. **One public path per item.** Each `pub` item is reachable from
+   exactly one public path. Do not re-export it under a second module
+   path or a second name. Re-exports of public dependencies at the crate
+   root (as documented in the Crate Map) are that item's single path in
+   this crate.
 
 ## Backend caps and limits
 
