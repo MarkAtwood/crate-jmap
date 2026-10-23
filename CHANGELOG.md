@@ -3508,6 +3508,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-sharing-server**, **jmap-tasks-server**: the README Gotchas no
+  longer say no storage backend ships (sharing also named the private
+  test-only `MockBackend`). They describe the public `memory::MemoryBackend`
+  reference implementation behind `feature = "memory"`, as
+  jmap-contacts-server does.
+
 - **jmap-tasks-server**, **jmap-filenode-server**: **BREAKING** (wire)
   the reference `MemoryBackend`s answer a `*/query` they cannot evaluate
   with the RFC 8620 §5.5 `unsupportedFilter` / `unsupportedSort` method

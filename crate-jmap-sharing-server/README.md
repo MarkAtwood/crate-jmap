@@ -282,9 +282,14 @@ Backends that don't need an auth identity use `type CallerCtx = ();` and a
 - Permission enforcement is entirely the backend's responsibility. The handler
   only routes `forbidden` SetErrors back to the caller. A backend that does not
   enforce access control will silently permit any operation.
-- No storage backend ships with this crate. The in-memory `MockBackend` in the
-  `test_support` module is a test harness only and is not suitable for
-  production use.
+- **`memory::MemoryBackend` is a reference implementation, not production.**
+  Gated behind `feature = "memory"` (off by default). State is held in
+  `HashMap`s behind a `std::sync::Mutex`; persistence is not implemented; a
+  number of RFC 9670 edge cases are simplified. Intended for integration
+  tests, smoke tests, examples, and as source-readable study material for
+  downstream contributors writing a real (database-backed) backend. See the
+  module docs in `src/memory.rs` for the explicit non-production caveats.
+  Server-assigned ids are uuid v4, as in `jmap-mail-server`.
 
 ## Crate family
 

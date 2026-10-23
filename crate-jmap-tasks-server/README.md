@@ -334,8 +334,14 @@ until the family is published to crates.io.
 - `isDraft` immutability is the backend's job: `update_object` MUST reject a patch that
   sets `isDraft: true` on a Task whose stored value is not `true`; the handler does not
   check it.
-- No storage backend ships with this crate. The `memory` feature is for
-  tests/demos only.
+- **`memory::MemoryBackend` is a reference implementation, not production.**
+  Gated behind `feature = "memory"` (off by default). State is held in
+  `HashMap`s behind a `std::sync::Mutex`; persistence is not implemented; a
+  number of draft-ietf-jmap-tasks-06 edge cases are simplified. Intended for integration
+  tests, smoke tests, examples, and as source-readable study material for
+  downstream contributors writing a real (database-backed) backend. See the
+  module docs in `src/memory.rs` for the explicit non-production caveats.
+  Server-assigned ids are uuid v4, as in `jmap-mail-server`.
 
 ## References
 
