@@ -3059,6 +3059,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-types**, **jmap-server**: `UTCDate::new_validated` and
+  `UTCDate::to_epoch_seconds` now accept a non-zero RFC 3339 fractional
+  second (`2014-10-30T06:12:00.123Z`) and still reject a zero one
+  (`.000Z`), per RFC 8620 §1.4 ("the "time-secfrac" MUST always be omitted
+  if zero"); `to_epoch_seconds` truncates the fraction. The short-input
+  error text changed from "exactly 20 characters" to "at least 20
+  characters". `now_utc_string` / `now_utc_string_checked` now omit the
+  fraction when the milliseconds are zero, instead of emitting `.000Z`, so
+  every value they return passes `UTCDate::new_validated` (bd JMAP-jfia.23).
+
 - **jmap-chat-server**: `build_chat_message_push` now sends `bodySnippet`
   for `application/jmap-chat-rich` messages, rendered from the span `text`
   values joined in order, per the draft-atwood-jmap-chat-push-00

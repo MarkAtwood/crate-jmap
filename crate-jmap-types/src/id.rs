@@ -38,8 +38,9 @@ pub struct Id(String);
 
 /// RFC 3339 UTC timestamp string (RFC 8620 §1.4).
 ///
-/// Format: `YYYY-MM-DDTHH:MM:SSZ` — time-offset MUST be `Z`, letters uppercase,
-/// fractional seconds omitted if zero. Example: `"2014-10-30T06:12:00Z"`.
+/// Format: `YYYY-MM-DDTHH:MM:SS[.fff…]Z` — time-offset MUST be `Z`, letters
+/// uppercase, fractional seconds omitted if zero. Examples:
+/// `"2014-10-30T06:12:00Z"`, `"2014-10-30T06:12:00.123Z"`.
 ///
 /// # Deserialization is NOT validated
 ///
@@ -223,8 +224,10 @@ fn validate_id(s: &str) -> Result<(), ValidationError> {
 ///
 /// Validation has two layers:
 ///
-/// 1. **Shape**: exactly 20 characters in the `YYYY-MM-DDTHH:MM:SSZ`
-///    layout with `Z` suffix, ASCII digits in every numeric position.
+/// 1. **Shape**: the `YYYY-MM-DDTHH:MM:SS` layout with ASCII digits in
+///    every numeric position, an optional RFC 3339 `time-secfrac`
+///    (`.` followed by one or more digits, not all zero, because RFC 8620
+///    §1.4 says it "MUST always be omitted if zero"), then `Z`.
 /// 2. **Values**: month in `1..=12`, day in `1..=days_in_month(year,
 ///    month)` (proleptic Gregorian, exact leap-year rules), hour in
 ///    `0..=23`, minute in `0..=59`, second in `0..=59` (RFC 8620 §1.4
@@ -232,23 +235,27 @@ fn validate_id(s: &str) -> Result<(), ValidationError> {
 ///
 /// No external crate needed.
 fn validate_utcdate(s: &str) -> Result<(), ValidationError> {
-    if s.len() != 20 {
+    if s.len() < 20 {
         return Err(ValidationError(format!(
-            "UTCDate must be exactly 20 characters (YYYY-MM-DDTHH:MM:SSZ), got {:?}",
+            "UTCDate must be at least 20 characters (YYYY-MM-DDTHH:MM:SSZ), got {:?}",
             s
         )));
     }
     let b = s.as_bytes();
-    // Fixed separators: dashes, T, colons, Z.
-    if b[4] != b'-'
-        || b[7] != b'-'
-        || b[10] != b'T'
-        || b[13] != b':'
-        || b[16] != b':'
-        || b[19] != b'Z'
-    {
+    // Tail after the seconds: `Z`, or `.` + non-zero digit run + `Z`.
+    let tail_ok = match &b[19..] {
+        [b'Z'] => true,
+        [b'.', frac @ .., b'Z'] => {
+            !frac.is_empty()
+                && frac.iter().all(u8::is_ascii_digit)
+                && frac.iter().any(|&d| d != b'0')
+        }
+        _ => false,
+    };
+    // Fixed separators: dashes, T, colons.
+    if !tail_ok || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' {
         return Err(ValidationError(format!(
-            "UTCDate has wrong structure, expected YYYY-MM-DDTHH:MM:SSZ, got {:?}",
+            "UTCDate has wrong structure, expected YYYY-MM-DDTHH:MM:SS[.fff]Z, got {:?}",
             s
         )));
     }
@@ -355,9 +362,11 @@ impl UTCDate {
     ///
     /// Validation has two layers:
     ///
-    /// 1. **Shape**: exactly 20 characters in the
-    ///    `YYYY-MM-DDTHH:MM:SSZ` layout with `Z` suffix and ASCII
-    ///    digits in every numeric position.
+    /// 1. **Shape**: the `YYYY-MM-DDTHH:MM:SS` layout with ASCII
+    ///    digits in every numeric position, an optional fractional
+    ///    second (`.` and one or more digits, rejected when all zero
+    ///    because RFC 8620 §1.4 requires a zero `time-secfrac` to be
+    ///    omitted), then `Z`.
     /// 2. **Values**: month `1..=12`; day `1..=days_in_month(year,
     ///    month)` with proleptic Gregorian leap-year rules so e.g.
     ///    `2024-02-29` is accepted but `2023-02-29` and `2024-02-30`
@@ -371,9 +380,10 @@ impl UTCDate {
     /// RFC 8620 §1.4. The error description contains a substring that
     /// callers can match on if they need finer-grained handling:
     ///
-    /// - `"exactly 20 characters"` — wrong length;
+    /// - `"at least 20 characters"` — too short;
     /// - `"wrong structure"` — separators or `Z` suffix missing /
-    ///   misplaced;
+    ///   misplaced, or a fractional second that is empty, non-numeric
+    ///   or zero;
     /// - `"is not a digit"` — non-digit at a numeric position;
     /// - `"month must be"` — month outside `1..=12`;
     /// - `"day must be"` — day outside `1..=days_in_month(year,
@@ -399,6 +409,7 @@ impl UTCDate {
     /// Returns [`ValidationError`] on any validation failure.
     ///
     /// Negative values are returned for dates before `1970-01-01T00:00:00Z`.
+    /// A fractional second is truncated toward the earlier whole second.
     ///
     /// Uses the proleptic Gregorian calendar via Hinnant's `days_from_civil`
     /// algorithm, which is exact-integer and handles leap years and century
@@ -454,7 +465,8 @@ fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
     era * 146097 + doe - 719_468
 }
 
-/// Internal helper: convert a `YYYY-MM-DDTHH:MM:SSZ` string to epoch seconds.
+/// Internal helper: convert a `YYYY-MM-DDTHH:MM:SS[.fff]Z` string to epoch
+/// seconds, truncating any fractional second.
 ///
 /// `validate_utcdate` performs both shape and value-range validation;
 /// after it returns Ok, the per-position digit parses are infallible
@@ -676,6 +688,49 @@ mod tests {
         assert!(UTCDate::new_validated("2014-10-30").is_err());
         // fractional seconds are not permitted in RFC 8620 §1.4 format.
         assert!(UTCDate::new_validated("2014-10-30T06:12:00.000Z").is_err());
+    }
+
+    /// Oracle: RFC 8620 §1.4 makes UTCDate an RFC 3339 "date-time"
+    /// (`time-secfrac = "." 1*DIGIT`) where "the "time-secfrac" MUST
+    /// always be omitted if zero" (rfc8620.txt:346-347). A non-zero
+    /// fraction is therefore valid.
+    #[test]
+    fn utcdate_new_validated_nonzero_secfrac_succeeds() {
+        for s in [
+            "2014-10-30T06:12:00.123Z",
+            "2014-10-30T06:12:00.1Z",
+            "2014-10-30T06:12:00.001Z",
+            "2014-10-30T06:12:00.000001Z",
+        ] {
+            assert!(UTCDate::new_validated(s).is_ok(), "{s} must be accepted");
+        }
+    }
+
+    /// Oracle: RFC 3339 `time-secfrac = "." 1*DIGIT` plus the RFC 8620
+    /// §1.4 omit-if-zero rule: an empty, zero, or non-digit fraction fails.
+    #[test]
+    fn utcdate_new_validated_bad_secfrac_fails() {
+        for s in [
+            "2014-10-30T06:12:00.Z",
+            "2014-10-30T06:12:00.0Z",
+            "2014-10-30T06:12:00.00000Z",
+            "2014-10-30T06:12:00.12aZ",
+            "2014-10-30T06:12:00.123",
+            "2014-10-30T06:12:00.123z",
+            "2014-10-30T06:12:00Z0",
+        ] {
+            let err = UTCDate::new_validated(s).unwrap_err();
+            assert!(err.to_string().contains("wrong structure"), "{s}: {err}");
+        }
+    }
+
+    /// Oracle: 2014-10-30T06:12:00Z is 1_414_649_520 (RFC 8620 §1.4
+    /// example, GNU `date -u -d 2014-10-30T06:12:00Z +%s`); a sub-second
+    /// fraction does not move it to the next second.
+    #[test]
+    fn utcdate_to_epoch_seconds_truncates_secfrac() {
+        let d = UTCDate::new_validated("2014-10-30T06:12:00.999Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 1_414_649_520);
     }
 
     /// Oracle: non-digit in year position fails.

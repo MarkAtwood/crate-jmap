@@ -215,7 +215,11 @@ pub fn parse_max_changes(value: Option<&Value>) -> Result<Option<u64>, JmapError
 }
 
 /// Return the current UTC instant as an [`UTCDate`] (RFC 3339,
-/// millisecond precision, format `YYYY-MM-DDTHH:MM:SS.mmmZ`).
+/// millisecond precision, format `YYYY-MM-DDTHH:MM:SS.mmmZ`, or
+/// `YYYY-MM-DDTHH:MM:SSZ` when the milliseconds are zero because
+/// RFC 8620 §1.4 says the "time-secfrac" "MUST always be omitted if
+/// zero"). For years `0000..=9999` the value passes
+/// [`UTCDate::new_validated`].
 ///
 /// Uses `std::time::SystemTime` so no external dependency is needed.
 ///
@@ -224,20 +228,12 @@ pub fn parse_max_changes(value: Option<&Value>) -> Result<Option<u64>, JmapError
 /// `UTCDate::from(now_utc_string().as_str())`. The function name is
 /// retained for back-compat across the workspace's many call sites.
 ///
-/// The string the [`UTCDate`] wraps does not pass
-/// [`UTCDate::new_validated`] because that validator requires exactly
-/// the 20-char `YYYY-MM-DDTHH:MM:SSZ` form (no millis) and this helper
-/// emits the 24-char form with millis. The workspace convention is to
-/// use the 24-char form on the wire — consumers wanting strict
-/// validation should construct their own `UTCDate::new_validated` value
-/// from a `chrono`-formatted source.
-///
 /// Pre-epoch handling: `SystemTime::now().duration_since(UNIX_EPOCH)`
 /// fails on clocks drifted before the epoch. The function uses
 /// `Err::duration()` to recover the magnitude and negates the seconds
 /// before formatting; the result is a correct RFC 3339 timestamp
 /// anywhere from the BCE proleptic Gregorian range up to
-/// `1970-01-01T00:00:00.000Z`. The rem_euclid / div_euclid math at
+/// `1970-01-01T00:00:00Z`. The rem_euclid / div_euclid math at
 /// the format step handles arbitrarily-large negative offsets, not
 /// only sub-day drifts. Pre-epoch correctness is best-effort —
 /// `SystemTime` is non-monotonic and the JMAP spec does not require
@@ -273,9 +269,8 @@ pub fn now_utc_string() -> UTCDate {
     now_utc_string_checked().expect("system clock returned an out-of-range value (bd:JMAP-jfia.30)")
 }
 
-/// Return the current UTC instant as an [`UTCDate`] (RFC 3339,
-/// millisecond precision, format `YYYY-MM-DDTHH:MM:SS.mmmZ`), or
-/// `None` if the system clock cannot be expressed as an RFC 3339
+/// Return the current UTC instant as an [`UTCDate`] in the same
+/// format as [`now_utc_string`], or `None` if the system clock cannot be expressed as an RFC 3339
 /// timestamp.
 ///
 /// Added in bd:JMAP-jfia.30 to replace the previous sentinel-string
@@ -317,15 +312,27 @@ pub fn now_utc_string_checked() -> Option<UTCDate> {
     use std::time::SystemTime;
 
     let (secs, millis) = signed_seconds_since_epoch(SystemTime::now())?;
+    utc_date_from_epoch_millis(secs, millis)
+}
 
+/// Format `secs` seconds plus `millis` milliseconds since the Unix epoch
+/// in the [`now_utc_string`] format, or `None` if the year does not fit
+/// in `i32`.
+fn utc_date_from_epoch_millis(secs: i64, millis: u32) -> Option<UTCDate> {
     let s = secs.rem_euclid(60);
     let m = (secs / 60).rem_euclid(60);
     let h = (secs / 3600).rem_euclid(24);
     let days = secs.div_euclid(86400);
     let (year, month, day) = civil_from_days(days)?;
 
+    // RFC 8620 §1.4: a zero time-secfrac MUST be omitted.
+    let frac = if millis == 0 {
+        String::new()
+    } else {
+        format!(".{millis:03}")
+    };
     Some(UTCDate::from(format!(
-        "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}.{millis:03}Z"
+        "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}{frac}Z"
     )))
 }
 
@@ -364,9 +371,8 @@ pub(crate) fn signed_seconds_since_epoch(now: std::time::SystemTime) -> Option<(
 /// year falls outside `0000..=9999`, which that four-digit form cannot
 /// express.
 ///
-/// This is the inverse of [`UTCDate::to_epoch_seconds`], which accepts only
-/// this form. [`now_utc_string`] adds milliseconds, so its output does not
-/// round-trip through `to_epoch_seconds`.
+/// This is the inverse of [`UTCDate::to_epoch_seconds`], which truncates
+/// the milliseconds that [`now_utc_string`] may add.
 pub fn utc_date_from_epoch_seconds(secs: i64) -> Option<UTCDate> {
     let time_of_day = secs.rem_euclid(86400);
     let (h, m, s) = (
@@ -1216,9 +1222,9 @@ mod tests {
         filter_arg, is_client_updatable, json_merge_patch, now_utc_string, parse_max_changes,
         parse_wire_id, query_anchor_args, reject_did_bearing_properties, reject_read_only_patch,
         reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
-        utc_date_from_epoch_seconds,
+        utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
     };
-    use jmap_types::{Id, PushSubscription};
+    use jmap_types::{Id, PushSubscription, UTCDate};
     use serde_json::json;
 
     fn props(e: Option<crate::backend::SetError>) -> Option<Vec<String>> {
@@ -1652,8 +1658,10 @@ mod tests {
             "test host clock must be reasonable enough for now_utc_string_checked to succeed",
         );
         let s: &str = dt.as_ref();
-        assert_eq!(s.len(), 24, "wire shape must be 24 chars: {s:?}");
-        assert!(s.ends_with('Z'), "must end with Z: {s:?}");
+        assert!(
+            UTCDate::new_validated(s).is_ok(),
+            "must be an RFC 8620 §1.4 UTCDate: {s:?}"
+        );
     }
 
     /// Oracle (bd:JMAP-jfia.30): now_utc_string (the panicking variant)
@@ -1671,11 +1679,6 @@ mod tests {
         // resolution.
         let panicky_s: &str = panicky.as_ref();
         let checked_s: &str = checked.as_ref();
-        assert_eq!(
-            panicky_s.len(),
-            checked_s.len(),
-            "wire-format lengths must match: panicky={panicky_s:?} checked={checked_s:?}"
-        );
         // Compare the date portion only (YYYY-MM-DD, 10 chars).
         assert_eq!(
             &panicky_s[..10],
@@ -1710,26 +1713,46 @@ mod tests {
         }
     }
 
+    /// Oracle: GNU `date -u -d @1414649520 +%FT%TZ` gives
+    /// 2014-10-30T06:12:00Z (also the RFC 8620 §1.4 example). RFC 8620
+    /// §1.4: "the "time-secfrac" MUST always be omitted if zero"
+    /// (rfc8620.txt:346-347), so zero millis yield the 20-char form.
+    #[test]
+    fn utc_date_from_epoch_millis_omits_zero_secfrac() {
+        for (millis, expected) in [
+            (0, "2014-10-30T06:12:00Z"),
+            (1, "2014-10-30T06:12:00.001Z"),
+            (120, "2014-10-30T06:12:00.120Z"),
+            (999, "2014-10-30T06:12:00.999Z"),
+        ] {
+            let d = utc_date_from_epoch_millis(1_414_649_520, millis).unwrap();
+            assert_eq!(d.as_ref(), expected, "millis = {millis}");
+            assert!(UTCDate::new_validated(expected).is_ok(), "{expected}");
+        }
+    }
+
     #[test]
     fn now_utc_string_format() {
         // bd:JMAP-wlip.20 — return type is UTCDate; AsRef<str> gives
         // the underlying wire-format string for shape assertions.
         let dt = now_utc_string();
         let s: &str = dt.as_ref();
-        // Must match YYYY-MM-DDTHH:MM:SS.mmmZ (24 chars)
-        assert_eq!(s.len(), 24, "unexpected length: {s}");
+        // YYYY-MM-DDTHH:MM:SS.mmmZ (24 chars), or YYYY-MM-DDTHH:MM:SSZ
+        // (20 chars) when the milliseconds are zero (RFC 8620 §1.4).
+        assert!(s.len() == 24 || s.len() == 20, "unexpected length: {s}");
         assert!(s.ends_with('Z'), "must end with Z: {s}");
         assert_eq!(&s[4..5], "-", "missing year-month separator: {s}");
         assert_eq!(&s[7..8], "-", "missing month-day separator: {s}");
         assert_eq!(&s[10..11], "T", "missing date-time separator: {s}");
         assert_eq!(&s[13..14], ":", "missing hour-minute separator: {s}");
         assert_eq!(&s[16..17], ":", "missing minute-second separator: {s}");
-        assert_eq!(&s[19..20], ".", "missing decimal point before millis: {s}");
-        // milliseconds are 3 decimal digits
-        assert!(
-            s[20..23].chars().all(|c| c.is_ascii_digit()),
-            "milliseconds must be 3 digits: {s}"
-        );
+        if s.len() == 24 {
+            assert_eq!(&s[19..20], ".", "missing decimal point before millis: {s}");
+            assert!(
+                s[20..23].chars().all(|c| c.is_ascii_digit()),
+                "milliseconds must be 3 digits: {s}"
+            );
+        }
         assert!(
             s.starts_with("20"),
             "year should start with 20 in 21st century: {s}"
