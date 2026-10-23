@@ -2932,6 +2932,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-contacts-server**: the `BackendSetError` catch-all arms in
+  `AddressBook/set` and `ContactCard/set`/`copy` no longer Debug-format the
+  backend error into the `serverFail` description; they now send only
+  "unhandled backend error variant", matching jmap-mail-server and keeping
+  backend error content off the wire.
 - **jmap-chat-mimi-server, jmap-chat-mimi-client**: pin `openmls =0.9.2`
   (was `=0.9.1`) for GHSA-94v4-rg25-x625 (removed leaves reappear when an
   external commit truncates and regrows the ratchet tree) and

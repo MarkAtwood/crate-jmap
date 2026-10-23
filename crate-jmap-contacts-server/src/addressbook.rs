@@ -280,15 +280,14 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 Err(BackendSetError::Other(e)) => {
                     not_created.insert(create_id, server_fail_value_from_backend(&e));
                 }
-                // BackendSetError is #[non_exhaustive]; surface any future
-                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
-                Err(other) => {
+                // BackendSetError is #[non_exhaustive]; name only the kind so
+                // backend error content stays off the wire (bd:JMAP-510h.15).
+                Err(_) => {
                     not_created.insert(
                         create_id,
                         json!({
                             "type": "serverFail",
-                            "description":
-                                format!("unhandled backend error variant: {other:?}"),
+                            "description": "unhandled backend error variant",
                         }),
                     );
                 }
@@ -344,15 +343,14 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
-                // BackendSetError is #[non_exhaustive]; surface any future
-                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
-                Err(other) => {
+                // BackendSetError is #[non_exhaustive]; name only the kind so
+                // backend error content stays off the wire (bd:JMAP-510h.15).
+                Err(_) => {
                     not_updated.insert(
                         id_str,
                         json!({
                             "type": "serverFail",
-                            "description":
-                                format!("unhandled backend error variant: {other:?}"),
+                            "description": "unhandled backend error variant",
                         }),
                     );
                 }
@@ -435,15 +433,14 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                 }
-                // BackendSetError is #[non_exhaustive]; surface any future
-                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
-                Err(other) => {
+                // BackendSetError is #[non_exhaustive]; name only the kind so
+                // backend error content stays off the wire (bd:JMAP-510h.15).
+                Err(_) => {
                     not_destroyed.insert(
                         id_str,
                         json!({
                             "type": "serverFail",
-                            "description":
-                                format!("unhandled backend error variant: {other:?}"),
+                            "description": "unhandled backend error variant",
                         }),
                     );
                 }
