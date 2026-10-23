@@ -4,7 +4,9 @@ pub use jmap_chat_mimi_client::MimiCapability
 pub use jmap_chat_mimi_client::openmls
 #[non_exhaustive] pub enum jmap_chat_mimi_client::GroupInfoResponseError
 pub jmap_chat_mimi_client::GroupInfoResponseError::BadSignature
+pub jmap_chat_mimi_client::GroupInfoResponseError::DecryptionFailed
 pub jmap_chat_mimi_client::GroupInfoResponseError::Malformed
+pub jmap_chat_mimi_client::GroupInfoResponseError::MalformedGroupInfoAndTree
 pub jmap_chat_mimi_client::GroupInfoResponseError::NotSuccess(u8)
 pub jmap_chat_mimi_client::GroupInfoResponseError::UnsupportedCipherSuite(u16)
 pub jmap_chat_mimi_client::GroupInfoResponseError::UnsupportedProtocol(u8)
@@ -21,6 +23,39 @@ pub fn jmap_chat_mimi_client::GroupInfoResponseError::fmt(&self, &mut core::fmt:
 impl core::fmt::Display for jmap_chat_mimi_client::GroupInfoResponseError
 pub fn jmap_chat_mimi_client::GroupInfoResponseError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_mimi_client::GroupInfoResponseError
+#[non_exhaustive] pub enum jmap_chat_mimi_client::RatchetTreeOption
+pub jmap_chat_mimi_client::RatchetTreeOption::DistributionService
+pub jmap_chat_mimi_client::RatchetTreeOption::Full(openmls::treesync::RatchetTreeIn)
+pub jmap_chat_mimi_client::RatchetTreeOption::HttpsUrl(alloc::string::String)
+pub jmap_chat_mimi_client::RatchetTreeOption::OutOfBand
+impl core::clone::Clone for jmap_chat_mimi_client::RatchetTreeOption
+pub fn jmap_chat_mimi_client::RatchetTreeOption::clone(&self) -> jmap_chat_mimi_client::RatchetTreeOption
+impl core::cmp::PartialEq for jmap_chat_mimi_client::RatchetTreeOption
+pub fn jmap_chat_mimi_client::RatchetTreeOption::eq(&self, &jmap_chat_mimi_client::RatchetTreeOption) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_client::RatchetTreeOption
+pub fn jmap_chat_mimi_client::RatchetTreeOption::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_client::RatchetTreeOption
+#[non_exhaustive] pub struct jmap_chat_mimi_client::GroupInfoAndTree
+pub jmap_chat_mimi_client::GroupInfoAndTree::group_info: openmls::messages::group_info::VerifiableGroupInfo
+pub jmap_chat_mimi_client::GroupInfoAndTree::pending_proposals: alloc::vec::Vec<jmap_chat_mimi_client::PendingProposal>
+pub jmap_chat_mimi_client::GroupInfoAndTree::ratchet_tree_option: jmap_chat_mimi_client::RatchetTreeOption
+impl core::clone::Clone for jmap_chat_mimi_client::GroupInfoAndTree
+pub fn jmap_chat_mimi_client::GroupInfoAndTree::clone(&self) -> jmap_chat_mimi_client::GroupInfoAndTree
+impl core::cmp::PartialEq for jmap_chat_mimi_client::GroupInfoAndTree
+pub fn jmap_chat_mimi_client::GroupInfoAndTree::eq(&self, &jmap_chat_mimi_client::GroupInfoAndTree) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_client::GroupInfoAndTree
+pub fn jmap_chat_mimi_client::GroupInfoAndTree::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_client::GroupInfoAndTree
+#[non_exhaustive] pub struct jmap_chat_mimi_client::PendingProposal
+pub jmap_chat_mimi_client::PendingProposal::hub_accepted_time: u64
+pub jmap_chat_mimi_client::PendingProposal::proposal: openmls::framing::message_in::MlsMessageIn
+impl core::clone::Clone for jmap_chat_mimi_client::PendingProposal
+pub fn jmap_chat_mimi_client::PendingProposal::clone(&self) -> jmap_chat_mimi_client::PendingProposal
+impl core::cmp::PartialEq for jmap_chat_mimi_client::PendingProposal
+pub fn jmap_chat_mimi_client::PendingProposal::eq(&self, &jmap_chat_mimi_client::PendingProposal) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_client::PendingProposal
+pub fn jmap_chat_mimi_client::PendingProposal::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_client::PendingProposal
 #[non_exhaustive] pub struct jmap_chat_mimi_client::SessionClient
 impl jmap_chat_mimi_client::SessionClient
 pub fn jmap_chat_mimi_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
@@ -57,5 +92,6 @@ pub fn jmap_chat_mimi_client::JmapMimiExt::with_mimi_session(&self, jmap_base_cl
 impl jmap_chat_mimi_client::JmapMimiExt for jmap_base_client::client::JmapClient
 pub fn jmap_base_client::client::JmapClient::with_mimi_session(&self, jmap_base_client::request::Session) -> jmap_chat_mimi_client::SessionClient
 pub fn jmap_chat_mimi_client::account_has_left(impl core::iter::traits::collect::IntoIterator<Item = openmls::group::mls_group::Member>, &str) -> bool
+pub fn jmap_chat_mimi_client::decrypt_group_info_and_tree(&impl openmls_traits::crypto::OpenMlsCrypto, &jmap_chat_mimi_client::VerifiedGroupInfoResponse, &[u8]) -> core::result::Result<jmap_chat_mimi_client::GroupInfoAndTree, jmap_chat_mimi_client::GroupInfoResponseError>
 pub fn jmap_chat_mimi_client::group_info_names_hub_sender(&openmls::messages::group_info::VerifiableGroupInfo, &openmls::extensions::external_sender_extension::ExternalSender) -> bool
 pub fn jmap_chat_mimi_client::verify_group_info_response(&impl openmls_traits::crypto::OpenMlsCrypto, &[u8]) -> core::result::Result<jmap_chat_mimi_client::VerifiedGroupInfoResponse, jmap_chat_mimi_client::GroupInfoResponseError>

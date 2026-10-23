@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-client**: `decrypt_group_info_and_tree` decrypts a
+  verified GroupInfoResponse's `encrypted_groupinfo_and_tree` with the
+  `groupInfoPublicKey` private key (RFC 9420 §5.1.3 DecryptWithLabel,
+  label "GroupInfo and ratchet_tree encryption", context `room_id`) and
+  parses the GroupInfoRatchetTreeTBE into `GroupInfoAndTree`: the
+  GroupInfo, a `RatchetTreeOption` and the `PendingProposal`s
+  (draft-ietf-mimi-protocol-06 §5.6). `GroupInfoResponseError` gains
+  `DecryptionFailed` and `MalformedGroupInfoAndTree` (bd JMAP-6k5d.13).
+
 - **jmap-chat-vtc-server**: `may_access_call` decides the Chat rules of
   per-call access for a `VtcBackend`'s `get_objects`, `query_objects` and
   `query_changes` (bd JMAP-8mem.13, draft-atwood-jmap-vtc-00 §Joining a

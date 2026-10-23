@@ -94,3 +94,8 @@ nin = "nin"
 # `hax` — the hax-lib-macros crate (pulled in by libcrux, see deny.toml).
 # A crate name, not a typo of `hex`.
 hax = "hax"
+
+# `TBE` / `tbe` — "to be encrypted", as in draft-ietf-mimi-protocol-06
+# §5.6 `GroupInfoRatchetTreeTBE` (crate-jmap-chat-mimi-client). Not a typo
+# of `the`.
+tbe = "tbe"
