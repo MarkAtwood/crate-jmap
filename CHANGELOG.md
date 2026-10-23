@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-vtc-server**: `may_access_call` decides the Chat rules of
+  per-call access for a `VtcBackend`'s `get_objects`, `query_objects` and
+  `query_changes` (bd JMAP-8mem.13, draft-atwood-jmap-vtc-00 §Joining a
+  Room or Scheduled Call, §Chat-Bound Calls): `false` when the initiator
+  blocked the caller, the caller is not a member of the `chatId` Chat or
+  the bound Space, or lacks `"view"` on the bound channel.
 - **jmap-metadata-server**: a reusable metadata baseline for backends
   (bd JMAP-5kpy). `MetadataCondition::take_from` removes the six
   draft-ietf-jmap-metadata-04 §3.6 fields from a filter condition,

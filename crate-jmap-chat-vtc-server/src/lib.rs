@@ -13,6 +13,7 @@
 //! | `VtcBackend::create_call`, before the insert | [`check_call_create`] |
 //! | `VtcBackend::create_call`, `update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | [`sync_active_call_id`] |
 //! | `VtcBackend::is_user_blocked` | [`is_blocked_by_contact`] |
+//! | `JmapBackend::get_objects`, `query_objects` and `query_changes`, per VTCCall (`VtcBackend` §Per-call access) | [`may_access_call`] |
 //! | `ChatBackend::on_chat_destroyed` | [`clear_channel_references`] |
 //! | `ChatBackend::on_space_destroyed` | [`clear_space_references`] |
 //! | `ChatBackend::on_space_ban_created` | [`contact_identity`], then [`eject_banned_user`] |
@@ -84,7 +85,7 @@ pub async fn check_call_create<C: ChatBackend>(
     if let Some(chat_id) = bound(&call.chat_id) {
         let visible = match get_one::<Chat, _>(chat, caller, account_id, chat_id).await? {
             Some(c) if chat.may_view_chat(caller, account_id, chat_id).await? => {
-                is_member(chat, caller, account_id, &c).await?
+                is_member(chat, caller, account_id, account_id, &c).await?
             }
             _ => false,
         };
@@ -125,6 +126,112 @@ pub async fn check_call_create<C: ChatBackend>(
             "the caller lacks the start_call permission in the bound Space or channel",
         ))
     })
+}
+
+/// `false` if the Chat rules of draft-atwood-jmap-vtc-00 deny `viewer`
+/// access to `call`, a VTCCall in `account_id`, its hosting account.
+///
+/// `VtcBackend` §Per-call access makes `get_objects`, `query_objects` and
+/// `query_changes` treat a call the caller cannot access, and its
+/// VTCParticipant, VTCRecording and VTCLivestream records, as absent.
+/// Call this per VTCCall from those methods and hide the call when it
+/// returns `false`. §Joining a Room or Scheduled Call: "When
+/// `urn:ietf:params:jmap:chat` is present, callers without access include
+/// a caller who lacks `"view"` permission on the channel of a Space-bound
+/// call, a caller who is not a member of the Chat bound by `chatId`, and
+/// a caller whom the call initiator has blocked (`ChatContact.blocked` is
+/// `true` on the initiator's contact record for the caller)."
+///
+/// `viewer` names the caller in the Chat data of `account_id`:
+/// `account_id` for the owner, otherwise the caller's ChatContact id
+/// (draft-atwood-jmap-chat-00 §Terminology: "a client-facing reference
+/// to the owner carries the accountId of the owner's account"). Access is
+/// denied when any of these holds:
+///
+/// - `viewer` is not the owner and its ChatContact in `account_id` has
+///   `blocked` set. This treats the hosting account's contact list as the
+///   initiator's, as [`check_call_create`] treats the owner as the
+///   creator. It applies to every call, bound or not.
+/// - The call has a `chatId` that names no Chat in `account_id`, that
+///   [`ChatBackend::may_view_chat`] hides, or whose members do not include
+///   `viewer`: the owner or `contactId` of a direct Chat, a `members`
+///   entry of a group Chat, a member of the Space of a channel.
+/// - The call has a `spaceId` or `channelId` and `viewer` is not a member
+///   of the bound Space (`spaceId`, or else the channel's `spaceId`),
+///   which then grants nothing: §Chat-Bound Calls "A call is visible to
+///   members of the bound Chat or Space channel." A `channelId` that names
+///   no Chat denies too.
+/// - The call has a `channelId` and `viewer` lacks
+///   [`ChatPermission::View`] there, resolved as in [`check_call_create`]
+///   (draft-atwood-jmap-chat-00 §Space Permission Resolution, with the
+///   `@everyone` floor from [`ChatBackend::everyone_permissions`]).
+///
+/// `true` only means the Chat rules do not deny access. A call with no
+/// binding still needs the backend's own rule, draft-atwood-jmap-vtc-00
+/// §Standalone Calls: participants and the initiator may access it, and
+/// "Deployment-defined administrative roles MAY have broader access".
+/// Nothing else there admits a non-participant, so a deployment that lets
+/// other users join a standalone room call grants them that access
+/// itself.
+///
+/// # Errors
+///
+/// Returns the Chat backend's error if reading the ChatContact, the Chat,
+/// the channel, the Space or its `@everyone` permissions fails.
+pub async fn may_access_call<C: ChatBackend>(
+    chat: &C,
+    caller: &C::CallerCtx,
+    account_id: &Id,
+    viewer: &Id,
+    call: &VtcCall,
+) -> Result<bool, C::Error> {
+    if viewer != account_id
+        && get_one::<ChatContact, _>(chat, caller, account_id, viewer)
+            .await?
+            .is_some_and(|c| c.blocked)
+    {
+        return Ok(false);
+    }
+    if let Some(chat_id) = bound(&call.chat_id) {
+        let member = match get_one::<Chat, _>(chat, caller, account_id, chat_id).await? {
+            Some(c) if chat.may_view_chat(caller, account_id, chat_id).await? => {
+                is_member(chat, caller, account_id, viewer, &c).await?
+            }
+            _ => false,
+        };
+        if !member {
+            return Ok(false);
+        }
+    }
+    let space_id = bound(&call.space_id);
+    let channel = match bound(&call.channel_id) {
+        Some(id) => match get_one::<Chat, _>(chat, caller, account_id, id).await? {
+            Some(c) => Some(c),
+            None => return Ok(false),
+        },
+        None if space_id.is_none() => return Ok(true),
+        None => None,
+    };
+    let Some(space_id) = space_id.or_else(|| channel.as_ref().and_then(|c| c.space_id.as_ref()))
+    else {
+        return Ok(false);
+    };
+    let Some(space) = get_one::<Space, _>(chat, caller, account_id, space_id).await? else {
+        return Ok(false);
+    };
+    if !space.members.iter().any(|m| &m.id == viewer) {
+        return Ok(false);
+    }
+    let Some(channel) = channel else {
+        return Ok(true);
+    };
+    let everyone = chat
+        .everyone_permissions(caller, account_id, &space)
+        .await?;
+    Ok(
+        member_permissions(&space, viewer, Some(&channel), &everyone)
+            .contains(&ChatPermission::View),
+    )
 }
 
 /// Set or clear `Chat.activeCallId` and `Chat.activeCallAccountId` for `call`, the VTCCall as stored
@@ -502,39 +609,43 @@ async fn get_one<O: GetObject + Send + Sync, B: JmapBackend>(
     Ok(found.into_iter().next())
 }
 
-/// `true` if the owner (`account_id`) is a member of `chat`.
+/// `true` if `member` (`account_id` for the owner, else a ChatContact id)
+/// is a member of `chat`, a Chat in `account_id`. A direct Chat's members
+/// are the owner and its `contactId`.
 async fn is_member<C: ChatBackend>(
     backend: &C,
     caller: &C::CallerCtx,
     account_id: &Id,
+    member: &Id,
     chat: &Chat,
 ) -> Result<bool, C::Error> {
     Ok(match &chat.kind {
-        ChatKind::Direct => true,
-        ChatKind::Group => chat.members.iter().flatten().any(|m| &m.id == account_id),
+        ChatKind::Direct => member == account_id || chat.contact_id.as_ref() == Some(member),
+        ChatKind::Group => chat.members.iter().flatten().any(|m| &m.id == member),
         ChatKind::Channel => match &chat.space_id {
             Some(space_id) => get_one::<Space, _>(backend, caller, account_id, space_id)
                 .await?
-                .is_some_and(|s| s.members.iter().any(|m| &m.id == account_id)),
+                .is_some_and(|s| s.members.iter().any(|m| &m.id == member)),
             None => false,
         },
         _ => false,
     })
 }
 
-/// The owner's effective permissions in `space`, or in `channel` when one
-/// is given (draft-atwood-jmap-chat-00 §Space Permission Resolution).
-/// Empty when the owner is not a member of `space`.
+/// The effective permissions of `member` (`account_id` for the owner,
+/// else a ChatContact id) in `space`, or in `channel` when one is given
+/// (draft-atwood-jmap-chat-00 §Space Permission Resolution). Empty when
+/// `member` is not a member of `space`.
 fn member_permissions(
     space: &Space,
-    account_id: &Id,
+    member: &Id,
     channel: Option<&Chat>,
     everyone: &HashSet<ChatPermission>,
 ) -> HashSet<ChatPermission> {
-    let Some(member) = space.members.iter().find(|m| &m.id == account_id) else {
+    let Some(entry) = space.members.iter().find(|m| &m.id == member) else {
         return HashSet::new();
     };
-    let role_ids: HashSet<&str> = member.role_ids.iter().map(AsRef::as_ref).collect();
+    let role_ids: HashSet<&str> = entry.role_ids.iter().map(AsRef::as_ref).collect();
     let space_permissions: HashSet<ChatPermission> = space
         .roles
         .iter()
@@ -546,7 +657,7 @@ fn member_permissions(
         Some(c) => resolve_channel_permissions(
             space_permissions,
             space.id.as_ref(),
-            account_id.as_ref(),
+            member.as_ref(),
             &role_ids,
             c.permission_overrides.as_deref().unwrap_or_default(),
         ),

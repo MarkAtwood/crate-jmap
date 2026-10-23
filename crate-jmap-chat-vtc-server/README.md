@@ -16,6 +16,7 @@ not depend on each other; this crate depends on both.
 | `contact_identity` | chat §Terminology: the identity a ChatContact id (or the accountId) names, as VTC `userId` uses it |
 | `eject_banned_user` | vtc §Chat-Bound Calls: on a SpaceBan, set `leftAt` on the banned user's active participants in the Space's calls, apply the §Leaving a Call side effects, and return one `"left"` `VTCParticipantEvent` each |
 | `is_blocked_by_contact` | vtc §Blocked-Sender Suppression, through `ChatContact.blocked` |
+| `may_access_call` | vtc §Joining a Room or Scheduled Call and §Chat-Bound Calls: `false` when the caller is blocked, is not a member of the `chatId` Chat or the bound Space, or lacks `"view"` on the bound channel |
 | `should_deliver_vtc` | vtc-wss §Interoperability with JMAP Chat WebSocket: the union of the `ChatStreamEnable` `"vtc"` path and `VTCStreamEnable`, one decision per event |
 
 ## What it's for
@@ -28,6 +29,7 @@ these functions from its trait methods:
 | `VtcBackend::create_call`, before the insert | `check_call_create` |
 | `VtcBackend::create_call`, `update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | `sync_active_call_id` |
 | `VtcBackend::is_user_blocked` | `is_blocked_by_contact` |
+| `JmapBackend::get_objects`, `query_objects` and `query_changes`, per VTCCall (`VtcBackend` §Per-call access) | `may_access_call` |
 | `ChatBackend::on_chat_destroyed` | `clear_channel_references` |
 | `ChatBackend::on_space_destroyed` | `clear_space_references` |
 | `ChatBackend::on_space_ban_created` | `contact_identity`, then `eject_banned_user` |
