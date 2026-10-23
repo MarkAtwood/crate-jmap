@@ -33,7 +33,8 @@ use std::borrow::Cow;
 
 use icu_casemap::CaseMapper;
 use icu_normalizer::DecomposingNormalizerBorrowed;
-use jmap_metadata_types::MetadataTextMatch;
+use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use serde::Deserialize;
 use serde_json::{Map, Value};
 
 /// Unescape a single RFC 6901 JSON Pointer reference token.
@@ -222,6 +223,198 @@ pub fn metadata_text_equals(map: &Map<String, Value>, text_match: &MetadataTextM
         _ => false,
     }
 }
+
+/// Wire names of the six draft-ietf-jmap-metadata-04 §3.6 condition
+/// fields, in the order [`MetadataCondition`] declares them.
+const CONDITION_FIELDS: [&str; 6] = [
+    "metadataExists",
+    "privateMetadataExists",
+    "metadataTextContains",
+    "privateMetadataTextContains",
+    "metadataTextEquals",
+    "privateMetadataTextEquals",
+];
+
+/// The six draft-ietf-jmap-metadata-04 §3.6 condition fields of one
+/// `FilterCondition`, decoded on the server side.
+///
+/// This is the server's counterpart of
+/// [`jmap_metadata_types::WithMetadata`]. A backend calls
+/// [`MetadataCondition::take_from`] on each leaf condition of a
+/// `Foo/query` filter, which removes these fields so the rest can be
+/// decoded as the data type's own condition. It then ANDs
+/// [`MetadataCondition::matches`] with that condition's own result, as
+/// RFC 8620 §5.5 does for every field of one `FilterCondition`.
+///
+/// # Examples
+///
+/// ```
+/// use jmap_metadata_server::MetadataCondition;
+/// use jmap_metadata_types::DataTypeMetadataInfo;
+/// use serde_json::json;
+///
+/// let info: DataTypeMetadataInfo = serde_json::from_value(json!({
+///     "namespaces": [], "supportsVendorNamespaces": true,
+///     "supportsPrivate": false, "maxDepth": null
+/// })).unwrap();
+/// let mut leaf = json!({"inMailbox": "MB1", "metadataExists": "acme.example.com"});
+/// let cond = MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info).unwrap();
+/// assert_eq!(leaf, json!({"inMailbox": "MB1"}));
+///
+/// let metadata = json!({"acme.example.com": {"memo": "hi"}});
+/// assert!(cond.matches(metadata.as_object(), None));
+/// assert!(!cond.matches(None, None));
+/// ```
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataCondition {
+    /// `metadataExists`: a path into `metadata`.
+    pub metadata_exists: Option<String>,
+    /// `privateMetadataExists`: a path into the viewer's `privateMetadata`.
+    pub private_metadata_exists: Option<String>,
+    /// `metadataTextContains`.
+    pub metadata_text_contains: Option<MetadataTextMatch>,
+    /// `privateMetadataTextContains`.
+    pub private_metadata_text_contains: Option<MetadataTextMatch>,
+    /// `metadataTextEquals`.
+    pub metadata_text_equals: Option<MetadataTextMatch>,
+    /// `privateMetadataTextEquals`.
+    pub private_metadata_text_equals: Option<MetadataTextMatch>,
+}
+
+impl MetadataCondition {
+    /// Remove the six metadata fields from one leaf `condition` object and
+    /// decode them, validating them against the data type's capability.
+    ///
+    /// The fields are removed even when this returns an error. A
+    /// condition with none of the fields yields an empty
+    /// [`MetadataCondition`] (see [`MetadataCondition::is_empty`]).
+    ///
+    /// # Errors
+    ///
+    /// - [`MetadataFilterError::InvalidArguments`] when a field has the
+    ///   wrong JSON type, or a path is not well formed (-04 §3.6: "A path
+    ///   that is not well formed ... MUST be rejected with an
+    ///   "invalidArguments" error").
+    /// - [`MetadataFilterError::UnsupportedFilter`] when a
+    ///   `privateMetadata*` field is present and `info.supports_private`
+    ///   is false (-04 §3.6: "Any privateMetadata* condition ... MUST be
+    ///   rejected with an "unsupportedFilter" error if supportsPrivate is
+    ///   false for the data type").
+    pub fn take_from(
+        condition: &mut Map<String, Value>,
+        info: &DataTypeMetadataInfo,
+    ) -> Result<Self, MetadataFilterError> {
+        let fields: Map<String, Value> = CONDITION_FIELDS
+            .iter()
+            .filter_map(|name| condition.remove_entry(*name))
+            .collect();
+        let decoded: Self = serde_json::from_value(Value::Object(fields))
+            .map_err(|e| MetadataFilterError::InvalidArguments(e.to_string()))?;
+        if let Some(path) = decoded.paths().find(|p| !is_well_formed_metadata_path(p)) {
+            return Err(MetadataFilterError::InvalidArguments(format!(
+                "metadata filter path {path:?} is not well formed"
+            )));
+        }
+        if !info.supports_private && decoded.has_private_condition() {
+            return Err(MetadataFilterError::UnsupportedFilter(
+                "privateMetadata filter conditions are not supported on this data type".to_owned(),
+            ));
+        }
+        Ok(decoded)
+    }
+
+    /// Returns `true` when none of the six fields is set, so the
+    /// condition matches every object.
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// Returns `true` if every set field matches.
+    ///
+    /// `metadata` is the object's `metadata` property and
+    /// `private_metadata` is the viewer's own `privateMetadata`; pass
+    /// [`None`] for an absent property, which -04 §2 defaults to `{}`.
+    pub fn matches(
+        &self,
+        metadata: Option<&Map<String, Value>>,
+        private_metadata: Option<&Map<String, Value>>,
+    ) -> bool {
+        let empty = Map::new();
+        let shared = metadata.unwrap_or(&empty);
+        let private = private_metadata.unwrap_or(&empty);
+        let exists = |map, path: &Option<String>| {
+            path.as_deref().is_none_or(|p| metadata_path_exists(map, p))
+        };
+        let text = |map,
+                    m: &Option<MetadataTextMatch>,
+                    f: fn(&Map<String, Value>, &MetadataTextMatch) -> bool| {
+            m.as_ref().is_none_or(|m| f(map, m))
+        };
+        exists(shared, &self.metadata_exists)
+            && exists(private, &self.private_metadata_exists)
+            && text(shared, &self.metadata_text_contains, metadata_text_contains)
+            && text(
+                private,
+                &self.private_metadata_text_contains,
+                metadata_text_contains,
+            )
+            && text(shared, &self.metadata_text_equals, metadata_text_equals)
+            && text(
+                private,
+                &self.private_metadata_text_equals,
+                metadata_text_equals,
+            )
+    }
+
+    fn paths(&self) -> impl Iterator<Item = &str> {
+        let text_paths = [
+            &self.metadata_text_contains,
+            &self.private_metadata_text_contains,
+            &self.metadata_text_equals,
+            &self.private_metadata_text_equals,
+        ]
+        .into_iter()
+        .flatten()
+        .map(|m| m.path.as_str());
+        [&self.metadata_exists, &self.private_metadata_exists]
+            .into_iter()
+            .flatten()
+            .map(String::as_str)
+            .chain(text_paths)
+    }
+
+    fn has_private_condition(&self) -> bool {
+        self.private_metadata_exists.is_some()
+            || self.private_metadata_text_contains.is_some()
+            || self.private_metadata_text_equals.is_some()
+    }
+}
+
+/// Why [`MetadataCondition::take_from`] rejected a filter condition.
+///
+/// Each variant names the RFC 8620 §3.6.2 method-level error type the
+/// `Foo/query` handler returns.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MetadataFilterError {
+    /// Reject the request with `invalidArguments`.
+    InvalidArguments(String),
+    /// Reject the request with `unsupportedFilter`.
+    UnsupportedFilter(String),
+}
+
+impl std::fmt::Display for MetadataFilterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidArguments(d) => write!(f, "invalidArguments: {d}"),
+            Self::UnsupportedFilter(d) => write!(f, "unsupportedFilter: {d}"),
+        }
+    }
+}
+
+impl std::error::Error for MetadataFilterError {}
 
 #[cfg(test)]
 mod tests {
@@ -651,5 +844,125 @@ mod tests {
             &map,
             &text_match("acme.example.com/memo", "follow up")
         ));
+    }
+
+    // -- MetadataCondition ------------------------------------------------
+
+    fn info(supports_private: bool) -> DataTypeMetadataInfo {
+        serde_json::from_value(json!({
+            "namespaces": [],
+            "supportsVendorNamespaces": true,
+            "supportsPrivate": supports_private,
+            "maxDepth": null
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn take_from_spec_6_7_leaves_base_fields() {
+        // Oracle: -04 §6.7 leaf condition, with the base inMailbox field
+        // merged into the same object (§3.6: the FilterCondition "is
+        // extended with the optional fields").
+        let mut leaf = json!({
+            "inMailbox": "MB-inbox",
+            "privateMetadataTextContains": {"path": "acme.example.com/memo", "value": "follow up"}
+        });
+        let cond =
+            MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(true)).unwrap();
+        assert_eq!(leaf, json!({"inMailbox": "MB-inbox"}));
+        assert_eq!(
+            cond.private_metadata_text_contains,
+            Some(MetadataTextMatch::new("acme.example.com/memo", "follow up"))
+        );
+        let private = json!({"acme.example.com": {"memo": "Please Follow Up today"}});
+        assert!(cond.matches(None, private.as_object()));
+        // The shared map is not searched by a privateMetadata* field.
+        assert!(!cond.matches(private.as_object(), None));
+    }
+
+    #[test]
+    fn take_from_without_metadata_fields_is_empty() {
+        let mut leaf = json!({"inMailbox": "MB1"});
+        let cond =
+            MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false)).unwrap();
+        assert!(cond.is_empty());
+        assert!(cond.matches(None, None));
+        assert_eq!(leaf, json!({"inMailbox": "MB1"}));
+    }
+
+    #[test]
+    fn take_from_rejects_bad_escape_with_invalid_arguments() {
+        // Oracle: -04 §3.6 — "A path that is not well formed (for
+        // example, one with an invalid ~ escape) MUST be rejected with an
+        // "invalidArguments" error."
+        let mut leaf = json!({"metadataExists": "acme.example.com/a~2b"});
+        let err =
+            MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false)).unwrap_err();
+        assert!(matches!(err, MetadataFilterError::InvalidArguments(_)));
+        let mut leaf = json!({"metadataTextEquals": {"path": "x.example/~", "value": "v"}});
+        let err =
+            MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false)).unwrap_err();
+        assert!(matches!(err, MetadataFilterError::InvalidArguments(_)));
+    }
+
+    #[test]
+    fn take_from_rejects_wrong_type_with_invalid_arguments() {
+        // Oracle: -04 §3.6 — "metadataExists: String".
+        let mut leaf = json!({"metadataExists": 5});
+        let err =
+            MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false)).unwrap_err();
+        assert!(matches!(err, MetadataFilterError::InvalidArguments(_)));
+    }
+
+    #[test]
+    fn take_from_rejects_private_without_supports_private() {
+        // Oracle: -04 §3.6 — "Any privateMetadata* condition (existence
+        // or text) MUST be rejected with an "unsupportedFilter" error if
+        // supportsPrivate is false for the data type."
+        for leaf in [
+            json!({"privateMetadataExists": "x.example"}),
+            json!({"privateMetadataTextContains": {"path": "x.example/k", "value": "v"}}),
+            json!({"privateMetadataTextEquals": {"path": "x.example/k", "value": "v"}}),
+        ] {
+            let mut leaf = leaf;
+            let err = MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false))
+                .unwrap_err();
+            assert!(
+                matches!(err, MetadataFilterError::UnsupportedFilter(_)),
+                "{leaf}"
+            );
+            assert!(leaf.as_object().unwrap().is_empty());
+        }
+        let mut leaf = json!({"privateMetadataExists": "x.example"});
+        assert!(MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(true)).is_ok());
+    }
+
+    #[test]
+    fn invalid_namespace_matches_nothing_without_error() {
+        // Oracle: -04 §3.6 — "a string that is not a valid namespace
+        // identifier, matches no objects; it does not produce an error."
+        let mut leaf = json!({"metadataExists": "Not Valid"});
+        let cond =
+            MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false)).unwrap();
+        let metadata = json!({"x.example": {"k": 1}});
+        assert!(!cond.matches(metadata.as_object(), None));
+    }
+
+    #[test]
+    fn matches_requires_every_field() {
+        // Oracle: RFC 8620 §5.5 — a FilterCondition matches only if all
+        // of its conditions match.
+        let mut leaf = json!({
+            "metadataExists": "x.example",
+            "metadataTextEquals": {"path": "x.example/tag", "value": "red"}
+        });
+        let cond =
+            MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false)).unwrap();
+        let red = json!({"x.example": {"tag": "red"}});
+        let blue = json!({"x.example": {"tag": "blue"}});
+        assert!(cond.matches(red.as_object(), None));
+        assert!(!cond.matches(blue.as_object(), None));
+        // -04 §2: an absent metadata property defaults to {}.
+        assert!(!cond.matches(None, None));
     }
 }
