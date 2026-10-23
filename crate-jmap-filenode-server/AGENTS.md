@@ -119,7 +119,7 @@ Run all four before considering any work done.
 | Async | `impl Future + Send` return types on backend trait methods, no `async fn`. Crate has NO tokio runtime dep — consumers pick the runtime. `tokio` is a dev-dep only, used to run integration tests (see `bd:JMAP-tco1`). |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
-| Dependencies | jmap-types, jmap-filenode-types, jmap-server, serde_json |
+| Dependencies | jmap-types, jmap-filenode-types, jmap-cid-types, jmap-server, serde_json (runtime). `jmap-cid-types` supplies the `Sha256` returned by `FileNodeBackend::blob_sha256` for `urn:ietf:params:jmap:cid`. The `memory` feature pulls in no extra deps. `tokio` is dev-only, plus a dev self-dependency enabling `memory` for integration tests. Error types hand-implement `Display`/`Error` (no `thiserror`), mirroring canonical jmap-mail-server. |
 | Method names | Must match draft-ietf-jmap-filenode exactly (`FileNode/get`, `FileNode/set`, `FileNode/query`, etc.) |
 | Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
 
@@ -134,6 +134,6 @@ Run all four before considering any work done.
 
 - Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
-- Do not add dependencies beyond: jmap-types, jmap-filenode-types, jmap-server, serde_json
+- Do not add dependencies beyond: jmap-types, jmap-filenode-types, jmap-cid-types, jmap-server, serde_json (runtime). `tokio` is dev-only.
 - Do not add auth logic or role checks inside handlers (backend canonical — see section above)
 - Do not implement methods not in draft-ietf-jmap-filenode unless explicitly directed
