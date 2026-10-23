@@ -48,7 +48,7 @@ async fn task_list_sort_order_null_resets_to_zero() {
     assert_eq!(before["list"][0]["sortOrder"], 7, "{before}");
 
     let set_args = json!({ "accountId": "acc1", "update": { "tl1": { "sortOrder": null } } });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), set_args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), set_args, &[])
         .await
         .expect("/set must not return a top-level error");
     assert!(resp["updated"].get("tl1").is_some(), "{resp}");

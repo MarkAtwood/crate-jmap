@@ -23,6 +23,8 @@ pub jmap_tasks_types::NotificationType::Created
 pub jmap_tasks_types::NotificationType::Destroyed
 pub jmap_tasks_types::NotificationType::Other(alloc::string::String)
 pub jmap_tasks_types::NotificationType::Updated
+impl jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_tasks_types::NotificationType
 pub fn jmap_tasks_types::NotificationType::clone(&self) -> jmap_tasks_types::NotificationType
 impl core::cmp::Eq for jmap_tasks_types::NotificationType
@@ -50,6 +52,8 @@ pub jmap_tasks_types::TaskComparatorProperty::RecurrenceId
 pub jmap_tasks_types::TaskComparatorProperty::Start
 pub jmap_tasks_types::TaskComparatorProperty::Uid
 pub jmap_tasks_types::TaskComparatorProperty::Updated
+impl jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_tasks_types::TaskComparatorProperty
 pub fn jmap_tasks_types::TaskComparatorProperty::clone(&self) -> jmap_tasks_types::TaskComparatorProperty
 impl core::cmp::Eq for jmap_tasks_types::TaskComparatorProperty
@@ -101,6 +105,8 @@ pub jmap_tasks_types::TaskListRole::Inbox
 pub jmap_tasks_types::TaskListRole::Other(alloc::string::String)
 pub jmap_tasks_types::TaskListRole::Trash
 impl jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::as_str(&self) -> &str
+impl jmap_tasks_types::TaskListRole
 pub fn jmap_tasks_types::TaskListRole::to_wire_str(&self) -> &str
 impl core::clone::Clone for jmap_tasks_types::TaskListRole
 pub fn jmap_tasks_types::TaskListRole::clone(&self) -> jmap_tasks_types::TaskListRole
@@ -125,6 +131,8 @@ pub fn jmap_tasks_types::TaskListRole::deserialize<D: serde_core::de::Deserializ
 #[non_exhaustive] pub enum jmap_tasks_types::TaskNotificationComparatorProperty
 pub jmap_tasks_types::TaskNotificationComparatorProperty::Created
 pub jmap_tasks_types::TaskNotificationComparatorProperty::Other(alloc::string::String)
+impl jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_tasks_types::TaskNotificationComparatorProperty
 pub fn jmap_tasks_types::TaskNotificationComparatorProperty::clone(&self) -> jmap_tasks_types::TaskNotificationComparatorProperty
 impl core::cmp::Eq for jmap_tasks_types::TaskNotificationComparatorProperty
@@ -172,6 +180,8 @@ pub jmap_tasks_types::TaskProgress::Failed
 pub jmap_tasks_types::TaskProgress::InProcess
 pub jmap_tasks_types::TaskProgress::NeedsAction
 pub jmap_tasks_types::TaskProgress::Other(alloc::string::String)
+impl jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::as_str(&self) -> &str
 impl core::clone::Clone for jmap_tasks_types::TaskProgress
 pub fn jmap_tasks_types::TaskProgress::clone(&self) -> jmap_tasks_types::TaskProgress
 impl core::cmp::Eq for jmap_tasks_types::TaskProgress
@@ -380,10 +390,12 @@ pub jmap_tasks_types::Task::localizations: core::option::Option<alloc::collectio
 pub jmap_tasks_types::Task::locations: core::option::Option<serde_json::value::Value>
 pub jmap_tasks_types::Task::may_invite_others: core::option::Option<bool>
 pub jmap_tasks_types::Task::may_invite_self: core::option::Option<bool>
+pub jmap_tasks_types::Task::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_tasks_types::Task::participants: core::option::Option<serde_json::value::Value>
 pub jmap_tasks_types::Task::percent_complete: core::option::Option<u8>
 pub jmap_tasks_types::Task::priority: core::option::Option<u8>
 pub jmap_tasks_types::Task::privacy: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_tasks_types::Task::prod_id: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::Task::progress: core::option::Option<jmap_tasks_types::TaskProgress>
 pub jmap_tasks_types::Task::progress_updated: core::option::Option<jmap_types::id::UTCDate>
@@ -459,13 +471,21 @@ pub jmap_tasks_types::TaskFilterCondition::before: core::option::Option<jmap_jsc
 pub jmap_tasks_types::TaskFilterCondition::description: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::has_keyword: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::is_draft: core::option::Option<bool>
+pub jmap_tasks_types::TaskFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_tasks_types::TaskFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_tasks_types::TaskFilterCondition::not_keyword: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_tasks_types::TaskFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_tasks_types::TaskFilterCondition::progress: core::option::Option<jmap_tasks_types::TaskProgress>
 pub jmap_tasks_types::TaskFilterCondition::task_list_id: core::option::Option<jmap_types::id::Id>
 pub jmap_tasks_types::TaskFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::title: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::uid: core::option::Option<alloc::string::String>
 pub jmap_tasks_types::TaskFilterCondition::workflow_status: core::option::Option<alloc::string::String>
+impl jmap_tasks_types::TaskFilterCondition
+pub fn jmap_tasks_types::TaskFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_tasks_types::TaskFilterCondition
 pub fn jmap_tasks_types::TaskFilterCondition::clone(&self) -> jmap_tasks_types::TaskFilterCondition
 impl core::default::Default for jmap_tasks_types::TaskFilterCondition
@@ -486,8 +506,10 @@ pub jmap_tasks_types::TaskList::extra: serde_json::map::Map<alloc::string::Strin
 pub jmap_tasks_types::TaskList::id: jmap_types::id::Id
 pub jmap_tasks_types::TaskList::is_subscribed: bool
 pub jmap_tasks_types::TaskList::keyword_colors: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+pub jmap_tasks_types::TaskList::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_tasks_types::TaskList::my_rights: jmap_tasks_types::TaskRights
 pub jmap_tasks_types::TaskList::name: alloc::string::String
+pub jmap_tasks_types::TaskList::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_tasks_types::TaskList::role: core::option::Option<jmap_tasks_types::TaskListRole>
 pub jmap_tasks_types::TaskList::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_tasks_types::TaskRights>>
 pub jmap_tasks_types::TaskList::sort_order: u32

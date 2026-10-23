@@ -39,7 +39,7 @@ fn backend_with_participant() -> MemoryBackend {
 
 async fn set_update(backend: &MemoryBackend, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "t1": patch } });
-    handle_task_set(backend, &(), &std::collections::BTreeMap::new(), args)
+    handle_task_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("/set must succeed at the top level")
         .primary

@@ -2415,6 +2415,8 @@ dependencies = [
 name = "jmap-tasks-server"
 version = "0.3.0"
 dependencies = [
+ "jmap-metadata-server",
+ "jmap-metadata-types",
  "jmap-server",
  "jmap-tasks-server",
  "jmap-tasks-types",
@@ -2430,6 +2432,7 @@ name = "jmap-tasks-types"
 version = "0.3.0"
 dependencies = [
  "jmap-jscalendar-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",

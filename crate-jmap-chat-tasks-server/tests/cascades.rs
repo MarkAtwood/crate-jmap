@@ -156,6 +156,7 @@ async fn task_list_destroy_clears_space_task_list_id() {
         &tasks,
         &(),
         json!({ "accountId": ACCOUNT, "destroy": ["T1"] }),
+        &[],
     )
     .await
     .expect("TaskList/set")
@@ -233,6 +234,7 @@ async fn chat_destroy_clears_task_chat_ids() {
         &tasks,
         &(),
         json!({ "accountId": ACCOUNT, "sinceState": before }),
+        &[],
     )
     .await
     .expect("Task/changes")
@@ -278,6 +280,7 @@ async fn task_destroy_leaves_its_chat() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT, "destroy": ["t1"] }),
+        &[],
     )
     .await
     .expect("Task/set")

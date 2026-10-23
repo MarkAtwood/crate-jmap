@@ -113,11 +113,12 @@ where
     // (`B::CallerCtx`) forwarded by the dispatcher; closures pass `&ctx` to the
     // inner `handle_*` fn. `$ci` is the call_id string — most handlers ignore
     // it (`_ci`); only `Task/copy` uses it.
-    // The optional `$ids` binds `CallContext::created_ids`, the
-    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
-    // use to resolve `#creationId` references.
+    // Each optional trailing ident binds the `CallContext` field of that name:
+    // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
+    // `/set` handlers use to resolve `#creationId` references, or `using`,
+    // the request's capability list (draft-ietf-jmap-metadata-04 §3).
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -126,7 +127,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
-                        $(created_ids: $ids,)?
+                        $($field,)*
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -140,22 +141,22 @@ where
     reg!("TaskList/get", backend, |b, _ci, a, ctx| {
         handle_task_list_get(&*b, &ctx, a).await
     });
-    reg!("TaskList/changes", backend, |b, _ci, a, ctx| {
-        handle_task_list_changes(&*b, &ctx, a).await
+    reg!("TaskList/changes", backend, |b, _ci, a, ctx, using| {
+        handle_task_list_changes(&*b, &ctx, a, &using).await
     });
-    reg!("TaskList/set", backend, |b, _ci, a, ctx| {
-        handle_task_list_set(&*b, &ctx, a).await
+    reg!("TaskList/set", backend, |b, _ci, a, ctx, using| {
+        handle_task_list_set(&*b, &ctx, a, &using).await
     });
 
     // Task
     reg!("Task/get", backend, |b, _ci, a, ctx| {
         handle_task_get(&*b, &ctx, a).await
     });
-    reg!("Task/changes", backend, |b, _ci, a, ctx| {
-        handle_task_changes(&*b, &ctx, a).await
+    reg!("Task/changes", backend, |b, _ci, a, ctx, using| {
+        handle_task_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Task/set", backend, |b, _ci, a, ctx, ids| {
-        handle_task_set(&*b, &ctx, &ids, a).await
+    reg!("Task/set", backend, |b, _ci, a, ctx, created_ids, using| {
+        handle_task_set(&*b, &ctx, &created_ids, a, &using).await
     });
     reg!("Task/copy", backend, |b, ci, a, ctx| {
         handle_task_copy(&*b, &ctx, a, &ci).await
