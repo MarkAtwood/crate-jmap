@@ -215,7 +215,7 @@ fn validate_script_name(name: &str) -> Option<SetError> {
         );
     }
     for ch in name.chars() {
-        let cp = ch as u32;
+        let cp = u32::from(ch);
         if cp <= 0x1F || (0x7F..=0x9F).contains(&cp) || cp == 0x2028 || cp == 0x2029 {
             return Some(
                 SetError::new(SetErrorType::InvalidProperties)
@@ -1091,13 +1091,13 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         "accountId": account_id.as_ref(),
         "queryState": query_state.as_ref(),
         "canCalculateChanges": false,
-        "position": start as i64,
+        "position": start,
         "ids": page_ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
 
     // RFC 8620 §5.5: include total only when calculateTotal=true.
     if calculate_total {
-        resp["total"] = json!(total_count as u64);
+        resp["total"] = json!(total_count);
     }
 
     Ok(HandlerOutput::new(resp))

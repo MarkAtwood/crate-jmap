@@ -3153,6 +3153,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: narrowing and sign-changing `as` casts are gone
+  and the clippy gate now rejects them (bd JMAP-uqhn.1).
+  `maxBodyValueBytes` saturates instead of truncating on 32-bit targets,
+  and an `Email/query` `before`/`after` date with month `00` no longer
+  wraps to a bogus instant; it is treated as unparseable (RFC 3339 §5.6).
+
 - **jmap-mail-server**: `MemoryBackend::create_object` returns the stored
   object when one already exists under the key (the VacationResponse
   `singleton`) instead of overwriting it, as the `MailBackend::create_object`

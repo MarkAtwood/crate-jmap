@@ -1439,7 +1439,7 @@ fn apply_body_value_args(val: &mut Value, args: &BodyFetchArgs, body_prop_set: &
                     .and_then(|e| e.get_mut("value"))
                     .and_then(|v| v.as_str().map(str::to_owned))
                 {
-                    let limit = args.max_bytes as usize;
+                    let limit = usize::try_from(args.max_bytes).unwrap_or(usize::MAX);
                     if text.len() > limit {
                         // Truncate at the last UTF-8 char boundary at or before `limit`
                         // bytes so the output is AT MOST `limit` bytes. A direct slice
