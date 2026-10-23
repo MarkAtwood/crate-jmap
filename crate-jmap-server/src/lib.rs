@@ -388,47 +388,30 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     ///
     /// # Cancellation
     ///
-    /// **Per-request cancellation is not supported in the current API**
-    /// (bd:JMAP-wlip.23). If this future is dropped while a handler
-    /// task is running (e.g., the HTTP connection closes), the spawned
-    /// [`tokio::task`] runs to completion — tokio does not cancel
-    /// tasks when their `JoinHandle` is dropped. The handler result
-    /// is discarded.
+    /// Dropping the future returned by `dispatch` does **not** cancel
+    /// method calls that are already running (bd:JMAP-wlip.34). Each
+    /// call runs in its own [`tokio::task::spawn`]ed task, and tokio
+    /// does not abort a task when its `JoinHandle` is dropped, so a
+    /// running call finishes and only its response is lost. Calls
+    /// later in the batch that had not started yet are never run.
     ///
-    /// Production consequence: a JMAP server with a long-running
-    /// backend operation (e.g., `Email/query` over a 10M-mailbox
-    /// account, a slow full-text search, a slow downstream-service
-    /// lookup) cannot react to client disconnect. Every disconnect
-    /// leaks resource consumption equal to the full backend cost.
-    /// Adversarial clients can amplify this into a DoS by opening
-    /// many requests and dropping them.
+    /// This is deliberate: a client that disconnects (for example,
+    /// the HTTP connection closes) can never interrupt a backend
+    /// mid-write and leave a `/set` half applied. `dispatch` takes no
+    /// cancellation token, and [`JmapHandler::call`] receives none.
     ///
-    /// Recommended mitigations until per-request cancellation is wired:
+    /// The cost is that a disconnected client cannot stop an
+    /// expensive call (a large `Email/query`, a slow full-text
+    /// search): the backend does the full work anyway, and a client
+    /// that opens and drops many requests can use this to consume
+    /// server resources. Bound that cost in the backend, for example
+    /// with `tokio::time::timeout` or an RPC deadline around each
+    /// storage call, and limit request concurrency per client.
     ///
-    /// - **Bound each backend operation's runtime at the backend
-    ///   layer**, e.g. by passing a deadline / timeout from the
-    ///   backend impl's storage client (`tokio::time::timeout` around
-    ///   each database call, RPC deadline, etc.). The handler does
-    ///   not need to know about deadlines; the backend impl does.
-    /// - **Server-wide shutdown** via `tokio::select!` with a
-    ///   broadcast channel from `main` works for the dispatcher loop
-    ///   itself but does NOT propagate into spawned handler tasks.
-    ///   To shut down cleanly, drain the dispatcher first and then
-    ///   let in-flight handler tasks finish.
-    ///
-    /// The "implement cancellation at the handler level" advice
-    /// previously given here was unworkable: the spawned task has
-    /// no access to the outer dispatch-future's context (no token,
-    /// no shared liveness flag), and the [`JmapHandler::call`]
-    /// signature carries no cancellation token.
-    ///
-    /// A future revision may add an opt-in cancellation-token shape
-    /// (CallerCtx-carried token, or a dispatch-time
-    /// `cancel: CancellationToken` parameter that gets signalled on
-    /// future-drop). That is a workspace-architectural decision —
-    /// adding `tokio_util` to the dep allowlist plus threading the
-    /// token through every backend trait method — and is tracked
-    /// separately.
+    /// For a clean shutdown, stop accepting new requests and let
+    /// in-flight `dispatch` calls and their spawned tasks finish; a
+    /// shutdown signal that drops `dispatch` futures does not reach
+    /// the spawned tasks.
     pub async fn dispatch(
         &self,
         request: JmapRequest,
