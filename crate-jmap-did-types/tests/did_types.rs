@@ -4,35 +4,20 @@
 //! Line numbers below refer to that file. The JSON documents are copied
 //! verbatim from the draft's examples, never produced by this crate.
 
+mod common;
+
 use jmap_did_types::{DidAccountCapability, DidCapability, KeyCustody, JMAP_DID_URI};
 use serde_json::{json, Value};
 
 /// L125-135: session-level capability example, verbatim.
-const SESSION_EXAMPLE: &str = r#"{
-  "capabilities": {
-    "urn:ietf:params:jmap:core": {},
-    "urn:ietf:params:jmap:did": {
-      "supportedMethods": ["key", "web"],
-      "verificationEndpoint": null
-    }
-  }
-}"#;
+fn session_example() -> String {
+    common::fixture("session_example.json")
+}
 
 /// L155-170: account-level capability example, verbatim.
-const ACCOUNT_EXAMPLE: &str = r#"{
-  "accounts": {
-    "acct-001": {
-      "accountCapabilities": {
-        "urn:ietf:params:jmap:did": {
-          "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
-          "didDocumentUri": null,
-          "previousDid": null,
-          "keyCustody": "user"
-        }
-      }
-    }
-  }
-}"#;
+fn account_example() -> String {
+    common::fixture("account_example.json")
+}
 
 #[test]
 fn capability_uri_matches_draft() {
@@ -42,7 +27,7 @@ fn capability_uri_matches_draft() {
 
 #[test]
 fn session_example_round_trips() {
-    let doc: Value = serde_json::from_str(SESSION_EXAMPLE).unwrap();
+    let doc: Value = serde_json::from_str(&session_example()).unwrap();
     let raw = doc["capabilities"]["urn:ietf:params:jmap:did"].clone();
     let cap: DidCapability = serde_json::from_value(raw.clone()).unwrap();
     // L117-118: `supportedMethods` (String[]), e.g. `"key"`, `"web"`.
@@ -71,7 +56,7 @@ fn verification_endpoint_url_round_trips() {
 
 #[test]
 fn account_example_round_trips() {
-    let doc: Value = serde_json::from_str(ACCOUNT_EXAMPLE).unwrap();
+    let doc: Value = serde_json::from_str(&account_example()).unwrap();
     let raw =
         doc["accounts"]["acct-001"]["accountCapabilities"]["urn:ietf:params:jmap:did"].clone();
     let cap: DidAccountCapability = serde_json::from_value(raw.clone()).unwrap();
@@ -131,13 +116,13 @@ fn nullable_fields_serialize_as_null() {
         serde_json::from_value(json!({"did": "did:web:example.com"})).unwrap();
     assert_eq!(
         serde_json::to_string(&account).unwrap(),
-        r#"{"did":"did:web:example.com","didDocumentUri":null,"previousDid":null,"keyCustody":null}"#
+        common::fixture("nullable_fields_serialize_as_null.json")
     );
     let session: DidCapability =
         serde_json::from_value(json!({"supportedMethods": ["key"]})).unwrap();
     assert_eq!(
         serde_json::to_string(&session).unwrap(),
-        r#"{"supportedMethods":["key"],"verificationEndpoint":null}"#
+        common::fixture("nullable_fields_serialize_as_null_2.json")
     );
 }
 
