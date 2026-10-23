@@ -1,0 +1,58 @@
+pub mod jmap_metadata_types
+#[non_exhaustive] pub struct jmap_metadata_types::DataTypeMetadataInfo
+pub jmap_metadata_types::DataTypeMetadataInfo::max_depth: core::option::Option<u64>
+pub jmap_metadata_types::DataTypeMetadataInfo::namespaces: alloc::vec::Vec<alloc::string::String>
+pub jmap_metadata_types::DataTypeMetadataInfo::supports_private: bool
+pub jmap_metadata_types::DataTypeMetadataInfo::supports_vendor_namespaces: bool
+impl core::clone::Clone for jmap_metadata_types::DataTypeMetadataInfo
+pub fn jmap_metadata_types::DataTypeMetadataInfo::clone(&self) -> jmap_metadata_types::DataTypeMetadataInfo
+impl core::cmp::PartialEq for jmap_metadata_types::DataTypeMetadataInfo
+pub fn jmap_metadata_types::DataTypeMetadataInfo::eq(&self, &jmap_metadata_types::DataTypeMetadataInfo) -> bool
+impl core::fmt::Debug for jmap_metadata_types::DataTypeMetadataInfo
+pub fn jmap_metadata_types::DataTypeMetadataInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_metadata_types::DataTypeMetadataInfo
+impl serde_core::ser::Serialize for jmap_metadata_types::DataTypeMetadataInfo
+pub fn jmap_metadata_types::DataTypeMetadataInfo::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_metadata_types::DataTypeMetadataInfo
+pub fn jmap_metadata_types::DataTypeMetadataInfo::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_metadata_types::MetadataTextMatch
+pub jmap_metadata_types::MetadataTextMatch::path: alloc::string::String
+pub jmap_metadata_types::MetadataTextMatch::value: alloc::string::String
+impl jmap_metadata_types::MetadataTextMatch
+pub fn jmap_metadata_types::MetadataTextMatch::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_metadata_types::MetadataTextMatch
+pub fn jmap_metadata_types::MetadataTextMatch::clone(&self) -> jmap_metadata_types::MetadataTextMatch
+impl core::cmp::Eq for jmap_metadata_types::MetadataTextMatch
+impl core::cmp::PartialEq for jmap_metadata_types::MetadataTextMatch
+pub fn jmap_metadata_types::MetadataTextMatch::eq(&self, &jmap_metadata_types::MetadataTextMatch) -> bool
+impl core::fmt::Debug for jmap_metadata_types::MetadataTextMatch
+pub fn jmap_metadata_types::MetadataTextMatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_metadata_types::MetadataTextMatch
+impl serde_core::ser::Serialize for jmap_metadata_types::MetadataTextMatch
+pub fn jmap_metadata_types::MetadataTextMatch::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_metadata_types::MetadataTextMatch
+pub fn jmap_metadata_types::MetadataTextMatch::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_metadata_types::WithMetadata<C>
+pub jmap_metadata_types::WithMetadata::base: C
+pub jmap_metadata_types::WithMetadata::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_metadata_types::WithMetadata::metadata_text_contains: core::option::Option<jmap_metadata_types::MetadataTextMatch>
+pub jmap_metadata_types::WithMetadata::metadata_text_equals: core::option::Option<jmap_metadata_types::MetadataTextMatch>
+pub jmap_metadata_types::WithMetadata::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_metadata_types::WithMetadata::private_metadata_text_contains: core::option::Option<jmap_metadata_types::MetadataTextMatch>
+pub jmap_metadata_types::WithMetadata::private_metadata_text_equals: core::option::Option<jmap_metadata_types::MetadataTextMatch>
+impl<C: core::clone::Clone> core::clone::Clone for jmap_metadata_types::WithMetadata<C>
+pub fn jmap_metadata_types::WithMetadata<C>::clone(&self) -> jmap_metadata_types::WithMetadata<C>
+impl<C: core::cmp::Eq> core::cmp::Eq for jmap_metadata_types::WithMetadata<C>
+impl<C: core::cmp::PartialEq> core::cmp::PartialEq for jmap_metadata_types::WithMetadata<C>
+pub fn jmap_metadata_types::WithMetadata<C>::eq(&self, &jmap_metadata_types::WithMetadata<C>) -> bool
+impl<C: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_metadata_types::WithMetadata<C>
+impl<C: core::default::Default> core::default::Default for jmap_metadata_types::WithMetadata<C>
+pub fn jmap_metadata_types::WithMetadata<C>::default() -> jmap_metadata_types::WithMetadata<C>
+impl<C: core::fmt::Debug> core::fmt::Debug for jmap_metadata_types::WithMetadata<C>
+pub fn jmap_metadata_types::WithMetadata<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<C> serde_core::ser::Serialize for jmap_metadata_types::WithMetadata<C> where C: serde_core::ser::Serialize
+pub fn jmap_metadata_types::WithMetadata<C>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub const jmap_metadata_types::JMAP_METADATA_URI: &str
+pub fn jmap_metadata_types::is_registered_namespace(&str) -> bool
+pub fn jmap_metadata_types::is_valid_namespace(&str) -> bool
+pub fn jmap_metadata_types::is_vendor_namespace(&str) -> bool

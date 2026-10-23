@@ -1,0 +1,795 @@
+pub mod jmap_tasks_types
+pub use jmap_tasks_types::AbsoluteTrigger
+pub use jmap_tasks_types::Alert
+pub use jmap_tasks_types::AlertTrigger
+pub use jmap_tasks_types::Duration
+pub use jmap_tasks_types::Filter
+pub use jmap_tasks_types::FilterOperator
+pub use jmap_tasks_types::Link
+pub use jmap_tasks_types::LocalDateTime
+pub use jmap_tasks_types::Location
+pub use jmap_tasks_types::NDay
+pub use jmap_tasks_types::OffsetTrigger
+pub use jmap_tasks_types::Operator
+pub use jmap_tasks_types::Participant
+pub use jmap_tasks_types::RecurrenceRule
+pub use jmap_tasks_types::Relation
+pub use jmap_tasks_types::SignedDuration
+pub use jmap_tasks_types::TimeZone
+pub use jmap_tasks_types::TimeZoneRule
+pub use jmap_tasks_types::VirtualLocation
+#[non_exhaustive] pub enum jmap_tasks_types::NotificationType
+pub jmap_tasks_types::NotificationType::Created
+pub jmap_tasks_types::NotificationType::Destroyed
+pub jmap_tasks_types::NotificationType::Other(alloc::string::String)
+pub jmap_tasks_types::NotificationType::Updated
+impl core::clone::Clone for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::clone(&self) -> jmap_tasks_types::NotificationType
+impl core::cmp::Eq for jmap_tasks_types::NotificationType
+impl core::cmp::PartialEq for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::eq(&self, &jmap_tasks_types::NotificationType) -> bool
+impl core::convert::From<&str> for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::NotificationType
+impl serde_core::ser::Serialize for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::NotificationType
+pub fn jmap_tasks_types::NotificationType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_tasks_types::TaskComparatorProperty
+pub jmap_tasks_types::TaskComparatorProperty::Created
+pub jmap_tasks_types::TaskComparatorProperty::Other(alloc::string::String)
+pub jmap_tasks_types::TaskComparatorProperty::RecurrenceId
+pub jmap_tasks_types::TaskComparatorProperty::Start
+pub jmap_tasks_types::TaskComparatorProperty::Uid
+pub jmap_tasks_types::TaskComparatorProperty::Updated
+impl core::clone::Clone for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::clone(&self) -> jmap_tasks_types::TaskComparatorProperty
+impl core::cmp::Eq for jmap_tasks_types::TaskComparatorProperty
+impl core::cmp::PartialEq for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::eq(&self, &jmap_tasks_types::TaskComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskComparatorProperty
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskComparatorProperty
+pub fn jmap_tasks_types::TaskComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_tasks_types::TaskListProperty
+pub jmap_tasks_types::TaskListProperty::CategoryColors
+pub jmap_tasks_types::TaskListProperty::Color
+pub jmap_tasks_types::TaskListProperty::DefaultAlertsWithTime
+pub jmap_tasks_types::TaskListProperty::DefaultAlertsWithoutTime
+pub jmap_tasks_types::TaskListProperty::Description
+pub jmap_tasks_types::TaskListProperty::Id
+pub jmap_tasks_types::TaskListProperty::IsSubscribed
+pub jmap_tasks_types::TaskListProperty::KeywordColors
+pub jmap_tasks_types::TaskListProperty::MyRights
+pub jmap_tasks_types::TaskListProperty::Name
+pub jmap_tasks_types::TaskListProperty::Role
+pub jmap_tasks_types::TaskListProperty::ShareWith
+pub jmap_tasks_types::TaskListProperty::SortOrder
+pub jmap_tasks_types::TaskListProperty::TimeZone
+pub jmap_tasks_types::TaskListProperty::WorkflowStatuses
+impl core::clone::Clone for jmap_tasks_types::TaskListProperty
+pub fn jmap_tasks_types::TaskListProperty::clone(&self) -> jmap_tasks_types::TaskListProperty
+impl core::cmp::Eq for jmap_tasks_types::TaskListProperty
+impl core::cmp::PartialEq for jmap_tasks_types::TaskListProperty
+pub fn jmap_tasks_types::TaskListProperty::eq(&self, &jmap_tasks_types::TaskListProperty) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TaskListProperty
+pub fn jmap_tasks_types::TaskListProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::TaskListProperty
+pub fn jmap_tasks_types::TaskListProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskListProperty
+#[non_exhaustive] pub enum jmap_tasks_types::TaskListRole
+pub jmap_tasks_types::TaskListRole::Inbox
+pub jmap_tasks_types::TaskListRole::Other(alloc::string::String)
+pub jmap_tasks_types::TaskListRole::Trash
+impl jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::to_wire_str(&self) -> &str
+impl core::clone::Clone for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::clone(&self) -> jmap_tasks_types::TaskListRole
+impl core::cmp::Eq for jmap_tasks_types::TaskListRole
+impl core::cmp::PartialEq for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::eq(&self, &jmap_tasks_types::TaskListRole) -> bool
+impl core::convert::From<&str> for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskListRole
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskListRole
+pub fn jmap_tasks_types::TaskListRole::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_tasks_types::TaskNotificationComparatorProperty
+pub jmap_tasks_types::TaskNotificationComparatorProperty::Created
+pub jmap_tasks_types::TaskNotificationComparatorProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::clone(&self) -> jmap_tasks_types::TaskNotificationComparatorProperty
+impl core::cmp::Eq for jmap_tasks_types::TaskNotificationComparatorProperty
+impl core::cmp::PartialEq for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::eq(&self, &jmap_tasks_types::TaskNotificationComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskNotificationComparatorProperty
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskNotificationComparatorProperty
+pub fn jmap_tasks_types::TaskNotificationComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_tasks_types::TaskNotificationProperty
+pub jmap_tasks_types::TaskNotificationProperty::ChangedBy
+pub jmap_tasks_types::TaskNotificationProperty::Comment
+pub jmap_tasks_types::TaskNotificationProperty::Created
+pub jmap_tasks_types::TaskNotificationProperty::Id
+pub jmap_tasks_types::TaskNotificationProperty::IsDraft
+pub jmap_tasks_types::TaskNotificationProperty::NotificationType
+pub jmap_tasks_types::TaskNotificationProperty::Task
+pub jmap_tasks_types::TaskNotificationProperty::TaskId
+pub jmap_tasks_types::TaskNotificationProperty::TaskPatch
+impl core::clone::Clone for jmap_tasks_types::TaskNotificationProperty
+pub fn jmap_tasks_types::TaskNotificationProperty::clone(&self) -> jmap_tasks_types::TaskNotificationProperty
+impl core::cmp::Eq for jmap_tasks_types::TaskNotificationProperty
+impl core::cmp::PartialEq for jmap_tasks_types::TaskNotificationProperty
+pub fn jmap_tasks_types::TaskNotificationProperty::eq(&self, &jmap_tasks_types::TaskNotificationProperty) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TaskNotificationProperty
+pub fn jmap_tasks_types::TaskNotificationProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::TaskNotificationProperty
+pub fn jmap_tasks_types::TaskNotificationProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskNotificationProperty
+#[non_exhaustive] pub enum jmap_tasks_types::TaskProgress
+pub jmap_tasks_types::TaskProgress::Cancelled
+pub jmap_tasks_types::TaskProgress::Completed
+pub jmap_tasks_types::TaskProgress::Failed
+pub jmap_tasks_types::TaskProgress::InProcess
+pub jmap_tasks_types::TaskProgress::NeedsAction
+pub jmap_tasks_types::TaskProgress::Other(alloc::string::String)
+impl core::clone::Clone for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::clone(&self) -> jmap_tasks_types::TaskProgress
+impl core::cmp::Eq for jmap_tasks_types::TaskProgress
+impl core::cmp::PartialEq for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::eq(&self, &jmap_tasks_types::TaskProgress) -> bool
+impl core::convert::From<&str> for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskProgress
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskProgress
+pub fn jmap_tasks_types::TaskProgress::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_tasks_types::TaskProperty
+pub jmap_tasks_types::TaskProperty::Alerts
+pub jmap_tasks_types::TaskProperty::AtType
+pub jmap_tasks_types::TaskProperty::BaseTaskId
+pub jmap_tasks_types::TaskProperty::Categories
+pub jmap_tasks_types::TaskProperty::Checklists
+pub jmap_tasks_types::TaskProperty::Color
+pub jmap_tasks_types::TaskProperty::Comments
+pub jmap_tasks_types::TaskProperty::Created
+pub jmap_tasks_types::TaskProperty::Description
+pub jmap_tasks_types::TaskProperty::DescriptionContentType
+pub jmap_tasks_types::TaskProperty::Due
+pub jmap_tasks_types::TaskProperty::EstimatedDuration
+pub jmap_tasks_types::TaskProperty::EstimatedWork
+pub jmap_tasks_types::TaskProperty::Excluded
+pub jmap_tasks_types::TaskProperty::ExcludedRecurrenceRules
+pub jmap_tasks_types::TaskProperty::FreeBusyStatus
+pub jmap_tasks_types::TaskProperty::HideAttendees
+pub jmap_tasks_types::TaskProperty::Id
+pub jmap_tasks_types::TaskProperty::Impact
+pub jmap_tasks_types::TaskProperty::IsDraft
+pub jmap_tasks_types::TaskProperty::IsOrigin
+pub jmap_tasks_types::TaskProperty::Keywords
+pub jmap_tasks_types::TaskProperty::Links
+pub jmap_tasks_types::TaskProperty::Locale
+pub jmap_tasks_types::TaskProperty::Localizations
+pub jmap_tasks_types::TaskProperty::Locations
+pub jmap_tasks_types::TaskProperty::MayInviteOthers
+pub jmap_tasks_types::TaskProperty::MayInviteSelf
+pub jmap_tasks_types::TaskProperty::Participants
+pub jmap_tasks_types::TaskProperty::PercentComplete
+pub jmap_tasks_types::TaskProperty::Priority
+pub jmap_tasks_types::TaskProperty::Privacy
+pub jmap_tasks_types::TaskProperty::ProdId
+pub jmap_tasks_types::TaskProperty::Progress
+pub jmap_tasks_types::TaskProperty::ProgressUpdated
+pub jmap_tasks_types::TaskProperty::RecurrenceId
+pub jmap_tasks_types::TaskProperty::RecurrenceIdTimeZone
+pub jmap_tasks_types::TaskProperty::RecurrenceOverrides
+pub jmap_tasks_types::TaskProperty::RecurrenceRules
+pub jmap_tasks_types::TaskProperty::RelatedTo
+pub jmap_tasks_types::TaskProperty::ReplyTo
+pub jmap_tasks_types::TaskProperty::RequestStatus
+pub jmap_tasks_types::TaskProperty::SentBy
+pub jmap_tasks_types::TaskProperty::Sequence
+pub jmap_tasks_types::TaskProperty::ShowWithoutTime
+pub jmap_tasks_types::TaskProperty::SortOrder
+pub jmap_tasks_types::TaskProperty::Start
+pub jmap_tasks_types::TaskProperty::TaskListId
+pub jmap_tasks_types::TaskProperty::TimeZone
+pub jmap_tasks_types::TaskProperty::TimeZones
+pub jmap_tasks_types::TaskProperty::Title
+pub jmap_tasks_types::TaskProperty::Uid
+pub jmap_tasks_types::TaskProperty::Updated
+pub jmap_tasks_types::TaskProperty::UseDefaultAlerts
+pub jmap_tasks_types::TaskProperty::UtcDue
+pub jmap_tasks_types::TaskProperty::UtcStart
+pub jmap_tasks_types::TaskProperty::VirtualLocations
+pub jmap_tasks_types::TaskProperty::WorkflowStatus
+impl core::clone::Clone for jmap_tasks_types::TaskProperty
+pub fn jmap_tasks_types::TaskProperty::clone(&self) -> jmap_tasks_types::TaskProperty
+impl core::cmp::Eq for jmap_tasks_types::TaskProperty
+impl core::cmp::PartialEq for jmap_tasks_types::TaskProperty
+pub fn jmap_tasks_types::TaskProperty::eq(&self, &jmap_tasks_types::TaskProperty) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TaskProperty
+pub fn jmap_tasks_types::TaskProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_tasks_types::TaskProperty
+pub fn jmap_tasks_types::TaskProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskProperty
+#[non_exhaustive] pub struct jmap_tasks_types::CheckItem
+pub jmap_tasks_types::CheckItem::assignee: core::option::Option<jmap_tasks_types::Person>
+pub jmap_tasks_types::CheckItem::at_type: alloc::string::String
+pub jmap_tasks_types::CheckItem::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::CheckItem::is_complete: bool
+pub jmap_tasks_types::CheckItem::sort_order: u32
+pub jmap_tasks_types::CheckItem::title: alloc::string::String
+pub jmap_tasks_types::CheckItem::updated: core::option::Option<jmap_types::id::UTCDate>
+impl core::clone::Clone for jmap_tasks_types::CheckItem
+pub fn jmap_tasks_types::CheckItem::clone(&self) -> jmap_tasks_types::CheckItem
+impl core::cmp::Eq for jmap_tasks_types::CheckItem
+impl core::cmp::PartialEq for jmap_tasks_types::CheckItem
+pub fn jmap_tasks_types::CheckItem::eq(&self, &jmap_tasks_types::CheckItem) -> bool
+impl core::fmt::Debug for jmap_tasks_types::CheckItem
+pub fn jmap_tasks_types::CheckItem::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::CheckItem
+impl serde_core::ser::Serialize for jmap_tasks_types::CheckItem
+pub fn jmap_tasks_types::CheckItem::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::CheckItem
+pub fn jmap_tasks_types::CheckItem::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::Checklist
+pub jmap_tasks_types::Checklist::at_type: alloc::string::String
+pub jmap_tasks_types::Checklist::check_items: core::option::Option<alloc::vec::Vec<jmap_tasks_types::CheckItem>>
+pub jmap_tasks_types::Checklist::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::Checklist::title: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_tasks_types::Checklist
+pub fn jmap_tasks_types::Checklist::clone(&self) -> jmap_tasks_types::Checklist
+impl core::cmp::Eq for jmap_tasks_types::Checklist
+impl core::cmp::PartialEq for jmap_tasks_types::Checklist
+pub fn jmap_tasks_types::Checklist::eq(&self, &jmap_tasks_types::Checklist) -> bool
+impl core::fmt::Debug for jmap_tasks_types::Checklist
+pub fn jmap_tasks_types::Checklist::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::Checklist
+impl serde_core::ser::Serialize for jmap_tasks_types::Checklist
+pub fn jmap_tasks_types::Checklist::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::Checklist
+pub fn jmap_tasks_types::Checklist::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::Comment
+pub jmap_tasks_types::Comment::at_type: alloc::string::String
+pub jmap_tasks_types::Comment::author: core::option::Option<jmap_tasks_types::Person>
+pub jmap_tasks_types::Comment::created: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::Comment::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::Comment::message: alloc::string::String
+pub jmap_tasks_types::Comment::updated: core::option::Option<jmap_types::id::UTCDate>
+impl core::clone::Clone for jmap_tasks_types::Comment
+pub fn jmap_tasks_types::Comment::clone(&self) -> jmap_tasks_types::Comment
+impl core::cmp::Eq for jmap_tasks_types::Comment
+impl core::cmp::PartialEq for jmap_tasks_types::Comment
+pub fn jmap_tasks_types::Comment::eq(&self, &jmap_tasks_types::Comment) -> bool
+impl core::fmt::Debug for jmap_tasks_types::Comment
+pub fn jmap_tasks_types::Comment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::Comment
+impl serde_core::ser::Serialize for jmap_tasks_types::Comment
+pub fn jmap_tasks_types::Comment::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::Comment
+pub fn jmap_tasks_types::Comment::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::Person
+pub jmap_tasks_types::Person::at_type: alloc::string::String
+pub jmap_tasks_types::Person::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::Person::name: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Person::principal_id: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Person::uri: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_tasks_types::Person
+pub fn jmap_tasks_types::Person::clone(&self) -> jmap_tasks_types::Person
+impl core::cmp::Eq for jmap_tasks_types::Person
+impl core::cmp::PartialEq for jmap_tasks_types::Person
+pub fn jmap_tasks_types::Person::eq(&self, &jmap_tasks_types::Person) -> bool
+impl core::fmt::Debug for jmap_tasks_types::Person
+pub fn jmap_tasks_types::Person::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::Person
+impl serde_core::ser::Serialize for jmap_tasks_types::Person
+pub fn jmap_tasks_types::Person::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::Person
+pub fn jmap_tasks_types::Person::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::PrincipalTasksCapability
+pub jmap_tasks_types::PrincipalTasksCapability::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_tasks_types::PrincipalTasksCapability::may_share_with: bool
+pub jmap_tasks_types::PrincipalTasksCapability::send_to: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+impl core::clone::Clone for jmap_tasks_types::PrincipalTasksCapability
+pub fn jmap_tasks_types::PrincipalTasksCapability::clone(&self) -> jmap_tasks_types::PrincipalTasksCapability
+impl core::cmp::PartialEq for jmap_tasks_types::PrincipalTasksCapability
+pub fn jmap_tasks_types::PrincipalTasksCapability::eq(&self, &jmap_tasks_types::PrincipalTasksCapability) -> bool
+impl core::fmt::Debug for jmap_tasks_types::PrincipalTasksCapability
+pub fn jmap_tasks_types::PrincipalTasksCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::PrincipalTasksCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::PrincipalTasksCapability
+pub fn jmap_tasks_types::PrincipalTasksCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::PrincipalTasksCapability
+pub fn jmap_tasks_types::PrincipalTasksCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::Task
+pub jmap_tasks_types::Task::alerts: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::at_type: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::base_task_id: core::option::Option<jmap_types::id::Id>
+pub jmap_tasks_types::Task::categories: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_tasks_types::Task::checklists: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_tasks_types::Checklist>>
+pub jmap_tasks_types::Task::color: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::comments: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_tasks_types::Comment>>
+pub jmap_tasks_types::Task::created: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::Task::description: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::description_content_type: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::due: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::estimated_duration: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::estimated_work: core::option::Option<u64>
+pub jmap_tasks_types::Task::excluded: core::option::Option<bool>
+pub jmap_tasks_types::Task::excluded_recurrence_rules: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::Task::free_busy_status: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::hide_attendees: core::option::Option<bool>
+pub jmap_tasks_types::Task::id: core::option::Option<jmap_types::id::Id>
+pub jmap_tasks_types::Task::impact: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::is_draft: core::option::Option<bool>
+pub jmap_tasks_types::Task::is_origin: core::option::Option<bool>
+pub jmap_tasks_types::Task::keywords: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_tasks_types::Task::links: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::locale: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::localizations: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
+pub jmap_tasks_types::Task::locations: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::may_invite_others: core::option::Option<bool>
+pub jmap_tasks_types::Task::may_invite_self: core::option::Option<bool>
+pub jmap_tasks_types::Task::participants: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::percent_complete: core::option::Option<u8>
+pub jmap_tasks_types::Task::priority: core::option::Option<u8>
+pub jmap_tasks_types::Task::privacy: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::prod_id: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::progress: core::option::Option<jmap_tasks_types::TaskProgress>
+pub jmap_tasks_types::Task::progress_updated: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::Task::recurrence_id: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::recurrence_id_time_zone: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::recurrence_overrides: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
+pub jmap_tasks_types::Task::recurrence_rules: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::related_to: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::reply_to: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+pub jmap_tasks_types::Task::request_status: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::sent_by: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::sequence: core::option::Option<u64>
+pub jmap_tasks_types::Task::show_without_time: core::option::Option<bool>
+pub jmap_tasks_types::Task::sort_order: core::option::Option<u32>
+pub jmap_tasks_types::Task::start: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::task_list_id: core::option::Option<jmap_types::id::Id>
+pub jmap_tasks_types::Task::time_zone: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::time_zones: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::title: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::uid: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::Task::updated: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::Task::use_default_alerts: core::option::Option<bool>
+pub jmap_tasks_types::Task::utc_due: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::Task::utc_start: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::Task::virtual_locations: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::Task::workflow_status: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_tasks_types::Task
+pub fn jmap_tasks_types::Task::clone(&self) -> jmap_tasks_types::Task
+impl core::cmp::PartialEq for jmap_tasks_types::Task
+pub fn jmap_tasks_types::Task::eq(&self, &jmap_tasks_types::Task) -> bool
+impl core::default::Default for jmap_tasks_types::Task
+pub fn jmap_tasks_types::Task::default() -> jmap_tasks_types::Task
+impl core::fmt::Debug for jmap_tasks_types::Task
+pub fn jmap_tasks_types::Task::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::Task
+impl jmap_types::backend::GetObject for jmap_tasks_types::Task
+impl jmap_types::backend::JmapObject for jmap_tasks_types::Task
+pub type jmap_tasks_types::Task::Property = jmap_tasks_types::TaskProperty
+pub const jmap_tasks_types::Task::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_tasks_types::Task
+pub type jmap_tasks_types::Task::Comparator = jmap_tasks_types::TaskComparator
+pub type jmap_tasks_types::Task::Filter = jmap_types::query::Filter<jmap_tasks_types::TaskFilterCondition>
+impl jmap_types::backend::SetObject for jmap_tasks_types::Task
+pub type jmap_tasks_types::Task::Patch = jmap_types::patch::PatchObject
+pub const jmap_tasks_types::Task::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_tasks_types::Task::IMMUTABLE: &'static [&'static str]
+pub const jmap_tasks_types::Task::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_tasks_types::Task
+pub fn jmap_tasks_types::Task::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::Task
+pub fn jmap_tasks_types::Task::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TaskComparator
+pub jmap_tasks_types::TaskComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskComparator::is_ascending: bool
+pub jmap_tasks_types::TaskComparator::property: jmap_tasks_types::TaskComparatorProperty
+impl jmap_tasks_types::TaskComparator
+pub fn jmap_tasks_types::TaskComparator::new(jmap_tasks_types::TaskComparatorProperty) -> Self
+impl core::clone::Clone for jmap_tasks_types::TaskComparator
+pub fn jmap_tasks_types::TaskComparator::clone(&self) -> jmap_tasks_types::TaskComparator
+impl core::cmp::Eq for jmap_tasks_types::TaskComparator
+impl core::cmp::PartialEq for jmap_tasks_types::TaskComparator
+pub fn jmap_tasks_types::TaskComparator::eq(&self, &jmap_tasks_types::TaskComparator) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TaskComparator
+pub fn jmap_tasks_types::TaskComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskComparator
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskComparator
+pub fn jmap_tasks_types::TaskComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskComparator
+pub fn jmap_tasks_types::TaskComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TaskFilterCondition
+pub jmap_tasks_types::TaskFilterCondition::after: core::option::Option<jmap_jscalendar_types::LocalDateTime>
+pub jmap_tasks_types::TaskFilterCondition::before: core::option::Option<jmap_jscalendar_types::LocalDateTime>
+pub jmap_tasks_types::TaskFilterCondition::description: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::has_keyword: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::is_draft: core::option::Option<bool>
+pub jmap_tasks_types::TaskFilterCondition::not_keyword: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::progress: core::option::Option<jmap_tasks_types::TaskProgress>
+pub jmap_tasks_types::TaskFilterCondition::task_list_id: core::option::Option<jmap_types::id::Id>
+pub jmap_tasks_types::TaskFilterCondition::text: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::title: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::uid: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskFilterCondition::workflow_status: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_tasks_types::TaskFilterCondition
+pub fn jmap_tasks_types::TaskFilterCondition::clone(&self) -> jmap_tasks_types::TaskFilterCondition
+impl core::default::Default for jmap_tasks_types::TaskFilterCondition
+pub fn jmap_tasks_types::TaskFilterCondition::default() -> jmap_tasks_types::TaskFilterCondition
+impl core::fmt::Debug for jmap_tasks_types::TaskFilterCondition
+pub fn jmap_tasks_types::TaskFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskFilterCondition
+pub fn jmap_tasks_types::TaskFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskFilterCondition
+pub fn jmap_tasks_types::TaskFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TaskList
+pub jmap_tasks_types::TaskList::category_colors: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+pub jmap_tasks_types::TaskList::color: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskList::default_alerts_with_time: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, serde_json::value::Value>>
+pub jmap_tasks_types::TaskList::default_alerts_without_time: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, serde_json::value::Value>>
+pub jmap_tasks_types::TaskList::description: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskList::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::TaskList::id: jmap_types::id::Id
+pub jmap_tasks_types::TaskList::is_subscribed: bool
+pub jmap_tasks_types::TaskList::keyword_colors: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+pub jmap_tasks_types::TaskList::my_rights: jmap_tasks_types::TaskRights
+pub jmap_tasks_types::TaskList::name: alloc::string::String
+pub jmap_tasks_types::TaskList::role: core::option::Option<jmap_tasks_types::TaskListRole>
+pub jmap_tasks_types::TaskList::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_tasks_types::TaskRights>>
+pub jmap_tasks_types::TaskList::sort_order: u32
+pub jmap_tasks_types::TaskList::time_zone: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskList::workflow_statuses: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+impl core::clone::Clone for jmap_tasks_types::TaskList
+pub fn jmap_tasks_types::TaskList::clone(&self) -> jmap_tasks_types::TaskList
+impl core::cmp::PartialEq for jmap_tasks_types::TaskList
+pub fn jmap_tasks_types::TaskList::eq(&self, &jmap_tasks_types::TaskList) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TaskList
+pub fn jmap_tasks_types::TaskList::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskList
+impl jmap_types::backend::GetObject for jmap_tasks_types::TaskList
+impl jmap_types::backend::JmapObject for jmap_tasks_types::TaskList
+pub type jmap_tasks_types::TaskList::Property = jmap_tasks_types::TaskListProperty
+pub const jmap_tasks_types::TaskList::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_tasks_types::TaskList
+pub type jmap_tasks_types::TaskList::Patch = jmap_types::patch::PatchObject
+pub const jmap_tasks_types::TaskList::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_tasks_types::TaskList::IMMUTABLE: &'static [&'static str]
+pub const jmap_tasks_types::TaskList::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskList
+pub fn jmap_tasks_types::TaskList::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskList
+pub fn jmap_tasks_types::TaskList::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TaskNotification
+pub jmap_tasks_types::TaskNotification::changed_by: jmap_tasks_types::Person
+pub jmap_tasks_types::TaskNotification::comment: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskNotification::created: jmap_types::id::UTCDate
+pub jmap_tasks_types::TaskNotification::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::TaskNotification::id: jmap_types::id::Id
+pub jmap_tasks_types::TaskNotification::is_draft: core::option::Option<bool>
+pub jmap_tasks_types::TaskNotification::notification_type: jmap_tasks_types::NotificationType
+pub jmap_tasks_types::TaskNotification::task: core::option::Option<serde_json::value::Value>
+pub jmap_tasks_types::TaskNotification::task_id: jmap_types::id::Id
+pub jmap_tasks_types::TaskNotification::task_patch: core::option::Option<jmap_types::patch::PatchObject>
+impl core::clone::Clone for jmap_tasks_types::TaskNotification
+pub fn jmap_tasks_types::TaskNotification::clone(&self) -> jmap_tasks_types::TaskNotification
+impl core::cmp::PartialEq for jmap_tasks_types::TaskNotification
+pub fn jmap_tasks_types::TaskNotification::eq(&self, &jmap_tasks_types::TaskNotification) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TaskNotification
+pub fn jmap_tasks_types::TaskNotification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskNotification
+impl jmap_types::backend::GetObject for jmap_tasks_types::TaskNotification
+impl jmap_types::backend::JmapObject for jmap_tasks_types::TaskNotification
+pub type jmap_tasks_types::TaskNotification::Property = jmap_tasks_types::TaskNotificationProperty
+pub const jmap_tasks_types::TaskNotification::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_tasks_types::TaskNotification
+pub type jmap_tasks_types::TaskNotification::Comparator = jmap_tasks_types::TaskNotificationComparator
+pub type jmap_tasks_types::TaskNotification::Filter = jmap_types::query::Filter<jmap_tasks_types::TaskNotificationFilterCondition>
+impl jmap_types::backend::SetObject for jmap_tasks_types::TaskNotification
+pub type jmap_tasks_types::TaskNotification::Patch = jmap_types::patch::PatchObject
+pub const jmap_tasks_types::TaskNotification::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_tasks_types::TaskNotification::IMMUTABLE: &'static [&'static str]
+pub const jmap_tasks_types::TaskNotification::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskNotification
+pub fn jmap_tasks_types::TaskNotification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskNotification
+pub fn jmap_tasks_types::TaskNotification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TaskNotificationComparator
+pub jmap_tasks_types::TaskNotificationComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_tasks_types::TaskNotificationComparator::is_ascending: bool
+pub jmap_tasks_types::TaskNotificationComparator::property: jmap_tasks_types::TaskNotificationComparatorProperty
+impl jmap_tasks_types::TaskNotificationComparator
+pub fn jmap_tasks_types::TaskNotificationComparator::new(jmap_tasks_types::TaskNotificationComparatorProperty) -> Self
+impl core::clone::Clone for jmap_tasks_types::TaskNotificationComparator
+pub fn jmap_tasks_types::TaskNotificationComparator::clone(&self) -> jmap_tasks_types::TaskNotificationComparator
+impl core::cmp::Eq for jmap_tasks_types::TaskNotificationComparator
+impl core::cmp::PartialEq for jmap_tasks_types::TaskNotificationComparator
+pub fn jmap_tasks_types::TaskNotificationComparator::eq(&self, &jmap_tasks_types::TaskNotificationComparator) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TaskNotificationComparator
+pub fn jmap_tasks_types::TaskNotificationComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskNotificationComparator
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskNotificationComparator
+pub fn jmap_tasks_types::TaskNotificationComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskNotificationComparator
+pub fn jmap_tasks_types::TaskNotificationComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TaskNotificationFilterCondition
+pub jmap_tasks_types::TaskNotificationFilterCondition::after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::TaskNotificationFilterCondition::before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_tasks_types::TaskNotificationFilterCondition::notification_type: core::option::Option<jmap_tasks_types::NotificationType>
+pub jmap_tasks_types::TaskNotificationFilterCondition::task_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+impl core::clone::Clone for jmap_tasks_types::TaskNotificationFilterCondition
+pub fn jmap_tasks_types::TaskNotificationFilterCondition::clone(&self) -> jmap_tasks_types::TaskNotificationFilterCondition
+impl core::default::Default for jmap_tasks_types::TaskNotificationFilterCondition
+pub fn jmap_tasks_types::TaskNotificationFilterCondition::default() -> jmap_tasks_types::TaskNotificationFilterCondition
+impl core::fmt::Debug for jmap_tasks_types::TaskNotificationFilterCondition
+pub fn jmap_tasks_types::TaskNotificationFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskNotificationFilterCondition
+pub fn jmap_tasks_types::TaskNotificationFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskNotificationFilterCondition
+pub fn jmap_tasks_types::TaskNotificationFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TaskRights
+pub jmap_tasks_types::TaskRights::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_types::TaskRights::may_admin: bool
+pub jmap_tasks_types::TaskRights::may_delete: bool
+pub jmap_tasks_types::TaskRights::may_read_items: bool
+pub jmap_tasks_types::TaskRights::may_rsvp: bool
+pub jmap_tasks_types::TaskRights::may_set_metadata: core::option::Option<bool>
+pub jmap_tasks_types::TaskRights::may_update_private: bool
+pub jmap_tasks_types::TaskRights::may_write_all: bool
+pub jmap_tasks_types::TaskRights::may_write_own: bool
+impl core::clone::Clone for jmap_tasks_types::TaskRights
+pub fn jmap_tasks_types::TaskRights::clone(&self) -> jmap_tasks_types::TaskRights
+impl core::cmp::Eq for jmap_tasks_types::TaskRights
+impl core::cmp::PartialEq for jmap_tasks_types::TaskRights
+pub fn jmap_tasks_types::TaskRights::eq(&self, &jmap_tasks_types::TaskRights) -> bool
+impl core::default::Default for jmap_tasks_types::TaskRights
+pub fn jmap_tasks_types::TaskRights::default() -> jmap_tasks_types::TaskRights
+impl core::fmt::Debug for jmap_tasks_types::TaskRights
+pub fn jmap_tasks_types::TaskRights::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskRights
+impl serde_core::ser::Serialize for jmap_tasks_types::TaskRights
+pub fn jmap_tasks_types::TaskRights::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TaskRights
+pub fn jmap_tasks_types::TaskRights::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksAccountCapability
+pub jmap_tasks_types::TasksAccountCapability::max_date_time: jmap_jscalendar_types::LocalDateTime
+pub jmap_tasks_types::TasksAccountCapability::may_create_task_list: bool
+pub jmap_tasks_types::TasksAccountCapability::min_date_time: jmap_jscalendar_types::LocalDateTime
+impl core::clone::Clone for jmap_tasks_types::TasksAccountCapability
+pub fn jmap_tasks_types::TasksAccountCapability::clone(&self) -> jmap_tasks_types::TasksAccountCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksAccountCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksAccountCapability
+pub fn jmap_tasks_types::TasksAccountCapability::eq(&self, &jmap_tasks_types::TasksAccountCapability) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TasksAccountCapability
+pub fn jmap_tasks_types::TasksAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksAccountCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksAccountCapability
+pub fn jmap_tasks_types::TasksAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksAccountCapability
+pub fn jmap_tasks_types::TasksAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksAlertsAccountCapability
+impl core::clone::Clone for jmap_tasks_types::TasksAlertsAccountCapability
+pub fn jmap_tasks_types::TasksAlertsAccountCapability::clone(&self) -> jmap_tasks_types::TasksAlertsAccountCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksAlertsAccountCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksAlertsAccountCapability
+pub fn jmap_tasks_types::TasksAlertsAccountCapability::eq(&self, &jmap_tasks_types::TasksAlertsAccountCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksAlertsAccountCapability
+pub fn jmap_tasks_types::TasksAlertsAccountCapability::default() -> jmap_tasks_types::TasksAlertsAccountCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksAlertsAccountCapability
+pub fn jmap_tasks_types::TasksAlertsAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksAlertsAccountCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksAlertsAccountCapability
+pub fn jmap_tasks_types::TasksAlertsAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksAlertsAccountCapability
+pub fn jmap_tasks_types::TasksAlertsAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksAlertsCapability
+impl core::clone::Clone for jmap_tasks_types::TasksAlertsCapability
+pub fn jmap_tasks_types::TasksAlertsCapability::clone(&self) -> jmap_tasks_types::TasksAlertsCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksAlertsCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksAlertsCapability
+pub fn jmap_tasks_types::TasksAlertsCapability::eq(&self, &jmap_tasks_types::TasksAlertsCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksAlertsCapability
+pub fn jmap_tasks_types::TasksAlertsCapability::default() -> jmap_tasks_types::TasksAlertsCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksAlertsCapability
+pub fn jmap_tasks_types::TasksAlertsCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksAlertsCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksAlertsCapability
+pub fn jmap_tasks_types::TasksAlertsCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksAlertsCapability
+pub fn jmap_tasks_types::TasksAlertsCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksAssigneesAccountCapability
+pub jmap_tasks_types::TasksAssigneesAccountCapability::max_participants_per_task: core::option::Option<u64>
+impl core::clone::Clone for jmap_tasks_types::TasksAssigneesAccountCapability
+pub fn jmap_tasks_types::TasksAssigneesAccountCapability::clone(&self) -> jmap_tasks_types::TasksAssigneesAccountCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksAssigneesAccountCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksAssigneesAccountCapability
+pub fn jmap_tasks_types::TasksAssigneesAccountCapability::eq(&self, &jmap_tasks_types::TasksAssigneesAccountCapability) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TasksAssigneesAccountCapability
+pub fn jmap_tasks_types::TasksAssigneesAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksAssigneesAccountCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksAssigneesAccountCapability
+pub fn jmap_tasks_types::TasksAssigneesAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksAssigneesAccountCapability
+pub fn jmap_tasks_types::TasksAssigneesAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksAssigneesCapability
+impl core::clone::Clone for jmap_tasks_types::TasksAssigneesCapability
+pub fn jmap_tasks_types::TasksAssigneesCapability::clone(&self) -> jmap_tasks_types::TasksAssigneesCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksAssigneesCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksAssigneesCapability
+pub fn jmap_tasks_types::TasksAssigneesCapability::eq(&self, &jmap_tasks_types::TasksAssigneesCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksAssigneesCapability
+pub fn jmap_tasks_types::TasksAssigneesCapability::default() -> jmap_tasks_types::TasksAssigneesCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksAssigneesCapability
+pub fn jmap_tasks_types::TasksAssigneesCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksAssigneesCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksAssigneesCapability
+pub fn jmap_tasks_types::TasksAssigneesCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksAssigneesCapability
+pub fn jmap_tasks_types::TasksAssigneesCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksCapability
+impl core::clone::Clone for jmap_tasks_types::TasksCapability
+pub fn jmap_tasks_types::TasksCapability::clone(&self) -> jmap_tasks_types::TasksCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksCapability
+pub fn jmap_tasks_types::TasksCapability::eq(&self, &jmap_tasks_types::TasksCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksCapability
+pub fn jmap_tasks_types::TasksCapability::default() -> jmap_tasks_types::TasksCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksCapability
+pub fn jmap_tasks_types::TasksCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksCapability
+pub fn jmap_tasks_types::TasksCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksCapability
+pub fn jmap_tasks_types::TasksCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+impl core::clone::Clone for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesAccountCapability::clone(&self) -> jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesAccountCapability::eq(&self, &jmap_tasks_types::TasksCustomTimeZonesAccountCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesAccountCapability::default() -> jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksCustomTimeZonesAccountCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksCustomTimeZonesCapability
+impl core::clone::Clone for jmap_tasks_types::TasksCustomTimeZonesCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesCapability::clone(&self) -> jmap_tasks_types::TasksCustomTimeZonesCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksCustomTimeZonesCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksCustomTimeZonesCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesCapability::eq(&self, &jmap_tasks_types::TasksCustomTimeZonesCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksCustomTimeZonesCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesCapability::default() -> jmap_tasks_types::TasksCustomTimeZonesCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksCustomTimeZonesCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksCustomTimeZonesCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksCustomTimeZonesCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksCustomTimeZonesCapability
+pub fn jmap_tasks_types::TasksCustomTimeZonesCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksMultilingualAccountCapability
+impl core::clone::Clone for jmap_tasks_types::TasksMultilingualAccountCapability
+pub fn jmap_tasks_types::TasksMultilingualAccountCapability::clone(&self) -> jmap_tasks_types::TasksMultilingualAccountCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksMultilingualAccountCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksMultilingualAccountCapability
+pub fn jmap_tasks_types::TasksMultilingualAccountCapability::eq(&self, &jmap_tasks_types::TasksMultilingualAccountCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksMultilingualAccountCapability
+pub fn jmap_tasks_types::TasksMultilingualAccountCapability::default() -> jmap_tasks_types::TasksMultilingualAccountCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksMultilingualAccountCapability
+pub fn jmap_tasks_types::TasksMultilingualAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksMultilingualAccountCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksMultilingualAccountCapability
+pub fn jmap_tasks_types::TasksMultilingualAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksMultilingualAccountCapability
+pub fn jmap_tasks_types::TasksMultilingualAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksMultilingualCapability
+impl core::clone::Clone for jmap_tasks_types::TasksMultilingualCapability
+pub fn jmap_tasks_types::TasksMultilingualCapability::clone(&self) -> jmap_tasks_types::TasksMultilingualCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksMultilingualCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksMultilingualCapability
+pub fn jmap_tasks_types::TasksMultilingualCapability::eq(&self, &jmap_tasks_types::TasksMultilingualCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksMultilingualCapability
+pub fn jmap_tasks_types::TasksMultilingualCapability::default() -> jmap_tasks_types::TasksMultilingualCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksMultilingualCapability
+pub fn jmap_tasks_types::TasksMultilingualCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksMultilingualCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksMultilingualCapability
+pub fn jmap_tasks_types::TasksMultilingualCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksMultilingualCapability
+pub fn jmap_tasks_types::TasksMultilingualCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksRecurrencesAccountCapability
+pub jmap_tasks_types::TasksRecurrencesAccountCapability::max_expanded_query_duration: jmap_jscalendar_types::Duration
+impl core::clone::Clone for jmap_tasks_types::TasksRecurrencesAccountCapability
+pub fn jmap_tasks_types::TasksRecurrencesAccountCapability::clone(&self) -> jmap_tasks_types::TasksRecurrencesAccountCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksRecurrencesAccountCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksRecurrencesAccountCapability
+pub fn jmap_tasks_types::TasksRecurrencesAccountCapability::eq(&self, &jmap_tasks_types::TasksRecurrencesAccountCapability) -> bool
+impl core::fmt::Debug for jmap_tasks_types::TasksRecurrencesAccountCapability
+pub fn jmap_tasks_types::TasksRecurrencesAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksRecurrencesAccountCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksRecurrencesAccountCapability
+pub fn jmap_tasks_types::TasksRecurrencesAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksRecurrencesAccountCapability
+pub fn jmap_tasks_types::TasksRecurrencesAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_tasks_types::TasksRecurrencesCapability
+impl core::clone::Clone for jmap_tasks_types::TasksRecurrencesCapability
+pub fn jmap_tasks_types::TasksRecurrencesCapability::clone(&self) -> jmap_tasks_types::TasksRecurrencesCapability
+impl core::cmp::Eq for jmap_tasks_types::TasksRecurrencesCapability
+impl core::cmp::PartialEq for jmap_tasks_types::TasksRecurrencesCapability
+pub fn jmap_tasks_types::TasksRecurrencesCapability::eq(&self, &jmap_tasks_types::TasksRecurrencesCapability) -> bool
+impl core::default::Default for jmap_tasks_types::TasksRecurrencesCapability
+pub fn jmap_tasks_types::TasksRecurrencesCapability::default() -> jmap_tasks_types::TasksRecurrencesCapability
+impl core::fmt::Debug for jmap_tasks_types::TasksRecurrencesCapability
+pub fn jmap_tasks_types::TasksRecurrencesCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_tasks_types::TasksRecurrencesCapability
+impl serde_core::ser::Serialize for jmap_tasks_types::TasksRecurrencesCapability
+pub fn jmap_tasks_types::TasksRecurrencesCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_tasks_types::TasksRecurrencesCapability
+pub fn jmap_tasks_types::TasksRecurrencesCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_tasks_types::JMAP_TASKS_ALERTS_URI: &str
+pub const jmap_tasks_types::JMAP_TASKS_ASSIGNEES_URI: &str
+pub const jmap_tasks_types::JMAP_TASKS_CUSTOMTIMEZONES_URI: &str
+pub const jmap_tasks_types::JMAP_TASKS_MULTILINGUAL_URI: &str
+pub const jmap_tasks_types::JMAP_TASKS_RECURRENCES_URI: &str
+pub const jmap_tasks_types::JMAP_TASKS_URI: &str
+pub const jmap_tasks_types::PER_USER_TASK_PROPERTIES: &[&str]
+pub fn jmap_tasks_types::is_per_user_task_property(&str) -> bool
+pub type jmap_tasks_types::TaskFilter = jmap_types::query::Filter<jmap_tasks_types::TaskFilterCondition>
+pub type jmap_tasks_types::TaskNotificationFilter = jmap_types::query::Filter<jmap_tasks_types::TaskNotificationFilterCondition>

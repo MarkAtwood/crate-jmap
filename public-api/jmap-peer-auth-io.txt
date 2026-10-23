@@ -1,0 +1,158 @@
+pub mod jmap_peer_auth_io
+pub use jmap_peer_auth_io::hickory_resolver
+pub use jmap_peer_auth_io::jmap_peer_auth
+pub use jmap_peer_auth_io::reqwest
+#[non_exhaustive] pub enum jmap_peer_auth_io::Error
+pub jmap_peer_auth_io::Error::Fetch(jmap_peer_auth_io::FetchError)
+pub jmap_peer_auth_io::Error::InvalidSession
+pub jmap_peer_auth_io::Error::Rejected(jmap_peer_auth::signature::Rejection)
+pub jmap_peer_auth_io::Error::ReplayStore(jmap_peer_auth_io::ReplayStoreError)
+impl core::convert::From<jmap_peer_auth::signature::Rejection> for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::from(jmap_peer_auth::signature::Rejection) -> Self
+impl core::convert::From<jmap_peer_auth_io::FetchError> for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::from(jmap_peer_auth_io::FetchError) -> Self
+impl core::convert::From<jmap_peer_auth_io::ReplayStoreError> for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::from(jmap_peer_auth_io::ReplayStoreError) -> Self
+impl core::error::Error for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_peer_auth_io::FetchError
+pub jmap_peer_auth_io::FetchError::Status(u16)
+pub jmap_peer_auth_io::FetchError::TooLarge
+pub jmap_peer_auth_io::FetchError::Transport(alloc::boxed::Box<(dyn core::error::Error + core::marker::Send + core::marker::Sync)>)
+impl core::convert::From<jmap_peer_auth_io::FetchError> for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::from(jmap_peer_auth_io::FetchError) -> Self
+impl core::error::Error for jmap_peer_auth_io::FetchError
+pub fn jmap_peer_auth_io::FetchError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_peer_auth_io::FetchError
+pub fn jmap_peer_auth_io::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_peer_auth_io::FetchError
+pub fn jmap_peer_auth_io::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_peer_auth_io::Authenticated
+pub jmap_peer_auth_io::Authenticated::key: jmap_peer_auth::keys::PeerSigningKey
+pub jmap_peer_auth_io::Authenticated::owner_user_id: core::option::Option<alloc::string::String>
+pub jmap_peer_auth_io::Authenticated::peer_domain: jmap_peer_auth::domain::PeerDomain
+impl core::clone::Clone for jmap_peer_auth_io::Authenticated
+pub fn jmap_peer_auth_io::Authenticated::clone(&self) -> jmap_peer_auth_io::Authenticated
+impl core::cmp::Eq for jmap_peer_auth_io::Authenticated
+impl core::cmp::PartialEq for jmap_peer_auth_io::Authenticated
+pub fn jmap_peer_auth_io::Authenticated::eq(&self, &jmap_peer_auth_io::Authenticated) -> bool
+impl core::fmt::Debug for jmap_peer_auth_io::Authenticated
+pub fn jmap_peer_auth_io::Authenticated::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth_io::Authenticated
+pub struct jmap_peer_auth_io::DnsAnswer
+pub jmap_peer_auth_io::DnsAnswer::answer: jmap_peer_auth::keys::DnssecAnswer
+pub jmap_peer_auth_io::DnsAnswer::ttl: core::option::Option<core::time::Duration>
+impl core::clone::Clone for jmap_peer_auth_io::DnsAnswer
+pub fn jmap_peer_auth_io::DnsAnswer::clone(&self) -> jmap_peer_auth_io::DnsAnswer
+impl core::cmp::Eq for jmap_peer_auth_io::DnsAnswer
+impl core::cmp::PartialEq for jmap_peer_auth_io::DnsAnswer
+pub fn jmap_peer_auth_io::DnsAnswer::eq(&self, &jmap_peer_auth_io::DnsAnswer) -> bool
+impl core::fmt::Debug for jmap_peer_auth_io::DnsAnswer
+pub fn jmap_peer_auth_io::DnsAnswer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth_io::DnsAnswer
+pub struct jmap_peer_auth_io::HickoryLookup
+impl jmap_peer_auth_io::HickoryLookup
+pub fn jmap_peer_auth_io::HickoryLookup::from_system_conf() -> core::result::Result<Self, hickory_net::error::NetError>
+pub fn jmap_peer_auth_io::HickoryLookup::new(hickory_resolver::config::ResolverConfig, hickory_resolver::config::ResolverOpts) -> Self
+impl core::clone::Clone for jmap_peer_auth_io::HickoryLookup
+pub fn jmap_peer_auth_io::HickoryLookup::clone(&self) -> jmap_peer_auth_io::HickoryLookup
+impl core::fmt::Debug for jmap_peer_auth_io::HickoryLookup
+pub fn jmap_peer_auth_io::HickoryLookup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_peer_auth_io::DnssecLookup for jmap_peer_auth_io::HickoryLookup
+pub async fn jmap_peer_auth_io::HickoryLookup::txt(&self, &str) -> jmap_peer_auth_io::DnsAnswer
+pub struct jmap_peer_auth_io::HttpsFetcher
+impl jmap_peer_auth_io::HttpsFetcher
+pub fn jmap_peer_auth_io::HttpsFetcher::new() -> core::result::Result<Self, jmap_peer_auth_io::FetchError>
+pub fn jmap_peer_auth_io::HttpsFetcher::with_policy(reqwest::async_impl::client::ClientBuilder, impl core::ops::function::Fn(core::net::ip_addr::IpAddr) -> bool + core::marker::Send + core::marker::Sync + 'static) -> core::result::Result<Self, jmap_peer_auth_io::FetchError>
+impl core::clone::Clone for jmap_peer_auth_io::HttpsFetcher
+pub fn jmap_peer_auth_io::HttpsFetcher::clone(&self) -> jmap_peer_auth_io::HttpsFetcher
+impl core::fmt::Debug for jmap_peer_auth_io::HttpsFetcher
+pub fn jmap_peer_auth_io::HttpsFetcher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_peer_auth_io::Fetch for jmap_peer_auth_io::HttpsFetcher
+pub async fn jmap_peer_auth_io::HttpsFetcher::get(&self, &str) -> core::result::Result<jmap_peer_auth_io::Response, jmap_peer_auth_io::FetchError>
+pub struct jmap_peer_auth_io::MemoryReplayStore
+impl jmap_peer_auth_io::MemoryReplayStore
+pub fn jmap_peer_auth_io::MemoryReplayStore::new() -> Self
+pub fn jmap_peer_auth_io::MemoryReplayStore::started_at(std::time::SystemTime) -> Self
+impl core::default::Default for jmap_peer_auth_io::MemoryReplayStore
+pub fn jmap_peer_auth_io::MemoryReplayStore::default() -> Self
+impl core::fmt::Debug for jmap_peer_auth_io::MemoryReplayStore
+pub fn jmap_peer_auth_io::MemoryReplayStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_peer_auth_io::ReplayStore for jmap_peer_auth_io::MemoryReplayStore
+pub async fn jmap_peer_auth_io::MemoryReplayStore::insert(&self, &jmap_peer_auth::domain::PeerDomain, &str, std::time::SystemTime, std::time::SystemTime) -> core::result::Result<bool, jmap_peer_auth_io::ReplayStoreError>
+pub fn jmap_peer_auth_io::MemoryReplayStore::remembers_since(&self) -> core::option::Option<std::time::SystemTime>
+pub struct jmap_peer_auth_io::NoDnssec
+impl core::clone::Clone for jmap_peer_auth_io::NoDnssec
+pub fn jmap_peer_auth_io::NoDnssec::clone(&self) -> jmap_peer_auth_io::NoDnssec
+impl core::default::Default for jmap_peer_auth_io::NoDnssec
+pub fn jmap_peer_auth_io::NoDnssec::default() -> jmap_peer_auth_io::NoDnssec
+impl core::fmt::Debug for jmap_peer_auth_io::NoDnssec
+pub fn jmap_peer_auth_io::NoDnssec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_peer_auth_io::NoDnssec
+impl jmap_peer_auth_io::DnssecLookup for jmap_peer_auth_io::NoDnssec
+pub async fn jmap_peer_auth_io::NoDnssec::txt(&self, &str) -> jmap_peer_auth_io::DnsAnswer
+#[non_exhaustive] pub struct jmap_peer_auth_io::PeerKeySet
+pub jmap_peer_auth_io::PeerKeySet::keys: alloc::vec::Vec<jmap_peer_auth::keys::PeerSigningKey>
+pub jmap_peer_auth_io::PeerKeySet::owner_user_id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_peer_auth_io::PeerKeySet
+pub fn jmap_peer_auth_io::PeerKeySet::clone(&self) -> jmap_peer_auth_io::PeerKeySet
+impl core::cmp::Eq for jmap_peer_auth_io::PeerKeySet
+impl core::cmp::PartialEq for jmap_peer_auth_io::PeerKeySet
+pub fn jmap_peer_auth_io::PeerKeySet::eq(&self, &jmap_peer_auth_io::PeerKeySet) -> bool
+impl core::fmt::Debug for jmap_peer_auth_io::PeerKeySet
+pub fn jmap_peer_auth_io::PeerKeySet::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth_io::PeerKeySet
+pub struct jmap_peer_auth_io::PeerKeys<F, D>
+impl<F: jmap_peer_auth_io::Fetch, D: jmap_peer_auth_io::DnssecLookup> jmap_peer_auth_io::PeerKeys<F, D>
+pub async fn jmap_peer_auth_io::PeerKeys<F, D>::keys_for(&self, &jmap_peer_auth::domain::PeerDomain, &str) -> core::result::Result<jmap_peer_auth_io::PeerKeySet, jmap_peer_auth_io::Error>
+pub fn jmap_peer_auth_io::PeerKeys<F, D>::new(F, D) -> Self
+pub fn jmap_peer_auth_io::PeerKeys<F, D>::with_clock(self, impl core::ops::function::Fn() -> std::time::Instant + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn jmap_peer_auth_io::PeerKeys<F, D>::with_max_entries(self, core::num::nonzero::NonZeroUsize) -> Self
+impl<F: core::fmt::Debug, D: core::fmt::Debug> core::fmt::Debug for jmap_peer_auth_io::PeerKeys<F, D>
+pub fn jmap_peer_auth_io::PeerKeys<F, D>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_peer_auth_io::ReplayStoreError(pub alloc::boxed::Box<(dyn core::error::Error + core::marker::Send + core::marker::Sync)>)
+impl core::convert::From<jmap_peer_auth_io::ReplayStoreError> for jmap_peer_auth_io::Error
+pub fn jmap_peer_auth_io::Error::from(jmap_peer_auth_io::ReplayStoreError) -> Self
+impl core::error::Error for jmap_peer_auth_io::ReplayStoreError
+pub fn jmap_peer_auth_io::ReplayStoreError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_peer_auth_io::ReplayStoreError
+pub fn jmap_peer_auth_io::ReplayStoreError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_peer_auth_io::ReplayStoreError
+pub fn jmap_peer_auth_io::ReplayStoreError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_peer_auth_io::Response
+pub jmap_peer_auth_io::Response::body: alloc::vec::Vec<u8>
+pub jmap_peer_auth_io::Response::headers: http::header::map::HeaderMap
+impl core::clone::Clone for jmap_peer_auth_io::Response
+pub fn jmap_peer_auth_io::Response::clone(&self) -> jmap_peer_auth_io::Response
+impl core::default::Default for jmap_peer_auth_io::Response
+pub fn jmap_peer_auth_io::Response::default() -> jmap_peer_auth_io::Response
+impl core::fmt::Debug for jmap_peer_auth_io::Response
+pub fn jmap_peer_auth_io::Response::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_peer_auth_io::DEFAULT_MAX_ENTRIES: core::num::nonzero::NonZeroUsize
+pub const jmap_peer_auth_io::FETCH_TIMEOUT: core::time::Duration
+pub const jmap_peer_auth_io::MAX_BODY_BYTES: usize
+pub const jmap_peer_auth_io::MAX_CACHE_LIFETIME: core::time::Duration
+pub const jmap_peer_auth_io::MAX_REDIRECTS: usize
+pub const jmap_peer_auth_io::REFETCH_INTERVAL: core::time::Duration
+pub trait jmap_peer_auth_io::DnssecLookup: core::marker::Send + core::marker::Sync
+pub fn jmap_peer_auth_io::DnssecLookup::txt(&self, &str) -> impl core::future::future::Future<Output = jmap_peer_auth_io::DnsAnswer> + core::marker::Send
+impl jmap_peer_auth_io::DnssecLookup for jmap_peer_auth_io::HickoryLookup
+pub async fn jmap_peer_auth_io::HickoryLookup::txt(&self, &str) -> jmap_peer_auth_io::DnsAnswer
+impl jmap_peer_auth_io::DnssecLookup for jmap_peer_auth_io::NoDnssec
+pub async fn jmap_peer_auth_io::NoDnssec::txt(&self, &str) -> jmap_peer_auth_io::DnsAnswer
+pub trait jmap_peer_auth_io::Fetch: core::marker::Send + core::marker::Sync
+pub fn jmap_peer_auth_io::Fetch::get(&self, &str) -> impl core::future::future::Future<Output = core::result::Result<jmap_peer_auth_io::Response, jmap_peer_auth_io::FetchError>> + core::marker::Send
+impl jmap_peer_auth_io::Fetch for jmap_peer_auth_io::HttpsFetcher
+pub async fn jmap_peer_auth_io::HttpsFetcher::get(&self, &str) -> core::result::Result<jmap_peer_auth_io::Response, jmap_peer_auth_io::FetchError>
+pub trait jmap_peer_auth_io::ReplayStore: core::marker::Send + core::marker::Sync
+pub fn jmap_peer_auth_io::ReplayStore::insert(&self, &jmap_peer_auth::domain::PeerDomain, &str, std::time::SystemTime, std::time::SystemTime) -> impl core::future::future::Future<Output = core::result::Result<bool, jmap_peer_auth_io::ReplayStoreError>> + core::marker::Send
+pub fn jmap_peer_auth_io::ReplayStore::remembers_since(&self) -> core::option::Option<std::time::SystemTime>
+impl jmap_peer_auth_io::ReplayStore for jmap_peer_auth_io::MemoryReplayStore
+pub async fn jmap_peer_auth_io::MemoryReplayStore::insert(&self, &jmap_peer_auth::domain::PeerDomain, &str, std::time::SystemTime, std::time::SystemTime) -> core::result::Result<bool, jmap_peer_auth_io::ReplayStoreError>
+pub fn jmap_peer_auth_io::MemoryReplayStore::remembers_since(&self) -> core::option::Option<std::time::SystemTime>
+pub async fn jmap_peer_auth_io::authenticate<F: jmap_peer_auth_io::Fetch, D: jmap_peer_auth_io::DnssecLookup, S: jmap_peer_auth_io::ReplayStore>(jmap_peer_auth::signature::Request<'_>, std::time::SystemTime, &jmap_peer_auth_io::PeerKeys<F, D>, &S) -> core::result::Result<jmap_peer_auth_io::Authenticated, jmap_peer_auth_io::Error>
+pub fn jmap_peer_auth_io::freshness_lifetime(&http::header::map::HeaderMap, std::time::SystemTime) -> core::time::Duration

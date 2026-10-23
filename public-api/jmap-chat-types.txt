@@ -1,0 +1,1958 @@
+pub mod jmap_chat_types
+pub use jmap_chat_types::Filter
+pub use jmap_chat_types::FilterOperator
+pub use jmap_chat_types::Operator
+#[non_exhaustive] pub enum jmap_chat_types::BodyType
+pub jmap_chat_types::BodyType::Markdown
+pub jmap_chat_types::BodyType::Other(alloc::string::String)
+pub jmap_chat_types::BodyType::Plain
+pub jmap_chat_types::BodyType::Rich
+impl jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::clone(&self) -> jmap_chat_types::BodyType
+impl core::cmp::Eq for jmap_chat_types::BodyType
+impl core::cmp::PartialEq for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::eq(&self, &jmap_chat_types::BodyType) -> bool
+impl core::convert::From<&str> for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::BodyType
+impl serde_core::ser::Serialize for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::BodyType
+pub fn jmap_chat_types::BodyType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::BroadcastScope
+pub jmap_chat_types::BroadcastScope::Admins
+pub jmap_chat_types::BroadcastScope::Everyone
+pub jmap_chat_types::BroadcastScope::Here
+pub jmap_chat_types::BroadcastScope::Other(alloc::string::String)
+impl jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::clone(&self) -> jmap_chat_types::BroadcastScope
+impl core::cmp::Eq for jmap_chat_types::BroadcastScope
+impl core::cmp::PartialEq for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::eq(&self, &jmap_chat_types::BroadcastScope) -> bool
+impl core::convert::From<&str> for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::BroadcastScope
+impl serde_core::ser::Serialize for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::BroadcastScope
+pub fn jmap_chat_types::BroadcastScope::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChannelPermissionTargetType
+pub jmap_chat_types::ChannelPermissionTargetType::Member
+pub jmap_chat_types::ChannelPermissionTargetType::Other(alloc::string::String)
+pub jmap_chat_types::ChannelPermissionTargetType::Role
+impl jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::clone(&self) -> jmap_chat_types::ChannelPermissionTargetType
+impl core::cmp::Eq for jmap_chat_types::ChannelPermissionTargetType
+impl core::cmp::PartialEq for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::eq(&self, &jmap_chat_types::ChannelPermissionTargetType) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChannelPermissionTargetType
+impl serde_core::ser::Serialize for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChannelPermissionTargetType
+pub fn jmap_chat_types::ChannelPermissionTargetType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatCapabilityRole
+pub jmap_chat_types::ChatCapabilityRole::Other(alloc::string::String)
+pub jmap_chat_types::ChatCapabilityRole::Owner
+pub jmap_chat_types::ChatCapabilityRole::Peer
+impl core::clone::Clone for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::clone(&self) -> jmap_chat_types::ChatCapabilityRole
+impl core::cmp::Eq for jmap_chat_types::ChatCapabilityRole
+impl core::cmp::PartialEq for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::eq(&self, &jmap_chat_types::ChatCapabilityRole) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatCapabilityRole
+impl serde_core::ser::Serialize for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatCapabilityRole
+pub fn jmap_chat_types::ChatCapabilityRole::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatComparatorProperty
+pub jmap_chat_types::ChatComparatorProperty::LastMessageAt
+pub jmap_chat_types::ChatComparatorProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::clone(&self) -> jmap_chat_types::ChatComparatorProperty
+impl core::cmp::Eq for jmap_chat_types::ChatComparatorProperty
+impl core::cmp::PartialEq for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::eq(&self, &jmap_chat_types::ChatComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatComparatorProperty
+impl serde_core::ser::Serialize for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatComparatorProperty
+pub fn jmap_chat_types::ChatComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatContactComparatorProperty
+pub jmap_chat_types::ChatContactComparatorProperty::LastActiveAt
+pub jmap_chat_types::ChatContactComparatorProperty::LastSeenAt
+pub jmap_chat_types::ChatContactComparatorProperty::Login
+pub jmap_chat_types::ChatContactComparatorProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::clone(&self) -> jmap_chat_types::ChatContactComparatorProperty
+impl core::cmp::Eq for jmap_chat_types::ChatContactComparatorProperty
+impl core::cmp::PartialEq for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::eq(&self, &jmap_chat_types::ChatContactComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatContactComparatorProperty
+impl serde_core::ser::Serialize for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatContactComparatorProperty
+pub fn jmap_chat_types::ChatContactComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatContactProperty
+pub jmap_chat_types::ChatContactProperty::Blocked
+pub jmap_chat_types::ChatContactProperty::DisplayName
+pub jmap_chat_types::ChatContactProperty::Endpoints
+pub jmap_chat_types::ChatContactProperty::FirstSeenAt
+pub jmap_chat_types::ChatContactProperty::Id
+pub jmap_chat_types::ChatContactProperty::Identity
+pub jmap_chat_types::ChatContactProperty::LastActiveAt
+pub jmap_chat_types::ChatContactProperty::LastSeenAt
+pub jmap_chat_types::ChatContactProperty::Login
+pub jmap_chat_types::ChatContactProperty::Presence
+pub jmap_chat_types::ChatContactProperty::StatusEmoji
+pub jmap_chat_types::ChatContactProperty::StatusText
+impl core::clone::Clone for jmap_chat_types::ChatContactProperty
+pub fn jmap_chat_types::ChatContactProperty::clone(&self) -> jmap_chat_types::ChatContactProperty
+impl core::cmp::Eq for jmap_chat_types::ChatContactProperty
+impl core::cmp::PartialEq for jmap_chat_types::ChatContactProperty
+pub fn jmap_chat_types::ChatContactProperty::eq(&self, &jmap_chat_types::ChatContactProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatContactProperty
+pub fn jmap_chat_types::ChatContactProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatContactProperty
+pub fn jmap_chat_types::ChatContactProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatContactProperty
+#[non_exhaustive] pub enum jmap_chat_types::ChatKind
+pub jmap_chat_types::ChatKind::Channel
+pub jmap_chat_types::ChatKind::Direct
+pub jmap_chat_types::ChatKind::Group
+pub jmap_chat_types::ChatKind::Other(alloc::string::String)
+impl core::clone::Clone for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::clone(&self) -> jmap_chat_types::ChatKind
+impl core::cmp::Eq for jmap_chat_types::ChatKind
+impl core::cmp::PartialEq for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::eq(&self, &jmap_chat_types::ChatKind) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatKind
+impl serde_core::ser::Serialize for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatKind
+pub fn jmap_chat_types::ChatKind::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatMemberRole
+pub jmap_chat_types::ChatMemberRole::Admin
+pub jmap_chat_types::ChatMemberRole::Member
+pub jmap_chat_types::ChatMemberRole::Other(alloc::string::String)
+impl jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::clone(&self) -> jmap_chat_types::ChatMemberRole
+impl core::cmp::PartialEq for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::eq(&self, &jmap_chat_types::ChatMemberRole) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatMemberRole
+impl serde_core::ser::Serialize for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatMemberRole
+pub fn jmap_chat_types::ChatMemberRole::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatPermission
+pub jmap_chat_types::ChatPermission::Ban
+pub jmap_chat_types::ChatPermission::ManageChannels
+pub jmap_chat_types::ChatPermission::ManageMembers
+pub jmap_chat_types::ChatPermission::ManageRoles
+pub jmap_chat_types::ChatPermission::ManageSpace
+pub jmap_chat_types::ChatPermission::MentionBroadcast
+pub jmap_chat_types::ChatPermission::Other(alloc::string::String)
+pub jmap_chat_types::ChatPermission::Pin
+pub jmap_chat_types::ChatPermission::Send
+pub jmap_chat_types::ChatPermission::StartCall
+pub jmap_chat_types::ChatPermission::View
+impl jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::clone(&self) -> jmap_chat_types::ChatPermission
+impl core::cmp::Eq for jmap_chat_types::ChatPermission
+impl core::cmp::PartialEq for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::eq(&self, &jmap_chat_types::ChatPermission) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatPermission
+impl serde_core::ser::Serialize for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatPermission
+pub fn jmap_chat_types::ChatPermission::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatProperty
+pub jmap_chat_types::ChatProperty::AvatarBlobId
+pub jmap_chat_types::ChatProperty::CategoryId
+pub jmap_chat_types::ChatProperty::ContactId
+pub jmap_chat_types::ChatProperty::CreatedAt
+pub jmap_chat_types::ChatProperty::Description
+pub jmap_chat_types::ChatProperty::Id
+pub jmap_chat_types::ChatProperty::Kind
+pub jmap_chat_types::ChatProperty::LastMessageAt
+pub jmap_chat_types::ChatProperty::Members
+pub jmap_chat_types::ChatProperty::MessageExpirySeconds
+pub jmap_chat_types::ChatProperty::MuteUntil
+pub jmap_chat_types::ChatProperty::Muted
+pub jmap_chat_types::ChatProperty::Name
+pub jmap_chat_types::ChatProperty::PermissionOverrides
+pub jmap_chat_types::ChatProperty::PinnedMessageIds
+pub jmap_chat_types::ChatProperty::Position
+pub jmap_chat_types::ChatProperty::ReceiptSharing
+pub jmap_chat_types::ChatProperty::ReceiveTypingIndicators
+pub jmap_chat_types::ChatProperty::SlowModeSeconds
+pub jmap_chat_types::ChatProperty::SpaceId
+pub jmap_chat_types::ChatProperty::Topic
+pub jmap_chat_types::ChatProperty::UnreadCount
+impl core::clone::Clone for jmap_chat_types::ChatProperty
+pub fn jmap_chat_types::ChatProperty::clone(&self) -> jmap_chat_types::ChatProperty
+impl core::cmp::Eq for jmap_chat_types::ChatProperty
+impl core::cmp::PartialEq for jmap_chat_types::ChatProperty
+pub fn jmap_chat_types::ChatProperty::eq(&self, &jmap_chat_types::ChatProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatProperty
+pub fn jmap_chat_types::ChatProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatProperty
+pub fn jmap_chat_types::ChatProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatProperty
+pub enum jmap_chat_types::Clearable<T>
+pub jmap_chat_types::Clearable::Clear
+pub jmap_chat_types::Clearable::Set(T)
+impl<'de, T: serde_core::de::DeserializeOwned> serde_core::de::Deserialize<'de> for jmap_chat_types::Clearable<T>
+pub fn jmap_chat_types::Clearable<T>::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_chat_types::Clearable<T>
+pub fn jmap_chat_types::Clearable<T>::clone(&self) -> jmap_chat_types::Clearable<T>
+impl<T: core::cmp::PartialEq> core::cmp::PartialEq for jmap_chat_types::Clearable<T>
+pub fn jmap_chat_types::Clearable<T>::eq(&self, &jmap_chat_types::Clearable<T>) -> bool
+impl<T: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_chat_types::Clearable<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_chat_types::Clearable<T>
+pub fn jmap_chat_types::Clearable<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T: serde_core::ser::Serialize> serde_core::ser::Serialize for jmap_chat_types::Clearable<T>
+pub fn jmap_chat_types::Clearable<T>::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::CustomEmojiComparatorProperty
+pub jmap_chat_types::CustomEmojiComparatorProperty::Name
+pub jmap_chat_types::CustomEmojiComparatorProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::clone(&self) -> jmap_chat_types::CustomEmojiComparatorProperty
+impl core::cmp::Eq for jmap_chat_types::CustomEmojiComparatorProperty
+impl core::cmp::PartialEq for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::eq(&self, &jmap_chat_types::CustomEmojiComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::CustomEmojiComparatorProperty
+impl serde_core::ser::Serialize for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::CustomEmojiComparatorProperty
+pub fn jmap_chat_types::CustomEmojiComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::CustomEmojiProperty
+pub jmap_chat_types::CustomEmojiProperty::BlobId
+pub jmap_chat_types::CustomEmojiProperty::CreatedAt
+pub jmap_chat_types::CustomEmojiProperty::CreatedBy
+pub jmap_chat_types::CustomEmojiProperty::Id
+pub jmap_chat_types::CustomEmojiProperty::Name
+pub jmap_chat_types::CustomEmojiProperty::SpaceId
+impl core::clone::Clone for jmap_chat_types::CustomEmojiProperty
+pub fn jmap_chat_types::CustomEmojiProperty::clone(&self) -> jmap_chat_types::CustomEmojiProperty
+impl core::cmp::Eq for jmap_chat_types::CustomEmojiProperty
+impl core::cmp::PartialEq for jmap_chat_types::CustomEmojiProperty
+pub fn jmap_chat_types::CustomEmojiProperty::eq(&self, &jmap_chat_types::CustomEmojiProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::CustomEmojiProperty
+pub fn jmap_chat_types::CustomEmojiProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::CustomEmojiProperty
+pub fn jmap_chat_types::CustomEmojiProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::CustomEmojiProperty
+#[non_exhaustive] pub enum jmap_chat_types::DeliveryState
+pub jmap_chat_types::DeliveryState::Delivered
+pub jmap_chat_types::DeliveryState::Failed
+pub jmap_chat_types::DeliveryState::Other(alloc::string::String)
+pub jmap_chat_types::DeliveryState::Pending
+pub jmap_chat_types::DeliveryState::Received
+impl core::clone::Clone for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::clone(&self) -> jmap_chat_types::DeliveryState
+impl core::cmp::Eq for jmap_chat_types::DeliveryState
+impl core::cmp::PartialEq for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::eq(&self, &jmap_chat_types::DeliveryState) -> bool
+impl core::convert::From<&str> for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::DeliveryState
+impl serde_core::ser::Serialize for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::DeliveryState
+pub fn jmap_chat_types::DeliveryState::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::EphemeralDataType
+pub jmap_chat_types::EphemeralDataType::Other(alloc::string::String)
+pub jmap_chat_types::EphemeralDataType::Presence
+pub jmap_chat_types::EphemeralDataType::Scene
+pub jmap_chat_types::EphemeralDataType::Typing
+pub jmap_chat_types::EphemeralDataType::Vtc
+impl jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::clone(&self) -> jmap_chat_types::EphemeralDataType
+impl core::cmp::Eq for jmap_chat_types::EphemeralDataType
+impl core::cmp::PartialEq for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::eq(&self, &jmap_chat_types::EphemeralDataType) -> bool
+impl core::convert::From<&str> for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::EphemeralDataType
+impl serde_core::ser::Serialize for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::EphemeralDataType
+pub fn jmap_chat_types::EphemeralDataType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::EphemeralMessage
+pub jmap_chat_types::EphemeralMessage::Disable(jmap_chat_types::ChatStreamDisable)
+pub jmap_chat_types::EphemeralMessage::Enable(jmap_chat_types::ChatStreamEnable)
+pub jmap_chat_types::EphemeralMessage::Presence(jmap_chat_types::ChatPresenceEvent)
+pub jmap_chat_types::EphemeralMessage::Typing(jmap_chat_types::ChatTypingEvent)
+pub jmap_chat_types::EphemeralMessage::Unknown
+pub jmap_chat_types::EphemeralMessage::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::EphemeralMessage::Unknown::type_name: alloc::string::String
+impl core::clone::Clone for jmap_chat_types::EphemeralMessage
+pub fn jmap_chat_types::EphemeralMessage::clone(&self) -> jmap_chat_types::EphemeralMessage
+impl core::cmp::PartialEq for jmap_chat_types::EphemeralMessage
+pub fn jmap_chat_types::EphemeralMessage::eq(&self, &jmap_chat_types::EphemeralMessage) -> bool
+impl core::fmt::Debug for jmap_chat_types::EphemeralMessage
+pub fn jmap_chat_types::EphemeralMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::EphemeralMessage
+impl serde_core::ser::Serialize for jmap_chat_types::EphemeralMessage
+pub fn jmap_chat_types::EphemeralMessage::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::EphemeralMessage
+pub fn jmap_chat_types::EphemeralMessage::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::MessageComparatorProperty
+pub jmap_chat_types::MessageComparatorProperty::Other(alloc::string::String)
+pub jmap_chat_types::MessageComparatorProperty::ReceivedAt
+impl core::clone::Clone for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::clone(&self) -> jmap_chat_types::MessageComparatorProperty
+impl core::cmp::Eq for jmap_chat_types::MessageComparatorProperty
+impl core::cmp::PartialEq for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::eq(&self, &jmap_chat_types::MessageComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::MessageComparatorProperty
+impl serde_core::ser::Serialize for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::MessageComparatorProperty
+pub fn jmap_chat_types::MessageComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::MessageProperty
+pub jmap_chat_types::MessageProperty::Actions
+pub jmap_chat_types::MessageProperty::Attachments
+pub jmap_chat_types::MessageProperty::Body
+pub jmap_chat_types::MessageProperty::BodyType
+pub jmap_chat_types::MessageProperty::BurnOnRead
+pub jmap_chat_types::MessageProperty::ChatId
+pub jmap_chat_types::MessageProperty::DeletedAt
+pub jmap_chat_types::MessageProperty::DeletedForAll
+pub jmap_chat_types::MessageProperty::DeliveredAt
+pub jmap_chat_types::MessageProperty::DeliveryReceipts
+pub jmap_chat_types::MessageProperty::DeliveryState
+pub jmap_chat_types::MessageProperty::EditHistory
+pub jmap_chat_types::MessageProperty::EditedAt
+pub jmap_chat_types::MessageProperty::Id
+pub jmap_chat_types::MessageProperty::Mentions
+pub jmap_chat_types::MessageProperty::Reactions
+pub jmap_chat_types::MessageProperty::ReadAt
+pub jmap_chat_types::MessageProperty::ReadDisposition
+pub jmap_chat_types::MessageProperty::ReceivedAt
+pub jmap_chat_types::MessageProperty::ReplyCount
+pub jmap_chat_types::MessageProperty::ReplyTo
+pub jmap_chat_types::MessageProperty::SenderExpiresAt
+pub jmap_chat_types::MessageProperty::SenderId
+pub jmap_chat_types::MessageProperty::SenderMsgId
+pub jmap_chat_types::MessageProperty::SentAt
+pub jmap_chat_types::MessageProperty::ThreadRootId
+pub jmap_chat_types::MessageProperty::UnreadReplyCount
+impl core::clone::Clone for jmap_chat_types::MessageProperty
+pub fn jmap_chat_types::MessageProperty::clone(&self) -> jmap_chat_types::MessageProperty
+impl core::cmp::Eq for jmap_chat_types::MessageProperty
+impl core::cmp::PartialEq for jmap_chat_types::MessageProperty
+pub fn jmap_chat_types::MessageProperty::eq(&self, &jmap_chat_types::MessageProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::MessageProperty
+pub fn jmap_chat_types::MessageProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::MessageProperty
+pub fn jmap_chat_types::MessageProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::MessageProperty
+#[non_exhaustive] pub enum jmap_chat_types::Presence
+pub jmap_chat_types::Presence::Away
+pub jmap_chat_types::Presence::Busy
+pub jmap_chat_types::Presence::Invisible
+pub jmap_chat_types::Presence::Offline
+pub jmap_chat_types::Presence::Online
+pub jmap_chat_types::Presence::Other(alloc::string::String)
+impl core::clone::Clone for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::clone(&self) -> jmap_chat_types::Presence
+impl core::cmp::Eq for jmap_chat_types::Presence
+impl core::cmp::PartialEq for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::eq(&self, &jmap_chat_types::Presence) -> bool
+impl core::convert::From<&str> for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::Presence
+impl serde_core::ser::Serialize for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Presence
+pub fn jmap_chat_types::Presence::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::PresenceStatusProperty
+pub jmap_chat_types::PresenceStatusProperty::ExpiresAt
+pub jmap_chat_types::PresenceStatusProperty::Id
+pub jmap_chat_types::PresenceStatusProperty::Presence
+pub jmap_chat_types::PresenceStatusProperty::ReceiptSharing
+pub jmap_chat_types::PresenceStatusProperty::StatusEmoji
+pub jmap_chat_types::PresenceStatusProperty::StatusText
+pub jmap_chat_types::PresenceStatusProperty::UpdatedAt
+impl core::clone::Clone for jmap_chat_types::PresenceStatusProperty
+pub fn jmap_chat_types::PresenceStatusProperty::clone(&self) -> jmap_chat_types::PresenceStatusProperty
+impl core::cmp::Eq for jmap_chat_types::PresenceStatusProperty
+impl core::cmp::PartialEq for jmap_chat_types::PresenceStatusProperty
+pub fn jmap_chat_types::PresenceStatusProperty::eq(&self, &jmap_chat_types::PresenceStatusProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::PresenceStatusProperty
+pub fn jmap_chat_types::PresenceStatusProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::PresenceStatusProperty
+pub fn jmap_chat_types::PresenceStatusProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::PresenceStatusProperty
+#[non_exhaustive] pub enum jmap_chat_types::ReadDisposition
+pub jmap_chat_types::ReadDisposition::Deleted
+pub jmap_chat_types::ReadDisposition::Displayed
+pub jmap_chat_types::ReadDisposition::Other(alloc::string::String)
+pub jmap_chat_types::ReadDisposition::Processed
+impl core::clone::Clone for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::clone(&self) -> jmap_chat_types::ReadDisposition
+impl core::cmp::Eq for jmap_chat_types::ReadDisposition
+impl core::cmp::PartialEq for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::eq(&self, &jmap_chat_types::ReadDisposition) -> bool
+impl core::convert::From<&str> for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ReadDisposition
+impl serde_core::ser::Serialize for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ReadDisposition
+pub fn jmap_chat_types::ReadDisposition::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ReadPositionProperty
+pub jmap_chat_types::ReadPositionProperty::ChatId
+pub jmap_chat_types::ReadPositionProperty::Id
+pub jmap_chat_types::ReadPositionProperty::LastReadAt
+pub jmap_chat_types::ReadPositionProperty::LastReadMessageId
+impl core::clone::Clone for jmap_chat_types::ReadPositionProperty
+pub fn jmap_chat_types::ReadPositionProperty::clone(&self) -> jmap_chat_types::ReadPositionProperty
+impl core::cmp::Eq for jmap_chat_types::ReadPositionProperty
+impl core::cmp::PartialEq for jmap_chat_types::ReadPositionProperty
+pub fn jmap_chat_types::ReadPositionProperty::eq(&self, &jmap_chat_types::ReadPositionProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::ReadPositionProperty
+pub fn jmap_chat_types::ReadPositionProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ReadPositionProperty
+pub fn jmap_chat_types::ReadPositionProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ReadPositionProperty
+#[non_exhaustive] pub enum jmap_chat_types::SpaceBanProperty
+pub jmap_chat_types::SpaceBanProperty::BannedBy
+pub jmap_chat_types::SpaceBanProperty::CreatedAt
+pub jmap_chat_types::SpaceBanProperty::ExpiresAt
+pub jmap_chat_types::SpaceBanProperty::Id
+pub jmap_chat_types::SpaceBanProperty::Reason
+pub jmap_chat_types::SpaceBanProperty::SpaceId
+pub jmap_chat_types::SpaceBanProperty::UserId
+impl core::clone::Clone for jmap_chat_types::SpaceBanProperty
+pub fn jmap_chat_types::SpaceBanProperty::clone(&self) -> jmap_chat_types::SpaceBanProperty
+impl core::cmp::Eq for jmap_chat_types::SpaceBanProperty
+impl core::cmp::PartialEq for jmap_chat_types::SpaceBanProperty
+pub fn jmap_chat_types::SpaceBanProperty::eq(&self, &jmap_chat_types::SpaceBanProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpaceBanProperty
+pub fn jmap_chat_types::SpaceBanProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::SpaceBanProperty
+pub fn jmap_chat_types::SpaceBanProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceBanProperty
+#[non_exhaustive] pub enum jmap_chat_types::SpaceComparatorProperty
+pub jmap_chat_types::SpaceComparatorProperty::Name
+pub jmap_chat_types::SpaceComparatorProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::clone(&self) -> jmap_chat_types::SpaceComparatorProperty
+impl core::cmp::Eq for jmap_chat_types::SpaceComparatorProperty
+impl core::cmp::PartialEq for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::eq(&self, &jmap_chat_types::SpaceComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceComparatorProperty
+impl serde_core::ser::Serialize for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceComparatorProperty
+pub fn jmap_chat_types::SpaceComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::SpaceInviteProperty
+pub jmap_chat_types::SpaceInviteProperty::Code
+pub jmap_chat_types::SpaceInviteProperty::CreatedAt
+pub jmap_chat_types::SpaceInviteProperty::CreatedBy
+pub jmap_chat_types::SpaceInviteProperty::DefaultChannelId
+pub jmap_chat_types::SpaceInviteProperty::ExpiresAt
+pub jmap_chat_types::SpaceInviteProperty::Id
+pub jmap_chat_types::SpaceInviteProperty::MaxUses
+pub jmap_chat_types::SpaceInviteProperty::SpaceId
+pub jmap_chat_types::SpaceInviteProperty::Uses
+impl core::clone::Clone for jmap_chat_types::SpaceInviteProperty
+pub fn jmap_chat_types::SpaceInviteProperty::clone(&self) -> jmap_chat_types::SpaceInviteProperty
+impl core::cmp::Eq for jmap_chat_types::SpaceInviteProperty
+impl core::cmp::PartialEq for jmap_chat_types::SpaceInviteProperty
+pub fn jmap_chat_types::SpaceInviteProperty::eq(&self, &jmap_chat_types::SpaceInviteProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpaceInviteProperty
+pub fn jmap_chat_types::SpaceInviteProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::SpaceInviteProperty
+pub fn jmap_chat_types::SpaceInviteProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceInviteProperty
+#[non_exhaustive] pub enum jmap_chat_types::SpacePatchOp
+pub jmap_chat_types::SpacePatchOp::AddCategory(jmap_chat_types::CategoryCreate)
+pub jmap_chat_types::SpacePatchOp::AddChannel(jmap_chat_types::ChannelCreate)
+pub jmap_chat_types::SpacePatchOp::AddMember(jmap_chat_types::MemberCreate)
+pub jmap_chat_types::SpacePatchOp::AddRole(jmap_chat_types::SpaceRole)
+pub jmap_chat_types::SpacePatchOp::RemoveCategory(jmap_types::id::Id)
+pub jmap_chat_types::SpacePatchOp::RemoveChannel(jmap_types::id::Id)
+pub jmap_chat_types::SpacePatchOp::RemoveMember(jmap_types::id::Id)
+pub jmap_chat_types::SpacePatchOp::RemoveRole(jmap_types::id::Id)
+pub jmap_chat_types::SpacePatchOp::UpdateCategory
+pub jmap_chat_types::SpacePatchOp::UpdateCategory::id: jmap_types::id::Id
+pub jmap_chat_types::SpacePatchOp::UpdateCategory::patch: jmap_chat_types::CategoryPatch
+pub jmap_chat_types::SpacePatchOp::UpdateChannel
+pub jmap_chat_types::SpacePatchOp::UpdateChannel::id: jmap_types::id::Id
+pub jmap_chat_types::SpacePatchOp::UpdateChannel::patch: jmap_chat_types::ChannelPatch
+pub jmap_chat_types::SpacePatchOp::UpdateMember
+pub jmap_chat_types::SpacePatchOp::UpdateMember::patch: jmap_chat_types::MemberPatch
+pub jmap_chat_types::SpacePatchOp::UpdateMember::user_id: jmap_types::id::Id
+pub jmap_chat_types::SpacePatchOp::UpdateRole
+pub jmap_chat_types::SpacePatchOp::UpdateRole::id: jmap_types::id::Id
+pub jmap_chat_types::SpacePatchOp::UpdateRole::patch: jmap_chat_types::RolePatch
+impl core::clone::Clone for jmap_chat_types::SpacePatchOp
+pub fn jmap_chat_types::SpacePatchOp::clone(&self) -> jmap_chat_types::SpacePatchOp
+impl core::cmp::PartialEq for jmap_chat_types::SpacePatchOp
+pub fn jmap_chat_types::SpacePatchOp::eq(&self, &jmap_chat_types::SpacePatchOp) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpacePatchOp
+pub fn jmap_chat_types::SpacePatchOp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpacePatchOp
+#[non_exhaustive] pub enum jmap_chat_types::SpaceProperty
+pub jmap_chat_types::SpaceProperty::Categories
+pub jmap_chat_types::SpaceProperty::CreatedAt
+pub jmap_chat_types::SpaceProperty::Description
+pub jmap_chat_types::SpaceProperty::IconBlobId
+pub jmap_chat_types::SpaceProperty::Id
+pub jmap_chat_types::SpaceProperty::IsPublic
+pub jmap_chat_types::SpaceProperty::IsPubliclyPreviewable
+pub jmap_chat_types::SpaceProperty::MemberCount
+pub jmap_chat_types::SpaceProperty::Members
+pub jmap_chat_types::SpaceProperty::Name
+pub jmap_chat_types::SpaceProperty::Roles
+pub jmap_chat_types::SpaceProperty::UncategorizedChannelIds
+impl core::clone::Clone for jmap_chat_types::SpaceProperty
+pub fn jmap_chat_types::SpaceProperty::clone(&self) -> jmap_chat_types::SpaceProperty
+impl core::cmp::Eq for jmap_chat_types::SpaceProperty
+impl core::cmp::PartialEq for jmap_chat_types::SpaceProperty
+pub fn jmap_chat_types::SpaceProperty::eq(&self, &jmap_chat_types::SpaceProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpaceProperty
+pub fn jmap_chat_types::SpaceProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::SpaceProperty
+pub fn jmap_chat_types::SpaceProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceProperty
+#[non_exhaustive] pub enum jmap_chat_types::SpanType
+pub jmap_chat_types::SpanType::Blockquote
+pub jmap_chat_types::SpanType::Bold
+pub jmap_chat_types::SpanType::BoldItalic
+pub jmap_chat_types::SpanType::Broadcast
+pub jmap_chat_types::SpanType::Code
+pub jmap_chat_types::SpanType::Codeblock
+pub jmap_chat_types::SpanType::Italic
+pub jmap_chat_types::SpanType::Link
+pub jmap_chat_types::SpanType::Mention
+pub jmap_chat_types::SpanType::Other(alloc::string::String)
+pub jmap_chat_types::SpanType::Text
+impl core::clone::Clone for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::clone(&self) -> jmap_chat_types::SpanType
+impl core::cmp::Eq for jmap_chat_types::SpanType
+impl core::cmp::PartialEq for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::eq(&self, &jmap_chat_types::SpanType) -> bool
+impl core::convert::From<&str> for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpanType
+impl serde_core::ser::Serialize for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpanType
+pub fn jmap_chat_types::SpanType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::UrgencyLevel
+pub jmap_chat_types::UrgencyLevel::High
+pub jmap_chat_types::UrgencyLevel::Low
+pub jmap_chat_types::UrgencyLevel::Normal
+pub jmap_chat_types::UrgencyLevel::Other(alloc::string::String)
+pub jmap_chat_types::UrgencyLevel::VeryLow
+impl jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::to_urgency(&self) -> core::option::Option<jmap_types::push::Urgency>
+impl core::clone::Clone for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::clone(&self) -> jmap_chat_types::UrgencyLevel
+impl core::cmp::Eq for jmap_chat_types::UrgencyLevel
+impl core::cmp::PartialEq for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::eq(&self, &jmap_chat_types::UrgencyLevel) -> bool
+impl core::convert::From<&str> for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::UrgencyLevel
+impl serde_core::ser::Serialize for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::UrgencyLevel
+pub fn jmap_chat_types::UrgencyLevel::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_chat_types::Attachment
+pub jmap_chat_types::Attachment::blob_id: jmap_types::id::Id
+pub jmap_chat_types::Attachment::content_type: alloc::string::String
+pub jmap_chat_types::Attachment::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Attachment::filename: alloc::string::String
+pub jmap_chat_types::Attachment::filenode_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Attachment::sha256: jmap_cid_types::digest::Sha256
+pub jmap_chat_types::Attachment::size: u64
+pub jmap_chat_types::Attachment::thumbnail_blob_id: core::option::Option<jmap_types::id::Id>
+impl core::clone::Clone for jmap_chat_types::Attachment
+pub fn jmap_chat_types::Attachment::clone(&self) -> jmap_chat_types::Attachment
+impl core::cmp::Eq for jmap_chat_types::Attachment
+impl core::cmp::PartialEq for jmap_chat_types::Attachment
+pub fn jmap_chat_types::Attachment::eq(&self, &jmap_chat_types::Attachment) -> bool
+impl core::fmt::Debug for jmap_chat_types::Attachment
+pub fn jmap_chat_types::Attachment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Attachment
+impl serde_core::ser::Serialize for jmap_chat_types::Attachment
+pub fn jmap_chat_types::Attachment::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Attachment
+pub fn jmap_chat_types::Attachment::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::AttachmentCreate
+pub jmap_chat_types::AttachmentCreate::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::AttachmentCreate::content_type: core::option::Option<alloc::string::String>
+pub jmap_chat_types::AttachmentCreate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::AttachmentCreate::filename: core::option::Option<alloc::string::String>
+pub jmap_chat_types::AttachmentCreate::filenode_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::AttachmentCreate::sha256: core::option::Option<jmap_cid_types::digest::Sha256>
+pub jmap_chat_types::AttachmentCreate::size: core::option::Option<u64>
+pub jmap_chat_types::AttachmentCreate::thumbnail_blob_id: core::option::Option<jmap_types::id::Id>
+impl core::clone::Clone for jmap_chat_types::AttachmentCreate
+pub fn jmap_chat_types::AttachmentCreate::clone(&self) -> jmap_chat_types::AttachmentCreate
+impl core::cmp::Eq for jmap_chat_types::AttachmentCreate
+impl core::cmp::PartialEq for jmap_chat_types::AttachmentCreate
+pub fn jmap_chat_types::AttachmentCreate::eq(&self, &jmap_chat_types::AttachmentCreate) -> bool
+impl core::default::Default for jmap_chat_types::AttachmentCreate
+pub fn jmap_chat_types::AttachmentCreate::default() -> jmap_chat_types::AttachmentCreate
+impl core::fmt::Debug for jmap_chat_types::AttachmentCreate
+pub fn jmap_chat_types::AttachmentCreate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::AttachmentCreate
+impl serde_core::ser::Serialize for jmap_chat_types::AttachmentCreate
+pub fn jmap_chat_types::AttachmentCreate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::AttachmentCreate
+pub fn jmap_chat_types::AttachmentCreate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::AvailabilityMetadata
+pub jmap_chat_types::AvailabilityMetadata::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::AvailabilityMetadata::lookup_window: core::option::Option<jmap_chat_types::LookupWindow>
+impl core::clone::Clone for jmap_chat_types::AvailabilityMetadata
+pub fn jmap_chat_types::AvailabilityMetadata::clone(&self) -> jmap_chat_types::AvailabilityMetadata
+impl core::cmp::PartialEq for jmap_chat_types::AvailabilityMetadata
+pub fn jmap_chat_types::AvailabilityMetadata::eq(&self, &jmap_chat_types::AvailabilityMetadata) -> bool
+impl core::default::Default for jmap_chat_types::AvailabilityMetadata
+pub fn jmap_chat_types::AvailabilityMetadata::default() -> jmap_chat_types::AvailabilityMetadata
+impl core::fmt::Debug for jmap_chat_types::AvailabilityMetadata
+pub fn jmap_chat_types::AvailabilityMetadata::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::AvailabilityMetadata
+impl serde_core::ser::Serialize for jmap_chat_types::AvailabilityMetadata
+pub fn jmap_chat_types::AvailabilityMetadata::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::AvailabilityMetadata
+pub fn jmap_chat_types::AvailabilityMetadata::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::BroadcastMention
+pub jmap_chat_types::BroadcastMention::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::BroadcastMention::scope: jmap_chat_types::BroadcastScope
+impl jmap_chat_types::BroadcastMention
+pub fn jmap_chat_types::BroadcastMention::new(jmap_chat_types::BroadcastScope) -> Self
+impl core::clone::Clone for jmap_chat_types::BroadcastMention
+pub fn jmap_chat_types::BroadcastMention::clone(&self) -> jmap_chat_types::BroadcastMention
+impl core::cmp::Eq for jmap_chat_types::BroadcastMention
+impl core::cmp::PartialEq for jmap_chat_types::BroadcastMention
+pub fn jmap_chat_types::BroadcastMention::eq(&self, &jmap_chat_types::BroadcastMention) -> bool
+impl core::fmt::Debug for jmap_chat_types::BroadcastMention
+pub fn jmap_chat_types::BroadcastMention::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::BroadcastMention
+impl serde_core::ser::Serialize for jmap_chat_types::BroadcastMention
+pub fn jmap_chat_types::BroadcastMention::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::BroadcastMention
+pub fn jmap_chat_types::BroadcastMention::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::CalendarEventMetadata
+pub jmap_chat_types::CalendarEventMetadata::ends_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::CalendarEventMetadata::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::CalendarEventMetadata::location: core::option::Option<alloc::string::String>
+pub jmap_chat_types::CalendarEventMetadata::participant_count: core::option::Option<u64>
+pub jmap_chat_types::CalendarEventMetadata::starts_at: core::option::Option<jmap_types::id::UTCDate>
+impl core::clone::Clone for jmap_chat_types::CalendarEventMetadata
+pub fn jmap_chat_types::CalendarEventMetadata::clone(&self) -> jmap_chat_types::CalendarEventMetadata
+impl core::cmp::PartialEq for jmap_chat_types::CalendarEventMetadata
+pub fn jmap_chat_types::CalendarEventMetadata::eq(&self, &jmap_chat_types::CalendarEventMetadata) -> bool
+impl core::default::Default for jmap_chat_types::CalendarEventMetadata
+pub fn jmap_chat_types::CalendarEventMetadata::default() -> jmap_chat_types::CalendarEventMetadata
+impl core::fmt::Debug for jmap_chat_types::CalendarEventMetadata
+pub fn jmap_chat_types::CalendarEventMetadata::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::CalendarEventMetadata
+impl serde_core::ser::Serialize for jmap_chat_types::CalendarEventMetadata
+pub fn jmap_chat_types::CalendarEventMetadata::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::CalendarEventMetadata
+pub fn jmap_chat_types::CalendarEventMetadata::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Category
+pub jmap_chat_types::Category::channel_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_chat_types::Category::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Category::id: jmap_types::id::Id
+pub jmap_chat_types::Category::name: alloc::string::String
+pub jmap_chat_types::Category::position: u64
+impl core::clone::Clone for jmap_chat_types::Category
+pub fn jmap_chat_types::Category::clone(&self) -> jmap_chat_types::Category
+impl core::cmp::PartialEq for jmap_chat_types::Category
+pub fn jmap_chat_types::Category::eq(&self, &jmap_chat_types::Category) -> bool
+impl core::fmt::Debug for jmap_chat_types::Category
+pub fn jmap_chat_types::Category::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Category
+impl serde_core::ser::Serialize for jmap_chat_types::Category
+pub fn jmap_chat_types::Category::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Category
+pub fn jmap_chat_types::Category::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::CategoryCreate
+pub jmap_chat_types::CategoryCreate::channel_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_chat_types::CategoryCreate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::CategoryCreate::name: alloc::string::String
+pub jmap_chat_types::CategoryCreate::position: core::option::Option<u64>
+impl core::clone::Clone for jmap_chat_types::CategoryCreate
+pub fn jmap_chat_types::CategoryCreate::clone(&self) -> jmap_chat_types::CategoryCreate
+impl core::cmp::PartialEq for jmap_chat_types::CategoryCreate
+pub fn jmap_chat_types::CategoryCreate::eq(&self, &jmap_chat_types::CategoryCreate) -> bool
+impl core::fmt::Debug for jmap_chat_types::CategoryCreate
+pub fn jmap_chat_types::CategoryCreate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::CategoryCreate
+impl serde_core::ser::Serialize for jmap_chat_types::CategoryCreate
+pub fn jmap_chat_types::CategoryCreate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::CategoryCreate
+pub fn jmap_chat_types::CategoryCreate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::CategoryPatch
+pub jmap_chat_types::CategoryPatch::channel_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_chat_types::CategoryPatch::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::CategoryPatch::name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::CategoryPatch::position: core::option::Option<u64>
+impl core::clone::Clone for jmap_chat_types::CategoryPatch
+pub fn jmap_chat_types::CategoryPatch::clone(&self) -> jmap_chat_types::CategoryPatch
+impl core::cmp::PartialEq for jmap_chat_types::CategoryPatch
+pub fn jmap_chat_types::CategoryPatch::eq(&self, &jmap_chat_types::CategoryPatch) -> bool
+impl core::default::Default for jmap_chat_types::CategoryPatch
+pub fn jmap_chat_types::CategoryPatch::default() -> jmap_chat_types::CategoryPatch
+impl core::fmt::Debug for jmap_chat_types::CategoryPatch
+pub fn jmap_chat_types::CategoryPatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::CategoryPatch
+impl serde_core::ser::Serialize for jmap_chat_types::CategoryPatch
+pub fn jmap_chat_types::CategoryPatch::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::CategoryPatch
+pub fn jmap_chat_types::CategoryPatch::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChannelCreate
+pub jmap_chat_types::ChannelCreate::category_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::ChannelCreate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChannelCreate::name: alloc::string::String
+pub jmap_chat_types::ChannelCreate::position: core::option::Option<u64>
+pub jmap_chat_types::ChannelCreate::topic: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_chat_types::ChannelCreate
+pub fn jmap_chat_types::ChannelCreate::clone(&self) -> jmap_chat_types::ChannelCreate
+impl core::cmp::PartialEq for jmap_chat_types::ChannelCreate
+pub fn jmap_chat_types::ChannelCreate::eq(&self, &jmap_chat_types::ChannelCreate) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChannelCreate
+pub fn jmap_chat_types::ChannelCreate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChannelCreate
+impl serde_core::ser::Serialize for jmap_chat_types::ChannelCreate
+pub fn jmap_chat_types::ChannelCreate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChannelCreate
+pub fn jmap_chat_types::ChannelCreate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChannelPatch
+pub jmap_chat_types::ChannelPatch::category_id: core::option::Option<jmap_chat_types::Clearable<jmap_types::id::Id>>
+pub jmap_chat_types::ChannelPatch::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChannelPatch::name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChannelPatch::permission_overrides: core::option::Option<jmap_chat_types::Clearable<alloc::vec::Vec<jmap_chat_types::ChannelPermission>>>
+pub jmap_chat_types::ChannelPatch::position: core::option::Option<u64>
+pub jmap_chat_types::ChannelPatch::slow_mode_seconds: core::option::Option<jmap_chat_types::Clearable<u64>>
+pub jmap_chat_types::ChannelPatch::topic: core::option::Option<jmap_chat_types::Clearable<alloc::string::String>>
+impl core::clone::Clone for jmap_chat_types::ChannelPatch
+pub fn jmap_chat_types::ChannelPatch::clone(&self) -> jmap_chat_types::ChannelPatch
+impl core::cmp::PartialEq for jmap_chat_types::ChannelPatch
+pub fn jmap_chat_types::ChannelPatch::eq(&self, &jmap_chat_types::ChannelPatch) -> bool
+impl core::default::Default for jmap_chat_types::ChannelPatch
+pub fn jmap_chat_types::ChannelPatch::default() -> jmap_chat_types::ChannelPatch
+impl core::fmt::Debug for jmap_chat_types::ChannelPatch
+pub fn jmap_chat_types::ChannelPatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChannelPatch
+impl serde_core::ser::Serialize for jmap_chat_types::ChannelPatch
+pub fn jmap_chat_types::ChannelPatch::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChannelPatch
+pub fn jmap_chat_types::ChannelPatch::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChannelPermission
+pub jmap_chat_types::ChannelPermission::allow: alloc::vec::Vec<jmap_chat_types::ChatPermission>
+pub jmap_chat_types::ChannelPermission::deny: alloc::vec::Vec<jmap_chat_types::ChatPermission>
+pub jmap_chat_types::ChannelPermission::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChannelPermission::target_id: jmap_types::id::Id
+pub jmap_chat_types::ChannelPermission::target_type: jmap_chat_types::ChannelPermissionTargetType
+impl core::clone::Clone for jmap_chat_types::ChannelPermission
+pub fn jmap_chat_types::ChannelPermission::clone(&self) -> jmap_chat_types::ChannelPermission
+impl core::cmp::PartialEq for jmap_chat_types::ChannelPermission
+pub fn jmap_chat_types::ChannelPermission::eq(&self, &jmap_chat_types::ChannelPermission) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChannelPermission
+pub fn jmap_chat_types::ChannelPermission::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChannelPermission
+impl serde_core::ser::Serialize for jmap_chat_types::ChannelPermission
+pub fn jmap_chat_types::ChannelPermission::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChannelPermission
+pub fn jmap_chat_types::ChannelPermission::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Chat
+pub jmap_chat_types::Chat::active_call_account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Chat::active_call_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Chat::avatar_blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Chat::category_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Chat::closed_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Chat::contact_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Chat::created_at: jmap_types::id::UTCDate
+pub jmap_chat_types::Chat::description: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Chat::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Chat::id: jmap_types::id::Id
+pub jmap_chat_types::Chat::kind: jmap_chat_types::ChatKind
+pub jmap_chat_types::Chat::last_message_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Chat::members: core::option::Option<alloc::vec::Vec<jmap_chat_types::ChatMember>>
+pub jmap_chat_types::Chat::message_expiry_seconds: core::option::Option<u64>
+pub jmap_chat_types::Chat::mute_until: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Chat::muted: bool
+pub jmap_chat_types::Chat::name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Chat::permission_overrides: core::option::Option<alloc::vec::Vec<jmap_chat_types::ChannelPermission>>
+pub jmap_chat_types::Chat::pinned_message_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_chat_types::Chat::position: core::option::Option<u64>
+pub jmap_chat_types::Chat::receipt_sharing: core::option::Option<bool>
+pub jmap_chat_types::Chat::receive_typing_indicators: bool
+pub jmap_chat_types::Chat::slow_mode_seconds: core::option::Option<u64>
+pub jmap_chat_types::Chat::space_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Chat::topic: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Chat::unread_count: u64
+impl jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::new(jmap_types::id::Id, jmap_chat_types::ChatKind, jmap_types::id::UTCDate, u64, alloc::vec::Vec<jmap_types::id::Id>, bool, bool) -> Self
+impl core::clone::Clone for jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::clone(&self) -> jmap_chat_types::Chat
+impl core::cmp::PartialEq for jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::eq(&self, &jmap_chat_types::Chat) -> bool
+impl core::fmt::Debug for jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Chat
+impl jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::serialize<__S>(&jmap_chat_types::Chat, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl jmap_types::backend::GetObject for jmap_chat_types::Chat
+impl jmap_types::backend::JmapObject for jmap_chat_types::Chat
+pub type jmap_chat_types::Chat::Property = jmap_chat_types::ChatProperty
+pub const jmap_chat_types::Chat::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_chat_types::Chat
+pub type jmap_chat_types::Chat::Comparator = jmap_chat_types::Comparator<jmap_chat_types::ChatComparatorProperty>
+pub type jmap_chat_types::Chat::Filter = jmap_types::query::Filter<jmap_chat_types::ChatFilterCondition>
+impl jmap_types::backend::SetObject for jmap_chat_types::Chat
+pub type jmap_chat_types::Chat::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::Chat::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::Chat::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::Chat::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::deserialize<__D>(__D) -> core::result::Result<jmap_chat_types::Chat, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Chat
+pub fn jmap_chat_types::Chat::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_chat_types::ChatCalendarsCapability
+pub jmap_chat_types::ChatCalendarsCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatCalendarsCapability::may_bind_calendar: bool
+pub jmap_chat_types::ChatCalendarsCapability::supports_availability_lookup: bool
+pub jmap_chat_types::ChatCalendarsCapability::supports_ics_parsing: bool
+impl core::clone::Clone for jmap_chat_types::ChatCalendarsCapability
+pub fn jmap_chat_types::ChatCalendarsCapability::clone(&self) -> jmap_chat_types::ChatCalendarsCapability
+impl core::default::Default for jmap_chat_types::ChatCalendarsCapability
+pub fn jmap_chat_types::ChatCalendarsCapability::default() -> jmap_chat_types::ChatCalendarsCapability
+impl core::fmt::Debug for jmap_chat_types::ChatCalendarsCapability
+pub fn jmap_chat_types::ChatCalendarsCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_chat_types::ChatCalendarsCapability
+pub fn jmap_chat_types::ChatCalendarsCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatCalendarsCapability
+pub fn jmap_chat_types::ChatCalendarsCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatCapability
+pub jmap_chat_types::ChatCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatCapability::max_attachment_bytes: u64
+pub jmap_chat_types::ChatCapability::max_attachments_per_message: u64
+pub jmap_chat_types::ChatCapability::max_body_bytes: u64
+pub jmap_chat_types::ChatCapability::role: core::option::Option<jmap_chat_types::ChatCapabilityRole>
+pub jmap_chat_types::ChatCapability::supported_body_types: alloc::vec::Vec<jmap_chat_types::BodyType>
+pub jmap_chat_types::ChatCapability::supports_threads: bool
+impl core::clone::Clone for jmap_chat_types::ChatCapability
+pub fn jmap_chat_types::ChatCapability::clone(&self) -> jmap_chat_types::ChatCapability
+impl core::default::Default for jmap_chat_types::ChatCapability
+pub fn jmap_chat_types::ChatCapability::default() -> jmap_chat_types::ChatCapability
+impl core::fmt::Debug for jmap_chat_types::ChatCapability
+pub fn jmap_chat_types::ChatCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_chat_types::ChatCapability
+pub fn jmap_chat_types::ChatCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatCapability
+pub fn jmap_chat_types::ChatCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatContact
+pub jmap_chat_types::ChatContact::blocked: bool
+pub jmap_chat_types::ChatContact::did: core::option::Option<jmap_did_types::did::Did>
+pub jmap_chat_types::ChatContact::display_name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatContact::endpoints: core::option::Option<alloc::vec::Vec<jmap_chat_types::Endpoint>>
+pub jmap_chat_types::ChatContact::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatContact::first_seen_at: jmap_types::id::UTCDate
+pub jmap_chat_types::ChatContact::id: jmap_types::id::Id
+pub jmap_chat_types::ChatContact::identity: alloc::string::String
+pub jmap_chat_types::ChatContact::last_active_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::ChatContact::last_seen_at: jmap_types::id::UTCDate
+pub jmap_chat_types::ChatContact::login: alloc::string::String
+pub jmap_chat_types::ChatContact::presence: core::option::Option<jmap_chat_types::Presence>
+pub jmap_chat_types::ChatContact::status_emoji: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatContact::status_text: core::option::Option<alloc::string::String>
+impl jmap_chat_types::ChatContact
+pub fn jmap_chat_types::ChatContact::has_consistent_did(&self) -> bool
+pub fn jmap_chat_types::ChatContact::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, jmap_types::id::UTCDate, jmap_types::id::UTCDate, bool) -> Self
+impl core::clone::Clone for jmap_chat_types::ChatContact
+pub fn jmap_chat_types::ChatContact::clone(&self) -> jmap_chat_types::ChatContact
+impl core::cmp::PartialEq for jmap_chat_types::ChatContact
+pub fn jmap_chat_types::ChatContact::eq(&self, &jmap_chat_types::ChatContact) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatContact
+pub fn jmap_chat_types::ChatContact::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatContact
+impl jmap_types::backend::GetObject for jmap_chat_types::ChatContact
+impl jmap_types::backend::JmapObject for jmap_chat_types::ChatContact
+pub type jmap_chat_types::ChatContact::Property = jmap_chat_types::ChatContactProperty
+pub const jmap_chat_types::ChatContact::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_chat_types::ChatContact
+pub type jmap_chat_types::ChatContact::Comparator = jmap_chat_types::Comparator<jmap_chat_types::ChatContactComparatorProperty>
+pub type jmap_chat_types::ChatContact::Filter = jmap_types::query::Filter<jmap_chat_types::ChatContactFilterCondition>
+impl jmap_types::backend::SetObject for jmap_chat_types::ChatContact
+pub type jmap_chat_types::ChatContact::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::ChatContact::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::ChatContact::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::ChatContact::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::ChatContact
+pub fn jmap_chat_types::ChatContact::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatContact
+pub fn jmap_chat_types::ChatContact::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatContactFilterCondition
+pub jmap_chat_types::ChatContactFilterCondition::blocked: core::option::Option<bool>
+pub jmap_chat_types::ChatContactFilterCondition::identity: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatContactFilterCondition::presence: core::option::Option<jmap_chat_types::Presence>
+impl core::clone::Clone for jmap_chat_types::ChatContactFilterCondition
+pub fn jmap_chat_types::ChatContactFilterCondition::clone(&self) -> jmap_chat_types::ChatContactFilterCondition
+impl core::cmp::Eq for jmap_chat_types::ChatContactFilterCondition
+impl core::cmp::PartialEq for jmap_chat_types::ChatContactFilterCondition
+pub fn jmap_chat_types::ChatContactFilterCondition::eq(&self, &jmap_chat_types::ChatContactFilterCondition) -> bool
+impl core::default::Default for jmap_chat_types::ChatContactFilterCondition
+pub fn jmap_chat_types::ChatContactFilterCondition::default() -> jmap_chat_types::ChatContactFilterCondition
+impl core::fmt::Debug for jmap_chat_types::ChatContactFilterCondition
+pub fn jmap_chat_types::ChatContactFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatContactFilterCondition
+impl serde_core::ser::Serialize for jmap_chat_types::ChatContactFilterCondition
+pub fn jmap_chat_types::ChatContactFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatContactFilterCondition
+pub fn jmap_chat_types::ChatContactFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatFilenodeCapability
+pub jmap_chat_types::ChatFilenodeCapability::auto_create_file_tree: bool
+pub jmap_chat_types::ChatFilenodeCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatFilenodeCapability::max_space_storage_bytes: core::option::Option<u64>
+impl core::clone::Clone for jmap_chat_types::ChatFilenodeCapability
+pub fn jmap_chat_types::ChatFilenodeCapability::clone(&self) -> jmap_chat_types::ChatFilenodeCapability
+impl core::default::Default for jmap_chat_types::ChatFilenodeCapability
+pub fn jmap_chat_types::ChatFilenodeCapability::default() -> jmap_chat_types::ChatFilenodeCapability
+impl core::fmt::Debug for jmap_chat_types::ChatFilenodeCapability
+pub fn jmap_chat_types::ChatFilenodeCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_chat_types::ChatFilenodeCapability
+pub fn jmap_chat_types::ChatFilenodeCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatFilenodeCapability
+pub fn jmap_chat_types::ChatFilenodeCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatFilterCondition
+pub jmap_chat_types::ChatFilterCondition::kind: core::option::Option<jmap_chat_types::ChatKind>
+pub jmap_chat_types::ChatFilterCondition::muted: core::option::Option<bool>
+impl core::clone::Clone for jmap_chat_types::ChatFilterCondition
+pub fn jmap_chat_types::ChatFilterCondition::clone(&self) -> jmap_chat_types::ChatFilterCondition
+impl core::cmp::Eq for jmap_chat_types::ChatFilterCondition
+impl core::cmp::PartialEq for jmap_chat_types::ChatFilterCondition
+pub fn jmap_chat_types::ChatFilterCondition::eq(&self, &jmap_chat_types::ChatFilterCondition) -> bool
+impl core::default::Default for jmap_chat_types::ChatFilterCondition
+pub fn jmap_chat_types::ChatFilterCondition::default() -> jmap_chat_types::ChatFilterCondition
+impl core::fmt::Debug for jmap_chat_types::ChatFilterCondition
+pub fn jmap_chat_types::ChatFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatFilterCondition
+impl serde_core::ser::Serialize for jmap_chat_types::ChatFilterCondition
+pub fn jmap_chat_types::ChatFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatFilterCondition
+pub fn jmap_chat_types::ChatFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatMember
+pub jmap_chat_types::ChatMember::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatMember::id: jmap_types::id::Id
+pub jmap_chat_types::ChatMember::invited_by: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::ChatMember::joined_at: jmap_types::id::UTCDate
+pub jmap_chat_types::ChatMember::role: jmap_chat_types::ChatMemberRole
+impl jmap_chat_types::ChatMember
+pub fn jmap_chat_types::ChatMember::new(jmap_types::id::Id, jmap_chat_types::ChatMemberRole, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_types::ChatMember
+pub fn jmap_chat_types::ChatMember::clone(&self) -> jmap_chat_types::ChatMember
+impl core::cmp::PartialEq for jmap_chat_types::ChatMember
+pub fn jmap_chat_types::ChatMember::eq(&self, &jmap_chat_types::ChatMember) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatMember
+pub fn jmap_chat_types::ChatMember::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatMember
+impl serde_core::ser::Serialize for jmap_chat_types::ChatMember
+pub fn jmap_chat_types::ChatMember::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatMember
+pub fn jmap_chat_types::ChatMember::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatMessageEntry
+pub jmap_chat_types::ChatMessageEntry::body_snippet: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatMessageEntry::chat_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::ChatMessageEntry::chat_kind: core::option::Option<jmap_chat_types::ChatKind>
+pub jmap_chat_types::ChatMessageEntry::chat_name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatMessageEntry::encrypted: core::option::Option<bool>
+pub jmap_chat_types::ChatMessageEntry::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatMessageEntry::has_mention: core::option::Option<bool>
+pub jmap_chat_types::ChatMessageEntry::mention_scopes: core::option::Option<alloc::vec::Vec<jmap_chat_types::BroadcastScope>>
+pub jmap_chat_types::ChatMessageEntry::message_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::ChatMessageEntry::sender_display_name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatMessageEntry::sender_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::ChatMessageEntry::sent_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::ChatMessageEntry::space_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::ChatMessageEntry::space_name: core::option::Option<alloc::string::String>
+impl jmap_chat_types::ChatMessageEntry
+pub fn jmap_chat_types::ChatMessageEntry::encrypted(jmap_types::id::Id, jmap_types::id::Id, jmap_chat_types::ChatKind, jmap_types::id::Id, jmap_types::id::UTCDate) -> Self
+pub fn jmap_chat_types::ChatMessageEntry::plaintext(jmap_types::id::Id, jmap_types::id::Id, jmap_chat_types::ChatKind, jmap_types::id::Id, jmap_types::id::UTCDate, bool, alloc::vec::Vec<jmap_chat_types::BroadcastScope>, core::option::Option<impl core::convert::Into<alloc::string::String>>) -> Self
+impl core::clone::Clone for jmap_chat_types::ChatMessageEntry
+pub fn jmap_chat_types::ChatMessageEntry::clone(&self) -> jmap_chat_types::ChatMessageEntry
+impl core::cmp::Eq for jmap_chat_types::ChatMessageEntry
+impl core::cmp::PartialEq for jmap_chat_types::ChatMessageEntry
+pub fn jmap_chat_types::ChatMessageEntry::eq(&self, &jmap_chat_types::ChatMessageEntry) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatMessageEntry
+pub fn jmap_chat_types::ChatMessageEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatMessageEntry
+impl serde_core::ser::Serialize for jmap_chat_types::ChatMessageEntry
+pub fn jmap_chat_types::ChatMessageEntry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatMessageEntry
+pub fn jmap_chat_types::ChatMessageEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatMessagePush
+pub jmap_chat_types::ChatMessagePush::account_id: jmap_types::id::Id
+pub jmap_chat_types::ChatMessagePush::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatMessagePush::messages: alloc::vec::Vec<jmap_chat_types::ChatMessageEntry>
+pub jmap_chat_types::ChatMessagePush::state: jmap_types::id::State
+pub jmap_chat_types::ChatMessagePush::unread_count: core::option::Option<u64>
+impl jmap_chat_types::ChatMessagePush
+pub fn jmap_chat_types::ChatMessagePush::new(jmap_types::id::Id, impl core::convert::Into<jmap_types::id::State>, alloc::vec::Vec<jmap_chat_types::ChatMessageEntry>) -> Self
+impl core::clone::Clone for jmap_chat_types::ChatMessagePush
+pub fn jmap_chat_types::ChatMessagePush::clone(&self) -> jmap_chat_types::ChatMessagePush
+impl core::cmp::Eq for jmap_chat_types::ChatMessagePush
+impl core::cmp::PartialEq for jmap_chat_types::ChatMessagePush
+pub fn jmap_chat_types::ChatMessagePush::eq(&self, &jmap_chat_types::ChatMessagePush) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatMessagePush
+pub fn jmap_chat_types::ChatMessagePush::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatMessagePush
+impl serde_core::ser::Serialize for jmap_chat_types::ChatMessagePush
+pub fn jmap_chat_types::ChatMessagePush::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatMessagePush
+pub fn jmap_chat_types::ChatMessagePush::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_chat_types::ChatPresenceEvent
+pub jmap_chat_types::ChatPresenceEvent::account_id: jmap_types::id::Id
+pub jmap_chat_types::ChatPresenceEvent::contact_id: jmap_types::id::Id
+pub jmap_chat_types::ChatPresenceEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatPresenceEvent::last_active_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::ChatPresenceEvent::presence: jmap_chat_types::Presence
+pub jmap_chat_types::ChatPresenceEvent::status_emoji: core::option::Option<jmap_chat_types::Clearable<alloc::string::String>>
+pub jmap_chat_types::ChatPresenceEvent::status_text: core::option::Option<jmap_chat_types::Clearable<alloc::string::String>>
+impl core::clone::Clone for jmap_chat_types::ChatPresenceEvent
+pub fn jmap_chat_types::ChatPresenceEvent::clone(&self) -> jmap_chat_types::ChatPresenceEvent
+impl core::cmp::PartialEq for jmap_chat_types::ChatPresenceEvent
+pub fn jmap_chat_types::ChatPresenceEvent::eq(&self, &jmap_chat_types::ChatPresenceEvent) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatPresenceEvent
+pub fn jmap_chat_types::ChatPresenceEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatPresenceEvent
+impl serde_core::ser::Serialize for jmap_chat_types::ChatPresenceEvent
+pub fn jmap_chat_types::ChatPresenceEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatPresenceEvent
+pub fn jmap_chat_types::ChatPresenceEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatPushCapability
+pub jmap_chat_types::ChatPushCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatPushCapability::max_messages_per_push: core::option::Option<u64>
+pub jmap_chat_types::ChatPushCapability::max_snippet_bytes: u64
+pub jmap_chat_types::ChatPushCapability::supported_urgency_values: alloc::vec::Vec<jmap_types::push::Urgency>
+impl core::clone::Clone for jmap_chat_types::ChatPushCapability
+pub fn jmap_chat_types::ChatPushCapability::clone(&self) -> jmap_chat_types::ChatPushCapability
+impl core::default::Default for jmap_chat_types::ChatPushCapability
+pub fn jmap_chat_types::ChatPushCapability::default() -> jmap_chat_types::ChatPushCapability
+impl core::fmt::Debug for jmap_chat_types::ChatPushCapability
+pub fn jmap_chat_types::ChatPushCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_chat_types::ChatPushCapability
+pub fn jmap_chat_types::ChatPushCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatPushCapability
+pub fn jmap_chat_types::ChatPushCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatPushConfig
+pub jmap_chat_types::ChatPushConfig::chat_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_chat_types::ChatPushConfig::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatPushConfig::kinds: core::option::Option<alloc::vec::Vec<jmap_chat_types::ChatKind>>
+pub jmap_chat_types::ChatPushConfig::mention_urgency: core::option::Option<jmap_chat_types::UrgencyLevel>
+pub jmap_chat_types::ChatPushConfig::properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_chat_types::ChatPushConfig::urgency: core::option::Option<jmap_chat_types::UrgencyLevel>
+impl core::clone::Clone for jmap_chat_types::ChatPushConfig
+pub fn jmap_chat_types::ChatPushConfig::clone(&self) -> jmap_chat_types::ChatPushConfig
+impl core::cmp::Eq for jmap_chat_types::ChatPushConfig
+impl core::cmp::PartialEq for jmap_chat_types::ChatPushConfig
+pub fn jmap_chat_types::ChatPushConfig::eq(&self, &jmap_chat_types::ChatPushConfig) -> bool
+impl core::default::Default for jmap_chat_types::ChatPushConfig
+pub fn jmap_chat_types::ChatPushConfig::default() -> jmap_chat_types::ChatPushConfig
+impl core::fmt::Debug for jmap_chat_types::ChatPushConfig
+pub fn jmap_chat_types::ChatPushConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatPushConfig
+impl serde_core::ser::Serialize for jmap_chat_types::ChatPushConfig
+pub fn jmap_chat_types::ChatPushConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatPushConfig
+pub fn jmap_chat_types::ChatPushConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatStreamDisable
+pub jmap_chat_types::ChatStreamDisable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_chat_types::ChatStreamDisable
+pub fn jmap_chat_types::ChatStreamDisable::clone(&self) -> jmap_chat_types::ChatStreamDisable
+impl core::cmp::PartialEq for jmap_chat_types::ChatStreamDisable
+pub fn jmap_chat_types::ChatStreamDisable::eq(&self, &jmap_chat_types::ChatStreamDisable) -> bool
+impl core::default::Default for jmap_chat_types::ChatStreamDisable
+pub fn jmap_chat_types::ChatStreamDisable::default() -> jmap_chat_types::ChatStreamDisable
+impl core::fmt::Debug for jmap_chat_types::ChatStreamDisable
+pub fn jmap_chat_types::ChatStreamDisable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatStreamDisable
+impl serde_core::ser::Serialize for jmap_chat_types::ChatStreamDisable
+pub fn jmap_chat_types::ChatStreamDisable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatStreamDisable
+pub fn jmap_chat_types::ChatStreamDisable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatStreamEnable
+pub jmap_chat_types::ChatStreamEnable::chat_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_chat_types::ChatStreamEnable::contact_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_chat_types::ChatStreamEnable::data_types: alloc::vec::Vec<jmap_chat_types::EphemeralDataType>
+pub jmap_chat_types::ChatStreamEnable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatStreamEnable::id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_chat_types::ChatStreamEnable
+pub fn jmap_chat_types::ChatStreamEnable::clone(&self) -> jmap_chat_types::ChatStreamEnable
+impl core::cmp::PartialEq for jmap_chat_types::ChatStreamEnable
+pub fn jmap_chat_types::ChatStreamEnable::eq(&self, &jmap_chat_types::ChatStreamEnable) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatStreamEnable
+pub fn jmap_chat_types::ChatStreamEnable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatStreamEnable
+impl serde_core::ser::Serialize for jmap_chat_types::ChatStreamEnable
+pub fn jmap_chat_types::ChatStreamEnable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatStreamEnable
+pub fn jmap_chat_types::ChatStreamEnable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatTasksCapability
+pub jmap_chat_types::ChatTasksCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatTasksCapability::may_back_reference_chat: bool
+pub jmap_chat_types::ChatTasksCapability::may_bind_task_list: bool
+impl core::clone::Clone for jmap_chat_types::ChatTasksCapability
+pub fn jmap_chat_types::ChatTasksCapability::clone(&self) -> jmap_chat_types::ChatTasksCapability
+impl core::default::Default for jmap_chat_types::ChatTasksCapability
+pub fn jmap_chat_types::ChatTasksCapability::default() -> jmap_chat_types::ChatTasksCapability
+impl core::fmt::Debug for jmap_chat_types::ChatTasksCapability
+pub fn jmap_chat_types::ChatTasksCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_chat_types::ChatTasksCapability
+pub fn jmap_chat_types::ChatTasksCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatTasksCapability
+pub fn jmap_chat_types::ChatTasksCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ChatTypingEvent
+pub jmap_chat_types::ChatTypingEvent::account_id: jmap_types::id::Id
+pub jmap_chat_types::ChatTypingEvent::chat_id: jmap_types::id::Id
+pub jmap_chat_types::ChatTypingEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatTypingEvent::sender_id: jmap_types::id::Id
+pub jmap_chat_types::ChatTypingEvent::typing: bool
+impl core::clone::Clone for jmap_chat_types::ChatTypingEvent
+pub fn jmap_chat_types::ChatTypingEvent::clone(&self) -> jmap_chat_types::ChatTypingEvent
+impl core::cmp::PartialEq for jmap_chat_types::ChatTypingEvent
+pub fn jmap_chat_types::ChatTypingEvent::eq(&self, &jmap_chat_types::ChatTypingEvent) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatTypingEvent
+pub fn jmap_chat_types::ChatTypingEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatTypingEvent
+impl serde_core::ser::Serialize for jmap_chat_types::ChatTypingEvent
+pub fn jmap_chat_types::ChatTypingEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatTypingEvent
+pub fn jmap_chat_types::ChatTypingEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Comparator<P>
+pub jmap_chat_types::Comparator::collation: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Comparator::is_ascending: bool
+pub jmap_chat_types::Comparator::property: P
+impl<P> jmap_chat_types::Comparator<P>
+pub fn jmap_chat_types::Comparator<P>::new(P) -> Self
+impl<'de, P> serde_core::de::Deserialize<'de> for jmap_chat_types::Comparator<P> where P: serde_core::de::Deserialize<'de>
+pub fn jmap_chat_types::Comparator<P>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<P: core::clone::Clone> core::clone::Clone for jmap_chat_types::Comparator<P>
+pub fn jmap_chat_types::Comparator<P>::clone(&self) -> jmap_chat_types::Comparator<P>
+impl<P: core::cmp::Eq> core::cmp::Eq for jmap_chat_types::Comparator<P>
+impl<P: core::cmp::PartialEq> core::cmp::PartialEq for jmap_chat_types::Comparator<P>
+pub fn jmap_chat_types::Comparator<P>::eq(&self, &jmap_chat_types::Comparator<P>) -> bool
+impl<P: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_chat_types::Comparator<P>
+impl<P: core::fmt::Debug> core::fmt::Debug for jmap_chat_types::Comparator<P>
+pub fn jmap_chat_types::Comparator<P>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<P> serde_core::ser::Serialize for jmap_chat_types::Comparator<P> where P: serde_core::ser::Serialize
+pub fn jmap_chat_types::Comparator<P>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_chat_types::CustomEmoji
+pub jmap_chat_types::CustomEmoji::blob_id: jmap_types::id::Id
+pub jmap_chat_types::CustomEmoji::created_at: jmap_types::id::UTCDate
+pub jmap_chat_types::CustomEmoji::created_by: jmap_types::id::Id
+pub jmap_chat_types::CustomEmoji::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::CustomEmoji::id: jmap_types::id::Id
+pub jmap_chat_types::CustomEmoji::name: alloc::string::String
+pub jmap_chat_types::CustomEmoji::space_id: core::option::Option<jmap_types::id::Id>
+impl jmap_chat_types::CustomEmoji
+pub fn jmap_chat_types::CustomEmoji::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_types::CustomEmoji
+pub fn jmap_chat_types::CustomEmoji::clone(&self) -> jmap_chat_types::CustomEmoji
+impl core::cmp::PartialEq for jmap_chat_types::CustomEmoji
+pub fn jmap_chat_types::CustomEmoji::eq(&self, &jmap_chat_types::CustomEmoji) -> bool
+impl core::fmt::Debug for jmap_chat_types::CustomEmoji
+pub fn jmap_chat_types::CustomEmoji::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::CustomEmoji
+impl jmap_types::backend::GetObject for jmap_chat_types::CustomEmoji
+impl jmap_types::backend::JmapObject for jmap_chat_types::CustomEmoji
+pub type jmap_chat_types::CustomEmoji::Property = jmap_chat_types::CustomEmojiProperty
+pub const jmap_chat_types::CustomEmoji::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_chat_types::CustomEmoji
+pub type jmap_chat_types::CustomEmoji::Comparator = jmap_chat_types::Comparator<jmap_chat_types::CustomEmojiComparatorProperty>
+pub type jmap_chat_types::CustomEmoji::Filter = jmap_types::query::Filter<jmap_chat_types::CustomEmojiFilterCondition>
+impl jmap_types::backend::SetObject for jmap_chat_types::CustomEmoji
+pub type jmap_chat_types::CustomEmoji::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::CustomEmoji::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::CustomEmoji::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::CustomEmoji::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::CustomEmoji
+pub fn jmap_chat_types::CustomEmoji::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::CustomEmoji
+pub fn jmap_chat_types::CustomEmoji::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::CustomEmojiFilterCondition
+pub jmap_chat_types::CustomEmojiFilterCondition::space_id: core::option::Option<jmap_types::id::Id>
+impl core::clone::Clone for jmap_chat_types::CustomEmojiFilterCondition
+pub fn jmap_chat_types::CustomEmojiFilterCondition::clone(&self) -> jmap_chat_types::CustomEmojiFilterCondition
+impl core::cmp::Eq for jmap_chat_types::CustomEmojiFilterCondition
+impl core::cmp::PartialEq for jmap_chat_types::CustomEmojiFilterCondition
+pub fn jmap_chat_types::CustomEmojiFilterCondition::eq(&self, &jmap_chat_types::CustomEmojiFilterCondition) -> bool
+impl core::default::Default for jmap_chat_types::CustomEmojiFilterCondition
+pub fn jmap_chat_types::CustomEmojiFilterCondition::default() -> jmap_chat_types::CustomEmojiFilterCondition
+impl core::fmt::Debug for jmap_chat_types::CustomEmojiFilterCondition
+pub fn jmap_chat_types::CustomEmojiFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::CustomEmojiFilterCondition
+impl serde_core::ser::Serialize for jmap_chat_types::CustomEmojiFilterCondition
+pub fn jmap_chat_types::CustomEmojiFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::CustomEmojiFilterCondition
+pub fn jmap_chat_types::CustomEmojiFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::DeliveryReceipt
+pub jmap_chat_types::DeliveryReceipt::delivered_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::DeliveryReceipt::device_delivered_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::DeliveryReceipt::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::DeliveryReceipt::read_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::DeliveryReceipt::read_disposition: core::option::Option<jmap_chat_types::ReadDisposition>
+impl core::clone::Clone for jmap_chat_types::DeliveryReceipt
+pub fn jmap_chat_types::DeliveryReceipt::clone(&self) -> jmap_chat_types::DeliveryReceipt
+impl core::cmp::Eq for jmap_chat_types::DeliveryReceipt
+impl core::cmp::PartialEq for jmap_chat_types::DeliveryReceipt
+pub fn jmap_chat_types::DeliveryReceipt::eq(&self, &jmap_chat_types::DeliveryReceipt) -> bool
+impl core::default::Default for jmap_chat_types::DeliveryReceipt
+pub fn jmap_chat_types::DeliveryReceipt::default() -> jmap_chat_types::DeliveryReceipt
+impl core::fmt::Debug for jmap_chat_types::DeliveryReceipt
+pub fn jmap_chat_types::DeliveryReceipt::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::DeliveryReceipt
+impl serde_core::ser::Serialize for jmap_chat_types::DeliveryReceipt
+pub fn jmap_chat_types::DeliveryReceipt::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::DeliveryReceipt
+pub fn jmap_chat_types::DeliveryReceipt::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Endpoint
+pub jmap_chat_types::Endpoint::endpoint_type: alloc::string::String
+pub jmap_chat_types::Endpoint::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Endpoint::label: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Endpoint::metadata: core::option::Option<serde_json::value::Value>
+pub jmap_chat_types::Endpoint::uri: alloc::string::String
+impl core::clone::Clone for jmap_chat_types::Endpoint
+pub fn jmap_chat_types::Endpoint::clone(&self) -> jmap_chat_types::Endpoint
+impl core::cmp::PartialEq for jmap_chat_types::Endpoint
+pub fn jmap_chat_types::Endpoint::eq(&self, &jmap_chat_types::Endpoint) -> bool
+impl core::fmt::Debug for jmap_chat_types::Endpoint
+pub fn jmap_chat_types::Endpoint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Endpoint
+impl serde_core::ser::Serialize for jmap_chat_types::Endpoint
+pub fn jmap_chat_types::Endpoint::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Endpoint
+pub fn jmap_chat_types::Endpoint::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::LookupWindow
+pub jmap_chat_types::LookupWindow::ends_at: jmap_types::id::UTCDate
+pub jmap_chat_types::LookupWindow::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::LookupWindow::starts_at: jmap_types::id::UTCDate
+impl jmap_chat_types::LookupWindow
+pub fn jmap_chat_types::LookupWindow::new(jmap_types::id::UTCDate, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_types::LookupWindow
+pub fn jmap_chat_types::LookupWindow::clone(&self) -> jmap_chat_types::LookupWindow
+impl core::cmp::PartialEq for jmap_chat_types::LookupWindow
+pub fn jmap_chat_types::LookupWindow::eq(&self, &jmap_chat_types::LookupWindow) -> bool
+impl core::fmt::Debug for jmap_chat_types::LookupWindow
+pub fn jmap_chat_types::LookupWindow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::LookupWindow
+impl serde_core::ser::Serialize for jmap_chat_types::LookupWindow
+pub fn jmap_chat_types::LookupWindow::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::LookupWindow
+pub fn jmap_chat_types::LookupWindow::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::MemberCreate
+pub jmap_chat_types::MemberCreate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::MemberCreate::role_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_chat_types::MemberCreate::user_id: jmap_types::id::Id
+impl jmap_chat_types::MemberCreate
+pub fn jmap_chat_types::MemberCreate::new(jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+impl core::clone::Clone for jmap_chat_types::MemberCreate
+pub fn jmap_chat_types::MemberCreate::clone(&self) -> jmap_chat_types::MemberCreate
+impl core::cmp::PartialEq for jmap_chat_types::MemberCreate
+pub fn jmap_chat_types::MemberCreate::eq(&self, &jmap_chat_types::MemberCreate) -> bool
+impl core::fmt::Debug for jmap_chat_types::MemberCreate
+pub fn jmap_chat_types::MemberCreate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::MemberCreate
+impl serde_core::ser::Serialize for jmap_chat_types::MemberCreate
+pub fn jmap_chat_types::MemberCreate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::MemberCreate
+pub fn jmap_chat_types::MemberCreate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::MemberPatch
+pub jmap_chat_types::MemberPatch::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::MemberPatch::nick: core::option::Option<jmap_chat_types::Clearable<alloc::string::String>>
+pub jmap_chat_types::MemberPatch::role_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+impl core::clone::Clone for jmap_chat_types::MemberPatch
+pub fn jmap_chat_types::MemberPatch::clone(&self) -> jmap_chat_types::MemberPatch
+impl core::cmp::PartialEq for jmap_chat_types::MemberPatch
+pub fn jmap_chat_types::MemberPatch::eq(&self, &jmap_chat_types::MemberPatch) -> bool
+impl core::default::Default for jmap_chat_types::MemberPatch
+pub fn jmap_chat_types::MemberPatch::default() -> jmap_chat_types::MemberPatch
+impl core::fmt::Debug for jmap_chat_types::MemberPatch
+pub fn jmap_chat_types::MemberPatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::MemberPatch
+impl serde_core::ser::Serialize for jmap_chat_types::MemberPatch
+pub fn jmap_chat_types::MemberPatch::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::MemberPatch
+pub fn jmap_chat_types::MemberPatch::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Mention
+pub jmap_chat_types::Mention::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Mention::id: jmap_types::id::Id
+impl jmap_chat_types::Mention
+pub fn jmap_chat_types::Mention::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_chat_types::Mention
+pub fn jmap_chat_types::Mention::clone(&self) -> jmap_chat_types::Mention
+impl core::cmp::Eq for jmap_chat_types::Mention
+impl core::cmp::PartialEq for jmap_chat_types::Mention
+pub fn jmap_chat_types::Mention::eq(&self, &jmap_chat_types::Mention) -> bool
+impl core::fmt::Debug for jmap_chat_types::Mention
+pub fn jmap_chat_types::Mention::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Mention
+impl serde_core::ser::Serialize for jmap_chat_types::Mention
+pub fn jmap_chat_types::Mention::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Mention
+pub fn jmap_chat_types::Mention::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Message
+pub jmap_chat_types::Message::actions: alloc::vec::Vec<jmap_chat_types::MessageAction>
+pub jmap_chat_types::Message::attachments: alloc::vec::Vec<jmap_chat_types::Attachment>
+pub jmap_chat_types::Message::body: alloc::string::String
+pub jmap_chat_types::Message::body_type: jmap_chat_types::BodyType
+pub jmap_chat_types::Message::broadcast_mentions: alloc::vec::Vec<jmap_chat_types::BroadcastMention>
+pub jmap_chat_types::Message::burn_on_read: core::option::Option<bool>
+pub jmap_chat_types::Message::chat_id: jmap_types::id::Id
+pub jmap_chat_types::Message::deleted_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Message::deleted_for_all: core::option::Option<bool>
+pub jmap_chat_types::Message::delivered_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Message::delivery_receipts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_chat_types::DeliveryReceipt>>
+pub jmap_chat_types::Message::delivery_state: jmap_chat_types::DeliveryState
+pub jmap_chat_types::Message::edit_history: core::option::Option<alloc::vec::Vec<jmap_chat_types::MessageRevision>>
+pub jmap_chat_types::Message::edited_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Message::expires_after_read_seconds: core::option::Option<u64>
+pub jmap_chat_types::Message::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Message::id: jmap_types::id::Id
+pub jmap_chat_types::Message::mentions: alloc::vec::Vec<jmap_chat_types::Mention>
+pub jmap_chat_types::Message::reactions: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_chat_types::Reaction>
+pub jmap_chat_types::Message::read_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Message::read_disposition: core::option::Option<jmap_chat_types::ReadDisposition>
+pub jmap_chat_types::Message::received_at: jmap_types::id::UTCDate
+pub jmap_chat_types::Message::reply_count: core::option::Option<u64>
+pub jmap_chat_types::Message::reply_to: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Message::sender_expires_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Message::sender_id: jmap_types::id::Id
+pub jmap_chat_types::Message::sender_msg_id: jmap_types::id::Id
+pub jmap_chat_types::Message::sent_at: jmap_types::id::UTCDate
+pub jmap_chat_types::Message::subject: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Message::thread_root_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Message::topic_id: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Message::unread_reply_count: core::option::Option<u64>
+impl jmap_chat_types::Message
+pub fn jmap_chat_types::Message::new(jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<jmap_chat_types::BodyType>, jmap_types::id::UTCDate, jmap_types::id::UTCDate, jmap_chat_types::DeliveryState) -> Self
+impl core::clone::Clone for jmap_chat_types::Message
+pub fn jmap_chat_types::Message::clone(&self) -> jmap_chat_types::Message
+impl core::cmp::PartialEq for jmap_chat_types::Message
+pub fn jmap_chat_types::Message::eq(&self, &jmap_chat_types::Message) -> bool
+impl core::fmt::Debug for jmap_chat_types::Message
+pub fn jmap_chat_types::Message::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Message
+impl jmap_types::backend::GetObject for jmap_chat_types::Message
+impl jmap_types::backend::JmapObject for jmap_chat_types::Message
+pub type jmap_chat_types::Message::Property = jmap_chat_types::MessageProperty
+pub const jmap_chat_types::Message::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_chat_types::Message
+pub type jmap_chat_types::Message::Comparator = jmap_chat_types::Comparator<jmap_chat_types::MessageComparatorProperty>
+pub type jmap_chat_types::Message::Filter = jmap_types::query::Filter<jmap_chat_types::MessageFilterCondition>
+impl jmap_types::backend::SetObject for jmap_chat_types::Message
+pub type jmap_chat_types::Message::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::Message::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::Message::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::Message::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::Message
+pub fn jmap_chat_types::Message::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Message
+pub fn jmap_chat_types::Message::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::MessageAction
+pub jmap_chat_types::MessageAction::action_type: alloc::string::String
+pub jmap_chat_types::MessageAction::expires_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::MessageAction::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::MessageAction::label: core::option::Option<alloc::string::String>
+pub jmap_chat_types::MessageAction::metadata: core::option::Option<serde_json::value::Value>
+pub jmap_chat_types::MessageAction::uri: alloc::string::String
+impl core::clone::Clone for jmap_chat_types::MessageAction
+pub fn jmap_chat_types::MessageAction::clone(&self) -> jmap_chat_types::MessageAction
+impl core::cmp::PartialEq for jmap_chat_types::MessageAction
+pub fn jmap_chat_types::MessageAction::eq(&self, &jmap_chat_types::MessageAction) -> bool
+impl core::fmt::Debug for jmap_chat_types::MessageAction
+pub fn jmap_chat_types::MessageAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::MessageAction
+impl serde_core::ser::Serialize for jmap_chat_types::MessageAction
+pub fn jmap_chat_types::MessageAction::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::MessageAction
+pub fn jmap_chat_types::MessageAction::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::MessageFilterCondition
+pub jmap_chat_types::MessageFilterCondition::chat_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::MessageFilterCondition::has_attachment: core::option::Option<bool>
+pub jmap_chat_types::MessageFilterCondition::has_mention: core::option::Option<bool>
+pub jmap_chat_types::MessageFilterCondition::text: core::option::Option<alloc::string::String>
+pub jmap_chat_types::MessageFilterCondition::thread_root_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::MessageFilterCondition::topic_id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_chat_types::MessageFilterCondition
+pub fn jmap_chat_types::MessageFilterCondition::clone(&self) -> jmap_chat_types::MessageFilterCondition
+impl core::cmp::Eq for jmap_chat_types::MessageFilterCondition
+impl core::cmp::PartialEq for jmap_chat_types::MessageFilterCondition
+pub fn jmap_chat_types::MessageFilterCondition::eq(&self, &jmap_chat_types::MessageFilterCondition) -> bool
+impl core::default::Default for jmap_chat_types::MessageFilterCondition
+pub fn jmap_chat_types::MessageFilterCondition::default() -> jmap_chat_types::MessageFilterCondition
+impl core::fmt::Debug for jmap_chat_types::MessageFilterCondition
+pub fn jmap_chat_types::MessageFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::MessageFilterCondition
+impl serde_core::ser::Serialize for jmap_chat_types::MessageFilterCondition
+pub fn jmap_chat_types::MessageFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::MessageFilterCondition
+pub fn jmap_chat_types::MessageFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::MessageRevision
+pub jmap_chat_types::MessageRevision::body: alloc::string::String
+pub jmap_chat_types::MessageRevision::body_type: jmap_chat_types::BodyType
+pub jmap_chat_types::MessageRevision::edited_at: jmap_types::id::UTCDate
+pub jmap_chat_types::MessageRevision::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_chat_types::MessageRevision
+pub fn jmap_chat_types::MessageRevision::clone(&self) -> jmap_chat_types::MessageRevision
+impl core::cmp::Eq for jmap_chat_types::MessageRevision
+impl core::cmp::PartialEq for jmap_chat_types::MessageRevision
+pub fn jmap_chat_types::MessageRevision::eq(&self, &jmap_chat_types::MessageRevision) -> bool
+impl core::fmt::Debug for jmap_chat_types::MessageRevision
+pub fn jmap_chat_types::MessageRevision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::MessageRevision
+impl serde_core::ser::Serialize for jmap_chat_types::MessageRevision
+pub fn jmap_chat_types::MessageRevision::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::MessageRevision
+pub fn jmap_chat_types::MessageRevision::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::PresenceStatus
+pub jmap_chat_types::PresenceStatus::expires_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::PresenceStatus::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::PresenceStatus::id: jmap_types::id::Id
+pub jmap_chat_types::PresenceStatus::presence: jmap_chat_types::Presence
+pub jmap_chat_types::PresenceStatus::receipt_sharing: bool
+pub jmap_chat_types::PresenceStatus::status_emoji: core::option::Option<alloc::string::String>
+pub jmap_chat_types::PresenceStatus::status_text: core::option::Option<alloc::string::String>
+pub jmap_chat_types::PresenceStatus::updated_at: jmap_types::id::UTCDate
+impl jmap_chat_types::PresenceStatus
+pub fn jmap_chat_types::PresenceStatus::new(jmap_types::id::Id, jmap_chat_types::Presence, bool, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_types::PresenceStatus
+pub fn jmap_chat_types::PresenceStatus::clone(&self) -> jmap_chat_types::PresenceStatus
+impl core::cmp::PartialEq for jmap_chat_types::PresenceStatus
+pub fn jmap_chat_types::PresenceStatus::eq(&self, &jmap_chat_types::PresenceStatus) -> bool
+impl core::fmt::Debug for jmap_chat_types::PresenceStatus
+pub fn jmap_chat_types::PresenceStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::PresenceStatus
+impl jmap_types::backend::GetObject for jmap_chat_types::PresenceStatus
+impl jmap_types::backend::JmapObject for jmap_chat_types::PresenceStatus
+pub type jmap_chat_types::PresenceStatus::Property = jmap_chat_types::PresenceStatusProperty
+pub const jmap_chat_types::PresenceStatus::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_chat_types::PresenceStatus
+pub type jmap_chat_types::PresenceStatus::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::PresenceStatus::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::PresenceStatus::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::PresenceStatus::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::PresenceStatus
+pub fn jmap_chat_types::PresenceStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::PresenceStatus
+pub fn jmap_chat_types::PresenceStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Reaction
+pub jmap_chat_types::Reaction::custom_emoji_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Reaction::emoji: alloc::string::String
+pub jmap_chat_types::Reaction::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Reaction::sender_id: jmap_types::id::Id
+pub jmap_chat_types::Reaction::sent_at: jmap_types::id::UTCDate
+impl core::clone::Clone for jmap_chat_types::Reaction
+pub fn jmap_chat_types::Reaction::clone(&self) -> jmap_chat_types::Reaction
+impl core::cmp::Eq for jmap_chat_types::Reaction
+impl core::cmp::PartialEq for jmap_chat_types::Reaction
+pub fn jmap_chat_types::Reaction::eq(&self, &jmap_chat_types::Reaction) -> bool
+impl core::fmt::Debug for jmap_chat_types::Reaction
+pub fn jmap_chat_types::Reaction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Reaction
+impl serde_core::ser::Serialize for jmap_chat_types::Reaction
+pub fn jmap_chat_types::Reaction::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Reaction
+pub fn jmap_chat_types::Reaction::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::ReadPosition
+pub jmap_chat_types::ReadPosition::chat_id: jmap_types::id::Id
+pub jmap_chat_types::ReadPosition::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ReadPosition::id: jmap_types::id::Id
+pub jmap_chat_types::ReadPosition::last_read_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::ReadPosition::last_read_message_id: core::option::Option<jmap_types::id::Id>
+impl jmap_chat_types::ReadPosition
+pub fn jmap_chat_types::ReadPosition::new(jmap_types::id::Id, jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_chat_types::ReadPosition
+pub fn jmap_chat_types::ReadPosition::clone(&self) -> jmap_chat_types::ReadPosition
+impl core::cmp::PartialEq for jmap_chat_types::ReadPosition
+pub fn jmap_chat_types::ReadPosition::eq(&self, &jmap_chat_types::ReadPosition) -> bool
+impl core::fmt::Debug for jmap_chat_types::ReadPosition
+pub fn jmap_chat_types::ReadPosition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ReadPosition
+impl jmap_types::backend::GetObject for jmap_chat_types::ReadPosition
+impl jmap_types::backend::JmapObject for jmap_chat_types::ReadPosition
+pub type jmap_chat_types::ReadPosition::Property = jmap_chat_types::ReadPositionProperty
+pub const jmap_chat_types::ReadPosition::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_chat_types::ReadPosition
+pub type jmap_chat_types::ReadPosition::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::ReadPosition::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::ReadPosition::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::ReadPosition::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::ReadPosition
+pub fn jmap_chat_types::ReadPosition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ReadPosition
+pub fn jmap_chat_types::ReadPosition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::RichBody
+pub jmap_chat_types::RichBody::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::RichBody::spans: alloc::vec::Vec<jmap_chat_types::Span>
+impl core::clone::Clone for jmap_chat_types::RichBody
+pub fn jmap_chat_types::RichBody::clone(&self) -> jmap_chat_types::RichBody
+impl core::cmp::PartialEq for jmap_chat_types::RichBody
+pub fn jmap_chat_types::RichBody::eq(&self, &jmap_chat_types::RichBody) -> bool
+impl core::fmt::Debug for jmap_chat_types::RichBody
+pub fn jmap_chat_types::RichBody::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::RichBody
+impl serde_core::ser::Serialize for jmap_chat_types::RichBody
+pub fn jmap_chat_types::RichBody::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::RichBody
+pub fn jmap_chat_types::RichBody::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::RolePatch
+pub jmap_chat_types::RolePatch::color: core::option::Option<jmap_chat_types::Clearable<serde_json::value::Value>>
+pub jmap_chat_types::RolePatch::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::RolePatch::name: core::option::Option<alloc::string::String>
+pub jmap_chat_types::RolePatch::permissions: core::option::Option<alloc::vec::Vec<jmap_chat_types::ChatPermission>>
+pub jmap_chat_types::RolePatch::position: core::option::Option<u64>
+impl core::clone::Clone for jmap_chat_types::RolePatch
+pub fn jmap_chat_types::RolePatch::clone(&self) -> jmap_chat_types::RolePatch
+impl core::cmp::PartialEq for jmap_chat_types::RolePatch
+pub fn jmap_chat_types::RolePatch::eq(&self, &jmap_chat_types::RolePatch) -> bool
+impl core::default::Default for jmap_chat_types::RolePatch
+pub fn jmap_chat_types::RolePatch::default() -> jmap_chat_types::RolePatch
+impl core::fmt::Debug for jmap_chat_types::RolePatch
+pub fn jmap_chat_types::RolePatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::RolePatch
+impl serde_core::ser::Serialize for jmap_chat_types::RolePatch
+pub fn jmap_chat_types::RolePatch::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::RolePatch
+pub fn jmap_chat_types::RolePatch::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Space
+pub jmap_chat_types::Space::categories: alloc::vec::Vec<jmap_chat_types::Category>
+pub jmap_chat_types::Space::closed_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::Space::created_at: jmap_types::id::UTCDate
+pub jmap_chat_types::Space::description: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Space::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Space::icon_blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::Space::id: jmap_types::id::Id
+pub jmap_chat_types::Space::is_public: bool
+pub jmap_chat_types::Space::is_publicly_previewable: bool
+pub jmap_chat_types::Space::member_count: u64
+pub jmap_chat_types::Space::members: alloc::vec::Vec<jmap_chat_types::SpaceMember>
+pub jmap_chat_types::Space::name: alloc::string::String
+pub jmap_chat_types::Space::roles: alloc::vec::Vec<jmap_chat_types::SpaceRole>
+pub jmap_chat_types::Space::uncategorized_channel_ids: alloc::vec::Vec<jmap_types::id::Id>
+impl jmap_chat_types::Space
+pub fn jmap_chat_types::Space::calendar_id(&self) -> core::result::Result<core::option::Option<jmap_types::id::Id>, serde_json::error::Error>
+impl jmap_chat_types::Space
+pub fn jmap_chat_types::Space::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<jmap_chat_types::SpaceRole>, alloc::vec::Vec<jmap_chat_types::SpaceMember>, alloc::vec::Vec<jmap_chat_types::Category>, alloc::vec::Vec<jmap_types::id::Id>, jmap_types::id::UTCDate, bool, bool, u64) -> Self
+impl jmap_chat_types::Space
+pub fn jmap_chat_types::Space::task_list_id(&self) -> core::result::Result<core::option::Option<jmap_types::id::Id>, serde_json::error::Error>
+impl core::clone::Clone for jmap_chat_types::Space
+pub fn jmap_chat_types::Space::clone(&self) -> jmap_chat_types::Space
+impl core::cmp::PartialEq for jmap_chat_types::Space
+pub fn jmap_chat_types::Space::eq(&self, &jmap_chat_types::Space) -> bool
+impl core::fmt::Debug for jmap_chat_types::Space
+pub fn jmap_chat_types::Space::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Space
+impl jmap_types::backend::GetObject for jmap_chat_types::Space
+impl jmap_types::backend::JmapObject for jmap_chat_types::Space
+pub type jmap_chat_types::Space::Property = jmap_chat_types::SpaceProperty
+pub const jmap_chat_types::Space::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_chat_types::Space
+pub type jmap_chat_types::Space::Comparator = jmap_chat_types::Comparator<jmap_chat_types::SpaceComparatorProperty>
+pub type jmap_chat_types::Space::Filter = jmap_types::query::Filter<jmap_chat_types::SpaceFilterCondition>
+impl jmap_types::backend::SetObject for jmap_chat_types::Space
+pub type jmap_chat_types::Space::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::Space::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::Space::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::Space::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::Space
+pub fn jmap_chat_types::Space::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Space
+pub fn jmap_chat_types::Space::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::SpaceBan
+pub jmap_chat_types::SpaceBan::banned_by: jmap_types::id::Id
+pub jmap_chat_types::SpaceBan::created_at: jmap_types::id::UTCDate
+pub jmap_chat_types::SpaceBan::expires_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::SpaceBan::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::SpaceBan::id: jmap_types::id::Id
+pub jmap_chat_types::SpaceBan::reason: core::option::Option<alloc::string::String>
+pub jmap_chat_types::SpaceBan::space_id: jmap_types::id::Id
+pub jmap_chat_types::SpaceBan::user_id: jmap_types::id::Id
+impl jmap_chat_types::SpaceBan
+pub fn jmap_chat_types::SpaceBan::new(jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_types::SpaceBan
+pub fn jmap_chat_types::SpaceBan::clone(&self) -> jmap_chat_types::SpaceBan
+impl core::cmp::PartialEq for jmap_chat_types::SpaceBan
+pub fn jmap_chat_types::SpaceBan::eq(&self, &jmap_chat_types::SpaceBan) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpaceBan
+pub fn jmap_chat_types::SpaceBan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceBan
+impl jmap_types::backend::GetObject for jmap_chat_types::SpaceBan
+impl jmap_types::backend::JmapObject for jmap_chat_types::SpaceBan
+pub type jmap_chat_types::SpaceBan::Property = jmap_chat_types::SpaceBanProperty
+pub const jmap_chat_types::SpaceBan::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_chat_types::SpaceBan
+pub type jmap_chat_types::SpaceBan::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::SpaceBan::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::SpaceBan::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::SpaceBan::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::SpaceBan
+pub fn jmap_chat_types::SpaceBan::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceBan
+pub fn jmap_chat_types::SpaceBan::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::SpaceFilterCondition
+pub jmap_chat_types::SpaceFilterCondition::is_public: core::option::Option<bool>
+pub jmap_chat_types::SpaceFilterCondition::name: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_chat_types::SpaceFilterCondition
+pub fn jmap_chat_types::SpaceFilterCondition::clone(&self) -> jmap_chat_types::SpaceFilterCondition
+impl core::cmp::Eq for jmap_chat_types::SpaceFilterCondition
+impl core::cmp::PartialEq for jmap_chat_types::SpaceFilterCondition
+pub fn jmap_chat_types::SpaceFilterCondition::eq(&self, &jmap_chat_types::SpaceFilterCondition) -> bool
+impl core::default::Default for jmap_chat_types::SpaceFilterCondition
+pub fn jmap_chat_types::SpaceFilterCondition::default() -> jmap_chat_types::SpaceFilterCondition
+impl core::fmt::Debug for jmap_chat_types::SpaceFilterCondition
+pub fn jmap_chat_types::SpaceFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceFilterCondition
+impl serde_core::ser::Serialize for jmap_chat_types::SpaceFilterCondition
+pub fn jmap_chat_types::SpaceFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceFilterCondition
+pub fn jmap_chat_types::SpaceFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::SpaceInvite
+pub jmap_chat_types::SpaceInvite::code: alloc::string::String
+pub jmap_chat_types::SpaceInvite::created_at: jmap_types::id::UTCDate
+pub jmap_chat_types::SpaceInvite::created_by: jmap_types::id::Id
+pub jmap_chat_types::SpaceInvite::default_channel_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_types::SpaceInvite::expires_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::SpaceInvite::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::SpaceInvite::id: jmap_types::id::Id
+pub jmap_chat_types::SpaceInvite::max_uses: core::option::Option<u64>
+pub jmap_chat_types::SpaceInvite::space_id: jmap_types::id::Id
+pub jmap_chat_types::SpaceInvite::uses: u64
+impl jmap_chat_types::SpaceInvite
+pub fn jmap_chat_types::SpaceInvite::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, jmap_types::id::Id, u64, jmap_types::id::UTCDate, core::option::Option<jmap_types::id::Id>, core::option::Option<jmap_types::id::UTCDate>, core::option::Option<u64>) -> Self
+impl core::clone::Clone for jmap_chat_types::SpaceInvite
+pub fn jmap_chat_types::SpaceInvite::clone(&self) -> jmap_chat_types::SpaceInvite
+impl core::cmp::PartialEq for jmap_chat_types::SpaceInvite
+pub fn jmap_chat_types::SpaceInvite::eq(&self, &jmap_chat_types::SpaceInvite) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpaceInvite
+pub fn jmap_chat_types::SpaceInvite::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceInvite
+impl jmap_types::backend::GetObject for jmap_chat_types::SpaceInvite
+impl jmap_types::backend::JmapObject for jmap_chat_types::SpaceInvite
+pub type jmap_chat_types::SpaceInvite::Property = jmap_chat_types::SpaceInviteProperty
+pub const jmap_chat_types::SpaceInvite::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_chat_types::SpaceInvite
+pub type jmap_chat_types::SpaceInvite::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::SpaceInvite::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::SpaceInvite::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::SpaceInvite::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::SpaceInvite
+pub fn jmap_chat_types::SpaceInvite::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceInvite
+pub fn jmap_chat_types::SpaceInvite::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::SpaceMember
+pub jmap_chat_types::SpaceMember::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::SpaceMember::id: jmap_types::id::Id
+pub jmap_chat_types::SpaceMember::joined_at: jmap_types::id::UTCDate
+pub jmap_chat_types::SpaceMember::nick: core::option::Option<alloc::string::String>
+pub jmap_chat_types::SpaceMember::role_ids: alloc::vec::Vec<jmap_types::id::Id>
+impl core::clone::Clone for jmap_chat_types::SpaceMember
+pub fn jmap_chat_types::SpaceMember::clone(&self) -> jmap_chat_types::SpaceMember
+impl core::cmp::PartialEq for jmap_chat_types::SpaceMember
+pub fn jmap_chat_types::SpaceMember::eq(&self, &jmap_chat_types::SpaceMember) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpaceMember
+pub fn jmap_chat_types::SpaceMember::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceMember
+impl serde_core::ser::Serialize for jmap_chat_types::SpaceMember
+pub fn jmap_chat_types::SpaceMember::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceMember
+pub fn jmap_chat_types::SpaceMember::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::SpaceMetadataPatch
+pub jmap_chat_types::SpaceMetadataPatch::description: core::option::Option<jmap_chat_types::Clearable<alloc::string::String>>
+pub jmap_chat_types::SpaceMetadataPatch::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::SpaceMetadataPatch::icon_blob_id: core::option::Option<jmap_chat_types::Clearable<jmap_types::id::Id>>
+pub jmap_chat_types::SpaceMetadataPatch::is_public: core::option::Option<bool>
+pub jmap_chat_types::SpaceMetadataPatch::is_publicly_previewable: core::option::Option<bool>
+pub jmap_chat_types::SpaceMetadataPatch::name: core::option::Option<alloc::string::String>
+impl jmap_chat_types::SpaceMetadataPatch
+pub fn jmap_chat_types::SpaceMetadataPatch::is_empty(&self) -> bool
+impl core::clone::Clone for jmap_chat_types::SpaceMetadataPatch
+pub fn jmap_chat_types::SpaceMetadataPatch::clone(&self) -> jmap_chat_types::SpaceMetadataPatch
+impl core::cmp::PartialEq for jmap_chat_types::SpaceMetadataPatch
+pub fn jmap_chat_types::SpaceMetadataPatch::eq(&self, &jmap_chat_types::SpaceMetadataPatch) -> bool
+impl core::default::Default for jmap_chat_types::SpaceMetadataPatch
+pub fn jmap_chat_types::SpaceMetadataPatch::default() -> jmap_chat_types::SpaceMetadataPatch
+impl core::fmt::Debug for jmap_chat_types::SpaceMetadataPatch
+pub fn jmap_chat_types::SpaceMetadataPatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceMetadataPatch
+impl serde_core::ser::Serialize for jmap_chat_types::SpaceMetadataPatch
+pub fn jmap_chat_types::SpaceMetadataPatch::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceMetadataPatch
+pub fn jmap_chat_types::SpaceMetadataPatch::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::SpaceRole
+pub jmap_chat_types::SpaceRole::color: core::option::Option<serde_json::value::Value>
+pub jmap_chat_types::SpaceRole::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::SpaceRole::id: jmap_types::id::Id
+pub jmap_chat_types::SpaceRole::name: alloc::string::String
+pub jmap_chat_types::SpaceRole::permissions: alloc::vec::Vec<jmap_chat_types::ChatPermission>
+pub jmap_chat_types::SpaceRole::position: u64
+impl core::clone::Clone for jmap_chat_types::SpaceRole
+pub fn jmap_chat_types::SpaceRole::clone(&self) -> jmap_chat_types::SpaceRole
+impl core::cmp::PartialEq for jmap_chat_types::SpaceRole
+pub fn jmap_chat_types::SpaceRole::eq(&self, &jmap_chat_types::SpaceRole) -> bool
+impl core::fmt::Debug for jmap_chat_types::SpaceRole
+pub fn jmap_chat_types::SpaceRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceRole
+impl serde_core::ser::Serialize for jmap_chat_types::SpaceRole
+pub fn jmap_chat_types::SpaceRole::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::SpaceRole
+pub fn jmap_chat_types::SpaceRole::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::Span
+pub jmap_chat_types::Span::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::Span::kind: jmap_chat_types::SpanType
+pub jmap_chat_types::Span::lang: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Span::scope: core::option::Option<jmap_chat_types::BroadcastScope>
+pub jmap_chat_types::Span::text: alloc::string::String
+pub jmap_chat_types::Span::uri: core::option::Option<alloc::string::String>
+pub jmap_chat_types::Span::user_id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_chat_types::Span
+pub fn jmap_chat_types::Span::clone(&self) -> jmap_chat_types::Span
+impl core::cmp::PartialEq for jmap_chat_types::Span
+pub fn jmap_chat_types::Span::eq(&self, &jmap_chat_types::Span) -> bool
+impl core::fmt::Debug for jmap_chat_types::Span
+pub fn jmap_chat_types::Span::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::Span
+impl serde_core::ser::Serialize for jmap_chat_types::Span
+pub fn jmap_chat_types::Span::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Span
+pub fn jmap_chat_types::Span::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_types::TaskMetadata
+pub jmap_chat_types::TaskMetadata::assignee_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_chat_types::TaskMetadata::due: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::TaskMetadata::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::TaskMetadata::priority: core::option::Option<i64>
+pub jmap_chat_types::TaskMetadata::progress: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_chat_types::TaskMetadata
+pub fn jmap_chat_types::TaskMetadata::clone(&self) -> jmap_chat_types::TaskMetadata
+impl core::cmp::PartialEq for jmap_chat_types::TaskMetadata
+pub fn jmap_chat_types::TaskMetadata::eq(&self, &jmap_chat_types::TaskMetadata) -> bool
+impl core::default::Default for jmap_chat_types::TaskMetadata
+pub fn jmap_chat_types::TaskMetadata::default() -> jmap_chat_types::TaskMetadata
+impl core::fmt::Debug for jmap_chat_types::TaskMetadata
+pub fn jmap_chat_types::TaskMetadata::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::TaskMetadata
+impl serde_core::ser::Serialize for jmap_chat_types::TaskMetadata
+pub fn jmap_chat_types::TaskMetadata::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::TaskMetadata
+pub fn jmap_chat_types::TaskMetadata::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_chat_types::BROADCAST_MENTION_SCOPES: &[&str]
+pub const jmap_chat_types::CHAT_CAP_AVAILABILITY: &str
+pub const jmap_chat_types::CHAT_CAP_CALENDAR_EVENT: &str
+pub const jmap_chat_types::CHAT_CAP_TASK: &str
+pub const jmap_chat_types::CHAT_CAP_VTC: &str
+pub const jmap_chat_types::CHAT_FILENODE_SPACE_ROLE: &str
+pub const jmap_chat_types::COMPANION_EPHEMERAL_DATA_TYPES: &[&str]
+pub const jmap_chat_types::JMAP_CHAT_CALENDARS_URI: &str
+pub const jmap_chat_types::JMAP_CHAT_DID_URI: &str
+pub const jmap_chat_types::JMAP_CHAT_FILENODE_URI: &str
+pub const jmap_chat_types::JMAP_CHAT_PUSH_URI: &str
+pub const jmap_chat_types::JMAP_CHAT_TASKS_URI: &str
+pub const jmap_chat_types::JMAP_CHAT_URI: &str
+pub const jmap_chat_types::JMAP_CHAT_WEBSOCKET_URI: &str
+pub const jmap_chat_types::JMAP_URI_TASK_TYPE: &str
+pub const jmap_chat_types::MANDATORY_DID_METHODS: &[&str]
+pub const jmap_chat_types::SPACE_CALENDAR_ID_PROPERTY: &str
+pub const jmap_chat_types::SPACE_TASK_LIST_ID_PROPERTY: &str
+pub const jmap_chat_types::SPEC_CHANNEL_PERMISSION_TARGET_TYPES: &[&str]
+pub const jmap_chat_types::SPEC_CHAT_MEMBER_ROLES: &[&str]
+pub const jmap_chat_types::SPEC_EPHEMERAL_DATA_TYPES: &[&str]
+pub const jmap_chat_types::SPEC_PERMISSION_NAMES: &[&str]
+pub const jmap_chat_types::TASK_CHAT_ID_PROPERTY: &str
+pub fn jmap_chat_types::may_advertise_chat_did<S: core::convert::AsRef<str>>(core::option::Option<&[S]>) -> bool
+pub fn jmap_chat_types::task_chat_id(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<core::option::Option<jmap_types::id::Id>, serde_json::error::Error>
+pub type jmap_chat_types::ChatComparator = jmap_chat_types::Comparator<jmap_chat_types::ChatComparatorProperty>
+pub type jmap_chat_types::ChatContactComparator = jmap_chat_types::Comparator<jmap_chat_types::ChatContactComparatorProperty>
+pub type jmap_chat_types::ChatContactFilter = jmap_types::query::Filter<jmap_chat_types::ChatContactFilterCondition>
+pub type jmap_chat_types::ChatFilter = jmap_types::query::Filter<jmap_chat_types::ChatFilterCondition>
+pub type jmap_chat_types::CustomEmojiComparator = jmap_chat_types::Comparator<jmap_chat_types::CustomEmojiComparatorProperty>
+pub type jmap_chat_types::CustomEmojiFilter = jmap_types::query::Filter<jmap_chat_types::CustomEmojiFilterCondition>
+pub type jmap_chat_types::MessageComparator = jmap_chat_types::Comparator<jmap_chat_types::MessageComparatorProperty>
+pub type jmap_chat_types::MessageFilter = jmap_types::query::Filter<jmap_chat_types::MessageFilterCondition>
+pub type jmap_chat_types::SpaceComparator = jmap_chat_types::Comparator<jmap_chat_types::SpaceComparatorProperty>
+pub type jmap_chat_types::SpaceFilter = jmap_types::query::Filter<jmap_chat_types::SpaceFilterCondition>

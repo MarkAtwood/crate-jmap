@@ -1,0 +1,78 @@
+pub mod jmap_did_resolver
+pub use jmap_did_resolver::jmap_did_types
+pub use jmap_did_resolver::reqwest
+#[non_exhaustive] pub enum jmap_did_resolver::FetchError
+pub jmap_did_resolver::FetchError::Status(u16)
+pub jmap_did_resolver::FetchError::TooLarge
+pub jmap_did_resolver::FetchError::Transport(alloc::boxed::Box<(dyn core::error::Error + core::marker::Send + core::marker::Sync)>)
+impl core::convert::From<jmap_did_resolver::FetchError> for jmap_did_resolver::ResolveError
+pub fn jmap_did_resolver::ResolveError::from(jmap_did_resolver::FetchError) -> Self
+impl core::error::Error for jmap_did_resolver::FetchError
+pub fn jmap_did_resolver::FetchError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_did_resolver::FetchError
+pub fn jmap_did_resolver::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_resolver::FetchError
+pub fn jmap_did_resolver::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_did_resolver::ResolveError
+pub jmap_did_resolver::ResolveError::Deactivated
+pub jmap_did_resolver::ResolveError::Fetch(jmap_did_resolver::FetchError)
+pub jmap_did_resolver::ResolveError::IdMismatch
+pub jmap_did_resolver::ResolveError::InvalidDid
+pub jmap_did_resolver::ResolveError::Json(serde_json::error::Error)
+pub jmap_did_resolver::ResolveError::Key(jmap_did_types::key::DidKeyError)
+pub jmap_did_resolver::ResolveError::Plc(jmap_did_types::plc::PlcError)
+pub jmap_did_resolver::ResolveError::UnsupportedMethod(alloc::string::String)
+pub jmap_did_resolver::ResolveError::VersionNotFound
+pub jmap_did_resolver::ResolveError::Webvh(jmap_did_types::webvh::WebvhError)
+pub jmap_did_resolver::ResolveError::WebvhRollback
+impl core::convert::From<jmap_did_resolver::FetchError> for jmap_did_resolver::ResolveError
+pub fn jmap_did_resolver::ResolveError::from(jmap_did_resolver::FetchError) -> Self
+impl core::error::Error for jmap_did_resolver::ResolveError
+pub fn jmap_did_resolver::ResolveError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_did_resolver::ResolveError
+pub fn jmap_did_resolver::ResolveError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_resolver::ResolveError
+pub fn jmap_did_resolver::ResolveError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_did_resolver::Resolved
+pub jmap_did_resolver::Resolved::Document(serde_json::value::Value)
+pub jmap_did_resolver::Resolved::Plc(jmap_did_types::plc::PlcState)
+pub jmap_did_resolver::Resolved::Webvh(jmap_did_types::webvh::WebvhLog)
+impl core::clone::Clone for jmap_did_resolver::Resolved
+pub fn jmap_did_resolver::Resolved::clone(&self) -> jmap_did_resolver::Resolved
+impl core::cmp::PartialEq for jmap_did_resolver::Resolved
+pub fn jmap_did_resolver::Resolved::eq(&self, &jmap_did_resolver::Resolved) -> bool
+impl core::fmt::Debug for jmap_did_resolver::Resolved
+pub fn jmap_did_resolver::Resolved::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_resolver::Resolved
+pub struct jmap_did_resolver::HttpFetcher
+impl jmap_did_resolver::HttpFetcher
+pub fn jmap_did_resolver::HttpFetcher::from_client(reqwest::async_impl::client::Client) -> Self
+pub fn jmap_did_resolver::HttpFetcher::new() -> core::result::Result<Self, jmap_did_resolver::FetchError>
+impl core::clone::Clone for jmap_did_resolver::HttpFetcher
+pub fn jmap_did_resolver::HttpFetcher::clone(&self) -> jmap_did_resolver::HttpFetcher
+impl core::fmt::Debug for jmap_did_resolver::HttpFetcher
+pub fn jmap_did_resolver::HttpFetcher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_did_resolver::Fetch for jmap_did_resolver::HttpFetcher
+pub async fn jmap_did_resolver::HttpFetcher::get(&self, &str) -> core::result::Result<alloc::vec::Vec<u8>, jmap_did_resolver::FetchError>
+pub struct jmap_did_resolver::Resolver<F>
+impl<F: jmap_did_resolver::Fetch> jmap_did_resolver::Resolver<F>
+pub fn jmap_did_resolver::Resolver<F>::new(F, core::time::Duration) -> Self
+pub async fn jmap_did_resolver::Resolver<F>::refresh(&self, &jmap_did_types::did::Did) -> core::result::Result<jmap_did_resolver::Resolved, jmap_did_resolver::ResolveError>
+pub async fn jmap_did_resolver::Resolver<F>::resolve(&self, &jmap_did_types::did::Did) -> core::result::Result<jmap_did_resolver::Resolved, jmap_did_resolver::ResolveError>
+pub async fn jmap_did_resolver::Resolver<F>::resolve_webvh_version(&self, &jmap_did_types::did::Did, &str) -> core::result::Result<jmap_did_types::webvh::WebvhVersion, jmap_did_resolver::ResolveError>
+pub async fn jmap_did_resolver::Resolver<F>::resolve_with_hint(&self, &jmap_did_types::did::Did, &str) -> core::result::Result<jmap_did_resolver::Resolved, jmap_did_resolver::ResolveError>
+pub fn jmap_did_resolver::Resolver<F>::with_clock(self, impl core::ops::function::Fn() -> std::time::Instant + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn jmap_did_resolver::Resolver<F>::with_max_entries(self, core::num::nonzero::NonZeroUsize) -> Self
+pub fn jmap_did_resolver::Resolver<F>::with_plc_directory(self, &str) -> Self
+pub fn jmap_did_resolver::Resolver<F>::with_refresh_interval(self, core::time::Duration) -> Self
+impl<F: core::fmt::Debug> core::fmt::Debug for jmap_did_resolver::Resolver<F>
+pub fn jmap_did_resolver::Resolver<F>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_did_resolver::DEFAULT_MAX_ENTRIES: core::num::nonzero::NonZeroUsize
+pub const jmap_did_resolver::DEFAULT_PLC_DIRECTORY: &str
+pub const jmap_did_resolver::DEFAULT_REFRESH_INTERVAL: core::time::Duration
+pub const jmap_did_resolver::FETCH_TIMEOUT: core::time::Duration
+pub const jmap_did_resolver::MAX_BODY_BYTES: usize
+pub trait jmap_did_resolver::Fetch: core::marker::Send + core::marker::Sync
+pub fn jmap_did_resolver::Fetch::get(&self, &str) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<u8>, jmap_did_resolver::FetchError>> + core::marker::Send
+impl jmap_did_resolver::Fetch for jmap_did_resolver::HttpFetcher
+pub async fn jmap_did_resolver::HttpFetcher::get(&self, &str) -> core::result::Result<alloc::vec::Vec<u8>, jmap_did_resolver::FetchError>

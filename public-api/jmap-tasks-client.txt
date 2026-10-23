@@ -1,0 +1,65 @@
+pub mod jmap_tasks_client
+pub use jmap_tasks_client::AddedItem
+pub use jmap_tasks_client::ChangesResponse
+pub use jmap_tasks_client::ClientError
+pub use jmap_tasks_client::CopyResponse
+pub use jmap_tasks_client::GetResponse
+pub use jmap_tasks_client::PartialObject
+pub use jmap_tasks_client::QueryChangesResponse
+pub use jmap_tasks_client::QueryResponse
+pub use jmap_tasks_client::SetError
+pub use jmap_tasks_client::SetResponse
+#[non_exhaustive] pub struct jmap_tasks_client::SessionClient
+impl jmap_tasks_client::SessionClient
+pub fn jmap_tasks_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_tasks_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+pub fn jmap_tasks_client::SessionClient::tasks_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+impl jmap_tasks_client::SessionClient
+pub async fn jmap_tasks_client::SessionClient::task_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_copy(&self, jmap_tasks_client::TaskCopyParams, serde_json::value::Value) -> core::result::Result<jmap_types::methods::CopyResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_tasks_types::task::Task>, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_tasks_types::filter::TaskComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_tasks_types::filter::TaskComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_tasks_client::SessionClient
+pub async fn jmap_tasks_client::SessionClient::task_list_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_list_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_tasks_types::task_list::TaskList>, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_list_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_tasks_client::TaskListSetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_tasks_client::SessionClient
+pub async fn jmap_tasks_client::SessionClient::task_notification_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_notification_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_tasks_types::notification::TaskNotification>, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_notification_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_tasks_types::filter::TaskNotificationComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_notification_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_tasks_types::filter::TaskNotificationComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_tasks_client::SessionClient::task_notification_set(&self, alloc::vec::Vec<jmap_types::id::Id>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_tasks_client::SessionClient
+pub fn jmap_tasks_client::SessionClient::clone(&self) -> jmap_tasks_client::SessionClient
+impl core::fmt::Debug for jmap_tasks_client::SessionClient
+pub fn jmap_tasks_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_tasks_client::TaskCopyParams
+pub jmap_tasks_client::TaskCopyParams::destroy_from_if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_tasks_client::TaskCopyParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_client::TaskCopyParams::from_account_id: jmap_types::id::Id
+pub jmap_tasks_client::TaskCopyParams::if_from_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_tasks_client::TaskCopyParams::if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_tasks_client::TaskCopyParams::on_success_destroy_original: core::option::Option<bool>
+impl core::clone::Clone for jmap_tasks_client::TaskCopyParams
+pub fn jmap_tasks_client::TaskCopyParams::clone(&self) -> jmap_tasks_client::TaskCopyParams
+impl core::fmt::Debug for jmap_tasks_client::TaskCopyParams
+pub fn jmap_tasks_client::TaskCopyParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_tasks_client::TaskCopyParams
+pub fn jmap_tasks_client::TaskCopyParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_tasks_client::TaskListSetParams
+pub jmap_tasks_client::TaskListSetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_tasks_client::TaskListSetParams::on_destroy_remove_tasks: core::option::Option<bool>
+impl core::clone::Clone for jmap_tasks_client::TaskListSetParams
+pub fn jmap_tasks_client::TaskListSetParams::clone(&self) -> jmap_tasks_client::TaskListSetParams
+impl core::default::Default for jmap_tasks_client::TaskListSetParams
+pub fn jmap_tasks_client::TaskListSetParams::default() -> jmap_tasks_client::TaskListSetParams
+impl core::fmt::Debug for jmap_tasks_client::TaskListSetParams
+pub fn jmap_tasks_client::TaskListSetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_tasks_client::TaskListSetParams
+pub fn jmap_tasks_client::TaskListSetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub trait jmap_tasks_client::JmapTasksExt: jmap_tasks_client::sealed::Sealed
+pub fn jmap_tasks_client::JmapTasksExt::with_tasks_session(&self, jmap_base_client::request::Session) -> jmap_tasks_client::SessionClient
+impl jmap_tasks_client::JmapTasksExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_tasks_session(&self, jmap_base_client::request::Session) -> jmap_tasks_client::SessionClient

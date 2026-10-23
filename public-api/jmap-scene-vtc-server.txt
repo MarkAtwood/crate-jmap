@@ -1,0 +1,3 @@
+pub mod jmap_scene_vtc_server
+pub async fn jmap_scene_vtc_server::clear_active_call_id<S: jmap_scene_server::backend::SceneBackend>(&S, &<S as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_vtc_types::call::VtcCall) -> core::result::Result<(), jmap_server::backend::BackendSetError<<S as jmap_server::backend::JmapBackend>::Error>>
+pub async fn jmap_scene_vtc_server::may_see_region_avatars<B: jmap_server::backend::JmapBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_vtc_types::call::VtcCall, &str) -> core::result::Result<bool, <B as jmap_server::backend::JmapBackend>::Error>

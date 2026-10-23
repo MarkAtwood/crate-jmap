@@ -1,0 +1,215 @@
+pub mod jmap_calendars_server
+pub use jmap_calendars_server::AddedItem
+pub use jmap_calendars_server::BackendChangesError
+pub use jmap_calendars_server::BackendQueryError
+pub use jmap_calendars_server::BackendSetError
+pub use jmap_calendars_server::CalendarEventNotificationProperty
+pub use jmap_calendars_server::CalendarEventProperty
+pub use jmap_calendars_server::CalendarProperty
+pub use jmap_calendars_server::ChangesResult
+pub use jmap_calendars_server::GetObject
+pub use jmap_calendars_server::JMAP_CALENDARS_URI
+pub use jmap_calendars_server::JmapBackend
+pub use jmap_calendars_server::JmapObject
+pub use jmap_calendars_server::ParticipantIdentityProperty
+pub use jmap_calendars_server::QueryChangesParams
+pub use jmap_calendars_server::QueryChangesResult
+pub use jmap_calendars_server::QueryObject
+pub use jmap_calendars_server::QueryParams
+pub use jmap_calendars_server::QueryResult
+pub use jmap_calendars_server::SetError
+pub use jmap_calendars_server::SetErrorType
+pub use jmap_calendars_server::SetObject
+pub mod jmap_calendars_server::memory
+#[non_exhaustive] pub struct jmap_calendars_server::memory::MemoryBackend
+impl jmap_calendars_server::memory::MemoryBackend
+pub fn jmap_calendars_server::memory::MemoryBackend::new() -> Self
+pub fn jmap_calendars_server::memory::MemoryBackend::seed_object(&self, &str, &str, &str, serde_json::value::Value)
+pub fn jmap_calendars_server::memory::MemoryBackend::with_account(self, &str) -> Self
+impl core::clone::Clone for jmap_calendars_server::memory::MemoryBackend
+pub fn jmap_calendars_server::memory::MemoryBackend::clone(&self) -> jmap_calendars_server::memory::MemoryBackend
+impl core::default::Default for jmap_calendars_server::memory::MemoryBackend
+pub fn jmap_calendars_server::memory::MemoryBackend::default() -> jmap_calendars_server::memory::MemoryBackend
+impl jmap_calendars_server::CalendarsBackend for jmap_calendars_server::memory::MemoryBackend
+pub async fn jmap_calendars_server::memory::MemoryBackend::calendar_has_events(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
+pub fn jmap_calendars_server::memory::MemoryBackend::compute_utc_times(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_calendars_types::event::CalendarEvent, core::option::Option<&str>) -> impl core::future::future::Future<Output = (core::option::Option<jmap_types::id::UTCDate>, core::option::Option<jmap_types::id::UTCDate>)> + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::create_calendar_event<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, jmap_calendars_types::event::CalendarEvent), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_calendars_types::event::CalendarEvent + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::create_object<O, F>(&self, &(), &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::destroy_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
+pub async fn jmap_calendars_server::memory::MemoryBackend::get_availability(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::UTCDate, &jmap_types::id::UTCDate, bool, core::option::Option<&[alloc::string::String]>) -> core::result::Result<alloc::vec::Vec<jmap_calendars_types::availability::BusyPeriod>, jmap_server::backend::BackendQueryError<Self::Error>>
+pub fn jmap_calendars_server::memory::MemoryBackend::get_calendar_events(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>, &jmap_calendars_server::CalendarEventGetArgs) -> impl core::future::future::Future<Output = core::result::Result<(alloc::vec::Vec<jmap_calendars_types::event::CalendarEvent>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::memory::MemoryBackend::may_copy_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_calendars_types::event::CalendarEvent) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::parse_calendar_event_blobs(&self, &(), &jmap_types::id::Id, &[jmap_types::id::Id], core::option::Option<&[alloc::string::String]>) -> core::result::Result<jmap_calendars_server::CalendarEventParseResult, Self::Error>
+pub fn jmap_calendars_server::memory::MemoryBackend::privacy_conflicts(&self, &Self::CallerCtx, &jmap_types::id::Id, &[(alloc::string::String, jmap_calendars_types::event::CalendarEvent)], &[(jmap_types::id::Id, jmap_types::patch::PatchObject)], &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<jmap_calendars_server::PrivacyConflicts, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::query_calendar_events(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, jmap_calendars_types::event::CalendarEvent>, &jmap_calendars_server::CalendarEventQueryArgs) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::set_default_calendar(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_calendars_server::SetDefaultResult, Self::Error>
+pub async fn jmap_calendars_server::memory::MemoryBackend::set_default_participant_identity(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_calendars_server::SetDefaultResult, Self::Error>
+pub fn jmap_calendars_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
+pub fn jmap_calendars_server::memory::MemoryBackend::update_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_calendars_types::event::CalendarEvent>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
+pub async fn jmap_calendars_server::memory::MemoryBackend::update_per_user_properties(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> core::result::Result<core::option::Option<jmap_calendars_types::event::CalendarEvent>, jmap_server::backend::BackendSetError<Self::Error>>
+impl jmap_server::backend::JmapBackend for jmap_calendars_server::memory::MemoryBackend
+pub type jmap_calendars_server::memory::MemoryBackend::CallerCtx = ()
+pub type jmap_calendars_server::memory::MemoryBackend::Error = jmap_calendars_server::memory::MemoryError
+pub async fn jmap_calendars_server::memory::MemoryBackend::account_exists(&self, &(), &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
+pub async fn jmap_calendars_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
+pub async fn jmap_calendars_server::memory::MemoryBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>
+pub async fn jmap_calendars_server::memory::MemoryBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, Self::Error>
+pub async fn jmap_calendars_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
+pub async fn jmap_calendars_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>
+#[non_exhaustive] pub struct jmap_calendars_server::memory::MemoryError
+impl jmap_calendars_server::memory::MemoryError
+pub fn jmap_calendars_server::memory::MemoryError::description(&self) -> &str
+pub fn jmap_calendars_server::memory::MemoryError::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::error::Error for jmap_calendars_server::memory::MemoryError
+impl core::fmt::Debug for jmap_calendars_server::memory::MemoryError
+pub fn jmap_calendars_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_calendars_server::memory::MemoryError
+pub fn jmap_calendars_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_calendars_server::CalendarEventGetArgs
+pub jmap_calendars_server::CalendarEventGetArgs::recurrence_overrides_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_server::CalendarEventGetArgs::recurrence_overrides_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_server::CalendarEventGetArgs::reduce_participants: bool
+pub jmap_calendars_server::CalendarEventGetArgs::time_zone: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_calendars_server::CalendarEventGetArgs
+pub fn jmap_calendars_server::CalendarEventGetArgs::clone(&self) -> jmap_calendars_server::CalendarEventGetArgs
+impl core::default::Default for jmap_calendars_server::CalendarEventGetArgs
+pub fn jmap_calendars_server::CalendarEventGetArgs::default() -> jmap_calendars_server::CalendarEventGetArgs
+impl core::fmt::Debug for jmap_calendars_server::CalendarEventGetArgs
+pub fn jmap_calendars_server::CalendarEventGetArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_calendars_server::CalendarEventParseResult
+pub jmap_calendars_server::CalendarEventParseResult::not_found: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_calendars_server::CalendarEventParseResult::not_parsable: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_calendars_server::CalendarEventParseResult::parsed: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_calendars_types::event::CalendarEvent>>
+impl jmap_calendars_server::CalendarEventParseResult
+pub fn jmap_calendars_server::CalendarEventParseResult::new(alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_calendars_types::event::CalendarEvent>>, alloc::vec::Vec<jmap_types::id::Id>, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+pub fn jmap_calendars_server::CalendarEventParseResult::with_not_found(self, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+pub fn jmap_calendars_server::CalendarEventParseResult::with_not_parsable(self, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+pub fn jmap_calendars_server::CalendarEventParseResult::with_parsed(self, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_calendars_types::event::CalendarEvent>>) -> Self
+impl core::default::Default for jmap_calendars_server::CalendarEventParseResult
+pub fn jmap_calendars_server::CalendarEventParseResult::default() -> jmap_calendars_server::CalendarEventParseResult
+impl core::fmt::Debug for jmap_calendars_server::CalendarEventParseResult
+pub fn jmap_calendars_server::CalendarEventParseResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_calendars_server::CalendarEventQueryArgs
+pub jmap_calendars_server::CalendarEventQueryArgs::expand_recurrences: bool
+pub jmap_calendars_server::CalendarEventQueryArgs::time_zone: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_calendars_server::CalendarEventQueryArgs
+pub fn jmap_calendars_server::CalendarEventQueryArgs::clone(&self) -> jmap_calendars_server::CalendarEventQueryArgs
+impl core::default::Default for jmap_calendars_server::CalendarEventQueryArgs
+pub fn jmap_calendars_server::CalendarEventQueryArgs::default() -> jmap_calendars_server::CalendarEventQueryArgs
+impl core::fmt::Debug for jmap_calendars_server::CalendarEventQueryArgs
+pub fn jmap_calendars_server::CalendarEventQueryArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_calendars_server::CalendarEventSetArgs
+pub jmap_calendars_server::CalendarEventSetArgs::send_scheduling_messages: bool
+impl core::clone::Clone for jmap_calendars_server::CalendarEventSetArgs
+pub fn jmap_calendars_server::CalendarEventSetArgs::clone(&self) -> jmap_calendars_server::CalendarEventSetArgs
+impl core::default::Default for jmap_calendars_server::CalendarEventSetArgs
+pub fn jmap_calendars_server::CalendarEventSetArgs::default() -> jmap_calendars_server::CalendarEventSetArgs
+impl core::fmt::Debug for jmap_calendars_server::CalendarEventSetArgs
+pub fn jmap_calendars_server::CalendarEventSetArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_calendars_server::CalendarsLimits
+pub jmap_calendars_server::CalendarsLimits::max_expanded_query_duration_seconds: u64
+impl jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::CalendarsLimits::new(u64) -> Self
+pub fn jmap_calendars_server::CalendarsLimits::with_max_expanded_query_duration_seconds(self, u64) -> Self
+impl core::clone::Clone for jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::CalendarsLimits::clone(&self) -> jmap_calendars_server::CalendarsLimits
+impl core::cmp::Eq for jmap_calendars_server::CalendarsLimits
+impl core::cmp::PartialEq for jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::CalendarsLimits::eq(&self, &jmap_calendars_server::CalendarsLimits) -> bool
+impl core::default::Default for jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::CalendarsLimits::default() -> Self
+impl core::fmt::Debug for jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::CalendarsLimits::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_calendars_server::CalendarsLimits
+impl core::marker::StructuralPartialEq for jmap_calendars_server::CalendarsLimits
+#[non_exhaustive] pub struct jmap_calendars_server::PrivacyConflicts
+pub jmap_calendars_server::PrivacyConflicts::create_ids: alloc::vec::Vec<alloc::string::String>
+pub jmap_calendars_server::PrivacyConflicts::update_ids: alloc::vec::Vec<jmap_types::id::Id>
+impl jmap_calendars_server::PrivacyConflicts
+pub fn jmap_calendars_server::PrivacyConflicts::new(alloc::vec::Vec<alloc::string::String>, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+impl core::clone::Clone for jmap_calendars_server::PrivacyConflicts
+pub fn jmap_calendars_server::PrivacyConflicts::clone(&self) -> jmap_calendars_server::PrivacyConflicts
+impl core::cmp::Eq for jmap_calendars_server::PrivacyConflicts
+impl core::cmp::PartialEq for jmap_calendars_server::PrivacyConflicts
+pub fn jmap_calendars_server::PrivacyConflicts::eq(&self, &jmap_calendars_server::PrivacyConflicts) -> bool
+impl core::default::Default for jmap_calendars_server::PrivacyConflicts
+pub fn jmap_calendars_server::PrivacyConflicts::default() -> jmap_calendars_server::PrivacyConflicts
+impl core::fmt::Debug for jmap_calendars_server::PrivacyConflicts
+pub fn jmap_calendars_server::PrivacyConflicts::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_server::PrivacyConflicts
+#[non_exhaustive] pub struct jmap_calendars_server::SetDefaultResult
+pub jmap_calendars_server::SetDefaultResult::new_default: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_server::SetDefaultResult::previous_default: core::option::Option<jmap_types::id::Id>
+impl jmap_calendars_server::SetDefaultResult
+pub fn jmap_calendars_server::SetDefaultResult::new(core::option::Option<jmap_types::id::Id>, core::option::Option<jmap_types::id::Id>) -> Self
+pub fn jmap_calendars_server::SetDefaultResult::with_new_default(self, core::option::Option<jmap_types::id::Id>) -> Self
+pub fn jmap_calendars_server::SetDefaultResult::with_previous_default(self, core::option::Option<jmap_types::id::Id>) -> Self
+impl core::clone::Clone for jmap_calendars_server::SetDefaultResult
+pub fn jmap_calendars_server::SetDefaultResult::clone(&self) -> jmap_calendars_server::SetDefaultResult
+impl core::default::Default for jmap_calendars_server::SetDefaultResult
+pub fn jmap_calendars_server::SetDefaultResult::default() -> jmap_calendars_server::SetDefaultResult
+impl core::fmt::Debug for jmap_calendars_server::SetDefaultResult
+pub fn jmap_calendars_server::SetDefaultResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_calendars_server::CalendarsBackend: jmap_server::backend::JmapBackend
+pub fn jmap_calendars_server::CalendarsBackend::calendar_has_events(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::compute_utc_times(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_calendars_types::event::CalendarEvent, core::option::Option<&str>) -> impl core::future::future::Future<Output = (core::option::Option<jmap_types::id::UTCDate>, core::option::Option<jmap_types::id::UTCDate>)> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::create_calendar_event<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, jmap_calendars_types::event::CalendarEvent), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_calendars_types::event::CalendarEvent + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::create_object<O, F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::destroy_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::get_availability(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::UTCDate, &jmap_types::id::UTCDate, bool, core::option::Option<&[alloc::string::String]>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_calendars_types::availability::BusyPeriod>, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::get_calendar_events(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>, &jmap_calendars_server::CalendarEventGetArgs) -> impl core::future::future::Future<Output = core::result::Result<(alloc::vec::Vec<jmap_calendars_types::event::CalendarEvent>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::CalendarsBackend::may_copy_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_calendars_types::event::CalendarEvent) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::parse_calendar_event_blobs(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id], core::option::Option<&[alloc::string::String]>) -> impl core::future::future::Future<Output = core::result::Result<jmap_calendars_server::CalendarEventParseResult, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::privacy_conflicts(&self, &Self::CallerCtx, &jmap_types::id::Id, &[(alloc::string::String, jmap_calendars_types::event::CalendarEvent)], &[(jmap_types::id::Id, jmap_types::patch::PatchObject)], &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<jmap_calendars_server::PrivacyConflicts, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::query_calendar_events(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, jmap_calendars_types::event::CalendarEvent>, &jmap_calendars_server::CalendarEventQueryArgs) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::set_default_calendar(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_calendars_server::SetDefaultResult, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::set_default_participant_identity(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_calendars_server::SetDefaultResult, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
+pub fn jmap_calendars_server::CalendarsBackend::update_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_calendars_types::event::CalendarEvent>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_calendars_server::CalendarsBackend::update_per_user_properties(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_calendars_types::event::CalendarEvent>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+impl jmap_calendars_server::CalendarsBackend for jmap_calendars_server::memory::MemoryBackend
+pub async fn jmap_calendars_server::memory::MemoryBackend::calendar_has_events(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
+pub fn jmap_calendars_server::memory::MemoryBackend::compute_utc_times(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_calendars_types::event::CalendarEvent, core::option::Option<&str>) -> impl core::future::future::Future<Output = (core::option::Option<jmap_types::id::UTCDate>, core::option::Option<jmap_types::id::UTCDate>)> + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::create_calendar_event<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, jmap_calendars_types::event::CalendarEvent), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_calendars_types::event::CalendarEvent + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::create_object<O, F>(&self, &(), &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::destroy_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
+pub async fn jmap_calendars_server::memory::MemoryBackend::get_availability(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::UTCDate, &jmap_types::id::UTCDate, bool, core::option::Option<&[alloc::string::String]>) -> core::result::Result<alloc::vec::Vec<jmap_calendars_types::availability::BusyPeriod>, jmap_server::backend::BackendQueryError<Self::Error>>
+pub fn jmap_calendars_server::memory::MemoryBackend::get_calendar_events(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>, &jmap_calendars_server::CalendarEventGetArgs) -> impl core::future::future::Future<Output = core::result::Result<(alloc::vec::Vec<jmap_calendars_types::event::CalendarEvent>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_calendars_server::CalendarsLimits
+pub fn jmap_calendars_server::memory::MemoryBackend::may_copy_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_calendars_types::event::CalendarEvent) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::parse_calendar_event_blobs(&self, &(), &jmap_types::id::Id, &[jmap_types::id::Id], core::option::Option<&[alloc::string::String]>) -> core::result::Result<jmap_calendars_server::CalendarEventParseResult, Self::Error>
+pub fn jmap_calendars_server::memory::MemoryBackend::privacy_conflicts(&self, &Self::CallerCtx, &jmap_types::id::Id, &[(alloc::string::String, jmap_calendars_types::event::CalendarEvent)], &[(jmap_types::id::Id, jmap_types::patch::PatchObject)], &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<jmap_calendars_server::PrivacyConflicts, Self::Error>> + core::marker::Send
+pub fn jmap_calendars_server::memory::MemoryBackend::query_calendar_events(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, jmap_calendars_types::event::CalendarEvent>, &jmap_calendars_server::CalendarEventQueryArgs) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::set_default_calendar(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_calendars_server::SetDefaultResult, Self::Error>
+pub async fn jmap_calendars_server::memory::MemoryBackend::set_default_participant_identity(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_calendars_server::SetDefaultResult, Self::Error>
+pub fn jmap_calendars_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
+pub fn jmap_calendars_server::memory::MemoryBackend::update_calendar_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject, &jmap_calendars_server::CalendarEventSetArgs) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_calendars_types::event::CalendarEvent>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub async fn jmap_calendars_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
+pub async fn jmap_calendars_server::memory::MemoryBackend::update_per_user_properties(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> core::result::Result<core::option::Option<jmap_calendars_types::event::CalendarEvent>, jmap_server::backend::BackendSetError<Self::Error>>
+pub async fn jmap_calendars_server::handle_calendar_changes<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_changes<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_copy<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &str) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_get<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_notification_changes<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_notification_get<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_notification_query<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_notification_query_changes<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_notification_set<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_parse<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_query<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_query_changes<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_event_set<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_get<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_calendar_set<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_participant_identity_changes<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_participant_identity_get<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_participant_identity_set<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_calendars_server::handle_principal_get_availability<B: jmap_calendars_server::CalendarsBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub fn jmap_calendars_server::register_calendars_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_calendars_server::CalendarsBackend + 'static

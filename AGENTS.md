@@ -936,6 +936,21 @@ to stop API debt from piling up between breaking-change sweeps.
    root (as documented in the Crate Map) are that item's single path in
    this crate.
 
+## Public API snapshots
+
+`public-api/<crate>.txt` holds the public surface of every publishable
+crate, as printed by `cargo public-api --all-features -ss`
+(bd:JMAP-698j.1). The CI `public-api` job regenerates them and fails on
+any difference, so every public-surface change shows up in the review
+diff.
+
+To bless an intended change, install the pinned tool once
+(`cargo install --locked cargo-public-api@0.52.0`), run
+`scripts/public-api.sh`, and commit the changed snapshot files with the
+code change. The script pins the nightly toolchain; rustup installs it on
+first use. A snapshot diff that removes or changes a line is a breaking
+change and needs a **BREAKING** CHANGELOG entry.
+
 ## Backend caps and limits
 
 Extension backend traits that expose implementation-defined caps

@@ -1,0 +1,685 @@
+pub mod jmap_chat_client
+pub use jmap_chat_client::AddedItem
+pub use jmap_chat_client::BodyType
+pub use jmap_chat_client::ChangesResponse
+pub use jmap_chat_client::ChatCapability
+pub use jmap_chat_client::ChatCapabilityRole
+pub use jmap_chat_client::ChatFilenodeCapability
+pub use jmap_chat_client::ChatMemberRole
+pub use jmap_chat_client::ChatPushCapability
+pub use jmap_chat_client::ClientError
+pub use jmap_chat_client::Endpoint
+pub use jmap_chat_client::GetResponse
+pub use jmap_chat_client::PartialObject
+pub use jmap_chat_client::QueryChangesResponse
+pub use jmap_chat_client::QueryResponse
+pub use jmap_chat_client::SetError
+pub use jmap_chat_client::SetResponse
+#[non_exhaustive] pub enum jmap_chat_client::ChatCreateInput<'a>
+pub jmap_chat_client::ChatCreateInput::Direct
+pub jmap_chat_client::ChatCreateInput::Direct::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::ChatCreateInput::Direct::contact_id: &'a jmap_types::id::Id
+pub jmap_chat_client::ChatCreateInput::Group
+pub jmap_chat_client::ChatCreateInput::Group::avatar_blob_id: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_chat_client::ChatCreateInput::Group::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::ChatCreateInput::Group::description: core::option::Option<&'a str>
+pub jmap_chat_client::ChatCreateInput::Group::member_ids: &'a [jmap_types::id::Id]
+pub jmap_chat_client::ChatCreateInput::Group::message_expiry_seconds: core::option::Option<u64>
+pub jmap_chat_client::ChatCreateInput::Group::name: &'a str
+impl<'a> core::fmt::Debug for jmap_chat_client::ChatCreateInput<'a>
+pub fn jmap_chat_client::ChatCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_chat_client::ChatSseEvent
+pub jmap_chat_client::ChatSseEvent::Presence
+pub jmap_chat_client::ChatSseEvent::Presence::contact_id: jmap_types::id::Id
+pub jmap_chat_client::ChatSseEvent::Presence::last_active_at: core::option::Option<alloc::string::String>
+pub jmap_chat_client::ChatSseEvent::Presence::presence: jmap_chat_types::presence::Presence
+pub jmap_chat_client::ChatSseEvent::Presence::status_emoji: core::option::Option<alloc::string::String>
+pub jmap_chat_client::ChatSseEvent::Presence::status_text: core::option::Option<alloc::string::String>
+pub jmap_chat_client::ChatSseEvent::StateChange(jmap_types::push::StateChange)
+pub jmap_chat_client::ChatSseEvent::Typing
+pub jmap_chat_client::ChatSseEvent::Typing::chat_id: jmap_types::id::Id
+pub jmap_chat_client::ChatSseEvent::Typing::sender_id: jmap_types::id::Id
+pub jmap_chat_client::ChatSseEvent::Typing::typing: bool
+pub jmap_chat_client::ChatSseEvent::Unknown
+pub jmap_chat_client::ChatSseEvent::Unknown::event_type: alloc::string::String
+impl core::clone::Clone for jmap_chat_client::ChatSseEvent
+pub fn jmap_chat_client::ChatSseEvent::clone(&self) -> jmap_chat_client::ChatSseEvent
+impl core::fmt::Debug for jmap_chat_client::ChatSseEvent
+pub fn jmap_chat_client::ChatSseEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_chat_client::ChatWsFrame
+pub jmap_chat_client::ChatWsFrame::ChatPresence(jmap_chat_types::ephemeral::ChatPresenceEvent)
+pub jmap_chat_client::ChatWsFrame::ChatTyping(jmap_chat_types::ephemeral::ChatTypingEvent)
+pub jmap_chat_client::ChatWsFrame::Other(jmap_base_client::ws::WsFrame)
+impl core::clone::Clone for jmap_chat_client::ChatWsFrame
+pub fn jmap_chat_client::ChatWsFrame::clone(&self) -> jmap_chat_client::ChatWsFrame
+impl core::fmt::Debug for jmap_chat_client::ChatWsFrame
+pub fn jmap_chat_client::ChatWsFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum jmap_chat_client::Patch<T>
+pub jmap_chat_client::Patch::Clear
+pub jmap_chat_client::Patch::Keep
+pub jmap_chat_client::Patch::Set(T)
+impl<T> jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::is_keep(&self) -> bool
+impl<'de, T: serde_core::de::Deserialize<'de>> serde_core::de::Deserialize<'de> for jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::clone(&self) -> jmap_chat_client::Patch<T>
+impl<T: core::cmp::PartialEq> core::cmp::PartialEq for jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::eq(&self, &jmap_chat_client::Patch<T>) -> bool
+impl<T: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_chat_client::Patch<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T: serde_core::ser::Serialize> serde_core::ser::Serialize for jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<T> core::convert::From<T> for jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::from(T) -> Self
+impl<T> core::default::Default for jmap_chat_client::Patch<T>
+pub fn jmap_chat_client::Patch<T>::default() -> jmap_chat_client::Patch<T>
+#[non_exhaustive] pub enum jmap_chat_client::QuotaResourceType
+pub jmap_chat_client::QuotaResourceType::Count
+pub jmap_chat_client::QuotaResourceType::Octets
+pub jmap_chat_client::QuotaResourceType::Other(alloc::string::String)
+impl jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::clone(&self) -> jmap_chat_client::QuotaResourceType
+impl core::cmp::Eq for jmap_chat_client::QuotaResourceType
+impl core::cmp::PartialEq for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::eq(&self, &jmap_chat_client::QuotaResourceType) -> bool
+impl core::convert::From<&str> for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_client::QuotaResourceType
+impl serde_core::ser::Serialize for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::QuotaResourceType
+pub fn jmap_chat_client::QuotaResourceType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_client::QuotaScope
+pub jmap_chat_client::QuotaScope::Account
+pub jmap_chat_client::QuotaScope::Domain
+pub jmap_chat_client::QuotaScope::Global
+pub jmap_chat_client::QuotaScope::Other(alloc::string::String)
+impl jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::clone(&self) -> jmap_chat_client::QuotaScope
+impl core::cmp::Eq for jmap_chat_client::QuotaScope
+impl core::cmp::PartialEq for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::eq(&self, &jmap_chat_client::QuotaScope) -> bool
+impl core::convert::From<&str> for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_client::QuotaScope
+impl serde_core::ser::Serialize for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::QuotaScope
+pub fn jmap_chat_client::QuotaScope::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_client::ReactionChange<'a>
+pub jmap_chat_client::ReactionChange::Add
+pub jmap_chat_client::ReactionChange::Add::emoji: &'a str
+pub jmap_chat_client::ReactionChange::Add::sender_reaction_id: &'a str
+pub jmap_chat_client::ReactionChange::Add::sent_at: &'a jmap_types::id::UTCDate
+pub jmap_chat_client::ReactionChange::Remove
+pub jmap_chat_client::ReactionChange::Remove::sender_reaction_id: &'a str
+impl<'a> core::fmt::Debug for jmap_chat_client::ReactionChange<'a>
+pub fn jmap_chat_client::ReactionChange<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_chat_client::RsvpStatus
+pub jmap_chat_client::RsvpStatus::Accepted
+pub jmap_chat_client::RsvpStatus::Declined
+pub jmap_chat_client::RsvpStatus::Delegated
+pub jmap_chat_client::RsvpStatus::Tentative
+impl jmap_chat_client::RsvpStatus
+pub fn jmap_chat_client::RsvpStatus::as_str(self) -> &'static str
+impl core::clone::Clone for jmap_chat_client::RsvpStatus
+pub fn jmap_chat_client::RsvpStatus::clone(&self) -> jmap_chat_client::RsvpStatus
+impl core::cmp::Eq for jmap_chat_client::RsvpStatus
+impl core::cmp::PartialEq for jmap_chat_client::RsvpStatus
+pub fn jmap_chat_client::RsvpStatus::eq(&self, &jmap_chat_client::RsvpStatus) -> bool
+impl core::fmt::Debug for jmap_chat_client::RsvpStatus
+pub fn jmap_chat_client::RsvpStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_client::RsvpStatus
+pub fn jmap_chat_client::RsvpStatus::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_chat_client::RsvpStatus
+impl core::marker::StructuralPartialEq for jmap_chat_client::RsvpStatus
+#[non_exhaustive] pub enum jmap_chat_client::ServerRetryAfterError
+pub jmap_chat_client::ServerRetryAfterError::Malformed(serde_json::value::Value)
+impl core::clone::Clone for jmap_chat_client::ServerRetryAfterError
+pub fn jmap_chat_client::ServerRetryAfterError::clone(&self) -> jmap_chat_client::ServerRetryAfterError
+impl core::cmp::Eq for jmap_chat_client::ServerRetryAfterError
+impl core::cmp::PartialEq for jmap_chat_client::ServerRetryAfterError
+pub fn jmap_chat_client::ServerRetryAfterError::eq(&self, &jmap_chat_client::ServerRetryAfterError) -> bool
+impl core::error::Error for jmap_chat_client::ServerRetryAfterError
+impl core::fmt::Debug for jmap_chat_client::ServerRetryAfterError
+pub fn jmap_chat_client::ServerRetryAfterError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_client::ServerRetryAfterError
+pub fn jmap_chat_client::ServerRetryAfterError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_client::ServerRetryAfterError
+#[non_exhaustive] pub enum jmap_chat_client::SpaceJoinInput<'a>
+pub jmap_chat_client::SpaceJoinInput::InviteCode(&'a str)
+pub jmap_chat_client::SpaceJoinInput::SpaceId(&'a jmap_types::id::Id)
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceJoinInput<'a>
+pub fn jmap_chat_client::SpaceJoinInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::AddMemberInput<'a>
+pub jmap_chat_client::AddMemberInput::id: &'a jmap_types::id::Id
+pub jmap_chat_client::AddMemberInput::role: core::option::Option<jmap_chat_types::chat::ChatMemberRole>
+impl<'a> core::clone::Clone for jmap_chat_client::AddMemberInput<'a>
+pub fn jmap_chat_client::AddMemberInput<'a>::clone(&self) -> jmap_chat_client::AddMemberInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::AddMemberInput<'a>
+pub fn jmap_chat_client::AddMemberInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::Batch
+impl jmap_chat_client::Batch
+pub fn jmap_chat_client::Batch::chat_query_get<C: serde_core::ser::Serialize>(&mut self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::ChatComparator]>, &jmap_base_client::query::QueryParams, core::option::Option<&[&str]>) -> core::result::Result<(jmap_chat_client::CallHandle<jmap_types::methods::QueryResponse>, jmap_chat_client::CallHandle<jmap_types::methods::GetResponse<jmap_chat_types::chat::Chat>>), jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::Batch::message_query_get<C: serde_core::ser::Serialize>(&mut self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::MessageComparator]>, &jmap_base_client::query::QueryParams, core::option::Option<&[&str]>) -> core::result::Result<(jmap_chat_client::CallHandle<jmap_types::methods::QueryResponse>, jmap_chat_client::CallHandle<jmap_types::methods::GetResponse<jmap_chat_types::message::Message>>), jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_chat_client::Batch
+pub fn jmap_chat_client::Batch::clone(&self) -> jmap_chat_client::Batch
+impl core::fmt::Debug for jmap_chat_client::Batch
+pub fn jmap_chat_client::Batch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::BatchResponse
+impl jmap_chat_client::BatchResponse
+pub fn jmap_chat_client::BatchResponse::get<T: serde_core::de::DeserializeOwned>(&self, &jmap_chat_client::CallHandle<T>) -> core::result::Result<T, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_chat_client::BatchResponse
+pub fn jmap_chat_client::BatchResponse::clone(&self) -> jmap_chat_client::BatchResponse
+impl core::fmt::Debug for jmap_chat_client::BatchResponse
+pub fn jmap_chat_client::BatchResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::BlobConvertResponse
+pub jmap_chat_client::BlobConvertResponse::account_id: jmap_types::id::Id
+pub jmap_chat_client::BlobConvertResponse::created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_chat_client::BlobObject>>
+pub jmap_chat_client::BlobConvertResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_client::BlobConvertResponse::not_created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
+impl core::clone::Clone for jmap_chat_client::BlobConvertResponse
+pub fn jmap_chat_client::BlobConvertResponse::clone(&self) -> jmap_chat_client::BlobConvertResponse
+impl core::fmt::Debug for jmap_chat_client::BlobConvertResponse
+pub fn jmap_chat_client::BlobConvertResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobConvertResponse
+pub fn jmap_chat_client::BlobConvertResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_client::BlobLookupEntry
+pub jmap_chat_client::BlobLookupEntry::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_client::BlobLookupEntry::id: jmap_types::id::Id
+pub jmap_chat_client::BlobLookupEntry::matched_ids: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<jmap_types::id::Id>>
+impl core::clone::Clone for jmap_chat_client::BlobLookupEntry
+pub fn jmap_chat_client::BlobLookupEntry::clone(&self) -> jmap_chat_client::BlobLookupEntry
+impl core::fmt::Debug for jmap_chat_client::BlobLookupEntry
+pub fn jmap_chat_client::BlobLookupEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobLookupEntry
+pub fn jmap_chat_client::BlobLookupEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_client::BlobLookupResponse
+pub jmap_chat_client::BlobLookupResponse::account_id: jmap_types::id::Id
+pub jmap_chat_client::BlobLookupResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_client::BlobLookupResponse::list: alloc::vec::Vec<jmap_chat_client::BlobLookupEntry>
+pub jmap_chat_client::BlobLookupResponse::not_found: alloc::vec::Vec<jmap_types::id::Id>
+impl core::clone::Clone for jmap_chat_client::BlobLookupResponse
+pub fn jmap_chat_client::BlobLookupResponse::clone(&self) -> jmap_chat_client::BlobLookupResponse
+impl core::fmt::Debug for jmap_chat_client::BlobLookupResponse
+pub fn jmap_chat_client::BlobLookupResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobLookupResponse
+pub fn jmap_chat_client::BlobLookupResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_client::BlobObject
+pub jmap_chat_client::BlobObject::content_type: core::option::Option<alloc::string::String>
+pub jmap_chat_client::BlobObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_client::BlobObject::id: jmap_types::id::Id
+pub jmap_chat_client::BlobObject::size: core::option::Option<u64>
+impl core::clone::Clone for jmap_chat_client::BlobObject
+pub fn jmap_chat_client::BlobObject::clone(&self) -> jmap_chat_client::BlobObject
+impl core::fmt::Debug for jmap_chat_client::BlobObject
+pub fn jmap_chat_client::BlobObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobObject
+pub fn jmap_chat_client::BlobObject::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_chat_client::CallHandle<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_chat_client::CallHandle<T>
+pub fn jmap_chat_client::CallHandle<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::ChatContactPatch<'a>
+pub jmap_chat_client::ChatContactPatch::blocked: core::option::Option<bool>
+pub jmap_chat_client::ChatContactPatch::display_name: jmap_chat_client::Patch<&'a str>
+impl<'a> core::default::Default for jmap_chat_client::ChatContactPatch<'a>
+pub fn jmap_chat_client::ChatContactPatch<'a>::default() -> jmap_chat_client::ChatContactPatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::ChatContactPatch<'a>
+pub fn jmap_chat_client::ChatContactPatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::ChatPatch<'a>
+pub jmap_chat_client::ChatPatch::add_members: core::option::Option<&'a [jmap_chat_client::AddMemberInput<'a>]>
+pub jmap_chat_client::ChatPatch::avatar_blob_id: jmap_chat_client::Patch<&'a jmap_types::id::Id>
+pub jmap_chat_client::ChatPatch::description: jmap_chat_client::Patch<&'a str>
+pub jmap_chat_client::ChatPatch::message_expiry_seconds: jmap_chat_client::Patch<u64>
+pub jmap_chat_client::ChatPatch::mute_until: jmap_chat_client::Patch<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::ChatPatch::muted: core::option::Option<bool>
+pub jmap_chat_client::ChatPatch::name: core::option::Option<&'a str>
+pub jmap_chat_client::ChatPatch::pinned_message_ids: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::ChatPatch::receipt_sharing: jmap_chat_client::Patch<bool>
+pub jmap_chat_client::ChatPatch::receive_typing_indicators: core::option::Option<bool>
+pub jmap_chat_client::ChatPatch::remove_members: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::ChatPatch::update_member_roles: core::option::Option<&'a [jmap_chat_client::UpdateMemberRoleInput<'a>]>
+impl<'a> core::default::Default for jmap_chat_client::ChatPatch<'a>
+pub fn jmap_chat_client::ChatPatch<'a>::default() -> jmap_chat_client::ChatPatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::ChatPatch<'a>
+pub fn jmap_chat_client::ChatPatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::ChatSseFrame
+pub jmap_chat_client::ChatSseFrame::event: jmap_chat_client::ChatSseEvent
+pub jmap_chat_client::ChatSseFrame::id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_chat_client::ChatSseFrame
+pub fn jmap_chat_client::ChatSseFrame::clone(&self) -> jmap_chat_client::ChatSseFrame
+impl core::fmt::Debug for jmap_chat_client::ChatSseFrame
+pub fn jmap_chat_client::ChatSseFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::CustomEmojiCreateInput<'a>
+pub jmap_chat_client::CustomEmojiCreateInput::blob_id: &'a jmap_types::id::Id
+pub jmap_chat_client::CustomEmojiCreateInput::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::CustomEmojiCreateInput::name: &'a str
+pub jmap_chat_client::CustomEmojiCreateInput::space_id: core::option::Option<&'a jmap_types::id::Id>
+impl<'a> core::clone::Clone for jmap_chat_client::CustomEmojiCreateInput<'a>
+pub fn jmap_chat_client::CustomEmojiCreateInput<'a>::clone(&self) -> jmap_chat_client::CustomEmojiCreateInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::CustomEmojiCreateInput<'a>
+pub fn jmap_chat_client::CustomEmojiCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::CustomEmojiPatch<'a>
+pub jmap_chat_client::CustomEmojiPatch::blob_id: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_chat_client::CustomEmojiPatch::name: core::option::Option<&'a str>
+impl<'a> core::clone::Clone for jmap_chat_client::CustomEmojiPatch<'a>
+pub fn jmap_chat_client::CustomEmojiPatch<'a>::clone(&self) -> jmap_chat_client::CustomEmojiPatch<'a>
+impl<'a> core::default::Default for jmap_chat_client::CustomEmojiPatch<'a>
+pub fn jmap_chat_client::CustomEmojiPatch<'a>::default() -> jmap_chat_client::CustomEmojiPatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::CustomEmojiPatch<'a>
+pub fn jmap_chat_client::CustomEmojiPatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::MessageCreateInput<'a>
+pub jmap_chat_client::MessageCreateInput::actions: core::option::Option<&'a [jmap_chat_types::message::MessageAction]>
+pub jmap_chat_client::MessageCreateInput::attachments: core::option::Option<&'a [jmap_chat_types::message::AttachmentCreate]>
+pub jmap_chat_client::MessageCreateInput::body: &'a str
+pub jmap_chat_client::MessageCreateInput::body_type: jmap_chat_types::message::BodyType
+pub jmap_chat_client::MessageCreateInput::broadcast_mentions: core::option::Option<&'a [jmap_chat_types::message::BroadcastMention]>
+pub jmap_chat_client::MessageCreateInput::burn_on_read: core::option::Option<bool>
+pub jmap_chat_client::MessageCreateInput::chat_id: &'a jmap_types::id::Id
+pub jmap_chat_client::MessageCreateInput::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::MessageCreateInput::expires_after_read_seconds: core::option::Option<u64>
+pub jmap_chat_client::MessageCreateInput::mentions: core::option::Option<&'a [jmap_chat_types::message::Mention]>
+pub jmap_chat_client::MessageCreateInput::reply_to: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_chat_client::MessageCreateInput::sender_expires_at: core::option::Option<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::MessageCreateInput::sent_at: &'a jmap_types::id::UTCDate
+pub jmap_chat_client::MessageCreateInput::subject: core::option::Option<&'a str>
+pub jmap_chat_client::MessageCreateInput::thread_root_id: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_chat_client::MessageCreateInput::topic_id: core::option::Option<&'a str>
+impl<'a> core::clone::Clone for jmap_chat_client::MessageCreateInput<'a>
+pub fn jmap_chat_client::MessageCreateInput<'a>::clone(&self) -> jmap_chat_client::MessageCreateInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::MessageCreateInput<'a>
+pub fn jmap_chat_client::MessageCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::MessagePatch<'a>
+pub jmap_chat_client::MessagePatch::body: core::option::Option<&'a str>
+pub jmap_chat_client::MessagePatch::body_type: core::option::Option<jmap_chat_types::message::BodyType>
+pub jmap_chat_client::MessagePatch::broadcast_mentions: core::option::Option<alloc::vec::Vec<jmap_chat_types::message::BroadcastMention>>
+pub jmap_chat_client::MessagePatch::deleted_at: core::option::Option<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::MessagePatch::deleted_for_all: core::option::Option<bool>
+pub jmap_chat_client::MessagePatch::mentions: core::option::Option<alloc::vec::Vec<jmap_chat_types::message::Mention>>
+pub jmap_chat_client::MessagePatch::reaction_changes: core::option::Option<&'a [jmap_chat_client::ReactionChange<'a>]>
+pub jmap_chat_client::MessagePatch::read_at: core::option::Option<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::MessagePatch::read_disposition: core::option::Option<jmap_chat_types::message::ReadDisposition>
+impl<'a> core::default::Default for jmap_chat_client::MessagePatch<'a>
+pub fn jmap_chat_client::MessagePatch<'a>::default() -> jmap_chat_client::MessagePatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::MessagePatch<'a>
+pub fn jmap_chat_client::MessagePatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::PresenceStatusPatch<'a>
+pub jmap_chat_client::PresenceStatusPatch::expires_at: jmap_chat_client::Patch<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::PresenceStatusPatch::presence: core::option::Option<jmap_chat_types::presence::Presence>
+pub jmap_chat_client::PresenceStatusPatch::receipt_sharing: core::option::Option<bool>
+pub jmap_chat_client::PresenceStatusPatch::status_emoji: jmap_chat_client::Patch<&'a str>
+pub jmap_chat_client::PresenceStatusPatch::status_text: jmap_chat_client::Patch<&'a str>
+impl<'a> core::default::Default for jmap_chat_client::PresenceStatusPatch<'a>
+pub fn jmap_chat_client::PresenceStatusPatch<'a>::default() -> jmap_chat_client::PresenceStatusPatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::PresenceStatusPatch<'a>
+pub fn jmap_chat_client::PresenceStatusPatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::PushSubscriptionCreateInput<'a>
+pub jmap_chat_client::PushSubscriptionCreateInput::chat_push: core::option::Option<&'a [(&'a jmap_types::id::Id, jmap_chat_types::push::ChatPushConfig)]>
+pub jmap_chat_client::PushSubscriptionCreateInput::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::PushSubscriptionCreateInput::device_client_id: &'a str
+pub jmap_chat_client::PushSubscriptionCreateInput::expires: core::option::Option<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::PushSubscriptionCreateInput::types: core::option::Option<&'a [&'a str]>
+pub jmap_chat_client::PushSubscriptionCreateInput::url: &'a str
+impl<'a> core::clone::Clone for jmap_chat_client::PushSubscriptionCreateInput<'a>
+pub fn jmap_chat_client::PushSubscriptionCreateInput<'a>::clone(&self) -> jmap_chat_client::PushSubscriptionCreateInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::PushSubscriptionCreateInput<'a>
+pub fn jmap_chat_client::PushSubscriptionCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::PushSubscriptionCreateResponse
+pub jmap_chat_client::PushSubscriptionCreateResponse::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_client::PushSubscriptionCreateResponse::created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>>
+pub jmap_chat_client::PushSubscriptionCreateResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_client::PushSubscriptionCreateResponse::not_created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
+impl core::clone::Clone for jmap_chat_client::PushSubscriptionCreateResponse
+pub fn jmap_chat_client::PushSubscriptionCreateResponse::clone(&self) -> jmap_chat_client::PushSubscriptionCreateResponse
+impl core::fmt::Debug for jmap_chat_client::PushSubscriptionCreateResponse
+pub fn jmap_chat_client::PushSubscriptionCreateResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::PushSubscriptionCreateResponse
+pub fn jmap_chat_client::PushSubscriptionCreateResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_chat_client::PushSubscriptionPatch<'a>
+pub jmap_chat_client::PushSubscriptionPatch::chat_push: jmap_chat_client::Patch<&'a [(&'a jmap_types::id::Id, jmap_chat_types::push::ChatPushConfig)]>
+pub jmap_chat_client::PushSubscriptionPatch::expires: jmap_chat_client::Patch<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::PushSubscriptionPatch::types: jmap_chat_client::Patch<&'a [&'a str]>
+pub jmap_chat_client::PushSubscriptionPatch::verification_code: core::option::Option<&'a str>
+impl<'a> core::default::Default for jmap_chat_client::PushSubscriptionPatch<'a>
+pub fn jmap_chat_client::PushSubscriptionPatch<'a>::default() -> jmap_chat_client::PushSubscriptionPatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::PushSubscriptionPatch<'a>
+pub fn jmap_chat_client::PushSubscriptionPatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::Quota
+pub jmap_chat_client::Quota::description: core::option::Option<alloc::string::String>
+pub jmap_chat_client::Quota::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_client::Quota::hard_limit: u64
+pub jmap_chat_client::Quota::id: jmap_types::id::Id
+pub jmap_chat_client::Quota::name: alloc::string::String
+pub jmap_chat_client::Quota::resource_type: jmap_chat_client::QuotaResourceType
+pub jmap_chat_client::Quota::scope: jmap_chat_client::QuotaScope
+pub jmap_chat_client::Quota::soft_limit: core::option::Option<u64>
+pub jmap_chat_client::Quota::types: alloc::vec::Vec<alloc::string::String>
+pub jmap_chat_client::Quota::used: u64
+pub jmap_chat_client::Quota::warn_limit: core::option::Option<u64>
+impl core::clone::Clone for jmap_chat_client::Quota
+pub fn jmap_chat_client::Quota::clone(&self) -> jmap_chat_client::Quota
+impl core::fmt::Debug for jmap_chat_client::Quota
+pub fn jmap_chat_client::Quota::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::Quota
+pub fn jmap_chat_client::Quota::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_client::SessionClient
+impl jmap_chat_client::SessionClient
+pub fn jmap_chat_client::SessionClient::batch(&self) -> core::result::Result<jmap_chat_client::Batch, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::send_batch(&self, jmap_chat_client::Batch) -> core::result::Result<jmap_chat_client::BatchResponse, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::blob_convert(&self, &jmap_types::id::Id, &str, core::option::Option<u32>, core::option::Option<u32>) -> core::result::Result<jmap_chat_client::BlobConvertResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::blob_lookup(&self, &[jmap_types::id::Id], core::option::Option<&[&str]>) -> core::result::Result<jmap_chat_client::BlobLookupResponse, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub fn jmap_chat_client::SessionClient::chat_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_chat_client::SessionClient::for_account(&self, &str) -> core::result::Result<Self, jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::chat_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_create(&self, &jmap_chat_client::ChatCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::chat::Chat>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::ChatComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::ChatComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_typing(&self, &jmap_types::id::Id, bool) -> core::result::Result<jmap_chat_client::TypingResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_update(&self, &jmap_types::id::Id, &jmap_chat_client::ChatPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::chat_contact_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_contact_create(&self, &str, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_contact_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::contact::ChatContact>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_contact_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::ChatContactComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_contact_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::ChatContactComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_contact_update(&self, &jmap_types::id::Id, &jmap_chat_client::ChatContactPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::core_echo(&self, serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<serde_json::map::Map<alloc::string::String, serde_json::value::Value>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::presence_status_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::presence_status_get(&self) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::presence::PresenceStatus>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::presence_status_update(&self, &jmap_types::id::Id, &jmap_chat_client::PresenceStatusPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::push_subscription_create(&self, &jmap_chat_client::PushSubscriptionCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_chat_client::PushSubscriptionCreateResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::push_subscription_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::push_subscription_update(&self, &jmap_types::id::Id, &jmap_chat_client::PushSubscriptionPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::read_position_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::read_position_get(&self, core::option::Option<&[jmap_types::id::Id]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::position::ReadPosition>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::read_position_update(&self, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::custom_emoji_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::custom_emoji_create(&self, &jmap_chat_client::CustomEmojiCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::custom_emoji_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::custom_emoji_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::emoji::CustomEmoji>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::custom_emoji_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::CustomEmojiComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::custom_emoji_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::CustomEmojiComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::custom_emoji_update(&self, &jmap_types::id::Id, &jmap_chat_client::CustomEmojiPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::message_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::message_create(&self, &jmap_chat_client::MessageCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::message_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::message_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::message::Message>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::message_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::MessageComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::message_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::MessageComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::message_update(&self, &jmap_types::id::Id, &jmap_chat_client::MessagePatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::quota_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::quota_get(&self) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_client::Quota>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::space_ban_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_ban_create(&self, &jmap_chat_client::SpaceBanCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_ban_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_ban_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::space::SpaceBan>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_ban_update(&self, &jmap_types::id::Id, &jmap_chat_client::SpaceBanPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::space_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_create(&self, &jmap_chat_client::SpaceCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::space::Space>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_join(&self, &jmap_chat_client::SpaceJoinInput<'_>) -> core::result::Result<jmap_chat_client::SpaceJoinResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::SpaceComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::SpaceComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_update(&self, &jmap_types::id::Id, &jmap_chat_client::SpacePatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::space_file_tree_root(&self, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::space_invite_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_invite_create(&self, &jmap_chat_client::SpaceInviteCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_invite_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::space_invite_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::space::SpaceInvite>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_chat_client::SessionClient
+pub fn jmap_chat_client::SessionClient::clone(&self) -> jmap_chat_client::SessionClient
+impl core::fmt::Debug for jmap_chat_client::SessionClient
+pub fn jmap_chat_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceAddCategoryInput<'a>
+pub jmap_chat_client::SpaceAddCategoryInput::channel_ids: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::SpaceAddCategoryInput::name: &'a str
+pub jmap_chat_client::SpaceAddCategoryInput::position: core::option::Option<u64>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceAddCategoryInput<'a>
+pub fn jmap_chat_client::SpaceAddCategoryInput<'a>::clone(&self) -> jmap_chat_client::SpaceAddCategoryInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceAddCategoryInput<'a>
+pub fn jmap_chat_client::SpaceAddCategoryInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceAddChannelInput<'a>
+pub jmap_chat_client::SpaceAddChannelInput::category_id: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_chat_client::SpaceAddChannelInput::name: &'a str
+pub jmap_chat_client::SpaceAddChannelInput::position: core::option::Option<u64>
+pub jmap_chat_client::SpaceAddChannelInput::topic: core::option::Option<&'a str>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceAddChannelInput<'a>
+pub fn jmap_chat_client::SpaceAddChannelInput<'a>::clone(&self) -> jmap_chat_client::SpaceAddChannelInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceAddChannelInput<'a>
+pub fn jmap_chat_client::SpaceAddChannelInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceAddMemberInput<'a>
+pub jmap_chat_client::SpaceAddMemberInput::id: &'a jmap_types::id::Id
+pub jmap_chat_client::SpaceAddMemberInput::role_ids: core::option::Option<&'a [jmap_types::id::Id]>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceAddMemberInput<'a>
+pub fn jmap_chat_client::SpaceAddMemberInput<'a>::clone(&self) -> jmap_chat_client::SpaceAddMemberInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceAddMemberInput<'a>
+pub fn jmap_chat_client::SpaceAddMemberInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceAddRoleInput<'a>
+pub jmap_chat_client::SpaceAddRoleInput::color: core::option::Option<serde_json::value::Value>
+pub jmap_chat_client::SpaceAddRoleInput::name: &'a str
+pub jmap_chat_client::SpaceAddRoleInput::permissions: &'a [&'a str]
+pub jmap_chat_client::SpaceAddRoleInput::position: u64
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceAddRoleInput<'a>
+pub fn jmap_chat_client::SpaceAddRoleInput<'a>::clone(&self) -> jmap_chat_client::SpaceAddRoleInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceAddRoleInput<'a>
+pub fn jmap_chat_client::SpaceAddRoleInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceBanCreateInput<'a>
+pub jmap_chat_client::SpaceBanCreateInput::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceBanCreateInput::expires_at: core::option::Option<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::SpaceBanCreateInput::reason: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceBanCreateInput::space_id: &'a jmap_types::id::Id
+pub jmap_chat_client::SpaceBanCreateInput::user_id: &'a jmap_types::id::Id
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceBanCreateInput<'a>
+pub fn jmap_chat_client::SpaceBanCreateInput<'a>::clone(&self) -> jmap_chat_client::SpaceBanCreateInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceBanCreateInput<'a>
+pub fn jmap_chat_client::SpaceBanCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceBanPatch<'a>
+pub jmap_chat_client::SpaceBanPatch::expires_at: jmap_chat_client::Patch<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::SpaceBanPatch::reason: jmap_chat_client::Patch<&'a str>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceBanPatch<'a>
+pub fn jmap_chat_client::SpaceBanPatch<'a>::clone(&self) -> jmap_chat_client::SpaceBanPatch<'a>
+impl<'a> core::default::Default for jmap_chat_client::SpaceBanPatch<'a>
+pub fn jmap_chat_client::SpaceBanPatch<'a>::default() -> jmap_chat_client::SpaceBanPatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceBanPatch<'a>
+pub fn jmap_chat_client::SpaceBanPatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceCreateInput<'a>
+pub jmap_chat_client::SpaceCreateInput::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceCreateInput::description: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceCreateInput::icon_blob_id: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_chat_client::SpaceCreateInput::name: &'a str
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceCreateInput<'a>
+pub fn jmap_chat_client::SpaceCreateInput<'a>::clone(&self) -> jmap_chat_client::SpaceCreateInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceCreateInput<'a>
+pub fn jmap_chat_client::SpaceCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceInviteCreateInput<'a>
+pub jmap_chat_client::SpaceInviteCreateInput::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceInviteCreateInput::default_channel_id: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_chat_client::SpaceInviteCreateInput::expires_at: core::option::Option<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::SpaceInviteCreateInput::max_uses: core::option::Option<u64>
+pub jmap_chat_client::SpaceInviteCreateInput::space_id: &'a jmap_types::id::Id
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceInviteCreateInput<'a>
+pub fn jmap_chat_client::SpaceInviteCreateInput<'a>::clone(&self) -> jmap_chat_client::SpaceInviteCreateInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceInviteCreateInput<'a>
+pub fn jmap_chat_client::SpaceInviteCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::SpaceJoinResponse
+pub jmap_chat_client::SpaceJoinResponse::account_id: jmap_types::id::Id
+pub jmap_chat_client::SpaceJoinResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_client::SpaceJoinResponse::space_id: jmap_types::id::Id
+impl core::clone::Clone for jmap_chat_client::SpaceJoinResponse
+pub fn jmap_chat_client::SpaceJoinResponse::clone(&self) -> jmap_chat_client::SpaceJoinResponse
+impl core::fmt::Debug for jmap_chat_client::SpaceJoinResponse
+pub fn jmap_chat_client::SpaceJoinResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::SpaceJoinResponse
+pub fn jmap_chat_client::SpaceJoinResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_chat_client::SpacePatch<'a>
+pub jmap_chat_client::SpacePatch::add_categories: core::option::Option<&'a [jmap_chat_client::SpaceAddCategoryInput<'a>]>
+pub jmap_chat_client::SpacePatch::add_channels: core::option::Option<&'a [jmap_chat_client::SpaceAddChannelInput<'a>]>
+pub jmap_chat_client::SpacePatch::add_members: core::option::Option<&'a [jmap_chat_client::SpaceAddMemberInput<'a>]>
+pub jmap_chat_client::SpacePatch::add_roles: core::option::Option<&'a [jmap_chat_client::SpaceAddRoleInput<'a>]>
+pub jmap_chat_client::SpacePatch::description: jmap_chat_client::Patch<&'a str>
+pub jmap_chat_client::SpacePatch::icon_blob_id: jmap_chat_client::Patch<&'a jmap_types::id::Id>
+pub jmap_chat_client::SpacePatch::is_public: core::option::Option<bool>
+pub jmap_chat_client::SpacePatch::is_publicly_previewable: core::option::Option<bool>
+pub jmap_chat_client::SpacePatch::name: core::option::Option<&'a str>
+pub jmap_chat_client::SpacePatch::remove_categories: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::SpacePatch::remove_channels: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::SpacePatch::remove_members: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::SpacePatch::remove_roles: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::SpacePatch::update_categories: core::option::Option<&'a [jmap_chat_client::SpaceUpdateCategoryInput<'a>]>
+pub jmap_chat_client::SpacePatch::update_channels: core::option::Option<&'a [jmap_chat_client::SpaceUpdateChannelInput<'a>]>
+pub jmap_chat_client::SpacePatch::update_members: core::option::Option<&'a [jmap_chat_client::SpaceUpdateMemberInput<'a>]>
+pub jmap_chat_client::SpacePatch::update_roles: core::option::Option<&'a [jmap_chat_client::SpaceUpdateRoleInput<'a>]>
+impl<'a> core::default::Default for jmap_chat_client::SpacePatch<'a>
+pub fn jmap_chat_client::SpacePatch<'a>::default() -> jmap_chat_client::SpacePatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpacePatch<'a>
+pub fn jmap_chat_client::SpacePatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceUpdateCategoryInput<'a>
+pub jmap_chat_client::SpaceUpdateCategoryInput::channel_ids: core::option::Option<&'a [jmap_types::id::Id]>
+pub jmap_chat_client::SpaceUpdateCategoryInput::id: &'a jmap_types::id::Id
+pub jmap_chat_client::SpaceUpdateCategoryInput::name: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceUpdateCategoryInput::position: core::option::Option<u64>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceUpdateCategoryInput<'a>
+pub fn jmap_chat_client::SpaceUpdateCategoryInput<'a>::clone(&self) -> jmap_chat_client::SpaceUpdateCategoryInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceUpdateCategoryInput<'a>
+pub fn jmap_chat_client::SpaceUpdateCategoryInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceUpdateChannelInput<'a>
+pub jmap_chat_client::SpaceUpdateChannelInput::category_id: jmap_chat_client::Patch<&'a jmap_types::id::Id>
+pub jmap_chat_client::SpaceUpdateChannelInput::id: &'a jmap_types::id::Id
+pub jmap_chat_client::SpaceUpdateChannelInput::name: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceUpdateChannelInput::permission_overrides: core::option::Option<&'a [jmap_chat_types::chat::ChannelPermission]>
+pub jmap_chat_client::SpaceUpdateChannelInput::position: core::option::Option<u64>
+pub jmap_chat_client::SpaceUpdateChannelInput::slow_mode_seconds: core::option::Option<u64>
+pub jmap_chat_client::SpaceUpdateChannelInput::topic: jmap_chat_client::Patch<&'a str>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceUpdateChannelInput<'a>
+pub fn jmap_chat_client::SpaceUpdateChannelInput<'a>::clone(&self) -> jmap_chat_client::SpaceUpdateChannelInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceUpdateChannelInput<'a>
+pub fn jmap_chat_client::SpaceUpdateChannelInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceUpdateMemberInput<'a>
+pub jmap_chat_client::SpaceUpdateMemberInput::id: &'a jmap_types::id::Id
+pub jmap_chat_client::SpaceUpdateMemberInput::nick: jmap_chat_client::Patch<&'a str>
+pub jmap_chat_client::SpaceUpdateMemberInput::role_ids: core::option::Option<&'a [jmap_types::id::Id]>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceUpdateMemberInput<'a>
+pub fn jmap_chat_client::SpaceUpdateMemberInput<'a>::clone(&self) -> jmap_chat_client::SpaceUpdateMemberInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceUpdateMemberInput<'a>
+pub fn jmap_chat_client::SpaceUpdateMemberInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::SpaceUpdateRoleInput<'a>
+pub jmap_chat_client::SpaceUpdateRoleInput::color: jmap_chat_client::Patch<serde_json::value::Value>
+pub jmap_chat_client::SpaceUpdateRoleInput::id: &'a jmap_types::id::Id
+pub jmap_chat_client::SpaceUpdateRoleInput::name: core::option::Option<&'a str>
+pub jmap_chat_client::SpaceUpdateRoleInput::permissions: core::option::Option<&'a [&'a str]>
+pub jmap_chat_client::SpaceUpdateRoleInput::position: core::option::Option<u64>
+impl<'a> core::clone::Clone for jmap_chat_client::SpaceUpdateRoleInput<'a>
+pub fn jmap_chat_client::SpaceUpdateRoleInput<'a>::clone(&self) -> jmap_chat_client::SpaceUpdateRoleInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::SpaceUpdateRoleInput<'a>
+pub fn jmap_chat_client::SpaceUpdateRoleInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::TypingIndicators
+impl jmap_chat_client::TypingIndicators
+pub fn jmap_chat_client::TypingIndicators::is_typing(&self, &jmap_types::id::Id, &jmap_types::id::Id, std::time::Instant) -> bool
+pub fn jmap_chat_client::TypingIndicators::new() -> Self
+pub fn jmap_chat_client::TypingIndicators::record(&mut self, &jmap_types::id::Id, &jmap_types::id::Id, bool, std::time::Instant)
+pub fn jmap_chat_client::TypingIndicators::typing_in<'a>(&'a self, &'a jmap_types::id::Id, std::time::Instant) -> impl core::iter::traits::iterator::Iterator<Item = &'a jmap_types::id::Id>
+impl core::clone::Clone for jmap_chat_client::TypingIndicators
+pub fn jmap_chat_client::TypingIndicators::clone(&self) -> jmap_chat_client::TypingIndicators
+impl core::default::Default for jmap_chat_client::TypingIndicators
+pub fn jmap_chat_client::TypingIndicators::default() -> jmap_chat_client::TypingIndicators
+impl core::fmt::Debug for jmap_chat_client::TypingIndicators
+pub fn jmap_chat_client::TypingIndicators::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_client::TypingResponse
+pub jmap_chat_client::TypingResponse::account_id: jmap_types::id::Id
+pub jmap_chat_client::TypingResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_chat_client::TypingResponse
+pub fn jmap_chat_client::TypingResponse::clone(&self) -> jmap_chat_client::TypingResponse
+impl core::fmt::Debug for jmap_chat_client::TypingResponse
+pub fn jmap_chat_client::TypingResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::TypingResponse
+pub fn jmap_chat_client::TypingResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_chat_client::UpdateMemberRoleInput<'a>
+pub jmap_chat_client::UpdateMemberRoleInput::id: &'a jmap_types::id::Id
+pub jmap_chat_client::UpdateMemberRoleInput::role: jmap_chat_types::chat::ChatMemberRole
+impl<'a> core::clone::Clone for jmap_chat_client::UpdateMemberRoleInput<'a>
+pub fn jmap_chat_client::UpdateMemberRoleInput<'a>::clone(&self) -> jmap_chat_client::UpdateMemberRoleInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::UpdateMemberRoleInput<'a>
+pub fn jmap_chat_client::UpdateMemberRoleInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_chat_client::CALL_ID: &str
+pub const jmap_chat_client::TYPING_DECAY: core::time::Duration
+pub trait jmap_chat_client::ChatSessionExt: jmap_chat_client::session::sealed::Sealed
+pub fn jmap_chat_client::ChatSessionExt::chat_account_id(&self) -> core::option::Option<&jmap_types::id::Id>
+pub fn jmap_chat_client::ChatSessionExt::chat_capability(&self, &str) -> core::result::Result<core::option::Option<jmap_chat_types::capability::ChatCapability>, jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::ChatSessionExt::chat_filenode_capability(&self, &str) -> core::result::Result<core::option::Option<jmap_chat_types::capability::ChatFilenodeCapability>, jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::ChatSessionExt::chat_push_capability(&self, &str) -> core::result::Result<core::option::Option<jmap_chat_types::capability::ChatPushCapability>, jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::ChatSessionExt::owner_direct_address(&self) -> core::option::Option<&str>
+pub fn jmap_chat_client::ChatSessionExt::owner_endpoints(&self) -> core::result::Result<core::option::Option<alloc::vec::Vec<jmap_chat_types::contact::Endpoint>>, jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::ChatSessionExt::owner_login(&self) -> core::option::Option<&str>
+pub fn jmap_chat_client::ChatSessionExt::owner_user_id(&self) -> core::option::Option<&str>
+pub fn jmap_chat_client::ChatSessionExt::supports_chat_websocket(&self) -> bool
+pub fn jmap_chat_client::ChatSessionExt::supports_quotas(&self) -> bool
+pub fn jmap_chat_client::ChatSessionExt::supports_refplus(&self) -> bool
+pub fn jmap_chat_client::ChatSessionExt::vapid_public_key(&self) -> core::option::Option<&str>
+impl jmap_chat_client::ChatSessionExt for jmap_base_client::request::Session
+pub fn jmap_base_client::request::Session::chat_account_id(&self) -> core::option::Option<&jmap_types::id::Id>
+pub fn jmap_base_client::request::Session::chat_capability(&self, &str) -> core::result::Result<core::option::Option<jmap_chat_types::capability::ChatCapability>, jmap_base_client::error::ClientError>
+pub fn jmap_base_client::request::Session::chat_filenode_capability(&self, &str) -> core::result::Result<core::option::Option<jmap_chat_types::capability::ChatFilenodeCapability>, jmap_base_client::error::ClientError>
+pub fn jmap_base_client::request::Session::chat_push_capability(&self, &str) -> core::result::Result<core::option::Option<jmap_chat_types::capability::ChatPushCapability>, jmap_base_client::error::ClientError>
+pub fn jmap_base_client::request::Session::owner_direct_address(&self) -> core::option::Option<&str>
+pub fn jmap_base_client::request::Session::owner_endpoints(&self) -> core::result::Result<core::option::Option<alloc::vec::Vec<jmap_chat_types::contact::Endpoint>>, jmap_base_client::error::ClientError>
+pub fn jmap_base_client::request::Session::owner_login(&self) -> core::option::Option<&str>
+pub fn jmap_base_client::request::Session::owner_user_id(&self) -> core::option::Option<&str>
+pub fn jmap_base_client::request::Session::supports_chat_websocket(&self) -> bool
+pub fn jmap_base_client::request::Session::supports_quotas(&self) -> bool
+pub fn jmap_base_client::request::Session::supports_refplus(&self) -> bool
+pub fn jmap_base_client::request::Session::vapid_public_key(&self) -> core::option::Option<&str>
+pub trait jmap_chat_client::ChatWsExt: jmap_chat_client::ws::sealed::Sealed
+pub fn jmap_chat_client::ChatWsExt::next_chat_frame(&mut self) -> impl core::future::future::Future<Output = core::option::Option<core::result::Result<jmap_chat_client::ChatWsFrame, jmap_base_client::error::ClientError>>> + core::marker::Send
+pub fn jmap_chat_client::ChatWsExt::send_stream_disable(&mut self) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+pub fn jmap_chat_client::ChatWsExt::send_stream_enable(&mut self, &jmap_chat_types::ephemeral::ChatStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+impl jmap_chat_client::ChatWsExt for jmap_base_client::ws::WsSession
+pub async fn jmap_base_client::ws::WsSession::next_chat_frame(&mut self) -> core::option::Option<core::result::Result<jmap_chat_client::ChatWsFrame, jmap_base_client::error::ClientError>>
+pub async fn jmap_base_client::ws::WsSession::send_stream_disable(&mut self) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub async fn jmap_base_client::ws::WsSession::send_stream_enable(&mut self, &jmap_chat_types::ephemeral::ChatStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub trait jmap_chat_client::JmapChatExt: jmap_chat_client::sealed::Sealed
+pub fn jmap_chat_client::JmapChatExt::with_chat_session(&self, jmap_base_client::request::Session) -> jmap_chat_client::SessionClient
+impl jmap_chat_client::JmapChatExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_chat_session(&self, jmap_base_client::request::Session) -> jmap_chat_client::SessionClient
+pub fn jmap_chat_client::broadcast_mentions_from_spans(&jmap_chat_types::rich::RichBody) -> alloc::vec::Vec<jmap_chat_types::message::BroadcastMention>
+pub fn jmap_chat_client::format_receipt_timestamp(&jmap_types::id::UTCDate) -> alloc::string::String
+pub fn jmap_chat_client::format_receipt_timestamp_at(&jmap_types::id::UTCDate, &jmap_types::id::UTCDate) -> alloc::string::String
+pub fn jmap_chat_client::mentions_from_spans(&jmap_chat_types::rich::RichBody) -> alloc::vec::Vec<jmap_chat_types::message::Mention>
+pub fn jmap_chat_client::own_participant_key<I>(&serde_json::value::Value, I) -> core::option::Option<&str> where I: core::iter::traits::collect::IntoIterator, <I as core::iter::traits::collect::IntoIterator>::Item: core::convert::AsRef<str>
+pub fn jmap_chat_client::parse_chat_sse_block(&str) -> jmap_chat_client::ChatSseFrame
+pub fn jmap_chat_client::parse_chat_ws_frame(jmap_base_client::ws::WsFrame) -> jmap_chat_client::ChatWsFrame
+pub fn jmap_chat_client::rsvp_patch(&str, jmap_chat_client::RsvpStatus) -> jmap_types::patch::PatchObject
+pub fn jmap_chat_client::server_retry_after(&jmap_types::set_error::SetError) -> core::result::Result<core::option::Option<jmap_types::id::UTCDate>, jmap_chat_client::ServerRetryAfterError>

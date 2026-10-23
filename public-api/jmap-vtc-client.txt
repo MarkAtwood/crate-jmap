@@ -1,0 +1,64 @@
+pub mod jmap_vtc_client
+pub use jmap_vtc_client::AddedItem
+pub use jmap_vtc_client::ChangesResponse
+pub use jmap_vtc_client::ClientError
+pub use jmap_vtc_client::GetResponse
+pub use jmap_vtc_client::PartialObject
+pub use jmap_vtc_client::QueryChangesResponse
+pub use jmap_vtc_client::QueryResponse
+pub use jmap_vtc_client::SetError
+pub use jmap_vtc_client::SetResponse
+#[non_exhaustive] pub enum jmap_vtc_client::VtcWsFrame
+pub jmap_vtc_client::VtcWsFrame::Event(jmap_vtc_types::event::VtcEvent)
+pub jmap_vtc_client::VtcWsFrame::Other(jmap_base_client::ws::WsFrame)
+impl core::clone::Clone for jmap_vtc_client::VtcWsFrame
+pub fn jmap_vtc_client::VtcWsFrame::clone(&self) -> jmap_vtc_client::VtcWsFrame
+impl core::fmt::Debug for jmap_vtc_client::VtcWsFrame
+pub fn jmap_vtc_client::VtcWsFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_client::SessionClient
+impl jmap_vtc_client::SessionClient
+pub fn jmap_vtc_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_vtc_client::SessionClient::for_account(&self, &str) -> core::result::Result<Self, jmap_base_client::error::ClientError>
+pub fn jmap_vtc_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+pub fn jmap_vtc_client::SessionClient::vtc_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+impl jmap_vtc_client::SessionClient
+pub async fn jmap_vtc_client::SessionClient::vtc_call_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_call_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_vtc_types::call::VtcCall>, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_call_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcCallComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_call_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcCallComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_call_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_vtc_client::SessionClient
+pub async fn jmap_vtc_client::SessionClient::vtc_livestream_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_livestream_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_vtc_types::recording::VtcLivestream>, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_livestream_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcMediaComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_livestream_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcMediaComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_livestream_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_vtc_client::SessionClient
+pub async fn jmap_vtc_client::SessionClient::vtc_participant_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_participant_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_vtc_types::participant::VtcParticipant>, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_participant_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcParticipantComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_participant_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcParticipantComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_participant_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_vtc_client::SessionClient
+pub async fn jmap_vtc_client::SessionClient::vtc_recording_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_recording_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_vtc_types::recording::VtcRecording>, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_recording_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcMediaComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_recording_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_vtc_types::query::VtcMediaComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_vtc_client::SessionClient::vtc_recording_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_vtc_client::SessionClient
+pub fn jmap_vtc_client::SessionClient::clone(&self) -> jmap_vtc_client::SessionClient
+impl core::fmt::Debug for jmap_vtc_client::SessionClient
+pub fn jmap_vtc_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_vtc_client::JmapVtcExt: jmap_vtc_client::sealed::Sealed
+pub fn jmap_vtc_client::JmapVtcExt::with_vtc_session(&self, jmap_base_client::request::Session) -> jmap_vtc_client::SessionClient
+impl jmap_vtc_client::JmapVtcExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_vtc_session(&self, jmap_base_client::request::Session) -> jmap_vtc_client::SessionClient
+pub trait jmap_vtc_client::VtcWsExt: jmap_vtc_client::ws::sealed::Sealed
+pub fn jmap_vtc_client::VtcWsExt::next_vtc_frame(&mut self) -> impl core::future::future::Future<Output = core::option::Option<core::result::Result<jmap_vtc_client::VtcWsFrame, jmap_base_client::error::ClientError>>> + core::marker::Send
+pub fn jmap_vtc_client::VtcWsExt::send_vtc_stream_disable(&mut self) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+pub fn jmap_vtc_client::VtcWsExt::send_vtc_stream_enable(&mut self, &jmap_vtc_types::stream::VtcStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+impl jmap_vtc_client::VtcWsExt for jmap_base_client::ws::WsSession
+pub async fn jmap_base_client::ws::WsSession::next_vtc_frame(&mut self) -> core::option::Option<core::result::Result<jmap_vtc_client::VtcWsFrame, jmap_base_client::error::ClientError>>
+pub async fn jmap_base_client::ws::WsSession::send_vtc_stream_disable(&mut self) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub async fn jmap_base_client::ws::WsSession::send_vtc_stream_enable(&mut self, &jmap_vtc_types::stream::VtcStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub fn jmap_vtc_client::parse_vtc_ws_frame(jmap_base_client::ws::WsFrame) -> jmap_vtc_client::VtcWsFrame

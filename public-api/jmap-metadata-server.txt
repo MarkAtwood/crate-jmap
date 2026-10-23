@@ -1,0 +1,13 @@
+pub mod jmap_metadata_server
+pub use jmap_metadata_server::JMAP_METADATA_URI
+pub const jmap_metadata_server::METADATA_PROPERTY: &str
+pub const jmap_metadata_server::PRIVATE_METADATA_PROPERTY: &str
+pub fn jmap_metadata_server::exceeds_max_depth(&serde_json::value::Value, u64) -> bool
+pub fn jmap_metadata_server::is_metadata_only_change(&[&str]) -> bool
+pub fn jmap_metadata_server::is_metadata_property(&str) -> bool
+pub fn jmap_metadata_server::is_namespace_supported(&str, &jmap_metadata_types::capability::DataTypeMetadataInfo) -> bool
+pub fn jmap_metadata_server::is_well_formed_metadata_path(&str) -> bool
+pub fn jmap_metadata_server::metadata_path_exists(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &str) -> bool
+pub fn jmap_metadata_server::metadata_text_contains(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_metadata_types::filter::MetadataTextMatch) -> bool
+pub fn jmap_metadata_server::metadata_text_equals(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_metadata_types::filter::MetadataTextMatch) -> bool
+pub fn jmap_metadata_server::value_depth(&serde_json::value::Value) -> u64

@@ -1,0 +1,180 @@
+pub mod jmap_vtc_server
+pub use jmap_vtc_server::AddedItem
+pub use jmap_vtc_server::BackendChangesError
+pub use jmap_vtc_server::BackendQueryError
+pub use jmap_vtc_server::BackendSetError
+pub use jmap_vtc_server::ChangesResult
+pub use jmap_vtc_server::GetObject
+pub use jmap_vtc_server::JMAP_VTC_URI
+pub use jmap_vtc_server::JmapBackend
+pub use jmap_vtc_server::JmapObject
+pub use jmap_vtc_server::QueryChangesParams
+pub use jmap_vtc_server::QueryChangesResult
+pub use jmap_vtc_server::QueryObject
+pub use jmap_vtc_server::QueryParams
+pub use jmap_vtc_server::QueryResult
+pub use jmap_vtc_server::SetError
+pub use jmap_vtc_server::SetErrorType
+pub use jmap_vtc_server::SetObject
+pub mod jmap_vtc_server::memory
+#[non_exhaustive] pub struct jmap_vtc_server::memory::MemoryBackend
+impl jmap_vtc_server::memory::MemoryBackend
+pub fn jmap_vtc_server::memory::MemoryBackend::new() -> Self
+impl core::clone::Clone for jmap_vtc_server::memory::MemoryBackend
+pub fn jmap_vtc_server::memory::MemoryBackend::clone(&self) -> jmap_vtc_server::memory::MemoryBackend
+impl core::default::Default for jmap_vtc_server::memory::MemoryBackend
+pub fn jmap_vtc_server::memory::MemoryBackend::default() -> jmap_vtc_server::memory::MemoryBackend
+impl jmap_server::backend::JmapBackend for jmap_vtc_server::memory::MemoryBackend
+pub type jmap_vtc_server::memory::MemoryBackend::CallerCtx = alloc::string::String
+pub type jmap_vtc_server::memory::MemoryBackend::Error = jmap_vtc_server::memory::MemoryError
+pub async fn jmap_vtc_server::memory::MemoryBackend::account_exists(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<bool, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_vtc_server::memory::MemoryError>>
+impl jmap_vtc_server::VtcBackend for jmap_vtc_server::memory::MemoryBackend
+pub async fn jmap_vtc_server::memory::MemoryBackend::active_call_count(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<u64, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::caller_user_id(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<alloc::string::String, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::create_call<F>(&self, &alloc::string::String, &jmap_types::id::Id, F, &[alloc::string::String]) -> core::result::Result<jmap_vtc_types::call::VtcCall, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>> where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_vtc_types::call::VtcCall + core::marker::Send
+pub async fn jmap_vtc_server::memory::MemoryBackend::create_object<O, F>(&self, &alloc::string::String, &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub async fn jmap_vtc_server::memory::MemoryBackend::deliver_event(&self, &alloc::string::String, &jmap_types::id::Id, jmap_vtc_types::event::VtcEvent)
+pub async fn jmap_vtc_server::memory::MemoryBackend::deliver_recording_state_event(&self, &alloc::string::String, &jmap_types::id::Id, jmap_vtc_types::event::VtcRecordingStateEvent)
+pub async fn jmap_vtc_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::get_objects_unscoped<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_vtc_server::memory::MemoryError>
+pub fn jmap_vtc_server::memory::MemoryBackend::has_capability(&self, &alloc::string::String, &jmap_types::id::Id, &str) -> bool
+pub async fn jmap_vtc_server::memory::MemoryBackend::is_moderator(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_vtc_types::call::VtcCall) -> core::result::Result<bool, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::is_user_blocked(&self, &alloc::string::String, &str) -> core::result::Result<bool, jmap_vtc_server::memory::MemoryError>
+pub fn jmap_vtc_server::memory::MemoryBackend::ring_timeout(&self) -> core::time::Duration
+pub fn jmap_vtc_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &alloc::string::String, &jmap_types::id::Id) -> bool
+pub async fn jmap_vtc_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::update_object_if<O: jmap_vtc_server::StatefulObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, &[<O as jmap_vtc_server::StatefulObject>::State], <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::result::Result<core::option::Option<O>, <O as jmap_vtc_server::StatefulObject>::State>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::vtc_capability(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<jmap_vtc_types::capability::VtcCapability, jmap_vtc_server::memory::MemoryError>
+#[non_exhaustive] pub struct jmap_vtc_server::memory::MemoryError
+impl jmap_vtc_server::memory::MemoryError
+pub fn jmap_vtc_server::memory::MemoryError::description(&self) -> &str
+pub fn jmap_vtc_server::memory::MemoryError::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::error::Error for jmap_vtc_server::memory::MemoryError
+impl core::fmt::Debug for jmap_vtc_server::memory::MemoryError
+pub fn jmap_vtc_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_server::memory::MemoryError
+pub fn jmap_vtc_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub mod jmap_vtc_server::query
+pub fn jmap_vtc_server::query::call_matches(&jmap_vtc_types::query::VtcCallFilter, &jmap_vtc_types::call::VtcCall, &impl core::ops::function::Fn(&str) -> bool) -> bool
+pub fn jmap_vtc_server::query::compare_calls(&jmap_vtc_types::call::VtcCall, &jmap_vtc_types::call::VtcCall, &[jmap_vtc_types::query::VtcCallComparator]) -> core::cmp::Ordering
+pub fn jmap_vtc_server::query::compare_livestreams(&jmap_vtc_types::recording::VtcLivestream, &jmap_vtc_types::recording::VtcLivestream, &[jmap_vtc_types::query::VtcMediaComparator]) -> core::cmp::Ordering
+pub fn jmap_vtc_server::query::compare_participants(&jmap_vtc_types::participant::VtcParticipant, &jmap_vtc_types::participant::VtcParticipant, &[jmap_vtc_types::query::VtcParticipantComparator]) -> core::cmp::Ordering
+pub fn jmap_vtc_server::query::compare_recordings(&jmap_vtc_types::recording::VtcRecording, &jmap_vtc_types::recording::VtcRecording, &[jmap_vtc_types::query::VtcMediaComparator]) -> core::cmp::Ordering
+pub fn jmap_vtc_server::query::livestream_matches(&jmap_vtc_types::query::VtcLivestreamFilter, &jmap_vtc_types::recording::VtcLivestream) -> bool
+pub fn jmap_vtc_server::query::participant_matches(&jmap_vtc_types::query::VtcParticipantFilter, &jmap_vtc_types::participant::VtcParticipant) -> bool
+pub fn jmap_vtc_server::query::recording_matches(&jmap_vtc_types::query::VtcRecordingFilter, &jmap_vtc_types::recording::VtcRecording) -> bool
+#[non_exhaustive] pub enum jmap_vtc_server::CallScope
+pub jmap_vtc_server::CallScope::All
+pub jmap_vtc_server::CallScope::Only(alloc::vec::Vec<jmap_types::id::Id>)
+impl core::clone::Clone for jmap_vtc_server::CallScope
+pub fn jmap_vtc_server::CallScope::clone(&self) -> jmap_vtc_server::CallScope
+impl core::cmp::Eq for jmap_vtc_server::CallScope
+impl core::cmp::PartialEq for jmap_vtc_server::CallScope
+pub fn jmap_vtc_server::CallScope::eq(&self, &jmap_vtc_server::CallScope) -> bool
+impl core::fmt::Debug for jmap_vtc_server::CallScope
+pub fn jmap_vtc_server::CallScope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_server::CallScope
+pub struct jmap_vtc_server::VtcEphemeralSubscription
+impl jmap_vtc_server::VtcEphemeralSubscription
+pub fn jmap_vtc_server::VtcEphemeralSubscription::filter(&self) -> core::option::Option<&jmap_vtc_server::VtcStreamFilter>
+pub fn jmap_vtc_server::VtcEphemeralSubscription::replace_with(&mut self, &jmap_vtc_types::stream::VtcStreamEnable) -> core::result::Result<(), jmap_types::error::JmapError>
+impl core::clone::Clone for jmap_vtc_server::VtcEphemeralSubscription
+pub fn jmap_vtc_server::VtcEphemeralSubscription::clone(&self) -> jmap_vtc_server::VtcEphemeralSubscription
+impl core::cmp::Eq for jmap_vtc_server::VtcEphemeralSubscription
+impl core::cmp::PartialEq for jmap_vtc_server::VtcEphemeralSubscription
+pub fn jmap_vtc_server::VtcEphemeralSubscription::eq(&self, &jmap_vtc_server::VtcEphemeralSubscription) -> bool
+impl core::default::Default for jmap_vtc_server::VtcEphemeralSubscription
+pub fn jmap_vtc_server::VtcEphemeralSubscription::default() -> jmap_vtc_server::VtcEphemeralSubscription
+impl core::fmt::Debug for jmap_vtc_server::VtcEphemeralSubscription
+pub fn jmap_vtc_server::VtcEphemeralSubscription::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_server::VtcEphemeralSubscription
+pub struct jmap_vtc_server::VtcStreamFilter
+impl jmap_vtc_server::VtcStreamFilter
+pub fn jmap_vtc_server::VtcStreamFilter::call_ids(&self) -> &jmap_vtc_server::CallScope
+pub fn jmap_vtc_server::VtcStreamFilter::includes(&self, &str) -> bool
+impl core::clone::Clone for jmap_vtc_server::VtcStreamFilter
+pub fn jmap_vtc_server::VtcStreamFilter::clone(&self) -> jmap_vtc_server::VtcStreamFilter
+impl core::cmp::Eq for jmap_vtc_server::VtcStreamFilter
+impl core::cmp::PartialEq for jmap_vtc_server::VtcStreamFilter
+pub fn jmap_vtc_server::VtcStreamFilter::eq(&self, &jmap_vtc_server::VtcStreamFilter) -> bool
+impl core::fmt::Debug for jmap_vtc_server::VtcStreamFilter
+pub fn jmap_vtc_server::VtcStreamFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_server::VtcStreamFilter
+pub const jmap_vtc_server::RING_TIMEOUT: core::time::Duration
+pub trait jmap_vtc_server::StatefulObject: jmap_types::backend::SetObject
+pub type jmap_vtc_server::StatefulObject::State: core::clone::Clone + core::cmp::PartialEq + core::marker::Send + core::marker::Sync
+pub fn jmap_vtc_server::StatefulObject::state(&self) -> &Self::State
+impl jmap_vtc_server::StatefulObject for jmap_vtc_types::call::VtcCall
+pub type jmap_vtc_types::call::VtcCall::State = jmap_vtc_types::call::CallState
+pub fn jmap_vtc_types::call::VtcCall::state(&self) -> &jmap_vtc_types::call::CallState
+impl jmap_vtc_server::StatefulObject for jmap_vtc_types::recording::VtcLivestream
+pub type jmap_vtc_types::recording::VtcLivestream::State = jmap_vtc_types::recording::LivestreamState
+pub fn jmap_vtc_types::recording::VtcLivestream::state(&self) -> &jmap_vtc_types::recording::LivestreamState
+impl jmap_vtc_server::StatefulObject for jmap_vtc_types::recording::VtcRecording
+pub type jmap_vtc_types::recording::VtcRecording::State = jmap_vtc_types::recording::RecordingState
+pub fn jmap_vtc_types::recording::VtcRecording::state(&self) -> &jmap_vtc_types::recording::RecordingState
+pub trait jmap_vtc_server::VtcBackend: jmap_server::backend::JmapBackend
+pub fn jmap_vtc_server::VtcBackend::active_call_count(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<u64, Self::Error>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::caller_user_id(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<alloc::string::String, Self::Error>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::create_call<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, F, &[alloc::string::String]) -> impl core::future::future::Future<Output = core::result::Result<jmap_vtc_types::call::VtcCall, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_vtc_types::call::VtcCall + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::create_object<O, F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::deliver_event(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_vtc_types::event::VtcEvent) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::deliver_recording_state_event(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_vtc_types::event::VtcRecordingStateEvent) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::get_objects_unscoped<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>) -> impl core::future::future::Future<Output = core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::has_capability(&self, &Self::CallerCtx, &jmap_types::id::Id, &str) -> bool
+pub fn jmap_vtc_server::VtcBackend::is_moderator(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_vtc_types::call::VtcCall) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::is_user_blocked(&self, &Self::CallerCtx, &str) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::ring_timeout(&self) -> core::time::Duration
+pub fn jmap_vtc_server::VtcBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
+pub fn jmap_vtc_server::VtcBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::update_object_if<O: jmap_vtc_server::StatefulObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &[<O as jmap_vtc_server::StatefulObject>::State], <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<core::option::Option<O>, <O as jmap_vtc_server::StatefulObject>::State>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_vtc_server::VtcBackend::vtc_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_vtc_types::capability::VtcCapability, Self::Error>> + core::marker::Send
+impl jmap_vtc_server::VtcBackend for jmap_vtc_server::memory::MemoryBackend
+pub async fn jmap_vtc_server::memory::MemoryBackend::active_call_count(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<u64, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::caller_user_id(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<alloc::string::String, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::create_call<F>(&self, &alloc::string::String, &jmap_types::id::Id, F, &[alloc::string::String]) -> core::result::Result<jmap_vtc_types::call::VtcCall, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>> where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_vtc_types::call::VtcCall + core::marker::Send
+pub async fn jmap_vtc_server::memory::MemoryBackend::create_object<O, F>(&self, &alloc::string::String, &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub async fn jmap_vtc_server::memory::MemoryBackend::deliver_event(&self, &alloc::string::String, &jmap_types::id::Id, jmap_vtc_types::event::VtcEvent)
+pub async fn jmap_vtc_server::memory::MemoryBackend::deliver_recording_state_event(&self, &alloc::string::String, &jmap_types::id::Id, jmap_vtc_types::event::VtcRecordingStateEvent)
+pub async fn jmap_vtc_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::get_objects_unscoped<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_vtc_server::memory::MemoryError>
+pub fn jmap_vtc_server::memory::MemoryBackend::has_capability(&self, &alloc::string::String, &jmap_types::id::Id, &str) -> bool
+pub async fn jmap_vtc_server::memory::MemoryBackend::is_moderator(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_vtc_types::call::VtcCall) -> core::result::Result<bool, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::memory::MemoryBackend::is_user_blocked(&self, &alloc::string::String, &str) -> core::result::Result<bool, jmap_vtc_server::memory::MemoryError>
+pub fn jmap_vtc_server::memory::MemoryBackend::ring_timeout(&self) -> core::time::Duration
+pub fn jmap_vtc_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &alloc::string::String, &jmap_types::id::Id) -> bool
+pub async fn jmap_vtc_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::update_object_if<O: jmap_vtc_server::StatefulObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, &[<O as jmap_vtc_server::StatefulObject>::State], <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::result::Result<core::option::Option<O>, <O as jmap_vtc_server::StatefulObject>::State>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::vtc_capability(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<jmap_vtc_types::capability::VtcCapability, jmap_vtc_server::memory::MemoryError>
+pub async fn jmap_vtc_server::after_leave<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_vtc_types::call::VtcCall, &jmap_vtc_types::participant::CallRole) -> core::result::Result<(), jmap_server::backend::BackendSetError<<B as jmap_server::backend::JmapBackend>::Error>>
+pub fn jmap_vtc_server::call_already_active_on_chat() -> jmap_types::set_error::SetError
+pub async fn jmap_vtc_server::end_call<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &[jmap_vtc_types::call::CallState], jmap_vtc_types::call::CallEndReason) -> core::result::Result<(), jmap_server::backend::BackendSetError<<B as jmap_server::backend::JmapBackend>::Error>>
+pub async fn jmap_vtc_server::expire_ring<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, std::time::SystemTime) -> core::result::Result<bool, jmap_server::backend::BackendSetError<<B as jmap_server::backend::JmapBackend>::Error>>
+pub async fn jmap_vtc_server::handle_vtc_call_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_call_get<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_call_query<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_call_query_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_call_set<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_livestream_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_livestream_get<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_livestream_query<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_livestream_query_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_livestream_set<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_participant_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_participant_get<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_participant_query<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_participant_query_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_participant_set<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_recording_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_recording_get<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_recording_query<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_recording_query_changes<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_vtc_server::handle_vtc_recording_set<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub fn jmap_vtc_server::register_vtc_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_vtc_server::VtcBackend + 'static
+pub async fn jmap_vtc_server::should_deliver<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_vtc_server::VtcEphemeralSubscription, &jmap_vtc_types::event::VtcEvent) -> core::result::Result<bool, <B as jmap_server::backend::JmapBackend>::Error>

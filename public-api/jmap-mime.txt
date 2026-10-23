@@ -1,0 +1,19 @@
+pub mod jmap_mime
+#[non_exhaustive] pub struct jmap_mime::JmapBodyFields
+pub jmap_mime::JmapBodyFields::attachments: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
+pub jmap_mime::JmapBodyFields::body_structure: jmap_mail_types::email::EmailBodyPart
+pub jmap_mime::JmapBodyFields::body_value_part_ids: alloc::vec::Vec<alloc::string::String>
+pub jmap_mime::JmapBodyFields::html_body: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
+pub jmap_mime::JmapBodyFields::preview: core::option::Option<alloc::string::String>
+pub jmap_mime::JmapBodyFields::text_body: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
+impl core::clone::Clone for jmap_mime::JmapBodyFields
+pub fn jmap_mime::JmapBodyFields::clone(&self) -> jmap_mime::JmapBodyFields
+impl core::cmp::PartialEq for jmap_mime::JmapBodyFields
+pub fn jmap_mime::JmapBodyFields::eq(&self, &jmap_mime::JmapBodyFields) -> bool
+impl core::fmt::Debug for jmap_mime::JmapBodyFields
+pub fn jmap_mime::JmapBodyFields::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::JmapBodyFields
+pub const jmap_mime::MAX_PART_DEPTH: usize
+pub fn jmap_mime::body_value_to_jmap(mime_tree::message::DecodedBodyValue) -> jmap_mail_types::email::EmailBodyValue
+pub fn jmap_mime::message_to_jmap_body(&mime_tree::message::ParsedMessage, impl core::ops::function::Fn(&mime_tree::part::ParsedPart) -> jmap_types::id::Id) -> jmap_mime::JmapBodyFields
+pub fn jmap_mime::part_to_jmap(&mime_tree::part::ParsedPart, impl core::ops::function::Fn(&mime_tree::part::ParsedPart) -> jmap_types::id::Id) -> jmap_mail_types::email::EmailBodyPart

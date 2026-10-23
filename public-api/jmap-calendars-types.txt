@@ -1,0 +1,652 @@
+pub mod jmap_calendars_types
+pub use jmap_calendars_types::AbsoluteTrigger
+pub use jmap_calendars_types::Alert
+pub use jmap_calendars_types::AlertTrigger
+pub use jmap_calendars_types::Duration
+pub use jmap_calendars_types::Filter
+pub use jmap_calendars_types::FilterOperator
+pub use jmap_calendars_types::Link
+pub use jmap_calendars_types::LocalDateTime
+pub use jmap_calendars_types::Location
+pub use jmap_calendars_types::NDay
+pub use jmap_calendars_types::OffsetTrigger
+pub use jmap_calendars_types::Operator
+pub use jmap_calendars_types::Participant
+pub use jmap_calendars_types::RecurrenceRule
+pub use jmap_calendars_types::Relation
+pub use jmap_calendars_types::SignedDuration
+pub use jmap_calendars_types::TimeZone
+pub use jmap_calendars_types::TimeZoneRule
+pub use jmap_calendars_types::VirtualLocation
+#[non_exhaustive] pub enum jmap_calendars_types::BusyStatus
+pub jmap_calendars_types::BusyStatus::Confirmed
+pub jmap_calendars_types::BusyStatus::Tentative
+pub jmap_calendars_types::BusyStatus::Unavailable
+impl core::clone::Clone for jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::clone(&self) -> jmap_calendars_types::BusyStatus
+impl core::cmp::Eq for jmap_calendars_types::BusyStatus
+impl core::cmp::PartialEq for jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::eq(&self, &jmap_calendars_types::BusyStatus) -> bool
+impl core::default::Default for jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::default() -> jmap_calendars_types::BusyStatus
+impl core::fmt::Debug for jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_calendars_types::BusyStatus
+impl core::marker::StructuralPartialEq for jmap_calendars_types::BusyStatus
+impl serde_core::ser::Serialize for jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_calendars_types::CalendarEventComparatorProperty
+pub jmap_calendars_types::CalendarEventComparatorProperty::Created
+pub jmap_calendars_types::CalendarEventComparatorProperty::Id
+pub jmap_calendars_types::CalendarEventComparatorProperty::Other(alloc::string::String)
+pub jmap_calendars_types::CalendarEventComparatorProperty::Start
+pub jmap_calendars_types::CalendarEventComparatorProperty::Uid
+pub jmap_calendars_types::CalendarEventComparatorProperty::Updated
+impl core::clone::Clone for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::clone(&self) -> jmap_calendars_types::CalendarEventComparatorProperty
+impl core::cmp::Eq for jmap_calendars_types::CalendarEventComparatorProperty
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::eq(&self, &jmap_calendars_types::CalendarEventComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEventComparatorProperty
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub jmap_calendars_types::CalendarEventNotificationComparatorProperty::Created
+pub jmap_calendars_types::CalendarEventNotificationComparatorProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::clone(&self) -> jmap_calendars_types::CalendarEventNotificationComparatorProperty
+impl core::cmp::Eq for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::eq(&self, &jmap_calendars_types::CalendarEventNotificationComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_calendars_types::CalendarEventNotificationProperty
+pub jmap_calendars_types::CalendarEventNotificationProperty::CalendarEventId
+pub jmap_calendars_types::CalendarEventNotificationProperty::ChangedBy
+pub jmap_calendars_types::CalendarEventNotificationProperty::Comment
+pub jmap_calendars_types::CalendarEventNotificationProperty::Created
+pub jmap_calendars_types::CalendarEventNotificationProperty::Event
+pub jmap_calendars_types::CalendarEventNotificationProperty::EventPatch
+pub jmap_calendars_types::CalendarEventNotificationProperty::Id
+pub jmap_calendars_types::CalendarEventNotificationProperty::IsDraft
+pub jmap_calendars_types::CalendarEventNotificationProperty::Type
+impl core::clone::Clone for jmap_calendars_types::CalendarEventNotificationProperty
+pub fn jmap_calendars_types::CalendarEventNotificationProperty::clone(&self) -> jmap_calendars_types::CalendarEventNotificationProperty
+impl core::cmp::Eq for jmap_calendars_types::CalendarEventNotificationProperty
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEventNotificationProperty
+pub fn jmap_calendars_types::CalendarEventNotificationProperty::eq(&self, &jmap_calendars_types::CalendarEventNotificationProperty) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventNotificationProperty
+pub fn jmap_calendars_types::CalendarEventNotificationProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::CalendarEventNotificationProperty
+pub fn jmap_calendars_types::CalendarEventNotificationProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEventNotificationProperty
+#[non_exhaustive] pub enum jmap_calendars_types::CalendarEventProperty
+pub jmap_calendars_types::CalendarEventProperty::BaseEventId
+pub jmap_calendars_types::CalendarEventProperty::BlobId
+pub jmap_calendars_types::CalendarEventProperty::CalendarIds
+pub jmap_calendars_types::CalendarEventProperty::Description
+pub jmap_calendars_types::CalendarEventProperty::Duration
+pub jmap_calendars_types::CalendarEventProperty::HideAttendees
+pub jmap_calendars_types::CalendarEventProperty::Id
+pub jmap_calendars_types::CalendarEventProperty::IsDraft
+pub jmap_calendars_types::CalendarEventProperty::IsOrigin
+pub jmap_calendars_types::CalendarEventProperty::MayInviteOthers
+pub jmap_calendars_types::CalendarEventProperty::MayInviteSelf
+pub jmap_calendars_types::CalendarEventProperty::Start
+pub jmap_calendars_types::CalendarEventProperty::Status
+pub jmap_calendars_types::CalendarEventProperty::Title
+pub jmap_calendars_types::CalendarEventProperty::Uid
+pub jmap_calendars_types::CalendarEventProperty::UseDefaultAlerts
+pub jmap_calendars_types::CalendarEventProperty::UtcEnd
+pub jmap_calendars_types::CalendarEventProperty::UtcStart
+impl core::clone::Clone for jmap_calendars_types::CalendarEventProperty
+pub fn jmap_calendars_types::CalendarEventProperty::clone(&self) -> jmap_calendars_types::CalendarEventProperty
+impl core::cmp::Eq for jmap_calendars_types::CalendarEventProperty
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEventProperty
+pub fn jmap_calendars_types::CalendarEventProperty::eq(&self, &jmap_calendars_types::CalendarEventProperty) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventProperty
+pub fn jmap_calendars_types::CalendarEventProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::CalendarEventProperty
+pub fn jmap_calendars_types::CalendarEventProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEventProperty
+#[non_exhaustive] pub enum jmap_calendars_types::CalendarProperty
+pub jmap_calendars_types::CalendarProperty::Color
+pub jmap_calendars_types::CalendarProperty::DefaultAlertsWithTime
+pub jmap_calendars_types::CalendarProperty::DefaultAlertsWithoutTime
+pub jmap_calendars_types::CalendarProperty::Description
+pub jmap_calendars_types::CalendarProperty::Id
+pub jmap_calendars_types::CalendarProperty::IncludeInAvailability
+pub jmap_calendars_types::CalendarProperty::IsDefault
+pub jmap_calendars_types::CalendarProperty::IsSubscribed
+pub jmap_calendars_types::CalendarProperty::IsVisible
+pub jmap_calendars_types::CalendarProperty::MyRights
+pub jmap_calendars_types::CalendarProperty::Name
+pub jmap_calendars_types::CalendarProperty::ShareWith
+pub jmap_calendars_types::CalendarProperty::SortOrder
+pub jmap_calendars_types::CalendarProperty::TimeZone
+impl core::clone::Clone for jmap_calendars_types::CalendarProperty
+pub fn jmap_calendars_types::CalendarProperty::clone(&self) -> jmap_calendars_types::CalendarProperty
+impl core::cmp::Eq for jmap_calendars_types::CalendarProperty
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarProperty
+pub fn jmap_calendars_types::CalendarProperty::eq(&self, &jmap_calendars_types::CalendarProperty) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarProperty
+pub fn jmap_calendars_types::CalendarProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::CalendarProperty
+pub fn jmap_calendars_types::CalendarProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarProperty
+#[non_exhaustive] pub enum jmap_calendars_types::IncludeInAvailability
+pub jmap_calendars_types::IncludeInAvailability::All
+pub jmap_calendars_types::IncludeInAvailability::Attending
+pub jmap_calendars_types::IncludeInAvailability::None
+impl core::clone::Clone for jmap_calendars_types::IncludeInAvailability
+pub fn jmap_calendars_types::IncludeInAvailability::clone(&self) -> jmap_calendars_types::IncludeInAvailability
+impl core::cmp::Eq for jmap_calendars_types::IncludeInAvailability
+impl core::cmp::PartialEq for jmap_calendars_types::IncludeInAvailability
+pub fn jmap_calendars_types::IncludeInAvailability::eq(&self, &jmap_calendars_types::IncludeInAvailability) -> bool
+impl core::fmt::Debug for jmap_calendars_types::IncludeInAvailability
+pub fn jmap_calendars_types::IncludeInAvailability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::IncludeInAvailability
+pub fn jmap_calendars_types::IncludeInAvailability::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::IncludeInAvailability
+impl serde_core::ser::Serialize for jmap_calendars_types::IncludeInAvailability
+pub fn jmap_calendars_types::IncludeInAvailability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::IncludeInAvailability
+pub fn jmap_calendars_types::IncludeInAvailability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_calendars_types::NotificationType
+pub jmap_calendars_types::NotificationType::Created
+pub jmap_calendars_types::NotificationType::Destroyed
+pub jmap_calendars_types::NotificationType::Other(alloc::string::String)
+pub jmap_calendars_types::NotificationType::Updated
+impl core::clone::Clone for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::clone(&self) -> jmap_calendars_types::NotificationType
+impl core::cmp::Eq for jmap_calendars_types::NotificationType
+impl core::cmp::PartialEq for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::eq(&self, &jmap_calendars_types::NotificationType) -> bool
+impl core::convert::From<&str> for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::NotificationType
+impl serde_core::ser::Serialize for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_calendars_types::ParticipantIdentityProperty
+pub jmap_calendars_types::ParticipantIdentityProperty::CalendarAddress
+pub jmap_calendars_types::ParticipantIdentityProperty::Id
+pub jmap_calendars_types::ParticipantIdentityProperty::IsDefault
+pub jmap_calendars_types::ParticipantIdentityProperty::Name
+impl core::clone::Clone for jmap_calendars_types::ParticipantIdentityProperty
+pub fn jmap_calendars_types::ParticipantIdentityProperty::clone(&self) -> jmap_calendars_types::ParticipantIdentityProperty
+impl core::cmp::Eq for jmap_calendars_types::ParticipantIdentityProperty
+impl core::cmp::PartialEq for jmap_calendars_types::ParticipantIdentityProperty
+pub fn jmap_calendars_types::ParticipantIdentityProperty::eq(&self, &jmap_calendars_types::ParticipantIdentityProperty) -> bool
+impl core::fmt::Debug for jmap_calendars_types::ParticipantIdentityProperty
+pub fn jmap_calendars_types::ParticipantIdentityProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_calendars_types::ParticipantIdentityProperty
+pub fn jmap_calendars_types::ParticipantIdentityProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_calendars_types::ParticipantIdentityProperty
+#[non_exhaustive] pub struct jmap_calendars_types::BusyPeriod
+pub jmap_calendars_types::BusyPeriod::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::BusyPeriod::busy_status: jmap_calendars_types::BusyStatus
+pub jmap_calendars_types::BusyPeriod::event: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::BusyPeriod::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::BusyPeriod::utc_end: jmap_types::id::UTCDate
+pub jmap_calendars_types::BusyPeriod::utc_start: jmap_types::id::UTCDate
+impl core::clone::Clone for jmap_calendars_types::BusyPeriod
+pub fn jmap_calendars_types::BusyPeriod::clone(&self) -> jmap_calendars_types::BusyPeriod
+impl core::cmp::PartialEq for jmap_calendars_types::BusyPeriod
+pub fn jmap_calendars_types::BusyPeriod::eq(&self, &jmap_calendars_types::BusyPeriod) -> bool
+impl core::fmt::Debug for jmap_calendars_types::BusyPeriod
+pub fn jmap_calendars_types::BusyPeriod::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::BusyPeriod
+impl serde_core::ser::Serialize for jmap_calendars_types::BusyPeriod
+pub fn jmap_calendars_types::BusyPeriod::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::BusyPeriod
+pub fn jmap_calendars_types::BusyPeriod::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::Calendar
+pub jmap_calendars_types::Calendar::color: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::Calendar::default_alerts_with_time: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, serde_json::value::Value>>
+pub jmap_calendars_types::Calendar::default_alerts_without_time: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, serde_json::value::Value>>
+pub jmap_calendars_types::Calendar::description: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::Calendar::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::Calendar::id: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::Calendar::include_in_availability: jmap_calendars_types::IncludeInAvailability
+pub jmap_calendars_types::Calendar::is_default: bool
+pub jmap_calendars_types::Calendar::is_subscribed: bool
+pub jmap_calendars_types::Calendar::is_visible: bool
+pub jmap_calendars_types::Calendar::my_rights: jmap_calendars_types::CalendarRights
+pub jmap_calendars_types::Calendar::name: alloc::string::String
+pub jmap_calendars_types::Calendar::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_calendars_types::CalendarRights>>
+pub jmap_calendars_types::Calendar::sort_order: u32
+pub jmap_calendars_types::Calendar::time_zone: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_calendars_types::Calendar
+pub fn jmap_calendars_types::Calendar::clone(&self) -> jmap_calendars_types::Calendar
+impl core::cmp::PartialEq for jmap_calendars_types::Calendar
+pub fn jmap_calendars_types::Calendar::eq(&self, &jmap_calendars_types::Calendar) -> bool
+impl core::fmt::Debug for jmap_calendars_types::Calendar
+pub fn jmap_calendars_types::Calendar::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::Calendar
+impl jmap_types::backend::GetObject for jmap_calendars_types::Calendar
+impl jmap_types::backend::JmapObject for jmap_calendars_types::Calendar
+pub type jmap_calendars_types::Calendar::Property = jmap_calendars_types::CalendarProperty
+pub const jmap_calendars_types::Calendar::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_calendars_types::Calendar
+pub type jmap_calendars_types::Calendar::Patch = jmap_types::patch::PatchObject
+pub const jmap_calendars_types::Calendar::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_calendars_types::Calendar::IMMUTABLE: &'static [&'static str]
+pub const jmap_calendars_types::Calendar::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_calendars_types::Calendar
+pub fn jmap_calendars_types::Calendar::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::Calendar
+pub fn jmap_calendars_types::Calendar::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarAlert
+pub jmap_calendars_types::CalendarAlert::account_id: jmap_types::id::Id
+pub jmap_calendars_types::CalendarAlert::alert_id: alloc::string::String
+pub jmap_calendars_types::CalendarAlert::at_type: alloc::string::String
+pub jmap_calendars_types::CalendarAlert::calendar_event_id: jmap_types::id::Id
+pub jmap_calendars_types::CalendarAlert::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::CalendarAlert::recurrence_id: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarAlert::uid: alloc::string::String
+impl core::clone::Clone for jmap_calendars_types::CalendarAlert
+pub fn jmap_calendars_types::CalendarAlert::clone(&self) -> jmap_calendars_types::CalendarAlert
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarAlert
+pub fn jmap_calendars_types::CalendarAlert::eq(&self, &jmap_calendars_types::CalendarAlert) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarAlert
+pub fn jmap_calendars_types::CalendarAlert::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarAlert
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarAlert
+pub fn jmap_calendars_types::CalendarAlert::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarAlert
+pub fn jmap_calendars_types::CalendarAlert::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarEvent
+pub jmap_calendars_types::CalendarEvent::alerts: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::at_type: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::base_event_id: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::CalendarEvent::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::CalendarEvent::calendar_ids: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, bool>>
+pub jmap_calendars_types::CalendarEvent::categories: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::color: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::created: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_types::CalendarEvent::description: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::description_content_type: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::duration: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::excluded: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::excluded_recurrence_rules: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::free_busy_status: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::hide_attendees: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::icalendar: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::id: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::CalendarEvent::is_draft: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::is_origin: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::keywords: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::links: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::locale: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::localizations: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
+pub jmap_calendars_types::CalendarEvent::locations: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::may_invite_others: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::may_invite_self: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::organizer_calendar_address: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::participants: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::priority: core::option::Option<u8>
+pub jmap_calendars_types::CalendarEvent::privacy: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::prod_id: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::recurrence_id: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::recurrence_id_time_zone: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::recurrence_overrides: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
+pub jmap_calendars_types::CalendarEvent::recurrence_rules: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::related_to: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::reply_to: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::request_status: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::sent_by: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::sequence: core::option::Option<u64>
+pub jmap_calendars_types::CalendarEvent::show_without_time: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::start: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::status: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::time_zone: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::time_zones: core::option::Option<serde_json::value::Value>
+pub jmap_calendars_types::CalendarEvent::title: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::uid: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::updated: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_types::CalendarEvent::use_default_alerts: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::utc_end: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_types::CalendarEvent::utc_start: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_types::CalendarEvent::version: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::virtual_locations: core::option::Option<serde_json::value::Value>
+impl core::clone::Clone for jmap_calendars_types::CalendarEvent
+pub fn jmap_calendars_types::CalendarEvent::clone(&self) -> jmap_calendars_types::CalendarEvent
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEvent
+pub fn jmap_calendars_types::CalendarEvent::eq(&self, &jmap_calendars_types::CalendarEvent) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarEvent
+pub fn jmap_calendars_types::CalendarEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEvent
+impl jmap_types::backend::GetObject for jmap_calendars_types::CalendarEvent
+impl jmap_types::backend::JmapObject for jmap_calendars_types::CalendarEvent
+pub type jmap_calendars_types::CalendarEvent::Property = jmap_calendars_types::CalendarEventProperty
+pub const jmap_calendars_types::CalendarEvent::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_calendars_types::CalendarEvent
+pub type jmap_calendars_types::CalendarEvent::Comparator = jmap_calendars_types::CalendarEventComparator
+pub type jmap_calendars_types::CalendarEvent::Filter = jmap_types::query::Filter<jmap_calendars_types::CalendarEventFilterCondition>
+impl jmap_types::backend::SetObject for jmap_calendars_types::CalendarEvent
+pub type jmap_calendars_types::CalendarEvent::Patch = jmap_types::patch::PatchObject
+pub const jmap_calendars_types::CalendarEvent::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_calendars_types::CalendarEvent::IMMUTABLE: &'static [&'static str]
+pub const jmap_calendars_types::CalendarEvent::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarEvent
+pub fn jmap_calendars_types::CalendarEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarEvent
+pub fn jmap_calendars_types::CalendarEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarEventComparator
+pub jmap_calendars_types::CalendarEventComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventComparator::is_ascending: bool
+pub jmap_calendars_types::CalendarEventComparator::property: jmap_calendars_types::CalendarEventComparatorProperty
+impl jmap_calendars_types::CalendarEventComparator
+pub fn jmap_calendars_types::CalendarEventComparator::new(jmap_calendars_types::CalendarEventComparatorProperty) -> Self
+impl core::clone::Clone for jmap_calendars_types::CalendarEventComparator
+pub fn jmap_calendars_types::CalendarEventComparator::clone(&self) -> jmap_calendars_types::CalendarEventComparator
+impl core::cmp::Eq for jmap_calendars_types::CalendarEventComparator
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEventComparator
+pub fn jmap_calendars_types::CalendarEventComparator::eq(&self, &jmap_calendars_types::CalendarEventComparator) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventComparator
+pub fn jmap_calendars_types::CalendarEventComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEventComparator
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarEventComparator
+pub fn jmap_calendars_types::CalendarEventComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarEventComparator
+pub fn jmap_calendars_types::CalendarEventComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarEventFilterCondition
+pub jmap_calendars_types::CalendarEventFilterCondition::after: core::option::Option<jmap_jscalendar_types::LocalDateTime>
+pub jmap_calendars_types::CalendarEventFilterCondition::before: core::option::Option<jmap_jscalendar_types::LocalDateTime>
+pub jmap_calendars_types::CalendarEventFilterCondition::description: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::in_calendar: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::CalendarEventFilterCondition::location: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::owner: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::participant: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::text: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::title: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::uid: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_calendars_types::CalendarEventFilterCondition
+pub fn jmap_calendars_types::CalendarEventFilterCondition::clone(&self) -> jmap_calendars_types::CalendarEventFilterCondition
+impl core::default::Default for jmap_calendars_types::CalendarEventFilterCondition
+pub fn jmap_calendars_types::CalendarEventFilterCondition::default() -> jmap_calendars_types::CalendarEventFilterCondition
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventFilterCondition
+pub fn jmap_calendars_types::CalendarEventFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarEventFilterCondition
+pub fn jmap_calendars_types::CalendarEventFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarEventFilterCondition
+pub fn jmap_calendars_types::CalendarEventFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarEventNotification
+pub jmap_calendars_types::CalendarEventNotification::calendar_event_id: jmap_types::id::Id
+pub jmap_calendars_types::CalendarEventNotification::changed_by: jmap_calendars_types::Person
+pub jmap_calendars_types::CalendarEventNotification::comment: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventNotification::created: jmap_types::id::UTCDate
+pub jmap_calendars_types::CalendarEventNotification::event: serde_json::value::Value
+pub jmap_calendars_types::CalendarEventNotification::event_patch: core::option::Option<jmap_types::patch::PatchObject>
+pub jmap_calendars_types::CalendarEventNotification::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::CalendarEventNotification::id: jmap_types::id::Id
+pub jmap_calendars_types::CalendarEventNotification::is_draft: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEventNotification::notification_type: jmap_calendars_types::NotificationType
+impl core::clone::Clone for jmap_calendars_types::CalendarEventNotification
+pub fn jmap_calendars_types::CalendarEventNotification::clone(&self) -> jmap_calendars_types::CalendarEventNotification
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEventNotification
+pub fn jmap_calendars_types::CalendarEventNotification::eq(&self, &jmap_calendars_types::CalendarEventNotification) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventNotification
+pub fn jmap_calendars_types::CalendarEventNotification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEventNotification
+impl jmap_types::backend::GetObject for jmap_calendars_types::CalendarEventNotification
+impl jmap_types::backend::JmapObject for jmap_calendars_types::CalendarEventNotification
+pub type jmap_calendars_types::CalendarEventNotification::Property = jmap_calendars_types::CalendarEventNotificationProperty
+pub const jmap_calendars_types::CalendarEventNotification::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_calendars_types::CalendarEventNotification
+pub type jmap_calendars_types::CalendarEventNotification::Comparator = jmap_calendars_types::CalendarEventNotificationComparator
+pub type jmap_calendars_types::CalendarEventNotification::Filter = jmap_types::query::Filter<jmap_calendars_types::NotificationFilterCondition>
+impl jmap_types::backend::SetObject for jmap_calendars_types::CalendarEventNotification
+pub type jmap_calendars_types::CalendarEventNotification::Patch = jmap_types::patch::PatchObject
+pub const jmap_calendars_types::CalendarEventNotification::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_calendars_types::CalendarEventNotification::IMMUTABLE: &'static [&'static str]
+pub const jmap_calendars_types::CalendarEventNotification::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarEventNotification
+pub fn jmap_calendars_types::CalendarEventNotification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarEventNotification
+pub fn jmap_calendars_types::CalendarEventNotification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarEventNotificationComparator
+pub jmap_calendars_types::CalendarEventNotificationComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventNotificationComparator::is_ascending: bool
+pub jmap_calendars_types::CalendarEventNotificationComparator::property: jmap_calendars_types::CalendarEventNotificationComparatorProperty
+impl jmap_calendars_types::CalendarEventNotificationComparator
+pub fn jmap_calendars_types::CalendarEventNotificationComparator::new(jmap_calendars_types::CalendarEventNotificationComparatorProperty) -> Self
+impl core::clone::Clone for jmap_calendars_types::CalendarEventNotificationComparator
+pub fn jmap_calendars_types::CalendarEventNotificationComparator::clone(&self) -> jmap_calendars_types::CalendarEventNotificationComparator
+impl core::cmp::Eq for jmap_calendars_types::CalendarEventNotificationComparator
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarEventNotificationComparator
+pub fn jmap_calendars_types::CalendarEventNotificationComparator::eq(&self, &jmap_calendars_types::CalendarEventNotificationComparator) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarEventNotificationComparator
+pub fn jmap_calendars_types::CalendarEventNotificationComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEventNotificationComparator
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarEventNotificationComparator
+pub fn jmap_calendars_types::CalendarEventNotificationComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarEventNotificationComparator
+pub fn jmap_calendars_types::CalendarEventNotificationComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarRights
+pub jmap_calendars_types::CalendarRights::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::CalendarRights::may_delete: bool
+pub jmap_calendars_types::CalendarRights::may_read_free_busy: bool
+pub jmap_calendars_types::CalendarRights::may_read_items: bool
+pub jmap_calendars_types::CalendarRights::may_rsvp: bool
+pub jmap_calendars_types::CalendarRights::may_set_metadata: core::option::Option<bool>
+pub jmap_calendars_types::CalendarRights::may_share: bool
+pub jmap_calendars_types::CalendarRights::may_update_private: bool
+pub jmap_calendars_types::CalendarRights::may_write_all: bool
+pub jmap_calendars_types::CalendarRights::may_write_own: bool
+impl core::clone::Clone for jmap_calendars_types::CalendarRights
+pub fn jmap_calendars_types::CalendarRights::clone(&self) -> jmap_calendars_types::CalendarRights
+impl core::cmp::Eq for jmap_calendars_types::CalendarRights
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarRights
+pub fn jmap_calendars_types::CalendarRights::eq(&self, &jmap_calendars_types::CalendarRights) -> bool
+impl core::default::Default for jmap_calendars_types::CalendarRights
+pub fn jmap_calendars_types::CalendarRights::default() -> jmap_calendars_types::CalendarRights
+impl core::fmt::Debug for jmap_calendars_types::CalendarRights
+pub fn jmap_calendars_types::CalendarRights::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarRights
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarRights
+pub fn jmap_calendars_types::CalendarRights::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarRights
+pub fn jmap_calendars_types::CalendarRights::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarsAccountCapability
+pub jmap_calendars_types::CalendarsAccountCapability::max_calendars_per_event: core::option::Option<u64>
+pub jmap_calendars_types::CalendarsAccountCapability::max_date_time: jmap_types::id::UTCDate
+pub jmap_calendars_types::CalendarsAccountCapability::max_expanded_query_duration: jmap_jscalendar_types::Duration
+pub jmap_calendars_types::CalendarsAccountCapability::max_participants_per_event: core::option::Option<u64>
+pub jmap_calendars_types::CalendarsAccountCapability::may_create_calendar: bool
+pub jmap_calendars_types::CalendarsAccountCapability::min_date_time: jmap_types::id::UTCDate
+impl core::clone::Clone for jmap_calendars_types::CalendarsAccountCapability
+pub fn jmap_calendars_types::CalendarsAccountCapability::clone(&self) -> jmap_calendars_types::CalendarsAccountCapability
+impl core::cmp::Eq for jmap_calendars_types::CalendarsAccountCapability
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarsAccountCapability
+pub fn jmap_calendars_types::CalendarsAccountCapability::eq(&self, &jmap_calendars_types::CalendarsAccountCapability) -> bool
+impl core::fmt::Debug for jmap_calendars_types::CalendarsAccountCapability
+pub fn jmap_calendars_types::CalendarsAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarsAccountCapability
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarsAccountCapability
+pub fn jmap_calendars_types::CalendarsAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarsAccountCapability
+pub fn jmap_calendars_types::CalendarsAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarsCapability
+impl core::clone::Clone for jmap_calendars_types::CalendarsCapability
+pub fn jmap_calendars_types::CalendarsCapability::clone(&self) -> jmap_calendars_types::CalendarsCapability
+impl core::cmp::Eq for jmap_calendars_types::CalendarsCapability
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarsCapability
+pub fn jmap_calendars_types::CalendarsCapability::eq(&self, &jmap_calendars_types::CalendarsCapability) -> bool
+impl core::default::Default for jmap_calendars_types::CalendarsCapability
+pub fn jmap_calendars_types::CalendarsCapability::default() -> jmap_calendars_types::CalendarsCapability
+impl core::fmt::Debug for jmap_calendars_types::CalendarsCapability
+pub fn jmap_calendars_types::CalendarsCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarsCapability
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarsCapability
+pub fn jmap_calendars_types::CalendarsCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarsCapability
+pub fn jmap_calendars_types::CalendarsCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::CalendarsParseCapability
+impl core::clone::Clone for jmap_calendars_types::CalendarsParseCapability
+pub fn jmap_calendars_types::CalendarsParseCapability::clone(&self) -> jmap_calendars_types::CalendarsParseCapability
+impl core::cmp::Eq for jmap_calendars_types::CalendarsParseCapability
+impl core::cmp::PartialEq for jmap_calendars_types::CalendarsParseCapability
+pub fn jmap_calendars_types::CalendarsParseCapability::eq(&self, &jmap_calendars_types::CalendarsParseCapability) -> bool
+impl core::default::Default for jmap_calendars_types::CalendarsParseCapability
+pub fn jmap_calendars_types::CalendarsParseCapability::default() -> jmap_calendars_types::CalendarsParseCapability
+impl core::fmt::Debug for jmap_calendars_types::CalendarsParseCapability
+pub fn jmap_calendars_types::CalendarsParseCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarsParseCapability
+impl serde_core::ser::Serialize for jmap_calendars_types::CalendarsParseCapability
+pub fn jmap_calendars_types::CalendarsParseCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::CalendarsParseCapability
+pub fn jmap_calendars_types::CalendarsParseCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::NotificationFilterCondition
+pub jmap_calendars_types::NotificationFilterCondition::after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_types::NotificationFilterCondition::before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_types::NotificationFilterCondition::calendar_event_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_calendars_types::NotificationFilterCondition::notification_type: core::option::Option<jmap_calendars_types::NotificationType>
+impl core::clone::Clone for jmap_calendars_types::NotificationFilterCondition
+pub fn jmap_calendars_types::NotificationFilterCondition::clone(&self) -> jmap_calendars_types::NotificationFilterCondition
+impl core::default::Default for jmap_calendars_types::NotificationFilterCondition
+pub fn jmap_calendars_types::NotificationFilterCondition::default() -> jmap_calendars_types::NotificationFilterCondition
+impl core::fmt::Debug for jmap_calendars_types::NotificationFilterCondition
+pub fn jmap_calendars_types::NotificationFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_types::NotificationFilterCondition
+pub fn jmap_calendars_types::NotificationFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::NotificationFilterCondition
+pub fn jmap_calendars_types::NotificationFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::ParticipantIdentity
+pub jmap_calendars_types::ParticipantIdentity::calendar_address: alloc::string::String
+pub jmap_calendars_types::ParticipantIdentity::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::ParticipantIdentity::id: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::ParticipantIdentity::is_default: bool
+pub jmap_calendars_types::ParticipantIdentity::name: alloc::string::String
+impl core::clone::Clone for jmap_calendars_types::ParticipantIdentity
+pub fn jmap_calendars_types::ParticipantIdentity::clone(&self) -> jmap_calendars_types::ParticipantIdentity
+impl core::cmp::Eq for jmap_calendars_types::ParticipantIdentity
+impl core::cmp::PartialEq for jmap_calendars_types::ParticipantIdentity
+pub fn jmap_calendars_types::ParticipantIdentity::eq(&self, &jmap_calendars_types::ParticipantIdentity) -> bool
+impl core::fmt::Debug for jmap_calendars_types::ParticipantIdentity
+pub fn jmap_calendars_types::ParticipantIdentity::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::ParticipantIdentity
+impl jmap_types::backend::GetObject for jmap_calendars_types::ParticipantIdentity
+impl jmap_types::backend::JmapObject for jmap_calendars_types::ParticipantIdentity
+pub type jmap_calendars_types::ParticipantIdentity::Property = jmap_calendars_types::ParticipantIdentityProperty
+pub const jmap_calendars_types::ParticipantIdentity::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_calendars_types::ParticipantIdentity
+pub type jmap_calendars_types::ParticipantIdentity::Patch = jmap_types::patch::PatchObject
+pub const jmap_calendars_types::ParticipantIdentity::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_calendars_types::ParticipantIdentity::IMMUTABLE: &'static [&'static str]
+pub const jmap_calendars_types::ParticipantIdentity::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_calendars_types::ParticipantIdentity
+pub fn jmap_calendars_types::ParticipantIdentity::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::ParticipantIdentity
+pub fn jmap_calendars_types::ParticipantIdentity::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::Person
+pub jmap_calendars_types::Person::calendar_address: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::Person::email: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::Person::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_types::Person::name: alloc::string::String
+pub jmap_calendars_types::Person::principal_id: core::option::Option<jmap_types::id::Id>
+impl core::clone::Clone for jmap_calendars_types::Person
+pub fn jmap_calendars_types::Person::clone(&self) -> jmap_calendars_types::Person
+impl core::cmp::Eq for jmap_calendars_types::Person
+impl core::cmp::PartialEq for jmap_calendars_types::Person
+pub fn jmap_calendars_types::Person::eq(&self, &jmap_calendars_types::Person) -> bool
+impl core::fmt::Debug for jmap_calendars_types::Person
+pub fn jmap_calendars_types::Person::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::Person
+impl serde_core::ser::Serialize for jmap_calendars_types::Person
+pub fn jmap_calendars_types::Person::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::Person
+pub fn jmap_calendars_types::Person::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::PrincipalCalendarsCapability
+pub jmap_calendars_types::PrincipalCalendarsCapability::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_calendars_types::PrincipalCalendarsCapability::calendar_address: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::PrincipalCalendarsCapability::may_get_availability: bool
+pub jmap_calendars_types::PrincipalCalendarsCapability::may_share_with: bool
+impl core::clone::Clone for jmap_calendars_types::PrincipalCalendarsCapability
+pub fn jmap_calendars_types::PrincipalCalendarsCapability::clone(&self) -> jmap_calendars_types::PrincipalCalendarsCapability
+impl core::cmp::Eq for jmap_calendars_types::PrincipalCalendarsCapability
+impl core::cmp::PartialEq for jmap_calendars_types::PrincipalCalendarsCapability
+pub fn jmap_calendars_types::PrincipalCalendarsCapability::eq(&self, &jmap_calendars_types::PrincipalCalendarsCapability) -> bool
+impl core::fmt::Debug for jmap_calendars_types::PrincipalCalendarsCapability
+pub fn jmap_calendars_types::PrincipalCalendarsCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::PrincipalCalendarsCapability
+impl serde_core::ser::Serialize for jmap_calendars_types::PrincipalCalendarsCapability
+pub fn jmap_calendars_types::PrincipalCalendarsCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::PrincipalCalendarsCapability
+pub fn jmap_calendars_types::PrincipalCalendarsCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+pub jmap_calendars_types::PrincipalsAvailabilityAccountCapability::max_availability_duration: jmap_jscalendar_types::Duration
+impl core::clone::Clone for jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityAccountCapability::clone(&self) -> jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+impl core::cmp::Eq for jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+impl core::cmp::PartialEq for jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityAccountCapability::eq(&self, &jmap_calendars_types::PrincipalsAvailabilityAccountCapability) -> bool
+impl core::fmt::Debug for jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+impl serde_core::ser::Serialize for jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::PrincipalsAvailabilityAccountCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_types::PrincipalsAvailabilityCapability
+impl core::clone::Clone for jmap_calendars_types::PrincipalsAvailabilityCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityCapability::clone(&self) -> jmap_calendars_types::PrincipalsAvailabilityCapability
+impl core::cmp::Eq for jmap_calendars_types::PrincipalsAvailabilityCapability
+impl core::cmp::PartialEq for jmap_calendars_types::PrincipalsAvailabilityCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityCapability::eq(&self, &jmap_calendars_types::PrincipalsAvailabilityCapability) -> bool
+impl core::default::Default for jmap_calendars_types::PrincipalsAvailabilityCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityCapability::default() -> jmap_calendars_types::PrincipalsAvailabilityCapability
+impl core::fmt::Debug for jmap_calendars_types::PrincipalsAvailabilityCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_calendars_types::PrincipalsAvailabilityCapability
+impl serde_core::ser::Serialize for jmap_calendars_types::PrincipalsAvailabilityCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_types::PrincipalsAvailabilityCapability
+pub fn jmap_calendars_types::PrincipalsAvailabilityCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_calendars_types::JMAP_CALENDARS_PARSE_URI: &str
+pub const jmap_calendars_types::JMAP_CALENDARS_URI: &str
+pub const jmap_calendars_types::JMAP_PRINCIPALS_AVAILABILITY_URI: &str
+pub const jmap_calendars_types::PER_USER_CALENDAR_EVENT_PROPERTIES: &[&str]
+pub fn jmap_calendars_types::is_per_user_calendar_event_property(&str) -> bool
+pub type jmap_calendars_types::CalendarEventFilter = jmap_types::query::Filter<jmap_calendars_types::CalendarEventFilterCondition>
+pub type jmap_calendars_types::NotificationFilter = jmap_types::query::Filter<jmap_calendars_types::NotificationFilterCondition>

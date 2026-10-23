@@ -1,0 +1,94 @@
+pub mod jmap_filenode_client
+pub use jmap_filenode_client::AddedItem
+pub use jmap_filenode_client::ChangesResponse
+pub use jmap_filenode_client::ClientError
+pub use jmap_filenode_client::GetResponse
+pub use jmap_filenode_client::PartialObject
+pub use jmap_filenode_client::QueryChangesResponse
+pub use jmap_filenode_client::QueryResponse
+pub use jmap_filenode_client::SetError
+pub use jmap_filenode_client::SetResponse
+#[non_exhaustive] pub enum jmap_filenode_client::FileNodeDownload
+pub jmap_filenode_client::FileNodeDownload::Unverified(bytes::bytes::Bytes)
+pub jmap_filenode_client::FileNodeDownload::Verified(bytes::bytes::Bytes)
+impl core::clone::Clone for jmap_filenode_client::FileNodeDownload
+pub fn jmap_filenode_client::FileNodeDownload::clone(&self) -> jmap_filenode_client::FileNodeDownload
+impl core::cmp::Eq for jmap_filenode_client::FileNodeDownload
+impl core::cmp::PartialEq for jmap_filenode_client::FileNodeDownload
+pub fn jmap_filenode_client::FileNodeDownload::eq(&self, &jmap_filenode_client::FileNodeDownload) -> bool
+impl core::fmt::Debug for jmap_filenode_client::FileNodeDownload
+pub fn jmap_filenode_client::FileNodeDownload::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_filenode_client::FileNodeDownload
+#[non_exhaustive] pub enum jmap_filenode_client::FileNodeOnExists
+pub jmap_filenode_client::FileNodeOnExists::Newest
+pub jmap_filenode_client::FileNodeOnExists::Rename
+pub jmap_filenode_client::FileNodeOnExists::Replace
+pub jmap_filenode_client::FileNodeOnExists::Unchanged
+impl core::clone::Clone for jmap_filenode_client::FileNodeOnExists
+pub fn jmap_filenode_client::FileNodeOnExists::clone(&self) -> jmap_filenode_client::FileNodeOnExists
+impl core::fmt::Debug for jmap_filenode_client::FileNodeOnExists
+pub fn jmap_filenode_client::FileNodeOnExists::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_filenode_client::FileNodeOnExists
+pub fn jmap_filenode_client::FileNodeOnExists::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_filenode_client::FileNodeCopyParams
+pub jmap_filenode_client::FileNodeCopyParams::compare_case_insensitively: core::option::Option<bool>
+pub jmap_filenode_client::FileNodeCopyParams::destroy_from_if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_filenode_client::FileNodeCopyParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_filenode_client::FileNodeCopyParams::from_account_id: jmap_types::id::Id
+pub jmap_filenode_client::FileNodeCopyParams::if_from_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_filenode_client::FileNodeCopyParams::if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_filenode_client::FileNodeCopyParams::on_destroy_remove_children: core::option::Option<bool>
+pub jmap_filenode_client::FileNodeCopyParams::on_exists: core::option::Option<jmap_filenode_client::FileNodeOnExists>
+pub jmap_filenode_client::FileNodeCopyParams::on_success_destroy_original: core::option::Option<bool>
+impl core::clone::Clone for jmap_filenode_client::FileNodeCopyParams
+pub fn jmap_filenode_client::FileNodeCopyParams::clone(&self) -> jmap_filenode_client::FileNodeCopyParams
+impl core::fmt::Debug for jmap_filenode_client::FileNodeCopyParams
+pub fn jmap_filenode_client::FileNodeCopyParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_filenode_client::FileNodeCopyParams
+pub fn jmap_filenode_client::FileNodeCopyParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_filenode_client::FileNodeGetParams
+pub jmap_filenode_client::FileNodeGetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_filenode_client::FileNodeGetParams::fetch_parents: core::option::Option<bool>
+impl core::clone::Clone for jmap_filenode_client::FileNodeGetParams
+pub fn jmap_filenode_client::FileNodeGetParams::clone(&self) -> jmap_filenode_client::FileNodeGetParams
+impl core::default::Default for jmap_filenode_client::FileNodeGetParams
+pub fn jmap_filenode_client::FileNodeGetParams::default() -> jmap_filenode_client::FileNodeGetParams
+impl core::fmt::Debug for jmap_filenode_client::FileNodeGetParams
+pub fn jmap_filenode_client::FileNodeGetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_filenode_client::FileNodeGetParams
+pub fn jmap_filenode_client::FileNodeGetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_filenode_client::FileNodeSetParams
+pub jmap_filenode_client::FileNodeSetParams::compare_case_insensitively: core::option::Option<bool>
+pub jmap_filenode_client::FileNodeSetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_filenode_client::FileNodeSetParams::on_destroy_remove_children: core::option::Option<bool>
+pub jmap_filenode_client::FileNodeSetParams::on_exists: core::option::Option<jmap_filenode_client::FileNodeOnExists>
+impl core::clone::Clone for jmap_filenode_client::FileNodeSetParams
+pub fn jmap_filenode_client::FileNodeSetParams::clone(&self) -> jmap_filenode_client::FileNodeSetParams
+impl core::default::Default for jmap_filenode_client::FileNodeSetParams
+pub fn jmap_filenode_client::FileNodeSetParams::default() -> jmap_filenode_client::FileNodeSetParams
+impl core::fmt::Debug for jmap_filenode_client::FileNodeSetParams
+pub fn jmap_filenode_client::FileNodeSetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_filenode_client::FileNodeSetParams
+pub fn jmap_filenode_client::FileNodeSetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_filenode_client::SessionClient
+impl jmap_filenode_client::SessionClient
+pub fn jmap_filenode_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_filenode_client::SessionClient::filenode_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_filenode_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_filenode_client::SessionClient
+pub async fn jmap_filenode_client::SessionClient::filenode_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_filenode_client::SessionClient::filenode_copy(&self, jmap_filenode_client::FileNodeCopyParams, serde_json::value::Value) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_filenode_client::SessionClient::filenode_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>, core::option::Option<jmap_filenode_client::FileNodeGetParams>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_filenode_types::filenode::FileNode>, jmap_base_client::error::ClientError>
+pub async fn jmap_filenode_client::SessionClient::filenode_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_filenode_types::filter::FileNodeComparator]>, &jmap_base_client::query::QueryParams, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_filenode_client::SessionClient::filenode_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_filenode_types::filter::FileNodeComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_filenode_client::SessionClient::filenode_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_filenode_client::FileNodeSetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_filenode_client::SessionClient
+pub async fn jmap_filenode_client::SessionClient::filenode_download(&self, &jmap_filenode_types::filenode::FileNode) -> core::result::Result<jmap_filenode_client::FileNodeDownload, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_filenode_client::SessionClient
+pub fn jmap_filenode_client::SessionClient::clone(&self) -> jmap_filenode_client::SessionClient
+impl core::fmt::Debug for jmap_filenode_client::SessionClient
+pub fn jmap_filenode_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_filenode_client::JmapFilenodeExt: jmap_filenode_client::sealed::Sealed
+pub fn jmap_filenode_client::JmapFilenodeExt::with_filenode_session(&self, jmap_base_client::request::Session) -> jmap_filenode_client::SessionClient
+impl jmap_filenode_client::JmapFilenodeExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_filenode_session(&self, jmap_base_client::request::Session) -> jmap_filenode_client::SessionClient

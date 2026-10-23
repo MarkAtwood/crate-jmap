@@ -1,0 +1,802 @@
+pub mod jmap_graph_types
+pub use jmap_graph_types::Filter
+pub use jmap_graph_types::FilterOperator
+pub use jmap_graph_types::Operator
+#[non_exhaustive] pub enum jmap_graph_types::Bound
+pub jmap_graph_types::Bound::Number(serde_json::number::Number)
+pub jmap_graph_types::Bound::String(alloc::string::String)
+impl core::clone::Clone for jmap_graph_types::Bound
+pub fn jmap_graph_types::Bound::clone(&self) -> jmap_graph_types::Bound
+impl core::cmp::Eq for jmap_graph_types::Bound
+impl core::cmp::PartialEq for jmap_graph_types::Bound
+pub fn jmap_graph_types::Bound::eq(&self, &jmap_graph_types::Bound) -> bool
+impl core::fmt::Debug for jmap_graph_types::Bound
+pub fn jmap_graph_types::Bound::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::Bound
+pub enum jmap_graph_types::CandidateKind
+pub jmap_graph_types::CandidateKind::Edge
+pub jmap_graph_types::CandidateKind::Node
+impl core::clone::Clone for jmap_graph_types::CandidateKind
+pub fn jmap_graph_types::CandidateKind::clone(&self) -> jmap_graph_types::CandidateKind
+impl core::cmp::Eq for jmap_graph_types::CandidateKind
+impl core::cmp::PartialEq for jmap_graph_types::CandidateKind
+pub fn jmap_graph_types::CandidateKind::eq(&self, &jmap_graph_types::CandidateKind) -> bool
+impl core::fmt::Debug for jmap_graph_types::CandidateKind
+pub fn jmap_graph_types::CandidateKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_graph_types::CandidateKind
+pub fn jmap_graph_types::CandidateKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_graph_types::CandidateKind
+impl core::marker::StructuralPartialEq for jmap_graph_types::CandidateKind
+pub enum jmap_graph_types::Direction
+pub jmap_graph_types::Direction::Any
+pub jmap_graph_types::Direction::In
+pub jmap_graph_types::Direction::Out
+impl core::clone::Clone for jmap_graph_types::Direction
+pub fn jmap_graph_types::Direction::clone(&self) -> jmap_graph_types::Direction
+impl core::cmp::Eq for jmap_graph_types::Direction
+impl core::cmp::PartialEq for jmap_graph_types::Direction
+pub fn jmap_graph_types::Direction::eq(&self, &jmap_graph_types::Direction) -> bool
+impl core::fmt::Debug for jmap_graph_types::Direction
+pub fn jmap_graph_types::Direction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_graph_types::Direction
+pub fn jmap_graph_types::Direction::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_graph_types::Direction
+impl core::marker::StructuralPartialEq for jmap_graph_types::Direction
+#[non_exhaustive] pub enum jmap_graph_types::GraphEdgeSortProperty
+pub jmap_graph_types::GraphEdgeSortProperty::Created
+pub jmap_graph_types::GraphEdgeSortProperty::Other(alloc::string::String)
+pub jmap_graph_types::GraphEdgeSortProperty::Updated
+impl core::clone::Clone for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::clone(&self) -> jmap_graph_types::GraphEdgeSortProperty
+impl core::cmp::Eq for jmap_graph_types::GraphEdgeSortProperty
+impl core::cmp::PartialEq for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::eq(&self, &jmap_graph_types::GraphEdgeSortProperty) -> bool
+impl core::convert::From<&str> for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEdgeSortProperty
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_graph_types::GraphEditDataType
+pub jmap_graph_types::GraphEditDataType::Cursors
+pub jmap_graph_types::GraphEditDataType::Ops
+pub jmap_graph_types::GraphEditDataType::Other(alloc::string::String)
+impl jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::clone(&self) -> jmap_graph_types::GraphEditDataType
+impl core::cmp::Eq for jmap_graph_types::GraphEditDataType
+impl core::cmp::PartialEq for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::eq(&self, &jmap_graph_types::GraphEditDataType) -> bool
+impl core::convert::From<&str> for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEditDataType
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEditDataType
+pub fn jmap_graph_types::GraphEditDataType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_graph_types::GraphEditEvent
+pub jmap_graph_types::GraphEditEvent::Cursor(jmap_graph_types::GraphCursorEvent)
+pub jmap_graph_types::GraphEditEvent::Op(jmap_graph_types::GraphNodeOpEvent)
+pub jmap_graph_types::GraphEditEvent::Unknown
+pub jmap_graph_types::GraphEditEvent::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphEditEvent::Unknown::type_name: alloc::string::String
+impl jmap_graph_types::GraphEditEvent
+pub fn jmap_graph_types::GraphEditEvent::type_name(&self) -> &str
+impl core::clone::Clone for jmap_graph_types::GraphEditEvent
+pub fn jmap_graph_types::GraphEditEvent::clone(&self) -> jmap_graph_types::GraphEditEvent
+impl core::cmp::PartialEq for jmap_graph_types::GraphEditEvent
+pub fn jmap_graph_types::GraphEditEvent::eq(&self, &jmap_graph_types::GraphEditEvent) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphEditEvent
+pub fn jmap_graph_types::GraphEditEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEditEvent
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEditEvent
+pub fn jmap_graph_types::GraphEditEvent::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEditEvent
+pub fn jmap_graph_types::GraphEditEvent::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_graph_types::GraphEditStreamMessage
+pub jmap_graph_types::GraphEditStreamMessage::Disable(jmap_graph_types::GraphEditStreamDisable)
+pub jmap_graph_types::GraphEditStreamMessage::Enable(jmap_graph_types::GraphEditStreamEnable)
+pub jmap_graph_types::GraphEditStreamMessage::Unknown
+pub jmap_graph_types::GraphEditStreamMessage::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphEditStreamMessage::Unknown::type_name: alloc::string::String
+impl core::clone::Clone for jmap_graph_types::GraphEditStreamMessage
+pub fn jmap_graph_types::GraphEditStreamMessage::clone(&self) -> jmap_graph_types::GraphEditStreamMessage
+impl core::cmp::Eq for jmap_graph_types::GraphEditStreamMessage
+impl core::cmp::PartialEq for jmap_graph_types::GraphEditStreamMessage
+pub fn jmap_graph_types::GraphEditStreamMessage::eq(&self, &jmap_graph_types::GraphEditStreamMessage) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphEditStreamMessage
+pub fn jmap_graph_types::GraphEditStreamMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEditStreamMessage
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEditStreamMessage
+pub fn jmap_graph_types::GraphEditStreamMessage::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEditStreamMessage
+pub fn jmap_graph_types::GraphEditStreamMessage::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_graph_types::GraphNodeOpSortProperty
+pub jmap_graph_types::GraphNodeOpSortProperty::Other(alloc::string::String)
+pub jmap_graph_types::GraphNodeOpSortProperty::Seq
+impl core::clone::Clone for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::clone(&self) -> jmap_graph_types::GraphNodeOpSortProperty
+impl core::cmp::Eq for jmap_graph_types::GraphNodeOpSortProperty
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::eq(&self, &jmap_graph_types::GraphNodeOpSortProperty) -> bool
+impl core::convert::From<&str> for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeOpSortProperty
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_graph_types::GraphNodeSortProperty
+pub jmap_graph_types::GraphNodeSortProperty::Created
+pub jmap_graph_types::GraphNodeSortProperty::Other(alloc::string::String)
+pub jmap_graph_types::GraphNodeSortProperty::Updated
+impl core::clone::Clone for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::clone(&self) -> jmap_graph_types::GraphNodeSortProperty
+impl core::cmp::Eq for jmap_graph_types::GraphNodeSortProperty
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::eq(&self, &jmap_graph_types::GraphNodeSortProperty) -> bool
+impl core::convert::From<&str> for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeSortProperty
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_graph_types::GraphSortProperty
+pub jmap_graph_types::GraphSortProperty::Created
+pub jmap_graph_types::GraphSortProperty::Name
+pub jmap_graph_types::GraphSortProperty::Other(alloc::string::String)
+pub jmap_graph_types::GraphSortProperty::Updated
+impl core::clone::Clone for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::clone(&self) -> jmap_graph_types::GraphSortProperty
+impl core::cmp::Eq for jmap_graph_types::GraphSortProperty
+impl core::cmp::PartialEq for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::eq(&self, &jmap_graph_types::GraphSortProperty) -> bool
+impl core::convert::From<&str> for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphSortProperty
+impl serde_core::ser::Serialize for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_graph_types::WhereError
+pub jmap_graph_types::WhereError::Malformed(alloc::string::String)
+pub jmap_graph_types::WhereError::UnknownOperator(alloc::string::String)
+impl core::clone::Clone for jmap_graph_types::WhereError
+pub fn jmap_graph_types::WhereError::clone(&self) -> jmap_graph_types::WhereError
+impl core::cmp::Eq for jmap_graph_types::WhereError
+impl core::cmp::PartialEq for jmap_graph_types::WhereError
+pub fn jmap_graph_types::WhereError::eq(&self, &jmap_graph_types::WhereError) -> bool
+impl core::convert::From<jmap_graph_types::WhereError> for jmap_types::error::JmapError
+pub fn jmap_types::error::JmapError::from(jmap_graph_types::WhereError) -> Self
+impl core::error::Error for jmap_graph_types::WhereError
+impl core::fmt::Debug for jmap_graph_types::WhereError
+pub fn jmap_graph_types::WhereError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_graph_types::WhereError
+pub fn jmap_graph_types::WhereError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::WhereError
+#[non_exhaustive] pub struct jmap_graph_types::EdgeTest
+pub jmap_graph_types::EdgeTest::direction: jmap_graph_types::Direction
+pub jmap_graph_types::EdgeTest::edge: core::option::Option<jmap_graph_types::Expression>
+pub jmap_graph_types::EdgeTest::edge_type: core::option::Option<alloc::string::String>
+pub jmap_graph_types::EdgeTest::node: core::option::Option<jmap_graph_types::Expression>
+impl jmap_graph_types::EdgeTest
+pub fn jmap_graph_types::EdgeTest::new(jmap_graph_types::Direction) -> Self
+impl core::clone::Clone for jmap_graph_types::EdgeTest
+pub fn jmap_graph_types::EdgeTest::clone(&self) -> jmap_graph_types::EdgeTest
+impl core::cmp::PartialEq for jmap_graph_types::EdgeTest
+pub fn jmap_graph_types::EdgeTest::eq(&self, &jmap_graph_types::EdgeTest) -> bool
+impl core::fmt::Debug for jmap_graph_types::EdgeTest
+pub fn jmap_graph_types::EdgeTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::EdgeTest
+#[non_exhaustive] pub struct jmap_graph_types::Expression
+pub jmap_graph_types::Expression::and: core::option::Option<alloc::vec::Vec<jmap_graph_types::Expression>>
+pub jmap_graph_types::Expression::edge: core::option::Option<alloc::boxed::Box<jmap_graph_types::EdgeTest>>
+pub jmap_graph_types::Expression::fields: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_graph_types::FieldTest>
+pub jmap_graph_types::Expression::from: core::option::Option<alloc::boxed::Box<jmap_graph_types::Expression>>
+pub jmap_graph_types::Expression::not: core::option::Option<alloc::boxed::Box<jmap_graph_types::Expression>>
+pub jmap_graph_types::Expression::or: core::option::Option<alloc::vec::Vec<jmap_graph_types::Expression>>
+pub jmap_graph_types::Expression::reachable: core::option::Option<alloc::boxed::Box<jmap_graph_types::ReachTest>>
+pub jmap_graph_types::Expression::text: core::option::Option<alloc::string::String>
+pub jmap_graph_types::Expression::to: core::option::Option<alloc::boxed::Box<jmap_graph_types::Expression>>
+impl jmap_graph_types::Expression
+pub fn jmap_graph_types::Expression::parse(&serde_json::value::Value, jmap_graph_types::CandidateKind) -> core::result::Result<Self, jmap_graph_types::WhereError>
+pub fn jmap_graph_types::Expression::to_value(&self) -> serde_json::value::Value
+pub fn jmap_graph_types::Expression::traversal_depth(&self) -> u64
+impl core::clone::Clone for jmap_graph_types::Expression
+pub fn jmap_graph_types::Expression::clone(&self) -> jmap_graph_types::Expression
+impl core::cmp::PartialEq for jmap_graph_types::Expression
+pub fn jmap_graph_types::Expression::eq(&self, &jmap_graph_types::Expression) -> bool
+impl core::default::Default for jmap_graph_types::Expression
+pub fn jmap_graph_types::Expression::default() -> jmap_graph_types::Expression
+impl core::fmt::Debug for jmap_graph_types::Expression
+pub fn jmap_graph_types::Expression::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::Expression
+#[non_exhaustive] pub struct jmap_graph_types::FieldTest
+pub jmap_graph_types::FieldTest::collation: core::option::Option<alloc::string::String>
+pub jmap_graph_types::FieldTest::contains: core::option::Option<alloc::string::String>
+pub jmap_graph_types::FieldTest::eq: core::option::Option<serde_json::value::Value>
+pub jmap_graph_types::FieldTest::exists: core::option::Option<bool>
+pub jmap_graph_types::FieldTest::gt: core::option::Option<jmap_graph_types::Bound>
+pub jmap_graph_types::FieldTest::gte: core::option::Option<jmap_graph_types::Bound>
+pub jmap_graph_types::FieldTest::in_: core::option::Option<alloc::vec::Vec<serde_json::value::Value>>
+pub jmap_graph_types::FieldTest::lt: core::option::Option<jmap_graph_types::Bound>
+pub jmap_graph_types::FieldTest::lte: core::option::Option<jmap_graph_types::Bound>
+pub jmap_graph_types::FieldTest::ne: core::option::Option<serde_json::value::Value>
+pub jmap_graph_types::FieldTest::nin: core::option::Option<alloc::vec::Vec<serde_json::value::Value>>
+pub jmap_graph_types::FieldTest::prefix: core::option::Option<alloc::string::String>
+impl jmap_graph_types::FieldTest
+pub fn jmap_graph_types::FieldTest::equal_to(serde_json::value::Value) -> Self
+impl core::clone::Clone for jmap_graph_types::FieldTest
+pub fn jmap_graph_types::FieldTest::clone(&self) -> jmap_graph_types::FieldTest
+impl core::cmp::Eq for jmap_graph_types::FieldTest
+impl core::cmp::PartialEq for jmap_graph_types::FieldTest
+pub fn jmap_graph_types::FieldTest::eq(&self, &jmap_graph_types::FieldTest) -> bool
+impl core::default::Default for jmap_graph_types::FieldTest
+pub fn jmap_graph_types::FieldTest::default() -> jmap_graph_types::FieldTest
+impl core::fmt::Debug for jmap_graph_types::FieldTest
+pub fn jmap_graph_types::FieldTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::FieldTest
+#[non_exhaustive] pub struct jmap_graph_types::Graph
+pub jmap_graph_types::Graph::annotations: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::Graph::created: jmap_types::id::UTCDate
+pub jmap_graph_types::Graph::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::Graph::id: jmap_types::id::Id
+pub jmap_graph_types::Graph::is_subscribed: bool
+pub jmap_graph_types::Graph::my_rights: jmap_graph_types::GraphRights
+pub jmap_graph_types::Graph::name: alloc::string::String
+pub jmap_graph_types::Graph::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_graph_types::GraphRights>>
+pub jmap_graph_types::Graph::updated: jmap_types::id::UTCDate
+impl core::clone::Clone for jmap_graph_types::Graph
+pub fn jmap_graph_types::Graph::clone(&self) -> jmap_graph_types::Graph
+impl core::cmp::PartialEq for jmap_graph_types::Graph
+pub fn jmap_graph_types::Graph::eq(&self, &jmap_graph_types::Graph) -> bool
+impl core::fmt::Debug for jmap_graph_types::Graph
+pub fn jmap_graph_types::Graph::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::Graph
+impl jmap_types::backend::GetObject for jmap_graph_types::Graph
+impl jmap_types::backend::JmapObject for jmap_graph_types::Graph
+pub type jmap_graph_types::Graph::Property = ()
+pub const jmap_graph_types::Graph::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_graph_types::Graph
+pub type jmap_graph_types::Graph::Comparator = jmap_graph_types::GraphComparator
+pub type jmap_graph_types::Graph::Filter = jmap_types::query::Filter<jmap_graph_types::GraphFilterCondition>
+impl jmap_types::backend::SetObject for jmap_graph_types::Graph
+pub type jmap_graph_types::Graph::Patch = jmap_types::patch::PatchObject
+pub const jmap_graph_types::Graph::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_graph_types::Graph::IMMUTABLE: &'static [&'static str]
+pub const jmap_graph_types::Graph::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_graph_types::Graph
+pub fn jmap_graph_types::Graph::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::Graph
+pub fn jmap_graph_types::Graph::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphCapability
+pub jmap_graph_types::GraphCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphCapability::max_annotation_size: core::option::Option<u64>
+impl core::clone::Clone for jmap_graph_types::GraphCapability
+pub fn jmap_graph_types::GraphCapability::clone(&self) -> jmap_graph_types::GraphCapability
+impl core::cmp::Eq for jmap_graph_types::GraphCapability
+impl core::cmp::PartialEq for jmap_graph_types::GraphCapability
+pub fn jmap_graph_types::GraphCapability::eq(&self, &jmap_graph_types::GraphCapability) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphCapability
+pub fn jmap_graph_types::GraphCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphCapability
+impl serde_core::ser::Serialize for jmap_graph_types::GraphCapability
+pub fn jmap_graph_types::GraphCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphCapability
+pub fn jmap_graph_types::GraphCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphComparator
+pub jmap_graph_types::GraphComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphComparator::is_ascending: bool
+pub jmap_graph_types::GraphComparator::property: jmap_graph_types::GraphSortProperty
+impl jmap_graph_types::GraphComparator
+pub fn jmap_graph_types::GraphComparator::new(jmap_graph_types::GraphSortProperty) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphComparator
+pub fn jmap_graph_types::GraphComparator::clone(&self) -> jmap_graph_types::GraphComparator
+impl core::cmp::Eq for jmap_graph_types::GraphComparator
+impl core::cmp::PartialEq for jmap_graph_types::GraphComparator
+pub fn jmap_graph_types::GraphComparator::eq(&self, &jmap_graph_types::GraphComparator) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphComparator
+pub fn jmap_graph_types::GraphComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphComparator
+impl serde_core::ser::Serialize for jmap_graph_types::GraphComparator
+pub fn jmap_graph_types::GraphComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphComparator
+pub fn jmap_graph_types::GraphComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphCursorEvent
+pub jmap_graph_types::GraphCursorEvent::account_id: jmap_types::id::Id
+pub jmap_graph_types::GraphCursorEvent::data: alloc::string::String
+pub jmap_graph_types::GraphCursorEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphCursorEvent::node_id: jmap_types::id::Id
+pub jmap_graph_types::GraphCursorEvent::sender_id: core::option::Option<jmap_types::id::Id>
+impl jmap_graph_types::GraphCursorEvent
+pub fn jmap_graph_types::GraphCursorEvent::new(jmap_types::id::Id, jmap_types::id::Id, core::option::Option<jmap_types::id::Id>, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphCursorEvent
+pub fn jmap_graph_types::GraphCursorEvent::clone(&self) -> jmap_graph_types::GraphCursorEvent
+impl core::cmp::Eq for jmap_graph_types::GraphCursorEvent
+impl core::cmp::PartialEq for jmap_graph_types::GraphCursorEvent
+pub fn jmap_graph_types::GraphCursorEvent::eq(&self, &jmap_graph_types::GraphCursorEvent) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphCursorEvent
+pub fn jmap_graph_types::GraphCursorEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphCursorEvent
+impl serde_core::ser::Serialize for jmap_graph_types::GraphCursorEvent
+pub fn jmap_graph_types::GraphCursorEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphCursorEvent
+pub fn jmap_graph_types::GraphCursorEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphEdge
+pub jmap_graph_types::GraphEdge::annotations: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphEdge::created: jmap_types::id::UTCDate
+pub jmap_graph_types::GraphEdge::created_by: core::option::Option<jmap_types::id::Id>
+pub jmap_graph_types::GraphEdge::edge_type: alloc::string::String
+pub jmap_graph_types::GraphEdge::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphEdge::from_id: jmap_types::id::Id
+pub jmap_graph_types::GraphEdge::graph_id: jmap_types::id::Id
+pub jmap_graph_types::GraphEdge::id: jmap_types::id::Id
+pub jmap_graph_types::GraphEdge::to_id: jmap_types::id::Id
+pub jmap_graph_types::GraphEdge::updated: jmap_types::id::UTCDate
+pub jmap_graph_types::GraphEdge::updated_by: core::option::Option<jmap_types::id::Id>
+impl core::clone::Clone for jmap_graph_types::GraphEdge
+pub fn jmap_graph_types::GraphEdge::clone(&self) -> jmap_graph_types::GraphEdge
+impl core::cmp::PartialEq for jmap_graph_types::GraphEdge
+pub fn jmap_graph_types::GraphEdge::eq(&self, &jmap_graph_types::GraphEdge) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphEdge
+pub fn jmap_graph_types::GraphEdge::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEdge
+impl jmap_types::backend::GetObject for jmap_graph_types::GraphEdge
+impl jmap_types::backend::JmapObject for jmap_graph_types::GraphEdge
+pub type jmap_graph_types::GraphEdge::Property = ()
+pub const jmap_graph_types::GraphEdge::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_graph_types::GraphEdge
+pub type jmap_graph_types::GraphEdge::Comparator = jmap_graph_types::GraphEdgeComparator
+pub type jmap_graph_types::GraphEdge::Filter = jmap_graph_types::GraphEdgeFilterCondition
+impl jmap_types::backend::SetObject for jmap_graph_types::GraphEdge
+pub type jmap_graph_types::GraphEdge::Patch = jmap_types::patch::PatchObject
+pub const jmap_graph_types::GraphEdge::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_graph_types::GraphEdge::IMMUTABLE: &'static [&'static str]
+pub const jmap_graph_types::GraphEdge::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEdge
+pub fn jmap_graph_types::GraphEdge::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEdge
+pub fn jmap_graph_types::GraphEdge::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphEdgeComparator
+pub jmap_graph_types::GraphEdgeComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphEdgeComparator::is_ascending: bool
+pub jmap_graph_types::GraphEdgeComparator::property: jmap_graph_types::GraphEdgeSortProperty
+impl jmap_graph_types::GraphEdgeComparator
+pub fn jmap_graph_types::GraphEdgeComparator::new(jmap_graph_types::GraphEdgeSortProperty) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphEdgeComparator
+pub fn jmap_graph_types::GraphEdgeComparator::clone(&self) -> jmap_graph_types::GraphEdgeComparator
+impl core::cmp::Eq for jmap_graph_types::GraphEdgeComparator
+impl core::cmp::PartialEq for jmap_graph_types::GraphEdgeComparator
+pub fn jmap_graph_types::GraphEdgeComparator::eq(&self, &jmap_graph_types::GraphEdgeComparator) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphEdgeComparator
+pub fn jmap_graph_types::GraphEdgeComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEdgeComparator
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEdgeComparator
+pub fn jmap_graph_types::GraphEdgeComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEdgeComparator
+pub fn jmap_graph_types::GraphEdgeComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphEdgeFilterCondition
+pub jmap_graph_types::GraphEdgeFilterCondition::edge_type: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphEdgeFilterCondition::expression: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphEdgeFilterCondition::from_id: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_graph_types::GraphEdgeFilterCondition::graph_id: jmap_types::id::Id
+pub jmap_graph_types::GraphEdgeFilterCondition::language: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphEdgeFilterCondition::to_id: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_graph_types::GraphEdgeFilterCondition::where_: core::option::Option<serde_json::value::Value>
+impl jmap_graph_types::GraphEdgeFilterCondition
+pub fn jmap_graph_types::GraphEdgeFilterCondition::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphEdgeFilterCondition
+pub fn jmap_graph_types::GraphEdgeFilterCondition::clone(&self) -> jmap_graph_types::GraphEdgeFilterCondition
+impl core::cmp::Eq for jmap_graph_types::GraphEdgeFilterCondition
+impl core::cmp::PartialEq for jmap_graph_types::GraphEdgeFilterCondition
+pub fn jmap_graph_types::GraphEdgeFilterCondition::eq(&self, &jmap_graph_types::GraphEdgeFilterCondition) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphEdgeFilterCondition
+pub fn jmap_graph_types::GraphEdgeFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEdgeFilterCondition
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEdgeFilterCondition
+pub fn jmap_graph_types::GraphEdgeFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEdgeFilterCondition
+pub fn jmap_graph_types::GraphEdgeFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphEditCapability
+pub jmap_graph_types::GraphEditCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphEditCapability::max_cursor_size: u64
+pub jmap_graph_types::GraphEditCapability::max_op_size: u64
+pub jmap_graph_types::GraphEditCapability::op_retention: core::option::Option<u64>
+impl core::clone::Clone for jmap_graph_types::GraphEditCapability
+pub fn jmap_graph_types::GraphEditCapability::clone(&self) -> jmap_graph_types::GraphEditCapability
+impl core::cmp::Eq for jmap_graph_types::GraphEditCapability
+impl core::cmp::PartialEq for jmap_graph_types::GraphEditCapability
+pub fn jmap_graph_types::GraphEditCapability::eq(&self, &jmap_graph_types::GraphEditCapability) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphEditCapability
+pub fn jmap_graph_types::GraphEditCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEditCapability
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEditCapability
+pub fn jmap_graph_types::GraphEditCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEditCapability
+pub fn jmap_graph_types::GraphEditCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphEditStreamDisable
+pub jmap_graph_types::GraphEditStreamDisable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_graph_types::GraphEditStreamDisable
+pub fn jmap_graph_types::GraphEditStreamDisable::clone(&self) -> jmap_graph_types::GraphEditStreamDisable
+impl core::cmp::Eq for jmap_graph_types::GraphEditStreamDisable
+impl core::cmp::PartialEq for jmap_graph_types::GraphEditStreamDisable
+pub fn jmap_graph_types::GraphEditStreamDisable::eq(&self, &jmap_graph_types::GraphEditStreamDisable) -> bool
+impl core::default::Default for jmap_graph_types::GraphEditStreamDisable
+pub fn jmap_graph_types::GraphEditStreamDisable::default() -> jmap_graph_types::GraphEditStreamDisable
+impl core::fmt::Debug for jmap_graph_types::GraphEditStreamDisable
+pub fn jmap_graph_types::GraphEditStreamDisable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEditStreamDisable
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEditStreamDisable
+pub fn jmap_graph_types::GraphEditStreamDisable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEditStreamDisable
+pub fn jmap_graph_types::GraphEditStreamDisable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphEditStreamEnable
+pub jmap_graph_types::GraphEditStreamEnable::data_types: alloc::vec::Vec<jmap_graph_types::GraphEditDataType>
+pub jmap_graph_types::GraphEditStreamEnable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphEditStreamEnable::id: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphEditStreamEnable::node_ids: alloc::vec::Vec<jmap_types::id::Id>
+impl jmap_graph_types::GraphEditStreamEnable
+pub fn jmap_graph_types::GraphEditStreamEnable::new(alloc::vec::Vec<jmap_types::id::Id>, alloc::vec::Vec<jmap_graph_types::GraphEditDataType>) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphEditStreamEnable
+pub fn jmap_graph_types::GraphEditStreamEnable::clone(&self) -> jmap_graph_types::GraphEditStreamEnable
+impl core::cmp::Eq for jmap_graph_types::GraphEditStreamEnable
+impl core::cmp::PartialEq for jmap_graph_types::GraphEditStreamEnable
+pub fn jmap_graph_types::GraphEditStreamEnable::eq(&self, &jmap_graph_types::GraphEditStreamEnable) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphEditStreamEnable
+pub fn jmap_graph_types::GraphEditStreamEnable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEditStreamEnable
+impl serde_core::ser::Serialize for jmap_graph_types::GraphEditStreamEnable
+pub fn jmap_graph_types::GraphEditStreamEnable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphEditStreamEnable
+pub fn jmap_graph_types::GraphEditStreamEnable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphFilterCondition
+pub jmap_graph_types::GraphFilterCondition::is_subscribed: core::option::Option<bool>
+impl core::clone::Clone for jmap_graph_types::GraphFilterCondition
+pub fn jmap_graph_types::GraphFilterCondition::clone(&self) -> jmap_graph_types::GraphFilterCondition
+impl core::cmp::Eq for jmap_graph_types::GraphFilterCondition
+impl core::cmp::PartialEq for jmap_graph_types::GraphFilterCondition
+pub fn jmap_graph_types::GraphFilterCondition::eq(&self, &jmap_graph_types::GraphFilterCondition) -> bool
+impl core::default::Default for jmap_graph_types::GraphFilterCondition
+pub fn jmap_graph_types::GraphFilterCondition::default() -> jmap_graph_types::GraphFilterCondition
+impl core::fmt::Debug for jmap_graph_types::GraphFilterCondition
+pub fn jmap_graph_types::GraphFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphFilterCondition
+impl serde_core::ser::Serialize for jmap_graph_types::GraphFilterCondition
+pub fn jmap_graph_types::GraphFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphFilterCondition
+pub fn jmap_graph_types::GraphFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNode
+pub jmap_graph_types::GraphNode::annotations: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphNode::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_graph_types::GraphNode::created: jmap_types::id::UTCDate
+pub jmap_graph_types::GraphNode::created_by: core::option::Option<jmap_types::id::Id>
+pub jmap_graph_types::GraphNode::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphNode::graph_id: jmap_types::id::Id
+pub jmap_graph_types::GraphNode::id: jmap_types::id::Id
+pub jmap_graph_types::GraphNode::media_type: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphNode::updated: jmap_types::id::UTCDate
+pub jmap_graph_types::GraphNode::updated_by: core::option::Option<jmap_types::id::Id>
+pub jmap_graph_types::GraphNode::uri: core::option::Option<alloc::string::String>
+impl jmap_graph_types::GraphNode
+pub fn jmap_graph_types::GraphNode::edit_format(&self) -> core::result::Result<core::option::Option<alloc::string::String>, serde_json::error::Error>
+pub fn jmap_graph_types::GraphNode::snapshot_seq(&self) -> core::result::Result<core::option::Option<u64>, serde_json::error::Error>
+impl core::clone::Clone for jmap_graph_types::GraphNode
+pub fn jmap_graph_types::GraphNode::clone(&self) -> jmap_graph_types::GraphNode
+impl core::cmp::PartialEq for jmap_graph_types::GraphNode
+pub fn jmap_graph_types::GraphNode::eq(&self, &jmap_graph_types::GraphNode) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNode
+pub fn jmap_graph_types::GraphNode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNode
+impl jmap_types::backend::GetObject for jmap_graph_types::GraphNode
+impl jmap_types::backend::JmapObject for jmap_graph_types::GraphNode
+pub type jmap_graph_types::GraphNode::Property = ()
+pub const jmap_graph_types::GraphNode::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_graph_types::GraphNode
+pub type jmap_graph_types::GraphNode::Comparator = jmap_graph_types::GraphNodeComparator
+pub type jmap_graph_types::GraphNode::Filter = jmap_graph_types::GraphNodeFilterCondition
+impl jmap_types::backend::SetObject for jmap_graph_types::GraphNode
+pub type jmap_graph_types::GraphNode::Patch = jmap_types::patch::PatchObject
+pub const jmap_graph_types::GraphNode::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_graph_types::GraphNode::IMMUTABLE: &'static [&'static str]
+pub const jmap_graph_types::GraphNode::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNode
+pub fn jmap_graph_types::GraphNode::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNode
+pub fn jmap_graph_types::GraphNode::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeComparator
+pub jmap_graph_types::GraphNodeComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphNodeComparator::is_ascending: bool
+pub jmap_graph_types::GraphNodeComparator::property: jmap_graph_types::GraphNodeSortProperty
+impl jmap_graph_types::GraphNodeComparator
+pub fn jmap_graph_types::GraphNodeComparator::new(jmap_graph_types::GraphNodeSortProperty) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphNodeComparator
+pub fn jmap_graph_types::GraphNodeComparator::clone(&self) -> jmap_graph_types::GraphNodeComparator
+impl core::cmp::Eq for jmap_graph_types::GraphNodeComparator
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeComparator
+pub fn jmap_graph_types::GraphNodeComparator::eq(&self, &jmap_graph_types::GraphNodeComparator) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeComparator
+pub fn jmap_graph_types::GraphNodeComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeComparator
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeComparator
+pub fn jmap_graph_types::GraphNodeComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeComparator
+pub fn jmap_graph_types::GraphNodeComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeCursorRequest
+pub jmap_graph_types::GraphNodeCursorRequest::account_id: jmap_types::id::Id
+pub jmap_graph_types::GraphNodeCursorRequest::data: alloc::string::String
+pub jmap_graph_types::GraphNodeCursorRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphNodeCursorRequest::node_id: jmap_types::id::Id
+impl jmap_graph_types::GraphNodeCursorRequest
+pub fn jmap_graph_types::GraphNodeCursorRequest::new(jmap_types::id::Id, jmap_types::id::Id, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphNodeCursorRequest
+pub fn jmap_graph_types::GraphNodeCursorRequest::clone(&self) -> jmap_graph_types::GraphNodeCursorRequest
+impl core::cmp::Eq for jmap_graph_types::GraphNodeCursorRequest
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeCursorRequest
+pub fn jmap_graph_types::GraphNodeCursorRequest::eq(&self, &jmap_graph_types::GraphNodeCursorRequest) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeCursorRequest
+pub fn jmap_graph_types::GraphNodeCursorRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeCursorRequest
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeCursorRequest
+pub fn jmap_graph_types::GraphNodeCursorRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeCursorRequest
+pub fn jmap_graph_types::GraphNodeCursorRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeCursorResponse
+pub jmap_graph_types::GraphNodeCursorResponse::account_id: jmap_types::id::Id
+pub jmap_graph_types::GraphNodeCursorResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphNodeCursorResponse::node_id: jmap_types::id::Id
+impl jmap_graph_types::GraphNodeCursorResponse
+pub fn jmap_graph_types::GraphNodeCursorResponse::new(jmap_types::id::Id, jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphNodeCursorResponse
+pub fn jmap_graph_types::GraphNodeCursorResponse::clone(&self) -> jmap_graph_types::GraphNodeCursorResponse
+impl core::cmp::Eq for jmap_graph_types::GraphNodeCursorResponse
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeCursorResponse
+pub fn jmap_graph_types::GraphNodeCursorResponse::eq(&self, &jmap_graph_types::GraphNodeCursorResponse) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeCursorResponse
+pub fn jmap_graph_types::GraphNodeCursorResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeCursorResponse
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeCursorResponse
+pub fn jmap_graph_types::GraphNodeCursorResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeCursorResponse
+pub fn jmap_graph_types::GraphNodeCursorResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeFilterCondition
+pub jmap_graph_types::GraphNodeFilterCondition::expression: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphNodeFilterCondition::graph_id: jmap_types::id::Id
+pub jmap_graph_types::GraphNodeFilterCondition::language: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphNodeFilterCondition::object_uri: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_graph_types::GraphNodeFilterCondition::where_: core::option::Option<serde_json::value::Value>
+impl jmap_graph_types::GraphNodeFilterCondition
+pub fn jmap_graph_types::GraphNodeFilterCondition::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphNodeFilterCondition
+pub fn jmap_graph_types::GraphNodeFilterCondition::clone(&self) -> jmap_graph_types::GraphNodeFilterCondition
+impl core::cmp::Eq for jmap_graph_types::GraphNodeFilterCondition
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeFilterCondition
+pub fn jmap_graph_types::GraphNodeFilterCondition::eq(&self, &jmap_graph_types::GraphNodeFilterCondition) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeFilterCondition
+pub fn jmap_graph_types::GraphNodeFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeFilterCondition
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeFilterCondition
+pub fn jmap_graph_types::GraphNodeFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeFilterCondition
+pub fn jmap_graph_types::GraphNodeFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeOp
+pub jmap_graph_types::GraphNodeOp::base_seq: u64
+pub jmap_graph_types::GraphNodeOp::created: jmap_types::id::UTCDate
+pub jmap_graph_types::GraphNodeOp::created_by: core::option::Option<jmap_types::id::Id>
+pub jmap_graph_types::GraphNodeOp::data: alloc::string::String
+pub jmap_graph_types::GraphNodeOp::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphNodeOp::graph_id: jmap_types::id::Id
+pub jmap_graph_types::GraphNodeOp::id: jmap_types::id::Id
+pub jmap_graph_types::GraphNodeOp::node_id: jmap_types::id::Id
+pub jmap_graph_types::GraphNodeOp::seq: u64
+impl core::clone::Clone for jmap_graph_types::GraphNodeOp
+pub fn jmap_graph_types::GraphNodeOp::clone(&self) -> jmap_graph_types::GraphNodeOp
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeOp
+pub fn jmap_graph_types::GraphNodeOp::eq(&self, &jmap_graph_types::GraphNodeOp) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeOp
+pub fn jmap_graph_types::GraphNodeOp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeOp
+impl jmap_types::backend::GetObject for jmap_graph_types::GraphNodeOp
+impl jmap_types::backend::JmapObject for jmap_graph_types::GraphNodeOp
+pub type jmap_graph_types::GraphNodeOp::Property = ()
+pub const jmap_graph_types::GraphNodeOp::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_graph_types::GraphNodeOp
+pub type jmap_graph_types::GraphNodeOp::Comparator = jmap_graph_types::GraphNodeOpComparator
+pub type jmap_graph_types::GraphNodeOp::Filter = jmap_graph_types::GraphNodeOpFilterCondition
+impl jmap_types::backend::SetObject for jmap_graph_types::GraphNodeOp
+pub type jmap_graph_types::GraphNodeOp::Patch = jmap_types::patch::PatchObject
+pub const jmap_graph_types::GraphNodeOp::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_graph_types::GraphNodeOp::IMMUTABLE: &'static [&'static str]
+pub const jmap_graph_types::GraphNodeOp::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeOp
+pub fn jmap_graph_types::GraphNodeOp::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeOp
+pub fn jmap_graph_types::GraphNodeOp::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeOpComparator
+pub jmap_graph_types::GraphNodeOpComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_graph_types::GraphNodeOpComparator::is_ascending: bool
+pub jmap_graph_types::GraphNodeOpComparator::property: jmap_graph_types::GraphNodeOpSortProperty
+impl jmap_graph_types::GraphNodeOpComparator
+pub fn jmap_graph_types::GraphNodeOpComparator::new(jmap_graph_types::GraphNodeOpSortProperty) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphNodeOpComparator
+pub fn jmap_graph_types::GraphNodeOpComparator::clone(&self) -> jmap_graph_types::GraphNodeOpComparator
+impl core::cmp::Eq for jmap_graph_types::GraphNodeOpComparator
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeOpComparator
+pub fn jmap_graph_types::GraphNodeOpComparator::eq(&self, &jmap_graph_types::GraphNodeOpComparator) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeOpComparator
+pub fn jmap_graph_types::GraphNodeOpComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeOpComparator
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeOpComparator
+pub fn jmap_graph_types::GraphNodeOpComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeOpComparator
+pub fn jmap_graph_types::GraphNodeOpComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeOpEvent
+pub jmap_graph_types::GraphNodeOpEvent::account_id: jmap_types::id::Id
+pub jmap_graph_types::GraphNodeOpEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphNodeOpEvent::op: jmap_graph_types::GraphNodeOp
+impl core::clone::Clone for jmap_graph_types::GraphNodeOpEvent
+pub fn jmap_graph_types::GraphNodeOpEvent::clone(&self) -> jmap_graph_types::GraphNodeOpEvent
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeOpEvent
+pub fn jmap_graph_types::GraphNodeOpEvent::eq(&self, &jmap_graph_types::GraphNodeOpEvent) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeOpEvent
+pub fn jmap_graph_types::GraphNodeOpEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeOpEvent
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeOpEvent
+pub fn jmap_graph_types::GraphNodeOpEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeOpEvent
+pub fn jmap_graph_types::GraphNodeOpEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphNodeOpFilterCondition
+pub jmap_graph_types::GraphNodeOpFilterCondition::after_seq: core::option::Option<u64>
+pub jmap_graph_types::GraphNodeOpFilterCondition::node_id: jmap_types::id::Id
+impl jmap_graph_types::GraphNodeOpFilterCondition
+pub fn jmap_graph_types::GraphNodeOpFilterCondition::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_graph_types::GraphNodeOpFilterCondition
+pub fn jmap_graph_types::GraphNodeOpFilterCondition::clone(&self) -> jmap_graph_types::GraphNodeOpFilterCondition
+impl core::cmp::Eq for jmap_graph_types::GraphNodeOpFilterCondition
+impl core::cmp::PartialEq for jmap_graph_types::GraphNodeOpFilterCondition
+pub fn jmap_graph_types::GraphNodeOpFilterCondition::eq(&self, &jmap_graph_types::GraphNodeOpFilterCondition) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphNodeOpFilterCondition
+pub fn jmap_graph_types::GraphNodeOpFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNodeOpFilterCondition
+impl serde_core::ser::Serialize for jmap_graph_types::GraphNodeOpFilterCondition
+pub fn jmap_graph_types::GraphNodeOpFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphNodeOpFilterCondition
+pub fn jmap_graph_types::GraphNodeOpFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphProjectionCapability
+pub jmap_graph_types::GraphProjectionCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphProjectionCapability::graph_id: jmap_types::id::Id
+impl core::clone::Clone for jmap_graph_types::GraphProjectionCapability
+pub fn jmap_graph_types::GraphProjectionCapability::clone(&self) -> jmap_graph_types::GraphProjectionCapability
+impl core::cmp::Eq for jmap_graph_types::GraphProjectionCapability
+impl core::cmp::PartialEq for jmap_graph_types::GraphProjectionCapability
+pub fn jmap_graph_types::GraphProjectionCapability::eq(&self, &jmap_graph_types::GraphProjectionCapability) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphProjectionCapability
+pub fn jmap_graph_types::GraphProjectionCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphProjectionCapability
+impl serde_core::ser::Serialize for jmap_graph_types::GraphProjectionCapability
+pub fn jmap_graph_types::GraphProjectionCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphProjectionCapability
+pub fn jmap_graph_types::GraphProjectionCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphRights
+pub jmap_graph_types::GraphRights::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphRights::may_admin: bool
+pub jmap_graph_types::GraphRights::may_read: bool
+pub jmap_graph_types::GraphRights::may_write: bool
+impl core::clone::Clone for jmap_graph_types::GraphRights
+pub fn jmap_graph_types::GraphRights::clone(&self) -> jmap_graph_types::GraphRights
+impl core::cmp::Eq for jmap_graph_types::GraphRights
+impl core::cmp::PartialEq for jmap_graph_types::GraphRights
+pub fn jmap_graph_types::GraphRights::eq(&self, &jmap_graph_types::GraphRights) -> bool
+impl core::default::Default for jmap_graph_types::GraphRights
+pub fn jmap_graph_types::GraphRights::default() -> jmap_graph_types::GraphRights
+impl core::fmt::Debug for jmap_graph_types::GraphRights
+pub fn jmap_graph_types::GraphRights::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphRights
+impl serde_core::ser::Serialize for jmap_graph_types::GraphRights
+pub fn jmap_graph_types::GraphRights::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphRights
+pub fn jmap_graph_types::GraphRights::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::GraphSearchCapability
+pub jmap_graph_types::GraphSearchCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::GraphSearchCapability::languages: alloc::vec::Vec<alloc::string::String>
+pub jmap_graph_types::GraphSearchCapability::max_depth: u64
+pub jmap_graph_types::GraphSearchCapability::supports_text: bool
+impl core::clone::Clone for jmap_graph_types::GraphSearchCapability
+pub fn jmap_graph_types::GraphSearchCapability::clone(&self) -> jmap_graph_types::GraphSearchCapability
+impl core::cmp::Eq for jmap_graph_types::GraphSearchCapability
+impl core::cmp::PartialEq for jmap_graph_types::GraphSearchCapability
+pub fn jmap_graph_types::GraphSearchCapability::eq(&self, &jmap_graph_types::GraphSearchCapability) -> bool
+impl core::fmt::Debug for jmap_graph_types::GraphSearchCapability
+pub fn jmap_graph_types::GraphSearchCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::GraphSearchCapability
+impl serde_core::ser::Serialize for jmap_graph_types::GraphSearchCapability
+pub fn jmap_graph_types::GraphSearchCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::GraphSearchCapability
+pub fn jmap_graph_types::GraphSearchCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::PrincipalGraphCapability
+pub jmap_graph_types::PrincipalGraphCapability::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_graph_types::PrincipalGraphCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_graph_types::PrincipalGraphCapability::may_share_with: bool
+impl core::clone::Clone for jmap_graph_types::PrincipalGraphCapability
+pub fn jmap_graph_types::PrincipalGraphCapability::clone(&self) -> jmap_graph_types::PrincipalGraphCapability
+impl core::cmp::Eq for jmap_graph_types::PrincipalGraphCapability
+impl core::cmp::PartialEq for jmap_graph_types::PrincipalGraphCapability
+pub fn jmap_graph_types::PrincipalGraphCapability::eq(&self, &jmap_graph_types::PrincipalGraphCapability) -> bool
+impl core::fmt::Debug for jmap_graph_types::PrincipalGraphCapability
+pub fn jmap_graph_types::PrincipalGraphCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::PrincipalGraphCapability
+impl serde_core::ser::Serialize for jmap_graph_types::PrincipalGraphCapability
+pub fn jmap_graph_types::PrincipalGraphCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_graph_types::PrincipalGraphCapability
+pub fn jmap_graph_types::PrincipalGraphCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_graph_types::ReachTest
+pub jmap_graph_types::ReachTest::direction: jmap_graph_types::Direction
+pub jmap_graph_types::ReachTest::edge_type: core::option::Option<alloc::string::String>
+pub jmap_graph_types::ReachTest::max_depth: u64
+pub jmap_graph_types::ReachTest::node: core::option::Option<jmap_graph_types::Expression>
+impl jmap_graph_types::ReachTest
+pub fn jmap_graph_types::ReachTest::new(jmap_graph_types::Direction, u64) -> Self
+impl core::clone::Clone for jmap_graph_types::ReachTest
+pub fn jmap_graph_types::ReachTest::clone(&self) -> jmap_graph_types::ReachTest
+impl core::cmp::PartialEq for jmap_graph_types::ReachTest
+pub fn jmap_graph_types::ReachTest::eq(&self, &jmap_graph_types::ReachTest) -> bool
+impl core::fmt::Debug for jmap_graph_types::ReachTest
+pub fn jmap_graph_types::ReachTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_types::ReachTest
+pub const jmap_graph_types::DATA_TYPE_CURSORS: &str
+pub const jmap_graph_types::DATA_TYPE_OPS: &str
+pub const jmap_graph_types::GRAPH_EDIT_DATA_TYPES: &[&str]
+pub const jmap_graph_types::GRAPH_NODE_EDIT_FORMAT_PROPERTY: &str
+pub const jmap_graph_types::GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY: &str
+pub const jmap_graph_types::JMAP_GRAPH_EDIT_URI: &str
+pub const jmap_graph_types::JMAP_GRAPH_PROJECTION_URI: &str
+pub const jmap_graph_types::JMAP_GRAPH_SEARCH_URI: &str
+pub const jmap_graph_types::JMAP_GRAPH_URI: &str
+pub const jmap_graph_types::JMAP_URI_GRAPH_EDGE_TYPE: &str
+pub const jmap_graph_types::JMAP_URI_GRAPH_NODE_TYPE: &str
+pub const jmap_graph_types::JMAP_URI_GRAPH_TYPE: &str
+pub const jmap_graph_types::OPS_COMPACTED: &str
+pub const jmap_graph_types::QUERY_TOO_COMPLEX: &str
+pub type jmap_graph_types::GraphFilter = jmap_types::query::Filter<jmap_graph_types::GraphFilterCondition>

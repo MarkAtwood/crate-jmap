@@ -1,0 +1,121 @@
+pub mod jmap_cid_types
+#[non_exhaustive] pub enum jmap_cid_types::CidV1Error
+#[non_exhaustive] pub jmap_cid_types::CidV1Error::InvalidBase32
+pub jmap_cid_types::CidV1Error::InvalidBase32::at: u32
+pub jmap_cid_types::CidV1Error::InvalidBase32::byte: u8
+#[non_exhaustive] pub jmap_cid_types::CidV1Error::NonCanonicalBase32
+#[non_exhaustive] pub jmap_cid_types::CidV1Error::UnsupportedMultibase
+#[non_exhaustive] pub jmap_cid_types::CidV1Error::UnsupportedPrefix
+pub jmap_cid_types::CidV1Error::UnsupportedPrefix::got: [u8; 4]
+#[non_exhaustive] pub jmap_cid_types::CidV1Error::WrongLength
+pub jmap_cid_types::CidV1Error::WrongLength::got: u32
+impl core::clone::Clone for jmap_cid_types::CidV1Error
+pub fn jmap_cid_types::CidV1Error::clone(&self) -> jmap_cid_types::CidV1Error
+impl core::cmp::Eq for jmap_cid_types::CidV1Error
+impl core::cmp::PartialEq for jmap_cid_types::CidV1Error
+pub fn jmap_cid_types::CidV1Error::eq(&self, &jmap_cid_types::CidV1Error) -> bool
+impl core::error::Error for jmap_cid_types::CidV1Error
+impl core::fmt::Debug for jmap_cid_types::CidV1Error
+pub fn jmap_cid_types::CidV1Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_cid_types::CidV1Error
+pub fn jmap_cid_types::CidV1Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_cid_types::CidV1Error
+#[non_exhaustive] pub enum jmap_cid_types::Sha256Base64Error
+#[non_exhaustive] pub jmap_cid_types::Sha256Base64Error::InvalidBase64
+#[non_exhaustive] pub jmap_cid_types::Sha256Base64Error::WrongLength
+pub jmap_cid_types::Sha256Base64Error::WrongLength::got: u32
+impl core::clone::Clone for jmap_cid_types::Sha256Base64Error
+pub fn jmap_cid_types::Sha256Base64Error::clone(&self) -> jmap_cid_types::Sha256Base64Error
+impl core::cmp::Eq for jmap_cid_types::Sha256Base64Error
+impl core::cmp::PartialEq for jmap_cid_types::Sha256Base64Error
+pub fn jmap_cid_types::Sha256Base64Error::eq(&self, &jmap_cid_types::Sha256Base64Error) -> bool
+impl core::error::Error for jmap_cid_types::Sha256Base64Error
+impl core::fmt::Debug for jmap_cid_types::Sha256Base64Error
+pub fn jmap_cid_types::Sha256Base64Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_cid_types::Sha256Base64Error
+pub fn jmap_cid_types::Sha256Base64Error::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_cid_types::Sha256Base64Error
+#[non_exhaustive] pub enum jmap_cid_types::Sha256DigestError
+#[non_exhaustive] pub jmap_cid_types::Sha256DigestError::NonHexLowercase
+pub jmap_cid_types::Sha256DigestError::NonHexLowercase::at: u32
+pub jmap_cid_types::Sha256DigestError::NonHexLowercase::byte: u8
+#[non_exhaustive] pub jmap_cid_types::Sha256DigestError::WrongLength
+pub jmap_cid_types::Sha256DigestError::WrongLength::got: u32
+impl core::clone::Clone for jmap_cid_types::Sha256DigestError
+pub fn jmap_cid_types::Sha256DigestError::clone(&self) -> jmap_cid_types::Sha256DigestError
+impl core::cmp::Eq for jmap_cid_types::Sha256DigestError
+impl core::cmp::PartialEq for jmap_cid_types::Sha256DigestError
+pub fn jmap_cid_types::Sha256DigestError::eq(&self, &jmap_cid_types::Sha256DigestError) -> bool
+impl core::error::Error for jmap_cid_types::Sha256DigestError
+impl core::fmt::Debug for jmap_cid_types::Sha256DigestError
+pub fn jmap_cid_types::Sha256DigestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_cid_types::Sha256DigestError
+pub fn jmap_cid_types::Sha256DigestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_cid_types::Sha256DigestError
+#[non_exhaustive] pub struct jmap_cid_types::CidCapability
+pub jmap_cid_types::CidCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_cid_types::CidCapability
+pub fn jmap_cid_types::CidCapability::clone(&self) -> jmap_cid_types::CidCapability
+impl core::cmp::PartialEq for jmap_cid_types::CidCapability
+pub fn jmap_cid_types::CidCapability::eq(&self, &jmap_cid_types::CidCapability) -> bool
+impl core::default::Default for jmap_cid_types::CidCapability
+pub fn jmap_cid_types::CidCapability::default() -> jmap_cid_types::CidCapability
+impl core::fmt::Debug for jmap_cid_types::CidCapability
+pub fn jmap_cid_types::CidCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_cid_types::CidCapability
+impl serde_core::ser::Serialize for jmap_cid_types::CidCapability
+pub fn jmap_cid_types::CidCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_cid_types::CidCapability
+pub fn jmap_cid_types::CidCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_cid_types::Sha256(_)
+impl jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::as_str(&self) -> &str
+pub fn jmap_cid_types::Sha256::from_hex(&str) -> core::result::Result<Self, jmap_cid_types::Sha256DigestError>
+pub fn jmap_cid_types::Sha256::into_inner(self) -> alloc::string::String
+pub fn jmap_cid_types::Sha256::to_bytes(&self) -> [u8; 32]
+impl jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::from_base64(&str) -> core::result::Result<Self, jmap_cid_types::Sha256Base64Error>
+pub fn jmap_cid_types::Sha256::to_base64(&self) -> alloc::string::String
+impl jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::from_cidv1(&str) -> core::result::Result<Self, jmap_cid_types::CidV1Error>
+pub fn jmap_cid_types::Sha256::from_cidv1_bytes(&[u8]) -> core::result::Result<Self, jmap_cid_types::CidV1Error>
+pub fn jmap_cid_types::Sha256::to_cidv1(&self) -> alloc::string::String
+pub fn jmap_cid_types::Sha256::to_cidv1_bytes(&self) -> [u8; 36]
+impl core::borrow::Borrow<str> for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::borrow(&self) -> &str
+impl core::clone::Clone for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::clone(&self) -> jmap_cid_types::Sha256
+impl core::cmp::Eq for jmap_cid_types::Sha256
+impl core::cmp::PartialEq for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::eq(&self, &jmap_cid_types::Sha256) -> bool
+impl core::cmp::PartialEq<&str> for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<str> for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::eq(&self, &str) -> bool
+impl core::convert::AsRef<str> for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::as_ref(&self) -> &str
+impl core::convert::From<&[u8; 32]> for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::from(&[u8; 32]) -> Self
+impl core::convert::From<[u8; 32]> for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::from([u8; 32]) -> Self
+impl core::convert::TryFrom<&str> for jmap_cid_types::Sha256
+pub type jmap_cid_types::Sha256::Error = jmap_cid_types::Sha256DigestError
+pub fn jmap_cid_types::Sha256::try_from(&str) -> core::result::Result<Self, Self::Error>
+impl core::convert::TryFrom<alloc::string::String> for jmap_cid_types::Sha256
+pub type jmap_cid_types::Sha256::Error = jmap_cid_types::Sha256DigestError
+pub fn jmap_cid_types::Sha256::try_from(alloc::string::String) -> core::result::Result<Self, Self::Error>
+impl core::fmt::Debug for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_cid_types::Sha256
+impl core::str::traits::FromStr for jmap_cid_types::Sha256
+pub type jmap_cid_types::Sha256::Err = jmap_cid_types::Sha256DigestError
+pub fn jmap_cid_types::Sha256::from_str(&str) -> core::result::Result<Self, Self::Err>
+impl serde_core::ser::Serialize for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_cid_types::Sha256
+pub fn jmap_cid_types::Sha256::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_cid_types::JMAP_CID_URI: &str

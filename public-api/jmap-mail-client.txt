@@ -1,0 +1,174 @@
+pub mod jmap_mail_client
+pub use jmap_mail_client::AddedItem
+pub use jmap_mail_client::ChangesResponse
+pub use jmap_mail_client::ClientError
+pub use jmap_mail_client::CopyResponse
+pub use jmap_mail_client::GetResponse
+pub use jmap_mail_client::PartialObject
+pub use jmap_mail_client::QueryChangesResponse
+pub use jmap_mail_client::QueryResponse
+pub use jmap_mail_client::SetError
+pub use jmap_mail_client::SetResponse
+pub struct jmap_mail_client::EmailCopyParams
+pub jmap_mail_client::EmailCopyParams::destroy_from_if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_mail_client::EmailCopyParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailCopyParams::from_account_id: jmap_types::id::Id
+pub jmap_mail_client::EmailCopyParams::if_from_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_mail_client::EmailCopyParams::if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_mail_client::EmailCopyParams::on_success_destroy_original: core::option::Option<bool>
+impl core::clone::Clone for jmap_mail_client::EmailCopyParams
+pub fn jmap_mail_client::EmailCopyParams::clone(&self) -> jmap_mail_client::EmailCopyParams
+impl core::fmt::Debug for jmap_mail_client::EmailCopyParams
+pub fn jmap_mail_client::EmailCopyParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_mail_client::EmailCopyParams
+pub fn jmap_mail_client::EmailCopyParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_mail_client::EmailGetParams
+pub jmap_mail_client::EmailGetParams::body_properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_client::EmailGetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailGetParams::fetch_all_body_values: core::option::Option<bool>
+pub jmap_mail_client::EmailGetParams::fetch_html_body_values: core::option::Option<bool>
+pub jmap_mail_client::EmailGetParams::fetch_text_body_values: core::option::Option<bool>
+pub jmap_mail_client::EmailGetParams::max_body_value_bytes: core::option::Option<u64>
+impl core::clone::Clone for jmap_mail_client::EmailGetParams
+pub fn jmap_mail_client::EmailGetParams::clone(&self) -> jmap_mail_client::EmailGetParams
+impl core::default::Default for jmap_mail_client::EmailGetParams
+pub fn jmap_mail_client::EmailGetParams::default() -> jmap_mail_client::EmailGetParams
+impl core::fmt::Debug for jmap_mail_client::EmailGetParams
+pub fn jmap_mail_client::EmailGetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_mail_client::EmailGetParams
+pub fn jmap_mail_client::EmailGetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_mail_client::EmailImportCreated
+pub jmap_mail_client::EmailImportCreated::blob_id: jmap_types::id::Id
+pub jmap_mail_client::EmailImportCreated::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailImportCreated::id: jmap_types::id::Id
+pub jmap_mail_client::EmailImportCreated::size: u64
+pub jmap_mail_client::EmailImportCreated::thread_id: jmap_types::id::Id
+impl core::clone::Clone for jmap_mail_client::EmailImportCreated
+pub fn jmap_mail_client::EmailImportCreated::clone(&self) -> jmap_mail_client::EmailImportCreated
+impl core::fmt::Debug for jmap_mail_client::EmailImportCreated
+pub fn jmap_mail_client::EmailImportCreated::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_client::EmailImportCreated
+pub fn jmap_mail_client::EmailImportCreated::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_mail_client::EmailImportInput<'a>
+pub jmap_mail_client::EmailImportInput::blob_id: &'a jmap_types::id::Id
+pub jmap_mail_client::EmailImportInput::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailImportInput::keywords: core::option::Option<&'a [&'a str]>
+pub jmap_mail_client::EmailImportInput::mailbox_ids: &'a [jmap_types::id::Id]
+pub jmap_mail_client::EmailImportInput::received_at: core::option::Option<&'a jmap_types::id::UTCDate>
+impl<'a> core::clone::Clone for jmap_mail_client::EmailImportInput<'a>
+pub fn jmap_mail_client::EmailImportInput<'a>::clone(&self) -> jmap_mail_client::EmailImportInput<'a>
+impl<'a> core::fmt::Debug for jmap_mail_client::EmailImportInput<'a>
+pub fn jmap_mail_client::EmailImportInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> serde_core::ser::Serialize for jmap_mail_client::EmailImportInput<'a>
+pub fn jmap_mail_client::EmailImportInput<'a>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_mail_client::EmailImportResponse
+pub jmap_mail_client::EmailImportResponse::account_id: jmap_types::id::Id
+pub jmap_mail_client::EmailImportResponse::created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_client::EmailImportCreated>>
+pub jmap_mail_client::EmailImportResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailImportResponse::new_state: jmap_types::id::State
+pub jmap_mail_client::EmailImportResponse::not_created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
+pub jmap_mail_client::EmailImportResponse::old_state: core::option::Option<jmap_types::id::State>
+impl core::clone::Clone for jmap_mail_client::EmailImportResponse
+pub fn jmap_mail_client::EmailImportResponse::clone(&self) -> jmap_mail_client::EmailImportResponse
+impl core::fmt::Debug for jmap_mail_client::EmailImportResponse
+pub fn jmap_mail_client::EmailImportResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_client::EmailImportResponse
+pub fn jmap_mail_client::EmailImportResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_mail_client::EmailParseParams
+pub jmap_mail_client::EmailParseParams::body_properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_client::EmailParseParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailParseParams::fetch_all_body_values: core::option::Option<bool>
+pub jmap_mail_client::EmailParseParams::fetch_html_body_values: core::option::Option<bool>
+pub jmap_mail_client::EmailParseParams::fetch_text_body_values: core::option::Option<bool>
+pub jmap_mail_client::EmailParseParams::max_body_value_bytes: core::option::Option<u64>
+pub jmap_mail_client::EmailParseParams::properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+impl core::clone::Clone for jmap_mail_client::EmailParseParams
+pub fn jmap_mail_client::EmailParseParams::clone(&self) -> jmap_mail_client::EmailParseParams
+impl core::default::Default for jmap_mail_client::EmailParseParams
+pub fn jmap_mail_client::EmailParseParams::default() -> jmap_mail_client::EmailParseParams
+impl core::fmt::Debug for jmap_mail_client::EmailParseParams
+pub fn jmap_mail_client::EmailParseParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_mail_client::EmailParseParams
+pub fn jmap_mail_client::EmailParseParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_mail_client::EmailParseResponse
+pub jmap_mail_client::EmailParseResponse::account_id: jmap_types::id::Id
+pub jmap_mail_client::EmailParseResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailParseResponse::not_found: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_client::EmailParseResponse::not_parsable: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_client::EmailParseResponse::parsed: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_types::email::Email>>
+impl core::clone::Clone for jmap_mail_client::EmailParseResponse
+pub fn jmap_mail_client::EmailParseResponse::clone(&self) -> jmap_mail_client::EmailParseResponse
+impl core::fmt::Debug for jmap_mail_client::EmailParseResponse
+pub fn jmap_mail_client::EmailParseResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_client::EmailParseResponse
+pub fn jmap_mail_client::EmailParseResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_mail_client::EmailSubmissionSetParams
+pub jmap_mail_client::EmailSubmissionSetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::EmailSubmissionSetParams::on_success_destroy_email: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_client::EmailSubmissionSetParams::on_success_update_email: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
+impl core::clone::Clone for jmap_mail_client::EmailSubmissionSetParams
+pub fn jmap_mail_client::EmailSubmissionSetParams::clone(&self) -> jmap_mail_client::EmailSubmissionSetParams
+impl core::default::Default for jmap_mail_client::EmailSubmissionSetParams
+pub fn jmap_mail_client::EmailSubmissionSetParams::default() -> jmap_mail_client::EmailSubmissionSetParams
+impl core::fmt::Debug for jmap_mail_client::EmailSubmissionSetParams
+pub fn jmap_mail_client::EmailSubmissionSetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_mail_client::EmailSubmissionSetParams
+pub fn jmap_mail_client::EmailSubmissionSetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_mail_client::MailboxSetParams
+pub jmap_mail_client::MailboxSetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_client::MailboxSetParams::on_destroy_remove_emails: core::option::Option<bool>
+impl core::clone::Clone for jmap_mail_client::MailboxSetParams
+pub fn jmap_mail_client::MailboxSetParams::clone(&self) -> jmap_mail_client::MailboxSetParams
+impl core::default::Default for jmap_mail_client::MailboxSetParams
+pub fn jmap_mail_client::MailboxSetParams::default() -> jmap_mail_client::MailboxSetParams
+impl core::fmt::Debug for jmap_mail_client::MailboxSetParams
+pub fn jmap_mail_client::MailboxSetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_mail_client::MailboxSetParams
+pub fn jmap_mail_client::MailboxSetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_mail_client::SessionClient
+impl jmap_mail_client::SessionClient
+pub fn jmap_mail_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_mail_client::SessionClient::mail_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_mail_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_mail_client::SessionClient
+pub async fn jmap_mail_client::SessionClient::email_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_copy(&self, jmap_mail_client::EmailCopyParams, serde_json::value::Value) -> core::result::Result<jmap_types::methods::CopyResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>, core::option::Option<jmap_mail_client::EmailGetParams>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_mail_types::email::Email>, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_import(&self, &alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_client::EmailImportInput<'_>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_mail_client::EmailImportResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_parse(&self, &[jmap_types::id::Id], core::option::Option<jmap_mail_client::EmailParseParams>) -> core::result::Result<jmap_mail_client::EmailParseResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_mail_types::query::EmailComparator]>, &jmap_base_client::query::QueryParams, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<bool>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_mail_types::query::EmailComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_mail_client::SessionClient
+pub async fn jmap_mail_client::SessionClient::email_submission_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_submission_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_mail_types::submission::EmailSubmission>, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_submission_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_mail_types::query::EmailSubmissionComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_submission_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_mail_types::query::EmailSubmissionComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::email_submission_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_mail_client::EmailSubmissionSetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_mail_client::SessionClient
+pub async fn jmap_mail_client::SessionClient::identity_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::identity_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_mail_types::identity::Identity>, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::identity_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_mail_client::SessionClient
+pub async fn jmap_mail_client::SessionClient::mailbox_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::mailbox_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_mail_types::mailbox::Mailbox>, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::mailbox_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_mail_types::query::MailboxComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::mailbox_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_mail_types::query::MailboxComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::mailbox_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_mail_client::MailboxSetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_mail_client::SessionClient
+pub async fn jmap_mail_client::SessionClient::search_snippet_get<C: serde_core::ser::Serialize>(&self, &jmap_types::query::Filter<C>, core::option::Option<&[jmap_types::id::Id]>) -> core::result::Result<jmap_mail_types::snippet::SearchSnippetGetResponse, jmap_base_client::error::ClientError>
+impl jmap_mail_client::SessionClient
+pub async fn jmap_mail_client::SessionClient::thread_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::thread_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_mail_types::thread::Thread>, jmap_base_client::error::ClientError>
+impl jmap_mail_client::SessionClient
+pub async fn jmap_mail_client::SessionClient::vacation_response_get(&self) -> core::result::Result<jmap_mail_types::vacation::VacationResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::vacation_response_get_envelope(&self) -> core::result::Result<jmap_types::methods::GetResponse<jmap_mail_types::vacation::VacationResponse>, jmap_base_client::error::ClientError>
+pub async fn jmap_mail_client::SessionClient::vacation_response_set(&self, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_mail_client::SessionClient
+pub fn jmap_mail_client::SessionClient::clone(&self) -> jmap_mail_client::SessionClient
+impl core::fmt::Debug for jmap_mail_client::SessionClient
+pub fn jmap_mail_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_mail_client::JmapMailExt: jmap_mail_client::sealed::Sealed
+pub fn jmap_mail_client::JmapMailExt::with_mail_session(&self, jmap_base_client::request::Session) -> jmap_mail_client::SessionClient
+impl jmap_mail_client::JmapMailExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_mail_session(&self, jmap_base_client::request::Session) -> jmap_mail_client::SessionClient

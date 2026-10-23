@@ -1,0 +1,869 @@
+pub mod jmap_scene_types
+pub use jmap_scene_types::Filter
+pub use jmap_scene_types::FilterOperator
+pub use jmap_scene_types::Operator
+#[non_exhaustive] pub enum jmap_scene_types::AccessPolicy
+pub jmap_scene_types::AccessPolicy::Invite
+pub jmap_scene_types::AccessPolicy::Other(alloc::string::String)
+pub jmap_scene_types::AccessPolicy::Public
+pub jmap_scene_types::AccessPolicy::Space
+impl core::clone::Clone for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::clone(&self) -> jmap_scene_types::AccessPolicy
+impl core::cmp::Eq for jmap_scene_types::AccessPolicy
+impl core::cmp::PartialEq for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::eq(&self, &jmap_scene_types::AccessPolicy) -> bool
+impl core::convert::From<&str> for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::from(alloc::string::String) -> Self
+impl core::default::Default for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::default() -> jmap_scene_types::AccessPolicy
+impl core::fmt::Debug for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::AccessPolicy
+impl serde_core::ser::Serialize for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::AvatarEventKind
+pub jmap_scene_types::AvatarEventKind::Ejected
+pub jmap_scene_types::AvatarEventKind::Entered
+pub jmap_scene_types::AvatarEventKind::Left
+pub jmap_scene_types::AvatarEventKind::Other(alloc::string::String)
+impl core::clone::Clone for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::clone(&self) -> jmap_scene_types::AvatarEventKind
+impl core::cmp::Eq for jmap_scene_types::AvatarEventKind
+impl core::cmp::PartialEq for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::eq(&self, &jmap_scene_types::AvatarEventKind) -> bool
+impl core::convert::From<&str> for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::AvatarEventKind
+impl serde_core::ser::Serialize for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::ObjectEventKind
+pub jmap_scene_types::ObjectEventKind::Created
+pub jmap_scene_types::ObjectEventKind::Destroyed
+pub jmap_scene_types::ObjectEventKind::Other(alloc::string::String)
+pub jmap_scene_types::ObjectEventKind::Updated
+impl core::clone::Clone for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::clone(&self) -> jmap_scene_types::ObjectEventKind
+impl core::cmp::Eq for jmap_scene_types::ObjectEventKind
+impl core::cmp::PartialEq for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::eq(&self, &jmap_scene_types::ObjectEventKind) -> bool
+impl core::convert::From<&str> for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::ObjectEventKind
+impl serde_core::ser::Serialize for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::PhysicsMode
+pub jmap_scene_types::PhysicsMode::Dynamic
+pub jmap_scene_types::PhysicsMode::Kinematic
+pub jmap_scene_types::PhysicsMode::None
+pub jmap_scene_types::PhysicsMode::Other(alloc::string::String)
+pub jmap_scene_types::PhysicsMode::Static
+impl core::clone::Clone for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::clone(&self) -> jmap_scene_types::PhysicsMode
+impl core::cmp::Eq for jmap_scene_types::PhysicsMode
+impl core::cmp::PartialEq for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::eq(&self, &jmap_scene_types::PhysicsMode) -> bool
+impl core::convert::From<&str> for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::from(alloc::string::String) -> Self
+impl core::default::Default for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::default() -> jmap_scene_types::PhysicsMode
+impl core::fmt::Debug for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::PhysicsMode
+impl serde_core::ser::Serialize for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::SceneAssetSortProperty
+pub jmap_scene_types::SceneAssetSortProperty::CreatedAt
+pub jmap_scene_types::SceneAssetSortProperty::Name
+pub jmap_scene_types::SceneAssetSortProperty::Other(alloc::string::String)
+pub jmap_scene_types::SceneAssetSortProperty::Size
+impl core::clone::Clone for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::clone(&self) -> jmap_scene_types::SceneAssetSortProperty
+impl core::cmp::Eq for jmap_scene_types::SceneAssetSortProperty
+impl core::cmp::PartialEq for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::eq(&self, &jmap_scene_types::SceneAssetSortProperty) -> bool
+impl core::convert::From<&str> for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAssetSortProperty
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::SceneAvatarSortProperty
+pub jmap_scene_types::SceneAvatarSortProperty::DisplayName
+pub jmap_scene_types::SceneAvatarSortProperty::JoinedAt
+pub jmap_scene_types::SceneAvatarSortProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::clone(&self) -> jmap_scene_types::SceneAvatarSortProperty
+impl core::cmp::Eq for jmap_scene_types::SceneAvatarSortProperty
+impl core::cmp::PartialEq for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::eq(&self, &jmap_scene_types::SceneAvatarSortProperty) -> bool
+impl core::convert::From<&str> for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAvatarSortProperty
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::SceneEvent
+pub jmap_scene_types::SceneEvent::Avatar(jmap_scene_types::SceneAvatarEvent)
+pub jmap_scene_types::SceneEvent::Interaction(jmap_scene_types::SceneInteractionEvent)
+pub jmap_scene_types::SceneEvent::Object(jmap_scene_types::SceneObjectEvent)
+pub jmap_scene_types::SceneEvent::Unknown
+pub jmap_scene_types::SceneEvent::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneEvent::Unknown::type_name: alloc::string::String
+impl jmap_scene_types::SceneEvent
+pub fn jmap_scene_types::SceneEvent::type_name(&self) -> &str
+impl core::clone::Clone for jmap_scene_types::SceneEvent
+pub fn jmap_scene_types::SceneEvent::clone(&self) -> jmap_scene_types::SceneEvent
+impl core::cmp::PartialEq for jmap_scene_types::SceneEvent
+pub fn jmap_scene_types::SceneEvent::eq(&self, &jmap_scene_types::SceneEvent) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneEvent
+pub fn jmap_scene_types::SceneEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneEvent
+impl serde_core::ser::Serialize for jmap_scene_types::SceneEvent
+pub fn jmap_scene_types::SceneEvent::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneEvent
+pub fn jmap_scene_types::SceneEvent::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::SceneEventType
+pub jmap_scene_types::SceneEventType::Avatar
+pub jmap_scene_types::SceneEventType::Interaction
+pub jmap_scene_types::SceneEventType::Object
+pub jmap_scene_types::SceneEventType::Other(alloc::string::String)
+impl jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::clone(&self) -> jmap_scene_types::SceneEventType
+impl core::cmp::Eq for jmap_scene_types::SceneEventType
+impl core::cmp::PartialEq for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::eq(&self, &jmap_scene_types::SceneEventType) -> bool
+impl core::convert::From<&str> for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneEventType
+impl serde_core::ser::Serialize for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneEventType
+pub fn jmap_scene_types::SceneEventType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::SceneObjectSortProperty
+pub jmap_scene_types::SceneObjectSortProperty::CreatedAt
+pub jmap_scene_types::SceneObjectSortProperty::Name
+pub jmap_scene_types::SceneObjectSortProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::clone(&self) -> jmap_scene_types::SceneObjectSortProperty
+impl core::cmp::Eq for jmap_scene_types::SceneObjectSortProperty
+impl core::cmp::PartialEq for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::eq(&self, &jmap_scene_types::SceneObjectSortProperty) -> bool
+impl core::convert::From<&str> for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObjectSortProperty
+impl serde_core::ser::Serialize for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::SceneRegionSortProperty
+pub jmap_scene_types::SceneRegionSortProperty::ActiveAvatarCount
+pub jmap_scene_types::SceneRegionSortProperty::CreatedAt
+pub jmap_scene_types::SceneRegionSortProperty::Name
+pub jmap_scene_types::SceneRegionSortProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::clone(&self) -> jmap_scene_types::SceneRegionSortProperty
+impl core::cmp::Eq for jmap_scene_types::SceneRegionSortProperty
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::eq(&self, &jmap_scene_types::SceneRegionSortProperty) -> bool
+impl core::convert::From<&str> for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegionSortProperty
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::SceneStreamMessage
+pub jmap_scene_types::SceneStreamMessage::Disable(jmap_scene_types::SceneStreamDisable)
+pub jmap_scene_types::SceneStreamMessage::Enable(jmap_scene_types::SceneStreamEnable)
+pub jmap_scene_types::SceneStreamMessage::Unknown
+pub jmap_scene_types::SceneStreamMessage::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneStreamMessage::Unknown::type_name: alloc::string::String
+impl core::clone::Clone for jmap_scene_types::SceneStreamMessage
+pub fn jmap_scene_types::SceneStreamMessage::clone(&self) -> jmap_scene_types::SceneStreamMessage
+impl core::cmp::Eq for jmap_scene_types::SceneStreamMessage
+impl core::cmp::PartialEq for jmap_scene_types::SceneStreamMessage
+pub fn jmap_scene_types::SceneStreamMessage::eq(&self, &jmap_scene_types::SceneStreamMessage) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneStreamMessage
+pub fn jmap_scene_types::SceneStreamMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneStreamMessage
+impl serde_core::ser::Serialize for jmap_scene_types::SceneStreamMessage
+pub fn jmap_scene_types::SceneStreamMessage::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneStreamMessage
+pub fn jmap_scene_types::SceneStreamMessage::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_scene_types::ViewHint
+pub jmap_scene_types::ViewHint::Ar
+pub jmap_scene_types::ViewHint::Other(alloc::string::String)
+pub jmap_scene_types::ViewHint::ThreeD
+pub jmap_scene_types::ViewHint::TwoDSide
+pub jmap_scene_types::ViewHint::TwoDTopDown
+impl core::clone::Clone for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::clone(&self) -> jmap_scene_types::ViewHint
+impl core::cmp::Eq for jmap_scene_types::ViewHint
+impl core::cmp::PartialEq for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::eq(&self, &jmap_scene_types::ViewHint) -> bool
+impl core::convert::From<&str> for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_scene_types::ViewHint
+impl serde_core::ser::Serialize for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_scene_types::GeoAnchor
+pub jmap_scene_types::GeoAnchor::altitude: core::option::Option<f64>
+pub jmap_scene_types::GeoAnchor::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::GeoAnchor::heading: f64
+pub jmap_scene_types::GeoAnchor::latitude: f64
+pub jmap_scene_types::GeoAnchor::longitude: f64
+pub jmap_scene_types::GeoAnchor::reference_frame: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_scene_types::GeoAnchor
+pub fn jmap_scene_types::GeoAnchor::clone(&self) -> jmap_scene_types::GeoAnchor
+impl core::cmp::PartialEq for jmap_scene_types::GeoAnchor
+pub fn jmap_scene_types::GeoAnchor::eq(&self, &jmap_scene_types::GeoAnchor) -> bool
+impl core::fmt::Debug for jmap_scene_types::GeoAnchor
+pub fn jmap_scene_types::GeoAnchor::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::GeoAnchor
+impl serde_core::ser::Serialize for jmap_scene_types::GeoAnchor
+pub fn jmap_scene_types::GeoAnchor::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::GeoAnchor
+pub fn jmap_scene_types::GeoAnchor::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneAsset
+pub jmap_scene_types::SceneAsset::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneAsset::asset_uri: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAsset::blob_id: jmap_types::id::Id
+pub jmap_scene_types::SceneAsset::created_at: jmap_types::id::UTCDate
+pub jmap_scene_types::SceneAsset::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneAsset::id: jmap_types::id::Id
+pub jmap_scene_types::SceneAsset::media_type: alloc::string::String
+pub jmap_scene_types::SceneAsset::name: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAsset::owner_id: alloc::string::String
+pub jmap_scene_types::SceneAsset::sha256: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAsset::size: u64
+impl core::clone::Clone for jmap_scene_types::SceneAsset
+pub fn jmap_scene_types::SceneAsset::clone(&self) -> jmap_scene_types::SceneAsset
+impl core::cmp::Eq for jmap_scene_types::SceneAsset
+impl core::cmp::PartialEq for jmap_scene_types::SceneAsset
+pub fn jmap_scene_types::SceneAsset::eq(&self, &jmap_scene_types::SceneAsset) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneAsset
+pub fn jmap_scene_types::SceneAsset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAsset
+impl jmap_types::backend::GetObject for jmap_scene_types::SceneAsset
+impl jmap_types::backend::JmapObject for jmap_scene_types::SceneAsset
+pub type jmap_scene_types::SceneAsset::Property = ()
+pub const jmap_scene_types::SceneAsset::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_scene_types::SceneAsset
+pub type jmap_scene_types::SceneAsset::Comparator = jmap_scene_types::SceneAssetComparator
+pub type jmap_scene_types::SceneAsset::Filter = jmap_types::query::Filter<jmap_scene_types::SceneAssetFilterCondition>
+impl jmap_types::backend::SetObject for jmap_scene_types::SceneAsset
+pub type jmap_scene_types::SceneAsset::Patch = jmap_types::patch::PatchObject
+pub const jmap_scene_types::SceneAsset::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneAsset::IMMUTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneAsset::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAsset
+pub fn jmap_scene_types::SceneAsset::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAsset
+pub fn jmap_scene_types::SceneAsset::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneAssetComparator
+pub jmap_scene_types::SceneAssetComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAssetComparator::is_ascending: bool
+pub jmap_scene_types::SceneAssetComparator::property: jmap_scene_types::SceneAssetSortProperty
+impl jmap_scene_types::SceneAssetComparator
+pub fn jmap_scene_types::SceneAssetComparator::new(jmap_scene_types::SceneAssetSortProperty) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneAssetComparator
+pub fn jmap_scene_types::SceneAssetComparator::clone(&self) -> jmap_scene_types::SceneAssetComparator
+impl core::cmp::Eq for jmap_scene_types::SceneAssetComparator
+impl core::cmp::PartialEq for jmap_scene_types::SceneAssetComparator
+pub fn jmap_scene_types::SceneAssetComparator::eq(&self, &jmap_scene_types::SceneAssetComparator) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneAssetComparator
+pub fn jmap_scene_types::SceneAssetComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAssetComparator
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAssetComparator
+pub fn jmap_scene_types::SceneAssetComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAssetComparator
+pub fn jmap_scene_types::SceneAssetComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneAssetFilterCondition
+pub jmap_scene_types::SceneAssetFilterCondition::created_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_scene_types::SceneAssetFilterCondition::created_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_scene_types::SceneAssetFilterCondition::media_type: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAssetFilterCondition::name: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_scene_types::SceneAssetFilterCondition
+pub fn jmap_scene_types::SceneAssetFilterCondition::clone(&self) -> jmap_scene_types::SceneAssetFilterCondition
+impl core::cmp::Eq for jmap_scene_types::SceneAssetFilterCondition
+impl core::cmp::PartialEq for jmap_scene_types::SceneAssetFilterCondition
+pub fn jmap_scene_types::SceneAssetFilterCondition::eq(&self, &jmap_scene_types::SceneAssetFilterCondition) -> bool
+impl core::default::Default for jmap_scene_types::SceneAssetFilterCondition
+pub fn jmap_scene_types::SceneAssetFilterCondition::default() -> jmap_scene_types::SceneAssetFilterCondition
+impl core::fmt::Debug for jmap_scene_types::SceneAssetFilterCondition
+pub fn jmap_scene_types::SceneAssetFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAssetFilterCondition
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAssetFilterCondition
+pub fn jmap_scene_types::SceneAssetFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAssetFilterCondition
+pub fn jmap_scene_types::SceneAssetFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneAvatar
+pub jmap_scene_types::SceneAvatar::display_name: alloc::string::String
+pub jmap_scene_types::SceneAvatar::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneAvatar::id: jmap_types::id::Id
+pub jmap_scene_types::SceneAvatar::joined_at: jmap_types::id::UTCDate
+pub jmap_scene_types::SceneAvatar::left_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_scene_types::SceneAvatar::orientation: jmap_scene_types::Orientation
+pub jmap_scene_types::SceneAvatar::position: jmap_scene_types::Position
+pub jmap_scene_types::SceneAvatar::region_id: jmap_types::id::Id
+pub jmap_scene_types::SceneAvatar::user_id: alloc::string::String
+pub jmap_scene_types::SceneAvatar::visual_ref: core::option::Option<jmap_types::id::Id>
+pub jmap_scene_types::SceneAvatar::visual_type: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAvatar::world_state: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+impl core::clone::Clone for jmap_scene_types::SceneAvatar
+pub fn jmap_scene_types::SceneAvatar::clone(&self) -> jmap_scene_types::SceneAvatar
+impl core::cmp::PartialEq for jmap_scene_types::SceneAvatar
+pub fn jmap_scene_types::SceneAvatar::eq(&self, &jmap_scene_types::SceneAvatar) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneAvatar
+pub fn jmap_scene_types::SceneAvatar::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAvatar
+impl jmap_types::backend::GetObject for jmap_scene_types::SceneAvatar
+impl jmap_types::backend::JmapObject for jmap_scene_types::SceneAvatar
+pub type jmap_scene_types::SceneAvatar::Property = ()
+pub const jmap_scene_types::SceneAvatar::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_scene_types::SceneAvatar
+pub type jmap_scene_types::SceneAvatar::Comparator = jmap_scene_types::SceneAvatarComparator
+pub type jmap_scene_types::SceneAvatar::Filter = jmap_types::query::Filter<jmap_scene_types::SceneAvatarFilterCondition>
+impl jmap_types::backend::SetObject for jmap_scene_types::SceneAvatar
+pub type jmap_scene_types::SceneAvatar::Patch = jmap_types::patch::PatchObject
+pub const jmap_scene_types::SceneAvatar::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneAvatar::IMMUTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneAvatar::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAvatar
+pub fn jmap_scene_types::SceneAvatar::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAvatar
+pub fn jmap_scene_types::SceneAvatar::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneAvatarComparator
+pub jmap_scene_types::SceneAvatarComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAvatarComparator::is_ascending: bool
+pub jmap_scene_types::SceneAvatarComparator::property: jmap_scene_types::SceneAvatarSortProperty
+impl jmap_scene_types::SceneAvatarComparator
+pub fn jmap_scene_types::SceneAvatarComparator::new(jmap_scene_types::SceneAvatarSortProperty) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneAvatarComparator
+pub fn jmap_scene_types::SceneAvatarComparator::clone(&self) -> jmap_scene_types::SceneAvatarComparator
+impl core::cmp::Eq for jmap_scene_types::SceneAvatarComparator
+impl core::cmp::PartialEq for jmap_scene_types::SceneAvatarComparator
+pub fn jmap_scene_types::SceneAvatarComparator::eq(&self, &jmap_scene_types::SceneAvatarComparator) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneAvatarComparator
+pub fn jmap_scene_types::SceneAvatarComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAvatarComparator
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAvatarComparator
+pub fn jmap_scene_types::SceneAvatarComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAvatarComparator
+pub fn jmap_scene_types::SceneAvatarComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneAvatarEvent
+pub jmap_scene_types::SceneAvatarEvent::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneAvatarEvent::avatar_id: jmap_types::id::Id
+pub jmap_scene_types::SceneAvatarEvent::display_name: alloc::string::String
+pub jmap_scene_types::SceneAvatarEvent::event: jmap_scene_types::AvatarEventKind
+pub jmap_scene_types::SceneAvatarEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneAvatarEvent::region_id: jmap_types::id::Id
+pub jmap_scene_types::SceneAvatarEvent::user_id: alloc::string::String
+impl core::clone::Clone for jmap_scene_types::SceneAvatarEvent
+pub fn jmap_scene_types::SceneAvatarEvent::clone(&self) -> jmap_scene_types::SceneAvatarEvent
+impl core::cmp::Eq for jmap_scene_types::SceneAvatarEvent
+impl core::cmp::PartialEq for jmap_scene_types::SceneAvatarEvent
+pub fn jmap_scene_types::SceneAvatarEvent::eq(&self, &jmap_scene_types::SceneAvatarEvent) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneAvatarEvent
+pub fn jmap_scene_types::SceneAvatarEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAvatarEvent
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAvatarEvent
+pub fn jmap_scene_types::SceneAvatarEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAvatarEvent
+pub fn jmap_scene_types::SceneAvatarEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneAvatarFilterCondition
+pub jmap_scene_types::SceneAvatarFilterCondition::is_active: core::option::Option<bool>
+pub jmap_scene_types::SceneAvatarFilterCondition::region_id: core::option::Option<jmap_types::id::Id>
+pub jmap_scene_types::SceneAvatarFilterCondition::user_id: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneAvatarFilterCondition::within_bounds: core::option::Option<jmap_scene_types::WithinBounds>
+pub jmap_scene_types::SceneAvatarFilterCondition::within_radius: core::option::Option<jmap_scene_types::WithinRadius>
+impl core::clone::Clone for jmap_scene_types::SceneAvatarFilterCondition
+pub fn jmap_scene_types::SceneAvatarFilterCondition::clone(&self) -> jmap_scene_types::SceneAvatarFilterCondition
+impl core::cmp::PartialEq for jmap_scene_types::SceneAvatarFilterCondition
+pub fn jmap_scene_types::SceneAvatarFilterCondition::eq(&self, &jmap_scene_types::SceneAvatarFilterCondition) -> bool
+impl core::default::Default for jmap_scene_types::SceneAvatarFilterCondition
+pub fn jmap_scene_types::SceneAvatarFilterCondition::default() -> jmap_scene_types::SceneAvatarFilterCondition
+impl core::fmt::Debug for jmap_scene_types::SceneAvatarFilterCondition
+pub fn jmap_scene_types::SceneAvatarFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAvatarFilterCondition
+impl serde_core::ser::Serialize for jmap_scene_types::SceneAvatarFilterCondition
+pub fn jmap_scene_types::SceneAvatarFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneAvatarFilterCondition
+pub fn jmap_scene_types::SceneAvatarFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneBounds
+pub jmap_scene_types::SceneBounds::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneBounds::max: jmap_scene_types::Position
+pub jmap_scene_types::SceneBounds::min: jmap_scene_types::Position
+impl jmap_scene_types::SceneBounds
+pub fn jmap_scene_types::SceneBounds::new(jmap_scene_types::Position, jmap_scene_types::Position) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneBounds
+pub fn jmap_scene_types::SceneBounds::clone(&self) -> jmap_scene_types::SceneBounds
+impl core::cmp::PartialEq for jmap_scene_types::SceneBounds
+pub fn jmap_scene_types::SceneBounds::eq(&self, &jmap_scene_types::SceneBounds) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneBounds
+pub fn jmap_scene_types::SceneBounds::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneBounds
+impl serde_core::ser::Serialize for jmap_scene_types::SceneBounds
+pub fn jmap_scene_types::SceneBounds::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneBounds
+pub fn jmap_scene_types::SceneBounds::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneCapability
+pub jmap_scene_types::SceneCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneCapability::max_asset_size_bytes: core::option::Option<u64>
+pub jmap_scene_types::SceneCapability::max_avatars_per_region: core::option::Option<u64>
+pub jmap_scene_types::SceneCapability::max_objects_per_region: core::option::Option<u64>
+pub jmap_scene_types::SceneCapability::max_regions_per_account: core::option::Option<u64>
+pub jmap_scene_types::SceneCapability::may_create_object: bool
+pub jmap_scene_types::SceneCapability::may_create_region: bool
+pub jmap_scene_types::SceneCapability::supported_visual_types: alloc::vec::Vec<alloc::string::String>
+pub jmap_scene_types::SceneCapability::supports_scene_asset: bool
+impl core::clone::Clone for jmap_scene_types::SceneCapability
+pub fn jmap_scene_types::SceneCapability::clone(&self) -> jmap_scene_types::SceneCapability
+impl core::cmp::Eq for jmap_scene_types::SceneCapability
+impl core::cmp::PartialEq for jmap_scene_types::SceneCapability
+pub fn jmap_scene_types::SceneCapability::eq(&self, &jmap_scene_types::SceneCapability) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneCapability
+pub fn jmap_scene_types::SceneCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneCapability
+impl serde_core::ser::Serialize for jmap_scene_types::SceneCapability
+pub fn jmap_scene_types::SceneCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneCapability
+pub fn jmap_scene_types::SceneCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneInteraction
+pub jmap_scene_types::SceneInteraction::action: alloc::string::String
+pub jmap_scene_types::SceneInteraction::data: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_scene_types::SceneInteraction::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneInteraction::object_id: jmap_types::id::Id
+pub jmap_scene_types::SceneInteraction::region_id: jmap_types::id::Id
+impl jmap_scene_types::SceneInteraction
+pub fn jmap_scene_types::SceneInteraction::new(jmap_types::id::Id, jmap_types::id::Id, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneInteraction
+pub fn jmap_scene_types::SceneInteraction::clone(&self) -> jmap_scene_types::SceneInteraction
+impl core::cmp::Eq for jmap_scene_types::SceneInteraction
+impl core::cmp::PartialEq for jmap_scene_types::SceneInteraction
+pub fn jmap_scene_types::SceneInteraction::eq(&self, &jmap_scene_types::SceneInteraction) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneInteraction
+pub fn jmap_scene_types::SceneInteraction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneInteraction
+impl serde_core::ser::Serialize for jmap_scene_types::SceneInteraction
+pub fn jmap_scene_types::SceneInteraction::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneInteraction
+pub fn jmap_scene_types::SceneInteraction::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneInteractionEvent
+pub jmap_scene_types::SceneInteractionEvent::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneInteractionEvent::action: alloc::string::String
+pub jmap_scene_types::SceneInteractionEvent::data: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_scene_types::SceneInteractionEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneInteractionEvent::object_id: jmap_types::id::Id
+pub jmap_scene_types::SceneInteractionEvent::region_id: jmap_types::id::Id
+pub jmap_scene_types::SceneInteractionEvent::user_id: alloc::string::String
+impl jmap_scene_types::SceneInteractionEvent
+pub fn jmap_scene_types::SceneInteractionEvent::new(jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, alloc::string::String, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneInteractionEvent
+pub fn jmap_scene_types::SceneInteractionEvent::clone(&self) -> jmap_scene_types::SceneInteractionEvent
+impl core::cmp::Eq for jmap_scene_types::SceneInteractionEvent
+impl core::cmp::PartialEq for jmap_scene_types::SceneInteractionEvent
+pub fn jmap_scene_types::SceneInteractionEvent::eq(&self, &jmap_scene_types::SceneInteractionEvent) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneInteractionEvent
+pub fn jmap_scene_types::SceneInteractionEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneInteractionEvent
+impl serde_core::ser::Serialize for jmap_scene_types::SceneInteractionEvent
+pub fn jmap_scene_types::SceneInteractionEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneInteractionEvent
+pub fn jmap_scene_types::SceneInteractionEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneObject
+pub jmap_scene_types::SceneObject::asset_uri: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObject::created_at: jmap_types::id::UTCDate
+pub jmap_scene_types::SceneObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneObject::id: jmap_types::id::Id
+pub jmap_scene_types::SceneObject::interactable: bool
+pub jmap_scene_types::SceneObject::name: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObject::orientation: jmap_scene_types::Orientation
+pub jmap_scene_types::SceneObject::owner_id: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObject::parent_id: core::option::Option<jmap_types::id::Id>
+pub jmap_scene_types::SceneObject::physics_mode: jmap_scene_types::PhysicsMode
+pub jmap_scene_types::SceneObject::position: jmap_scene_types::Position
+pub jmap_scene_types::SceneObject::region_id: jmap_types::id::Id
+pub jmap_scene_types::SceneObject::scale: jmap_scene_types::Scale
+pub jmap_scene_types::SceneObject::updated_at: jmap_types::id::UTCDate
+pub jmap_scene_types::SceneObject::visible: bool
+pub jmap_scene_types::SceneObject::visual_ref: core::option::Option<jmap_types::id::Id>
+pub jmap_scene_types::SceneObject::visual_type: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObject::world_state: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+impl core::clone::Clone for jmap_scene_types::SceneObject
+pub fn jmap_scene_types::SceneObject::clone(&self) -> jmap_scene_types::SceneObject
+impl core::cmp::PartialEq for jmap_scene_types::SceneObject
+pub fn jmap_scene_types::SceneObject::eq(&self, &jmap_scene_types::SceneObject) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneObject
+pub fn jmap_scene_types::SceneObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObject
+impl jmap_types::backend::GetObject for jmap_scene_types::SceneObject
+impl jmap_types::backend::JmapObject for jmap_scene_types::SceneObject
+pub type jmap_scene_types::SceneObject::Property = ()
+pub const jmap_scene_types::SceneObject::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_scene_types::SceneObject
+pub type jmap_scene_types::SceneObject::Comparator = jmap_scene_types::SceneObjectComparator
+pub type jmap_scene_types::SceneObject::Filter = jmap_types::query::Filter<jmap_scene_types::SceneObjectFilterCondition>
+impl jmap_types::backend::SetObject for jmap_scene_types::SceneObject
+pub type jmap_scene_types::SceneObject::Patch = jmap_types::patch::PatchObject
+pub const jmap_scene_types::SceneObject::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneObject::IMMUTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneObject::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_scene_types::SceneObject
+pub fn jmap_scene_types::SceneObject::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneObject
+pub fn jmap_scene_types::SceneObject::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneObjectComparator
+pub jmap_scene_types::SceneObjectComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObjectComparator::is_ascending: bool
+pub jmap_scene_types::SceneObjectComparator::property: jmap_scene_types::SceneObjectSortProperty
+impl jmap_scene_types::SceneObjectComparator
+pub fn jmap_scene_types::SceneObjectComparator::new(jmap_scene_types::SceneObjectSortProperty) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneObjectComparator
+pub fn jmap_scene_types::SceneObjectComparator::clone(&self) -> jmap_scene_types::SceneObjectComparator
+impl core::cmp::Eq for jmap_scene_types::SceneObjectComparator
+impl core::cmp::PartialEq for jmap_scene_types::SceneObjectComparator
+pub fn jmap_scene_types::SceneObjectComparator::eq(&self, &jmap_scene_types::SceneObjectComparator) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneObjectComparator
+pub fn jmap_scene_types::SceneObjectComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObjectComparator
+impl serde_core::ser::Serialize for jmap_scene_types::SceneObjectComparator
+pub fn jmap_scene_types::SceneObjectComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneObjectComparator
+pub fn jmap_scene_types::SceneObjectComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneObjectEvent
+pub jmap_scene_types::SceneObjectEvent::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneObjectEvent::event: jmap_scene_types::ObjectEventKind
+pub jmap_scene_types::SceneObjectEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneObjectEvent::object_id: jmap_types::id::Id
+pub jmap_scene_types::SceneObjectEvent::position: core::option::Option<jmap_scene_types::Position>
+pub jmap_scene_types::SceneObjectEvent::region_id: jmap_types::id::Id
+pub jmap_scene_types::SceneObjectEvent::updated_by: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_scene_types::SceneObjectEvent
+pub fn jmap_scene_types::SceneObjectEvent::clone(&self) -> jmap_scene_types::SceneObjectEvent
+impl core::cmp::PartialEq for jmap_scene_types::SceneObjectEvent
+pub fn jmap_scene_types::SceneObjectEvent::eq(&self, &jmap_scene_types::SceneObjectEvent) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneObjectEvent
+pub fn jmap_scene_types::SceneObjectEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObjectEvent
+impl serde_core::ser::Serialize for jmap_scene_types::SceneObjectEvent
+pub fn jmap_scene_types::SceneObjectEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneObjectEvent
+pub fn jmap_scene_types::SceneObjectEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneObjectFilterCondition
+pub jmap_scene_types::SceneObjectFilterCondition::interactable: core::option::Option<bool>
+pub jmap_scene_types::SceneObjectFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObjectFilterCondition::owner_id: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObjectFilterCondition::parent_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_scene_types::SceneObjectFilterCondition::physics_mode: core::option::Option<jmap_scene_types::PhysicsMode>
+pub jmap_scene_types::SceneObjectFilterCondition::region_id: core::option::Option<jmap_types::id::Id>
+pub jmap_scene_types::SceneObjectFilterCondition::visible: core::option::Option<bool>
+pub jmap_scene_types::SceneObjectFilterCondition::visual_type: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneObjectFilterCondition::within_bounds: core::option::Option<jmap_scene_types::WithinBounds>
+pub jmap_scene_types::SceneObjectFilterCondition::within_radius: core::option::Option<jmap_scene_types::WithinRadius>
+impl core::clone::Clone for jmap_scene_types::SceneObjectFilterCondition
+pub fn jmap_scene_types::SceneObjectFilterCondition::clone(&self) -> jmap_scene_types::SceneObjectFilterCondition
+impl core::cmp::PartialEq for jmap_scene_types::SceneObjectFilterCondition
+pub fn jmap_scene_types::SceneObjectFilterCondition::eq(&self, &jmap_scene_types::SceneObjectFilterCondition) -> bool
+impl core::default::Default for jmap_scene_types::SceneObjectFilterCondition
+pub fn jmap_scene_types::SceneObjectFilterCondition::default() -> jmap_scene_types::SceneObjectFilterCondition
+impl core::fmt::Debug for jmap_scene_types::SceneObjectFilterCondition
+pub fn jmap_scene_types::SceneObjectFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObjectFilterCondition
+impl serde_core::ser::Serialize for jmap_scene_types::SceneObjectFilterCondition
+pub fn jmap_scene_types::SceneObjectFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneObjectFilterCondition
+pub fn jmap_scene_types::SceneObjectFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneObjectInteractRequest
+pub jmap_scene_types::SceneObjectInteractRequest::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneObjectInteractRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneObjectInteractRequest::interactions: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_scene_types::SceneInteraction>
+impl jmap_scene_types::SceneObjectInteractRequest
+pub fn jmap_scene_types::SceneObjectInteractRequest::new(jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_scene_types::SceneInteraction>) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneObjectInteractRequest
+pub fn jmap_scene_types::SceneObjectInteractRequest::clone(&self) -> jmap_scene_types::SceneObjectInteractRequest
+impl core::cmp::PartialEq for jmap_scene_types::SceneObjectInteractRequest
+pub fn jmap_scene_types::SceneObjectInteractRequest::eq(&self, &jmap_scene_types::SceneObjectInteractRequest) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneObjectInteractRequest
+pub fn jmap_scene_types::SceneObjectInteractRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObjectInteractRequest
+impl serde_core::ser::Serialize for jmap_scene_types::SceneObjectInteractRequest
+pub fn jmap_scene_types::SceneObjectInteractRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneObjectInteractRequest
+pub fn jmap_scene_types::SceneObjectInteractRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneObjectInteractResponse
+pub jmap_scene_types::SceneObjectInteractResponse::accepted: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_scene_types::SceneObjectInteractResponse::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneObjectInteractResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneObjectInteractResponse::not_accepted: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
+impl jmap_scene_types::SceneObjectInteractResponse
+pub fn jmap_scene_types::SceneObjectInteractResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneObjectInteractResponse
+pub fn jmap_scene_types::SceneObjectInteractResponse::clone(&self) -> jmap_scene_types::SceneObjectInteractResponse
+impl core::cmp::PartialEq for jmap_scene_types::SceneObjectInteractResponse
+pub fn jmap_scene_types::SceneObjectInteractResponse::eq(&self, &jmap_scene_types::SceneObjectInteractResponse) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneObjectInteractResponse
+pub fn jmap_scene_types::SceneObjectInteractResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObjectInteractResponse
+impl serde_core::ser::Serialize for jmap_scene_types::SceneObjectInteractResponse
+pub fn jmap_scene_types::SceneObjectInteractResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneObjectInteractResponse
+pub fn jmap_scene_types::SceneObjectInteractResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneRegion
+pub jmap_scene_types::SceneRegion::access_policy: jmap_scene_types::AccessPolicy
+pub jmap_scene_types::SceneRegion::account_id: jmap_types::id::Id
+pub jmap_scene_types::SceneRegion::active_avatar_count: u64
+pub jmap_scene_types::SceneRegion::active_call_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_scene_types::SceneRegion::bounds: jmap_scene_types::SceneBounds
+pub jmap_scene_types::SceneRegion::channel_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_scene_types::SceneRegion::chat_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_scene_types::SceneRegion::created_at: jmap_types::id::UTCDate
+pub jmap_scene_types::SceneRegion::description: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneRegion::environment: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_scene_types::SceneRegion::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneRegion::geo_anchor: core::option::Option<core::option::Option<jmap_scene_types::GeoAnchor>>
+pub jmap_scene_types::SceneRegion::id: jmap_types::id::Id
+pub jmap_scene_types::SceneRegion::input_uri: core::option::Option<core::option::Option<alloc::string::String>>
+pub jmap_scene_types::SceneRegion::invited_user_ids: alloc::vec::Vec<alloc::string::String>
+pub jmap_scene_types::SceneRegion::name: alloc::string::String
+pub jmap_scene_types::SceneRegion::owner_id: alloc::string::String
+pub jmap_scene_types::SceneRegion::simulation_uri: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneRegion::space_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_scene_types::SceneRegion::spawn_orientation: jmap_scene_types::Orientation
+pub jmap_scene_types::SceneRegion::spawn_position: jmap_scene_types::Position
+pub jmap_scene_types::SceneRegion::updated_at: jmap_types::id::UTCDate
+pub jmap_scene_types::SceneRegion::view_hint: core::option::Option<jmap_scene_types::ViewHint>
+pub jmap_scene_types::SceneRegion::world_state: core::option::Option<core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>>
+impl core::clone::Clone for jmap_scene_types::SceneRegion
+pub fn jmap_scene_types::SceneRegion::clone(&self) -> jmap_scene_types::SceneRegion
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegion
+pub fn jmap_scene_types::SceneRegion::eq(&self, &jmap_scene_types::SceneRegion) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneRegion
+pub fn jmap_scene_types::SceneRegion::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegion
+impl jmap_types::backend::GetObject for jmap_scene_types::SceneRegion
+impl jmap_types::backend::JmapObject for jmap_scene_types::SceneRegion
+pub type jmap_scene_types::SceneRegion::Property = ()
+pub const jmap_scene_types::SceneRegion::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_scene_types::SceneRegion
+pub type jmap_scene_types::SceneRegion::Comparator = jmap_scene_types::SceneRegionComparator
+pub type jmap_scene_types::SceneRegion::Filter = jmap_types::query::Filter<jmap_scene_types::SceneRegionFilterCondition>
+impl jmap_types::backend::SetObject for jmap_scene_types::SceneRegion
+pub type jmap_scene_types::SceneRegion::Patch = jmap_types::patch::PatchObject
+pub const jmap_scene_types::SceneRegion::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneRegion::IMMUTABLE: &'static [&'static str]
+pub const jmap_scene_types::SceneRegion::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegion
+pub fn jmap_scene_types::SceneRegion::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegion
+pub fn jmap_scene_types::SceneRegion::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneRegionComparator
+pub jmap_scene_types::SceneRegionComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneRegionComparator::is_ascending: bool
+pub jmap_scene_types::SceneRegionComparator::property: jmap_scene_types::SceneRegionSortProperty
+impl jmap_scene_types::SceneRegionComparator
+pub fn jmap_scene_types::SceneRegionComparator::new(jmap_scene_types::SceneRegionSortProperty) -> Self
+impl core::clone::Clone for jmap_scene_types::SceneRegionComparator
+pub fn jmap_scene_types::SceneRegionComparator::clone(&self) -> jmap_scene_types::SceneRegionComparator
+impl core::cmp::Eq for jmap_scene_types::SceneRegionComparator
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegionComparator
+pub fn jmap_scene_types::SceneRegionComparator::eq(&self, &jmap_scene_types::SceneRegionComparator) -> bool
+impl core::fmt::Debug for jmap_scene_types::SceneRegionComparator
+pub fn jmap_scene_types::SceneRegionComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegionComparator
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionComparator
+pub fn jmap_scene_types::SceneRegionComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionComparator
+pub fn jmap_scene_types::SceneRegionComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneRegionFilterCondition
+pub jmap_scene_types::SceneRegionFilterCondition::access_policy: core::option::Option<jmap_scene_types::AccessPolicy>
+pub jmap_scene_types::SceneRegionFilterCondition::created_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_scene_types::SceneRegionFilterCondition::created_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_scene_types::SceneRegionFilterCondition::has_active_avatars: core::option::Option<bool>
+pub jmap_scene_types::SceneRegionFilterCondition::has_simulation_uri: core::option::Option<bool>
+pub jmap_scene_types::SceneRegionFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneRegionFilterCondition::view_hint: core::option::Option<jmap_scene_types::ViewHint>
+impl core::clone::Clone for jmap_scene_types::SceneRegionFilterCondition
+pub fn jmap_scene_types::SceneRegionFilterCondition::clone(&self) -> jmap_scene_types::SceneRegionFilterCondition
+impl core::cmp::Eq for jmap_scene_types::SceneRegionFilterCondition
+impl core::cmp::PartialEq for jmap_scene_types::SceneRegionFilterCondition
+pub fn jmap_scene_types::SceneRegionFilterCondition::eq(&self, &jmap_scene_types::SceneRegionFilterCondition) -> bool
+impl core::default::Default for jmap_scene_types::SceneRegionFilterCondition
+pub fn jmap_scene_types::SceneRegionFilterCondition::default() -> jmap_scene_types::SceneRegionFilterCondition
+impl core::fmt::Debug for jmap_scene_types::SceneRegionFilterCondition
+pub fn jmap_scene_types::SceneRegionFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegionFilterCondition
+impl serde_core::ser::Serialize for jmap_scene_types::SceneRegionFilterCondition
+pub fn jmap_scene_types::SceneRegionFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneRegionFilterCondition
+pub fn jmap_scene_types::SceneRegionFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneStreamDisable
+pub jmap_scene_types::SceneStreamDisable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_scene_types::SceneStreamDisable
+pub fn jmap_scene_types::SceneStreamDisable::clone(&self) -> jmap_scene_types::SceneStreamDisable
+impl core::cmp::Eq for jmap_scene_types::SceneStreamDisable
+impl core::cmp::PartialEq for jmap_scene_types::SceneStreamDisable
+pub fn jmap_scene_types::SceneStreamDisable::eq(&self, &jmap_scene_types::SceneStreamDisable) -> bool
+impl core::default::Default for jmap_scene_types::SceneStreamDisable
+pub fn jmap_scene_types::SceneStreamDisable::default() -> jmap_scene_types::SceneStreamDisable
+impl core::fmt::Debug for jmap_scene_types::SceneStreamDisable
+pub fn jmap_scene_types::SceneStreamDisable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneStreamDisable
+impl serde_core::ser::Serialize for jmap_scene_types::SceneStreamDisable
+pub fn jmap_scene_types::SceneStreamDisable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneStreamDisable
+pub fn jmap_scene_types::SceneStreamDisable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::SceneStreamEnable
+pub jmap_scene_types::SceneStreamEnable::event_types: core::option::Option<alloc::vec::Vec<jmap_scene_types::SceneEventType>>
+pub jmap_scene_types::SceneStreamEnable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_scene_types::SceneStreamEnable::id: core::option::Option<alloc::string::String>
+pub jmap_scene_types::SceneStreamEnable::region_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+impl core::clone::Clone for jmap_scene_types::SceneStreamEnable
+pub fn jmap_scene_types::SceneStreamEnable::clone(&self) -> jmap_scene_types::SceneStreamEnable
+impl core::cmp::Eq for jmap_scene_types::SceneStreamEnable
+impl core::cmp::PartialEq for jmap_scene_types::SceneStreamEnable
+pub fn jmap_scene_types::SceneStreamEnable::eq(&self, &jmap_scene_types::SceneStreamEnable) -> bool
+impl core::default::Default for jmap_scene_types::SceneStreamEnable
+pub fn jmap_scene_types::SceneStreamEnable::default() -> jmap_scene_types::SceneStreamEnable
+impl core::fmt::Debug for jmap_scene_types::SceneStreamEnable
+pub fn jmap_scene_types::SceneStreamEnable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::SceneStreamEnable
+impl serde_core::ser::Serialize for jmap_scene_types::SceneStreamEnable
+pub fn jmap_scene_types::SceneStreamEnable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::SceneStreamEnable
+pub fn jmap_scene_types::SceneStreamEnable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::WithinBounds
+pub jmap_scene_types::WithinBounds::max: jmap_scene_types::Position
+pub jmap_scene_types::WithinBounds::min: jmap_scene_types::Position
+impl jmap_scene_types::WithinBounds
+pub fn jmap_scene_types::WithinBounds::new(jmap_scene_types::Position, jmap_scene_types::Position) -> Self
+impl core::clone::Clone for jmap_scene_types::WithinBounds
+pub fn jmap_scene_types::WithinBounds::clone(&self) -> jmap_scene_types::WithinBounds
+impl core::cmp::PartialEq for jmap_scene_types::WithinBounds
+pub fn jmap_scene_types::WithinBounds::eq(&self, &jmap_scene_types::WithinBounds) -> bool
+impl core::fmt::Debug for jmap_scene_types::WithinBounds
+pub fn jmap_scene_types::WithinBounds::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::WithinBounds
+impl serde_core::ser::Serialize for jmap_scene_types::WithinBounds
+pub fn jmap_scene_types::WithinBounds::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::WithinBounds
+pub fn jmap_scene_types::WithinBounds::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_scene_types::WithinRadius
+pub jmap_scene_types::WithinRadius::center: jmap_scene_types::Position
+pub jmap_scene_types::WithinRadius::radius: f64
+impl jmap_scene_types::WithinRadius
+pub fn jmap_scene_types::WithinRadius::new(jmap_scene_types::Position, f64) -> Self
+impl core::clone::Clone for jmap_scene_types::WithinRadius
+pub fn jmap_scene_types::WithinRadius::clone(&self) -> jmap_scene_types::WithinRadius
+impl core::cmp::PartialEq for jmap_scene_types::WithinRadius
+pub fn jmap_scene_types::WithinRadius::eq(&self, &jmap_scene_types::WithinRadius) -> bool
+impl core::fmt::Debug for jmap_scene_types::WithinRadius
+pub fn jmap_scene_types::WithinRadius::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_scene_types::WithinRadius
+impl serde_core::ser::Serialize for jmap_scene_types::WithinRadius
+pub fn jmap_scene_types::WithinRadius::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_scene_types::WithinRadius
+pub fn jmap_scene_types::WithinRadius::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_scene_types::CONTENT_POLICY: &str
+pub const jmap_scene_types::IDENTITY_ORIENTATION: jmap_scene_types::Orientation
+pub const jmap_scene_types::IDENTITY_SCALE: jmap_scene_types::Scale
+pub const jmap_scene_types::JMAP_SCENE_URI: &str
+pub const jmap_scene_types::JMAP_SCENE_WEBSOCKET_URI: &str
+pub const jmap_scene_types::SCENE_EVENT_TYPES: &[&str]
+pub type jmap_scene_types::Orientation = [f64; 4]
+pub type jmap_scene_types::Position = [f64; 3]
+pub type jmap_scene_types::Scale = [f64; 3]
+pub type jmap_scene_types::SceneAssetFilter = jmap_types::query::Filter<jmap_scene_types::SceneAssetFilterCondition>
+pub type jmap_scene_types::SceneAvatarFilter = jmap_types::query::Filter<jmap_scene_types::SceneAvatarFilterCondition>
+pub type jmap_scene_types::SceneObjectFilter = jmap_types::query::Filter<jmap_scene_types::SceneObjectFilterCondition>
+pub type jmap_scene_types::SceneRegionFilter = jmap_types::query::Filter<jmap_scene_types::SceneRegionFilterCondition>

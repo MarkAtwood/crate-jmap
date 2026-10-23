@@ -1,0 +1,329 @@
+pub mod jmap_contacts_types
+pub use jmap_contacts_types::Address
+pub use jmap_contacts_types::AddressComponent
+pub use jmap_contacts_types::Anniversary
+pub use jmap_contacts_types::AnniversaryDate
+pub use jmap_contacts_types::Author
+pub use jmap_contacts_types::Calendar
+pub use jmap_contacts_types::CryptoKey
+pub use jmap_contacts_types::Directory
+pub use jmap_contacts_types::EmailAddress
+pub use jmap_contacts_types::Filter
+pub use jmap_contacts_types::FilterOperator
+pub use jmap_contacts_types::LanguagePref
+pub use jmap_contacts_types::Link
+pub use jmap_contacts_types::Media
+pub use jmap_contacts_types::Name
+pub use jmap_contacts_types::NameComponent
+pub use jmap_contacts_types::Nickname
+pub use jmap_contacts_types::Note
+pub use jmap_contacts_types::OnlineService
+pub use jmap_contacts_types::Operator
+pub use jmap_contacts_types::OrgUnit
+pub use jmap_contacts_types::Organization
+pub use jmap_contacts_types::PartialDate
+pub use jmap_contacts_types::PersonalInfo
+pub use jmap_contacts_types::Phone
+pub use jmap_contacts_types::Pronouns
+pub use jmap_contacts_types::Relation
+pub use jmap_contacts_types::SchedulingAddress
+pub use jmap_contacts_types::SpeakToAs
+pub use jmap_contacts_types::Timestamp
+pub use jmap_contacts_types::Title
+#[non_exhaustive] pub enum jmap_contacts_types::AddressBookProperty
+pub jmap_contacts_types::AddressBookProperty::Description
+pub jmap_contacts_types::AddressBookProperty::Id
+pub jmap_contacts_types::AddressBookProperty::IsDefault
+pub jmap_contacts_types::AddressBookProperty::IsSubscribed
+pub jmap_contacts_types::AddressBookProperty::MyRights
+pub jmap_contacts_types::AddressBookProperty::Name
+pub jmap_contacts_types::AddressBookProperty::ShareWith
+pub jmap_contacts_types::AddressBookProperty::SortOrder
+impl core::clone::Clone for jmap_contacts_types::AddressBookProperty
+pub fn jmap_contacts_types::AddressBookProperty::clone(&self) -> jmap_contacts_types::AddressBookProperty
+impl core::cmp::Eq for jmap_contacts_types::AddressBookProperty
+impl core::cmp::PartialEq for jmap_contacts_types::AddressBookProperty
+pub fn jmap_contacts_types::AddressBookProperty::eq(&self, &jmap_contacts_types::AddressBookProperty) -> bool
+impl core::fmt::Debug for jmap_contacts_types::AddressBookProperty
+pub fn jmap_contacts_types::AddressBookProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_contacts_types::AddressBookProperty
+pub fn jmap_contacts_types::AddressBookProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_contacts_types::AddressBookProperty
+#[non_exhaustive] pub enum jmap_contacts_types::ContactCardComparatorProperty
+pub jmap_contacts_types::ContactCardComparatorProperty::Created
+pub jmap_contacts_types::ContactCardComparatorProperty::NameGiven
+pub jmap_contacts_types::ContactCardComparatorProperty::NameSurname
+pub jmap_contacts_types::ContactCardComparatorProperty::NameSurname2
+pub jmap_contacts_types::ContactCardComparatorProperty::Other(alloc::string::String)
+pub jmap_contacts_types::ContactCardComparatorProperty::Updated
+impl core::clone::Clone for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::clone(&self) -> jmap_contacts_types::ContactCardComparatorProperty
+impl core::cmp::Eq for jmap_contacts_types::ContactCardComparatorProperty
+impl core::cmp::PartialEq for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::eq(&self, &jmap_contacts_types::ContactCardComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_contacts_types::ContactCardComparatorProperty
+impl serde_core::ser::Serialize for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::ContactCardComparatorProperty
+pub fn jmap_contacts_types::ContactCardComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_contacts_types::ContactCardProperty
+pub jmap_contacts_types::ContactCardProperty::AddressBookIds
+pub jmap_contacts_types::ContactCardProperty::Addresses
+pub jmap_contacts_types::ContactCardProperty::Anniversaries
+pub jmap_contacts_types::ContactCardProperty::Calendars
+pub jmap_contacts_types::ContactCardProperty::Created
+pub jmap_contacts_types::ContactCardProperty::CryptoKeys
+pub jmap_contacts_types::ContactCardProperty::Directories
+pub jmap_contacts_types::ContactCardProperty::Emails
+pub jmap_contacts_types::ContactCardProperty::Id
+pub jmap_contacts_types::ContactCardProperty::Keywords
+pub jmap_contacts_types::ContactCardProperty::Kind
+pub jmap_contacts_types::ContactCardProperty::Language
+pub jmap_contacts_types::ContactCardProperty::Links
+pub jmap_contacts_types::ContactCardProperty::Localizations
+pub jmap_contacts_types::ContactCardProperty::Media
+pub jmap_contacts_types::ContactCardProperty::Members
+pub jmap_contacts_types::ContactCardProperty::Name
+pub jmap_contacts_types::ContactCardProperty::Nicknames
+pub jmap_contacts_types::ContactCardProperty::Notes
+pub jmap_contacts_types::ContactCardProperty::OnlineServices
+pub jmap_contacts_types::ContactCardProperty::Organizations
+pub jmap_contacts_types::ContactCardProperty::PersonalInfo
+pub jmap_contacts_types::ContactCardProperty::Phones
+pub jmap_contacts_types::ContactCardProperty::PreferredLanguages
+pub jmap_contacts_types::ContactCardProperty::ProdId
+pub jmap_contacts_types::ContactCardProperty::RelatedTo
+pub jmap_contacts_types::ContactCardProperty::SchedulingAddresses
+pub jmap_contacts_types::ContactCardProperty::SpeakToAs
+pub jmap_contacts_types::ContactCardProperty::Titles
+pub jmap_contacts_types::ContactCardProperty::Uid
+pub jmap_contacts_types::ContactCardProperty::Updated
+pub jmap_contacts_types::ContactCardProperty::Version
+impl core::clone::Clone for jmap_contacts_types::ContactCardProperty
+pub fn jmap_contacts_types::ContactCardProperty::clone(&self) -> jmap_contacts_types::ContactCardProperty
+impl core::cmp::Eq for jmap_contacts_types::ContactCardProperty
+impl core::cmp::PartialEq for jmap_contacts_types::ContactCardProperty
+pub fn jmap_contacts_types::ContactCardProperty::eq(&self, &jmap_contacts_types::ContactCardProperty) -> bool
+impl core::fmt::Debug for jmap_contacts_types::ContactCardProperty
+pub fn jmap_contacts_types::ContactCardProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_contacts_types::ContactCardProperty
+pub fn jmap_contacts_types::ContactCardProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_contacts_types::ContactCardProperty
+#[non_exhaustive] pub struct jmap_contacts_types::AddressBook
+pub jmap_contacts_types::AddressBook::description: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::AddressBook::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_contacts_types::AddressBook::id: jmap_types::id::Id
+pub jmap_contacts_types::AddressBook::is_default: bool
+pub jmap_contacts_types::AddressBook::is_subscribed: bool
+pub jmap_contacts_types::AddressBook::my_rights: jmap_contacts_types::AddressBookRights
+pub jmap_contacts_types::AddressBook::name: alloc::string::String
+pub jmap_contacts_types::AddressBook::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_contacts_types::AddressBookRights>>
+pub jmap_contacts_types::AddressBook::sort_order: u32
+impl jmap_contacts_types::AddressBook
+pub fn jmap_contacts_types::AddressBook::validate_extras(&self) -> core::result::Result<(), jmap_contacts_types::CollisionError>
+impl core::clone::Clone for jmap_contacts_types::AddressBook
+pub fn jmap_contacts_types::AddressBook::clone(&self) -> jmap_contacts_types::AddressBook
+impl core::cmp::PartialEq for jmap_contacts_types::AddressBook
+pub fn jmap_contacts_types::AddressBook::eq(&self, &jmap_contacts_types::AddressBook) -> bool
+impl core::fmt::Debug for jmap_contacts_types::AddressBook
+pub fn jmap_contacts_types::AddressBook::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_contacts_types::AddressBook
+impl jmap_types::backend::GetObject for jmap_contacts_types::AddressBook
+impl jmap_types::backend::JmapObject for jmap_contacts_types::AddressBook
+pub type jmap_contacts_types::AddressBook::Property = jmap_contacts_types::AddressBookProperty
+pub const jmap_contacts_types::AddressBook::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_contacts_types::AddressBook
+pub type jmap_contacts_types::AddressBook::Patch = jmap_types::patch::PatchObject
+pub const jmap_contacts_types::AddressBook::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_contacts_types::AddressBook::IMMUTABLE: &'static [&'static str]
+pub const jmap_contacts_types::AddressBook::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_contacts_types::AddressBook
+pub fn jmap_contacts_types::AddressBook::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::AddressBook
+pub fn jmap_contacts_types::AddressBook::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_contacts_types::AddressBookRights
+pub jmap_contacts_types::AddressBookRights::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_contacts_types::AddressBookRights::may_delete: bool
+pub jmap_contacts_types::AddressBookRights::may_read: bool
+pub jmap_contacts_types::AddressBookRights::may_set_metadata: core::option::Option<bool>
+pub jmap_contacts_types::AddressBookRights::may_share: bool
+pub jmap_contacts_types::AddressBookRights::may_write: bool
+impl jmap_contacts_types::AddressBookRights
+pub fn jmap_contacts_types::AddressBookRights::validate_extras(&self) -> core::result::Result<(), jmap_contacts_types::CollisionError>
+impl core::clone::Clone for jmap_contacts_types::AddressBookRights
+pub fn jmap_contacts_types::AddressBookRights::clone(&self) -> jmap_contacts_types::AddressBookRights
+impl core::cmp::Eq for jmap_contacts_types::AddressBookRights
+impl core::cmp::PartialEq for jmap_contacts_types::AddressBookRights
+pub fn jmap_contacts_types::AddressBookRights::eq(&self, &jmap_contacts_types::AddressBookRights) -> bool
+impl core::default::Default for jmap_contacts_types::AddressBookRights
+pub fn jmap_contacts_types::AddressBookRights::default() -> jmap_contacts_types::AddressBookRights
+impl core::fmt::Debug for jmap_contacts_types::AddressBookRights
+pub fn jmap_contacts_types::AddressBookRights::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_contacts_types::AddressBookRights
+impl serde_core::ser::Serialize for jmap_contacts_types::AddressBookRights
+pub fn jmap_contacts_types::AddressBookRights::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::AddressBookRights
+pub fn jmap_contacts_types::AddressBookRights::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_contacts_types::CollisionError
+impl jmap_contacts_types::CollisionError
+pub fn jmap_contacts_types::CollisionError::keys(&self) -> &[alloc::string::String]
+impl core::clone::Clone for jmap_contacts_types::CollisionError
+pub fn jmap_contacts_types::CollisionError::clone(&self) -> jmap_contacts_types::CollisionError
+impl core::cmp::Eq for jmap_contacts_types::CollisionError
+impl core::cmp::PartialEq for jmap_contacts_types::CollisionError
+pub fn jmap_contacts_types::CollisionError::eq(&self, &jmap_contacts_types::CollisionError) -> bool
+impl core::error::Error for jmap_contacts_types::CollisionError
+impl core::fmt::Debug for jmap_contacts_types::CollisionError
+pub fn jmap_contacts_types::CollisionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_contacts_types::CollisionError
+pub fn jmap_contacts_types::CollisionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_contacts_types::CollisionError
+#[non_exhaustive] pub struct jmap_contacts_types::ContactCard
+pub jmap_contacts_types::ContactCard::address_book_ids: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, bool>>
+pub jmap_contacts_types::ContactCard::addresses: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::anniversaries: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::calendars: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::created: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_contacts_types::ContactCard::crypto_keys: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::directories: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::emails: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::id: core::option::Option<jmap_types::id::Id>
+pub jmap_contacts_types::ContactCard::keywords: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_contacts_types::ContactCard::kind: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCard::language: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCard::links: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::localizations: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
+pub jmap_contacts_types::ContactCard::media: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::members: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_contacts_types::ContactCard::name: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::nicknames: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::notes: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::online_services: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::organizations: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::personal_info: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::phones: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::preferred_languages: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::prod_id: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCard::related_to: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::scheduling_addresses: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::speak_to_as: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::titles: core::option::Option<serde_json::value::Value>
+pub jmap_contacts_types::ContactCard::uid: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCard::updated: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_contacts_types::ContactCard::version: core::option::Option<alloc::string::String>
+impl jmap_contacts_types::ContactCard
+pub fn jmap_contacts_types::ContactCard::validate_extras(&self) -> core::result::Result<(), jmap_contacts_types::CollisionError>
+impl core::clone::Clone for jmap_contacts_types::ContactCard
+pub fn jmap_contacts_types::ContactCard::clone(&self) -> jmap_contacts_types::ContactCard
+impl core::default::Default for jmap_contacts_types::ContactCard
+pub fn jmap_contacts_types::ContactCard::default() -> jmap_contacts_types::ContactCard
+impl core::fmt::Debug for jmap_contacts_types::ContactCard
+pub fn jmap_contacts_types::ContactCard::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_types::backend::GetObject for jmap_contacts_types::ContactCard
+impl jmap_types::backend::JmapObject for jmap_contacts_types::ContactCard
+pub type jmap_contacts_types::ContactCard::Property = jmap_contacts_types::ContactCardProperty
+pub const jmap_contacts_types::ContactCard::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_contacts_types::ContactCard
+pub type jmap_contacts_types::ContactCard::Comparator = jmap_contacts_types::ContactCardComparator
+pub type jmap_contacts_types::ContactCard::Filter = jmap_types::query::Filter<jmap_contacts_types::ContactCardFilterCondition>
+impl jmap_types::backend::SetObject for jmap_contacts_types::ContactCard
+pub type jmap_contacts_types::ContactCard::Patch = jmap_types::patch::PatchObject
+pub const jmap_contacts_types::ContactCard::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_contacts_types::ContactCard::IMMUTABLE: &'static [&'static str]
+pub const jmap_contacts_types::ContactCard::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_contacts_types::ContactCard
+pub fn jmap_contacts_types::ContactCard::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::ContactCard
+pub fn jmap_contacts_types::ContactCard::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_contacts_types::ContactCardComparator
+pub jmap_contacts_types::ContactCardComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardComparator::is_ascending: bool
+pub jmap_contacts_types::ContactCardComparator::property: jmap_contacts_types::ContactCardComparatorProperty
+impl jmap_contacts_types::ContactCardComparator
+pub fn jmap_contacts_types::ContactCardComparator::new(jmap_contacts_types::ContactCardComparatorProperty) -> Self
+impl core::clone::Clone for jmap_contacts_types::ContactCardComparator
+pub fn jmap_contacts_types::ContactCardComparator::clone(&self) -> jmap_contacts_types::ContactCardComparator
+impl core::cmp::Eq for jmap_contacts_types::ContactCardComparator
+impl core::cmp::PartialEq for jmap_contacts_types::ContactCardComparator
+pub fn jmap_contacts_types::ContactCardComparator::eq(&self, &jmap_contacts_types::ContactCardComparator) -> bool
+impl core::fmt::Debug for jmap_contacts_types::ContactCardComparator
+pub fn jmap_contacts_types::ContactCardComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_contacts_types::ContactCardComparator
+impl serde_core::ser::Serialize for jmap_contacts_types::ContactCardComparator
+pub fn jmap_contacts_types::ContactCardComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::ContactCardComparator
+pub fn jmap_contacts_types::ContactCardComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_contacts_types::ContactCardFilterCondition
+pub jmap_contacts_types::ContactCardFilterCondition::address: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::created_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_contacts_types::ContactCardFilterCondition::created_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_contacts_types::ContactCardFilterCondition::email: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::has_member: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::in_address_book: core::option::Option<jmap_types::id::Id>
+pub jmap_contacts_types::ContactCardFilterCondition::kind: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::name_given: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::name_surname: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::name_surname2: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::nickname: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::note: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::online_service: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::organization: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::phone: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::text: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::uid: core::option::Option<alloc::string::String>
+pub jmap_contacts_types::ContactCardFilterCondition::updated_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_contacts_types::ContactCardFilterCondition::updated_before: core::option::Option<jmap_types::id::UTCDate>
+impl core::clone::Clone for jmap_contacts_types::ContactCardFilterCondition
+pub fn jmap_contacts_types::ContactCardFilterCondition::clone(&self) -> jmap_contacts_types::ContactCardFilterCondition
+impl core::default::Default for jmap_contacts_types::ContactCardFilterCondition
+pub fn jmap_contacts_types::ContactCardFilterCondition::default() -> jmap_contacts_types::ContactCardFilterCondition
+impl core::fmt::Debug for jmap_contacts_types::ContactCardFilterCondition
+pub fn jmap_contacts_types::ContactCardFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_contacts_types::ContactCardFilterCondition
+pub fn jmap_contacts_types::ContactCardFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::ContactCardFilterCondition
+pub fn jmap_contacts_types::ContactCardFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_contacts_types::ContactsAccountCapability
+pub jmap_contacts_types::ContactsAccountCapability::max_address_books_per_card: core::option::Option<u64>
+pub jmap_contacts_types::ContactsAccountCapability::may_create_address_book: bool
+impl core::clone::Clone for jmap_contacts_types::ContactsAccountCapability
+pub fn jmap_contacts_types::ContactsAccountCapability::clone(&self) -> jmap_contacts_types::ContactsAccountCapability
+impl core::cmp::Eq for jmap_contacts_types::ContactsAccountCapability
+impl core::cmp::PartialEq for jmap_contacts_types::ContactsAccountCapability
+pub fn jmap_contacts_types::ContactsAccountCapability::eq(&self, &jmap_contacts_types::ContactsAccountCapability) -> bool
+impl core::fmt::Debug for jmap_contacts_types::ContactsAccountCapability
+pub fn jmap_contacts_types::ContactsAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_contacts_types::ContactsAccountCapability
+impl serde_core::ser::Serialize for jmap_contacts_types::ContactsAccountCapability
+pub fn jmap_contacts_types::ContactsAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::ContactsAccountCapability
+pub fn jmap_contacts_types::ContactsAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_contacts_types::ContactsCapability
+impl core::clone::Clone for jmap_contacts_types::ContactsCapability
+pub fn jmap_contacts_types::ContactsCapability::clone(&self) -> jmap_contacts_types::ContactsCapability
+impl core::cmp::Eq for jmap_contacts_types::ContactsCapability
+impl core::cmp::PartialEq for jmap_contacts_types::ContactsCapability
+pub fn jmap_contacts_types::ContactsCapability::eq(&self, &jmap_contacts_types::ContactsCapability) -> bool
+impl core::default::Default for jmap_contacts_types::ContactsCapability
+pub fn jmap_contacts_types::ContactsCapability::default() -> jmap_contacts_types::ContactsCapability
+impl core::fmt::Debug for jmap_contacts_types::ContactsCapability
+pub fn jmap_contacts_types::ContactsCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_contacts_types::ContactsCapability
+impl serde_core::ser::Serialize for jmap_contacts_types::ContactsCapability
+pub fn jmap_contacts_types::ContactsCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_contacts_types::ContactsCapability
+pub fn jmap_contacts_types::ContactsCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_contacts_types::JMAP_CONTACTS_URI: &str
+pub type jmap_contacts_types::ContactCardFilter = jmap_types::query::Filter<jmap_contacts_types::ContactCardFilterCondition>

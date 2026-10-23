@@ -1,0 +1,535 @@
+pub mod jmap_jscontact_types
+#[non_exhaustive] pub enum jmap_jscontact_types::AnniversaryDate
+pub jmap_jscontact_types::AnniversaryDate::PartialDate(jmap_jscontact_types::PartialDate)
+pub jmap_jscontact_types::AnniversaryDate::Timestamp(jmap_jscontact_types::Timestamp)
+pub jmap_jscontact_types::AnniversaryDate::Unknown(serde_json::value::Value)
+impl core::clone::Clone for jmap_jscontact_types::AnniversaryDate
+pub fn jmap_jscontact_types::AnniversaryDate::clone(&self) -> jmap_jscontact_types::AnniversaryDate
+impl core::cmp::Eq for jmap_jscontact_types::AnniversaryDate
+impl core::cmp::PartialEq for jmap_jscontact_types::AnniversaryDate
+pub fn jmap_jscontact_types::AnniversaryDate::eq(&self, &jmap_jscontact_types::AnniversaryDate) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::AnniversaryDate
+pub fn jmap_jscontact_types::AnniversaryDate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::AnniversaryDate
+impl serde_core::ser::Serialize for jmap_jscontact_types::AnniversaryDate
+pub fn jmap_jscontact_types::AnniversaryDate::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::AnniversaryDate
+pub fn jmap_jscontact_types::AnniversaryDate::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_jscontact_types::Address
+pub jmap_jscontact_types::Address::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Address::components: core::option::Option<alloc::vec::Vec<jmap_jscontact_types::AddressComponent>>
+pub jmap_jscontact_types::Address::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Address::coordinates: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Address::country_code: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Address::default_separator: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Address::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Address::full: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Address::is_ordered: core::option::Option<bool>
+pub jmap_jscontact_types::Address::phonetic_script: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Address::phonetic_system: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Address::pref: core::option::Option<u32>
+pub jmap_jscontact_types::Address::time_zone: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::Address
+pub fn jmap_jscontact_types::Address::clone(&self) -> jmap_jscontact_types::Address
+impl core::cmp::Eq for jmap_jscontact_types::Address
+impl core::cmp::PartialEq for jmap_jscontact_types::Address
+pub fn jmap_jscontact_types::Address::eq(&self, &jmap_jscontact_types::Address) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Address
+pub fn jmap_jscontact_types::Address::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Address
+impl serde_core::ser::Serialize for jmap_jscontact_types::Address
+pub fn jmap_jscontact_types::Address::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Address
+pub fn jmap_jscontact_types::Address::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::AddressComponent
+pub jmap_jscontact_types::AddressComponent::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::AddressComponent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::AddressComponent::kind: alloc::string::String
+pub jmap_jscontact_types::AddressComponent::phonetic: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::AddressComponent::value: alloc::string::String
+impl core::clone::Clone for jmap_jscontact_types::AddressComponent
+pub fn jmap_jscontact_types::AddressComponent::clone(&self) -> jmap_jscontact_types::AddressComponent
+impl core::cmp::Eq for jmap_jscontact_types::AddressComponent
+impl core::cmp::PartialEq for jmap_jscontact_types::AddressComponent
+pub fn jmap_jscontact_types::AddressComponent::eq(&self, &jmap_jscontact_types::AddressComponent) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::AddressComponent
+pub fn jmap_jscontact_types::AddressComponent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::AddressComponent
+impl serde_core::ser::Serialize for jmap_jscontact_types::AddressComponent
+pub fn jmap_jscontact_types::AddressComponent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::AddressComponent
+pub fn jmap_jscontact_types::AddressComponent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Anniversary
+pub jmap_jscontact_types::Anniversary::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Anniversary::date: jmap_jscontact_types::AnniversaryDate
+pub jmap_jscontact_types::Anniversary::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Anniversary::kind: alloc::string::String
+pub jmap_jscontact_types::Anniversary::place: core::option::Option<jmap_jscontact_types::Address>
+impl core::clone::Clone for jmap_jscontact_types::Anniversary
+pub fn jmap_jscontact_types::Anniversary::clone(&self) -> jmap_jscontact_types::Anniversary
+impl core::cmp::Eq for jmap_jscontact_types::Anniversary
+impl core::cmp::PartialEq for jmap_jscontact_types::Anniversary
+pub fn jmap_jscontact_types::Anniversary::eq(&self, &jmap_jscontact_types::Anniversary) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Anniversary
+pub fn jmap_jscontact_types::Anniversary::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Anniversary
+impl serde_core::ser::Serialize for jmap_jscontact_types::Anniversary
+pub fn jmap_jscontact_types::Anniversary::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Anniversary
+pub fn jmap_jscontact_types::Anniversary::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Author
+pub jmap_jscontact_types::Author::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Author::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Author::name: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Author::uri: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::Author
+pub fn jmap_jscontact_types::Author::clone(&self) -> jmap_jscontact_types::Author
+impl core::cmp::Eq for jmap_jscontact_types::Author
+impl core::cmp::PartialEq for jmap_jscontact_types::Author
+pub fn jmap_jscontact_types::Author::eq(&self, &jmap_jscontact_types::Author) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Author
+pub fn jmap_jscontact_types::Author::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Author
+impl serde_core::ser::Serialize for jmap_jscontact_types::Author
+pub fn jmap_jscontact_types::Author::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Author
+pub fn jmap_jscontact_types::Author::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Calendar
+pub jmap_jscontact_types::Calendar::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Calendar::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Calendar::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Calendar::kind: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Calendar::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Calendar::media_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Calendar::pref: core::option::Option<u32>
+pub jmap_jscontact_types::Calendar::uri: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::Calendar
+pub fn jmap_jscontact_types::Calendar::clone(&self) -> jmap_jscontact_types::Calendar
+impl core::cmp::Eq for jmap_jscontact_types::Calendar
+impl core::cmp::PartialEq for jmap_jscontact_types::Calendar
+pub fn jmap_jscontact_types::Calendar::eq(&self, &jmap_jscontact_types::Calendar) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Calendar
+pub fn jmap_jscontact_types::Calendar::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Calendar
+impl serde_core::ser::Serialize for jmap_jscontact_types::Calendar
+pub fn jmap_jscontact_types::Calendar::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Calendar
+pub fn jmap_jscontact_types::Calendar::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::CryptoKey
+pub jmap_jscontact_types::CryptoKey::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::CryptoKey::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::CryptoKey::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::CryptoKey::kind: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::CryptoKey::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::CryptoKey::media_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::CryptoKey::pref: core::option::Option<u32>
+pub jmap_jscontact_types::CryptoKey::uri: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::CryptoKey
+pub fn jmap_jscontact_types::CryptoKey::clone(&self) -> jmap_jscontact_types::CryptoKey
+impl core::cmp::Eq for jmap_jscontact_types::CryptoKey
+impl core::cmp::PartialEq for jmap_jscontact_types::CryptoKey
+pub fn jmap_jscontact_types::CryptoKey::eq(&self, &jmap_jscontact_types::CryptoKey) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::CryptoKey
+pub fn jmap_jscontact_types::CryptoKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::CryptoKey
+impl serde_core::ser::Serialize for jmap_jscontact_types::CryptoKey
+pub fn jmap_jscontact_types::CryptoKey::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::CryptoKey
+pub fn jmap_jscontact_types::CryptoKey::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Directory
+pub jmap_jscontact_types::Directory::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Directory::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Directory::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Directory::kind: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Directory::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Directory::list_as: core::option::Option<u32>
+pub jmap_jscontact_types::Directory::media_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Directory::pref: core::option::Option<u32>
+pub jmap_jscontact_types::Directory::uri: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::Directory
+pub fn jmap_jscontact_types::Directory::clone(&self) -> jmap_jscontact_types::Directory
+impl core::cmp::Eq for jmap_jscontact_types::Directory
+impl core::cmp::PartialEq for jmap_jscontact_types::Directory
+pub fn jmap_jscontact_types::Directory::eq(&self, &jmap_jscontact_types::Directory) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Directory
+pub fn jmap_jscontact_types::Directory::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Directory
+impl serde_core::ser::Serialize for jmap_jscontact_types::Directory
+pub fn jmap_jscontact_types::Directory::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Directory
+pub fn jmap_jscontact_types::Directory::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::EmailAddress
+pub jmap_jscontact_types::EmailAddress::address: alloc::string::String
+pub jmap_jscontact_types::EmailAddress::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::EmailAddress::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::EmailAddress::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::EmailAddress::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::EmailAddress::pref: core::option::Option<u32>
+impl core::clone::Clone for jmap_jscontact_types::EmailAddress
+pub fn jmap_jscontact_types::EmailAddress::clone(&self) -> jmap_jscontact_types::EmailAddress
+impl core::cmp::Eq for jmap_jscontact_types::EmailAddress
+impl core::cmp::PartialEq for jmap_jscontact_types::EmailAddress
+pub fn jmap_jscontact_types::EmailAddress::eq(&self, &jmap_jscontact_types::EmailAddress) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::EmailAddress
+pub fn jmap_jscontact_types::EmailAddress::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::EmailAddress
+impl serde_core::ser::Serialize for jmap_jscontact_types::EmailAddress
+pub fn jmap_jscontact_types::EmailAddress::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::EmailAddress
+pub fn jmap_jscontact_types::EmailAddress::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::LanguagePref
+pub jmap_jscontact_types::LanguagePref::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::LanguagePref::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::LanguagePref::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::LanguagePref::language: alloc::string::String
+pub jmap_jscontact_types::LanguagePref::pref: core::option::Option<u32>
+impl core::clone::Clone for jmap_jscontact_types::LanguagePref
+pub fn jmap_jscontact_types::LanguagePref::clone(&self) -> jmap_jscontact_types::LanguagePref
+impl core::cmp::Eq for jmap_jscontact_types::LanguagePref
+impl core::cmp::PartialEq for jmap_jscontact_types::LanguagePref
+pub fn jmap_jscontact_types::LanguagePref::eq(&self, &jmap_jscontact_types::LanguagePref) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::LanguagePref
+pub fn jmap_jscontact_types::LanguagePref::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::LanguagePref
+impl serde_core::ser::Serialize for jmap_jscontact_types::LanguagePref
+pub fn jmap_jscontact_types::LanguagePref::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::LanguagePref
+pub fn jmap_jscontact_types::LanguagePref::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Link
+pub jmap_jscontact_types::Link::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Link::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Link::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Link::kind: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Link::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Link::media_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Link::pref: core::option::Option<u32>
+pub jmap_jscontact_types::Link::uri: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::Link
+pub fn jmap_jscontact_types::Link::clone(&self) -> jmap_jscontact_types::Link
+impl core::cmp::Eq for jmap_jscontact_types::Link
+impl core::cmp::PartialEq for jmap_jscontact_types::Link
+pub fn jmap_jscontact_types::Link::eq(&self, &jmap_jscontact_types::Link) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Link
+pub fn jmap_jscontact_types::Link::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Link
+impl serde_core::ser::Serialize for jmap_jscontact_types::Link
+pub fn jmap_jscontact_types::Link::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Link
+pub fn jmap_jscontact_types::Link::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Media
+pub jmap_jscontact_types::Media::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Media::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Media::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Media::kind: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Media::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Media::media_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Media::pref: core::option::Option<u32>
+pub jmap_jscontact_types::Media::uri: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::Media
+pub fn jmap_jscontact_types::Media::clone(&self) -> jmap_jscontact_types::Media
+impl core::cmp::Eq for jmap_jscontact_types::Media
+impl core::cmp::PartialEq for jmap_jscontact_types::Media
+pub fn jmap_jscontact_types::Media::eq(&self, &jmap_jscontact_types::Media) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Media
+pub fn jmap_jscontact_types::Media::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Media
+impl serde_core::ser::Serialize for jmap_jscontact_types::Media
+pub fn jmap_jscontact_types::Media::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Media
+pub fn jmap_jscontact_types::Media::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Name
+pub jmap_jscontact_types::Name::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Name::components: core::option::Option<alloc::vec::Vec<jmap_jscontact_types::NameComponent>>
+pub jmap_jscontact_types::Name::default_separator: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Name::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Name::full: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Name::is_ordered: core::option::Option<bool>
+pub jmap_jscontact_types::Name::phonetic_script: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Name::phonetic_system: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Name::sort_as: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+impl core::clone::Clone for jmap_jscontact_types::Name
+pub fn jmap_jscontact_types::Name::clone(&self) -> jmap_jscontact_types::Name
+impl core::cmp::Eq for jmap_jscontact_types::Name
+impl core::cmp::PartialEq for jmap_jscontact_types::Name
+pub fn jmap_jscontact_types::Name::eq(&self, &jmap_jscontact_types::Name) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Name
+pub fn jmap_jscontact_types::Name::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Name
+impl serde_core::ser::Serialize for jmap_jscontact_types::Name
+pub fn jmap_jscontact_types::Name::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Name
+pub fn jmap_jscontact_types::Name::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::NameComponent
+pub jmap_jscontact_types::NameComponent::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::NameComponent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::NameComponent::kind: alloc::string::String
+pub jmap_jscontact_types::NameComponent::phonetic: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::NameComponent::value: alloc::string::String
+impl core::clone::Clone for jmap_jscontact_types::NameComponent
+pub fn jmap_jscontact_types::NameComponent::clone(&self) -> jmap_jscontact_types::NameComponent
+impl core::cmp::Eq for jmap_jscontact_types::NameComponent
+impl core::cmp::PartialEq for jmap_jscontact_types::NameComponent
+pub fn jmap_jscontact_types::NameComponent::eq(&self, &jmap_jscontact_types::NameComponent) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::NameComponent
+pub fn jmap_jscontact_types::NameComponent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::NameComponent
+impl serde_core::ser::Serialize for jmap_jscontact_types::NameComponent
+pub fn jmap_jscontact_types::NameComponent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::NameComponent
+pub fn jmap_jscontact_types::NameComponent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Nickname
+pub jmap_jscontact_types::Nickname::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Nickname::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Nickname::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Nickname::name: alloc::string::String
+pub jmap_jscontact_types::Nickname::pref: core::option::Option<u32>
+impl core::clone::Clone for jmap_jscontact_types::Nickname
+pub fn jmap_jscontact_types::Nickname::clone(&self) -> jmap_jscontact_types::Nickname
+impl core::cmp::Eq for jmap_jscontact_types::Nickname
+impl core::cmp::PartialEq for jmap_jscontact_types::Nickname
+pub fn jmap_jscontact_types::Nickname::eq(&self, &jmap_jscontact_types::Nickname) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Nickname
+pub fn jmap_jscontact_types::Nickname::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Nickname
+impl serde_core::ser::Serialize for jmap_jscontact_types::Nickname
+pub fn jmap_jscontact_types::Nickname::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Nickname
+pub fn jmap_jscontact_types::Nickname::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Note
+pub jmap_jscontact_types::Note::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Note::author: core::option::Option<jmap_jscontact_types::Author>
+pub jmap_jscontact_types::Note::created: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Note::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Note::note: alloc::string::String
+impl core::clone::Clone for jmap_jscontact_types::Note
+pub fn jmap_jscontact_types::Note::clone(&self) -> jmap_jscontact_types::Note
+impl core::cmp::Eq for jmap_jscontact_types::Note
+impl core::cmp::PartialEq for jmap_jscontact_types::Note
+pub fn jmap_jscontact_types::Note::eq(&self, &jmap_jscontact_types::Note) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Note
+pub fn jmap_jscontact_types::Note::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Note
+impl serde_core::ser::Serialize for jmap_jscontact_types::Note
+pub fn jmap_jscontact_types::Note::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Note
+pub fn jmap_jscontact_types::Note::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::OnlineService
+pub jmap_jscontact_types::OnlineService::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::OnlineService::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::OnlineService::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::OnlineService::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::OnlineService::pref: core::option::Option<u32>
+pub jmap_jscontact_types::OnlineService::service: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::OnlineService::uri: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::OnlineService::user: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::OnlineService
+pub fn jmap_jscontact_types::OnlineService::clone(&self) -> jmap_jscontact_types::OnlineService
+impl core::cmp::Eq for jmap_jscontact_types::OnlineService
+impl core::cmp::PartialEq for jmap_jscontact_types::OnlineService
+pub fn jmap_jscontact_types::OnlineService::eq(&self, &jmap_jscontact_types::OnlineService) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::OnlineService
+pub fn jmap_jscontact_types::OnlineService::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::OnlineService
+impl serde_core::ser::Serialize for jmap_jscontact_types::OnlineService
+pub fn jmap_jscontact_types::OnlineService::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::OnlineService
+pub fn jmap_jscontact_types::OnlineService::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::OrgUnit
+pub jmap_jscontact_types::OrgUnit::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::OrgUnit::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::OrgUnit::name: alloc::string::String
+pub jmap_jscontact_types::OrgUnit::sort_as: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::OrgUnit
+pub fn jmap_jscontact_types::OrgUnit::clone(&self) -> jmap_jscontact_types::OrgUnit
+impl core::cmp::Eq for jmap_jscontact_types::OrgUnit
+impl core::cmp::PartialEq for jmap_jscontact_types::OrgUnit
+pub fn jmap_jscontact_types::OrgUnit::eq(&self, &jmap_jscontact_types::OrgUnit) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::OrgUnit
+pub fn jmap_jscontact_types::OrgUnit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::OrgUnit
+impl serde_core::ser::Serialize for jmap_jscontact_types::OrgUnit
+pub fn jmap_jscontact_types::OrgUnit::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::OrgUnit
+pub fn jmap_jscontact_types::OrgUnit::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Organization
+pub jmap_jscontact_types::Organization::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Organization::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Organization::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Organization::name: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Organization::sort_as: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Organization::units: core::option::Option<alloc::vec::Vec<jmap_jscontact_types::OrgUnit>>
+impl core::clone::Clone for jmap_jscontact_types::Organization
+pub fn jmap_jscontact_types::Organization::clone(&self) -> jmap_jscontact_types::Organization
+impl core::cmp::Eq for jmap_jscontact_types::Organization
+impl core::cmp::PartialEq for jmap_jscontact_types::Organization
+pub fn jmap_jscontact_types::Organization::eq(&self, &jmap_jscontact_types::Organization) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Organization
+pub fn jmap_jscontact_types::Organization::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Organization
+impl serde_core::ser::Serialize for jmap_jscontact_types::Organization
+pub fn jmap_jscontact_types::Organization::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Organization
+pub fn jmap_jscontact_types::Organization::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::PartialDate
+pub jmap_jscontact_types::PartialDate::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::PartialDate::calendar_scale: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::PartialDate::day: core::option::Option<u32>
+pub jmap_jscontact_types::PartialDate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::PartialDate::month: core::option::Option<u32>
+pub jmap_jscontact_types::PartialDate::year: core::option::Option<u32>
+impl core::clone::Clone for jmap_jscontact_types::PartialDate
+pub fn jmap_jscontact_types::PartialDate::clone(&self) -> jmap_jscontact_types::PartialDate
+impl core::cmp::Eq for jmap_jscontact_types::PartialDate
+impl core::cmp::PartialEq for jmap_jscontact_types::PartialDate
+pub fn jmap_jscontact_types::PartialDate::eq(&self, &jmap_jscontact_types::PartialDate) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::PartialDate
+pub fn jmap_jscontact_types::PartialDate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::PartialDate
+impl serde_core::ser::Serialize for jmap_jscontact_types::PartialDate
+pub fn jmap_jscontact_types::PartialDate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::PartialDate
+pub fn jmap_jscontact_types::PartialDate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::PersonalInfo
+pub jmap_jscontact_types::PersonalInfo::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::PersonalInfo::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::PersonalInfo::kind: alloc::string::String
+pub jmap_jscontact_types::PersonalInfo::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::PersonalInfo::level: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::PersonalInfo::list_as: core::option::Option<u32>
+pub jmap_jscontact_types::PersonalInfo::value: alloc::string::String
+impl core::clone::Clone for jmap_jscontact_types::PersonalInfo
+pub fn jmap_jscontact_types::PersonalInfo::clone(&self) -> jmap_jscontact_types::PersonalInfo
+impl core::cmp::Eq for jmap_jscontact_types::PersonalInfo
+impl core::cmp::PartialEq for jmap_jscontact_types::PersonalInfo
+pub fn jmap_jscontact_types::PersonalInfo::eq(&self, &jmap_jscontact_types::PersonalInfo) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::PersonalInfo
+pub fn jmap_jscontact_types::PersonalInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::PersonalInfo
+impl serde_core::ser::Serialize for jmap_jscontact_types::PersonalInfo
+pub fn jmap_jscontact_types::PersonalInfo::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::PersonalInfo
+pub fn jmap_jscontact_types::PersonalInfo::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Phone
+pub jmap_jscontact_types::Phone::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Phone::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Phone::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Phone::features: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Phone::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Phone::number: alloc::string::String
+pub jmap_jscontact_types::Phone::pref: core::option::Option<u32>
+impl core::clone::Clone for jmap_jscontact_types::Phone
+pub fn jmap_jscontact_types::Phone::clone(&self) -> jmap_jscontact_types::Phone
+impl core::cmp::Eq for jmap_jscontact_types::Phone
+impl core::cmp::PartialEq for jmap_jscontact_types::Phone
+pub fn jmap_jscontact_types::Phone::eq(&self, &jmap_jscontact_types::Phone) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Phone
+pub fn jmap_jscontact_types::Phone::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Phone
+impl serde_core::ser::Serialize for jmap_jscontact_types::Phone
+pub fn jmap_jscontact_types::Phone::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Phone
+pub fn jmap_jscontact_types::Phone::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Pronouns
+pub jmap_jscontact_types::Pronouns::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Pronouns::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::Pronouns::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Pronouns::pref: core::option::Option<u32>
+pub jmap_jscontact_types::Pronouns::pronouns: alloc::string::String
+impl core::clone::Clone for jmap_jscontact_types::Pronouns
+pub fn jmap_jscontact_types::Pronouns::clone(&self) -> jmap_jscontact_types::Pronouns
+impl core::cmp::Eq for jmap_jscontact_types::Pronouns
+impl core::cmp::PartialEq for jmap_jscontact_types::Pronouns
+pub fn jmap_jscontact_types::Pronouns::eq(&self, &jmap_jscontact_types::Pronouns) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Pronouns
+pub fn jmap_jscontact_types::Pronouns::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Pronouns
+impl serde_core::ser::Serialize for jmap_jscontact_types::Pronouns
+pub fn jmap_jscontact_types::Pronouns::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Pronouns
+pub fn jmap_jscontact_types::Pronouns::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Relation
+pub jmap_jscontact_types::Relation::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Relation::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Relation::relation: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+impl core::clone::Clone for jmap_jscontact_types::Relation
+pub fn jmap_jscontact_types::Relation::clone(&self) -> jmap_jscontact_types::Relation
+impl core::cmp::Eq for jmap_jscontact_types::Relation
+impl core::cmp::PartialEq for jmap_jscontact_types::Relation
+pub fn jmap_jscontact_types::Relation::eq(&self, &jmap_jscontact_types::Relation) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Relation
+pub fn jmap_jscontact_types::Relation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Relation
+impl serde_core::ser::Serialize for jmap_jscontact_types::Relation
+pub fn jmap_jscontact_types::Relation::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Relation
+pub fn jmap_jscontact_types::Relation::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::SchedulingAddress
+pub jmap_jscontact_types::SchedulingAddress::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::SchedulingAddress::contexts: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscontact_types::SchedulingAddress::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::SchedulingAddress::label: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::SchedulingAddress::pref: core::option::Option<u32>
+pub jmap_jscontact_types::SchedulingAddress::uri: alloc::string::String
+impl core::clone::Clone for jmap_jscontact_types::SchedulingAddress
+pub fn jmap_jscontact_types::SchedulingAddress::clone(&self) -> jmap_jscontact_types::SchedulingAddress
+impl core::cmp::Eq for jmap_jscontact_types::SchedulingAddress
+impl core::cmp::PartialEq for jmap_jscontact_types::SchedulingAddress
+pub fn jmap_jscontact_types::SchedulingAddress::eq(&self, &jmap_jscontact_types::SchedulingAddress) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::SchedulingAddress
+pub fn jmap_jscontact_types::SchedulingAddress::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::SchedulingAddress
+impl serde_core::ser::Serialize for jmap_jscontact_types::SchedulingAddress
+pub fn jmap_jscontact_types::SchedulingAddress::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::SchedulingAddress
+pub fn jmap_jscontact_types::SchedulingAddress::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::SpeakToAs
+pub jmap_jscontact_types::SpeakToAs::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::SpeakToAs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::SpeakToAs::grammatical_gender: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::SpeakToAs::pronouns: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_jscontact_types::Pronouns>>
+impl core::clone::Clone for jmap_jscontact_types::SpeakToAs
+pub fn jmap_jscontact_types::SpeakToAs::clone(&self) -> jmap_jscontact_types::SpeakToAs
+impl core::cmp::Eq for jmap_jscontact_types::SpeakToAs
+impl core::cmp::PartialEq for jmap_jscontact_types::SpeakToAs
+pub fn jmap_jscontact_types::SpeakToAs::eq(&self, &jmap_jscontact_types::SpeakToAs) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::SpeakToAs
+pub fn jmap_jscontact_types::SpeakToAs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::SpeakToAs
+impl serde_core::ser::Serialize for jmap_jscontact_types::SpeakToAs
+pub fn jmap_jscontact_types::SpeakToAs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::SpeakToAs
+pub fn jmap_jscontact_types::SpeakToAs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Timestamp
+pub jmap_jscontact_types::Timestamp::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Timestamp::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Timestamp::utc: alloc::string::String
+impl core::clone::Clone for jmap_jscontact_types::Timestamp
+pub fn jmap_jscontact_types::Timestamp::clone(&self) -> jmap_jscontact_types::Timestamp
+impl core::cmp::Eq for jmap_jscontact_types::Timestamp
+impl core::cmp::PartialEq for jmap_jscontact_types::Timestamp
+pub fn jmap_jscontact_types::Timestamp::eq(&self, &jmap_jscontact_types::Timestamp) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Timestamp
+pub fn jmap_jscontact_types::Timestamp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Timestamp
+impl serde_core::ser::Serialize for jmap_jscontact_types::Timestamp
+pub fn jmap_jscontact_types::Timestamp::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Timestamp
+pub fn jmap_jscontact_types::Timestamp::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscontact_types::Title
+pub jmap_jscontact_types::Title::at_type: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Title::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscontact_types::Title::kind: core::option::Option<alloc::string::String>
+pub jmap_jscontact_types::Title::name: alloc::string::String
+pub jmap_jscontact_types::Title::organization_id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscontact_types::Title
+pub fn jmap_jscontact_types::Title::clone(&self) -> jmap_jscontact_types::Title
+impl core::cmp::Eq for jmap_jscontact_types::Title
+impl core::cmp::PartialEq for jmap_jscontact_types::Title
+pub fn jmap_jscontact_types::Title::eq(&self, &jmap_jscontact_types::Title) -> bool
+impl core::fmt::Debug for jmap_jscontact_types::Title
+pub fn jmap_jscontact_types::Title::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscontact_types::Title
+impl serde_core::ser::Serialize for jmap_jscontact_types::Title
+pub fn jmap_jscontact_types::Title::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscontact_types::Title
+pub fn jmap_jscontact_types::Title::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>

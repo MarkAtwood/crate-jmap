@@ -1,0 +1,18 @@
+pub mod jmap_metadata_client
+pub use jmap_metadata_client::DataTypeMetadataInfo
+pub use jmap_metadata_client::JMAP_METADATA_URI
+pub use jmap_metadata_client::MetadataTextMatch
+pub use jmap_metadata_client::is_registered_namespace
+pub use jmap_metadata_client::is_valid_namespace
+pub use jmap_metadata_client::is_vendor_namespace
+pub const jmap_metadata_client::IGNORE_METADATA_ONLY_CHANGES: &str
+pub const jmap_metadata_client::METADATA_PROPERTY: &str
+pub const jmap_metadata_client::PRIVATE_METADATA_PROPERTY: &str
+pub fn jmap_metadata_client::is_metadata_only_change(&[alloc::string::String]) -> bool
+pub fn jmap_metadata_client::is_metadata_property(&str) -> bool
+pub fn jmap_metadata_client::metadata_exists_condition(&str) -> serde_json::value::Value
+pub fn jmap_metadata_client::metadata_text_contains_condition(&str, &str) -> serde_json::value::Value
+pub fn jmap_metadata_client::metadata_text_equals_condition(&str, &str) -> serde_json::value::Value
+pub fn jmap_metadata_client::private_metadata_exists_condition(&str) -> serde_json::value::Value
+pub fn jmap_metadata_client::private_metadata_text_contains_condition(&str, &str) -> serde_json::value::Value
+pub fn jmap_metadata_client::private_metadata_text_equals_condition(&str, &str) -> serde_json::value::Value

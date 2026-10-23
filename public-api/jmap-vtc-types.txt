@@ -1,0 +1,1137 @@
+pub mod jmap_vtc_types
+pub use jmap_vtc_types::Filter
+pub use jmap_vtc_types::FilterOperator
+pub use jmap_vtc_types::Operator
+#[non_exhaustive] pub enum jmap_vtc_types::CallEndReason
+pub jmap_vtc_types::CallEndReason::Cancelled
+pub jmap_vtc_types::CallEndReason::Completed
+pub jmap_vtc_types::CallEndReason::Declined
+pub jmap_vtc_types::CallEndReason::Failed
+pub jmap_vtc_types::CallEndReason::Missed
+pub jmap_vtc_types::CallEndReason::Other(alloc::string::String)
+pub jmap_vtc_types::CallEndReason::Timeout
+impl core::clone::Clone for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::clone(&self) -> jmap_vtc_types::CallEndReason
+impl core::cmp::Eq for jmap_vtc_types::CallEndReason
+impl core::cmp::PartialEq for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::eq(&self, &jmap_vtc_types::CallEndReason) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::CallEndReason
+impl serde_core::ser::Serialize for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::CallResponse
+pub jmap_vtc_types::CallResponse::Accepted
+pub jmap_vtc_types::CallResponse::Declined
+pub jmap_vtc_types::CallResponse::Other(alloc::string::String)
+pub jmap_vtc_types::CallResponse::Pending
+impl core::clone::Clone for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::clone(&self) -> jmap_vtc_types::CallResponse
+impl core::cmp::Eq for jmap_vtc_types::CallResponse
+impl core::cmp::PartialEq for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::eq(&self, &jmap_vtc_types::CallResponse) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::CallResponse
+impl serde_core::ser::Serialize for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::CallRole
+pub jmap_vtc_types::CallRole::Moderator
+pub jmap_vtc_types::CallRole::Other(alloc::string::String)
+pub jmap_vtc_types::CallRole::Participant
+impl core::clone::Clone for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::clone(&self) -> jmap_vtc_types::CallRole
+impl core::cmp::Eq for jmap_vtc_types::CallRole
+impl core::cmp::PartialEq for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::eq(&self, &jmap_vtc_types::CallRole) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::CallRole
+impl serde_core::ser::Serialize for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::CallState
+pub jmap_vtc_types::CallState::Active
+pub jmap_vtc_types::CallState::Creating
+pub jmap_vtc_types::CallState::Ended
+pub jmap_vtc_types::CallState::Other(alloc::string::String)
+pub jmap_vtc_types::CallState::Pending
+pub jmap_vtc_types::CallState::Ringing
+impl core::clone::Clone for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::clone(&self) -> jmap_vtc_types::CallState
+impl core::cmp::Eq for jmap_vtc_types::CallState
+impl core::cmp::PartialEq for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::eq(&self, &jmap_vtc_types::CallState) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::CallState
+impl serde_core::ser::Serialize for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::CallType
+pub jmap_vtc_types::CallType::Other(alloc::string::String)
+pub jmap_vtc_types::CallType::Ring
+pub jmap_vtc_types::CallType::Room
+pub jmap_vtc_types::CallType::Scheduled
+impl core::clone::Clone for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::clone(&self) -> jmap_vtc_types::CallType
+impl core::cmp::Eq for jmap_vtc_types::CallType
+impl core::cmp::PartialEq for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::eq(&self, &jmap_vtc_types::CallType) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::CallType
+impl serde_core::ser::Serialize for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::GatewayProtocol
+pub jmap_vtc_types::GatewayProtocol::H323
+pub jmap_vtc_types::GatewayProtocol::Other(alloc::string::String)
+pub jmap_vtc_types::GatewayProtocol::Pstn
+pub jmap_vtc_types::GatewayProtocol::Sip
+impl core::clone::Clone for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::clone(&self) -> jmap_vtc_types::GatewayProtocol
+impl core::cmp::Eq for jmap_vtc_types::GatewayProtocol
+impl core::cmp::PartialEq for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::eq(&self, &jmap_vtc_types::GatewayProtocol) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::GatewayProtocol
+impl serde_core::ser::Serialize for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::JoinMethod
+pub jmap_vtc_types::JoinMethod::H323
+pub jmap_vtc_types::JoinMethod::Other(alloc::string::String)
+pub jmap_vtc_types::JoinMethod::Pstn
+pub jmap_vtc_types::JoinMethod::Sip
+pub jmap_vtc_types::JoinMethod::Webrtc
+impl core::clone::Clone for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::clone(&self) -> jmap_vtc_types::JoinMethod
+impl core::cmp::Eq for jmap_vtc_types::JoinMethod
+impl core::cmp::PartialEq for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::eq(&self, &jmap_vtc_types::JoinMethod) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::JoinMethod
+impl serde_core::ser::Serialize for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::LivestreamState
+pub jmap_vtc_types::LivestreamState::Failed
+pub jmap_vtc_types::LivestreamState::Live
+pub jmap_vtc_types::LivestreamState::Other(alloc::string::String)
+pub jmap_vtc_types::LivestreamState::Starting
+pub jmap_vtc_types::LivestreamState::Stopped
+impl core::clone::Clone for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::clone(&self) -> jmap_vtc_types::LivestreamState
+impl core::cmp::Eq for jmap_vtc_types::LivestreamState
+impl core::cmp::PartialEq for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::eq(&self, &jmap_vtc_types::LivestreamState) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::LivestreamState
+impl serde_core::ser::Serialize for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::LobbyState
+pub jmap_vtc_types::LobbyState::Admitted
+pub jmap_vtc_types::LobbyState::Other(alloc::string::String)
+pub jmap_vtc_types::LobbyState::Rejected
+pub jmap_vtc_types::LobbyState::Waiting
+impl core::clone::Clone for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::clone(&self) -> jmap_vtc_types::LobbyState
+impl core::cmp::Eq for jmap_vtc_types::LobbyState
+impl core::cmp::PartialEq for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::eq(&self, &jmap_vtc_types::LobbyState) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::LobbyState
+impl serde_core::ser::Serialize for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::MediaKind
+pub jmap_vtc_types::MediaKind::Audio
+pub jmap_vtc_types::MediaKind::Other(alloc::string::String)
+pub jmap_vtc_types::MediaKind::Screen
+pub jmap_vtc_types::MediaKind::Video
+impl core::clone::Clone for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::clone(&self) -> jmap_vtc_types::MediaKind
+impl core::cmp::Eq for jmap_vtc_types::MediaKind
+impl core::cmp::PartialEq for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::eq(&self, &jmap_vtc_types::MediaKind) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::MediaKind
+impl serde_core::ser::Serialize for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::ParticipantEventKind
+pub jmap_vtc_types::ParticipantEventKind::Joined
+pub jmap_vtc_types::ParticipantEventKind::Kicked
+pub jmap_vtc_types::ParticipantEventKind::Left
+pub jmap_vtc_types::ParticipantEventKind::Other(alloc::string::String)
+impl core::clone::Clone for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::clone(&self) -> jmap_vtc_types::ParticipantEventKind
+impl core::cmp::Eq for jmap_vtc_types::ParticipantEventKind
+impl core::cmp::PartialEq for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::eq(&self, &jmap_vtc_types::ParticipantEventKind) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::ParticipantEventKind
+impl serde_core::ser::Serialize for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::RecordingState
+pub jmap_vtc_types::RecordingState::Available
+pub jmap_vtc_types::RecordingState::Failed
+pub jmap_vtc_types::RecordingState::Other(alloc::string::String)
+pub jmap_vtc_types::RecordingState::Paused
+pub jmap_vtc_types::RecordingState::Processing
+pub jmap_vtc_types::RecordingState::Recording
+pub jmap_vtc_types::RecordingState::Stopped
+impl core::clone::Clone for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::clone(&self) -> jmap_vtc_types::RecordingState
+impl core::cmp::Eq for jmap_vtc_types::RecordingState
+impl core::cmp::PartialEq for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::eq(&self, &jmap_vtc_types::RecordingState) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::RecordingState
+impl serde_core::ser::Serialize for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::RingEndReason
+pub jmap_vtc_types::RingEndReason::AnsweredElsewhere
+pub jmap_vtc_types::RingEndReason::Cancelled
+pub jmap_vtc_types::RingEndReason::Declined
+pub jmap_vtc_types::RingEndReason::Failed
+pub jmap_vtc_types::RingEndReason::Other(alloc::string::String)
+pub jmap_vtc_types::RingEndReason::Timeout
+impl core::clone::Clone for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::clone(&self) -> jmap_vtc_types::RingEndReason
+impl core::cmp::Eq for jmap_vtc_types::RingEndReason
+impl core::cmp::PartialEq for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::eq(&self, &jmap_vtc_types::RingEndReason) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::RingEndReason
+impl serde_core::ser::Serialize for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::SignalDirection
+pub jmap_vtc_types::SignalDirection::Inbound
+pub jmap_vtc_types::SignalDirection::Other(alloc::string::String)
+pub jmap_vtc_types::SignalDirection::Outbound
+impl core::clone::Clone for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::clone(&self) -> jmap_vtc_types::SignalDirection
+impl core::cmp::Eq for jmap_vtc_types::SignalDirection
+impl core::cmp::PartialEq for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::eq(&self, &jmap_vtc_types::SignalDirection) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::SignalDirection
+impl serde_core::ser::Serialize for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::VtcCallSortProperty
+pub jmap_vtc_types::VtcCallSortProperty::CreatedAt
+pub jmap_vtc_types::VtcCallSortProperty::EndedAt
+pub jmap_vtc_types::VtcCallSortProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::clone(&self) -> jmap_vtc_types::VtcCallSortProperty
+impl core::cmp::Eq for jmap_vtc_types::VtcCallSortProperty
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::eq(&self, &jmap_vtc_types::VtcCallSortProperty) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCallSortProperty
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::VtcEvent
+pub jmap_vtc_types::VtcEvent::ActiveSpeaker(jmap_vtc_types::VtcActiveSpeakerEvent)
+pub jmap_vtc_types::VtcEvent::CallEnd(jmap_vtc_types::VtcCallEndEvent)
+pub jmap_vtc_types::VtcEvent::GatewaySignal(jmap_vtc_types::VtcGatewaySignal)
+pub jmap_vtc_types::VtcEvent::MediaState(jmap_vtc_types::VtcMediaStateEvent)
+pub jmap_vtc_types::VtcEvent::Participant(jmap_vtc_types::VtcParticipantEvent)
+pub jmap_vtc_types::VtcEvent::RecordingState(jmap_vtc_types::VtcRecordingStateEvent)
+pub jmap_vtc_types::VtcEvent::Ring(jmap_vtc_types::VtcRingEvent)
+pub jmap_vtc_types::VtcEvent::Unknown
+pub jmap_vtc_types::VtcEvent::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcEvent::Unknown::type_name: alloc::string::String
+pub jmap_vtc_types::VtcEvent::UnmuteRequest(jmap_vtc_types::VtcUnmuteRequestEvent)
+impl jmap_vtc_types::VtcEvent
+pub fn jmap_vtc_types::VtcEvent::type_name(&self) -> &str
+impl core::clone::Clone for jmap_vtc_types::VtcEvent
+pub fn jmap_vtc_types::VtcEvent::clone(&self) -> jmap_vtc_types::VtcEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcEvent
+pub fn jmap_vtc_types::VtcEvent::eq(&self, &jmap_vtc_types::VtcEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcEvent
+pub fn jmap_vtc_types::VtcEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcEvent
+pub fn jmap_vtc_types::VtcEvent::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcEvent
+pub fn jmap_vtc_types::VtcEvent::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::VtcEventType
+pub jmap_vtc_types::VtcEventType::ActiveSpeaker
+pub jmap_vtc_types::VtcEventType::CallEnd
+pub jmap_vtc_types::VtcEventType::GatewaySignal
+pub jmap_vtc_types::VtcEventType::MediaState
+pub jmap_vtc_types::VtcEventType::Other(alloc::string::String)
+pub jmap_vtc_types::VtcEventType::Participant
+pub jmap_vtc_types::VtcEventType::RecordingState
+pub jmap_vtc_types::VtcEventType::Ring
+pub jmap_vtc_types::VtcEventType::UnmuteRequest
+impl jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::clone(&self) -> jmap_vtc_types::VtcEventType
+impl core::cmp::Eq for jmap_vtc_types::VtcEventType
+impl core::cmp::PartialEq for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::eq(&self, &jmap_vtc_types::VtcEventType) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcEventType
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcEventType
+pub fn jmap_vtc_types::VtcEventType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::VtcMediaSortProperty
+pub jmap_vtc_types::VtcMediaSortProperty::Other(alloc::string::String)
+pub jmap_vtc_types::VtcMediaSortProperty::StartedAt
+impl core::clone::Clone for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::clone(&self) -> jmap_vtc_types::VtcMediaSortProperty
+impl core::cmp::Eq for jmap_vtc_types::VtcMediaSortProperty
+impl core::cmp::PartialEq for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::eq(&self, &jmap_vtc_types::VtcMediaSortProperty) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcMediaSortProperty
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::VtcParticipantSortProperty
+pub jmap_vtc_types::VtcParticipantSortProperty::DisplayName
+pub jmap_vtc_types::VtcParticipantSortProperty::JoinedAt
+pub jmap_vtc_types::VtcParticipantSortProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::clone(&self) -> jmap_vtc_types::VtcParticipantSortProperty
+impl core::cmp::Eq for jmap_vtc_types::VtcParticipantSortProperty
+impl core::cmp::PartialEq for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::eq(&self, &jmap_vtc_types::VtcParticipantSortProperty) -> bool
+impl core::convert::From<&str> for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcParticipantSortProperty
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_types::VtcStreamMessage
+pub jmap_vtc_types::VtcStreamMessage::Disable(jmap_vtc_types::VtcStreamDisable)
+pub jmap_vtc_types::VtcStreamMessage::Enable(jmap_vtc_types::VtcStreamEnable)
+pub jmap_vtc_types::VtcStreamMessage::Unknown
+pub jmap_vtc_types::VtcStreamMessage::Unknown::payload: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcStreamMessage::Unknown::type_name: alloc::string::String
+impl core::clone::Clone for jmap_vtc_types::VtcStreamMessage
+pub fn jmap_vtc_types::VtcStreamMessage::clone(&self) -> jmap_vtc_types::VtcStreamMessage
+impl core::cmp::Eq for jmap_vtc_types::VtcStreamMessage
+impl core::cmp::PartialEq for jmap_vtc_types::VtcStreamMessage
+pub fn jmap_vtc_types::VtcStreamMessage::eq(&self, &jmap_vtc_types::VtcStreamMessage) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcStreamMessage
+pub fn jmap_vtc_types::VtcStreamMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcStreamMessage
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcStreamMessage
+pub fn jmap_vtc_types::VtcStreamMessage::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcStreamMessage
+pub fn jmap_vtc_types::VtcStreamMessage::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcActiveSpeakerEvent
+pub jmap_vtc_types::VtcActiveSpeakerEvent::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcActiveSpeakerEvent::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcActiveSpeakerEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcActiveSpeakerEvent::participant_id: jmap_types::id::Id
+impl core::clone::Clone for jmap_vtc_types::VtcActiveSpeakerEvent
+pub fn jmap_vtc_types::VtcActiveSpeakerEvent::clone(&self) -> jmap_vtc_types::VtcActiveSpeakerEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcActiveSpeakerEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcActiveSpeakerEvent
+pub fn jmap_vtc_types::VtcActiveSpeakerEvent::eq(&self, &jmap_vtc_types::VtcActiveSpeakerEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcActiveSpeakerEvent
+pub fn jmap_vtc_types::VtcActiveSpeakerEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcActiveSpeakerEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcActiveSpeakerEvent
+pub fn jmap_vtc_types::VtcActiveSpeakerEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcActiveSpeakerEvent
+pub fn jmap_vtc_types::VtcActiveSpeakerEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcCall
+pub jmap_vtc_types::VtcCall::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcCall::active_participant_count: u64
+pub jmap_vtc_types::VtcCall::breakout_room_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_vtc_types::VtcCall::calendar_event_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcCall::call_type: jmap_vtc_types::CallType
+pub jmap_vtc_types::VtcCall::channel_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcCall::chat_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcCall::created_at: jmap_types::id::UTCDate
+pub jmap_vtc_types::VtcCall::e2ee_enabled: bool
+pub jmap_vtc_types::VtcCall::end_reason: core::option::Option<jmap_vtc_types::CallEndReason>
+pub jmap_vtc_types::VtcCall::ended_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcCall::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcCall::gateway_pin: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCall::id: jmap_types::id::Id
+pub jmap_vtc_types::VtcCall::initiator_id: alloc::string::String
+pub jmap_vtc_types::VtcCall::join_password: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCall::join_uri: alloc::string::String
+pub jmap_vtc_types::VtcCall::lobby_enabled: bool
+pub jmap_vtc_types::VtcCall::media_types: alloc::vec::Vec<jmap_vtc_types::MediaKind>
+pub jmap_vtc_types::VtcCall::parent_call_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcCall::policy: jmap_vtc_types::VtcCallPolicy
+pub jmap_vtc_types::VtcCall::scheduled_start_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcCall::space_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcCall::state: jmap_vtc_types::CallState
+pub jmap_vtc_types::VtcCall::subject: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_vtc_types::VtcCall
+pub fn jmap_vtc_types::VtcCall::clone(&self) -> jmap_vtc_types::VtcCall
+impl core::cmp::Eq for jmap_vtc_types::VtcCall
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCall
+pub fn jmap_vtc_types::VtcCall::eq(&self, &jmap_vtc_types::VtcCall) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcCall
+pub fn jmap_vtc_types::VtcCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCall
+impl jmap_types::backend::GetObject for jmap_vtc_types::VtcCall
+impl jmap_types::backend::JmapObject for jmap_vtc_types::VtcCall
+pub type jmap_vtc_types::VtcCall::Property = ()
+pub const jmap_vtc_types::VtcCall::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_vtc_types::VtcCall
+pub type jmap_vtc_types::VtcCall::Comparator = jmap_vtc_types::VtcCallComparator
+pub type jmap_vtc_types::VtcCall::Filter = jmap_types::query::Filter<jmap_vtc_types::VtcCallFilterCondition>
+impl jmap_types::backend::SetObject for jmap_vtc_types::VtcCall
+pub type jmap_vtc_types::VtcCall::Patch = jmap_types::patch::PatchObject
+pub const jmap_vtc_types::VtcCall::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcCall::IMMUTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcCall::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCall
+pub fn jmap_vtc_types::VtcCall::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCall
+pub fn jmap_vtc_types::VtcCall::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcCallComparator
+pub jmap_vtc_types::VtcCallComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCallComparator::is_ascending: bool
+pub jmap_vtc_types::VtcCallComparator::property: jmap_vtc_types::VtcCallSortProperty
+impl jmap_vtc_types::VtcCallComparator
+pub fn jmap_vtc_types::VtcCallComparator::new(jmap_vtc_types::VtcCallSortProperty) -> Self
+impl core::clone::Clone for jmap_vtc_types::VtcCallComparator
+pub fn jmap_vtc_types::VtcCallComparator::clone(&self) -> jmap_vtc_types::VtcCallComparator
+impl core::cmp::Eq for jmap_vtc_types::VtcCallComparator
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCallComparator
+pub fn jmap_vtc_types::VtcCallComparator::eq(&self, &jmap_vtc_types::VtcCallComparator) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcCallComparator
+pub fn jmap_vtc_types::VtcCallComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCallComparator
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCallComparator
+pub fn jmap_vtc_types::VtcCallComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCallComparator
+pub fn jmap_vtc_types::VtcCallComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcCallEndEvent
+pub jmap_vtc_types::VtcCallEndEvent::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcCallEndEvent::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcCallEndEvent::end_reason: jmap_vtc_types::RingEndReason
+pub jmap_vtc_types::VtcCallEndEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_vtc_types::VtcCallEndEvent
+pub fn jmap_vtc_types::VtcCallEndEvent::clone(&self) -> jmap_vtc_types::VtcCallEndEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcCallEndEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCallEndEvent
+pub fn jmap_vtc_types::VtcCallEndEvent::eq(&self, &jmap_vtc_types::VtcCallEndEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcCallEndEvent
+pub fn jmap_vtc_types::VtcCallEndEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCallEndEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCallEndEvent
+pub fn jmap_vtc_types::VtcCallEndEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCallEndEvent
+pub fn jmap_vtc_types::VtcCallEndEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcCallFilterCondition
+pub jmap_vtc_types::VtcCallFilterCondition::call_type: core::option::Option<jmap_vtc_types::CallType>
+pub jmap_vtc_types::VtcCallFilterCondition::chat_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcCallFilterCondition::created_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcCallFilterCondition::created_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcCallFilterCondition::ended_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcCallFilterCondition::ended_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcCallFilterCondition::has_participant: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCallFilterCondition::initiator_id: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCallFilterCondition::space_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcCallFilterCondition::state: core::option::Option<jmap_vtc_types::CallState>
+impl core::clone::Clone for jmap_vtc_types::VtcCallFilterCondition
+pub fn jmap_vtc_types::VtcCallFilterCondition::clone(&self) -> jmap_vtc_types::VtcCallFilterCondition
+impl core::cmp::Eq for jmap_vtc_types::VtcCallFilterCondition
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCallFilterCondition
+pub fn jmap_vtc_types::VtcCallFilterCondition::eq(&self, &jmap_vtc_types::VtcCallFilterCondition) -> bool
+impl core::default::Default for jmap_vtc_types::VtcCallFilterCondition
+pub fn jmap_vtc_types::VtcCallFilterCondition::default() -> jmap_vtc_types::VtcCallFilterCondition
+impl core::fmt::Debug for jmap_vtc_types::VtcCallFilterCondition
+pub fn jmap_vtc_types::VtcCallFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCallFilterCondition
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCallFilterCondition
+pub fn jmap_vtc_types::VtcCallFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCallFilterCondition
+pub fn jmap_vtc_types::VtcCallFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcCallPolicy
+pub jmap_vtc_types::VtcCallPolicy::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcCallPolicy::mute_on_entry: bool
+pub jmap_vtc_types::VtcCallPolicy::participants_can_share_screen: bool
+pub jmap_vtc_types::VtcCallPolicy::participants_can_start_video: bool
+pub jmap_vtc_types::VtcCallPolicy::participants_can_unmute: bool
+pub jmap_vtc_types::VtcCallPolicy::video_off_on_entry: bool
+impl core::clone::Clone for jmap_vtc_types::VtcCallPolicy
+pub fn jmap_vtc_types::VtcCallPolicy::clone(&self) -> jmap_vtc_types::VtcCallPolicy
+impl core::cmp::Eq for jmap_vtc_types::VtcCallPolicy
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCallPolicy
+pub fn jmap_vtc_types::VtcCallPolicy::eq(&self, &jmap_vtc_types::VtcCallPolicy) -> bool
+impl core::default::Default for jmap_vtc_types::VtcCallPolicy
+pub fn jmap_vtc_types::VtcCallPolicy::default() -> Self
+impl core::fmt::Debug for jmap_vtc_types::VtcCallPolicy
+pub fn jmap_vtc_types::VtcCallPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCallPolicy
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCallPolicy
+pub fn jmap_vtc_types::VtcCallPolicy::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCallPolicy where jmap_vtc_types::VtcCallPolicy: core::default::Default
+pub fn jmap_vtc_types::VtcCallPolicy::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcCallPush
+pub jmap_vtc_types::VtcCallPush::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcCallPush::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcCallPush::call_type: jmap_vtc_types::CallType
+pub jmap_vtc_types::VtcCallPush::channel_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcCallPush::chat_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcCallPush::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcCallPush::initiator_display_name: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCallPush::initiator_id: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCallPush::join_uri: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcCallPush::media_types: core::option::Option<alloc::vec::Vec<jmap_vtc_types::MediaKind>>
+pub jmap_vtc_types::VtcCallPush::space_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcCallPush::subject: core::option::Option<core::option::Option<alloc::string::String>>
+impl core::clone::Clone for jmap_vtc_types::VtcCallPush
+pub fn jmap_vtc_types::VtcCallPush::clone(&self) -> jmap_vtc_types::VtcCallPush
+impl core::cmp::Eq for jmap_vtc_types::VtcCallPush
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCallPush
+pub fn jmap_vtc_types::VtcCallPush::eq(&self, &jmap_vtc_types::VtcCallPush) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcCallPush
+pub fn jmap_vtc_types::VtcCallPush::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCallPush
+impl jmap_vtc_types::VtcCallPush
+pub fn jmap_vtc_types::VtcCallPush::serialize<__S>(&jmap_vtc_types::VtcCallPush, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCallPush
+pub fn jmap_vtc_types::VtcCallPush::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> jmap_vtc_types::VtcCallPush
+pub fn jmap_vtc_types::VtcCallPush::deserialize<__D>(__D) -> core::result::Result<jmap_vtc_types::VtcCallPush, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCallPush
+pub fn jmap_vtc_types::VtcCallPush::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcCapability
+pub jmap_vtc_types::VtcCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcCapability::gateways: core::option::Option<alloc::vec::Vec<jmap_vtc_types::VtcGateway>>
+pub jmap_vtc_types::VtcCapability::max_breakout_rooms: core::option::Option<core::option::Option<u64>>
+pub jmap_vtc_types::VtcCapability::max_concurrent_calls: core::option::Option<u64>
+pub jmap_vtc_types::VtcCapability::max_participants_per_call: core::option::Option<u64>
+pub jmap_vtc_types::VtcCapability::may_create_call: bool
+pub jmap_vtc_types::VtcCapability::supported_media_types: alloc::vec::Vec<jmap_vtc_types::MediaKind>
+pub jmap_vtc_types::VtcCapability::supports_breakout_rooms: bool
+pub jmap_vtc_types::VtcCapability::supports_livestream: bool
+pub jmap_vtc_types::VtcCapability::supports_lobby: bool
+pub jmap_vtc_types::VtcCapability::supports_recording: bool
+pub jmap_vtc_types::VtcCapability::supports_ring_calls: bool
+pub jmap_vtc_types::VtcCapability::supports_room_calls: bool
+pub jmap_vtc_types::VtcCapability::supports_scheduled_calls: bool
+impl core::clone::Clone for jmap_vtc_types::VtcCapability
+pub fn jmap_vtc_types::VtcCapability::clone(&self) -> jmap_vtc_types::VtcCapability
+impl core::cmp::Eq for jmap_vtc_types::VtcCapability
+impl core::cmp::PartialEq for jmap_vtc_types::VtcCapability
+pub fn jmap_vtc_types::VtcCapability::eq(&self, &jmap_vtc_types::VtcCapability) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcCapability
+pub fn jmap_vtc_types::VtcCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCapability
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcCapability
+pub fn jmap_vtc_types::VtcCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcCapability
+pub fn jmap_vtc_types::VtcCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcDialInEntry
+pub jmap_vtc_types::VtcDialInEntry::address: alloc::string::String
+pub jmap_vtc_types::VtcDialInEntry::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcDialInEntry::region: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcDialInEntry::toll_free: bool
+impl core::clone::Clone for jmap_vtc_types::VtcDialInEntry
+pub fn jmap_vtc_types::VtcDialInEntry::clone(&self) -> jmap_vtc_types::VtcDialInEntry
+impl core::cmp::Eq for jmap_vtc_types::VtcDialInEntry
+impl core::cmp::PartialEq for jmap_vtc_types::VtcDialInEntry
+pub fn jmap_vtc_types::VtcDialInEntry::eq(&self, &jmap_vtc_types::VtcDialInEntry) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcDialInEntry
+pub fn jmap_vtc_types::VtcDialInEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcDialInEntry
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcDialInEntry
+pub fn jmap_vtc_types::VtcDialInEntry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcDialInEntry
+pub fn jmap_vtc_types::VtcDialInEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcGateway
+pub jmap_vtc_types::VtcGateway::dial_in_numbers: core::option::Option<alloc::vec::Vec<jmap_vtc_types::VtcDialInEntry>>
+pub jmap_vtc_types::VtcGateway::display_name: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcGateway::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcGateway::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_vtc_types::VtcGateway::protocol: jmap_vtc_types::GatewayProtocol
+pub jmap_vtc_types::VtcGateway::supported_media_types: alloc::vec::Vec<jmap_vtc_types::MediaKind>
+pub jmap_vtc_types::VtcGateway::supports_dial_out: bool
+impl core::clone::Clone for jmap_vtc_types::VtcGateway
+pub fn jmap_vtc_types::VtcGateway::clone(&self) -> jmap_vtc_types::VtcGateway
+impl core::cmp::Eq for jmap_vtc_types::VtcGateway
+impl core::cmp::PartialEq for jmap_vtc_types::VtcGateway
+pub fn jmap_vtc_types::VtcGateway::eq(&self, &jmap_vtc_types::VtcGateway) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcGateway
+pub fn jmap_vtc_types::VtcGateway::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcGateway
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcGateway
+pub fn jmap_vtc_types::VtcGateway::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcGateway
+pub fn jmap_vtc_types::VtcGateway::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcGatewaySignal
+pub jmap_vtc_types::VtcGatewaySignal::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcGatewaySignal::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcGatewaySignal::data: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcGatewaySignal::direction: jmap_vtc_types::SignalDirection
+pub jmap_vtc_types::VtcGatewaySignal::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcGatewaySignal::participant_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcGatewaySignal::protocol: jmap_vtc_types::GatewayProtocol
+pub jmap_vtc_types::VtcGatewaySignal::signal: alloc::string::String
+pub jmap_vtc_types::VtcGatewaySignal::timestamp: jmap_types::id::UTCDate
+impl core::clone::Clone for jmap_vtc_types::VtcGatewaySignal
+pub fn jmap_vtc_types::VtcGatewaySignal::clone(&self) -> jmap_vtc_types::VtcGatewaySignal
+impl core::cmp::Eq for jmap_vtc_types::VtcGatewaySignal
+impl core::cmp::PartialEq for jmap_vtc_types::VtcGatewaySignal
+pub fn jmap_vtc_types::VtcGatewaySignal::eq(&self, &jmap_vtc_types::VtcGatewaySignal) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcGatewaySignal
+pub fn jmap_vtc_types::VtcGatewaySignal::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcGatewaySignal
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcGatewaySignal
+pub fn jmap_vtc_types::VtcGatewaySignal::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcGatewaySignal
+pub fn jmap_vtc_types::VtcGatewaySignal::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcLivestream
+pub jmap_vtc_types::VtcLivestream::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcLivestream::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcLivestream::id: jmap_types::id::Id
+pub jmap_vtc_types::VtcLivestream::platform: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcLivestream::started_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcLivestream::state: jmap_vtc_types::LivestreamState
+pub jmap_vtc_types::VtcLivestream::stopped_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcLivestream::stream_key: alloc::string::String
+pub jmap_vtc_types::VtcLivestream::stream_uri: alloc::string::String
+impl core::clone::Clone for jmap_vtc_types::VtcLivestream
+pub fn jmap_vtc_types::VtcLivestream::clone(&self) -> jmap_vtc_types::VtcLivestream
+impl core::cmp::Eq for jmap_vtc_types::VtcLivestream
+impl core::cmp::PartialEq for jmap_vtc_types::VtcLivestream
+pub fn jmap_vtc_types::VtcLivestream::eq(&self, &jmap_vtc_types::VtcLivestream) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcLivestream
+pub fn jmap_vtc_types::VtcLivestream::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcLivestream
+impl jmap_types::backend::GetObject for jmap_vtc_types::VtcLivestream
+impl jmap_types::backend::JmapObject for jmap_vtc_types::VtcLivestream
+pub type jmap_vtc_types::VtcLivestream::Property = ()
+pub const jmap_vtc_types::VtcLivestream::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_vtc_types::VtcLivestream
+pub type jmap_vtc_types::VtcLivestream::Comparator = jmap_vtc_types::VtcMediaComparator
+pub type jmap_vtc_types::VtcLivestream::Filter = jmap_types::query::Filter<jmap_vtc_types::VtcLivestreamFilterCondition>
+impl jmap_types::backend::SetObject for jmap_vtc_types::VtcLivestream
+pub type jmap_vtc_types::VtcLivestream::Patch = jmap_types::patch::PatchObject
+pub const jmap_vtc_types::VtcLivestream::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcLivestream::IMMUTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcLivestream::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcLivestream
+pub fn jmap_vtc_types::VtcLivestream::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcLivestream
+pub fn jmap_vtc_types::VtcLivestream::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcLivestreamFilterCondition
+pub jmap_vtc_types::VtcLivestreamFilterCondition::call_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcLivestreamFilterCondition::platform: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcLivestreamFilterCondition::state: core::option::Option<jmap_vtc_types::LivestreamState>
+impl core::clone::Clone for jmap_vtc_types::VtcLivestreamFilterCondition
+pub fn jmap_vtc_types::VtcLivestreamFilterCondition::clone(&self) -> jmap_vtc_types::VtcLivestreamFilterCondition
+impl core::cmp::Eq for jmap_vtc_types::VtcLivestreamFilterCondition
+impl core::cmp::PartialEq for jmap_vtc_types::VtcLivestreamFilterCondition
+pub fn jmap_vtc_types::VtcLivestreamFilterCondition::eq(&self, &jmap_vtc_types::VtcLivestreamFilterCondition) -> bool
+impl core::default::Default for jmap_vtc_types::VtcLivestreamFilterCondition
+pub fn jmap_vtc_types::VtcLivestreamFilterCondition::default() -> jmap_vtc_types::VtcLivestreamFilterCondition
+impl core::fmt::Debug for jmap_vtc_types::VtcLivestreamFilterCondition
+pub fn jmap_vtc_types::VtcLivestreamFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcLivestreamFilterCondition
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcLivestreamFilterCondition
+pub fn jmap_vtc_types::VtcLivestreamFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcLivestreamFilterCondition
+pub fn jmap_vtc_types::VtcLivestreamFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcMediaComparator
+pub jmap_vtc_types::VtcMediaComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcMediaComparator::is_ascending: bool
+pub jmap_vtc_types::VtcMediaComparator::property: jmap_vtc_types::VtcMediaSortProperty
+impl jmap_vtc_types::VtcMediaComparator
+pub fn jmap_vtc_types::VtcMediaComparator::new(jmap_vtc_types::VtcMediaSortProperty) -> Self
+impl core::clone::Clone for jmap_vtc_types::VtcMediaComparator
+pub fn jmap_vtc_types::VtcMediaComparator::clone(&self) -> jmap_vtc_types::VtcMediaComparator
+impl core::cmp::Eq for jmap_vtc_types::VtcMediaComparator
+impl core::cmp::PartialEq for jmap_vtc_types::VtcMediaComparator
+pub fn jmap_vtc_types::VtcMediaComparator::eq(&self, &jmap_vtc_types::VtcMediaComparator) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcMediaComparator
+pub fn jmap_vtc_types::VtcMediaComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcMediaComparator
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcMediaComparator
+pub fn jmap_vtc_types::VtcMediaComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcMediaComparator
+pub fn jmap_vtc_types::VtcMediaComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcMediaState
+pub jmap_vtc_types::VtcMediaState::audio: bool
+pub jmap_vtc_types::VtcMediaState::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcMediaState::raised_hand: bool
+pub jmap_vtc_types::VtcMediaState::screen: bool
+pub jmap_vtc_types::VtcMediaState::video: bool
+impl core::clone::Clone for jmap_vtc_types::VtcMediaState
+pub fn jmap_vtc_types::VtcMediaState::clone(&self) -> jmap_vtc_types::VtcMediaState
+impl core::cmp::Eq for jmap_vtc_types::VtcMediaState
+impl core::cmp::PartialEq for jmap_vtc_types::VtcMediaState
+pub fn jmap_vtc_types::VtcMediaState::eq(&self, &jmap_vtc_types::VtcMediaState) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcMediaState
+pub fn jmap_vtc_types::VtcMediaState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcMediaState
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcMediaState
+pub fn jmap_vtc_types::VtcMediaState::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcMediaState
+pub fn jmap_vtc_types::VtcMediaState::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcMediaStateEvent
+pub jmap_vtc_types::VtcMediaStateEvent::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcMediaStateEvent::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcMediaStateEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcMediaStateEvent::media_state: jmap_vtc_types::VtcMediaState
+pub jmap_vtc_types::VtcMediaStateEvent::participant_id: jmap_types::id::Id
+impl core::clone::Clone for jmap_vtc_types::VtcMediaStateEvent
+pub fn jmap_vtc_types::VtcMediaStateEvent::clone(&self) -> jmap_vtc_types::VtcMediaStateEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcMediaStateEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcMediaStateEvent
+pub fn jmap_vtc_types::VtcMediaStateEvent::eq(&self, &jmap_vtc_types::VtcMediaStateEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcMediaStateEvent
+pub fn jmap_vtc_types::VtcMediaStateEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcMediaStateEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcMediaStateEvent
+pub fn jmap_vtc_types::VtcMediaStateEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcMediaStateEvent
+pub fn jmap_vtc_types::VtcMediaStateEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcParticipant
+pub jmap_vtc_types::VtcParticipant::breakout_call_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcParticipant::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcParticipant::call_response: core::option::Option<jmap_vtc_types::CallResponse>
+pub jmap_vtc_types::VtcParticipant::display_name: alloc::string::String
+pub jmap_vtc_types::VtcParticipant::e2ee_fingerprint: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcParticipant::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcParticipant::gateway_data: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_vtc_types::VtcParticipant::id: jmap_types::id::Id
+pub jmap_vtc_types::VtcParticipant::join_method: jmap_vtc_types::JoinMethod
+pub jmap_vtc_types::VtcParticipant::joined_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcParticipant::kicked_by: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcParticipant::left_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcParticipant::lobby_state: core::option::Option<jmap_vtc_types::LobbyState>
+pub jmap_vtc_types::VtcParticipant::media_state: jmap_vtc_types::VtcMediaState
+pub jmap_vtc_types::VtcParticipant::role: jmap_vtc_types::CallRole
+pub jmap_vtc_types::VtcParticipant::speaker_time_ms: u64
+pub jmap_vtc_types::VtcParticipant::unmute_requested: bool
+pub jmap_vtc_types::VtcParticipant::user_id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_vtc_types::VtcParticipant
+pub fn jmap_vtc_types::VtcParticipant::clone(&self) -> jmap_vtc_types::VtcParticipant
+impl core::cmp::Eq for jmap_vtc_types::VtcParticipant
+impl core::cmp::PartialEq for jmap_vtc_types::VtcParticipant
+pub fn jmap_vtc_types::VtcParticipant::eq(&self, &jmap_vtc_types::VtcParticipant) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcParticipant
+pub fn jmap_vtc_types::VtcParticipant::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcParticipant
+impl jmap_types::backend::GetObject for jmap_vtc_types::VtcParticipant
+impl jmap_types::backend::JmapObject for jmap_vtc_types::VtcParticipant
+pub type jmap_vtc_types::VtcParticipant::Property = ()
+pub const jmap_vtc_types::VtcParticipant::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_vtc_types::VtcParticipant
+pub type jmap_vtc_types::VtcParticipant::Comparator = jmap_vtc_types::VtcParticipantComparator
+pub type jmap_vtc_types::VtcParticipant::Filter = jmap_types::query::Filter<jmap_vtc_types::VtcParticipantFilterCondition>
+impl jmap_types::backend::SetObject for jmap_vtc_types::VtcParticipant
+pub type jmap_vtc_types::VtcParticipant::Patch = jmap_types::patch::PatchObject
+pub const jmap_vtc_types::VtcParticipant::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcParticipant::IMMUTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcParticipant::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcParticipant
+pub fn jmap_vtc_types::VtcParticipant::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcParticipant
+pub fn jmap_vtc_types::VtcParticipant::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcParticipantComparator
+pub jmap_vtc_types::VtcParticipantComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcParticipantComparator::is_ascending: bool
+pub jmap_vtc_types::VtcParticipantComparator::property: jmap_vtc_types::VtcParticipantSortProperty
+impl jmap_vtc_types::VtcParticipantComparator
+pub fn jmap_vtc_types::VtcParticipantComparator::new(jmap_vtc_types::VtcParticipantSortProperty) -> Self
+impl core::clone::Clone for jmap_vtc_types::VtcParticipantComparator
+pub fn jmap_vtc_types::VtcParticipantComparator::clone(&self) -> jmap_vtc_types::VtcParticipantComparator
+impl core::cmp::Eq for jmap_vtc_types::VtcParticipantComparator
+impl core::cmp::PartialEq for jmap_vtc_types::VtcParticipantComparator
+pub fn jmap_vtc_types::VtcParticipantComparator::eq(&self, &jmap_vtc_types::VtcParticipantComparator) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcParticipantComparator
+pub fn jmap_vtc_types::VtcParticipantComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcParticipantComparator
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcParticipantComparator
+pub fn jmap_vtc_types::VtcParticipantComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcParticipantComparator
+pub fn jmap_vtc_types::VtcParticipantComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcParticipantEvent
+pub jmap_vtc_types::VtcParticipantEvent::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcParticipantEvent::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcParticipantEvent::display_name: alloc::string::String
+pub jmap_vtc_types::VtcParticipantEvent::event: jmap_vtc_types::ParticipantEventKind
+pub jmap_vtc_types::VtcParticipantEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcParticipantEvent::participant_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcParticipantEvent::role: jmap_vtc_types::CallRole
+impl core::clone::Clone for jmap_vtc_types::VtcParticipantEvent
+pub fn jmap_vtc_types::VtcParticipantEvent::clone(&self) -> jmap_vtc_types::VtcParticipantEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcParticipantEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcParticipantEvent
+pub fn jmap_vtc_types::VtcParticipantEvent::eq(&self, &jmap_vtc_types::VtcParticipantEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcParticipantEvent
+pub fn jmap_vtc_types::VtcParticipantEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcParticipantEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcParticipantEvent
+pub fn jmap_vtc_types::VtcParticipantEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcParticipantEvent
+pub fn jmap_vtc_types::VtcParticipantEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcParticipantFilterCondition
+pub jmap_vtc_types::VtcParticipantFilterCondition::call_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcParticipantFilterCondition::is_active: core::option::Option<bool>
+pub jmap_vtc_types::VtcParticipantFilterCondition::join_method: core::option::Option<jmap_vtc_types::JoinMethod>
+pub jmap_vtc_types::VtcParticipantFilterCondition::lobby_state: core::option::Option<jmap_vtc_types::LobbyState>
+pub jmap_vtc_types::VtcParticipantFilterCondition::role: core::option::Option<jmap_vtc_types::CallRole>
+pub jmap_vtc_types::VtcParticipantFilterCondition::user_id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_vtc_types::VtcParticipantFilterCondition
+pub fn jmap_vtc_types::VtcParticipantFilterCondition::clone(&self) -> jmap_vtc_types::VtcParticipantFilterCondition
+impl core::cmp::Eq for jmap_vtc_types::VtcParticipantFilterCondition
+impl core::cmp::PartialEq for jmap_vtc_types::VtcParticipantFilterCondition
+pub fn jmap_vtc_types::VtcParticipantFilterCondition::eq(&self, &jmap_vtc_types::VtcParticipantFilterCondition) -> bool
+impl core::default::Default for jmap_vtc_types::VtcParticipantFilterCondition
+pub fn jmap_vtc_types::VtcParticipantFilterCondition::default() -> jmap_vtc_types::VtcParticipantFilterCondition
+impl core::fmt::Debug for jmap_vtc_types::VtcParticipantFilterCondition
+pub fn jmap_vtc_types::VtcParticipantFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcParticipantFilterCondition
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcParticipantFilterCondition
+pub fn jmap_vtc_types::VtcParticipantFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcParticipantFilterCondition
+pub fn jmap_vtc_types::VtcParticipantFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcRecording
+pub jmap_vtc_types::VtcRecording::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcRecording::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcRecording::duration: core::option::Option<u64>
+pub jmap_vtc_types::VtcRecording::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcRecording::id: jmap_types::id::Id
+pub jmap_vtc_types::VtcRecording::initiated_by: alloc::string::String
+pub jmap_vtc_types::VtcRecording::media_type: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcRecording::size: core::option::Option<u64>
+pub jmap_vtc_types::VtcRecording::started_at: jmap_types::id::UTCDate
+pub jmap_vtc_types::VtcRecording::state: jmap_vtc_types::RecordingState
+pub jmap_vtc_types::VtcRecording::stopped_at: core::option::Option<jmap_types::id::UTCDate>
+impl core::clone::Clone for jmap_vtc_types::VtcRecording
+pub fn jmap_vtc_types::VtcRecording::clone(&self) -> jmap_vtc_types::VtcRecording
+impl core::cmp::Eq for jmap_vtc_types::VtcRecording
+impl core::cmp::PartialEq for jmap_vtc_types::VtcRecording
+pub fn jmap_vtc_types::VtcRecording::eq(&self, &jmap_vtc_types::VtcRecording) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcRecording
+pub fn jmap_vtc_types::VtcRecording::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcRecording
+impl jmap_types::backend::GetObject for jmap_vtc_types::VtcRecording
+impl jmap_types::backend::JmapObject for jmap_vtc_types::VtcRecording
+pub type jmap_vtc_types::VtcRecording::Property = ()
+pub const jmap_vtc_types::VtcRecording::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_vtc_types::VtcRecording
+pub type jmap_vtc_types::VtcRecording::Comparator = jmap_vtc_types::VtcMediaComparator
+pub type jmap_vtc_types::VtcRecording::Filter = jmap_types::query::Filter<jmap_vtc_types::VtcRecordingFilterCondition>
+impl jmap_types::backend::SetObject for jmap_vtc_types::VtcRecording
+pub type jmap_vtc_types::VtcRecording::Patch = jmap_types::patch::PatchObject
+pub const jmap_vtc_types::VtcRecording::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcRecording::IMMUTABLE: &'static [&'static str]
+pub const jmap_vtc_types::VtcRecording::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcRecording
+pub fn jmap_vtc_types::VtcRecording::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcRecording
+pub fn jmap_vtc_types::VtcRecording::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcRecordingFilterCondition
+pub jmap_vtc_types::VtcRecordingFilterCondition::call_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcRecordingFilterCondition::initiated_by: core::option::Option<alloc::string::String>
+pub jmap_vtc_types::VtcRecordingFilterCondition::started_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcRecordingFilterCondition::started_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_vtc_types::VtcRecordingFilterCondition::state: core::option::Option<jmap_vtc_types::RecordingState>
+impl core::clone::Clone for jmap_vtc_types::VtcRecordingFilterCondition
+pub fn jmap_vtc_types::VtcRecordingFilterCondition::clone(&self) -> jmap_vtc_types::VtcRecordingFilterCondition
+impl core::cmp::Eq for jmap_vtc_types::VtcRecordingFilterCondition
+impl core::cmp::PartialEq for jmap_vtc_types::VtcRecordingFilterCondition
+pub fn jmap_vtc_types::VtcRecordingFilterCondition::eq(&self, &jmap_vtc_types::VtcRecordingFilterCondition) -> bool
+impl core::default::Default for jmap_vtc_types::VtcRecordingFilterCondition
+pub fn jmap_vtc_types::VtcRecordingFilterCondition::default() -> jmap_vtc_types::VtcRecordingFilterCondition
+impl core::fmt::Debug for jmap_vtc_types::VtcRecordingFilterCondition
+pub fn jmap_vtc_types::VtcRecordingFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcRecordingFilterCondition
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcRecordingFilterCondition
+pub fn jmap_vtc_types::VtcRecordingFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcRecordingFilterCondition
+pub fn jmap_vtc_types::VtcRecordingFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcRecordingStateEvent
+pub jmap_vtc_types::VtcRecordingStateEvent::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcRecordingStateEvent::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcRecordingStateEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcRecordingStateEvent::initiated_by: alloc::string::String
+pub jmap_vtc_types::VtcRecordingStateEvent::livestream_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcRecordingStateEvent::recording_id: core::option::Option<jmap_types::id::Id>
+pub jmap_vtc_types::VtcRecordingStateEvent::state: jmap_vtc_types::RecordingState
+impl core::clone::Clone for jmap_vtc_types::VtcRecordingStateEvent
+pub fn jmap_vtc_types::VtcRecordingStateEvent::clone(&self) -> jmap_vtc_types::VtcRecordingStateEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcRecordingStateEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcRecordingStateEvent
+pub fn jmap_vtc_types::VtcRecordingStateEvent::eq(&self, &jmap_vtc_types::VtcRecordingStateEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcRecordingStateEvent
+pub fn jmap_vtc_types::VtcRecordingStateEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcRecordingStateEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcRecordingStateEvent
+pub fn jmap_vtc_types::VtcRecordingStateEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcRecordingStateEvent
+pub fn jmap_vtc_types::VtcRecordingStateEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcRingEvent
+pub jmap_vtc_types::VtcRingEvent::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcRingEvent::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcRingEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcRingEvent::initiator_id: alloc::string::String
+pub jmap_vtc_types::VtcRingEvent::join_uri: alloc::string::String
+pub jmap_vtc_types::VtcRingEvent::media_types: alloc::vec::Vec<jmap_vtc_types::MediaKind>
+impl core::clone::Clone for jmap_vtc_types::VtcRingEvent
+pub fn jmap_vtc_types::VtcRingEvent::clone(&self) -> jmap_vtc_types::VtcRingEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcRingEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcRingEvent
+pub fn jmap_vtc_types::VtcRingEvent::eq(&self, &jmap_vtc_types::VtcRingEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcRingEvent
+pub fn jmap_vtc_types::VtcRingEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcRingEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcRingEvent
+pub fn jmap_vtc_types::VtcRingEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcRingEvent
+pub fn jmap_vtc_types::VtcRingEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcStreamDisable
+pub jmap_vtc_types::VtcStreamDisable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_vtc_types::VtcStreamDisable
+pub fn jmap_vtc_types::VtcStreamDisable::clone(&self) -> jmap_vtc_types::VtcStreamDisable
+impl core::cmp::Eq for jmap_vtc_types::VtcStreamDisable
+impl core::cmp::PartialEq for jmap_vtc_types::VtcStreamDisable
+pub fn jmap_vtc_types::VtcStreamDisable::eq(&self, &jmap_vtc_types::VtcStreamDisable) -> bool
+impl core::default::Default for jmap_vtc_types::VtcStreamDisable
+pub fn jmap_vtc_types::VtcStreamDisable::default() -> jmap_vtc_types::VtcStreamDisable
+impl core::fmt::Debug for jmap_vtc_types::VtcStreamDisable
+pub fn jmap_vtc_types::VtcStreamDisable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcStreamDisable
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcStreamDisable
+pub fn jmap_vtc_types::VtcStreamDisable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcStreamDisable
+pub fn jmap_vtc_types::VtcStreamDisable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcStreamEnable
+pub jmap_vtc_types::VtcStreamEnable::call_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_vtc_types::VtcStreamEnable::event_types: core::option::Option<alloc::vec::Vec<jmap_vtc_types::VtcEventType>>
+pub jmap_vtc_types::VtcStreamEnable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcStreamEnable::id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_vtc_types::VtcStreamEnable
+pub fn jmap_vtc_types::VtcStreamEnable::clone(&self) -> jmap_vtc_types::VtcStreamEnable
+impl core::cmp::Eq for jmap_vtc_types::VtcStreamEnable
+impl core::cmp::PartialEq for jmap_vtc_types::VtcStreamEnable
+pub fn jmap_vtc_types::VtcStreamEnable::eq(&self, &jmap_vtc_types::VtcStreamEnable) -> bool
+impl core::default::Default for jmap_vtc_types::VtcStreamEnable
+pub fn jmap_vtc_types::VtcStreamEnable::default() -> jmap_vtc_types::VtcStreamEnable
+impl core::fmt::Debug for jmap_vtc_types::VtcStreamEnable
+pub fn jmap_vtc_types::VtcStreamEnable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcStreamEnable
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcStreamEnable
+pub fn jmap_vtc_types::VtcStreamEnable::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcStreamEnable
+pub fn jmap_vtc_types::VtcStreamEnable::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_types::VtcUnmuteRequestEvent
+pub jmap_vtc_types::VtcUnmuteRequestEvent::account_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcUnmuteRequestEvent::call_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcUnmuteRequestEvent::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_vtc_types::VtcUnmuteRequestEvent::participant_id: jmap_types::id::Id
+pub jmap_vtc_types::VtcUnmuteRequestEvent::requested_by: alloc::string::String
+impl core::clone::Clone for jmap_vtc_types::VtcUnmuteRequestEvent
+pub fn jmap_vtc_types::VtcUnmuteRequestEvent::clone(&self) -> jmap_vtc_types::VtcUnmuteRequestEvent
+impl core::cmp::Eq for jmap_vtc_types::VtcUnmuteRequestEvent
+impl core::cmp::PartialEq for jmap_vtc_types::VtcUnmuteRequestEvent
+pub fn jmap_vtc_types::VtcUnmuteRequestEvent::eq(&self, &jmap_vtc_types::VtcUnmuteRequestEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_types::VtcUnmuteRequestEvent
+pub fn jmap_vtc_types::VtcUnmuteRequestEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcUnmuteRequestEvent
+impl serde_core::ser::Serialize for jmap_vtc_types::VtcUnmuteRequestEvent
+pub fn jmap_vtc_types::VtcUnmuteRequestEvent::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_types::VtcUnmuteRequestEvent
+pub fn jmap_vtc_types::VtcUnmuteRequestEvent::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_vtc_types::JMAP_VTC_URI: &str
+pub const jmap_vtc_types::JMAP_VTC_WEBSOCKET_URI: &str
+pub const jmap_vtc_types::VTC_EVENT_TYPES: &[&str]
+pub type jmap_vtc_types::VtcCallFilter = jmap_types::query::Filter<jmap_vtc_types::VtcCallFilterCondition>
+pub type jmap_vtc_types::VtcLivestreamFilter = jmap_types::query::Filter<jmap_vtc_types::VtcLivestreamFilterCondition>
+pub type jmap_vtc_types::VtcParticipantFilter = jmap_types::query::Filter<jmap_vtc_types::VtcParticipantFilterCondition>
+pub type jmap_vtc_types::VtcRecordingFilter = jmap_types::query::Filter<jmap_vtc_types::VtcRecordingFilterCondition>

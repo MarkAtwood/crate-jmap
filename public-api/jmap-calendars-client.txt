@@ -1,0 +1,155 @@
+pub mod jmap_calendars_client
+pub use jmap_calendars_client::AddedItem
+pub use jmap_calendars_client::ChangesResponse
+pub use jmap_calendars_client::ClientError
+pub use jmap_calendars_client::CopyResponse
+pub use jmap_calendars_client::GetResponse
+pub use jmap_calendars_client::PartialObject
+pub use jmap_calendars_client::QueryChangesResponse
+pub use jmap_calendars_client::QueryResponse
+pub use jmap_calendars_client::SetError
+pub use jmap_calendars_client::SetResponse
+pub struct jmap_calendars_client::CalendarEventCopyParams
+pub jmap_calendars_client::CalendarEventCopyParams::destroy_from_if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_calendars_client::CalendarEventCopyParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::CalendarEventCopyParams::from_account_id: jmap_types::id::Id
+pub jmap_calendars_client::CalendarEventCopyParams::if_from_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_calendars_client::CalendarEventCopyParams::if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_calendars_client::CalendarEventCopyParams::on_success_destroy_original: core::option::Option<bool>
+impl core::clone::Clone for jmap_calendars_client::CalendarEventCopyParams
+pub fn jmap_calendars_client::CalendarEventCopyParams::clone(&self) -> jmap_calendars_client::CalendarEventCopyParams
+impl core::fmt::Debug for jmap_calendars_client::CalendarEventCopyParams
+pub fn jmap_calendars_client::CalendarEventCopyParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_client::CalendarEventCopyParams
+pub fn jmap_calendars_client::CalendarEventCopyParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_calendars_client::CalendarEventGetParams
+pub jmap_calendars_client::CalendarEventGetParams::expand_recurrences: core::option::Option<bool>
+pub jmap_calendars_client::CalendarEventGetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::CalendarEventGetParams::fetch_calendars: core::option::Option<bool>
+pub jmap_calendars_client::CalendarEventGetParams::reduced_participants: core::option::Option<bool>
+impl core::clone::Clone for jmap_calendars_client::CalendarEventGetParams
+pub fn jmap_calendars_client::CalendarEventGetParams::clone(&self) -> jmap_calendars_client::CalendarEventGetParams
+impl core::default::Default for jmap_calendars_client::CalendarEventGetParams
+pub fn jmap_calendars_client::CalendarEventGetParams::default() -> jmap_calendars_client::CalendarEventGetParams
+impl core::fmt::Debug for jmap_calendars_client::CalendarEventGetParams
+pub fn jmap_calendars_client::CalendarEventGetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_client::CalendarEventGetParams
+pub fn jmap_calendars_client::CalendarEventGetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_calendars_client::CalendarEventParseParams
+pub jmap_calendars_client::CalendarEventParseParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::CalendarEventParseParams::properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+impl core::clone::Clone for jmap_calendars_client::CalendarEventParseParams
+pub fn jmap_calendars_client::CalendarEventParseParams::clone(&self) -> jmap_calendars_client::CalendarEventParseParams
+impl core::default::Default for jmap_calendars_client::CalendarEventParseParams
+pub fn jmap_calendars_client::CalendarEventParseParams::default() -> jmap_calendars_client::CalendarEventParseParams
+impl core::fmt::Debug for jmap_calendars_client::CalendarEventParseParams
+pub fn jmap_calendars_client::CalendarEventParseParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_client::CalendarEventParseParams
+pub fn jmap_calendars_client::CalendarEventParseParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_calendars_client::CalendarEventParseResponse
+pub jmap_calendars_client::CalendarEventParseResponse::account_id: jmap_types::id::Id
+pub jmap_calendars_client::CalendarEventParseResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::CalendarEventParseResponse::not_found: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_calendars_client::CalendarEventParseResponse::not_parsable: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_calendars_client::CalendarEventParseResponse::parsed: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_calendars_types::event::CalendarEvent>>>
+impl core::clone::Clone for jmap_calendars_client::CalendarEventParseResponse
+pub fn jmap_calendars_client::CalendarEventParseResponse::clone(&self) -> jmap_calendars_client::CalendarEventParseResponse
+impl core::fmt::Debug for jmap_calendars_client::CalendarEventParseResponse
+pub fn jmap_calendars_client::CalendarEventParseResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_client::CalendarEventParseResponse
+pub fn jmap_calendars_client::CalendarEventParseResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_calendars_client::CalendarEventSetParams
+pub jmap_calendars_client::CalendarEventSetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::CalendarEventSetParams::send_scheduling_messages: core::option::Option<bool>
+impl core::clone::Clone for jmap_calendars_client::CalendarEventSetParams
+pub fn jmap_calendars_client::CalendarEventSetParams::clone(&self) -> jmap_calendars_client::CalendarEventSetParams
+impl core::default::Default for jmap_calendars_client::CalendarEventSetParams
+pub fn jmap_calendars_client::CalendarEventSetParams::default() -> jmap_calendars_client::CalendarEventSetParams
+impl core::fmt::Debug for jmap_calendars_client::CalendarEventSetParams
+pub fn jmap_calendars_client::CalendarEventSetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_client::CalendarEventSetParams
+pub fn jmap_calendars_client::CalendarEventSetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_calendars_client::CalendarSetParams
+pub jmap_calendars_client::CalendarSetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::CalendarSetParams::on_destroy_remove_events: core::option::Option<bool>
+pub jmap_calendars_client::CalendarSetParams::on_success_set_is_default: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_calendars_client::CalendarSetParams
+pub fn jmap_calendars_client::CalendarSetParams::clone(&self) -> jmap_calendars_client::CalendarSetParams
+impl core::default::Default for jmap_calendars_client::CalendarSetParams
+pub fn jmap_calendars_client::CalendarSetParams::default() -> jmap_calendars_client::CalendarSetParams
+impl core::fmt::Debug for jmap_calendars_client::CalendarSetParams
+pub fn jmap_calendars_client::CalendarSetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_client::CalendarSetParams
+pub fn jmap_calendars_client::CalendarSetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_calendars_client::ParticipantIdentitySetParams
+pub jmap_calendars_client::ParticipantIdentitySetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::ParticipantIdentitySetParams::on_success_set_is_default: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_calendars_client::ParticipantIdentitySetParams
+pub fn jmap_calendars_client::ParticipantIdentitySetParams::clone(&self) -> jmap_calendars_client::ParticipantIdentitySetParams
+impl core::default::Default for jmap_calendars_client::ParticipantIdentitySetParams
+pub fn jmap_calendars_client::ParticipantIdentitySetParams::default() -> jmap_calendars_client::ParticipantIdentitySetParams
+impl core::fmt::Debug for jmap_calendars_client::ParticipantIdentitySetParams
+pub fn jmap_calendars_client::ParticipantIdentitySetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_client::ParticipantIdentitySetParams
+pub fn jmap_calendars_client::ParticipantIdentitySetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_calendars_client::PrincipalGetAvailabilityParams
+pub jmap_calendars_client::PrincipalGetAvailabilityParams::event_properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_calendars_client::PrincipalGetAvailabilityParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::PrincipalGetAvailabilityParams::show_details: core::option::Option<bool>
+impl core::clone::Clone for jmap_calendars_client::PrincipalGetAvailabilityParams
+pub fn jmap_calendars_client::PrincipalGetAvailabilityParams::clone(&self) -> jmap_calendars_client::PrincipalGetAvailabilityParams
+impl core::default::Default for jmap_calendars_client::PrincipalGetAvailabilityParams
+pub fn jmap_calendars_client::PrincipalGetAvailabilityParams::default() -> jmap_calendars_client::PrincipalGetAvailabilityParams
+impl core::fmt::Debug for jmap_calendars_client::PrincipalGetAvailabilityParams
+pub fn jmap_calendars_client::PrincipalGetAvailabilityParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_calendars_client::PrincipalGetAvailabilityParams
+pub fn jmap_calendars_client::PrincipalGetAvailabilityParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_calendars_client::PrincipalGetAvailabilityResponse
+pub jmap_calendars_client::PrincipalGetAvailabilityResponse::account_id: jmap_types::id::Id
+pub jmap_calendars_client::PrincipalGetAvailabilityResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_calendars_client::PrincipalGetAvailabilityResponse::list: alloc::vec::Vec<jmap_calendars_types::availability::BusyPeriod>
+impl core::clone::Clone for jmap_calendars_client::PrincipalGetAvailabilityResponse
+pub fn jmap_calendars_client::PrincipalGetAvailabilityResponse::clone(&self) -> jmap_calendars_client::PrincipalGetAvailabilityResponse
+impl core::fmt::Debug for jmap_calendars_client::PrincipalGetAvailabilityResponse
+pub fn jmap_calendars_client::PrincipalGetAvailabilityResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for jmap_calendars_client::PrincipalGetAvailabilityResponse
+pub fn jmap_calendars_client::PrincipalGetAvailabilityResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_calendars_client::SessionClient
+impl jmap_calendars_client::SessionClient
+pub async fn jmap_calendars_client::SessionClient::calendar_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_calendars_types::calendar::Calendar>, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_calendars_client::CalendarSetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_calendars_client::SessionClient
+pub async fn jmap_calendars_client::SessionClient::calendar_event_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>, core::option::Option<jmap_calendars_client::CalendarEventGetParams>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_calendars_types::event::CalendarEvent>, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_calendars_types::event::CalendarEventComparator]>, &jmap_base_client::query::QueryParams, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_calendars_types::event::CalendarEventComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_calendars_client::CalendarEventSetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_calendars_client::SessionClient
+pub async fn jmap_calendars_client::SessionClient::calendar_event_copy(&self, jmap_calendars_client::CalendarEventCopyParams, serde_json::value::Value) -> core::result::Result<jmap_types::methods::CopyResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_calendars_client::SessionClient
+pub async fn jmap_calendars_client::SessionClient::calendar_event_notification_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_notification_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_calendars_types::notification::CalendarEventNotification>, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_notification_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_calendars_types::notification::CalendarEventNotificationComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_notification_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_calendars_types::notification::CalendarEventNotificationComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::calendar_event_notification_set(&self, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_calendars_client::SessionClient
+pub async fn jmap_calendars_client::SessionClient::calendar_event_parse(&self, &[jmap_types::id::Id], core::option::Option<jmap_calendars_client::CalendarEventParseParams>) -> core::result::Result<jmap_calendars_client::CalendarEventParseResponse, jmap_base_client::error::ClientError>
+impl jmap_calendars_client::SessionClient
+pub fn jmap_calendars_client::SessionClient::calendars_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_calendars_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_calendars_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_calendars_client::SessionClient
+pub async fn jmap_calendars_client::SessionClient::participant_identity_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::participant_identity_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_calendars_types::participant_identity::ParticipantIdentity>, jmap_base_client::error::ClientError>
+pub async fn jmap_calendars_client::SessionClient::participant_identity_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_calendars_client::ParticipantIdentitySetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_calendars_client::SessionClient
+pub async fn jmap_calendars_client::SessionClient::principal_get_availability(&self, &jmap_types::id::Id, &jmap_types::id::UTCDate, &jmap_types::id::UTCDate, core::option::Option<jmap_calendars_client::PrincipalGetAvailabilityParams>) -> core::result::Result<jmap_calendars_client::PrincipalGetAvailabilityResponse, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_calendars_client::SessionClient
+pub fn jmap_calendars_client::SessionClient::clone(&self) -> jmap_calendars_client::SessionClient
+impl core::fmt::Debug for jmap_calendars_client::SessionClient
+pub fn jmap_calendars_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_calendars_client::JmapCalendarsExt: jmap_calendars_client::sealed::Sealed
+pub fn jmap_calendars_client::JmapCalendarsExt::with_calendars_session(&self, jmap_base_client::request::Session) -> jmap_calendars_client::SessionClient
+impl jmap_calendars_client::JmapCalendarsExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_calendars_session(&self, jmap_base_client::request::Session) -> jmap_calendars_client::SessionClient
