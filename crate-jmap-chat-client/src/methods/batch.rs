@@ -119,9 +119,8 @@ impl Batch {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing `filter` or `sort` fails, as for `chat_query`. Nothing is
-    ///   added on error.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     #[allow(clippy::type_complexity)]
     pub fn chat_query_get<C: Serialize>(
         &mut self,

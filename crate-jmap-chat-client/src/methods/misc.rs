@@ -23,6 +23,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -44,8 +46,7 @@ impl super::SessionClient {
         // the rationale. ReadPosition/get has no `properties` parameter.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice)
-                .map_err(jmap_base_client::ClientError::from_parse)?;
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         let req = super::build_request("ReadPosition/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -175,10 +176,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing the typed `presence` enum or any `Clearable`
-    ///   entry (`status_text`, `status_emoji`, `expires_at`) fails
-    ///   (pathological conditions only).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -196,30 +195,15 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
         if let Some(p) = &patch.presence {
-            patch_map.insert(
-                "presence".into(),
-                serde_json::to_value(p).map_err(jmap_base_client::ClientError::from_parse)?,
-            );
+            patch_map.insert("presence".into(), jmap_base_client::to_args(p)?);
         }
-        if let Some(entry) = patch
-            .status_text
-            .map_entry()
-            .map_err(jmap_base_client::ClientError::from_parse)?
-        {
+        if let Some(entry) = patch.status_text.map_entry()? {
             patch_map.insert("statusText".into(), entry);
         }
-        if let Some(entry) = patch
-            .status_emoji
-            .map_entry()
-            .map_err(jmap_base_client::ClientError::from_parse)?
-        {
+        if let Some(entry) = patch.status_emoji.map_entry()? {
             patch_map.insert("statusEmoji".into(), entry);
         }
-        if let Some(entry) = patch
-            .expires_at
-            .map_entry()
-            .map_err(jmap_base_client::ClientError::from_parse)?
-        {
+        if let Some(entry) = patch.expires_at.map_entry()? {
             patch_map.insert("expiresAt".into(), entry);
         }
         if let Some(rs) = patch.receipt_sharing {
@@ -306,9 +290,8 @@ impl super::SessionClient {
     ///   if `input.device_client_id` or `input.url` is empty
     ///   (caller-precondition guards), or if `input.chat_push` carries
     ///   duplicate `accountId` keys in the slice.
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing any typed [`ChatPushConfig`](jmap_chat_types::ChatPushConfig)
-    ///   value fails (pathological conditions only).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -407,10 +390,8 @@ impl super::SessionClient {
     ///   itself prevent empty values), or if `patch.chat_push` is
     ///   [`Patch::Set`] and the slice contains duplicate `accountId`
     ///   keys.
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing the `expires` `Clearable` entry or any
-    ///   [`ChatPushConfig`](jmap_chat_types::ChatPushConfig) value
-    ///   fails (pathological conditions only).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::push_subscription_create`].
@@ -434,11 +415,7 @@ impl super::SessionClient {
         if let Some(code) = patch.verification_code {
             patch_map.insert("verificationCode".into(), code.into());
         }
-        if let Some(entry) = patch
-            .expires
-            .map_entry()
-            .map_err(jmap_base_client::ClientError::from_parse)?
-        {
+        if let Some(entry) = patch.expires.map_entry()? {
             patch_map.insert("expires".into(), entry);
         }
         match &patch.types {
@@ -583,8 +560,7 @@ fn build_chat_push_map(
     let mut chat_push_map = serde_json::Map::new();
     for (account_id, config) in cp {
         let key = account_id.as_ref().to_owned();
-        let value =
-            serde_json::to_value(config).map_err(jmap_base_client::ClientError::from_parse)?;
+        let value = jmap_base_client::to_args(config)?;
         if chat_push_map.insert(key, value).is_some() {
             return Err(jmap_base_client::ClientError::InvalidArgument(format!(
                 "{context}: duplicate accountId '{account_id}' in chat_push"

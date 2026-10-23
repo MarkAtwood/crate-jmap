@@ -25,8 +25,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:scene`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing an argument fails.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
@@ -84,8 +84,9 @@ impl super::SessionClient {
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:scene`.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `create`, `update` and `destroy` are all `None`, or if
-    ///   serializing `update` fails.
+    ///   if `create`, `update` and `destroy` are all `None`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
@@ -116,8 +117,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:scene`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing an argument fails.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
@@ -147,7 +148,9 @@ impl super::SessionClient {
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:scene`.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `since_query_state` is empty or serializing an argument fails.
+    ///   if `since_query_state` is empty.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for

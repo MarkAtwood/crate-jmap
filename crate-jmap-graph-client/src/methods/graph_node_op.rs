@@ -32,8 +32,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:graph`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing an argument fails.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
@@ -132,8 +132,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:graph`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing an argument fails.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`MethodError`](jmap_base_client::ClientError::MethodError) whose
     ///   type is [`OPS_COMPACTED`](jmap_graph_types::OPS_COMPACTED)
     ///   when the server has destroyed an op after `afterSeq` (L234); the
@@ -168,8 +168,9 @@ impl super::SessionClient {
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:graph`.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `since_query_state` is empty or serializing an argument
-    ///   fails.
+    ///   if `since_query_state` is empty.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call), including
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError) for
@@ -210,8 +211,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:graph`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing the arguments fails.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`MethodError`](jmap_base_client::ClientError::MethodError)
     ///   `invalidArguments` when the node is missing, unreadable or has no
     ///   `editFormat`, or `data` is invalid or larger than `maxCursorSize`
@@ -227,7 +228,7 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let req =
             GraphNodeCursorRequest::new(Id::from(account_id), node_id.clone(), data.to_owned());
-        let args = super::to_arg(METHOD, "arguments", &req)?;
+        let args = jmap_base_client::to_args(&req)?;
         self.invoke(api_url, METHOD, args, USING_GRAPH_EDIT).await
     }
 }

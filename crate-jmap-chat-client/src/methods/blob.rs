@@ -238,9 +238,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `content_type` is empty (caller-precondition guard — a
     ///   conversion target without a MIME type is meaningless).
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing the typed `ImageConvertRecipe` fails (pathological
-    ///   conditions only).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -275,8 +274,7 @@ impl super::SessionClient {
             let mut m = serde_json::Map::new();
             m.insert(
                 super::CALL_ID.to_owned(),
-                serde_json::to_value(&create_entry)
-                    .map_err(jmap_base_client::ClientError::from_parse)?,
+                jmap_base_client::to_args(&create_entry)?,
             );
             m
         };

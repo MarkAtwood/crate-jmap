@@ -36,10 +36,8 @@ impl super::SessionClient {
     ///
     /// - [`ClientError::InvalidSession`] if the bound session has no
     ///   primary account for `urn:ietf:params:jmap:mail`.
-    /// - [`ClientError::InvalidArgument`] if `params` is `Some` and
-    ///   serializing it to JSON fails (pathological conditions only —
-    ///   allocation failure, or a vendor value in `params.extra` that
-    ///   itself fails to serialize).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -70,22 +68,17 @@ impl super::SessionClient {
         // in proxies / audit loggers.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         if let Some(props) = properties {
-            args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         if let Some(mut p) = params {
             // Take `extra` out before serializing `p`: a flattened map
             // overwrites `p`'s own typed fields inside `to_value`. It is
             // merged last below so typed values win on collision.
             let extra = std::mem::take(&mut p.extra);
-            let pv = serde_json::to_value(&p).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_get: failed to serialize params: {e}"
-                ))
-            })?;
+            let pv = jmap_base_client::to_args(&p)?;
             if let serde_json::Value::Object(map) = pv {
                 // Use `entry().or_insert()` so a caller who put a typed
                 // wire key (e.g. "accountId", "ids", "properties") into
@@ -179,19 +172,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `update` is `Some` and `serde_json::to_value` fails on the
-    ///   patch map. In practice this happens only under pathological
-    ///   conditions (allocation failure on a very large `BTreeMap`, or
-    ///   a `PatchObject` whose JSON tree exceeds `serde_json`'s
-    ///   recursion limit). The size of `update` is otherwise bounded
-    ///   only by available memory; the wire request is buffered by the
-    ///   HTTP client (`reqwest::RequestBuilder::json` calls
-    ///   `serde_json::to_vec` upfront), so the transient peak holds
-    ///   the source `BTreeMap`, the intermediate `serde_json::Value`
-    ///   tree, and the serialized `Vec<u8>` body simultaneously —
-    ///   roughly 3-4× the `BTreeMap`'s in-memory size. Callers dealing
-    ///   with thousands of patches per call may prefer to batch.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::email_get`].
@@ -220,14 +202,10 @@ impl super::SessionClient {
             args["create"] = c;
         }
         if let Some(u) = update {
-            args["update"] = serde_json::to_value(&u).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_set: serializing update map failed: {e}"
-                ))
-            })?;
+            args["update"] = jmap_base_client::to_args(&u)?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
+            args["destroy"] = jmap_base_client::to_args(&d)?;
         }
         let req = super::build_request("Email/set", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
@@ -252,9 +230,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing `filter` fails (a caller-supplied condition type
-    ///   `C` whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
@@ -276,18 +253,10 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
-            args["filter"] = serde_json::to_value(f).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_query: serializing filter failed: {e}"
-                ))
-            })?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] = serde_json::to_value(s).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_query: serializing sort failed: {e}"
-                ))
-            })?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         if let Some(ct) = collapse_threads {
             args["collapseThreads"] = ct.into();
@@ -327,9 +296,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing `filter` fails (a caller-supplied condition type
-    ///   `C` whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::email_changes`]).
@@ -366,24 +334,16 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = serde_json::to_value(f).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_query_changes: serializing filter failed: {e}"
-                ))
-            })?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] = serde_json::to_value(s).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_query_changes: serializing sort failed: {e}"
-                ))
-            })?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
         }
         if let Some(uti) = up_to_id {
-            args["upToId"] = serde_json::to_value(uti).expect("Id Serialize is infallible");
+            args["upToId"] = jmap_base_client::to_args(uti)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -514,11 +474,10 @@ impl super::SessionClient {
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `emails` is empty, if any entry's `mailbox_ids` is empty
-    ///   (RFC 8621 §4.8 requires at least one mailbox per import), or
-    ///   if serializing the `emails` map fails (pathological conditions
-    ///   only — allocation failure, or a vendor value in
-    ///   `EmailImportInput.extra` that itself fails to serialize).
+    ///   if `emails` is empty, if any entry's `mailbox_ids` is empty (RFC 8621
+    ///   §4.8 requires at least one mailbox per import).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
@@ -559,11 +518,7 @@ impl super::SessionClient {
                 extra: serde_json::Map::new(),
                 ..*input
             };
-            let v = serde_json::to_value(&typed).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_import: serializing emails map failed: {e}"
-                ))
-            })?;
+            let v = jmap_base_client::to_args(&typed)?;
             let serde_json::Value::Object(mut entry) = v else {
                 unreachable!("EmailImportInput serializes as a JSON object");
             };
@@ -602,10 +557,9 @@ impl super::SessionClient {
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `blob_ids` is empty, or if `params` is `Some` and serializing
-    ///   it to JSON fails (pathological conditions only — allocation
-    ///   failure, or a vendor value in `params.extra` that itself fails
-    ///   to serialize).
+    ///   if `blob_ids` is empty.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
@@ -632,11 +586,7 @@ impl super::SessionClient {
             // overwrites `p`'s own typed fields inside `to_value`. It is
             // merged last below so typed values win on collision.
             let extra = std::mem::take(&mut p.extra);
-            let pv = serde_json::to_value(&p).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_parse: failed to serialize params: {e}"
-                ))
-            })?;
+            let pv = jmap_base_client::to_args(&p)?;
             if let serde_json::Value::Object(map) = pv {
                 // Use `entry().or_insert()` so a caller who put a typed
                 // wire key (e.g. "accountId", "blobIds", "properties")

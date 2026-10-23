@@ -30,6 +30,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:contacts`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -56,11 +58,10 @@ impl super::SessionClient {
         // in proxies / audit loggers.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         if let Some(props) = properties {
-            args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         let req = super::build_request("AddressBook/get", args, super::USING_CONTACTS);
         let resp = self.call_internal(api_url, &req).await?;
@@ -140,15 +141,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:contacts`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `update` is `Some` and `serde_json::to_value` fails on the
-    ///   patch map (pathological conditions only — allocation failure,
-    ///   or a `PatchObject` whose JSON tree exceeds `serde_json`'s
-    ///   recursion limit). The transient memory peak for very large
-    ///   `update` maps is roughly 3-4× the `BTreeMap`'s in-memory size
-    ///   (source map + `serde_json::Value` tree + serialized `Vec<u8>`
-    ///   body); callers dealing with thousands of patches per call may
-    ///   prefer to batch.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::address_book_get`].
@@ -182,14 +176,10 @@ impl super::SessionClient {
             args["create"] = c;
         }
         if let Some(u) = update {
-            args["update"] = serde_json::to_value(&u).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "address_book_set: serializing update map failed: {e}"
-                ))
-            })?;
+            args["update"] = jmap_base_client::to_args(&u)?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
+            args["destroy"] = jmap_base_client::to_args(&d)?;
         }
         if let Some(p) = params {
             if let Some(v) = p.on_destroy_remove_contents {

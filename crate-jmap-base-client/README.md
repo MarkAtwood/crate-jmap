@@ -668,7 +668,7 @@ let emails = client.email_get(&session, account_id, &[]).await?;
 | `SseFrameTooLarge { limit }` | Single SSE frame exceeded `max_sse_frame`; stream terminated |
 | `WebSocket(WebSocketError)` | WebSocket transport error; may be retriable. The payload is an opaque wrapper — use `WebSocketError::is_io`, `WebSocketError::is_protocol`, etc. to diagnose. |
 | `UnexpectedResponse(String)` | Server violated the JMAP protocol (wrong Content-Type, etc.) |
-| `Serialize(serde_json::Error)` | Serialization failure in `WsSession::send_request` |
+| `Serialize(SerializeError)` | A caller-supplied value failed to serialize, from `to_args` (every extension client method argument) or `WsSession::send_request` |
 | `InvalidHeaderValue(InvalidHeaderValueError)` | A header value contained characters that are not valid HTTP header-value bytes (typically a credential string with non-printable or non-ASCII characters). |
 | `RateLimited { retry_after }` | Server rate-limited the request. Produced for HTTP 429 from `fetch_session`, `call`, `upload_blob` and `download_blob` (and their `_session` wrappers). `retry_after` is the absolute UTC instant from the RFC 9110 §10.2.3 `Retry-After` header: delay-seconds are added to the receive time, and an HTTP-date (any RFC 9110 §5.6.7 format) is used as given. When the header is absent or unparseable, `retry_after` is the receive time, so apply your own backoff. A 429 on the event-source connection still surfaces as `ClientError::Http` so `subscribe_events_reconnecting` keeps retrying it. |
 

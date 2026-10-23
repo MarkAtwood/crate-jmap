@@ -49,9 +49,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing `filter` fails (a caller-supplied condition type
-    ///   `C` whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
@@ -75,18 +74,13 @@ impl super::SessionClient {
         email_ids: Option<&[Id]>,
     ) -> Result<SearchSnippetGetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let filter = serde_json::to_value(filter).map_err(|e| {
-            jmap_base_client::ClientError::InvalidArgument(format!(
-                "search_snippet_get: serializing filter failed: {e}"
-            ))
-        })?;
+        let filter = jmap_base_client::to_args(filter)?;
         let mut args = serde_json::json!({
             "accountId": account_id,
             "filter": filter,
         });
         if let Some(eids) = email_ids {
-            args["emailIds"] =
-                serde_json::to_value(eids).expect("Id slice Serialize is infallible");
+            args["emailIds"] = jmap_base_client::to_args(eids)?;
         }
         let req = super::build_request("SearchSnippet/get", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
