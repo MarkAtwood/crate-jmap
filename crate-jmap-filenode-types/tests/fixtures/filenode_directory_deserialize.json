@@ -1,0 +1,8 @@
+{
+        "@type": "Directory",
+        "id": "dir1",
+        "parentId": null,
+        "name": "My Files",
+        "shareWith": null,
+        "role": "home"
+    }

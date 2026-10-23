@@ -1,0 +1,8 @@
+{
+        "mayRead": true,
+        "mayAddChildren": false,
+        "mayRename": true,
+        "mayDelete": false,
+        "mayModifyContent": true,
+        "mayShare": false
+    }

@@ -1,0 +1,19 @@
+{
+        "@type": "File",
+        "id": "fn3",
+        "parentId": "dir1",
+        "blobId": "blob2",
+        "size": 100,
+        "name": "shared.pdf",
+        "mediaType": "application/pdf",
+        "shareWith": {
+            "user42": {
+                "mayRead": true,
+                "mayAddChildren": false,
+                "mayRename": false,
+                "mayDelete": false,
+                "mayModifyContent": false,
+                "mayShare": false
+            }
+        }
+    }

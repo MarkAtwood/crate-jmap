@@ -1,0 +1,26 @@
+[
+  {
+    "@type": "Directory",
+    "id": "n1",
+    "parentId": null,
+    "name": "Documents",
+    "role": "documents"
+  },
+  {
+    "@type": "File",
+    "id": "n3",
+    "parentId": "n1",
+    "name": "report.pdf",
+    "blobId": "Bfa61c0",
+    "size": 48576,
+    "mediaType": "application/pdf",
+    "executable": false
+  },
+  {
+    "@type": "SymLink",
+    "id": "n7",
+    "parentId": null,
+    "name": "latest-report",
+    "target": ["Documents", "report.pdf"]
+  }
+]

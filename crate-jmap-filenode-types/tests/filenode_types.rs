@@ -8,6 +8,8 @@
 //! public structs carry `#[non_exhaustive]`, which prevents struct literal syntax
 //! outside the defining crate.
 
+mod common;
+
 use jmap_filenode_types::{
     FileNode, FileNodeCapability, FileNodeFilterCondition, FilesRights, NodeRole, NodeType,
     JMAP_FILENODE_URI,
@@ -124,16 +126,7 @@ fn node_role_roundtrip() {
 #[test]
 fn files_rights_deserialize_from_spec() {
     // Hand-written JSON matching the §3.1 myRights field description.
-    let rights = parse_rights(
-        r#"{
-        "mayRead": true,
-        "mayAddChildren": false,
-        "mayRename": true,
-        "mayDelete": false,
-        "mayModifyContent": true,
-        "mayShare": false
-    }"#,
-    );
+    let rights = parse_rights(&common::fixture("files_rights_deserialize_from_spec.json"));
     assert!(rights.may_read);
     assert!(!rights.may_add_children);
     assert!(rights.may_rename);
@@ -156,14 +149,7 @@ fn files_rights_default_all_false() {
 #[test]
 fn files_rights_roundtrip() {
     // Build via serde; verify the round-trip is stable.
-    let json = r#"{
-        "mayRead": true,
-        "mayAddChildren": true,
-        "mayRename": false,
-        "mayDelete": false,
-        "mayModifyContent": true,
-        "mayShare": true
-    }"#;
+    let json = &common::fixture("files_rights_roundtrip.json");
     let r: FilesRights = serde_json::from_str(json).unwrap();
     let back: FilesRights = serde_json::from_str(&serde_json::to_string(&r).unwrap()).unwrap();
     assert_eq!(r, back);
@@ -176,30 +162,7 @@ fn files_rights_roundtrip() {
 #[test]
 fn filenode_file_deserialize() {
     // Constructed from §3.1.1 and §3.1.2 field descriptions for a File node.
-    let json = r#"{
-        "@type": "File",
-        "id": "fn1",
-        "parentId": "dir1",
-        "blobId": "blob1",
-        "size": 4096,
-        "name": "readme.txt",
-        "mediaType": "text/plain",
-        "created": "2024-01-15T10:00:00Z",
-        "modified": "2024-03-01T12:00:00Z",
-        "accessed": "2024-03-10T08:00:00Z",
-        "changed": "2024-03-01T12:00:00Z",
-        "executable": false,
-        "isSubscribed": true,
-        "myRights": {
-            "mayRead": true,
-            "mayAddChildren": false,
-            "mayRename": true,
-            "mayDelete": true,
-            "mayModifyContent": true,
-            "mayShare": false
-        },
-        "shareWith": null
-    }"#;
+    let json = &common::fixture("filenode_file_deserialize.json");
 
     let node: FileNode = serde_json::from_str(json).unwrap();
     assert_eq!(node.id, id("fn1"));
@@ -225,14 +188,7 @@ fn filenode_file_deserialize() {
 #[test]
 fn filenode_directory_deserialize() {
     // §3.1.3: a Directory carries no File or SymLink properties.
-    let json = r#"{
-        "@type": "Directory",
-        "id": "dir1",
-        "parentId": null,
-        "name": "My Files",
-        "shareWith": null,
-        "role": "home"
-    }"#;
+    let json = &common::fixture("filenode_directory_deserialize.json");
 
     let node: FileNode = serde_json::from_str(json).unwrap();
     assert_eq!(node.id, id("dir1"));
@@ -250,14 +206,7 @@ fn filenode_directory_deserialize() {
 #[test]
 fn filenode_symlink_deserialize() {
     // §3.1.4: a SymLink carries `target` and no File or Directory properties.
-    let json = r#"{
-        "@type": "SymLink",
-        "id": "sym1",
-        "parentId": "dir1",
-        "target": ["", "home", "alice", "docs"],
-        "name": "docs-link",
-        "shareWith": null
-    }"#;
+    let json = &common::fixture("filenode_symlink_deserialize.json");
 
     let node: FileNode = serde_json::from_str(json).unwrap();
     assert_eq!(node.node_type, Some(NodeType::Symlink));
@@ -278,13 +227,7 @@ fn filenode_symlink_deserialize() {
 #[test]
 fn filenode_unknown_node_type_becomes_other() {
     // §3.1.1: clients MUST be prepared to receive unrecognised @type values.
-    let json = r#"{
-        "@type": "x-vendor-hardlink",
-        "id": "fn2",
-        "parentId": null,
-        "name": "special",
-        "shareWith": null
-    }"#;
+    let json = &common::fixture("filenode_unknown_node_type_becomes_other.json");
     let node: FileNode = serde_json::from_str(json).unwrap();
     assert_eq!(
         node.node_type,
@@ -301,14 +244,7 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
     // §3.1.1: parentId and shareWith are `|null` common properties; §3.1.3: role
     // is `String|null` on a Directory.  All three must round-trip as `null`.
     // §3.1: File and SymLink properties MUST NOT appear on a Directory.
-    let json = r#"{
-        "@type": "Directory",
-        "id": "x",
-        "parentId": null,
-        "name": "f",
-        "shareWith": null,
-        "role": null
-    }"#;
+    let json = &common::fixture("filenode_nullable_fields_serialize_as_null_not_absent.json");
     let node: FileNode = serde_json::from_str(json).unwrap();
 
     let out = serde_json::to_string(&node).unwrap();
@@ -341,25 +277,7 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
 
 #[test]
 fn filenode_share_with_populated_map() {
-    let json = r#"{
-        "@type": "File",
-        "id": "fn3",
-        "parentId": "dir1",
-        "blobId": "blob2",
-        "size": 100,
-        "name": "shared.pdf",
-        "mediaType": "application/pdf",
-        "shareWith": {
-            "user42": {
-                "mayRead": true,
-                "mayAddChildren": false,
-                "mayRename": false,
-                "mayDelete": false,
-                "mayModifyContent": false,
-                "mayShare": false
-            }
-        }
-    }"#;
+    let json = &common::fixture("filenode_share_with_populated_map.json");
     let node: FileNode = serde_json::from_str(json).unwrap();
     let sw = node.share_with.as_ref().unwrap();
     assert_eq!(sw.len(), 1);
@@ -372,38 +290,7 @@ fn filenode_share_with_populated_map() {
 fn filenode_roundtrip_file() {
     // Build via JSON deserialization, then serialize and deserialize again.
     // Verifies serde consistency for a fully-populated file node.
-    let json = r#"{
-        "@type": "File",
-        "id": "fn-rt",
-        "parentId": "dir-rt",
-        "blobId": "b-rt",
-        "size": 2048,
-        "name": "roundtrip.bin",
-        "mediaType": "application/octet-stream",
-        "created": "2025-01-01T00:00:00Z",
-        "modified": "2025-06-01T00:00:00Z",
-        "changed": "2025-06-01T00:00:00Z",
-        "executable": true,
-        "isSubscribed": false,
-        "myRights": {
-            "mayRead": true,
-            "mayAddChildren": false,
-            "mayRename": true,
-            "mayDelete": true,
-            "mayModifyContent": true,
-            "mayShare": true
-        },
-        "shareWith": {
-            "u1": {
-                "mayRead": true,
-                "mayAddChildren": false,
-                "mayRename": false,
-                "mayDelete": false,
-                "mayModifyContent": false,
-                "mayShare": false
-            }
-        }
-    }"#;
+    let json = &common::fixture("filenode_roundtrip_file.json");
 
     let original: FileNode = serde_json::from_str(json).unwrap();
     let serialized = serde_json::to_string(&original).unwrap();
@@ -419,14 +306,7 @@ fn filenode_roundtrip_file() {
 fn filenode_role_serializes_as_null() {
     // Oracle: §3.1.3 types a Directory's `role` as `String|null`.  A Directory
     // with role None must produce "role":null in wire JSON, not absence of the key.
-    let json = r#"{
-        "@type": "Directory",
-        "id": "rn1",
-        "parentId": null,
-        "name": "docs",
-        "shareWith": null,
-        "role": null
-    }"#;
+    let json = &common::fixture("filenode_role_serializes_as_null.json");
     let node: FileNode = serde_json::from_str(json).expect("deserialize FileNode with role null");
     assert_eq!(node.role, None);
 
@@ -446,14 +326,7 @@ fn filenode_role_serializes_as_null() {
 #[test]
 fn filenode_role_null_round_trips() {
     // Oracle: §3.1.3 — role: null → deserialize → None → serialize → "role":null.
-    let json = r#"{
-        "@type": "Directory",
-        "id": "rn2",
-        "parentId": null,
-        "name": "dir",
-        "shareWith": null,
-        "role": null
-    }"#;
+    let json = &common::fixture("filenode_role_null_round_trips.json");
     let node: FileNode = serde_json::from_str(json).expect("first deserialize");
     assert_eq!(node.role, None);
 
@@ -484,26 +357,7 @@ fn capability_uri_constant() {
 #[test]
 fn capability_deserialize_from_spec_example() {
     // Taken verbatim from draft-ietf-jmap-filenode-16 §2.1.1 capability example.
-    let json = r#"{
-        "maxFileNodeDepth": 50,
-        "maxSizeFileNodeName": 255,
-        "fileNodeQuerySortOptions": [
-            "name", "mediaType", "size", "created", "modified",
-            "nodeType", "tree"
-        ],
-        "supportedNodeTypes": ["Directory", "File", "SymLink"],
-        "forbiddenNameChars": "/<>:\"\\|?*",
-        "forbiddenNodeNames": [".", "..", "CON", "PRN", "AUX",
-            "NUL", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5",
-            "COM6", "COM7", "COM8", "COM9", "LPT0", "LPT1", "LPT2",
-            "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-        ],
-        "caseInsensitiveNames": false,
-        "mayCreateTopLevelFileNode": false,
-        "webTrashUrl": "https://files.example.com/trash",
-        "webUrlTemplate": "https://files.example.com/view/{id}",
-        "webWriteUrlTemplate": "https://files.example.com/write/{id}"
-    }"#;
+    let json = &common::fixture("capability_deserialize_from_spec_example.json");
 
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     assert_eq!(cap.max_file_node_depth, Some(50));
@@ -550,19 +404,7 @@ fn capability_deserialize_from_spec_example() {
 #[test]
 fn capability_supported_node_types_from_spec_example() {
     // supportedNodeTypes value from the draft-ietf-jmap-filenode-16 §2.1.1 example.
-    let json = r#"{
-        "maxFileNodeDepth": 50,
-        "maxSizeFileNodeName": 255,
-        "fileNodeQuerySortOptions": ["name"],
-        "supportedNodeTypes": ["Directory", "File", "SymLink"],
-        "forbiddenNameChars": null,
-        "forbiddenNodeNames": null,
-        "caseInsensitiveNames": false,
-        "mayCreateTopLevelFileNode": false,
-        "webTrashUrl": null,
-        "webUrlTemplate": null,
-        "webWriteUrlTemplate": null
-    }"#;
+    let json = &common::fixture("capability_supported_node_types_from_spec_example.json");
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     assert_eq!(
         cap.supported_node_types,
@@ -579,19 +421,7 @@ fn capability_supported_node_types_from_spec_example() {
 fn capability_supported_node_types_keeps_unrecognised_values() {
     // §2.1: "Clients MUST ignore values they do not recognise." An unknown
     // registry value must not make the capability fail to parse.
-    let json = r#"{
-        "maxFileNodeDepth": null,
-        "maxSizeFileNodeName": 255,
-        "fileNodeQuerySortOptions": ["name"],
-        "supportedNodeTypes": ["Directory", "File", "VendorType"],
-        "forbiddenNameChars": null,
-        "forbiddenNodeNames": null,
-        "caseInsensitiveNames": false,
-        "mayCreateTopLevelFileNode": false,
-        "webTrashUrl": null,
-        "webUrlTemplate": null,
-        "webWriteUrlTemplate": null
-    }"#;
+    let json = &common::fixture("capability_supported_node_types_keeps_unrecognised_values.json");
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     assert_eq!(
         cap.supported_node_types[2],
@@ -602,37 +432,14 @@ fn capability_supported_node_types_keeps_unrecognised_values() {
 #[test]
 fn capability_supported_node_types_is_required() {
     // §2.1: the object "MUST contain" supportedNodeTypes.
-    let json = r#"{
-        "maxFileNodeDepth": null,
-        "maxSizeFileNodeName": 255,
-        "fileNodeQuerySortOptions": ["name"],
-        "forbiddenNameChars": null,
-        "forbiddenNodeNames": null,
-        "caseInsensitiveNames": false,
-        "mayCreateTopLevelFileNode": false,
-        "webTrashUrl": null,
-        "webUrlTemplate": null,
-        "webWriteUrlTemplate": null
-    }"#;
+    let json = &common::fixture("capability_supported_node_types_is_required.json");
     assert!(serde_json::from_str::<FileNodeCapability>(json).is_err());
 }
 
 #[test]
 fn capability_null_depth_and_nullables() {
     // maxFileNodeDepth: null means no limit.  Other nullable fields are also null.
-    let json = r#"{
-        "maxFileNodeDepth": null,
-        "maxSizeFileNodeName": 100,
-        "fileNodeQuerySortOptions": ["name"],
-        "supportedNodeTypes": ["Directory", "File"],
-        "forbiddenNameChars": null,
-        "forbiddenNodeNames": null,
-        "caseInsensitiveNames": true,
-        "mayCreateTopLevelFileNode": true,
-        "webTrashUrl": null,
-        "webUrlTemplate": null,
-        "webWriteUrlTemplate": null
-    }"#;
+    let json = &common::fixture("capability_null_depth_and_nullables.json");
 
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     assert_eq!(cap.max_file_node_depth, None);
@@ -647,19 +454,7 @@ fn capability_null_depth_and_nullables() {
 fn capability_nullable_fields_serialize_as_null_not_absent() {
     // Deserialize a capability with all nullable fields set to null; verify
     // they re-serialize as `null` rather than being absent.
-    let json = r#"{
-        "maxFileNodeDepth": null,
-        "maxSizeFileNodeName": 255,
-        "fileNodeQuerySortOptions": ["name"],
-        "supportedNodeTypes": ["Directory", "File"],
-        "forbiddenNameChars": null,
-        "forbiddenNodeNames": null,
-        "caseInsensitiveNames": false,
-        "mayCreateTopLevelFileNode": false,
-        "webTrashUrl": null,
-        "webUrlTemplate": null,
-        "webWriteUrlTemplate": null
-    }"#;
+    let json = &common::fixture("capability_nullable_fields_serialize_as_null_not_absent.json");
 
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     let out = serde_json::to_string(&cap).unwrap();
@@ -706,19 +501,7 @@ fn capability_nullable_fields_serialize_as_null_not_absent() {
 
 #[test]
 fn capability_roundtrip() {
-    let json = r#"{
-        "maxFileNodeDepth": 100,
-        "maxSizeFileNodeName": 255,
-        "fileNodeQuerySortOptions": ["name", "size"],
-        "supportedNodeTypes": ["Directory", "File", "SymLink"],
-        "forbiddenNameChars": "/\\",
-        "forbiddenNodeNames": [".", ".."],
-        "caseInsensitiveNames": false,
-        "mayCreateTopLevelFileNode": true,
-        "webTrashUrl": "https://example.com/trash",
-        "webUrlTemplate": "https://example.com/view/{id}",
-        "webWriteUrlTemplate": null
-    }"#;
+    let json = &common::fixture("capability_roundtrip.json");
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     let serialized = serde_json::to_string(&cap).unwrap();
     let back: FileNodeCapability = serde_json::from_str(&serialized).unwrap();
@@ -732,7 +515,7 @@ fn capability_roundtrip() {
 #[test]
 fn filter_condition_media_type_wire_names() {
     // §3.2.5: the media type conditions are `mediaType` and `mediaTypeMatch`.
-    let json = r#"{"mediaType": "text/plain", "mediaTypeMatch": "text/*"}"#;
+    let json = &common::fixture("filter_condition_media_type_wire_names.json");
     let cond: FileNodeFilterCondition = serde_json::from_str(json).unwrap();
     assert_eq!(cond.media_type, Some("text/plain".to_owned()));
     assert_eq!(cond.media_type_match, Some("text/*".to_owned()));
@@ -752,31 +535,7 @@ fn filter_condition_media_type_wire_names() {
 #[test]
 fn filter_condition_all_fields_deserialize() {
     // Hand-written JSON covering every field of FileNodeFilterCondition.
-    let json = r#"{
-        "isTopLevel": true,
-        "parentId": "dir1",
-        "ancestorId": "root1",
-        "descendantId": "child1",
-        "nodeType": "File",
-        "role": "home",
-        "hasAnyRole": false,
-        "blobId": "blob1",
-        "isExecutable": true,
-        "createdBefore": "2025-01-01T00:00:00Z",
-        "createdAfter": "2020-01-01T00:00:00Z",
-        "modifiedBefore": "2025-06-01T00:00:00Z",
-        "modifiedAfter": "2021-01-01T00:00:00Z",
-        "accessedBefore": "2025-12-01T00:00:00Z",
-        "accessedAfter": "2022-01-01T00:00:00Z",
-        "minSize": 1024,
-        "maxSize": 1048576,
-        "name": "readme.txt",
-        "nameMatch": "*.txt",
-        "mediaType": "text/plain",
-        "mediaTypeMatch": "text/*",
-        "body": "hello world",
-        "text": "search term"
-    }"#;
+    let json = &common::fixture("filter_condition_all_fields_deserialize.json");
 
     let cond: FileNodeFilterCondition = serde_json::from_str(json).unwrap();
     assert_eq!(cond.is_top_level, Some(true));
@@ -846,14 +605,7 @@ fn filter_condition_optional_fields_absent_when_none() {
 
 #[test]
 fn filter_condition_roundtrip() {
-    let json = r#"{
-        "isTopLevel": false,
-        "parentId": "p1",
-        "nodeType": "File",
-        "minSize": 512,
-        "mediaType": "image/png",
-        "nameMatch": "*.png"
-    }"#;
+    let json = &common::fixture("filter_condition_roundtrip.json");
     let cond: FileNodeFilterCondition = serde_json::from_str(json).unwrap();
     let serialized = serde_json::to_string(&cond).unwrap();
     let back: FileNodeFilterCondition = serde_json::from_str(&serialized).unwrap();
@@ -918,36 +670,13 @@ fn file_node_preserves_vendor_extras() {
 // ---------------------------------------------------------------------------
 
 /// The §3.1.5 example array, copied verbatim from draft-ietf-jmap-filenode-16.
-const SPEC_3_1_5_EXAMPLE: &str = r#"[
-  {
-    "@type": "Directory",
-    "id": "n1",
-    "parentId": null,
-    "name": "Documents",
-    "role": "documents"
-  },
-  {
-    "@type": "File",
-    "id": "n3",
-    "parentId": "n1",
-    "name": "report.pdf",
-    "blobId": "Bfa61c0",
-    "size": 48576,
-    "mediaType": "application/pdf",
-    "executable": false
-  },
-  {
-    "@type": "SymLink",
-    "id": "n7",
-    "parentId": null,
-    "name": "latest-report",
-    "target": ["Documents", "report.pdf"]
-  }
-]"#;
+fn spec_3_1_5_example() -> String {
+    common::fixture("spec_3_1_5_example.json")
+}
 
 #[test]
 fn spec_3_1_5_example_deserializes() {
-    let nodes: Vec<FileNode> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
+    let nodes: Vec<FileNode> = serde_json::from_str(&spec_3_1_5_example()).unwrap();
     assert_eq!(nodes.len(), 3);
 
     assert_eq!(nodes[0].node_type, Some(NodeType::Directory));
@@ -975,8 +704,8 @@ fn spec_3_1_5_example_round_trips() {
     // The example omits common properties "for brevity" (§3.1.5); the ones
     // this crate always emits are the required-and-nullable `shareWith` and
     // `isSubscribed`, "Boolean" (default: true) per §3.1.1.
-    let expected: Vec<serde_json::Value> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
-    let nodes: Vec<FileNode> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
+    let expected: Vec<serde_json::Value> = serde_json::from_str(&spec_3_1_5_example()).unwrap();
+    let nodes: Vec<FileNode> = serde_json::from_str(&spec_3_1_5_example()).unwrap();
     for (node, want) in nodes.iter().zip(expected) {
         let mut want = want;
         want.as_object_mut()
@@ -1093,7 +822,7 @@ fn filenode_file_unset_defaulted_properties_serialize_defaults() {
 /// expected bytes are hand-written.
 #[test]
 fn share_with_serializes_in_sorted_key_order() {
-    let rights = r#"{"mayRead":true,"mayAddChildren":false,"mayRename":false,"mayDelete":false,"mayModifyContent":false,"mayShare":false}"#;
+    let rights = &common::fixture("share_with_serializes_in_sorted_key_order.json");
     let input = format!(
         r#"{{"id":"n1","parentId":null,"name":"doc","shareWith":{{"u2":{rights},"u1":{rights}}}}}"#
     );
