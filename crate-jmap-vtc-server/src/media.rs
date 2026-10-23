@@ -35,8 +35,7 @@ use serde_json::{Map, Value, json};
 use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
-    finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort, set_error_value,
-    state_refused,
+    finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort, state_refused,
 };
 use crate::{BackendSetError, StatefulObject, VtcBackend};
 use jmap_server::{
@@ -301,7 +300,8 @@ where
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in create_map {
             if let Err(err) = resolve_refs(&mut obj, &["callId"], created_ids) {
-                acc.not_created.insert(create_id, set_error_value(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             let result = match kind {
@@ -329,12 +329,14 @@ where
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch, &["callId"], created_ids) {
-                acc.not_updated.insert(id_str, set_error_value(&err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
             let result = match kind {
@@ -372,7 +374,7 @@ where
                 Ok(id) => id,
                 Err(err) => {
                     acc.not_destroyed
-                        .insert(id_str.to_owned(), set_error_value(&err));
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -475,7 +477,7 @@ async fn check_create<O: SetObject, B: VtcBackend>(
     supported: impl Fn(&jmap_vtc_types::VtcCapability) -> bool,
 ) -> Result<VtcCall, Value> {
     if let Some(e) = reject_server_set::<O>(m) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties are set by the server"),
         ));
     }
@@ -561,8 +563,10 @@ where
         .map_err(backend_set_error_value)
 }
 
-fn to_value<T: Serialize>(v: &T) -> Value {
-    serde_json::to_value(v).expect("derive(Serialize) on plain data is infallible")
+/// `v` as JSON, or a `serverFail` entry for a `notCreated` / `notUpdated`
+/// map if it fails to serialize.
+fn to_value<T: Serialize>(v: &T) -> Result<Value, Value> {
+    jmap_server::serialize_value(v).map_err(|e| jmap_server::server_fail_value_from_backend(&e))
 }
 
 /// §Starting a Recording. The `Ok` value is the `created` entry.
@@ -619,7 +623,7 @@ async fn create_recording<B: VtcBackend>(
         initiator,
     )
     .await;
-    Ok(to_value(&recording))
+    to_value(&recording)
 }
 
 /// Stop every recording of `call_id` in state `"recording"` or
@@ -854,13 +858,13 @@ async fn create_livestream<B: VtcBackend>(
         ],
     )
     .await?;
-    Ok(to_value(&livestream))
+    to_value(&livestream)
 }
 
 /// Decode one `update` patch and collect its distinct top-level keys.
 fn parse_patch(patch: Value) -> Result<(PatchObject, Vec<String>), Value> {
     let patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
-        crate::helpers::set_error_value(
+        Value::from(
             &jmap_server::SetError::new(jmap_server::SetErrorType::InvalidPatch)
                 .with_description(e.to_string()),
         )
@@ -908,14 +912,14 @@ where
             .update_object_if::<O>(caller, account_id, id, from, patch)
             .await
             .map_err(backend_set_error_value)?
-            .map_err(|_| set_error_value(&state_refused()))?,
+            .map_err(|_| serde_json::Value::from(&state_refused()))?,
         None => backend
             .update_object::<O>(caller, account_id, id, patch)
             .await
             .map_err(backend_set_error_value)?,
     };
     match applied {
-        Some(obj) if echo.is_empty() => Ok(to_value(&obj)),
+        Some(obj) if echo.is_empty() => to_value(&obj),
         _ if echo.is_empty() => Ok(Value::Null),
         _ => Ok(Value::Object(echo)),
     }

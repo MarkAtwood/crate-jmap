@@ -24,8 +24,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
-    finalize_set_response, forbidden, invalid, peek_filter, reject_unsupported_sort,
-    set_error_value, state_refused, utc_key,
+    finalize_set_response, forbidden, invalid, peek_filter, reject_unsupported_sort, state_refused,
+    utc_key,
 };
 use crate::helpers::{parents_first, resolve_refs};
 use crate::media::{stop_livestreams, stop_recordings};
@@ -205,18 +205,16 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in parents_first(create_map, "parentCallId") {
             if let Err(err) = resolve_refs(&mut obj, CALL_ID_PROPERTIES, &created_ids) {
-                acc.not_created.insert(create_id, set_error_value(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             match create_call(backend, caller, &account_id, obj).await {
                 Ok(call) => {
                     mutated = true;
                     created_ids.insert(Id::from(create_id.as_str()), call.id.clone());
-                    acc.created.insert(
-                        create_id,
-                        serde_json::to_value(&call)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    acc.created
+                        .insert(create_id, jmap_server::serialize_value(&call)?);
                 }
                 Err(e) => {
                     acc.not_created.insert(create_id, e);
@@ -230,12 +228,14 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch, CALL_ID_PROPERTIES, &created_ids) {
-                acc.not_updated.insert(id_str, set_error_value(&err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
             match update_call(backend, caller, &account_id, &id, patch).await {
@@ -267,7 +267,7 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
                 Ok(id) => id,
                 Err(err) => {
                     acc.not_destroyed
-                        .insert(id_str.to_owned(), set_error_value(&err));
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -303,7 +303,7 @@ async fn create_call<B: VtcBackend>(
     // `state` is not in `VtcCall::SERVER_SET`: its transitions "clients
     // request ... via `VTCCall/set`".
     if let Some(e) = reject_server_set::<VtcCall>(&m) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties are set by the server"),
         ));
     }
@@ -489,7 +489,7 @@ async fn destroy_call<B: VtcBackend>(
 ) -> Result<(), Value> {
     let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
         .await?
-        .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
+        .ok_or_else(|| serde_json::Value::from(&SetError::new(SetErrorType::NotFound)))?;
     if !may_end_call(backend, caller, account_id, &call).await? {
         return Err(forbidden("the caller is not a moderator on this call"));
     }
@@ -509,7 +509,9 @@ async fn update_call<B: VtcBackend>(
     patch: Value,
 ) -> Result<Value, Value> {
     let patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
 
     let mut keys: Vec<&str> = patch
@@ -523,14 +525,14 @@ async fn update_call<B: VtcBackend>(
     // §VTCCall: the immutable and server-set properties, `joinUri`
     // included; `state` stays patchable.
     if let Some(e) = reject_read_only_patch::<VtcCall>(patch.as_map(), None) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties cannot be updated"),
         ));
     }
 
     let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
         .await?
-        .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
+        .ok_or_else(|| serde_json::Value::from(&SetError::new(SetErrorType::NotFound)))?;
 
     if keys.iter().any(|k| MODERATOR_ONLY.contains(k)) {
         let allowed = if keys == ["state"] {
@@ -568,10 +570,8 @@ async fn update_call<B: VtcBackend>(
             .update_object::<VtcCall>(caller, account_id, id, patch)
             .await
         {
-            Ok(Some(obj)) => {
-                Ok(serde_json::to_value(&obj)
-                    .expect("derive(Serialize) on plain data is infallible"))
-            }
+            Ok(Some(obj)) => Ok(jmap_server::serialize_value(&obj)
+                .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?),
             Ok(None) => Ok(Value::Null),
             Err(e) => Err(backend_set_error_value(e)),
         };
@@ -623,9 +623,11 @@ async fn update_call<B: VtcBackend>(
             Err(BackendSetError::SetError(e)) if is_state_refusal(&e) => {
                 let now = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
                     .await?
-                    .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
+                    .ok_or_else(|| {
+                        serde_json::Value::from(&SetError::new(SetErrorType::NotFound))
+                    })?;
                 if now.state == call.state {
-                    return Err(set_error_value(&e));
+                    return Err(serde_json::Value::from(&*e));
                 }
                 call = now;
             }
