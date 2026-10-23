@@ -270,6 +270,63 @@ async fn contact_card_query_empty_store_returns_no_ids() {
     assert_eq!(resp["total"], 0);
 }
 
+fn backend_with_two_cards() -> MemoryBackend {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_object(
+        &Id::from("acc1"),
+        "AddressBook",
+        &Id::from("ab1"),
+        address_book_fixture("ab1", "Contacts"),
+    );
+    for (id, name) in [("c1", "Alice"), ("c2", "Bob")] {
+        backend.seed_object(
+            &Id::from("acc1"),
+            "ContactCard",
+            &Id::from(id),
+            contact_card_fixture(id, "ab1", name),
+        );
+    }
+    backend
+}
+
+/// RFC 8620 §1.3 bounds `Int` to "-2^53+1 <= value <= 2^53-1" and
+/// `UnsignedInt` to "0 <= value <= 2^53-1". §5.5 position: "the negative
+/// value MUST be added to the total number of results given the filter,
+/// and if still negative, it's clamped to "0"", so the most negative
+/// legal `position` starts at index 0, and the largest legal `limit`
+/// returns both results (bd:JMAP-uqhn.5).
+#[tokio::test]
+async fn contact_card_query_extreme_position_and_limit_saturate() {
+    let backend = backend_with_two_cards();
+    let args = json!({
+        "accountId": "acc1",
+        "position": -9_007_199_254_740_991_i64,
+        "limit": 9_007_199_254_740_991_u64
+    });
+
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+        .await
+        .expect("/query must not return top-level error");
+
+    assert_eq!(resp["ids"], json!(["c1", "c2"]), "{resp}");
+    assert_eq!(resp["position"], 0, "{resp}");
+}
+
+/// RFC 8620 §5.5 position: "If the index is greater than or equal to the
+/// total number of objects in the results list, then the "ids" array in
+/// the response will be empty, but this is not an error."
+#[tokio::test]
+async fn contact_card_query_largest_position_is_empty_page_not_error() {
+    let backend = backend_with_two_cards();
+    let args = json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 });
+
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+        .await
+        .expect("/query must not return top-level error");
+
+    assert_eq!(resp["ids"], json!([]), "{resp}");
+}
+
 // ---------------------------------------------------------------------------
 // Test 10: ContactCard/changes empty store
 // ---------------------------------------------------------------------------
