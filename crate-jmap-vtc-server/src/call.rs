@@ -19,6 +19,7 @@ use jmap_vtc_types::{
 use jmap_vtc_types::{VtcCallComparator, VtcCallFilter};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::helpers::{
@@ -26,6 +27,7 @@ use crate::helpers::{
     finalize_set_response, forbidden, invalid, peek_filter, reject_unsupported_sort,
     set_error_value, state_refused, utc_key,
 };
+use crate::helpers::{parents_first, resolve_refs};
 use crate::media::{stop_livestreams, stop_recordings};
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
@@ -137,6 +139,16 @@ fn uses_chat_binding(filter: &VtcCallFilter) -> bool {
     }
 }
 
+/// The VTCCall properties that hold the id of another record, which a
+/// client may set to a `#creationId` reference (RFC 8620 §5.3).
+const CALL_ID_PROPERTIES: &[&str] = &[
+    "parentCallId",
+    "chatId",
+    "spaceId",
+    "channelId",
+    "calendarEventId",
+];
+
 /// Handle `VTCCall/set` (draft-atwood-jmap-vtc-00 §VTCCall/set).
 ///
 /// Create: the `callType`-specific rules of §Creating a Ring Call, §Creating
@@ -147,9 +159,17 @@ fn uses_chat_binding(filter: &VtcCallFilter) -> bool {
 /// Destroy is held
 /// to the same permission as ending the call, then forwarded to the
 /// backend.
+///
+/// A `parentCallId`, `chatId`, `spaceId`, `channelId` or
+/// `calendarEventId` that is a `#creationId` reference names a record
+/// created earlier in the request and resolves against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]) or against a create of this
+/// call, which runs parent calls first (RFC 8620 §5.3). An unknown
+/// reference is `invalidProperties` naming the property.
 pub async fn handle_vtc_call_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -178,12 +198,20 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
 
     let mut acc = SetAccumulators::default();
     let mut mutated = false;
+    // RFC 8620 §5.3: creates of this call join the request-wide map so
+    // later creates and updates in this call can reference them.
+    let mut created_ids = created_ids.clone();
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj) in create_map {
+        for (create_id, mut obj) in parents_first(create_map, "parentCallId") {
+            if let Err(err) = resolve_refs(&mut obj, CALL_ID_PROPERTIES, &created_ids) {
+                acc.not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             match create_call(backend, caller, &account_id, obj).await {
                 Ok(call) => {
                     mutated = true;
+                    created_ids.insert(Id::from(create_id.as_str()), call.id.clone());
                     acc.created.insert(
                         create_id,
                         serde_json::to_value(&call)
@@ -198,7 +226,7 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
     }
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch) in update_map {
+        for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -206,6 +234,10 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_refs(&mut patch, CALL_ID_PROPERTIES, &created_ids) {
+                acc.not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
             match update_call(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;

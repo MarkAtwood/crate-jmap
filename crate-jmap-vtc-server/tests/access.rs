@@ -28,8 +28,7 @@ fn room(e2ee: bool) -> MemoryBackend {
 
 /// Join `C1` as `caller` and return the new record's id.
 async fn join(backend: &MemoryBackend, caller: &str) -> String {
-    let resp = call!(
-        handle_vtc_participant_set,
+    let resp = call!(ids handle_vtc_participant_set,
         backend,
         caller,
         json!({ "create": { "p0": { "callId": "C1", "joinMethod": "webrtc" } } }),
@@ -129,16 +128,14 @@ async fn set_on_inaccessible_call_is_not_found() {
     let backend = room(false);
     backend.deny_call_access(ALICE, "C1");
 
-    let resp = call!(
-        handle_vtc_participant_set,
+    let resp = call!(ids handle_vtc_participant_set,
         &backend,
         ALICE,
         json!({ "create": { "p0": { "callId": "C1", "joinMethod": "webrtc" } } }),
     );
     assert_eq!(resp["notCreated"]["p0"]["type"], "notFound", "{resp}");
 
-    let resp = call!(
-        handle_vtc_call_set,
+    let resp = call!(ids handle_vtc_call_set,
         &backend,
         ALICE,
         json!({ "update": { "C1": { "subject": "x" } }, "destroy": ["C1"] }),

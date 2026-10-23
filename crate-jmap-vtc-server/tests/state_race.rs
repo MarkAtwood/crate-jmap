@@ -286,8 +286,7 @@ async fn pause_after_a_concurrent_stop_is_refused() {
     stopped["stoppedAt"] = json!("2026-06-05T14:50:00Z");
     let backend = Racing::new(backend, "VTCRecording", stopped);
 
-    let resp = call!(
-        handle_vtc_recording_set,
+    let resp = call!(ids handle_vtc_recording_set,
         &backend,
         BOB,
         json!({ "update": { "R1": { "state": "paused" } } }),
@@ -324,8 +323,7 @@ async fn stop_after_a_concurrent_failure_is_refused() {
     let failed = stored_livestream("L1", "failed", json!("2026-06-05T14:40:00Z"));
     let backend = Racing::new(backend, "VTCLivestream", failed);
 
-    let resp = call!(
-        handle_vtc_livestream_set,
+    let resp = call!(ids handle_vtc_livestream_set,
         &backend,
         BOB,
         json!({ "update": { "L1": { "state": "stopped" } } }),
@@ -353,8 +351,7 @@ async fn end_after_a_concurrent_end_is_refused() {
         ended_call("C1", "room", "timeout"),
     );
 
-    let resp = call!(
-        handle_vtc_call_set,
+    let resp = call!(ids handle_vtc_call_set,
         &backend,
         BOB,
         json!({ "update": { "C1": { "state": "ended" } } }),
@@ -389,8 +386,7 @@ async fn join_after_a_concurrent_cancel_leaves_the_call_ended() {
         ended_call("S1", "scheduled", "cancelled"),
     );
 
-    let resp = call!(
-        handle_vtc_participant_set,
+    let resp = call!(ids handle_vtc_participant_set,
         &backend,
         ALICE,
         json!({ "create": { "j0": { "callId": "S1", "joinMethod": "webrtc" } } }),
@@ -533,8 +529,7 @@ async fn moderator_end_of_a_concurrently_answered_call_completes() {
         stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
     );
 
-    let resp = call!(
-        handle_vtc_call_set,
+    let resp = call!(ids handle_vtc_call_set,
         &backend,
         BOB,
         json!({ "update": { "R1": { "state": "ended" } } }),
@@ -582,8 +577,7 @@ async fn decline_of_a_call_answered_after_the_reload_leaves_it_active() {
     // the transitions); the answer lands after the reload.
     let backend = Racing::after(backend, "VTCCall", answered, 1);
 
-    let resp = call!(
-        handle_vtc_participant_set,
+    let resp = call!(ids handle_vtc_participant_set,
         &backend,
         ALICE,
         json!({ "update": { alice.as_str(): { "callResponse": "declined" } } }),

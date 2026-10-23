@@ -1447,6 +1447,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-vtc-server**: `handle_vtc_call_set`,
+  `handle_vtc_participant_set`, `handle_vtc_recording_set` and
+  `handle_vtc_livestream_set` take a new third argument, `created_ids:
+  &BTreeMap<Id, Id>` (pass `CallContext::created_ids`;
+  `register_vtc_handlers` does). They now resolve `#creationId` references
+  (RFC 8620 §5.3) in VTCCall `parentCallId` / `chatId` / `spaceId` /
+  `channelId` / `calendarEventId`, VTCParticipant `callId` /
+  `breakoutCallId` and VTCRecording / VTCLivestream `callId`, on create
+  and update. `VTCCall/set` runs a create whose `parentCallId` is `#k`
+  after the create `k` of the same call, as §5.3 requires. An unknown
+  reference fails that entry with `invalidProperties` naming the property
+  (bd JMAP-1p88).
 - **BREAKING** **jmap-filenode-server**: `handle_filenode_set` takes a new
   third argument, `created_ids: &BTreeMap<Id, Id>` (pass
   `CallContext::created_ids`; `register_filenode_handlers` does). A

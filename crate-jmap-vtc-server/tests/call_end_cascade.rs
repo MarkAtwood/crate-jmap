@@ -68,8 +68,7 @@ async fn updated_since(backend: &MemoryBackend, since: u64) -> Vec<String> {
 
 /// Start a recording on `call_id` as [`BOB`] (L1058-1060) and return its id.
 async fn start_recording(backend: &MemoryBackend, call_id: &str) -> String {
-    let resp = call!(
-        handle_vtc_recording_set,
+    let resp = call!(ids handle_vtc_recording_set,
         backend,
         BOB,
         json!({ "create": { "r0": { "callId": call_id } } }),
@@ -171,8 +170,7 @@ async fn moderator_end_stops_recording_and_paused_recordings() {
     let paused_id = start_recording(&backend, &call).await;
     let elsewhere_id = start_recording(&backend, &other).await;
     // L1082 "`"recording"` → `"paused"`: Pause recording."
-    let resp = call!(
-        handle_vtc_recording_set,
+    let resp = call!(ids handle_vtc_recording_set,
         &backend,
         BOB,
         json!({ "update": { &paused_id: { "state": "paused" } } }),

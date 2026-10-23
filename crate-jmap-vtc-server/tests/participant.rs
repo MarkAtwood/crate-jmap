@@ -26,10 +26,15 @@ const CAROL: &str = "user:carol@example.com";
 /// Run `VTCParticipant/set` as `caller` and return the response.
 async fn pset(backend: &MemoryBackend, caller: &str, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
-    handle_vtc_participant_set(backend, &caller.to_owned(), args)
-        .await
-        .expect("VTCParticipant/set")
-        .primary
+    handle_vtc_participant_set(
+        backend,
+        &caller.to_owned(),
+        &std::collections::BTreeMap::new(),
+        args,
+    )
+    .await
+    .expect("VTCParticipant/set")
+    .primary
 }
 
 /// Join `call_id` as `caller` with `extra` create properties; returns
@@ -1588,6 +1593,7 @@ async fn failed_pending_activation_still_reports_the_committed_join() {
     let resp = handle_vtc_participant_set(
         &backend,
         &ALICE.to_owned(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT,
             "create": { "j0": { "callId": "S1", "joinMethod": "webrtc" } }

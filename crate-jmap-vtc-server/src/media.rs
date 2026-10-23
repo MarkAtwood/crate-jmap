@@ -20,7 +20,7 @@
 //! "MAY accept" such a create. A deployment with a key-holding bridge
 //! registers its own `VTCRecording/set` / `VTCLivestream/set` handler.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use jmap_types::{GetObject, Id, JmapError, PatchObject, SetObject};
 use jmap_vtc_types::VtcMediaComparator;
@@ -32,6 +32,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value, json};
 
+use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort, set_error_value,
@@ -82,12 +83,18 @@ pub async fn handle_vtc_recording_changes<B: VtcBackend>(
 /// Resuming, and Stopping a Recording, then a `VTCRecordingStateEvent`
 /// with the new state. Destroy: §Destroying a Recording. Every operation
 /// requires [`VtcBackend::is_moderator`] on the recording's call.
+///
+/// A `callId` that is a `#creationId` reference names a VTCCall created
+/// earlier in the request and resolves against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
+/// reference is `invalidProperties` naming `callId`.
 pub async fn handle_vtc_recording_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    handle_set::<VtcRecording, B>(backend, caller, args, Kind::Recording).await
+    handle_set::<VtcRecording, B>(backend, caller, created_ids, args, Kind::Recording).await
 }
 
 /// Handle `VTCRecording/query` (draft-atwood-jmap-vtc-00
@@ -202,12 +209,16 @@ pub async fn handle_vtc_livestream_changes<B: VtcBackend>(
 /// Update: §Stopping a Livestream and §Updating Stream Configuration.
 /// Destroy: §Destroying a Livestream. Every operation requires
 /// [`VtcBackend::is_moderator`] on the livestream's call.
+///
+/// `callId` resolves `#creationId` references as for
+/// [`handle_vtc_recording_set`].
 pub async fn handle_vtc_livestream_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    handle_set::<VtcLivestream, B>(backend, caller, args, Kind::Livestream).await
+    handle_set::<VtcLivestream, B>(backend, caller, created_ids, args, Kind::Livestream).await
 }
 
 /// Handle `VTCLivestream/query` (draft-atwood-jmap-vtc-00
@@ -252,6 +263,7 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 async fn handle_set<O, B>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
     kind: Kind,
 ) -> Result<HandlerOutput, JmapError>
@@ -287,7 +299,11 @@ where
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj) in create_map {
+        for (create_id, mut obj) in create_map {
+            if let Err(err) = resolve_refs(&mut obj, &["callId"], created_ids) {
+                acc.not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             let result = match kind {
                 Kind::Recording => {
                     create_recording(backend, caller, &account_id, &create_id, obj).await
@@ -309,7 +325,7 @@ where
     }
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch) in update_map {
+        for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -317,6 +333,10 @@ where
                     continue;
                 }
             };
+            if let Err(err) = resolve_refs(&mut patch, &["callId"], created_ids) {
+                acc.not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
             let result = match kind {
                 Kind::Recording => update_recording(backend, caller, &account_id, &id, patch).await,
                 Kind::Livestream => {
