@@ -5,8 +5,22 @@ body types. Used by `jmap-mail-server` backends that parse raw RFC 5322
 messages.
 
 All MIME parsing lives in `mime_tree`. This crate only maps field names and
-assembles the RFC 8621 §4.1.4 body structure lists. No parsing logic,
-content-type matching, or encoding/decoding logic belongs here.
+assembles the RFC 8621 §4.1.4 body structure lists. No parsing logic belongs
+here.
+
+It also holds the reverse direction until that moves to `mime-tree`
+(bd JMAP-6zvo):
+
+- `writer::write_message(headers, body)` writes an RFC 5322 / MIME message
+  from header fields and a tree of `writer::Part`s. Its API has no JMAP
+  types. It folds header lines at 78 characters, encodes non-ASCII text as
+  RFC 2047 words and non-ASCII parameters per RFC 2231, writes text bodies
+  quoted-printable and binary ones base64, and rejects CR or LF in values it
+  writes unencoded.
+- `compose_email(draft, blobs)` writes the message an RFC 8621 §4.6
+  `Email/set` create (`EmailDraft`) describes, fetching `blobId` parts from
+  `blobs`. It writes only what the draft holds: the caller adds the
+  `Message-ID` and `Date` fields RFC 8621 §4.6 requires.
 
 ## What it is
 

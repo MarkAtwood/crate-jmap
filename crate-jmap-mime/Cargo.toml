@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "MIME-to-JMAP adapter: converts mime_tree parsed output to jmap-mail-types body structures"
+description = "MIME-to-JMAP adapter: converts mime_tree parsed output to jmap-mail-types body structures, and writes RFC 5322 messages for Email/set create"
 keywords = ["jmap", "mime", "email", "rfc8621"]
 categories = ["email", "encoding"]
 

@@ -1,6 +1,11 @@
-//! Thin adapter: [`mime_tree`] types → [`jmap_mail_types`] types.
+//! Thin adapter: [`mime_tree`] types → [`jmap_mail_types`] types, and the
+//! reverse direction: an RFC 5322 / MIME message writer.
 //!
-//! All MIME parsing lives in `mime-tree`. This crate only maps field names.
+//! All MIME parsing lives in `mime-tree`; the parse direction only maps
+//! field names. The writer lives here until it moves to `mime-tree`
+//! (bd JMAP-6zvo): [`writer`] is the generic RFC 5322 / MIME writer, with
+//! no JMAP type in its API, and [`compose_email`] writes the message an
+//! RFC 8621 §4.6 `Email/set` create describes ([`EmailDraft`]).
 //!
 //! # Usage
 //!
@@ -43,6 +48,11 @@
 //! ```
 
 #![forbid(unsafe_code)]
+
+mod compose;
+pub mod writer;
+
+pub use compose::{ComposeError, EmailDraft, compose_email};
 
 use jmap_mail_types::{EmailBodyPart, EmailBodyValue};
 use jmap_types::Id;

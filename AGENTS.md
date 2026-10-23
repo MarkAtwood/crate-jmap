@@ -78,7 +78,7 @@ crates, never in a support crate.
 | `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
 | `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers |
 | `crate-jmap-base-client/` | `jmap-base-client` | RFC 8620 base client: auth, session, blob, SSE, WebSocket |
-| `crate-jmap-mime/` | `jmap-mime` | MIME adapter: mime-tree → jmap-mail-types (greenfield) |
+| `crate-jmap-mime/` | `jmap-mime` | MIME adapter: mime-tree → jmap-mail-types, and the RFC 5322 / MIME writer for Email/set create (greenfield) |
 | `crate-jmap-mail-server/` | `jmap-mail-server` | RFC 8621 method handlers (greenfield) |
 | `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
 | `crate-jmap-chat-server/` | `jmap-chat-server` | JMAP Chat method handlers (greenfield); `verify_did_binding` (draft-atwood-jmap-chat-did-00 §DID-Bound Verification: the `peerSigningKeys` key that verified the request must be an `authentication` key of the DID Document; caller-resolved document, no I/O). Depends on `jmap-peer-auth` |
@@ -123,7 +123,7 @@ jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference
     │       ├── jmap-chat-client   — JMAP Chat method implementations.
     │       └── jmap-mail-client   — RFC 8621 method implementations.
     ├── jmap-mail-types     — RFC 8621 data types: Email, Mailbox, Thread, etc. No async.
-    │       ├── jmap-mime        — MIME parser adapter: mime-tree → jmap-mail-types. No async.
+    │       ├── jmap-mime        — MIME parser adapter: mime-tree → jmap-mail-types; RFC 5322 writer. No async.
     │       ├── jmap-mail-server   — RFC 8621 method handlers, MailBackend trait.
     │       └── (jmap-mail-client also depends on this)
     └── jmap-chat-types     — JMAP Chat extension types: Chat, Message, Space, etc. No async.
