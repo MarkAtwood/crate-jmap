@@ -23,8 +23,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, reject_unsupported_sort, set_error_value,
-    state_refused, utc_key, SetAccumulators,
+    fetch_one, finalize_set_response, forbidden, invalid, peek_filter, reject_unsupported_sort,
+    set_error_value, state_refused, utc_key, SetAccumulators,
 };
 use crate::media::{stop_livestreams, stop_recordings};
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
@@ -104,9 +104,7 @@ async fn prepare_query<B: VtcBackend>(
         );
     }
     reject_unsupported_sort::<VtcCallComparator>(args.get("sort"))?;
-    if let Some(filter) = args.get("filter").filter(|f| !f.is_null()) {
-        let filter =
-            VtcCallFilter::deserialize(filter).map_err(|_| JmapError::unsupported_filter())?;
+    if let Some(filter) = peek_filter::<VtcCallFilter>(&args)? {
         let account_id = args
             .get("accountId")
             .and_then(Value::as_str)

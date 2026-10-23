@@ -37,8 +37,8 @@ use std::time::SystemTime;
 use crate::call::{deliver_call_end, end_call, is_state_refusal, ring_deadline, set_call_state};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort,
-    set_error_value, utc_key, SetAccumulators,
+    fetch_one, finalize_set_response, forbidden, invalid, not_found, peek_filter,
+    reject_unsupported_sort, set_error_value, utc_key, SetAccumulators,
 };
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
@@ -125,12 +125,7 @@ async fn prepare_query<B: VtcBackend>(
         );
     }
     reject_unsupported_sort::<VtcParticipantComparator>(args.get("sort"))?;
-    let scoped = args
-        .get("filter")
-        .filter(|f| !f.is_null())
-        .map(|f| VtcParticipantFilter::deserialize(f).map_err(|_| JmapError::unsupported_filter()))
-        .transpose()?
-        .is_some_and(|f| is_scoped(&f));
+    let scoped = peek_filter::<VtcParticipantFilter>(&args)?.is_some_and(|f| is_scoped(&f));
     if !scoped {
         // RFC 8620 §3.6.2: an unknown account is `accountNotFound`,
         // whatever the filter.

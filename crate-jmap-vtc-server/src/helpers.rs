@@ -100,6 +100,21 @@ pub(crate) fn default_sort(args: &mut Map<String, Value>, default: Value) {
 /// Reject a `/query` `sort` property this server does not define: RFC 8620
 /// §5.5 `unsupportedSort`. A value that is not an array is left for the
 /// typed decode to reject.
+/// Decode the `filter` argument without consuming it, for a pre-check that
+/// runs before the generic `/query` or `/queryChanges` handler. Delegates to
+/// [`jmap_server::filter_arg`]: RFC 8620 §5.5 types `filter` as
+/// "FilterOperator|FilterCondition|null", so a non-object is
+/// `invalidArguments`; an object that fails to decode is `unsupportedFilter`.
+pub(crate) fn peek_filter<T: serde::de::DeserializeOwned>(
+    args: &Value,
+) -> Result<Option<T>, JmapError> {
+    let mut probe = Map::new();
+    if let Some(f) = args.get("filter") {
+        probe.insert("filter".into(), f.clone());
+    }
+    jmap_server::filter_arg(&mut probe)
+}
+
 pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned + KnownSort>(
     sort: Option<&Value>,
 ) -> Result<(), JmapError> {

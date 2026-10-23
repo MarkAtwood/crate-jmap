@@ -138,3 +138,25 @@ async fn spec_condition_succeeds() {
             .unwrap_or_else(|e| panic!("{method}: {e:?}"));
     }
 }
+
+/// A filter that is not an object is `invalidArguments`, not
+/// `unsupportedFilter` (bd:JMAP-98zb). Oracle: RFC 8620 §5.5 types
+/// `filter` as "FilterOperator|FilterCondition|null", both objects, and
+/// §3.6.2 defines `invalidArguments` as "One of the arguments is of the
+/// wrong type". The unscoped-participant `unsupportedFilter` refusal
+/// covers a filter object lacking `callId`/`userId`, not a mistyped one.
+#[tokio::test]
+async fn non_object_filter_is_invalid_arguments() {
+    for (method, handler, _, _, _) in cases() {
+        for filter in [json!(42), json!("x"), json!(true), json!([])] {
+            let err = run(handler, filter.clone())
+                .await
+                .expect_err("a non-object filter must be refused");
+            assert_eq!(
+                err.error_type.to_string(),
+                "invalidArguments",
+                "{method} filter {filter}: {err:?}"
+            );
+        }
+    }
+}
