@@ -62,7 +62,7 @@ async fn email_set_parses_rfc8621_partial_created() {
         )
         .await
         .expect("a partial created object must parse");
-    let k = &resp.created.as_ref().expect("created")["k1546"];
+    let k = &resp.created["k1546"];
     assert_eq!(
         k.id.as_ref().map(|i| i.as_ref()),
         Some("Md45b47b4877521042cec0938")
@@ -70,8 +70,8 @@ async fn email_set_parses_rfc8621_partial_created() {
     assert_eq!(k.extra["threadId"], "Td957e72e89f516dc");
     assert_eq!(k.extra["size"], 11721);
     assert_eq!(
-        resp.destroyed.as_deref(),
-        Some([Id::from("Mf40b5f831efa7233b9eb1c7f")].as_slice())
+        resp.destroyed,
+        ([Id::from("Mf40b5f831efa7233b9eb1c7f")].as_slice())
     );
 }
 
@@ -115,7 +115,7 @@ async fn email_copy_parses_rfc8621_copy_response() {
         .expect("the RFC 8621 Email/copy response must parse");
     assert_eq!(resp.from_account_id.as_ref(), "ue150411c");
     assert_eq!(resp.account_id.as_ref(), "u6c6c41ac");
-    let k45 = &resp.created.as_ref().expect("created")["k45"];
+    let k45 = &resp.created["k45"];
     assert_eq!(
         k45.id.as_ref().map(|i| i.as_ref()),
         Some("M138f9954a5cd2423daeafa55")
@@ -124,7 +124,7 @@ async fn email_copy_parses_rfc8621_copy_response() {
         k45.extra["blobId"],
         "G6b9fb047cba722c48c611e79233d057c6b0b74e8"
     );
-    assert!(resp.not_created.is_none());
+    assert!(resp.not_created.is_empty());
 }
 
 /// RFC 8621 §5.2 example response: the typed list replaces the caller's

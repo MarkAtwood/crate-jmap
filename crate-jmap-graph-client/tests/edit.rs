@@ -149,7 +149,7 @@ async fn graph_node_op_set_matches_submitting_example() {
             }
         }])
     );
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert_eq!(created["o1"].extra["seq"], json!(42));
     assert_eq!(created["o1"].id, Some(Id::from("P42")));
 }

@@ -634,7 +634,7 @@ mod tests {
         });
         let resp: SetResponse<jmap_calendars_types::CalendarEvent> = serde_json::from_value(raw)
             .expect("SetResponse must accept Id[Foo|null] per RFC 8620 §5.3");
-        let updated = resp.updated.expect("updated must be Some");
+        let updated = resp.updated;
         assert_eq!(updated.len(), 2, "two ids in updated map");
         assert!(
             updated
@@ -668,7 +668,7 @@ mod tests {
         });
         let resp: SetResponse<serde_json::Value> =
             serde_json::from_value(raw).expect("SetResponse must accept Id[Foo] per RFC 8620 §5.3");
-        let updated = resp.updated.expect("updated must be Some");
+        let updated = resp.updated;
         let ev1 = updated
             .get(&Id::from("ev1"))
             .expect("ev1 key present")
@@ -700,7 +700,7 @@ mod tests {
         });
         let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw)
             .expect("SetResponse must accept Id[SetError] per RFC 8620 §5.3");
-        let not_updated = resp.not_updated.expect("notUpdated must be Some");
+        let not_updated = resp.not_updated;
         assert_eq!(
             not_updated
                 .get(&Id::from("ev-1"))
@@ -710,7 +710,7 @@ mod tests {
             "stateMismatch",
             "notUpdated key must deserialize as Id, not String"
         );
-        let not_destroyed = resp.not_destroyed.expect("notDestroyed must be Some");
+        let not_destroyed = resp.not_destroyed;
         assert_eq!(
             not_destroyed
                 .get(&Id::from("ev-2"))

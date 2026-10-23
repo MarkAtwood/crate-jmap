@@ -868,7 +868,7 @@ mod tests {
         });
         let resp: SetResponse<jmap_filenode_types::FileNode> =
             serde_json::from_value(json).expect("SetResponse<FileNode> must deserialize");
-        let created = resp.created.expect("created must be Some");
+        let created = resp.created;
         let node = created.get("new1").expect("new1 must be present");
         assert_eq!(node.id, "node-abc");
         assert_eq!(node.name, "Documents");

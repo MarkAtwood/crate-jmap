@@ -1385,6 +1385,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-types** and every `jmap-*-client` crate: **BREAKING**
+  `SetResponse::{created, updated, destroyed, not_created, not_updated,
+  not_destroyed}` and `CopyResponse::{created, not_created}` are plain
+  `BTreeMap` / `Vec`, not `Option`. RFC 8620 §5.3 / §5.4 define each as
+  "null if none", so `None` and an empty collection meant the same thing
+  and every caller had to flatten the `Option`. A `null` or absent field
+  decodes as empty and an empty one encodes as `null`, the RFC wire form
+  (bd JMAP-6xs8.24).
 - **jmap-chat-types**, **jmap-chat-federation-types**: **BREAKING**
   `Attachment.sha256` is `jmap_cid_types::Sha256`,
   `AttachmentCreate.sha256` is `Option<Sha256>`, and `PeerAvatar.sha256`

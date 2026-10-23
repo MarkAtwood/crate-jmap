@@ -268,7 +268,7 @@ async fn vtc_participant_set_join_matches_lifecycle_example() {
             }
         }])
     );
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     let record: VtcParticipant =
         serde_json::from_value(serde_json::to_value(&created["p0"]).expect("serializes"))
             .expect("complete record must decode");

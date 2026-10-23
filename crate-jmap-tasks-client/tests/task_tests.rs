@@ -258,10 +258,7 @@ async fn task_set_create_round_trip() {
         .expect("task_set_create_round_trip: must succeed");
 
     // Response assertions.
-    let created = resp
-        .created
-        .as_ref()
-        .expect("created must be Some when a task was created");
+    let created = &resp.created;
     assert!(
         created.contains_key("k1"),
         "created map must contain key 'k1'"

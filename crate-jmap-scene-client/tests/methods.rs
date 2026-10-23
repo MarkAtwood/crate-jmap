@@ -175,7 +175,7 @@ async fn scene_asset_set_create_matches_full_envelope_example() {
             }
         }])
     );
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert_eq!(
         created["a0"].id,
         Some(Id::from("01J5AST0000000000000000001"))
@@ -492,7 +492,7 @@ async fn scene_avatar_set_enter_matches_example() {
         json!(["SceneAvatar/set", { "accountId": "acct-001", "create": create }])
     );
     assert_eq!(resp.new_state, State::from("state-avatar-21"));
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert_eq!(
         created["av0"].extra["userId"],
         json!("user:alice@example.com")

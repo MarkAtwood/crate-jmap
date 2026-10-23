@@ -143,7 +143,7 @@ impl KeyPackageCreate {
 ///         }
 ///     }
 /// }"#)?;
-/// assert_eq!(resp.created.unwrap()["k1"].id.as_ref(), "kp42");
+/// assert_eq!(resp.created["k1"].id.as_ref(), "kp42");
 /// # Ok::<(), serde_json::Error>(())
 /// ```
 #[non_exhaustive]
@@ -330,7 +330,7 @@ mod tests {
         assert_eq!(resp.account_id.as_ref(), "u1");
         assert_eq!(resp.old_state.unwrap().as_ref(), "s7");
         assert_eq!(resp.new_state.as_ref(), "s8");
-        let created = resp.created.unwrap();
+        let created = resp.created;
         let k1 = &created["k1"];
         assert_eq!(k1.id.as_ref(), "kp42");
         assert_eq!(k1.key_package_ref.as_str(), KP_REF);

@@ -495,7 +495,7 @@ async fn calendar_event_copy_success_passthrough() {
         .calendar_event_copy(params, json!(create))
         .await
         .expect("calendar_event_copy: must succeed");
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert!(
         created.contains_key("newCopy"),
         "created must contain 'newCopy' key"

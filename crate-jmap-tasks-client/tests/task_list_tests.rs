@@ -217,10 +217,7 @@ async fn task_list_set_on_destroy_remove_tasks_round_trip() {
 
     // Response assertions.
     assert_eq!(resp.new_state, "s6", "newState must be 's6'");
-    let destroyed = resp
-        .destroyed
-        .as_deref()
-        .expect("destroyed must be Some when a list was destroyed");
+    let destroyed = &resp.destroyed;
     assert!(
         destroyed.iter().any(|id| id.as_ref() == "list1"),
         "destroyed must contain 'list1'"
@@ -343,7 +340,7 @@ async fn task_list_set_created_omits_client_sent_properties() {
         )
         .await
         .expect("a partial created object must parse");
-    let k1 = &resp.created.expect("created")["k1"];
+    let k1 = &resp.created["k1"];
     assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("tl-9"));
     assert_eq!(k1.extra["sortOrder"], 0);
     assert!(!k1.extra.contains_key("name"));

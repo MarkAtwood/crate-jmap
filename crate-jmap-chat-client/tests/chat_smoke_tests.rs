@@ -584,7 +584,7 @@ async fn chat_create_direct_serializes_kind_and_contact_id() {
         .chat_create(&input, None)
         .await
         .expect("chat_create: must succeed");
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert!(created.contains_key("myKey"), "created must contain myKey");
 
     let args = recorded_args(&server).await;
@@ -859,8 +859,8 @@ async fn chat_destroy_threads_ids() {
         .await
         .expect("chat_destroy: must succeed");
     assert_eq!(
-        resp.destroyed.as_deref(),
-        Some(&[Id::from("chat-doomed")][..]),
+        resp.destroyed,
+        (&[Id::from("chat-doomed")][..]),
         "destroyed must contain the chat id"
     );
 
@@ -1262,7 +1262,7 @@ async fn chat_create_created_is_partial_object() {
         .chat_create(&input, None)
         .await
         .expect("a partial created object must parse");
-    let g1 = &resp.created.expect("created")["g1"];
+    let g1 = &resp.created["g1"];
     assert_eq!(g1.id, Some(Id::from("chat-9")));
     assert_eq!(g1.extra["createdAt"], "2026-10-21T10:00:00Z");
     assert!(!g1.extra.contains_key("name"));

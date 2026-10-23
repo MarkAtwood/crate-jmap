@@ -98,7 +98,7 @@ async fn vtc_livestream_set_stop_matches_draft_example() {
         })
     );
     // L1254: "The server sets `stoppedAt` to the current time."
-    let updated = resp.updated.expect("updated");
+    let updated = resp.updated;
     assert_eq!(
         serde_json::to_value(&updated[&Id::from("01J4XQ7VN0SYWV2TTFHJVW7JJ0")])
             .expect("serializes"),

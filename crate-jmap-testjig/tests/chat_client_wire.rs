@@ -45,12 +45,11 @@ async fn connect() -> (TestjigHandle, JmapClient, Session) {
 /// The server-assigned id for creation key `key`, or a panic naming the
 /// SetError the server returned instead.
 fn created_id(resp: &SetResponse<PartialObject>, key: &str) -> Id {
-    if let Some(err) = resp.not_created.as_ref().and_then(|m| m.get(key)) {
+    if let Some(err) = resp.not_created.get(key) {
         panic!("{key} not created: {err:?}");
     }
     resp.created
-        .as_ref()
-        .and_then(|m| m.get(key))
+        .get(key)
         .and_then(|v| v.id.clone())
         .unwrap_or_else(|| panic!("created[{key}].id missing: {resp:?}"))
 }
@@ -209,8 +208,7 @@ async fn chat_create_direct_and_group_round_trip() {
         .expect("Chat/set duplicate direct create");
     let err = dup
         .not_created
-        .as_ref()
-        .and_then(|m| m.get("d2"))
+        .get("d2")
         .expect("duplicate direct chat must be rejected");
     assert_eq!(err.error_type.to_string(), "alreadyExists");
     assert_eq!(err.existing_id.as_ref(), Some(&direct_id));
@@ -242,10 +240,7 @@ async fn chat_update_member_patch_keys() {
         .chat_update(&group_id, &patch, None)
         .await
         .expect("addMembers");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "addMembers rejected: {resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "addMembers rejected: {resp:?}");
     let got = sc
         .chat_get(Some(std::slice::from_ref(&group_id)), None)
         .await
@@ -271,8 +266,7 @@ async fn chat_update_member_patch_keys() {
         .expect("updateMemberRoles");
     let err = resp
         .not_updated
-        .as_ref()
-        .and_then(|m| m.get(&group_id))
+        .get(&group_id)
         .expect("unknown role must be rejected");
     assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(
@@ -309,10 +303,7 @@ async fn last_admin_leave_closes_group() {
         .chat_update(&group_id, &patch, None)
         .await
         .expect("leave");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "leave rejected: {resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "leave rejected: {resp:?}");
     let got = sc
         .chat_get(Some(std::slice::from_ref(&group_id)), None)
         .await
@@ -344,8 +335,7 @@ async fn last_admin_leave_closes_group() {
         .expect("Message/set create");
     let err = resp
         .not_created
-        .as_ref()
-        .and_then(|m| m.get("m"))
+        .get("m")
         .expect("create in a closed group must be rejected");
     assert_eq!(err.error_type.to_string(), "forbidden");
 
@@ -353,10 +343,7 @@ async fn last_admin_leave_closes_group() {
         .chat_destroy(std::slice::from_ref(&group_id), None)
         .await
         .expect("Chat/set destroy");
-    assert_eq!(
-        resp.destroyed.as_deref(),
-        Some(std::slice::from_ref(&group_id))
-    );
+    assert_eq!(resp.destroyed, (std::slice::from_ref(&group_id)));
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Chat/typing `chatId` — "The server
@@ -385,10 +372,7 @@ async fn chat_typing_unknown_or_left_chat_is_invalid_arguments() {
         .chat_update(&group_id, &patch, None)
         .await
         .expect("leave");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "leave rejected: {resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "leave rejected: {resp:?}");
 
     let mut errors = Vec::new();
     for chat_id in [Id::from("nosuchchat"), group_id] {
@@ -579,8 +563,7 @@ async fn message_create_keeps_optional_properties() {
         .expect("Message/set create");
     let err = resp
         .not_created
-        .as_ref()
-        .and_then(|m| m.get("m2"))
+        .get("m2")
         .unwrap_or_else(|| panic!("empty topicId must be rejected: {resp:?}"));
     assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(err.properties.as_deref(), Some(&["topicId".to_owned()][..]));
@@ -625,8 +608,7 @@ async fn message_create_rejects_fields_forbidden_by_body_type() {
         .expect("Message/set create");
     let err = resp
         .not_created
-        .as_ref()
-        .and_then(|m| m.get("m1"))
+        .get("m1")
         .unwrap_or_else(|| panic!("m1 must be rejected: {resp:?}"));
     assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(err.properties.as_deref(), Some(&["topicId".to_owned()][..]));
@@ -673,8 +655,7 @@ async fn message_create_rejects_body_over_max_body_bytes() {
         .expect("Message/set create");
     let err = resp
         .not_created
-        .as_ref()
-        .and_then(|m| m.get("m1"))
+        .get("m1")
         .unwrap_or_else(|| panic!("over-long body must be rejected: {resp:?}"));
     assert_eq!(err.error_type.to_string(), "tooLarge");
 }
@@ -728,8 +709,7 @@ async fn message_unsupported_body_type_is_invalid_properties() {
         .expect("Message/set create");
     let err = resp
         .not_created
-        .as_ref()
-        .and_then(|m| m.get("bad"))
+        .get("bad")
         .unwrap_or_else(|| panic!("unsupported bodyType must be rejected: {resp:?}"));
     assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(
@@ -748,8 +728,7 @@ async fn message_unsupported_body_type_is_invalid_properties() {
         .expect("edit");
     let err = resp
         .not_updated
-        .as_ref()
-        .and_then(|m| m.get(&msg_id))
+        .get(&msg_id)
         .unwrap_or_else(|| panic!("unsupported bodyType edit must be rejected: {resp:?}"));
     assert_eq!(err.error_type.to_string(), "invalidProperties");
     assert_eq!(
@@ -859,10 +838,7 @@ async fn reactions_add_then_remove() {
         .message_update(&msg_id, &patch, None)
         .await
         .expect("add reaction");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
 
     let got = sc
         .message_get(Some(std::slice::from_ref(&msg_id)), None)
@@ -889,10 +865,7 @@ async fn reactions_add_then_remove() {
         .message_update(&msg_id, &patch, None)
         .await
         .expect("remove reaction");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
 
     let got = sc
         .message_get(Some(&[msg_id]), None)
@@ -929,10 +902,7 @@ async fn message_edit_after_delete_is_forbidden() {
         .message_update(&msg_id, &patch, None)
         .await
         .expect("delete");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
 
     let patch = MessagePatch {
         body: Some("rewritten"),
@@ -944,8 +914,7 @@ async fn message_edit_after_delete_is_forbidden() {
         .expect("edit");
     let err = resp
         .not_updated
-        .as_ref()
-        .and_then(|m| m.get(&msg_id))
+        .get(&msg_id)
         .unwrap_or_else(|| panic!("edit of a deleted Message must be rejected: {resp:?}"));
     assert_eq!(err.error_type.to_string(), "forbidden");
 
@@ -980,10 +949,7 @@ async fn read_position_update_round_trip() {
         .read_position_update(&rp.id, &msg_id, None)
         .await
         .expect("ReadPosition/set update");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
 
     let got = sc
         .read_position_get(Some(std::slice::from_ref(&rp.id)))
@@ -1045,10 +1011,7 @@ async fn space_join_rejects_banned_caller() {
         .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set update");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
 
     let ban = SpaceBanCreateInput {
         client_id: Some("b0"),
@@ -1098,10 +1061,7 @@ async fn space_join_unknown_or_private_space_is_not_permitted() {
         .space_update(&private_id, &patch, None)
         .await
         .expect("Space/set update");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
 
     for space_id in [private_id, Id::from("nosuchspace")] {
         match sc.space_join(&SpaceJoinInput::SpaceId(&space_id)).await {
@@ -1173,10 +1133,7 @@ async fn space_add_roles_round_trips_each_color_representation() {
         .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set update");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
 
     let got = sc
         .space_get(Some(std::slice::from_ref(&space_id)), None)
@@ -1246,10 +1203,7 @@ async fn space_add_categories_moves_channel_into_new_category() {
         .space_update(&space_id, &patch, None)
         .await
         .expect("Space/set addChannels");
-    assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
-        "{resp:?}"
-    );
+    assert!(resp.not_updated.is_empty(), "{resp:?}");
     let got = sc
         .space_get(Some(std::slice::from_ref(&space_id)), None)
         .await
@@ -1278,7 +1232,7 @@ async fn space_add_categories_moves_channel_into_new_category() {
         .await
         .expect("Space/set addCategories");
     assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        resp.not_updated.is_empty(),
         "addCategories entries without id must be accepted: {resp:?}"
     );
 
@@ -1355,7 +1309,7 @@ async fn space_add_categories_name_only_appends_empty_category() {
         .await
         .expect("Space/set addCategories");
     assert!(
-        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        resp.not_updated.is_empty(),
         "addCategories entries without position or channelIds must be accepted: {resp:?}"
     );
 

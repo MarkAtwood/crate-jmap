@@ -163,7 +163,7 @@ async fn contact_card_set_create_round_trip() {
         .expect("contact_card_set_create_round_trip: must succeed");
 
     assert_eq!(resp.new_state, "s2", "newState mismatch");
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert!(
         created.contains_key("newCard"),
         "created must contain 'newCard' key"
@@ -235,7 +235,7 @@ async fn contact_card_copy_round_trip() {
         .expect("contact_card_copy_round_trip: must succeed");
 
     assert_eq!(resp.new_state, "s3", "newState mismatch");
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert!(
         created.contains_key("k1"),
         "created must contain 'k1' creation key"

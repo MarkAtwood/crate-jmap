@@ -185,7 +185,7 @@ async fn addressbook_set_create_round_trip() {
         .expect("addressbook_set_create_round_trip: must succeed");
 
     assert_eq!(resp.new_state, "s2", "newState mismatch");
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert!(
         created.contains_key("newAb"),
         "created must contain 'newAb' key"
@@ -247,7 +247,7 @@ async fn addressbook_set_on_destroy_remove_contents() {
         .expect("addressbook_set_on_destroy_remove_contents: must succeed");
 
     assert_eq!(resp.new_state, "s6", "newState mismatch");
-    let destroyed = resp.destroyed.expect("destroyed must be present");
+    let destroyed = resp.destroyed;
     assert!(
         destroyed.iter().any(|id| id.as_ref() == "ab-old"),
         "destroyed must contain ab-old"
@@ -378,7 +378,7 @@ async fn address_book_set_created_omits_client_sent_properties() {
         )
         .await
         .expect("a partial created object must parse");
-    let k1 = &resp.created.expect("created")["k1"];
+    let k1 = &resp.created["k1"];
     assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("ab-9"));
     assert_eq!(k1.extra["myRights"]["mayShare"], false);
     assert!(!k1.extra.contains_key("name"));

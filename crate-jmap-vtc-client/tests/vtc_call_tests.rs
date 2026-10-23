@@ -76,7 +76,7 @@ async fn vtc_call_set_create_ring_matches_lifecycle_example() {
         }])
     );
     // L1864-L1872: the created entry carries only server-set properties.
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert_eq!(
         created["c0"].id,
         Some(Id::from("01J4XKZQN4MWVT8PPBEHTJ3AB0"))
@@ -119,7 +119,7 @@ async fn vtc_call_set_end_matches_lifecycle_example() {
             }
         }])
     );
-    let updated = resp.updated.expect("updated must be present");
+    let updated = resp.updated;
     assert!(updated.contains_key(&Id::from("01J4XKZQN4MWVT8PPBEHTJ3AB0")));
 }
 

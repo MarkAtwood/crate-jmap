@@ -160,8 +160,8 @@ async fn calendar_event_notification_set_destroy_only_with_ids() {
         .await
         .expect("calendar_event_notification_set: must succeed");
     assert_eq!(
-        resp.destroyed.as_deref(),
-        Some(&[Id::from("n-1"), Id::from("n-2")][..]),
+        resp.destroyed,
+        (&[Id::from("n-1"), Id::from("n-2")][..]),
         "destroyed list mismatch"
     );
 

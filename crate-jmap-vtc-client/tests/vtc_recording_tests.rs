@@ -49,7 +49,7 @@ async fn vtc_recording_set_create_matches_lifecycle_example() {
         }])
     );
     assert_eq!(
-        resp.created.expect("created")["r0"].id,
+        resp.created["r0"].id,
         Some(Id::from("01J4XP2SN9RXVV1SSEGJVT6GH0"))
     );
 }
@@ -100,7 +100,7 @@ async fn vtc_recording_set_stop_and_destroy_matches_draft_example() {
     assert_eq!(sent[1]["destroy"], json!(["01J4XOLDREC0000000000000000"]));
     assert_eq!(
         resp.destroyed,
-        Some(vec![Id::from("01J4XOLDREC0000000000000000")])
+        (vec![Id::from("01J4XOLDREC0000000000000000")])
     );
 }
 

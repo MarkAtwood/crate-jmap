@@ -50,10 +50,7 @@ async fn principal_set_destroy_round_trip() {
 
     assert_eq!(resp.account_id.as_ref(), "u33084183", "accountId mismatch");
     assert_eq!(resp.new_state, "s2", "newState mismatch");
-    let destroyed = resp
-        .destroyed
-        .as_ref()
-        .expect("principal_set_destroy_round_trip: destroyed must be Some");
+    let destroyed = &resp.destroyed;
     assert!(
         destroyed.iter().any(|id| id.as_ref() == "p-joe"),
         "destroyed must contain p-joe"
@@ -109,10 +106,7 @@ async fn principal_set_create_returns_forbidden() {
         .await
         .expect("principal_set_create_returns_forbidden: must succeed at transport level");
 
-    let not_created = resp
-        .not_created
-        .as_ref()
-        .expect("principal_set_create_returns_forbidden: notCreated must be Some");
+    let not_created = &resp.not_created;
     let err = not_created
         .get("c1")
         .expect("principal_set_create_returns_forbidden: c1 must be in notCreated");
@@ -159,7 +153,7 @@ async fn principal_set_created_omits_client_sent_properties() {
         )
         .await
         .expect("a partial created object must parse");
-    let k1 = &resp.created.expect("created")["k1"];
+    let k1 = &resp.created["k1"];
     assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("P-9"));
     assert!(k1.extra.is_empty());
 }

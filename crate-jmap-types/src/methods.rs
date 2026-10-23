@@ -61,14 +61,30 @@ pub struct GetResponse<T> {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// Deserialize a `null` array as empty, for fields RFC 8620 types as a
-/// plain array that lenient peers still send as `null`.
-fn null_as_empty<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
+/// Deserialize a `null` collection as empty: for fields RFC 8620 types as
+/// a plain array that lenient peers still send as `null`, and for the
+/// `/set` and `/copy` result fields it defines as "null if none".
+fn null_as_empty<'de, D, C>(d: D) -> Result<C, D::Error>
 where
     D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
+    C: Deserialize<'de> + Default,
 {
-    Ok(Option::<Vec<T>>::deserialize(d)?.unwrap_or_default())
+    Ok(Option::<C>::deserialize(d)?.unwrap_or_default())
+}
+
+/// Serialize an empty collection as `null`, the RFC 8620 §5.3 / §5.4 wire
+/// form for a `/set` or `/copy` result field with no entries.
+fn empty_as_null<S, C>(c: &C, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+    C: Serialize,
+    for<'a> &'a C: IntoIterator,
+{
+    if c.into_iter().next().is_none() {
+        s.serialize_none()
+    } else {
+        s.serialize_some(c)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +240,11 @@ where
 /// server-assigned record ids ([`Id`]) — typed differently so callers can
 /// use `updated`/`destroyed` keys interchangeably with ids from any
 /// `/get` response.
+///
+/// The result maps and lists are plain collections, not `Option`s: RFC 8620
+/// defines each as "null if none", so an empty collection means none. A
+/// `null` or absent field decodes as empty and an empty one encodes as
+/// `null`.
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -241,19 +262,49 @@ pub struct SetResponse<T> {
     /// State token after this `/set`.
     pub new_state: State,
     /// Successfully created objects, keyed by caller-supplied creation id.
-    pub created: Option<BTreeMap<String, T>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub created: BTreeMap<String, T>,
     /// Successfully updated objects, keyed by record id. The value is
     /// `Some(T)` when the server reports server-set property deltas, or
     /// `None` when the patch was applied verbatim with nothing to echo.
-    pub updated: Option<BTreeMap<Id, Option<T>>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub updated: BTreeMap<Id, Option<T>>,
     /// Ids of successfully destroyed objects.
-    pub destroyed: Option<Vec<Id>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub destroyed: Vec<Id>,
     /// Failed creates, keyed by caller-supplied creation id.
-    pub not_created: Option<BTreeMap<String, SetError>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub not_created: BTreeMap<String, SetError>,
     /// Failed updates, keyed by record id.
-    pub not_updated: Option<BTreeMap<Id, SetError>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub not_updated: BTreeMap<Id, SetError>,
     /// Failed destroys, keyed by record id.
-    pub not_destroyed: Option<BTreeMap<Id, SetError>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub not_destroyed: BTreeMap<Id, SetError>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -298,6 +349,11 @@ pub struct PartialObject {
 /// / `destroyed` maps. When `onSuccessDestroyOriginal` is set the server
 /// sends a separate implicit `Foo/set` response with the same call id; that
 /// one is a [`SetResponse`].
+///
+/// The result maps and lists are plain collections, not `Option`s: RFC 8620
+/// defines each as "null if none", so an empty collection means none. A
+/// `null` or absent field decodes as empty and an empty one encodes as
+/// `null`.
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -316,9 +372,19 @@ pub struct CopyResponse<T> {
     /// State of the destination account after the copy.
     pub new_state: State,
     /// Successfully copied objects, keyed by caller-supplied creation id.
-    pub created: Option<BTreeMap<String, T>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub created: BTreeMap<String, T>,
     /// Failed copies, keyed by caller-supplied creation id.
-    pub not_created: Option<BTreeMap<String, SetError>>,
+    #[serde(
+        default,
+        deserialize_with = "null_as_empty",
+        serialize_with = "empty_as_null"
+    )]
+    pub not_created: BTreeMap<String, SetError>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -661,7 +727,7 @@ mod tests {
             "updated": { "ev1": null, "ev2": null }
         });
         let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw).unwrap();
-        let upd = resp.updated.unwrap();
+        let upd = resp.updated;
         assert!(upd.get(&Id::from("ev1")).unwrap().is_none());
         assert!(upd.get(&Id::from("ev2")).unwrap().is_none());
     }
@@ -675,7 +741,7 @@ mod tests {
             "updated": { "ev1": { "id": "ev1", "title": "Meeting" } }
         });
         let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw).unwrap();
-        let upd = resp.updated.unwrap();
+        let upd = resp.updated;
         let ev1 = upd.get(&Id::from("ev1")).unwrap().as_ref().unwrap();
         assert_eq!(ev1["title"], "Meeting");
     }
@@ -694,7 +760,7 @@ mod tests {
             }
         });
         let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw).unwrap();
-        let nu = resp.not_updated.unwrap();
+        let nu = resp.not_updated;
         assert_eq!(
             nu.get(&Id::from("ev1")).unwrap().error_type.to_string(),
             "stateMismatch"
@@ -1174,7 +1240,7 @@ mod tests {
             "destroyed": ["Mf40b5f831efa7233b9eb1c7f"]
         });
         let resp: SetResponse<PartialObject> = serde_json::from_value(raw).unwrap();
-        let created = resp.created.as_ref().unwrap();
+        let created = &resp.created;
         let k = &created["k1546"];
         assert_eq!(
             k.id.as_ref().map(|i| i.as_ref()),
@@ -1186,7 +1252,7 @@ mod tests {
             !k.extra.contains_key("id"),
             "id must not be duplicated in extra"
         );
-        let updated = resp.updated.as_ref().unwrap();
+        let updated = &resp.updated;
         assert_eq!(updated[&Id::from("Mabc")], None);
         let def = updated[&Id::from("Mdef")].as_ref().unwrap();
         assert_eq!(def.id, None);
@@ -1231,7 +1297,7 @@ mod tests {
             Some("7ee7e9263a6d")
         );
         assert_eq!(resp.new_state.as_ref(), "5a0d2447ed26");
-        let k45 = &resp.created.as_ref().unwrap()["k45"];
+        let k45 = &resp.created["k45"];
         assert_eq!(
             k45.id.as_ref().map(|i| i.as_ref()),
             Some("M138f9954a5cd2423daeafa55")
@@ -1240,8 +1306,48 @@ mod tests {
             k45.extra["blobId"],
             "G6b9fb047cba722c48c611e79233d057c6b0b74e8"
         );
-        assert!(resp.not_created.is_none());
+        assert!(resp.not_created.is_empty());
         assert!(resp.extra.is_empty());
+    }
+
+    /// RFC 8620 §5.3: `created` "is null if no Foo objects were
+    /// successfully created", `destroyed` is "null if none", and the
+    /// `not*` maps are "null if none". Null and absent both mean none.
+    #[test]
+    fn set_response_null_and_absent_results_decode_empty() {
+        let raw = json!({
+            "accountId": "A1", "oldState": null, "newState": "s2",
+            "created": null, "updated": null, "destroyed": null,
+            "notCreated": null
+        });
+        let resp: SetResponse<PartialObject> = serde_json::from_value(raw).unwrap();
+        assert!(resp.created.is_empty());
+        assert!(resp.updated.is_empty());
+        assert!(resp.destroyed.is_empty());
+        assert!(resp.not_created.is_empty());
+        assert!(resp.not_updated.is_empty());
+        assert!(resp.not_destroyed.is_empty());
+    }
+
+    /// RFC 8620 §5.3 / §5.4: a result field with no entries is `null` on
+    /// the wire, never `{}` or `[]`.
+    #[test]
+    fn set_and_copy_responses_encode_empty_results_as_null() {
+        let set = json!({
+            "accountId": "A1", "oldState": "s1", "newState": "s2",
+            "created": null, "updated": null, "destroyed": ["X1"],
+            "notCreated": null, "notUpdated": null, "notDestroyed": null
+        });
+        let resp: SetResponse<PartialObject> = serde_json::from_value(set.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&resp).unwrap(), set);
+
+        let copy = json!({
+            "fromAccountId": "A0", "accountId": "A1",
+            "oldState": null, "newState": "s2",
+            "created": null, "notCreated": null
+        });
+        let resp: CopyResponse<PartialObject> = serde_json::from_value(copy.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&resp).unwrap(), copy);
     }
 
     /// RFC 8620 §5.4: `oldState` is "String|null" and `fromAccountId` is
@@ -1256,7 +1362,7 @@ mod tests {
         let resp: CopyResponse<PartialObject> = serde_json::from_value(ok).unwrap();
         assert!(resp.old_state.is_none());
         assert_eq!(
-            resp.not_created.unwrap()["c1"].error_type,
+            resp.not_created["c1"].error_type,
             SetErrorType::AlreadyExists
         );
         let missing = json!({ "accountId": "A1", "newState": "s2" });
