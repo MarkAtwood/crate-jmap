@@ -300,12 +300,13 @@ async fn chat_contact_query_filter_presence_sort_serialise() {
         json!({ "blocked": false, "presence": "online" }),
         "filter must serialise blocked + lowercase presence"
     );
-    // Sort: camelCase property + boolean isAscending (RFC 8620 §5.5
-    // sort comparator shape). Spec line 1140 — sort property names are
-    // `"lastSeenAt"`, `"login"`, `"lastActiveAt"`.
+    // Sort: camelCase property (RFC 8620 §5.5 sort comparator shape);
+    // isAscending "(default: true)" is omitted when ascending. Spec line
+    // 1140 — sort property names are `"lastSeenAt"`, `"login"`,
+    // `"lastActiveAt"`.
     assert_eq!(
         args["sort"],
-        json!([{ "property": "lastSeenAt", "isAscending": true }]),
+        json!([{ "property": "lastSeenAt" }]),
         "sort must serialise LastSeenAt ascending"
     );
 }

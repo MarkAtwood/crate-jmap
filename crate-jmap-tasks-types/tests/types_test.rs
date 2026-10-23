@@ -1624,9 +1624,13 @@ fn task_notification_comparator_sort_properties() {
         serde_json::from_value(serde_json::json!({ "property": "created" })).unwrap();
     assert_eq!(c.property, P::Created);
     let wire = serde_json::json!({ "property": "taskId", "isAscending": true });
-    let c: TaskNotificationComparator = serde_json::from_value(wire.clone()).unwrap();
+    let c: TaskNotificationComparator = serde_json::from_value(wire).unwrap();
     assert_eq!(c.property, P::Other("taskId".to_owned()));
-    assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+    // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+    assert_eq!(
+        serde_json::to_value(&c).unwrap(),
+        serde_json::json!({ "property": "taskId" })
+    );
 }
 
 /// The `type` and `progress` filter conditions carry the same value sets

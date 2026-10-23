@@ -212,7 +212,7 @@ pub struct FileNodeComparator {
     pub property: FileNodeComparatorProperty,
 
     /// If `true`, sort ascending; if `false`, sort descending (default `true`).
-    #[serde(default = "default_ascending")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
 
     /// A collation identifier (RFC 4790) to use when comparing strings.
@@ -232,8 +232,12 @@ impl FileNodeComparator {
     }
 }
 
-fn default_ascending() -> bool {
+fn bool_true() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }
 
 #[cfg(test)]
@@ -257,9 +261,13 @@ mod comparator_tests {
         ];
         for (wire, variant) in want {
             let json = serde_json::json!({"property": wire, "isAscending": true});
-            let c: FileNodeComparator = serde_json::from_value(json.clone()).expect("must parse");
+            let c: FileNodeComparator = serde_json::from_value(json).expect("must parse");
             assert_eq!(c.property, variant);
-            assert_eq!(serde_json::to_value(&c).unwrap(), json);
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            assert_eq!(
+                serde_json::to_value(&c).unwrap(),
+                serde_json::json!({"property": wire})
+            );
         }
     }
 

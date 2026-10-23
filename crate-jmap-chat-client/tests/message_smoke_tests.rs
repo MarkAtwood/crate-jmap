@@ -376,9 +376,10 @@ async fn message_query_sort_ascending() {
         .expect("message_query: must succeed");
 
     let args = recorded_args(&server).await;
+    // RFC 8620 §5.5 isAscending "(default: true)": omitted when ascending.
     assert_eq!(
         args["sort"],
-        json!([{ "property": "receivedAt", "isAscending": true }]),
+        json!([{ "property": "receivedAt" }]),
         "sort must be receivedAt ascending"
     );
 }

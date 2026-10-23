@@ -509,7 +509,7 @@ pub struct CalendarEventComparator {
     pub property: CalendarEventComparatorProperty,
 
     /// If `true`, sort ascending; if `false`, sort descending (default `true`).
-    #[serde(default = "default_ascending")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
 
     /// A collation identifier (RFC 4790) to use when comparing strings.
@@ -529,6 +529,10 @@ impl CalendarEventComparator {
     }
 }
 
-fn default_ascending() -> bool {
+fn bool_true() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }

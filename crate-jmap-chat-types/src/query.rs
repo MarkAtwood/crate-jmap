@@ -266,7 +266,10 @@ pub struct Comparator<P> {
     /// The property to sort by.
     pub property: P,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "crate::default_true")]
+    #[serde(
+        default = "crate::default_true",
+        skip_serializing_if = "crate::is_true"
+    )]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -413,7 +416,8 @@ mod tests {
 
     /// Default sorts named by the draft: §Chat/query `lastMessageAt`,
     /// §Message/query `receivedAt`, §Space/query and §CustomEmoji/query
-    /// `name`.
+    /// `name`. RFC 8620 §5.5 `isAscending` "(default: true)": an ascending
+    /// comparator omits it, as `EmailComparator` does.
     #[test]
     fn default_sort_comparators_encode_to_spec_wire() {
         let mut chat = ChatComparator::new(ChatComparatorProperty::LastMessageAt);
@@ -427,19 +431,19 @@ mod tests {
                 MessageComparatorProperty::ReceivedAt
             ))
             .expect("encode"),
-            json!({"property": "receivedAt", "isAscending": true})
+            json!({"property": "receivedAt"})
         );
         assert_eq!(
             serde_json::to_value(SpaceComparator::new(SpaceComparatorProperty::Name))
                 .expect("encode"),
-            json!({"property": "name", "isAscending": true})
+            json!({"property": "name"})
         );
         assert_eq!(
             serde_json::to_value(CustomEmojiComparator::new(
                 CustomEmojiComparatorProperty::Name
             ))
             .expect("encode"),
-            json!({"property": "name", "isAscending": true})
+            json!({"property": "name"})
         );
     }
 

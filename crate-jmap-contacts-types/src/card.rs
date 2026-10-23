@@ -596,7 +596,7 @@ pub struct ContactCardComparator {
     pub property: ContactCardComparatorProperty,
     /// Sort direction; `true` = ascending (wire-default per RFC 8620
     /// §5.5), `false` = descending.
-    #[serde(default = "default_ascending")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Optional collation identifier (RFC 4790).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -615,6 +615,10 @@ impl ContactCardComparator {
     }
 }
 
-fn default_ascending() -> bool {
+fn bool_true() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }

@@ -730,9 +730,13 @@ mod tests {
             assert_eq!(c.property, want);
         }
         let wire = serde_json::json!({ "property": "uid", "isAscending": true });
-        let c: ContactCardComparator = serde_json::from_value(wire.clone()).unwrap();
+        let c: ContactCardComparator = serde_json::from_value(wire).unwrap();
         assert_eq!(c.property, P::Other("uid".to_owned()));
-        assert_eq!(serde_json::to_value(&c).unwrap(), wire);
+        // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+        assert_eq!(
+            serde_json::to_value(&c).unwrap(),
+            serde_json::json!({ "property": "uid" })
+        );
     }
 
     // ── ContactCard sloppy-field → jmap-jscontact-types typed round-trip ──
