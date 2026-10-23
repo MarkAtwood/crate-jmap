@@ -51,7 +51,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response, set_error_value,
+    filter_properties, finalize_set_response,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -445,7 +445,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -464,7 +464,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             if !not_found_ids.is_empty() || existing.is_empty() {
                 not_destroyed.insert(
                     id_str.to_owned(),
-                    set_error_value(&SetError::new(SetErrorType::NotFound)),
+                    serde_json::Value::from(&SetError::new(SetErrorType::NotFound)),
                 );
                 continue;
             }
@@ -472,7 +472,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             if existing[0].is_active {
                 not_destroyed.insert(
                     id_str.to_owned(),
-                    set_error_value(
+                    serde_json::Value::from(
                         &SetError::new(SetErrorType::from(SIEVE_ERR_IS_ACTIVE))
                             .with_description("cannot destroy the active Sieve script"),
                     ),
@@ -485,10 +485,12 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             if vr_script_id.as_ref() == Some(&id) {
                 not_destroyed.insert(
                     id_str.to_owned(),
-                    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(
-                        "this script is managed by VacationResponse/set and cannot be \
+                    serde_json::Value::from(
+                        &SetError::new(SetErrorType::Forbidden).with_description(
+                            "this script is managed by VacationResponse/set and cannot be \
                              destroyed via SieveScript/set",
-                    )),
+                        ),
+                    ),
                 );
                 continue;
             }
@@ -534,14 +536,14 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 .as_object()
                 .and_then(reject_server_set::<SieveScript>)
             {
-                not_created.insert(creation_id, set_error_value(&err));
+                not_created.insert(creation_id, serde_json::Value::from(&err));
                 continue;
             }
             // R7: overQuota check.
             if all_scripts_before_create.len() + successful_creates >= max_scripts {
                 not_created.insert(
                     creation_id,
-                    set_error_value(&SetError::new(SetErrorType::OverQuota)),
+                    serde_json::Value::from(&SetError::new(SetErrorType::OverQuota)),
                 );
                 continue;
             }
@@ -550,7 +552,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             let Some(blob_id_str) = obj_val.get("blobId").and_then(|v| v.as_str()) else {
                 not_created.insert(
                     creation_id,
-                    set_error_value(
+                    serde_json::Value::from(
                         &SetError::new(SetErrorType::InvalidProperties)
                             .with_properties(["blobId"])
                             .with_description("blobId is required"),
@@ -561,7 +563,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             let blob_id = match jmap_server::parse_wire_id(blob_id_str, "blobId") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_created.insert(creation_id, set_error_value(&err));
+                    not_created.insert(creation_id, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -575,7 +577,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             if let Some(ref name_str) = name {
                 // R2: validate name characters.
                 if let Some(name_err) = validate_script_name(name_str) {
-                    not_created.insert(creation_id, set_error_value(&name_err));
+                    not_created.insert(creation_id, serde_json::Value::from(&name_err));
                     continue;
                 }
 
@@ -585,7 +587,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 if names_created_this_call.contains(name_str.as_str()) {
                     not_created.insert(
                         creation_id,
-                        set_error_value(
+                        serde_json::Value::from(
                             &SetError::new(SetErrorType::AlreadyExists).with_description(
                                 "a script with this name was already created in this request",
                             ),
@@ -601,7 +603,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 {
                     not_created.insert(
                         creation_id,
-                        set_error_value(
+                        serde_json::Value::from(
                             &SetError::new(SetErrorType::AlreadyExists)
                                 .with_existing_id(existing.id.clone()),
                         ),
@@ -614,7 +616,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             match check_script(backend, caller, &account_id, &blob_id, max_script_bytes).await {
                 Ok(None) => {}
                 Ok(Some(err)) => {
-                    not_created.insert(creation_id, set_error_value(&err));
+                    not_created.insert(creation_id, serde_json::Value::from(&err));
                     continue;
                 }
                 Err(e) => {
@@ -671,7 +673,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -693,7 +695,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             // R4: Reject patches to server-set properties: `id` and
             // `isActive` (RFC 9661 §2), which onSuccessActivateScript changes.
             if let Some(err) = reject_read_only_patch::<SieveScript>(patch.as_map(), None) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -706,10 +708,12 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             {
                 not_updated.insert(
                     id_str,
-                    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(
-                        "blobId of a VacationResponse-backed script cannot be \
+                    serde_json::Value::from(
+                        &SetError::new(SetErrorType::Forbidden).with_description(
+                            "blobId of a VacationResponse-backed script cannot be \
                                  updated via SieveScript/set",
-                    )),
+                        ),
+                    ),
                 );
                 continue;
             }
@@ -719,7 +723,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 && let Some(name_str) = name_val.as_str()
             {
                 if let Some(name_err) = validate_script_name(name_str) {
-                    not_updated.insert(id_str, set_error_value(&name_err));
+                    not_updated.insert(id_str, serde_json::Value::from(&name_err));
                     continue;
                 }
 
@@ -730,7 +734,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 {
                     not_updated.insert(
                         id_str,
-                        set_error_value(
+                        serde_json::Value::from(
                             &SetError::new(SetErrorType::AlreadyExists)
                                 .with_existing_id(existing.id.clone()),
                         ),
@@ -744,7 +748,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 let new_blob_id = match jmap_server::parse_wire_id(new_blob_id_str, "blobId") {
                     Ok(id) => id,
                     Err(err) => {
-                        not_updated.insert(id_str, set_error_value(&err));
+                        not_updated.insert(id_str, serde_json::Value::from(&*err));
                         continue;
                     }
                 };
@@ -755,7 +759,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 {
                     Ok(None) => {}
                     Ok(Some(err)) => {
-                        not_updated.insert(id_str, set_error_value(&err));
+                        not_updated.insert(id_str, serde_json::Value::from(&err));
                         continue;
                     }
                     Err(e) => {
@@ -1185,7 +1189,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     // (RFC 9661 §2.6).
     let error_value = match rejection {
         None => Value::Null,
-        Some(err) => set_error_value(&err),
+        Some(err) => serde_json::Value::from(&err),
     };
     let resp = json!({
         "accountId": account_id.as_ref(),

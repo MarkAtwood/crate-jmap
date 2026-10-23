@@ -42,7 +42,6 @@ use serde_json::{Value, json};
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     filter_properties, finalize_set_response, not_found_json, resolve_ref, serialize_value,
-    set_error_value,
 };
 use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -627,12 +626,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     if let Some(Value::Object(creates)) = args.get("create") {
         for (create_id, props) in parents_first(creates) {
             if let Some(err) = props.as_object().and_then(reject_server_set::<Mailbox>) {
-                not_created.insert(create_id.clone(), set_error_value(&err));
+                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
                 continue;
             }
             let mut props = props.clone();
             if let Err(err) = resolve_parent_ref(&mut props, &created_ids) {
-                not_created.insert(create_id.clone(), set_error_value(&err));
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
             let props = &props;
@@ -640,7 +639,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             if props.get("name").and_then(|v| v.as_str()).is_none() {
                 not_created.insert(
                     create_id.clone(),
-                    set_error_value(
+                    serde_json::Value::from(
                         &SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
                     ),
                 );
@@ -665,7 +664,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if role_taken || role_just_created {
                     not_created.insert(
                         create_id.clone(),
-                        set_error_value(
+                        serde_json::Value::from(
                             &SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(["role"]),
                         ),
@@ -704,7 +703,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if name_taken_existing || name_taken_this_request {
                     not_created.insert(
                         create_id.clone(),
-                        set_error_value(&SetError::new(SetErrorType::AlreadyExists)),
+                        serde_json::Value::from(&SetError::new(SetErrorType::AlreadyExists)),
                     );
                     continue;
                 }
@@ -721,8 +720,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .await
                     {
                         Ok((id, obj)) => {
-                            let obj_val = serde_json::to_value(&obj)
-                                .expect("derive(Serialize) on plain data is infallible");
+                            let obj_val = jmap_server::serialize_value(&obj)?;
                             created_ids.insert(Id::from(create_id.as_str()), id);
                             created.insert(create_id.clone(), obj_val);
                         }
@@ -801,7 +799,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 match resolve_parent_ref(&mut patch_val, &created_ids) {
                     Ok(()) => Some((id_str, patch_val)),
                     Err(err) => {
-                        not_updated.insert(id_str, set_error_value(&err));
+                        not_updated.insert(id_str, serde_json::Value::from(&*err));
                         None
                     }
                 }
@@ -816,7 +814,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // server-set Mailbox property (RFC 8621 §2), or None if the patch is
         // clean. Used in both passes to avoid duplicating the check block.
         let server_set_error = |patch: &PatchObject| -> Option<Value> {
-            reject_read_only_patch::<Mailbox>(patch.as_map(), None).map(|e| set_error_value(&e))
+            reject_read_only_patch::<Mailbox>(patch.as_map(), None)
+                .map(|e| serde_json::Value::from(&e))
         };
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---
@@ -824,7 +823,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -866,10 +865,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     // beyond the patch, echo them in the updated map entry.
                     let entry = maybe_obj
                         .as_ref()
-                        .map(|o| {
-                            serde_json::to_value(o)
-                                .expect("derive(Serialize) on plain data is infallible")
-                        })
+                        .map(jmap_server::serialize_value)
+                        .transpose()?
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                     if let Some(role) = current_role {
@@ -887,7 +884,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -937,7 +934,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if role_taken || role_just_claimed || role_just_created {
                     not_updated.insert(
                         id_str,
-                        set_error_value(
+                        serde_json::Value::from(
                             &SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(["role"]),
                         ),
@@ -956,10 +953,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     // beyond the patch, echo them in the updated map entry.
                     let entry = maybe_obj
                         .as_ref()
-                        .map(|o| {
-                            serde_json::to_value(o)
-                                .expect("derive(Serialize) on plain data is infallible")
-                        })
+                        .map(jmap_server::serialize_value)
+                        .transpose()?
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                 }
@@ -1007,7 +1002,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -1019,7 +1014,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             if has_child {
                 not_destroyed.insert(
                     id_str.to_owned(),
-                    set_error_value(&SetError::new(SetErrorType::MailboxHasChild)),
+                    serde_json::Value::from(&SetError::new(SetErrorType::MailboxHasChild)),
                 );
                 continue;
             }
@@ -1053,7 +1048,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if !on_destroy_remove_emails {
                     not_destroyed.insert(
                         id_str.to_owned(),
-                        set_error_value(&SetError::new(SetErrorType::MailboxHasEmail)),
+                        serde_json::Value::from(&SetError::new(SetErrorType::MailboxHasEmail)),
                     );
                     continue;
                 }
@@ -1199,7 +1194,7 @@ fn build_mailbox_from_props(
     let name = match props.get("name").and_then(|v| v.as_str()) {
         Some(s) => s.to_owned(),
         None => {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
             ));
         }
@@ -1210,7 +1205,7 @@ fn build_mailbox_from_props(
         Some(v) => match v.as_u64().and_then(|n| u32::try_from(n).ok()) {
             Some(n) => n,
             None => {
-                return Err(set_error_value(
+                return Err(serde_json::Value::from(
                     &SetError::new(SetErrorType::InvalidProperties)
                         .with_properties(["sortOrder"])
                         .with_description("sortOrder must be a non-negative integer ≤ 4294967295"),
@@ -1229,11 +1224,11 @@ fn build_mailbox_from_props(
     // rather than be silently dropped.
     let parent_id = match props.get("parentId") {
         None | Some(Value::Null) => None,
-        Some(Value::String(s)) => {
-            Some(jmap_server::parse_wire_id(s, "parentId").map_err(|e| set_error_value(&e))?)
-        }
+        Some(Value::String(s)) => Some(
+            jmap_server::parse_wire_id(s, "parentId").map_err(|e| serde_json::Value::from(&*e))?,
+        ),
         Some(_) => {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["parentId"])
                     .with_description("parentId must be a String (Id) or null"),
@@ -1249,14 +1244,14 @@ fn build_mailbox_from_props(
         Some(Value::String(s)) => {
             let role: jmap_mail_types::MailboxRole =
                 serde_json::from_value(Value::String(s.to_owned())).map_err(|_| {
-                    set_error_value(
+                    serde_json::Value::from(
                         &SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
                     )
                 })?;
             Some(role)
         }
         Some(_) => {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["role"])
                     .with_description("role must be a String or null"),
