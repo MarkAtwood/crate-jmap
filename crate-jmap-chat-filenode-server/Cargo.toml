@@ -21,5 +21,5 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-jmap-chat-server = { workspace = true, features = ["memory"] }
+jmap-chat-server = { workspace = true, features = ["memory", "test-helpers"] }
 jmap-filenode-server = { workspace = true, features = ["memory"] }
