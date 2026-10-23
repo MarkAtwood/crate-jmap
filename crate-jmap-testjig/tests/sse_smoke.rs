@@ -72,7 +72,7 @@ async fn space_set_create_pushes_state_event_naming_space() {
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
+        .expect("SSE response must carry a Content-Type header");
     assert!(
         content_type.starts_with("text/event-stream"),
         "SSE response must have text/event-stream Content-Type, got {content_type:?}"

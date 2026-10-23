@@ -259,7 +259,10 @@ async fn memory_backend_search_snippets_highlight() {
 
     assert_eq!(snippets.len(), 1);
     // The subject snippet should contain a <mark> tag around "Hello".
-    let subj = snippets[0].subject.as_deref().unwrap_or("");
+    let subj = snippets[0]
+        .subject
+        .as_deref()
+        .expect("subject snippet must be present");
     assert!(
         subj.contains("<mark>"),
         "subject snippet must contain <mark> tag; got: {subj:?}"
@@ -335,7 +338,7 @@ async fn thread_get_returns_email_ids() {
 
     let thread_obj = &list[0];
     assert_eq!(
-        thread_obj["id"].as_str().unwrap_or(""),
+        thread_obj["id"].as_str().expect("id must be a string"),
         thread_id.as_ref(),
         "returned thread id must match requested id"
     );
@@ -416,7 +419,12 @@ async fn thread_changes_from_zero_returns_all() {
     );
 
     // Oracle: oldState must echo sinceState.
-    assert_eq!(resp["oldState"].as_str().unwrap_or(""), "0");
+    assert_eq!(
+        resp["oldState"]
+            .as_str()
+            .expect("oldState must be a string"),
+        "0"
+    );
 
     // Oracle: newState must differ from "0" (a mutation occurred).
     assert_ne!(
@@ -473,7 +481,9 @@ async fn search_snippet_get_returns_snippets() {
 
     // Oracle: accountId echoed back.
     assert_eq!(
-        resp["accountId"].as_str().unwrap_or(""),
+        resp["accountId"]
+            .as_str()
+            .expect("accountId must be a string"),
         account_id.as_ref()
     );
 
@@ -489,7 +499,9 @@ async fn search_snippet_get_returns_snippets() {
 
     // Oracle: RFC 8621 §5.9 — matched text must be wrapped in <mark> tags.
     // The subject "Hello World" matches filter text "hello" (case-insensitive).
-    let subj = list[0]["subject"].as_str().unwrap_or("");
+    let subj = list[0]["subject"]
+        .as_str()
+        .expect("subject must be a string");
     assert!(
         subj.contains("<mark>"),
         "subject snippet must contain <mark> tag; got: {subj:?}"
@@ -710,7 +722,7 @@ async fn search_snippet_get_capability_gated() {
     // Oracle: RFC 8620 §5.1 — error type must be accountNotSupportedByMethod.
     let err_json = serde_json::to_value(&err).expect("JmapError must serialize");
     assert_eq!(
-        err_json["type"].as_str().unwrap_or(""),
+        err_json["type"].as_str().expect("type must be a string"),
         "accountNotSupportedByMethod",
         "error type must be accountNotSupportedByMethod; got: {err_json:?}"
     );
@@ -785,7 +797,9 @@ async fn vacation_get_fresh_account_returns_empty() {
         "notFound must be [] when no ids were requested"
     );
     assert_eq!(
-        resp["accountId"].as_str().unwrap_or(""),
+        resp["accountId"]
+            .as_str()
+            .expect("accountId must be a string"),
         account_id.as_ref()
     );
 }
@@ -828,7 +842,9 @@ async fn vacation_set_create_returns_singleton_error() {
         not_created.contains_key("c0"),
         "create id 'c0' must appear in notCreated"
     );
-    let err_type = not_created["c0"]["type"].as_str().unwrap_or("");
+    let err_type = not_created["c0"]["type"]
+        .as_str()
+        .expect("type must be a string");
     assert_eq!(
         err_type, "singleton",
         "error type must be 'singleton'; got: {err_type:?}"
@@ -898,11 +914,14 @@ async fn vacation_set_update_singleton_works() {
 
     let vr = &list[0];
     // Oracle: hand-written field values match what we set above.
-    assert_eq!(vr["id"].as_str().unwrap_or(""), "singleton");
+    assert_eq!(vr["id"].as_str().expect("id must be a string"), "singleton");
     assert_eq!(vr["isEnabled"].as_bool(), Some(true));
-    assert_eq!(vr["subject"].as_str().unwrap_or(""), "Out of office");
     assert_eq!(
-        vr["textBody"].as_str().unwrap_or(""),
+        vr["subject"].as_str().expect("subject must be a string"),
+        "Out of office"
+    );
+    assert_eq!(
+        vr["textBody"].as_str().expect("textBody must be a string"),
         "I am out of the office."
     );
 }
@@ -943,7 +962,9 @@ async fn vacation_set_destroy_returns_singleton_error() {
         not_destroyed.contains_key("singleton"),
         "destroy id 'singleton' must appear in notDestroyed"
     );
-    let err_type = not_destroyed["singleton"]["type"].as_str().unwrap_or("");
+    let err_type = not_destroyed["singleton"]["type"]
+        .as_str()
+        .expect("type must be a string");
     assert_eq!(
         err_type, "singleton",
         "error type must be 'singleton'; got: {err_type:?}"
@@ -1402,12 +1423,12 @@ async fn identity_set_create_and_get() {
     let list = get_resp["list"].as_array().expect("list must be an array");
     assert_eq!(list.len(), 1, "must find exactly one identity");
     assert_eq!(
-        list[0]["email"].as_str().unwrap_or(""),
+        list[0]["email"].as_str().expect("email must be a string"),
         "alice@example.com",
         "email must match"
     );
     assert_eq!(
-        list[0]["name"].as_str().unwrap_or(""),
+        list[0]["name"].as_str().expect("name must be a string"),
         "Alice",
         "name must match"
     );
@@ -1456,7 +1477,9 @@ async fn identity_set_create_without_email_is_invalid() {
         "c1 must appear in notCreated; response: {set_resp:?}"
     );
     assert_eq!(
-        not_created_c1["type"].as_str().unwrap_or(""),
+        not_created_c1["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties"
     );
@@ -1526,7 +1549,7 @@ async fn identity_set_update_email_is_forbidden() {
         "id must appear in notUpdated; response: {upd_resp:?}"
     );
     assert_eq!(
-        not_updated["type"].as_str().unwrap_or(""),
+        not_updated["type"].as_str().expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties"
     );
@@ -1605,7 +1628,9 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
         "id must appear in notDestroyed; response: {destroy_resp:?}"
     );
     assert_eq!(
-        not_destroyed["type"].as_str().unwrap_or(""),
+        not_destroyed["type"]
+            .as_str()
+            .expect("type must be a string"),
         "forbidden",
         "error type must be forbidden"
     );
@@ -1648,7 +1673,7 @@ async fn identity_set_create_malformed_reply_to_rejected() {
         "c0 must appear in notCreated; response: {set_resp:?}"
     );
     assert_eq!(
-        not_created["type"].as_str().unwrap_or(""),
+        not_created["type"].as_str().expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got: {not_created:?}"
     );
@@ -1819,7 +1844,7 @@ async fn identity_get_by_id() {
     let list = get_resp["list"].as_array().expect("list must be array");
     assert_eq!(list.len(), 1, "must return exactly one identity");
     assert_eq!(
-        list[0]["id"].as_str().unwrap_or(""),
+        list[0]["id"].as_str().expect("id must be a string"),
         id,
         "returned id must match requested"
     );
@@ -2004,7 +2029,9 @@ async fn identity_set_update_text_signature_roundtrip() {
     )
     .await
     .expect("get after update");
-    let sig = get_resp["list"][0]["textSignature"].as_str().unwrap_or("");
+    let sig = get_resp["list"][0]["textSignature"]
+        .as_str()
+        .expect("textSignature must be a string");
     assert!(
         sig.contains("Test Signature"),
         "textSignature must contain 'Test Signature'; got: {sig:?}"
@@ -2055,7 +2082,9 @@ async fn identity_set_update_html_signature_roundtrip() {
     )
     .await
     .expect("get after update");
-    let sig = get_resp["list"][0]["htmlSignature"].as_str().unwrap_or("");
+    let sig = get_resp["list"][0]["htmlSignature"]
+        .as_str()
+        .expect("htmlSignature must be a string");
     assert!(
         sig.contains("HTML Signature"),
         "htmlSignature must contain 'HTML Signature'; got: {sig:?}"
@@ -2113,7 +2142,7 @@ async fn identity_set_update_reply_to_roundtrip() {
     .expect("get after replyTo set");
     let reply_email = get_resp["list"][0]["replyTo"][0]["email"]
         .as_str()
-        .unwrap_or("");
+        .expect("email must be a string");
     assert_eq!(reply_email, "reply@example.com", "replyTo email must match");
 
     // Clear replyTo.
@@ -2551,7 +2580,9 @@ async fn submission_set_create_and_get() {
 
     // Oracle: undoStatus must be "final" (MemoryBackend sends immediately).
     assert_eq!(
-        created["s0"]["undoStatus"].as_str().unwrap_or(""),
+        created["s0"]["undoStatus"]
+            .as_str()
+            .expect("undoStatus must be a string"),
         "final",
         "undoStatus must be final"
     );
@@ -2571,7 +2602,7 @@ async fn submission_set_create_and_get() {
     let list = get_resp["list"].as_array().expect("list must be array");
     assert_eq!(list.len(), 1, "must find exactly one submission");
     assert_eq!(
-        list[0]["id"].as_str().unwrap_or(""),
+        list[0]["id"].as_str().expect("id must be a string"),
         submission_id,
         "returned id must match"
     );
@@ -2919,7 +2950,9 @@ async fn submission_set_invalid_identity_fails() {
     assert!(not_created.contains_key("s0"), "s0 must be in notCreated");
 
     // Oracle: error type must be invalidProperties.
-    let err_type = not_created["s0"]["type"].as_str().unwrap_or("");
+    let err_type = not_created["s0"]["type"]
+        .as_str()
+        .expect("type must be a string");
     assert_eq!(
         err_type, "invalidProperties",
         "error type must be invalidProperties"
@@ -3019,12 +3052,14 @@ async fn email_set_create_and_get() {
     let list = get_resp["list"].as_array().expect("list must be array");
     assert_eq!(list.len(), 1, "must find exactly one email");
     assert_eq!(
-        list[0]["id"].as_str().unwrap_or(""),
+        list[0]["id"].as_str().expect("id must be a string"),
         email_id,
         "returned id must match"
     );
     assert_eq!(
-        list[0]["subject"].as_str().unwrap_or(""),
+        list[0]["subject"]
+            .as_str()
+            .expect("subject must be a string"),
         "Test email",
         "subject must round-trip"
     );
@@ -3148,7 +3183,7 @@ async fn email_set_create_all_false_mailbox_ids_rejected() {
         "c0 must appear in notCreated; response: {set_resp:?}"
     );
     assert_eq!(
-        not_created["type"].as_str().unwrap_or(""),
+        not_created["type"].as_str().expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got: {not_created:?}"
     );
@@ -3206,7 +3241,7 @@ async fn email_set_create_with_malformed_received_at_rejected() {
         "c0 must appear in notCreated; response: {set_resp:?}"
     );
     assert_eq!(
-        not_created["type"].as_str().unwrap_or(""),
+        not_created["type"].as_str().expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got: {not_created:?}"
     );
@@ -3258,7 +3293,7 @@ async fn email_set_create_with_non_string_received_at_rejected() {
         "c0 must appear in notCreated; response: {set_resp:?}"
     );
     assert_eq!(
-        not_created["type"].as_str().unwrap_or(""),
+        not_created["type"].as_str().expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got: {not_created:?}"
     );
@@ -3920,7 +3955,9 @@ async fn email_import_empty_mailbox_ids_rejected() {
         "imp1 must be in notCreated"
     );
     assert_eq!(
-        not_created["imp1"]["type"].as_str().unwrap_or(""),
+        not_created["imp1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties"
     );
@@ -3971,7 +4008,9 @@ async fn email_import_with_malformed_received_at_rejected() {
         .as_object()
         .expect("notCreated must be an object");
     assert_eq!(
-        not_created["imp1"]["type"].as_str().unwrap_or(""),
+        not_created["imp1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties"
     );
     let props = not_created["imp1"]["properties"]
@@ -4211,7 +4250,9 @@ async fn email_copy_with_malformed_received_at_rejected() {
         .as_object()
         .expect("notCreated must be an object");
     assert_eq!(
-        not_created["c1"]["type"].as_str().unwrap_or(""),
+        not_created["c1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties"
     );
     let props = not_created["c1"]["properties"]
@@ -4478,7 +4519,9 @@ async fn submission_set_update_only_undo_status_allowed() {
         "submission must be in notUpdated; got: {upd_resp:?}"
     );
     assert_eq!(
-        not_updated[&submission_id]["type"].as_str().unwrap_or(""),
+        not_updated[&submission_id]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties"
     );
@@ -4553,7 +4596,7 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
     assert_eq!(
         not_destroyed[parent_id.as_ref()]["type"]
             .as_str()
-            .unwrap_or(""),
+            .expect("type must be a string"),
         "mailboxHasChild",
         "error must be mailboxHasChild when child was just created"
     );
@@ -4598,7 +4641,9 @@ async fn email_set_create_malformed_keywords_rejected() {
         .expect("notCreated must be an object");
     assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
     assert_eq!(
-        not_created["c0"]["type"].as_str().unwrap_or(""),
+        not_created["c0"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties for malformed keywords"
     );
@@ -4632,7 +4677,9 @@ async fn keyword_256_chars_rejected() {
         .expect("notCreated must be present");
     assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
     assert_eq!(
-        not_created["c0"]["type"].as_str().unwrap_or(""),
+        not_created["c0"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "256-byte keyword must yield invalidProperties"
     );
@@ -4699,7 +4746,9 @@ async fn keyword_forbidden_char_open_paren_rejected() {
         .expect("notCreated must be present");
     assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
     assert_eq!(
-        not_created["c0"]["type"].as_str().unwrap_or(""),
+        not_created["c0"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "keyword with '(' must yield invalidProperties"
     );
@@ -4782,7 +4831,9 @@ async fn keyword_empty_rejected() {
         .expect("notCreated must be present");
     assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
     assert_eq!(
-        not_created["c0"]["type"].as_str().unwrap_or(""),
+        not_created["c0"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "empty keyword must yield invalidProperties"
     );
@@ -5781,7 +5832,9 @@ async fn submission_set_create_no_recipients_fails() {
         "s0 must be in notCreated; got: {resp:?}"
     );
     assert_eq!(
-        not_created["s0"]["type"].as_str().unwrap_or(""),
+        not_created["s0"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "noRecipients",
         "error type must be noRecipients; got: {:?}",
         not_created["s0"]
@@ -5855,7 +5908,7 @@ async fn mailbox_set_role_uniqueness_create_then_update() {
     assert_eq!(
         not_updated[existing_id.as_ref()]["type"]
             .as_str()
-            .unwrap_or(""),
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got: {:?}",
         not_updated[existing_id.as_ref()]
@@ -7445,13 +7498,17 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
         "second import: imp1 must be in notCreated"
     );
     assert_eq!(
-        not_created["imp1"]["type"].as_str().unwrap_or(""),
+        not_created["imp1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "alreadyExists",
         "second import: error type must be alreadyExists; got: {}",
         not_created["imp1"]["type"]
     );
     assert_eq!(
-        not_created["imp1"]["existingId"].as_str().unwrap_or(""),
+        not_created["imp1"]["existingId"]
+            .as_str()
+            .expect("existingId must be a string"),
         email_id_1,
         "second import: existingId must equal the first email's id"
     );
@@ -7570,7 +7627,9 @@ async fn email_set_create_body_structure_with_text_body_rejected() {
         "e1 must be in notCreated; got resp={resp}"
     );
     assert_eq!(
-        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        resp["notCreated"]["e1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got resp={resp}"
     );
@@ -7608,7 +7667,9 @@ async fn email_set_create_text_body_wrong_type_rejected() {
         "e1 must be in notCreated; got resp={resp}"
     );
     assert_eq!(
-        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        resp["notCreated"]["e1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got resp={resp}"
     );
@@ -7650,7 +7711,9 @@ async fn email_set_create_text_body_multiple_parts_rejected() {
         "e1 must be in notCreated; got resp={resp}"
     );
     assert_eq!(
-        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        resp["notCreated"]["e1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got resp={resp}"
     );
@@ -7692,7 +7755,9 @@ async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
         "e1 must be in notCreated; got resp={resp}"
     );
     assert_eq!(
-        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        resp["notCreated"]["e1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got resp={resp}"
     );
@@ -7729,7 +7794,9 @@ async fn email_set_create_body_values_missing_for_part_id_rejected() {
         "e1 must be in notCreated; got resp={resp}"
     );
     assert_eq!(
-        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        resp["notCreated"]["e1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got resp={resp}"
     );
@@ -7771,7 +7838,9 @@ async fn email_set_create_body_value_is_truncated_true_rejected() {
         "e1 must be in notCreated; got resp={resp}"
     );
     assert_eq!(
-        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        resp["notCreated"]["e1"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "invalidProperties",
         "error type must be invalidProperties; got resp={resp}"
     );
@@ -7976,8 +8045,14 @@ async fn email_get_header_all_form() {
         2,
         "must return both Subject values; got: {arr:?}"
     );
-    assert_eq!(arr[0].as_str().unwrap_or(""), " First");
-    assert_eq!(arr[1].as_str().unwrap_or(""), " Second");
+    assert_eq!(
+        arr[0].as_str().expect("Subject value must be a string"),
+        " First"
+    );
+    assert_eq!(
+        arr[1].as_str().expect("Subject value must be a string"),
+        " Second"
+    );
 }
 
 /// Oracle: `header:Subject:asWhatever` is rejected with `invalidArguments`.
@@ -8841,7 +8916,7 @@ async fn mailbox_set_destroy_with_children() {
     assert_eq!(
         not_destroyed[parent_id.as_ref()]["type"]
             .as_str()
-            .unwrap_or(""),
+            .expect("type must be a string"),
         "mailboxHasChild",
         "error type must be mailboxHasChild; not_destroyed={not_destroyed:?}"
     );
@@ -8927,7 +9002,9 @@ async fn mailbox_set_create_duplicate_name() {
         "dup2 must be in notCreated; resp={second_resp:?}"
     );
     assert_eq!(
-        not_created["dup2"]["type"].as_str().unwrap_or(""),
+        not_created["dup2"]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "alreadyExists",
         "error type must be alreadyExists; not_created={not_created:?}"
     );
@@ -8961,7 +9038,7 @@ async fn mailbox_set_create_duplicate_name() {
     if let Some(nc) = not_created_map {
         for (k, v) in nc {
             assert_eq!(
-                v["type"].as_str().unwrap_or(""),
+                v["type"].as_str().expect("type must be a string"),
                 "alreadyExists",
                 "notCreated[{k}].type must be alreadyExists; got {v:?}"
             );
@@ -9037,9 +9114,13 @@ async fn email_get_properties_filtering_restricts_fields() {
         .expect("list item must be a JSON object");
 
     // Requested fields must be present with correct values.
-    assert_eq!(obj["id"].as_str().unwrap_or(""), email_id, "id must match");
     assert_eq!(
-        obj["subject"].as_str().unwrap_or(""),
+        obj["id"].as_str().expect("id must be a string"),
+        email_id,
+        "id must match"
+    );
+    assert_eq!(
+        obj["subject"].as_str().expect("subject must be a string"),
         "Hello World",
         "subject must round-trip"
     );
@@ -9189,7 +9270,7 @@ async fn mailbox_get_properties_filtering_restricts_fields() {
     assert!(obj.contains_key("id"), "id must be present");
     assert!(obj.contains_key("name"), "name must be present");
     assert_eq!(
-        obj["name"].as_str().unwrap_or(""),
+        obj["name"].as_str().expect("name must be a string"),
         "My Mailbox",
         "name must round-trip"
     );
@@ -9295,7 +9376,7 @@ async fn identity_get_properties_filtering_restricts_fields() {
     assert!(obj.contains_key("id"), "id must be present");
     assert!(obj.contains_key("email"), "email must be present");
     assert_eq!(
-        obj["email"].as_str().unwrap_or(""),
+        obj["email"].as_str().expect("email must be a string"),
         "alice@example.com",
         "email must round-trip"
     );
@@ -9348,7 +9429,7 @@ async fn conformance_email_get_by_id() {
 
     let obj = &list[0];
     assert_eq!(
-        obj["id"].as_str().unwrap_or(""),
+        obj["id"].as_str().expect("id must be a string"),
         email_id.as_ref(),
         "returned id must match requested id"
     );
@@ -9572,7 +9653,9 @@ async fn conformance_email_get_thread_id_consistent() {
 
     for item in list {
         assert_eq!(
-            item["threadId"].as_str().unwrap_or(""),
+            item["threadId"]
+                .as_str()
+                .expect("threadId must be a string"),
             expected_thread_id.as_ref(),
             "all thread emails must share the same threadId (RFC 8621 §4.1); \
              email id={:?} got threadId={:?}",
@@ -9613,7 +9696,7 @@ async fn conformance_email_get_header_from() {
     let from = obj["from"].as_array().expect("from must be an array");
     assert!(!from.is_empty(), "from must not be empty");
     assert_eq!(
-        from[0]["email"].as_str().unwrap_or(""),
+        from[0]["email"].as_str().expect("email must be a string"),
         "alice@example.com",
         "from[0].email must be alice@example.com; got: {:?}",
         from[0]["email"]
@@ -9647,7 +9730,7 @@ async fn conformance_email_get_header_to() {
     let to = obj["to"].as_array().expect("to must be an array");
     assert!(!to.is_empty(), "to must not be empty");
     assert_eq!(
-        to[0]["email"].as_str().unwrap_or(""),
+        to[0]["email"].as_str().expect("email must be a string"),
         "testuser@example.com",
         "to[0].email must be testuser@example.com; got: {:?}",
         to[0]["email"]
@@ -9709,7 +9792,9 @@ async fn conformance_email_get_header_subject() {
     let list = resp["list"].as_array().expect("list");
     assert_eq!(list.len(), 1);
     assert_eq!(
-        list[0]["subject"].as_str().unwrap_or(""),
+        list[0]["subject"]
+            .as_str()
+            .expect("subject must be a string"),
         "Meeting tomorrow morning",
         "subject must match the seed value; got: {:?}",
         list[0]["subject"]
@@ -9747,7 +9832,9 @@ async fn conformance_email_get_header_message_id() {
     assert!(!msg_id.is_empty(), "messageId must not be empty");
     // RFC 8621 §4.1.2.5: "CFWS and surrounding angle brackets are removed".
     assert_eq!(
-        msg_id[0].as_str().unwrap_or(""),
+        msg_id[0]
+            .as_str()
+            .expect("messageId entry must be a string"),
         "plain-simple-001@test",
         "messageId[0] must have angle brackets stripped per RFC 8621 §4.1.2.5; got: {:?}",
         msg_id[0]
@@ -9785,7 +9872,9 @@ async fn conformance_email_get_header_in_reply_to() {
     assert!(!in_reply_to.is_empty(), "inReplyTo must not be empty");
     // RFC 8621 §4.1.2.5: "CFWS and surrounding angle brackets are removed".
     assert_eq!(
-        in_reply_to[0].as_str().unwrap_or(""),
+        in_reply_to[0]
+            .as_str()
+            .expect("inReplyTo entry must be a string"),
         "thread-alpha-001@test",
         "inReplyTo[0] must have angle brackets stripped per RFC 8621 §4.1.2.5; got: {:?}",
         in_reply_to[0]
@@ -10390,8 +10479,14 @@ async fn conformance_mailbox_query_sort_by_name() {
         .collect();
 
     for window in ids.windows(2) {
-        let prev_name = name_map.get(window[0]).copied().unwrap_or("");
-        let curr_name = name_map.get(window[1]).copied().unwrap_or("");
+        let prev_name = name_map
+            .get(window[0])
+            .copied()
+            .expect("sorted id must appear in list");
+        let curr_name = name_map
+            .get(window[1])
+            .copied()
+            .expect("sorted id must appear in list");
         assert!(
             prev_name <= curr_name,
             "names must be in ascending order: '{}' > '{}' at positions {:?}",
@@ -10469,7 +10564,9 @@ async fn conformance_email_body_plain_text_body() {
         "textBody must have at least one entry for a plain-text message"
     );
     assert_eq!(
-        text_body[0]["type"].as_str().unwrap_or(""),
+        text_body[0]["type"]
+            .as_str()
+            .expect("type must be a string"),
         "text/plain",
         "textBody[0].type must be text/plain; got: {:?}",
         text_body[0]["type"]
@@ -10509,7 +10606,9 @@ async fn conformance_email_body_html_attachment_body_structure() {
         !body_structure.is_null(),
         "bodyStructure must be present for a multipart message"
     );
-    let bs_type = body_structure["type"].as_str().unwrap_or("");
+    let bs_type = body_structure["type"]
+        .as_str()
+        .expect("type must be a string");
     assert!(
         bs_type.contains("multipart"),
         "bodyStructure.type must contain \"multipart\" for a multipart/mixed message; got: {:?}",
@@ -10543,7 +10642,9 @@ async fn conformance_email_body_preview() {
     let list = resp["list"].as_array().expect("list must be an array");
     assert_eq!(list.len(), 1, "must return exactly one email");
 
-    let preview = list[0]["preview"].as_str().unwrap_or("");
+    let preview = list[0]["preview"]
+        .as_str()
+        .expect("preview must be a string");
     assert!(
         preview.starts_with("Let's meet"),
         "preview must start with \"Let's meet\"; got: {:?}",
@@ -11160,7 +11261,9 @@ async fn conformance_mailbox_changes_from_state_zero() {
 
     // Oracle: oldState must echo sinceState.
     assert_eq!(
-        resp["oldState"].as_str().unwrap_or(""),
+        resp["oldState"]
+            .as_str()
+            .expect("oldState must be a string"),
         "0",
         "oldState must equal sinceState"
     );
@@ -12634,7 +12737,7 @@ async fn conformance_email_set_update_not_found() {
     assert_eq!(
         not_updated["nonexistent-email-xyz"]["type"]
             .as_str()
-            .unwrap_or(""),
+            .expect("type must be a string"),
         "notFound",
         "error type must be notFound; entry: {:?}",
         not_updated["nonexistent-email-xyz"]
@@ -12674,7 +12777,7 @@ async fn conformance_email_set_destroy_not_found() {
     assert_eq!(
         not_destroyed["nonexistent-email-xyz"]["type"]
             .as_str()
-            .unwrap_or(""),
+            .expect("type must be a string"),
         "notFound",
         "error type must be notFound; entry: {:?}",
         not_destroyed["nonexistent-email-xyz"]
@@ -12871,7 +12974,9 @@ async fn conformance_thread_get_single_email() {
         "single-email thread must have exactly one emailId; got: {email_ids:?}"
     );
     assert_eq!(
-        email_ids[0].as_str().unwrap_or(""),
+        email_ids[0]
+            .as_str()
+            .expect("emailIds entry must be a string"),
         email_id.as_ref(),
         "the sole emailId must equal the email's id"
     );
@@ -12973,7 +13078,9 @@ async fn conformance_email_changes_from_current_state() {
         .expect("Email/changes must succeed");
 
     assert_eq!(
-        chg_resp["oldState"].as_str().unwrap_or(""),
+        chg_resp["oldState"]
+            .as_str()
+            .expect("oldState must be a string"),
         current_state,
         "oldState must echo sinceState"
     );
@@ -13143,7 +13250,7 @@ async fn conformance_email_changes_after_destroy() {
     assert!(
         destroyed_list
             .iter()
-            .any(|v| v.as_str().unwrap_or("") == email_id),
+            .any(|v| v.as_str().expect("destroyed entry must be a string") == email_id),
         "destroy must succeed; email id must appear in destroyed"
     );
 

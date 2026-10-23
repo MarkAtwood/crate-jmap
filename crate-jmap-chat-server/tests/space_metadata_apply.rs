@@ -51,7 +51,7 @@ async fn read_space_description(backend: &IdentityBackend, caller: &Id) -> Strin
     .expect("Space/get");
     resp["list"][0]["description"]
         .as_str()
-        .unwrap_or("")
+        .expect("description must be a string")
         .to_owned()
 }
 
@@ -218,9 +218,14 @@ async fn manage_space_holder_can_mutate_all_metadata_fields() {
     .await
     .expect("Space/get");
     let s = &get_resp["list"][0];
-    assert_eq!(s["name"].as_str().unwrap_or(""), "Renamed Space");
     assert_eq!(
-        s["description"].as_str().unwrap_or(""),
+        s["name"].as_str().expect("name must be a string"),
+        "Renamed Space"
+    );
+    assert_eq!(
+        s["description"]
+            .as_str()
+            .expect("description must be a string"),
         "with a new tagline"
     );
     assert!(s["isPublic"].as_bool().unwrap_or(false));
@@ -269,7 +274,7 @@ async fn everyone_only_member_cannot_mutate_description() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("manage_space"),
         "error must name manage_space: {desc:?}"
