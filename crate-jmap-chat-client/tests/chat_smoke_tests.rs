@@ -106,10 +106,15 @@ async fn chat_get_threads_ids_and_properties_when_some() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("chat-1"), Id::from("chat-missing")];
     let props = ["id", "name"];
-    let _ = sc
+    let resp = sc
         .chat_get(Some(&ids), Some(&props))
         .await
         .expect("chat_get: must succeed");
+    assert_eq!(
+        resp.not_found,
+        vec![Id::from("chat-missing")],
+        "notFound must surface the server-reported missing id (RFC 8620 §5.1)"
+    );
 
     let args = recorded_args(&server).await;
     assert_eq!(
