@@ -1,0 +1,14 @@
+["GraphNodeOp/set", {
+  "accountId": "A1",
+  "oldState": "s41",
+  "newState": "s42",
+  "created": {
+    "o1": {
+      "id": "P42",
+      "graphId": "G1",
+      "seq": 42,
+      "created": "2026-10-20T17:00:00Z",
+      "createdBy": "U7"
+    }
+  }
+}, "0"]

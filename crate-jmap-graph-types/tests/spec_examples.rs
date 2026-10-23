@@ -8,6 +8,8 @@
 //! server-set properties, so the object tests below add hand-written
 //! server-set values (and resolve the creation ids) to make whole objects.
 
+mod common;
+
 use jmap_graph_types::{
     Graph, GraphCapability, GraphEdge, GraphNode, GraphProjectionCapability, GraphRights,
     PrincipalGraphCapability, JMAP_GRAPH_URI, JMAP_URI_GRAPH_EDGE_TYPE, JMAP_URI_GRAPH_NODE_TYPE,
@@ -24,74 +26,14 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 /// L356-393, "Building a small graph in one request", verbatim.
-const BUILD_REQUEST: &str = r##"{
-  "using": [
-    "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:graph"
-  ],
-  "methodCalls": [
-    ["Graph/set", {
-      "accountId": "A1",
-      "create": { "g": { "name": "Design notes" } }
-    }, "0"],
-    ["GraphNode/set", {
-      "accountId": "A1",
-      "create": {
-        "a": {
-          "graphId": "#g",
-          "annotations": { "com.example.label": "Root" }
-        },
-        "b": {
-          "graphId": "#g",
-          "blobId": "B7f3",
-          "mediaType": "text/markdown"
-        }
-      }
-    }, "1"],
-    ["GraphEdge/set", {
-      "accountId": "A1",
-      "create": {
-        "e": {
-          "graphId": "#g",
-          "fromId": "#a",
-          "toId": "#b",
-          "type": "com.example.child"
-        }
-      }
-    }, "2"]
-  ]
-}"##;
+fn build_request() -> String {
+    common::fixture("build_request.json")
+}
 
 /// L400-429, "One hop of traversal", verbatim.
-const HOP_REQUEST: &str = r##"{
-  "using": [
-    "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:graph"
-  ],
-  "methodCalls": [
-    ["GraphEdge/query", {
-      "accountId": "A1",
-      "filter": { "graphId": "G1", "fromId": ["N1"] }
-    }, "0"],
-    ["GraphEdge/get", {
-      "accountId": "A1",
-      "#ids": {
-        "resultOf": "0",
-        "name": "GraphEdge/query",
-        "path": "/ids"
-      },
-      "properties": ["toId", "type"]
-    }, "1"],
-    ["GraphNode/get", {
-      "accountId": "A1",
-      "#ids": {
-        "resultOf": "1",
-        "name": "GraphEdge/get",
-        "path": "/list/*/toId"
-      }
-    }, "2"]
-  ]
-}"##;
+fn hop_request() -> String {
+    common::fixture("hop_request.json")
+}
 
 fn parse(text: &str) -> Value {
     serde_json::from_str(text).unwrap()
@@ -145,7 +87,7 @@ fn node_server_set(id: &str) -> Value {
 fn capability_uri_matches_draft() {
     // L97: "MUST advertise the `urn:ietf:params:jmap:graph` capability".
     assert_eq!(JMAP_GRAPH_URI, "urn:ietf:params:jmap:graph");
-    assert_eq!(parse(BUILD_REQUEST)["using"][1], json!(JMAP_GRAPH_URI));
+    assert_eq!(parse(&build_request())["using"][1], json!(JMAP_GRAPH_URI));
 }
 
 #[test]
@@ -204,7 +146,7 @@ fn principal_capability_round_trips() {
 #[test]
 fn graph_from_example_takes_draft_defaults() {
     // L363-366 create { "name": "Design notes" } plus server-set values.
-    let req = parse(BUILD_REQUEST);
+    let req = parse(&build_request());
     let raw = created(
         &req,
         0,
@@ -255,12 +197,12 @@ fn graph_name_defaults_to_empty() {
 fn graph_share_with_round_trips_sorted() {
     // L159: `shareWith` (Id[GraphRights]|null). Keys written out of order
     // serialize in sorted order (workspace BTreeMap rule).
-    let text = r#"{"id":"G1","name":"n","annotations":{},"created":"2026-10-20T12:00:00Z","updated":"2026-10-20T12:00:00Z","isSubscribed":false,"myRights":{"mayRead":true,"mayWrite":true,"mayAdmin":true},"shareWith":{"P9":{"mayRead":true,"mayWrite":false,"mayAdmin":false},"P2":{"mayRead":true,"mayWrite":true,"mayAdmin":false}}}"#;
-    let sorted = r#"{"id":"G1","name":"n","annotations":{},"created":"2026-10-20T12:00:00Z","updated":"2026-10-20T12:00:00Z","isSubscribed":false,"myRights":{"mayRead":true,"mayWrite":true,"mayAdmin":true},"shareWith":{"P2":{"mayRead":true,"mayWrite":true,"mayAdmin":false},"P9":{"mayRead":true,"mayWrite":false,"mayAdmin":false}}}"#;
+    let text = &common::fixture("graph_share_with_round_trips_sorted.json");
+    let sorted = &common::fixture("graph_share_with_round_trips_sorted_2.json");
     let graph: Graph = serde_json::from_str(text).unwrap();
     let rights = &graph.share_with.as_ref().unwrap()[&Id::from("P2")];
     assert!(rights.may_write && !rights.may_admin);
-    assert_eq!(serde_json::to_string(&graph).unwrap(), sorted);
+    assert_eq!(serde_json::to_string(&graph).unwrap(), *sorted);
 }
 
 #[test]
@@ -296,7 +238,7 @@ fn graph_preserves_vendor_extras() {
 
 #[test]
 fn nodes_from_example_round_trip() {
-    let req = parse(BUILD_REQUEST);
+    let req = parse(&build_request());
 
     // L370-373: annotations only; blobId, mediaType and uri take their
     // `null` defaults (L188, L191, L194).
@@ -332,7 +274,7 @@ fn nodes_from_example_round_trip() {
 fn node_uri_holds_any_uri() {
     // L342: "Any URI may be used", https or a JMAP object URI.
     for uri in ["https://example.com/page", "jmap:graphnode:A2:N9"] {
-        let mut raw = created(&parse(BUILD_REQUEST), 1, "a", node_server_set("N3"));
+        let mut raw = created(&parse(&build_request()), 1, "a", node_server_set("N3"));
         raw["uri"] = json!(uri);
         let node: GraphNode = serde_json::from_value(raw).unwrap();
         assert_eq!(node.uri.as_deref(), Some(uri));
@@ -341,7 +283,7 @@ fn node_uri_holds_any_uri() {
 
 #[test]
 fn node_preserves_vendor_extras() {
-    let mut raw = created(&parse(BUILD_REQUEST), 1, "b", node_server_set("N2"));
+    let mut raw = created(&parse(&build_request()), 1, "b", node_server_set("N2"));
     raw["uri"] = json!(null);
     raw["annotations"] = json!({});
     raw["com.example.pinned"] = json!(true);
@@ -352,7 +294,7 @@ fn node_preserves_vendor_extras() {
 #[test]
 fn edge_from_example_round_trips() {
     // L384-389, with `#a`/`#b` resolved to N1/N2.
-    let req = parse(BUILD_REQUEST);
+    let req = parse(&build_request());
     let edge: GraphEdge =
         serde_json::from_value(created(&req, 2, "e", node_server_set("E1"))).unwrap();
     assert_eq!(edge.from_id, Id::from("N1"));
@@ -399,7 +341,7 @@ fn edge_type_defaults_to_empty_and_self_loop_allowed() {
 fn edge_requires_endpoints() {
     // L219-223: `fromId` (Id) and `toId` (Id) carry no default.
     for field in ["fromId", "toId", "graphId"] {
-        let mut raw = created(&parse(BUILD_REQUEST), 2, "e", node_server_set("E1"));
+        let mut raw = created(&parse(&build_request()), 2, "e", node_server_set("E1"));
         raw.as_object_mut().unwrap().remove(field);
         assert!(
             serde_json::from_value::<GraphEdge>(raw).is_err(),
@@ -411,7 +353,7 @@ fn edge_requires_endpoints() {
 #[test]
 fn hop_example_filter_round_trips() {
     // L409: { "graphId": "G1", "fromId": ["N1"] }.
-    let req = parse(HOP_REQUEST);
+    let req = parse(&hop_request());
     let cond: GraphEdgeFilterCondition = round_trip(&call_args(&req, 0)["filter"]);
     assert_eq!(cond.graph_id, Id::from("G1"));
     assert_eq!(cond.from_id, Some(vec![Id::from("N1")]));

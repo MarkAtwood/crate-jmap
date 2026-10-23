@@ -1,0 +1,14 @@
+["GraphNode/query", {
+  "accountId": "A1",
+  "filter": {
+    "graphId": "G1",
+    "where": {
+      "$reachable": {
+        "direction": "in",
+        "type": "com.example.child",
+        "maxDepth": 10,
+        "node": { "/id": "N1" }
+      }
+    }
+  }
+}, "0"]

@@ -3,6 +3,8 @@
 //! the draft text (examples copied byte-for-byte, quoted property
 //! definitions) and hand-written JSON, never the code under test.
 
+mod common;
+
 use jmap_graph_types::{
     GraphCursorEvent, GraphEditDataType, GraphEditEvent, GraphEditStreamDisable,
     GraphEditStreamMessage, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
@@ -16,69 +18,24 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 /// L377-386, "Submitting an op", verbatim.
-const SUBMIT_REQUEST: &str = r##"["GraphNodeOp/set", {
-  "accountId": "A1",
-  "create": {
-    "o1": {
-      "nodeId": "N1",
-      "baseSeq": 41,
-      "data": "AAECAwQF"
-    }
-  }
-}, "0"]"##;
+fn submit_request() -> String {
+    common::fixture("submit_request.json")
+}
 
-/// L392-405, the acknowledgment of [`SUBMIT_REQUEST`], verbatim.
-const SUBMIT_RESPONSE: &str = r##"["GraphNodeOp/set", {
-  "accountId": "A1",
-  "oldState": "s41",
-  "newState": "s42",
-  "created": {
-    "o1": {
-      "id": "P42",
-      "graphId": "G1",
-      "seq": 42,
-      "created": "2026-10-20T17:00:00Z",
-      "createdBy": "U7"
-    }
-  }
-}, "0"]"##;
+/// L392-405, the acknowledgment of [`&submit_request()`], verbatim.
+fn submit_response() -> String {
+    common::fixture("submit_response.json")
+}
 
 /// L413-440, "Loading a node", verbatim.
-const LOAD_REQUEST: &str = r##"{
-  "using": [
-    "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:graph",
-    "urn:ietf:params:jmap:graph:edit"
-  ],
-  "methodCalls": [
-    ["GraphNode/get", {
-      "accountId": "A1",
-      "ids": ["N1"],
-      "properties": ["blobId", "mediaType", "editFormat",
-                     "snapshotSeq"]
-    }, "0"],
-    ["GraphNodeOp/query", {
-      "accountId": "A1",
-      "filter": { "nodeId": "N1", "afterSeq": 40 }
-    }, "1"],
-    ["GraphNodeOp/get", {
-      "accountId": "A1",
-      "#ids": {
-        "resultOf": "1",
-        "name": "GraphNodeOp/query",
-        "path": "/ids"
-      }
-    }, "2"]
-  ]
-}"##;
+fn load_request() -> String {
+    common::fixture("load_request.json")
+}
 
 /// L447-452, "Subscribing to a node", verbatim.
-const SUBSCRIBE: &str = r##"{
-  "@type": "GraphEditStreamEnable",
-  "nodeIds": ["N1"],
-  "dataTypes": ["ops", "cursors"],
-  "id": "sub1"
-}"##;
+fn subscribe() -> String {
+    common::fixture("subscribe.json")
+}
 
 fn parse(text: &str) -> Value {
     serde_json::from_str(text).unwrap()
@@ -96,8 +53,8 @@ fn round_trip<T: DeserializeOwned + Serialize>(json: &Value) -> T {
 /// (L380-384) merged with the server-set properties of the acknowledgment
 /// (L397-403).
 fn example_op() -> Value {
-    let mut op = parse(SUBMIT_REQUEST)[1]["create"]["o1"].clone();
-    let server = parse(SUBMIT_RESPONSE)[1]["created"]["o1"].clone();
+    let mut op = parse(&submit_request())[1]["create"]["o1"].clone();
+    let server = parse(&submit_response())[1]["created"]["o1"].clone();
     op.as_object_mut()
         .unwrap()
         .extend(server.as_object().unwrap().clone());
@@ -124,7 +81,10 @@ fn capability_uri_matches_draft() {
     // L131: "advertise the `urn:ietf:params:jmap:graph:edit` capability";
     // L490 IANA Capability Name.
     assert_eq!(JMAP_GRAPH_EDIT_URI, "urn:ietf:params:jmap:graph:edit");
-    assert_eq!(parse(LOAD_REQUEST)["using"][2], json!(JMAP_GRAPH_EDIT_URI));
+    assert_eq!(
+        parse(&load_request())["using"][2],
+        json!(JMAP_GRAPH_EDIT_URI)
+    );
 }
 
 #[test]
@@ -175,7 +135,7 @@ fn account_capability_round_trips() {
 #[test]
 fn node_extension_property_names_match_get_example() {
     // L423-424: the GraphNode/get `properties` list names both extensions.
-    let req = parse(LOAD_REQUEST);
+    let req = parse(&load_request());
     let props = &req["methodCalls"][0][1]["properties"];
     assert_eq!(props[2], json!(GRAPH_NODE_EDIT_FORMAT_PROPERTY));
     assert_eq!(props[3], json!(GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY));
@@ -271,14 +231,14 @@ fn op_created_by_null_and_extras_round_trip() {
 fn op_create_arguments_are_not_a_whole_op() {
     // L208: on create only `nodeId`, `baseSeq` and `data` are given; `id`,
     // `graphId`, `seq` and `created` are server-set (L172-191).
-    let create = parse(SUBMIT_REQUEST)[1]["create"]["o1"].clone();
+    let create = parse(&submit_request())[1]["create"]["o1"].clone();
     assert!(serde_json::from_value::<GraphNodeOp>(create).is_err());
 }
 
 #[test]
 fn op_query_filter_from_example_round_trips() {
     // L428: `"filter": { "nodeId": "N1", "afterSeq": 40 }`.
-    let req = parse(LOAD_REQUEST);
+    let req = parse(&load_request());
     let f: GraphNodeOpFilterCondition = round_trip(&req["methodCalls"][1][1]["filter"]);
     assert_eq!(f.node_id, Id::from("N1"));
     assert_eq!(f.after_seq, Some(40));
@@ -336,7 +296,7 @@ fn cursor_request_and_response_round_trip() {
 #[test]
 fn subscribe_example_round_trips() {
     // L447-452, the "Subscribing to a node" example.
-    let raw = parse(SUBSCRIBE);
+    let raw = parse(&subscribe());
     let msg: GraphEditStreamMessage = round_trip(&raw);
     let GraphEditStreamMessage::Enable(e) = msg else {
         panic!("wrong variant: {msg:?}")

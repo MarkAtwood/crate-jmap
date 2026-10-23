@@ -1,0 +1,10 @@
+["GraphNodeOp/set", {
+  "accountId": "A1",
+  "create": {
+    "o1": {
+      "nodeId": "N1",
+      "baseSeq": 41,
+      "data": "AAECAwQF"
+    }
+  }
+}, "0"]

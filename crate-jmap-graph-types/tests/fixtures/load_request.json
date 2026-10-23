@@ -1,0 +1,27 @@
+{
+  "using": [
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:graph",
+    "urn:ietf:params:jmap:graph:edit"
+  ],
+  "methodCalls": [
+    ["GraphNode/get", {
+      "accountId": "A1",
+      "ids": ["N1"],
+      "properties": ["blobId", "mediaType", "editFormat",
+                     "snapshotSeq"]
+    }, "0"],
+    ["GraphNodeOp/query", {
+      "accountId": "A1",
+      "filter": { "nodeId": "N1", "afterSeq": 40 }
+    }, "1"],
+    ["GraphNodeOp/get", {
+      "accountId": "A1",
+      "#ids": {
+        "resultOf": "1",
+        "name": "GraphNodeOp/query",
+        "path": "/ids"
+      }
+    }, "2"]
+  ]
+}
