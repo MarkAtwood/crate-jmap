@@ -439,7 +439,7 @@ src/
   participant_identity.rs  ParticipantIdentity/get, /changes, /set
                            (onSuccessSetIsDefault)
   principal.rs             Principal/getAvailability
-  helpers.rs (private)     set_error_value, resolve_on_success_set_is_default,
+  helpers.rs (private)     resolve_on_success_set_is_default,
                            apply_default_change_to_response,
                            extract_account_id (re-export from jmap-server)
 ```

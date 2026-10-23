@@ -34,7 +34,7 @@ use serde_json::{Value, json};
 
 use crate::helpers::{
     SetAccumulators, apply_default_change_to_response, enforce_max_objects_in_set,
-    extract_account_id, finalize_set_response, resolve_on_success_set_is_default, set_error_value,
+    extract_account_id, finalize_set_response, resolve_on_success_set_is_default,
 };
 use crate::{CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -156,7 +156,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Calendar>) {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             // `isDefault` and `myRights` are server-set (draft-ietf-jmap-
@@ -208,11 +208,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     // Calendar uses #[derive(Serialize)] on plain data; to_value
                     // is infallible. Asserting rather than masking would-be
                     // failures as `serverFail` (per JMAP-r3pg.13).
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
                     not_created.insert(create_id, backend_set_error_value(e));
@@ -229,7 +225,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -248,7 +244,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 }
             };
             if let Some(err) = reject_read_only_patch::<Calendar>(patch.as_map(), None) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
             match backend
@@ -258,11 +254,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 Ok(Some(obj)) => {
                     mutated = true;
                     // See create branch above (JMAP-r3pg.13).
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -298,7 +290,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, set_error_value(&err));
+                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -314,7 +306,9 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     Ok(true) => {
                         not_destroyed.insert(
                             id_str,
-                            set_error_value(&SetError::new(SetErrorType::from("calendarHasEvent"))),
+                            serde_json::Value::from(&SetError::new(SetErrorType::from(
+                                "calendarHasEvent",
+                            ))),
                         );
                         continue;
                     }
@@ -436,7 +430,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
 /// `JmapBackend::Error` Display contract (workspace AGENTS.md "Backend trait
 /// rule") is honoured at a single chokepoint rather than at every call site.
 /// Inner `BackendSetError::SetError(set_err)` failures preserve the typed
-/// JMAP error variant via [`crate::helpers::set_error_value`]; inner
+/// JMAP error variant via `From<&SetError> for Value`; inner
 /// `BackendSetError::Other(_)` and `JmapBackend::Error` failures collapse to
 /// the static [`server_fail_value_from_backend`] wire shape.
 async fn cleanup_calendar_events<B: CalendarsBackend>(
