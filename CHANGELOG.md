@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mime**: an RFC 5322 / MIME message writer. `writer::write_message`
+  writes header fields and a `writer::Part` tree (RFC 2047 encoded words,
+  RFC 2231 parameters, quoted-printable and base64 bodies, folding at 78
+  characters) and rejects CR or LF in values it writes unencoded.
+  `compose_email` writes the message an RFC 8621 §4.6 `Email/set` create
+  (`EmailDraft`) describes (bd JMAP-u6c5).
 - **jmap-chat-server**: **BREAKING** `build_chat_message_push` takes a
   trailing `unread_count: Option<u64>` that becomes the payload's
   `unreadCount`, and the new `owner_unread_count` returns the owner's

@@ -1,4 +1,134 @@
 pub mod jmap_mime
+pub mod jmap_mime::writer
+pub enum jmap_mime::writer::Body
+pub jmap_mime::writer::Body::Binary(alloc::vec::Vec<u8>)
+pub jmap_mime::writer::Body::Multipart(alloc::vec::Vec<jmap_mime::writer::Part>)
+pub jmap_mime::writer::Body::Text(alloc::string::String)
+pub jmap_mime::writer::Body::Unencoded(alloc::vec::Vec<u8>)
+impl core::clone::Clone for jmap_mime::writer::Body
+pub fn jmap_mime::writer::Body::clone(&self) -> jmap_mime::writer::Body
+impl core::cmp::Eq for jmap_mime::writer::Body
+impl core::cmp::PartialEq for jmap_mime::writer::Body
+pub fn jmap_mime::writer::Body::eq(&self, &jmap_mime::writer::Body) -> bool
+impl core::fmt::Debug for jmap_mime::writer::Body
+pub fn jmap_mime::writer::Body::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::writer::Body
+#[non_exhaustive] pub enum jmap_mime::writer::HeaderValue
+pub jmap_mime::writer::HeaderValue::Mailboxes(alloc::vec::Vec<jmap_mime::writer::Mailbox>)
+pub jmap_mime::writer::HeaderValue::MessageIds(alloc::vec::Vec<alloc::string::String>)
+pub jmap_mime::writer::HeaderValue::Raw(alloc::string::String)
+pub jmap_mime::writer::HeaderValue::Text(alloc::string::String)
+impl core::clone::Clone for jmap_mime::writer::HeaderValue
+pub fn jmap_mime::writer::HeaderValue::clone(&self) -> jmap_mime::writer::HeaderValue
+impl core::cmp::Eq for jmap_mime::writer::HeaderValue
+impl core::cmp::PartialEq for jmap_mime::writer::HeaderValue
+pub fn jmap_mime::writer::HeaderValue::eq(&self, &jmap_mime::writer::HeaderValue) -> bool
+impl core::fmt::Debug for jmap_mime::writer::HeaderValue
+pub fn jmap_mime::writer::HeaderValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::writer::HeaderValue
+#[non_exhaustive] pub enum jmap_mime::writer::WriteError
+pub jmap_mime::writer::WriteError::InvalidFieldName(alloc::string::String)
+pub jmap_mime::writer::WriteError::LineBreak(alloc::string::String)
+impl core::clone::Clone for jmap_mime::writer::WriteError
+pub fn jmap_mime::writer::WriteError::clone(&self) -> jmap_mime::writer::WriteError
+impl core::cmp::Eq for jmap_mime::writer::WriteError
+impl core::cmp::PartialEq for jmap_mime::writer::WriteError
+pub fn jmap_mime::writer::WriteError::eq(&self, &jmap_mime::writer::WriteError) -> bool
+impl core::convert::From<jmap_mime::writer::WriteError> for jmap_mime::ComposeError
+pub fn jmap_mime::ComposeError::from(jmap_mime::writer::WriteError) -> Self
+impl core::error::Error for jmap_mime::writer::WriteError
+impl core::fmt::Debug for jmap_mime::writer::WriteError
+pub fn jmap_mime::writer::WriteError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mime::writer::WriteError
+pub fn jmap_mime::writer::WriteError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::writer::WriteError
+pub struct jmap_mime::writer::Header
+pub jmap_mime::writer::Header::name: alloc::string::String
+pub jmap_mime::writer::Header::value: jmap_mime::writer::HeaderValue
+impl jmap_mime::writer::Header
+pub fn jmap_mime::writer::Header::new(impl core::convert::Into<alloc::string::String>, jmap_mime::writer::HeaderValue) -> Self
+impl core::clone::Clone for jmap_mime::writer::Header
+pub fn jmap_mime::writer::Header::clone(&self) -> jmap_mime::writer::Header
+impl core::cmp::Eq for jmap_mime::writer::Header
+impl core::cmp::PartialEq for jmap_mime::writer::Header
+pub fn jmap_mime::writer::Header::eq(&self, &jmap_mime::writer::Header) -> bool
+impl core::fmt::Debug for jmap_mime::writer::Header
+pub fn jmap_mime::writer::Header::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::writer::Header
+pub struct jmap_mime::writer::Mailbox
+pub jmap_mime::writer::Mailbox::address: alloc::string::String
+pub jmap_mime::writer::Mailbox::name: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_mime::writer::Mailbox
+pub fn jmap_mime::writer::Mailbox::clone(&self) -> jmap_mime::writer::Mailbox
+impl core::cmp::Eq for jmap_mime::writer::Mailbox
+impl core::cmp::PartialEq for jmap_mime::writer::Mailbox
+pub fn jmap_mime::writer::Mailbox::eq(&self, &jmap_mime::writer::Mailbox) -> bool
+impl core::fmt::Debug for jmap_mime::writer::Mailbox
+pub fn jmap_mime::writer::Mailbox::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::writer::Mailbox
+pub struct jmap_mime::writer::Part
+pub jmap_mime::writer::Part::body: jmap_mime::writer::Body
+pub jmap_mime::writer::Part::content_type: alloc::string::String
+pub jmap_mime::writer::Part::disposition: core::option::Option<(alloc::string::String, alloc::vec::Vec<(alloc::string::String, alloc::string::String)>)>
+pub jmap_mime::writer::Part::headers: alloc::vec::Vec<jmap_mime::writer::Header>
+pub jmap_mime::writer::Part::params: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+impl core::clone::Clone for jmap_mime::writer::Part
+pub fn jmap_mime::writer::Part::clone(&self) -> jmap_mime::writer::Part
+impl core::cmp::Eq for jmap_mime::writer::Part
+impl core::cmp::PartialEq for jmap_mime::writer::Part
+pub fn jmap_mime::writer::Part::eq(&self, &jmap_mime::writer::Part) -> bool
+impl core::fmt::Debug for jmap_mime::writer::Part
+pub fn jmap_mime::writer::Part::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::writer::Part
+pub fn jmap_mime::writer::write_message(&[jmap_mime::writer::Header], &jmap_mime::writer::Part) -> core::result::Result<alloc::vec::Vec<u8>, jmap_mime::writer::WriteError>
+#[non_exhaustive] pub enum jmap_mime::ComposeError
+pub jmap_mime::ComposeError::BlobNotFound(alloc::vec::Vec<jmap_types::id::Id>)
+pub jmap_mime::ComposeError::EmptyPart
+pub jmap_mime::ComposeError::InvalidDate(alloc::string::String)
+pub jmap_mime::ComposeError::MissingBodyValue(alloc::string::String)
+pub jmap_mime::ComposeError::Write(jmap_mime::writer::WriteError)
+impl core::clone::Clone for jmap_mime::ComposeError
+pub fn jmap_mime::ComposeError::clone(&self) -> jmap_mime::ComposeError
+impl core::cmp::Eq for jmap_mime::ComposeError
+impl core::cmp::PartialEq for jmap_mime::ComposeError
+pub fn jmap_mime::ComposeError::eq(&self, &jmap_mime::ComposeError) -> bool
+impl core::convert::From<jmap_mime::writer::WriteError> for jmap_mime::ComposeError
+pub fn jmap_mime::ComposeError::from(jmap_mime::writer::WriteError) -> Self
+impl core::error::Error for jmap_mime::ComposeError
+pub fn jmap_mime::ComposeError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_mime::ComposeError
+pub fn jmap_mime::ComposeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mime::ComposeError
+pub fn jmap_mime::ComposeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::ComposeError
+#[non_exhaustive] pub struct jmap_mime::EmailDraft
+pub jmap_mime::EmailDraft::attachments: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
+pub jmap_mime::EmailDraft::bcc: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
+pub jmap_mime::EmailDraft::body_structure: core::option::Option<jmap_mail_types::email::EmailBodyPart>
+pub jmap_mime::EmailDraft::body_values: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_types::email::EmailBodyValue>
+pub jmap_mime::EmailDraft::cc: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
+pub jmap_mime::EmailDraft::from: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
+pub jmap_mime::EmailDraft::html_body: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
+pub jmap_mime::EmailDraft::in_reply_to: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mime::EmailDraft::message_id: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mime::EmailDraft::references: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mime::EmailDraft::reply_to: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
+pub jmap_mime::EmailDraft::sender: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
+pub jmap_mime::EmailDraft::sent_at: core::option::Option<jmap_types::id::Date>
+pub jmap_mime::EmailDraft::subject: core::option::Option<alloc::string::String>
+pub jmap_mime::EmailDraft::text_body: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
+pub jmap_mime::EmailDraft::to: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
+impl jmap_mime::EmailDraft
+pub fn jmap_mime::EmailDraft::blob_ids(&self) -> alloc::vec::Vec<&jmap_types::id::Id>
+impl core::clone::Clone for jmap_mime::EmailDraft
+pub fn jmap_mime::EmailDraft::clone(&self) -> jmap_mime::EmailDraft
+impl core::cmp::PartialEq for jmap_mime::EmailDraft
+pub fn jmap_mime::EmailDraft::eq(&self, &jmap_mime::EmailDraft) -> bool
+impl core::default::Default for jmap_mime::EmailDraft
+pub fn jmap_mime::EmailDraft::default() -> jmap_mime::EmailDraft
+impl core::fmt::Debug for jmap_mime::EmailDraft
+pub fn jmap_mime::EmailDraft::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::EmailDraft
 #[non_exhaustive] pub struct jmap_mime::JmapBodyFields
 pub jmap_mime::JmapBodyFields::attachments: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
 pub jmap_mime::JmapBodyFields::body_structure: jmap_mail_types::email::EmailBodyPart
@@ -15,5 +145,6 @@ pub fn jmap_mime::JmapBodyFields::fmt(&self, &mut core::fmt::Formatter<'_>) -> c
 impl core::marker::StructuralPartialEq for jmap_mime::JmapBodyFields
 pub const jmap_mime::MAX_PART_DEPTH: usize
 pub fn jmap_mime::body_value_to_jmap(mime_tree::message::DecodedBodyValue) -> jmap_mail_types::email::EmailBodyValue
+pub fn jmap_mime::compose_email(&jmap_mime::EmailDraft, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<u8>>) -> core::result::Result<alloc::vec::Vec<u8>, jmap_mime::ComposeError>
 pub fn jmap_mime::message_to_jmap_body(&mime_tree::message::ParsedMessage, impl core::ops::function::Fn(&mime_tree::part::ParsedPart) -> jmap_types::id::Id) -> jmap_mime::JmapBodyFields
 pub fn jmap_mime::part_to_jmap(&mime_tree::part::ParsedPart, impl core::ops::function::Fn(&mime_tree::part::ParsedPart) -> jmap_types::id::Id) -> jmap_mail_types::email::EmailBodyPart
