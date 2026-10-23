@@ -1,7 +1,106 @@
 pub mod jmap_metadata_server
 pub use jmap_metadata_server::JMAP_METADATA_URI
+#[non_exhaustive] pub enum jmap_metadata_server::MetadataFilterError
+pub jmap_metadata_server::MetadataFilterError::InvalidArguments(alloc::string::String)
+pub jmap_metadata_server::MetadataFilterError::UnsupportedFilter(alloc::string::String)
+impl core::clone::Clone for jmap_metadata_server::MetadataFilterError
+pub fn jmap_metadata_server::MetadataFilterError::clone(&self) -> jmap_metadata_server::MetadataFilterError
+impl core::cmp::Eq for jmap_metadata_server::MetadataFilterError
+impl core::cmp::PartialEq for jmap_metadata_server::MetadataFilterError
+pub fn jmap_metadata_server::MetadataFilterError::eq(&self, &jmap_metadata_server::MetadataFilterError) -> bool
+impl core::error::Error for jmap_metadata_server::MetadataFilterError
+impl core::fmt::Debug for jmap_metadata_server::MetadataFilterError
+pub fn jmap_metadata_server::MetadataFilterError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_metadata_server::MetadataFilterError
+pub fn jmap_metadata_server::MetadataFilterError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_metadata_server::MetadataFilterError
+#[non_exhaustive] pub enum jmap_metadata_server::MetadataOnlyChanges
+pub jmap_metadata_server::MetadataOnlyChanges::Ignore
+pub jmap_metadata_server::MetadataOnlyChanges::Report
+impl jmap_metadata_server::MetadataOnlyChanges
+pub fn jmap_metadata_server::MetadataOnlyChanges::from_request<S: core::convert::AsRef<str>>(core::option::Option<bool>, &[S]) -> Self
+impl core::clone::Clone for jmap_metadata_server::MetadataOnlyChanges
+pub fn jmap_metadata_server::MetadataOnlyChanges::clone(&self) -> jmap_metadata_server::MetadataOnlyChanges
+impl core::cmp::Eq for jmap_metadata_server::MetadataOnlyChanges
+impl core::cmp::PartialEq for jmap_metadata_server::MetadataOnlyChanges
+pub fn jmap_metadata_server::MetadataOnlyChanges::eq(&self, &jmap_metadata_server::MetadataOnlyChanges) -> bool
+impl core::default::Default for jmap_metadata_server::MetadataOnlyChanges
+pub fn jmap_metadata_server::MetadataOnlyChanges::default() -> jmap_metadata_server::MetadataOnlyChanges
+impl core::fmt::Debug for jmap_metadata_server::MetadataOnlyChanges
+pub fn jmap_metadata_server::MetadataOnlyChanges::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_metadata_server::MetadataOnlyChanges
+impl core::marker::StructuralPartialEq for jmap_metadata_server::MetadataOnlyChanges
+#[non_exhaustive] pub enum jmap_metadata_server::SetKind
+pub jmap_metadata_server::SetKind::Create
+pub jmap_metadata_server::SetKind::Update
+impl core::clone::Clone for jmap_metadata_server::SetKind
+pub fn jmap_metadata_server::SetKind::clone(&self) -> jmap_metadata_server::SetKind
+impl core::cmp::Eq for jmap_metadata_server::SetKind
+impl core::cmp::PartialEq for jmap_metadata_server::SetKind
+pub fn jmap_metadata_server::SetKind::eq(&self, &jmap_metadata_server::SetKind) -> bool
+impl core::fmt::Debug for jmap_metadata_server::SetKind
+pub fn jmap_metadata_server::SetKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_metadata_server::SetKind
+impl core::marker::StructuralPartialEq for jmap_metadata_server::SetKind
+pub struct jmap_metadata_server::ChangedProperties
+impl jmap_metadata_server::ChangedProperties
+pub fn jmap_metadata_server::ChangedProperties::is_metadata_only(&self, &str) -> bool
+pub fn jmap_metadata_server::ChangedProperties::new() -> Self
+pub fn jmap_metadata_server::ChangedProperties::record(&mut self, &str, core::option::Option<&alloc::collections::btree::set::BTreeSet<alloc::string::String>>)
+pub fn jmap_metadata_server::ChangedProperties::updated_properties<S: core::convert::AsRef<str>>(&self, &[S], jmap_metadata_server::MetadataOnlyChanges, &[&str]) -> core::option::Option<alloc::vec::Vec<alloc::string::String>>
+impl core::clone::Clone for jmap_metadata_server::ChangedProperties
+pub fn jmap_metadata_server::ChangedProperties::clone(&self) -> jmap_metadata_server::ChangedProperties
+impl core::cmp::Eq for jmap_metadata_server::ChangedProperties
+impl core::cmp::PartialEq for jmap_metadata_server::ChangedProperties
+pub fn jmap_metadata_server::ChangedProperties::eq(&self, &jmap_metadata_server::ChangedProperties) -> bool
+impl core::default::Default for jmap_metadata_server::ChangedProperties
+pub fn jmap_metadata_server::ChangedProperties::default() -> jmap_metadata_server::ChangedProperties
+impl core::fmt::Debug for jmap_metadata_server::ChangedProperties
+pub fn jmap_metadata_server::ChangedProperties::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_metadata_server::ChangedProperties
+pub struct jmap_metadata_server::InvalidMetadataWrite
+impl jmap_metadata_server::InvalidMetadataWrite
+pub fn jmap_metadata_server::InvalidMetadataWrite::description(&self) -> &str
+pub fn jmap_metadata_server::InvalidMetadataWrite::property(&self) -> &str
+impl core::clone::Clone for jmap_metadata_server::InvalidMetadataWrite
+pub fn jmap_metadata_server::InvalidMetadataWrite::clone(&self) -> jmap_metadata_server::InvalidMetadataWrite
+impl core::cmp::Eq for jmap_metadata_server::InvalidMetadataWrite
+impl core::cmp::PartialEq for jmap_metadata_server::InvalidMetadataWrite
+pub fn jmap_metadata_server::InvalidMetadataWrite::eq(&self, &jmap_metadata_server::InvalidMetadataWrite) -> bool
+impl core::error::Error for jmap_metadata_server::InvalidMetadataWrite
+impl core::fmt::Debug for jmap_metadata_server::InvalidMetadataWrite
+pub fn jmap_metadata_server::InvalidMetadataWrite::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_metadata_server::InvalidMetadataWrite
+pub fn jmap_metadata_server::InvalidMetadataWrite::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_metadata_server::InvalidMetadataWrite
+#[non_exhaustive] pub struct jmap_metadata_server::MetadataCondition
+pub jmap_metadata_server::MetadataCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_metadata_server::MetadataCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_metadata_server::MetadataCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_metadata_server::MetadataCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_metadata_server::MetadataCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_metadata_server::MetadataCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+impl jmap_metadata_server::MetadataCondition
+pub fn jmap_metadata_server::MetadataCondition::is_empty(&self) -> bool
+pub fn jmap_metadata_server::MetadataCondition::matches(&self, core::option::Option<&serde_json::map::Map<alloc::string::String, serde_json::value::Value>>, core::option::Option<&serde_json::map::Map<alloc::string::String, serde_json::value::Value>>) -> bool
+pub fn jmap_metadata_server::MetadataCondition::take_from(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_metadata_types::capability::DataTypeMetadataInfo) -> core::result::Result<Self, jmap_metadata_server::MetadataFilterError>
+impl core::clone::Clone for jmap_metadata_server::MetadataCondition
+pub fn jmap_metadata_server::MetadataCondition::clone(&self) -> jmap_metadata_server::MetadataCondition
+impl core::cmp::Eq for jmap_metadata_server::MetadataCondition
+impl core::cmp::PartialEq for jmap_metadata_server::MetadataCondition
+pub fn jmap_metadata_server::MetadataCondition::eq(&self, &jmap_metadata_server::MetadataCondition) -> bool
+impl core::default::Default for jmap_metadata_server::MetadataCondition
+pub fn jmap_metadata_server::MetadataCondition::default() -> jmap_metadata_server::MetadataCondition
+impl core::fmt::Debug for jmap_metadata_server::MetadataCondition
+pub fn jmap_metadata_server::MetadataCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_metadata_server::MetadataCondition
+impl<'de> serde_core::de::Deserialize<'de> for jmap_metadata_server::MetadataCondition
+pub fn jmap_metadata_server::MetadataCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub const jmap_metadata_server::METADATA_PROPERTY: &str
 pub const jmap_metadata_server::PRIVATE_METADATA_PROPERTY: &str
+pub fn jmap_metadata_server::changed_properties(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> alloc::collections::btree::set::BTreeSet<alloc::string::String>
+pub fn jmap_metadata_server::check_metadata_depth(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_metadata_types::capability::DataTypeMetadataInfo) -> core::result::Result<(), jmap_metadata_server::InvalidMetadataWrite>
+pub fn jmap_metadata_server::check_metadata_write(jmap_metadata_server::SetKind, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>, core::option::Option<&serde_json::map::Map<alloc::string::String, serde_json::value::Value>>, &jmap_metadata_types::capability::DataTypeMetadataInfo) -> core::result::Result<(), jmap_metadata_server::InvalidMetadataWrite>
 pub fn jmap_metadata_server::exceeds_max_depth(&serde_json::value::Value, u64) -> bool
 pub fn jmap_metadata_server::is_metadata_only_change(&[&str]) -> bool
 pub fn jmap_metadata_server::is_metadata_property(&str) -> bool

@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-metadata-server**: a reusable metadata baseline for backends
+  (bd JMAP-5kpy). `MetadataCondition::take_from` removes the six
+  draft-ietf-jmap-metadata-04 §3.6 fields from a filter condition,
+  rejecting a malformed path (`invalidArguments`) or a
+  `privateMetadata*` condition without `supportsPrivate`
+  (`unsupportedFilter`), and `matches` evaluates them.
+  `changed_properties`, `ChangedProperties` and `MetadataOnlyChanges`
+  track per-id changes over a `/changes` window for
+  `ignoreMetadataOnlyChanges` and `updatedProperties` (§3, §3.3).
+  `check_metadata_write` and `check_metadata_depth` apply the §3.2
+  `/set` rules 2–4 and the §2.1.1 migration case, returning
+  `InvalidMetadataWrite`.
 - **jmap-base-client**: `to_args(&impl Serialize) -> Result<Value,
   ClientError>` serializes a method argument, mapping failure to
   `ClientError::Serialize` (bd JMAP-tjvm.11). It is the one way extension

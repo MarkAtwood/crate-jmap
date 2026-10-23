@@ -2,7 +2,7 @@
 
 ## What it is
 
-Pure, stateless server-side helpers for the JMAP Object Metadata
+Server-side helpers for the JMAP Object Metadata
 extension
 ([draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04)).
 No method handlers, no backend trait, no dispatcher registration, no
@@ -23,7 +23,11 @@ workspace's extension servers is tracked by bd JMAP-s4kp.
 |---|---|---|
 | `validate` | `value_depth`, `exceeds_max_depth` | §2.1 (depth), §3.2 rule 4 |
 | `validate` | `is_namespace_supported` | §3.1, §3.2 rule 3, §3.6 |
+| `validate` | `check_metadata_write`, `SetKind`, `InvalidMetadataWrite` | §3.2 rules 2–3, §2.1.1 migration case |
+| `validate` | `check_metadata_depth` | §2.1 (object value, depth), §3.2 rule 4 |
 | `changes` | `METADATA_PROPERTY`, `PRIVATE_METADATA_PROPERTY`, `is_metadata_property`, `is_metadata_only_change` | §3.3 (`ignoreMetadataOnlyChanges`, `updatedProperties`) |
+| `changes` | `changed_properties`, `ChangedProperties`, `MetadataOnlyChanges` | §3, §3.3 per-id change tracking over a `/changes` window |
+| `filter` | `MetadataCondition`, `MetadataFilterError` | §3.6 decode, validate, and evaluate the six conditions of one `FilterCondition` |
 | `filter` | `metadata_path_exists` | §3.6 `metadataExists` / `privateMetadataExists` |
 | `filter` | `metadata_text_contains` | §3.6 `metadataTextContains` / `privateMetadataTextContains` |
 | `filter` | `metadata_text_equals` | §3.6 `metadataTextEquals` / `privateMetadataTextEquals` |
@@ -53,14 +57,15 @@ assert!(!is_metadata_only_change(&["metadata", "subject"]));
 
 ## What the caller still owns
 
-The helpers are predicates. The extension server remains responsible
+The helpers hold no server state. The extension server remains responsible
 for everything that needs state or identity:
 
-- **`/set` rule order** (§3.2): `forbidden` (access, §4) →
-  `invalidProperties` for `privateMetadata` when `supportsPrivate` is
-  false → `invalidProperties` for an unsupported namespace (except the
-  §2.1.1 removal case) → `invalidProperties` for `maxDepth`. The first
-  matching rule determines the SetError.
+- **`/set` rule 1** (§3.2, §4): `notFound` when the user cannot read
+  the object, then `forbidden` for a `metadata` write without
+  `maySetMetadata`. Then call `check_metadata_write` (rules 2–3), apply
+  the write (`invalidPatch` for patch errors that depend on the stored
+  value), and call `check_metadata_depth` (rule 4). The first matching
+  rule determines the SetError.
 - **Quota** (§3.2.1, §5): `overQuota`.
 - **Per-viewer `privateMetadata`** (§2.2, §4): each user sees only
   their own private metadata, and a private write advances the state
@@ -68,8 +73,8 @@ for everything that needs state or identity:
   `JmapBackend::principal_id`; a backend returning `None` cannot honor
   it, and per §2.2 must not advertise the capability with
   `supportsPrivate: true`.
-- **`updatedProperties`** (§3.3): computed per viewer; `null` when
-  `ignoreMetadataOnlyChanges` is true.
+- **`updatedProperties`** (§3.3): computed per viewer. Record only the
+  changes the viewer can see in `ChangedProperties`.
 - **`/get` subselectors** (§3.1): `metadata/<namespace>` paths, union
   semantics, silent omission of unsupported namespaces.
 
