@@ -1072,6 +1072,77 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
     );
 }
 
+/// MemoryBackend overrides `find_unique_name` with a single scan and no
+/// attempt cap (bd JMAP-510h.16). With "doc" and "doc-1".."doc-100" taken,
+/// the first name that does not clash (draft-ietf-jmap-filenode-16 §3.2.3)
+/// in the `{name}-{n}` scheme is "doc-101". The trait's default loop stops
+/// at "doc-100", so this fails if the handler bypasses the override.
+#[tokio::test]
+async fn filenode_set_rename_memory_backend_has_no_attempt_cap() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    create_node(&backend, "acc1", "doc", None, "s0").await;
+    for n in 1..=100 {
+        create_node(
+            &backend,
+            "acc1",
+            &format!("doc-{n}"),
+            None,
+            &format!("s{n}"),
+        )
+        .await;
+    }
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "rename",
+            "create": {
+                "c": { "@type": "Directory", "name": "doc", "parentId": null, "role": null }
+            }
+        }),
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    assert_eq!(resp["created"]["c"]["name"], "doc-101", "{resp}");
+}
+
+/// With `compareCaseInsensitively: true`, "DOC-1" clashes with candidate
+/// "doc-1" (draft-ietf-jmap-filenode-16 §3.2.3), so the copy is named
+/// "doc-2". Siblings under another parent do not count.
+#[tokio::test]
+async fn filenode_copy_rename_memory_backend_folds_case() {
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    create_node(&backend, "dst", "doc", None, "e0").await;
+    create_node(&backend, "dst", "DOC-1", None, "e1").await;
+    let other = create_node(&backend, "dst", "other", None, "e2").await;
+    create_node(&backend, "dst", "doc-2", Some(&other), "e3").await;
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "rename",
+            "compareCaseInsensitively": true,
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+    assert_eq!(resp["created"]["c"]["name"], "doc-2", "{resp}");
+}
+
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
     let backend = MemoryBackend::new()

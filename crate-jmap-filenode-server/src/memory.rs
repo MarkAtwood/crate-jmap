@@ -1225,6 +1225,39 @@ impl FileNodeBackend for MemoryBackend {
 
         Ok(None)
     }
+
+    /// One pass over the parent's children, then the smallest free suffix.
+    /// There is no attempt cap: at most `siblings + 1` candidates are tried,
+    /// so this always returns `Some`. Folding matches
+    /// [`Self::find_sibling_by_name`].
+    async fn find_unique_name(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        parent_id: Option<&Id>,
+        base_name: &str,
+        folding: crate::CaseFolding,
+    ) -> Result<Option<String>, Self::Error> {
+        let fold = |s: &str| match folding {
+            crate::CaseFolding::Insensitive => s.to_lowercase(),
+            crate::CaseFolding::Sensitive => s.to_owned(),
+        };
+        let guard = self.inner.lock().unwrap();
+        let taken: std::collections::HashSet<String> = guard
+            .get_or_err(account_id)
+            .map(|store| {
+                store
+                    .nodes
+                    .values()
+                    .filter(|node| node.parent_id.as_ref() == parent_id)
+                    .map(|node| fold(&node.name))
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok((1_u64..)
+            .map(|n| format!("{base_name}-{n}"))
+            .find(|candidate| !taken.contains(&fold(candidate))))
+    }
 }
 
 // ---------------------------------------------------------------------------
