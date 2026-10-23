@@ -1094,4 +1094,357 @@ mod tests {
             assert!(backend.0.lock().unwrap().is_none(), "{filter}");
         }
     }
+
+    // -----------------------------------------------------------------
+    // handle_changes / handle_query_changes / handle_query: response
+    // shape and error branches (bd:JMAP-w8fu.17)
+    // -----------------------------------------------------------------
+
+    /// What [`CannedBackend`] returns from its `/changes`, `/query` and
+    /// `/queryChanges` methods.
+    #[derive(Clone, Copy)]
+    enum Canned {
+        /// The fixed hand-built result of each method.
+        Ok,
+        /// [`BackendChangesError::CannotCalculate`].
+        CannotCalculate,
+        /// [`BackendChangesError::TooManyChanges`] with this limit.
+        TooManyChanges(u64),
+        /// [`BackendChangesError::Other`] whose `Display` is this canary.
+        Internal(&'static str),
+    }
+
+    impl Canned {
+        fn changes_error(self) -> BackendChangesError<LeakyQueryError> {
+            match self {
+                Canned::Ok => unreachable!("Canned::Ok is not an error"),
+                Canned::CannotCalculate => BackendChangesError::CannotCalculate,
+                Canned::TooManyChanges(limit) => BackendChangesError::TooManyChanges { limit },
+                Canned::Internal(text) => BackendChangesError::Other(LeakyQueryError(text)),
+            }
+        }
+    }
+
+    /// Backend that answers `/changes`, `/query` and `/queryChanges` with
+    /// fixed hand-built values (or the configured error), and reports
+    /// whether the account exists as configured.
+    struct CannedBackend {
+        account_exists: bool,
+        outcome: Canned,
+    }
+
+    const CANNED_OK: CannedBackend = CannedBackend {
+        account_exists: true,
+        outcome: Canned::Ok,
+    };
+
+    impl JmapBackend for CannedBackend {
+        type Error = LeakyQueryError;
+        type CallerCtx = ();
+
+        async fn account_exists(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            Ok(self.account_exists)
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            unreachable!("/get is not exercised")
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            unreachable!("/get is not exercised")
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _since_state: &State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            match self.outcome {
+                Canned::Ok => Ok(ChangesResult::new(
+                    vec![Id::from("c1")],
+                    vec![Id::from("u1")],
+                    vec![Id::from("d1")],
+                    true,
+                    State::from("s2"),
+                )),
+                other => Err(other.changes_error()),
+            }
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _params: QueryParams<'_, O>,
+        ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
+            Ok(crate::backend::QueryResult::new(
+                vec![Id::from("m1")],
+                0,
+                Some(7),
+                State::from("q1"),
+                true,
+            ))
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            params: QueryChangesParams<'_, O>,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            match self.outcome {
+                Canned::Ok => Ok(QueryChangesResult::new(
+                    params.since_query_state.clone(),
+                    State::from("q2"),
+                    Some(7),
+                    vec![Id::from("r1")],
+                    vec![crate::backend::AddedItem::new(Id::from("n1"), 0)],
+                )),
+                other => Err(other.changes_error()),
+            }
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.2 (rfc8620.txt L1708-1739) lists the
+    /// `/changes` response arguments `accountId`, `oldState` ("the
+    /// "sinceState" argument echoed back"), `newState`, `hasMoreChanges`,
+    /// `updatedProperties`, `created`, `updated` and `destroyed`. The
+    /// expected JSON is hand-written from that list and the backend's
+    /// fixed result.
+    #[tokio::test]
+    async fn handle_changes_response_matches_rfc_shape() {
+        let HandlerOutput { primary: resp, .. } = handle_changes::<QueryProbe, _>(
+            &CANNED_OK,
+            &(),
+            json!({"accountId": "a1", "sinceState": "s1"}),
+        )
+        .await
+        .expect("/changes must succeed");
+        assert_eq!(
+            resp,
+            json!({
+                "accountId": "a1",
+                "oldState": "s1",
+                "newState": "s2",
+                "hasMoreChanges": true,
+                "updatedProperties": null,
+                "created": ["c1"],
+                "updated": ["u1"],
+                "destroyed": ["d1"],
+            })
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.6 (rfc8620.txt L2699-2730) lists the
+    /// `/queryChanges` response arguments; `oldQueryState` is "the
+    /// "sinceQueryState" argument echoed back", each `added` entry is an
+    /// AddedItem `{id, index}`, and `total` "MUST be omitted if the
+    /// "calculateTotal" request argument is not true" (L2714).
+    #[tokio::test]
+    async fn handle_query_changes_response_matches_rfc_shape() {
+        let HandlerOutput { primary: resp, .. } = handle_query_changes::<QueryProbe, _>(
+            &CANNED_OK,
+            &(),
+            json!({"accountId": "a1", "sinceQueryState": "q1", "calculateTotal": true}),
+        )
+        .await
+        .expect("/queryChanges must succeed");
+        assert_eq!(
+            resp,
+            json!({
+                "accountId": "a1",
+                "oldQueryState": "q1",
+                "newQueryState": "q2",
+                "total": 7,
+                "removed": ["r1"],
+                "added": [{"id": "n1", "index": 0}],
+            })
+        );
+
+        let HandlerOutput { primary: resp, .. } = handle_query_changes::<QueryProbe, _>(
+            &CANNED_OK,
+            &(),
+            json!({"accountId": "a1", "sinceQueryState": "q1"}),
+        )
+        .await
+        .expect("/queryChanges must succeed");
+        assert!(
+            resp.get("total").is_none(),
+            "total must be omitted without calculateTotal; got {resp}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.5 (rfc8620.txt L2604-2608): `total` is "only if
+    /// requested" and "MUST be omitted if the "calculateTotal" request
+    /// argument is not true", even when the backend computed one.
+    #[tokio::test]
+    async fn handle_query_total_only_when_requested() {
+        for (calculate_total, expected) in [(json!(true), Some(json!(7))), (json!(false), None)] {
+            let HandlerOutput { primary: resp, .. } = handle_query::<QueryProbe, _>(
+                &CANNED_OK,
+                &(),
+                json!({"accountId": "a1", "calculateTotal": calculate_total}),
+            )
+            .await
+            .expect("/query must succeed");
+            assert_eq!(resp.get("total").cloned(), expected, "{resp}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.2 (rfc8620.txt L1687) and §5.6 (L2657) type
+    /// `sinceState` / `sinceQueryState` as a required "String"; a missing
+    /// or non-string value is "of the wrong type" (L1189
+    /// `invalidArguments`).
+    #[tokio::test]
+    async fn missing_or_non_string_since_state_is_invalid_arguments() {
+        for since in [None, Some(json!(42))] {
+            let mut args = json!({"accountId": "a1"});
+            if let Some(v) = &since {
+                args["sinceState"] = v.clone();
+            }
+            let err = handle_changes::<QueryProbe, _>(&CANNED_OK, &(), args)
+                .await
+                .expect_err("/changes without a string sinceState must fail");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{since:?}");
+
+            let mut args = json!({"accountId": "a1"});
+            if let Some(v) = &since {
+                args["sinceQueryState"] = v.clone();
+            }
+            let err = handle_query_changes::<QueryProbe, _>(&CANNED_OK, &(), args)
+                .await
+                .expect_err("/queryChanges without a string sinceQueryState must fail");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{since:?}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.6 (rfc8620.txt L2669) types `upToId` as
+    /// "Id|null"; any other JSON type is `invalidArguments` (L1189).
+    #[tokio::test]
+    async fn non_string_up_to_id_is_invalid_arguments() {
+        for up_to_id in [json!(5), json!(true), json!(["m1"]), json!({})] {
+            let err = handle_query_changes::<QueryProbe, _>(
+                &CANNED_OK,
+                &(),
+                json!({"accountId": "a1", "sinceQueryState": "q1", "upToId": up_to_id}),
+            )
+            .await
+            .expect_err("non-Id upToId must be rejected");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{up_to_id}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.5 (rfc8620.txt L2501-2508): `limit` is
+    /// "UnsignedInt|null" and "If a negative value is given, the call MUST
+    /// be rejected with an "invalidArguments" error."
+    #[tokio::test]
+    async fn handle_query_negative_limit_is_invalid_arguments() {
+        let backend = RecordingQueryBackend::default();
+        let err =
+            handle_query::<QueryProbe, _>(&backend, &(), json!({"accountId": "a1", "limit": -1}))
+                .await
+                .expect_err("negative limit must be rejected");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
+        assert!(
+            backend.0.lock().unwrap().is_none(),
+            "backend must not be consulted"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.5 (rfc8620.txt L2471-2480): `position` is "Int"
+    /// and "If a negative value is given, it is an offset from the end of
+    /// the list", resolved against "the total number of results", which
+    /// only the backend knows. The generic handler MUST pass the negative
+    /// value through rather than reject or clamp it.
+    #[tokio::test]
+    async fn handle_query_negative_position_reaches_backend() {
+        let backend = RecordingQueryBackend::default();
+        handle_query::<QueryProbe, _>(&backend, &(), json!({"accountId": "a1", "position": -5}))
+            .await
+            .expect("negative position is valid");
+        assert_eq!(backend.take()["position"], json!(-5));
+    }
+
+    /// Oracle: RFC 8620 §5.2 (rfc8620.txt L1826) and §5.6 (L2810-2818)
+    /// list `cannotCalculateChanges` and `tooManyChanges` as errors
+    /// returned "instead of" the response; an internal backend failure is
+    /// neither and MUST surface as the redacted `serverFail` (the
+    /// [`server_fail_from_backend_drops_display_text`] contract).
+    #[tokio::test]
+    async fn changes_backend_errors_map_to_rfc_errors() {
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-changes-b0a710ad";
+        for (outcome, expected_type) in [
+            (Canned::CannotCalculate, "cannotCalculateChanges"),
+            (Canned::TooManyChanges(10), "tooManyChanges"),
+            (Canned::Internal(CANARY), "serverFail"),
+        ] {
+            let backend = CannedBackend {
+                account_exists: true,
+                outcome,
+            };
+            let changes = handle_changes::<QueryProbe, _>(
+                &backend,
+                &(),
+                json!({"accountId": "a1", "sinceState": "s1"}),
+            )
+            .await;
+            let query_changes = handle_query_changes::<QueryProbe, _>(
+                &backend,
+                &(),
+                json!({"accountId": "a1", "sinceQueryState": "q1"}),
+            )
+            .await;
+            for result in [changes, query_changes] {
+                let err = result.expect_err("backend error must fail the call");
+                let wire = serde_json::to_value(&err).expect("JmapError must serialize");
+                assert_eq!(wire["type"], expected_type, "{wire}");
+                assert!(!wire.to_string().contains(CANARY), "leaked: {wire}");
+            }
+        }
+    }
+
+    /// Oracle: RFC 8620 §3.6.2 (rfc8620.txt L1202-1203): "accountNotFound":
+    /// The accountId does not correspond to a valid account.
+    #[tokio::test]
+    async fn unknown_account_is_account_not_found() {
+        let backend = CannedBackend {
+            account_exists: false,
+            outcome: Canned::Ok,
+        };
+        let results = [
+            handle_changes::<QueryProbe, _>(
+                &backend,
+                &(),
+                json!({"accountId": "nope", "sinceState": "s1"}),
+            )
+            .await,
+            handle_query::<QueryProbe, _>(&backend, &(), json!({"accountId": "nope"})).await,
+            handle_query_changes::<QueryProbe, _>(
+                &backend,
+                &(),
+                json!({"accountId": "nope", "sinceQueryState": "q1"}),
+            )
+            .await,
+        ];
+        for result in results {
+            let err = result.expect_err("unknown account must fail");
+            assert_eq!(err.error_type.to_string(), "accountNotFound");
+        }
+    }
 }
