@@ -37,7 +37,7 @@ use serde_json::{Value, json};
 
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, resolve_map_key_refs, set_error_value,
+    finalize_set_response, resolve_map_key_refs,
 };
 use crate::{CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend};
 use jmap_server::{
@@ -432,7 +432,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             match jmap_server::parse_wire_id(raw, "id") {
                 Ok(id) => destroys.push(id),
                 Err(err) => {
-                    not_destroyed.insert(raw.to_owned(), set_error_value(&err));
+                    not_destroyed.insert(raw.to_owned(), serde_json::Value::from(&*err));
                 }
             }
         }
@@ -470,11 +470,11 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 .as_object()
                 .and_then(reject_server_set::<CalendarEvent>)
             {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             if let Err(err) = resolve_map_key_refs(&mut obj_val, "calendarIds", created_ids) {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -527,19 +527,19 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 .as_object()
                 .and_then(|m| reject_read_only_patch::<CalendarEvent>(m, None))
             {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_map_key_refs(&mut patch_val, "calendarIds", created_ids) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -598,11 +598,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 mutated = true;
                 // CalendarEvent uses #[derive(Serialize)] on plain data;
                 // to_value is infallible (JMAP-r3pg.13).
-                created.insert(
-                    create_id,
-                    serde_json::to_value(&created_obj)
-                        .expect("derive(Serialize) on plain data is infallible"),
-                );
+                created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
             }
             Err(e) => {
                 not_created.insert(create_id, backend_set_error_value(e));
@@ -657,11 +653,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             Ok(Some(obj)) => {
                 mutated = true;
                 // See create branch above (JMAP-r3pg.13).
-                updated.insert(
-                    id_str,
-                    serde_json::to_value(&obj)
-                        .expect("derive(Serialize) on plain data is infallible"),
-                );
+                updated.insert(id_str, jmap_server::serialize_value(&obj)?);
             }
             Ok(None) => {
                 mutated = true;
@@ -805,7 +797,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 Some(Value::String(s)) => match jmap_server::parse_wire_id(s, "id") {
                     Ok(id) => id,
                     Err(err) => {
-                        not_created.insert(create_id, set_error_value(&err));
+                        not_created.insert(create_id, serde_json::Value::from(&*err));
                         continue;
                     }
                 },
@@ -925,8 +917,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 Ok((_new_id, created_obj)) => {
                     // CalendarEvent uses #[derive(Serialize)] on plain data;
                     // to_value is infallible (JMAP-r3pg.13).
-                    let v = serde_json::to_value(&created_obj)
-                        .expect("derive(Serialize) on plain data is infallible");
+                    let v = jmap_server::serialize_value(&created_obj)?;
                     created.insert(create_id.clone(), v);
                     copied_pairs.push((create_id, source_id));
                 }
@@ -1315,15 +1306,8 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
             let parsed_json: serde_json::Map<String, Value> = result
                 .parsed
                 .into_iter()
-                .map(|(id, events)| {
-                    // CalendarEvent uses #[derive(Serialize)] on plain data
-                    // with String/Id map keys; to_value is infallible
-                    // (bd:JMAP-q2wa.7.2, JMAP-r3pg.13).
-                    let events_val = serde_json::to_value(&events)
-                        .expect("derive(Serialize) on plain data is infallible");
-                    (id.to_string(), events_val)
-                })
-                .collect();
+                .map(|(id, events)| Ok((id.to_string(), jmap_server::serialize_value(&events)?)))
+                .collect::<Result<_, JmapError>>()?;
             let not_found_json: Vec<Value> = result
                 .not_found
                 .iter()

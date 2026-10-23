@@ -868,22 +868,21 @@ impl JmapBackend for MemoryBackend {
         //
         // Type-identity roundtrip: when O::TYPE_NAME == "CalendarEvent" the
         // generic O::Filter is necessarily CalendarEventFilter (see the
-        // QueryObject impl in jmap-calendars-types src/backend.rs), so both
-        // halves are infallible; Pattern G (bc79c70) requires .expect()
-        // rather than a silent fallback that would drop the filter.
+        // QueryObject impl in jmap-calendars-types src/backend.rs). A failure
+        // of either half means that dispatch has drifted; it surfaces as
+        // serverFail rather than a panic or a silently dropped filter.
         let is_event = O::TYPE_NAME == "CalendarEvent";
         let mut event_filter: Option<CalendarEventFilter> = None;
         if let Some(f) = filter {
-            let v = serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+            let v = jmap_server::serialize_value(f).map_err(BackendQueryError::Method)?;
             let evaluable: &[&str] = if is_event { &["inCalendar"] } else { &[] };
             if !filter_is_evaluable(&v, evaluable, is_event) {
                 return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
             }
             if is_event {
-                event_filter = Some(serde_json::from_value(v).expect(
-                    "type-identity roundtrip on CalendarEventFilter is infallible: \
-                     the JSON came from Serialize on the same concrete type",
-                ));
+                event_filter = Some(serde_json::from_value(v).map_err(|e| {
+                    BackendQueryError::Method(JmapError::server_fail(e.to_string()))
+                })?);
             }
         }
 
