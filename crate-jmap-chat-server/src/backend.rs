@@ -537,6 +537,22 @@ pub trait ChatBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
+    /// # Authorisation contract
+    ///
+    /// This method is the canonical enforcement point for caller authorisation
+    /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
+    /// AGENTS.md "Permission enforcement: backend canonical". The caller of a
+    /// chat account is its owner, whose Space member entry is the accountId
+    /// (draft-atwood-jmap-chat §Terminology). Implementors MUST verify that
+    /// `caller` may act as the owner of `account_id` before performing the
+    /// mutation, and MUST return [`BackendSetError::SetError`] carrying
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do no
+    /// account-access checking, so a backend that trusts the handler lets any
+    /// caller write any account. Space permission and role-hierarchy gates
+    /// resolve against the owner's member entry through the `may_*` hooks (for
+    /// example [`Self::may_send_message`]), [`Self::apply_space_patch`] and
+    /// [`Self::apply_space_metadata_patch`].
+    ///
     /// # Id assignment
     ///
     /// The backend mints the new object's id, calls `build(&id)` exactly
@@ -677,6 +693,13 @@ pub trait ChatBackend: JmapBackend {
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
     /// or `None` if the patch was applied verbatim.
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify that `caller` may act as the owner of
+    /// `account_id` before applying the patch and MUST return [`BackendSetError::SetError`]
+    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// for the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Patch format
     ///
     /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
@@ -726,6 +749,13 @@ pub trait ChatBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy an existing object by id.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify that `caller` may act as the owner of
+    /// `account_id` before destroying it and MUST return [`BackendSetError::SetError`]
+    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
     ///
@@ -1099,6 +1129,13 @@ pub trait ChatBackend: JmapBackend {
     /// receiving server MUST permanently hard-delete this message (row
     /// removal, not tombstone) immediately after setting `readAt`."
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify that `caller` may act as the owner of
+    /// `account_id` before setting `readAt` and deleting the Message and MUST return [`BackendSetError::SetError`]
+    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// for the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Atomicity contract
     ///
     /// Validate `patch` against the stored Message exactly as
@@ -1173,6 +1210,16 @@ pub trait ChatBackend: JmapBackend {
     /// parses the wire object, unfolds each array entry into a
     /// [`SpacePatchOp`](crate::SpacePatchOp) value, then calls this method with the resulting
     /// ordered `Vec`.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify that `caller` may act as the owner of
+    /// `account_id` before applying any op, and MUST return
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden)
+    /// for the whole call otherwise; the handler reports it in `notUpdated`.
+    /// The per-op permission and role-hierarchy gates under "Per-op error
+    /// semantics" are also enforced here, atomically with the mutation. See
+    /// [`Self::create_object`] for the workspace-canonical rationale.
     ///
     /// # Ordering and atomicity
     ///
@@ -1385,6 +1432,13 @@ pub trait ChatBackend: JmapBackend {
     /// this method second (for the metadata). The handler at
     /// `space::handle_space_set` is responsible for the split and for
     /// stripping non-metadata keys before calling this method.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify that `caller` may act as the owner of
+    /// `account_id` before applying the patch and MUST return [`BackendSetError::SetError`]
+    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Permission and atomicity
     ///

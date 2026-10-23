@@ -1440,6 +1440,15 @@ wire behaviour that a conforming peer can observe.
   draft-ietf-jmap-filenode-16 `myRights` it needs. It also states that
   handlers do no authorization, so a backend that follows the rustdoc alone
   enforces ACLs. Docs only; no API change.
+- **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
+  **jmap-contacts-server**, **jmap-filenode-server**,
+  **jmap-sharing-server**: each mutating backend method's rustdoc gains an
+  "Authorisation contract" section, matching **jmap-tasks-server**
+  (bd JMAP-8zcl). It states that the method must check the caller's rights
+  atomically with the write and return `forbidden` otherwise, because
+  handlers do no permission checking. A `None` `principal_id` permits
+  every write (fail-open, bd JMAP-bghk); **jmap-tasks-server**'s wording now
+  says so too. Docs only; no API change.
 - **workspace**: every crate moves to Rust edition 2024 (bd JMAP-i3cz),
   unlocking let-chains. MSRV stays 1.91 (edition 2024 needs 1.85), and the
   public API is unchanged. The source was migrated with

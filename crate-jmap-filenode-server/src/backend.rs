@@ -116,6 +116,22 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success.  `create_id` is
     /// the client-side creation id from the `/set` request.
     ///
+    /// # Authorisation contract
+    ///
+    /// This method is the canonical enforcement point for caller authorisation
+    /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
+    /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
+    /// check that the principal identified by
+    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) holds the draft-ietf-jmap-filenode-16 `myRights` the write needs, as listed under
+    /// "Permission enforcement (backend canonical)" on [`FileNodeBackend`],
+    /// inside the same atomic boundary as the write, and MUST return
+    /// [`BackendSetError::SetError`] carrying
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// permission checking; any handler-layer pre-check is defense-in-depth
+    /// only, and a backend that trusts the handler is a bug. A backend whose
+    /// `principal_id` returns `None` permits every write (fail-open,
+    /// bd:JMAP-bghk) and CANNOT correctly implement FileNode ACLs or per-user visibility scoping.
+    ///
     /// # Invariants the backend MUST re-verify atomically with the insert
     ///
     /// The handler in [`crate::handle_filenode_set`] does best-effort
@@ -207,6 +223,13 @@ pub trait FileNodeBackend: JmapBackend {
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
     /// or `None` if the patch was applied verbatim.
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// applying the patch and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Invariants the backend MUST re-verify atomically with the update
     ///
     /// Like [`Self::create_object`], the handler's pre-checks are
@@ -284,6 +307,13 @@ pub trait FileNodeBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy a FileNode by id.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// destroying it and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Invariants the backend MUST re-verify atomically with the destroy
     ///

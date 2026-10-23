@@ -89,6 +89,22 @@ pub trait MailBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
+    /// # Authorisation contract
+    ///
+    /// This method is the canonical enforcement point for caller authorisation
+    /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
+    /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
+    /// check that the principal identified by
+    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) holds the RFC 8621 §2 `myRights` the write needs, as listed under
+    /// "Permission enforcement (backend canonical)" on [`MailBackend`],
+    /// inside the same atomic boundary as the write, and MUST return
+    /// [`BackendSetError::SetError`] carrying
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// permission checking; any handler-layer pre-check is defense-in-depth
+    /// only, and a backend that trusts the handler is a bug. A backend whose
+    /// `principal_id` returns `None` permits every write (fail-open,
+    /// bd:JMAP-bghk) and CANNOT correctly implement shared-mailbox ACLs or per-user keyword state.
+    ///
     /// # Id assignment
     ///
     /// The backend mints the new object's id, calls `build(&id)` exactly
@@ -185,6 +201,13 @@ pub trait MailBackend: JmapBackend {
     /// `register_mail_handlers` closures forward unchanged from
     /// [`jmap_server::Dispatcher::dispatch`].
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// applying the patch and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Patch format
     ///
     /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
@@ -235,6 +258,13 @@ pub trait MailBackend: JmapBackend {
 
     /// Destroy an existing object by id.
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// destroying it and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Errors
     ///
     /// As for [`create_object`](Self::create_object), plus these RFC 8620
@@ -273,6 +303,14 @@ pub trait MailBackend: JmapBackend {
     ///
     /// The blob must already be stored (uploaded via JMAP blob upload). Returns
     /// the assigned id and the created Email object.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to `account_id` and to
+    /// every Mailbox in `mailbox_ids` before storing the Email, and MUST return
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden)
+    /// otherwise. See [`Self::create_object`] for the workspace-canonical
+    /// rationale; the same rule applies here.
     ///
     /// # Contract
     ///
@@ -481,6 +519,14 @@ pub trait MailBackend: JmapBackend {
     /// [`create_object`](Self::create_object) does. Returns the new id and
     /// the stored record.
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller read access to `obj` in
+    /// `from_account_id` and write access to `to_account_id` before storing the
+    /// copy, and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Errors
     ///
     /// As for [`create_object`](Self::create_object): a
@@ -605,6 +651,13 @@ pub trait MailBackend: JmapBackend {
     /// Returns one entry per input ID: `None` means destroyed successfully;
     /// `Some(e)` means the destroy failed with the given error. The ordering
     /// matches the input slice.
+    ///
+    /// # Authorisation contract
+    ///
+    /// The default calls [`Self::destroy_object`] per id, which carries the
+    /// check. An override MUST verify caller write-access to each Email before
+    /// destroying it and MUST report [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) for that id otherwise.
     fn batch_destroy_emails(
         &self,
         caller: &Self::CallerCtx,
