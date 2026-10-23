@@ -94,7 +94,8 @@ pub const MAX_PUSH_SUBSCRIPTIONS: usize = 50;
 /// entries in one `/changes` window.
 ///
 /// - created+updated → `Created`
-/// - created+destroyed → omitted (the client never knew the object)
+/// - created+destroyed → omitted (the client never knew the object), except
+///   for `Message`, which is reported as `Destroyed`
 /// - updated+destroyed → `Destroyed`
 /// - updated+updated → `Updated`
 ///
@@ -816,8 +817,12 @@ impl JmapBackend for MemoryBackend {
             for id in &entry.destroyed {
                 // "If a record has been created AND destroyed since the old
                 // state, the server SHOULD remove the id from the response
-                // entirely." (RFC 8620 §5.2)
-                if matches!(fates.get(id), Some(IdFate::Created)) {
+                // entirely." (RFC 8620 §5.2). Message is the exception:
+                // "Servers SHOULD list it in `destroyed`: a client may have
+                // learned of the Message through a push notification, and
+                // needs the id to purge its copy." (draft-atwood-jmap-chat-00
+                // §Message/changes)
+                if O::TYPE_NAME != "Message" && matches!(fates.get(id), Some(IdFate::Created)) {
                     fates.remove(id);
                 } else if fates.insert(id.clone(), IdFate::Destroyed).is_none() {
                     order.push(id.clone());
@@ -5198,6 +5203,48 @@ mod tests {
         assert_eq!(changes.created, vec![id("fresh")]);
         assert_eq!(changes.updated, vec![id("old")]);
         assert_eq!(changes.destroyed, vec![id("doomed"), id("gone")]);
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Message/changes, expected lists
+    /// written by hand. "When a Message is created and hard-deleted ...
+    /// between the `sinceState` and the new state ... Servers SHOULD list it
+    /// in `destroyed`" — unlike the RFC 8620 §5.2 omit-both rule the other
+    /// chat types follow (bd:JMAP-ic0j.76).
+    #[tokio::test]
+    async fn get_changes_lists_created_and_destroyed_message_in_destroyed() {
+        let backend = MemoryBackend::new();
+        let id = |s: &str| Id::from(s);
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            let log = inner.change_log_mut(jmap_chat_types::Message::TYPE_NAME, "acc1");
+            log.push(ChangeEntry {
+                new_state: 1,
+                created: vec![id("burnt"), id("kept")],
+                updated: vec![],
+                destroyed: vec![],
+            });
+            log.push(ChangeEntry {
+                new_state: 2,
+                created: vec![],
+                updated: vec![id("burnt")],
+                destroyed: vec![],
+            });
+            log.push(ChangeEntry {
+                new_state: 3,
+                created: vec![],
+                updated: vec![],
+                destroyed: vec![id("burnt")],
+            });
+        }
+
+        let changes = backend
+            .get_changes::<jmap_chat_types::Message>(&(), &id("acc1"), &State::from("0"), None)
+            .await
+            .expect("get_changes must succeed");
+
+        assert_eq!(changes.created, vec![id("kept")]);
+        assert!(changes.updated.is_empty());
+        assert_eq!(changes.destroyed, vec![id("burnt")]);
     }
 
     /// Oracle: RFC 8620 §1.4 — a UTCDate is an RFC 3339 instant whose zero

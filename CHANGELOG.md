@@ -3309,6 +3309,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: **BREAKING** `MemoryBackend::get_changes` lists a
+  `Message` created and destroyed in the same window (burnOnRead,
+  senderExpiresAt) in `destroyed` again, per draft-atwood-jmap-chat-00
+  §Message/changes "Servers SHOULD list it in `destroyed`" (bd
+  JMAP-ic0j.76). Other chat types keep the RFC 8620 §5.2 omit-both rule.
 - **jmap-chat-client**: **BREAKING** `ChatSessionExt::vapid_public_key`
   reads `applicationServerKey` from the `urn:ietf:params:jmap:webpush-vapid`
   capability, the property RFC 9749 §3 defines. It previously read a

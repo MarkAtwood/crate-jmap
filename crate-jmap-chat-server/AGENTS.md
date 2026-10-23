@@ -106,6 +106,23 @@ ambassador proc-macro would shrink each wrapper to ~30 lines but
 would add a dev-dependency; that trade-off is deliberately not made
 here.
 
+## Documented divergence from canonical: Message/changes reports burned messages
+
+The canonical jmap-mail-server `IdFate` dedup omits an id created and
+destroyed in the same `/changes` window from both `created` and
+`destroyed` (RFC 8620 §5.2 SHOULD). Chat's `MemoryBackend::get_changes`
+follows that for every type except `Message`, which it lists in
+`destroyed`. draft-atwood-jmap-chat-00 §Message/changes (jmap-chat-spec
+6c38e2f): "When a Message is created and hard-deleted (for example by
+`burnOnRead` or `senderExpiresAt`) between the `sinceState` and the new
+state, {{RFC8620}} Section 5.2 allows the server either to list its id in
+`destroyed` or to omit it from both `created` and `destroyed`. Servers
+SHOULD list it in `destroyed`: a client may have learned of the Message
+through a push notification, and needs the id to purge its copy."
+
+This is a SHOULD, not a MUST (Mark, 2026-10-22, bd JMAP-ic0j.76). Do not
+"fix" it back to omit-both when mirroring mail-server.
+
 ## Permission enforcement: backend canonical
 
 Per the workspace AGENTS.md "Caller identity (foundation seam)"
