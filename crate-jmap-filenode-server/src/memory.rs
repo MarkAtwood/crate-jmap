@@ -302,6 +302,11 @@ impl MemoryBackend {
     /// drop the account's nodes. `HashMap::insert` would have done
     /// exactly that.
     pub fn with_account(self, account_id: &str) -> Self {
+        debug_assert!(
+            !account_id.is_empty(),
+            "with_account: account_id must not be the empty string \
+             (RFC 8620 §1.2, bd:JMAP-dx0s)"
+        );
         self.inner
             .lock()
             .unwrap()
@@ -1746,5 +1751,18 @@ mod clone_tests {
         let a = MemoryBackend::new();
         assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
         assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+    }
+}
+
+#[cfg(all(test, debug_assertions))]
+mod empty_account_id_tests {
+    use super::MemoryBackend;
+
+    /// Oracle: RFC 8620 §1.2, an Id "is a String of at least 1 and a
+    /// maximum of 255 octets in size" (bd:JMAP-dx0s).
+    #[test]
+    #[should_panic(expected = "account_id must not be the empty string")]
+    fn with_account_rejects_empty_id() {
+        let _ = MemoryBackend::new().with_account("");
     }
 }

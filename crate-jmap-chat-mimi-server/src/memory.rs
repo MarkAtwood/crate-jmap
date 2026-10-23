@@ -268,6 +268,11 @@ impl<C> MemoryBackend<C> {
     /// Register `account_id` with the MIMI capability object it advertises.
     #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id, capability: MimiCapability) {
+        debug_assert!(
+            !account_id.as_ref().is_empty(),
+            "register_account: account_id must not be the empty string \
+             (RFC 8620 §1.2, bd:JMAP-dx0s)"
+        );
         self.lock()
             .accounts
             .insert(account_id.as_ref().to_owned(), capability);
@@ -824,5 +829,29 @@ mod memory_error_tests {
             shown.contains("decode") && shown.contains("Data"),
             "{shown}"
         );
+    }
+}
+
+#[cfg(all(test, debug_assertions))]
+mod empty_account_id_tests {
+    use super::{Id, MemoryBackend};
+    use jmap_chat_mimi_types::MimiCapability;
+    use openmls_rust_crypto::RustCrypto;
+    use serde_json::json;
+
+    /// Oracle: RFC 8620 §1.2, an Id "is a String of at least 1 and a
+    /// maximum of 255 octets in size" (bd:JMAP-dx0s).
+    #[test]
+    #[should_panic(expected = "account_id must not be the empty string")]
+    fn register_account_rejects_empty_id() {
+        let capability: MimiCapability = serde_json::from_value(json!({
+            "userUri": "mimi://a.example/u/alice",
+            "roomIdPrefix": "mimi://a.example/r/",
+            "hubSender": "AA",
+            "cipherSuites": [1],
+            "maxKeyPackages": 10,
+        }))
+        .expect("capability");
+        MemoryBackend::new(RustCrypto::default()).register_account(&Id::from(""), capability);
     }
 }

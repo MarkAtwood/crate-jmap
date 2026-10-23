@@ -406,6 +406,11 @@ impl MemoryBackend {
     /// capability object it advertises.
     #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id, owner: &Id, capability: GraphCapability) {
+        debug_assert!(
+            !account_id.as_ref().is_empty(),
+            "register_account: account_id must not be the empty string \
+             (RFC 8620 §1.2, bd:JMAP-dx0s)"
+        );
         self.lock().accounts.insert(
             account_id.as_ref().to_owned(),
             Account {

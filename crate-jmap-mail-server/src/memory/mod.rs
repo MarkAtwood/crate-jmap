@@ -335,6 +335,11 @@ impl MemoryBackend {
     /// part of the surface.
     #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id) {
+        debug_assert!(
+            !account_id.as_ref().is_empty(),
+            "register_account: account_id must not be the empty string \
+             (RFC 8620 §1.2, bd:JMAP-dx0s)"
+        );
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
     }
@@ -3143,5 +3148,18 @@ mod clone_tests {
         let a = MemoryBackend::new();
         assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
         assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+    }
+}
+
+#[cfg(all(test, debug_assertions))]
+mod empty_account_id_tests {
+    use super::{Id, MemoryBackend};
+
+    /// Oracle: RFC 8620 §1.2, an Id "is a String of at least 1 and a
+    /// maximum of 255 octets in size" (bd:JMAP-dx0s).
+    #[test]
+    #[should_panic(expected = "account_id must not be the empty string")]
+    fn register_account_rejects_empty_id() {
+        MemoryBackend::new().register_account(&Id::from(""));
     }
 }

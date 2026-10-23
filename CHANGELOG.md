@@ -1431,6 +1431,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
+  **jmap-tasks-server**, **jmap-sharing-server**, **jmap-scene-server**,
+  **jmap-vtc-server**, **jmap-graph-server**, **jmap-chat-mimi-server**:
+  the `memory` feature's `MemoryBackend::register_account`, and
+  **jmap-filenode-server**'s `MemoryBackend::with_account`, now
+  `debug_assert!` that the account id is non-empty (RFC 8620 §1.2), as
+  jmap-contacts-server already did (bd JMAP-dx0s). Release builds are
+  unchanged.
 - **BREAKING** **jmap-mail-server**: `SieveBackend::validate_sieve_script`
   takes the script bytes (`script: &[u8]`) instead of a `blob_id`. The
   `SieveScript/set` create and update paths and `SieveScript/validate` now

@@ -455,8 +455,9 @@ impl MemoryBackend {
     /// - **No Id validation**: `account_id` is fed unchanged through
     ///   [`Id::from`], which is infallible and accepts any string. The
     ///   `MemoryBackend` silently accepts bogus account ids that
-    ///   violate RFC 8620 §1.2's Id alphabet (e.g. empty string, spaces,
-    ///   non-printable characters). Production backends MUST validate
+    ///   violate RFC 8620 §1.2's Id alphabet (e.g. spaces, non-printable
+    ///   characters); only the empty string trips a `debug_assert!`
+    ///   (bd:JMAP-dx0s). Production backends MUST validate
     ///   caller-supplied ids — e.g. via [`Id::new_validated`] — before
     ///   invoking this. The reference impl is permissive to keep test
     ///   fixtures concise.
@@ -496,6 +497,11 @@ impl MemoryBackend {
     ///   `AccountAux` slot is created only on first registration.
     #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id) {
+        debug_assert!(
+            !account_id.as_ref().is_empty(),
+            "register_account: account_id must not be the empty string \
+             (RFC 8620 §1.2, bd:JMAP-dx0s)"
+        );
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         // Ensure aux entry exists too so default getters work without state.
@@ -2033,5 +2039,18 @@ mod clone_tests {
         let a = MemoryBackend::new();
         assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
         assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+    }
+}
+
+#[cfg(all(test, debug_assertions))]
+mod empty_account_id_tests {
+    use super::{Id, MemoryBackend};
+
+    /// Oracle: RFC 8620 §1.2, an Id "is a String of at least 1 and a
+    /// maximum of 255 octets in size" (bd:JMAP-dx0s).
+    #[test]
+    #[should_panic(expected = "account_id must not be the empty string")]
+    fn register_account_rejects_empty_id() {
+        MemoryBackend::new().register_account(&Id::from(""));
     }
 }

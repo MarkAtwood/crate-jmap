@@ -68,3 +68,14 @@ async fn vtc_participant_set_non_string_destroy_element_does_not_echo_value() {
     assert!(desc.contains("got object"), "{desc}");
     assert!(!desc.contains("CANARY"), "{desc}");
 }
+
+/// Oracle: RFC 8620 §1.2, an Id "is a String of at least 1 and a
+/// maximum of 255 octets in size" (bd:JMAP-dx0s).
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "account_id must not be the empty string")]
+fn register_account_rejects_empty_id() {
+    let cap: jmap_vtc_types::VtcCapability =
+        serde_json::from_value(capability()).expect("capability fixture");
+    jmap_vtc_server::memory::MemoryBackend::new().register_account(&jmap_types::Id::from(""), cap);
+}
