@@ -162,7 +162,7 @@ Run all four before considering any work done.
 | Async | `impl Future + Send` return types on backend trait methods, no `async fn`. Crate has NO tokio runtime dep — consumers pick the runtime. `tokio` is a dev-dep only, used to run integration tests (see `bd:JMAP-tco1`). |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
-| Dependencies | jmap-types, jmap-chat-types, jmap-server, serde, serde_json, subtle, getrandom (optional, gated behind `memory` feature) |
+| Dependencies | jmap-types, jmap-chat-types, jmap-did-types, jmap-peer-auth, base64, jmap-server, serde, serde_json, subtle (runtime); getrandom + uuid (optional, gated behind the `memory` feature). `jmap-did-types` parses ChatContact `did`; `jmap-peer-auth` + `base64` implement DID-keyed peer auth (draft-atwood-jmap-chat-did-00 §Federation Authentication, RFC 9421); `subtle` backs the constant-time rule below (`bd:JMAP-sc1b.89`); `getrandom` is the CSPRNG for the reference `generate_invite_code` (`bd:JMAP-sc1b.93`). `tokio` and `http` are dev-only, plus a dev self-dependency enabling `memory` for integration tests. Error types hand-implement `Display`/`Error` (no `thiserror`), mirroring canonical jmap-mail-server. |
 | Method names | Must match draft-atwood-jmap-chat exactly (`Chat/get`, `Message/set`, `Space/set`, etc.) |
 | Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
 | Constant-time secret compares | Invite-code and similar credential comparisons MUST use `subtle::ConstantTimeEq::ct_eq`, never `==` |
@@ -178,6 +178,6 @@ Run all four before considering any work done.
 
 - Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
-- Do not add dependencies beyond: jmap-types, jmap-chat-types, jmap-server, serde, serde_json, subtle, getrandom (optional)
+- Do not add dependencies beyond: jmap-types, jmap-chat-types, jmap-did-types, jmap-peer-auth, base64, jmap-server, serde, serde_json, subtle (runtime), plus getrandom + uuid when the `memory` feature is enabled. `tokio` and `http` are dev-only.
 - Do not add auth logic or role checks inside handlers (backend canonical — see section above)
 - Do not implement methods not in draft-atwood-jmap-chat unless explicitly directed

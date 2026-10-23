@@ -97,7 +97,7 @@ Run all four before considering any work done.
 | State | None — no backend trait, no storage, no dispatcher registration |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in helpers — identity-dependent rules live in the calling backend (see above) |
-| Dependencies | jmap-metadata-types, serde_json |
+| Dependencies | jmap-metadata-types, icu_casemap, icu_normalizer, serde_json (runtime); no features, no dev-dependencies. `icu_casemap` + `icu_normalizer` implement the RFC 5051 `i;unicode-casemap` collation used by `filter.rs` text matching. No `jmap-server`: this crate has no handlers or backend trait. |
 
 ## Subagent Guidance
 
@@ -109,6 +109,6 @@ Run all four before considering any work done.
 
 - Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
-- Do not add dependencies beyond: jmap-metadata-types, serde_json
+- Do not add dependencies beyond: jmap-metadata-types, icu_casemap, icu_normalizer, serde_json
 - Do not add handlers, a backend trait, or auth logic (draft-04 has no `Metadata/*` methods)
 - Do not implement behavior not in draft-ietf-jmap-metadata unless explicitly directed
