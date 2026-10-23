@@ -107,6 +107,22 @@ pub trait CalendarsBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
+    /// # Authorisation contract
+    ///
+    /// This method is the canonical enforcement point for caller authorisation
+    /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
+    /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
+    /// check that the principal identified by
+    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write access to the target
+    /// account / Calendar / CalendarEvent
+    /// inside the same atomic boundary as the write, and MUST return
+    /// [`BackendSetError::SetError`] carrying
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// permission checking; any handler-layer pre-check is defense-in-depth
+    /// only, and a backend that trusts the handler is a bug. A backend whose
+    /// `principal_id` returns `None` permits every write (fail-open,
+    /// bd:JMAP-bghk) and CANNOT correctly implement calendar ACLs or per-user availability scoping.
+    ///
     /// # Id assignment
     ///
     /// The backend mints the new object's id, calls `build(&id)` exactly
@@ -183,6 +199,13 @@ pub trait CalendarsBackend: JmapBackend {
     /// `register_calendars_handlers` closures forward unchanged from
     /// [`jmap_server::Dispatcher::dispatch`].
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// applying the patch and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Patch format
     ///
     /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
@@ -232,6 +255,13 @@ pub trait CalendarsBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy an object of type `O` by id.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// destroying it and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
     ///
@@ -322,6 +352,18 @@ pub trait CalendarsBackend: JmapBackend {
     /// relevant on the per-user path because the backend often DOES modify
     /// fields the client did not patch (e.g. a per-user `alerts` map that
     /// the server normalises or attaches metadata to).
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify that the caller may modify per-user properties
+    /// on the target event and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. That is the Calendar's
+    /// `mayUpdatePrivate` right, which draft-ietf-jmap-calendars-33 §4 defines
+    /// as: "The user may modify per-user properties (see Section 5.4) on all
+    /// events in the calendar, even if they would not otherwise have permission
+    /// to modify that event." The write-access rule of [`Self::update_object`]
+    /// does NOT apply here. See [`Self::create_object`] for the
+    /// workspace-canonical rationale on backend-as-enforcement-point.
     fn update_per_user_properties(
         &self,
         caller: &Self::CallerCtx,
@@ -372,6 +414,13 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default implementation ignores `args` and delegates to
     /// [`create_object`](Self::create_object). Backends with iTIP delivery
     /// support MUST override this method.
+    ///
+    /// # Authorisation contract
+    ///
+    /// The default delegates to [`Self::create_object`], which carries the check. An
+    /// override MUST enforce the same contract as [`Self::create_object`] before
+    /// storing the event, returning [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) when the caller lacks write access.
     fn create_calendar_event<F>(
         &self,
         caller: &Self::CallerCtx,
@@ -414,6 +463,13 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default implementation ignores `args` and delegates to
     /// [`update_object`](Self::update_object). Backends with iTIP delivery
     /// support MUST override this method.
+    ///
+    /// # Authorisation contract
+    ///
+    /// The default delegates to [`Self::update_object`], which carries the check. An
+    /// override MUST enforce the same contract as [`Self::update_object`] before
+    /// applying the patch, returning [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) when the caller lacks write access.
     fn update_calendar_event(
         &self,
         caller: &Self::CallerCtx,
@@ -442,6 +498,13 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default implementation ignores `args` and delegates to
     /// [`destroy_object`](Self::destroy_object). Backends with iTIP delivery
     /// support MUST override this method.
+    ///
+    /// # Authorisation contract
+    ///
+    /// The default delegates to [`Self::destroy_object`], which carries the check. An
+    /// override MUST enforce the same contract as [`Self::destroy_object`] before
+    /// destroying the event, returning [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) when the caller lacks write access.
     fn destroy_calendar_event(
         &self,
         caller: &Self::CallerCtx,

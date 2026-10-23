@@ -41,9 +41,10 @@ pub trait TasksBackend: JmapBackend {
     /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only and the backend MUST re-verify atomically with the mutation. A
-    /// backend that trusts the handler is a bug; a backend that returns `None`
-    /// from `principal_id` is signalling "single-user posture" and CANNOT
-    /// correctly implement TaskList ACLs or per-user scoping.
+    /// backend that trusts the handler is a bug. A backend whose
+    /// `principal_id` returns `None` permits every write (fail-open,
+    /// bd:JMAP-bghk) and CANNOT correctly implement TaskList ACLs or
+    /// per-user scoping.
     ///
     /// # Errors
     ///

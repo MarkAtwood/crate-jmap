@@ -73,15 +73,27 @@ pub trait SharingBackend: JmapBackend {
     ///
     /// Returns `(assigned_id, created_object)` on success.
     ///
+    /// # Authorisation contract
+    ///
+    /// This method is the canonical enforcement point for caller authorisation
+    /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
+    /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
+    /// check that the principal identified by
+    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write access to the target
+    /// account / Principal / ShareNotification
+    /// inside the same atomic boundary as the write, and MUST return
+    /// [`BackendSetError::SetError`] carrying
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// permission checking; any handler-layer pre-check is defense-in-depth
+    /// only, and a backend that trusts the handler is a bug. A backend whose
+    /// `principal_id` returns `None` permits every write (fail-open,
+    /// bd:JMAP-bghk) and CANNOT correctly implement RFC 9670 `myRights` semantics or principal-based access.
+    ///
     /// # Error contract (RFC 8620 §5.3)
     ///
     /// - **Caller lacks permission to create on `account_id`**: return
-    ///   `BackendSetError::SetError(SetError::new(SetErrorType::Forbidden))`.
-    ///   Per the workspace AGENTS.md "Permission enforcement: backend
-    ///   canonical" rule, this trait method is the canonical point of
-    ///   enforcement for create-time permission checks. Handlers do NOT
-    ///   re-verify permission; a backend that omits the check ships a
-    ///   security bug.
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::Forbidden))`,
+    ///   per "Authorisation contract" above.
     /// - **`account_id` unknown**: the handler at
     ///   `principal.rs::handle_principal_set` /
     ///   `notification.rs::handle_share_notification_set` calls
@@ -200,6 +212,13 @@ pub trait SharingBackend: JmapBackend {
     /// RFC 9670 §3.3 before reaching the backend, but the trait shape
     /// remains generic.
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// applying the patch and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Return value
     ///
     /// - `Ok(Some(updated_object))`: the backend modified properties
@@ -313,6 +332,13 @@ pub trait SharingBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy a Principal or ShareNotification by id.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// destroying it and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Error contract (RFC 8620 §5.3)
     ///

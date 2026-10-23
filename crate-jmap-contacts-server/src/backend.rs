@@ -77,6 +77,22 @@ pub trait ContactsBackend: JmapBackend {
     /// `register_contacts_handlers` closures forward unchanged from
     /// [`jmap_server::Dispatcher::dispatch`].
     ///
+    /// # Authorisation contract
+    ///
+    /// This method is the canonical enforcement point for caller authorisation
+    /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
+    /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
+    /// check that the principal identified by
+    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write access to the target
+    /// account / AddressBook / ContactCard
+    /// inside the same atomic boundary as the write, and MUST return
+    /// [`BackendSetError::SetError`] carrying
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// permission checking; any handler-layer pre-check is defense-in-depth
+    /// only, and a backend that trusts the handler is a bug. A backend whose
+    /// `principal_id` returns `None` permits every write (fail-open,
+    /// bd:JMAP-bghk) and CANNOT correctly implement AddressBook ACLs or per-user scoping.
+    ///
     /// # Id assignment
     ///
     /// The backend mints the new object's id, calls `build(&id)` exactly
@@ -157,6 +173,13 @@ pub trait ContactsBackend: JmapBackend {
     /// `register_contacts_handlers` closures forward unchanged from
     /// [`jmap_server::Dispatcher::dispatch`].
     ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// applying the patch and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
     /// # Patch format
     ///
     /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
@@ -206,6 +229,13 @@ pub trait ContactsBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy an AddressBook or ContactCard by id.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// destroying it and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
     ///
@@ -285,6 +315,14 @@ pub trait ContactsBackend: JmapBackend {
     /// records the create in the state and change log as
     /// [`create_object`](Self::create_object) does. Returns the new id and
     /// the stored record.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller read access to `obj` in
+    /// `from_account_id` and write access to `to_account_id` before storing the
+    /// copy, and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
     fn copy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
