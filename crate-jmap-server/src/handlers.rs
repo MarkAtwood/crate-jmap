@@ -1381,18 +1381,20 @@ mod tests {
         assert_eq!(backend.take()["position"], json!(-5));
     }
 
-    /// Oracle: RFC 8620 §5.2 (rfc8620.txt L1826) and §5.6 (L2810-2818)
-    /// list `cannotCalculateChanges` and `tooManyChanges` as errors
-    /// returned "instead of" the response; an internal backend failure is
-    /// neither and MUST surface as the redacted `serverFail` (the
+    /// Oracle: RFC 8620 §5.2 (rfc8620.txt L1822-1829) lists only
+    /// `cannotCalculateChanges` as an error returned "instead of the
+    /// Foo/changes response"; §5.6 (L2806-2813) adds `tooManyChanges` for
+    /// Foo/queryChanges only, so that case is not asserted for /changes.
+    /// An internal backend failure is neither and MUST surface as the
+    /// redacted `serverFail` (the
     /// [`server_fail_from_backend_drops_display_text`] contract).
     #[tokio::test]
     async fn changes_backend_errors_map_to_rfc_errors() {
         const CANARY: &str = "TOKEN-DO-NOT-LEAK-changes-b0a710ad";
-        for (outcome, expected_type) in [
-            (Canned::CannotCalculate, "cannotCalculateChanges"),
-            (Canned::TooManyChanges(10), "tooManyChanges"),
-            (Canned::Internal(CANARY), "serverFail"),
+        for (outcome, expected_type, check_changes) in [
+            (Canned::CannotCalculate, "cannotCalculateChanges", true),
+            (Canned::TooManyChanges(10), "tooManyChanges", false),
+            (Canned::Internal(CANARY), "serverFail", true),
         ] {
             let backend = CannedBackend {
                 account_exists: true,
@@ -1410,7 +1412,12 @@ mod tests {
                 json!({"accountId": "a1", "sinceQueryState": "q1"}),
             )
             .await;
-            for result in [changes, query_changes] {
+            let results = if check_changes {
+                vec![changes, query_changes]
+            } else {
+                vec![query_changes]
+            };
+            for result in results {
                 let err = result.expect_err("backend error must fail the call");
                 let wire = serde_json::to_value(&err).expect("JmapError must serialize");
                 assert_eq!(wire["type"], expected_type, "{wire}");
