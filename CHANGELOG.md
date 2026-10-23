@@ -3138,6 +3138,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: `MemoryBackend::create_object` returns the stored
+  object when one already exists under the key (the VacationResponse
+  `singleton`) instead of overwriting it, as the `MailBackend::create_object`
+  "Singleton types" contract requires. A racing VacationResponse/set no
+  longer resets a concurrent request's update to the default (bd JMAP-9n21).
 - **mail, calendars, chat, chat-mimi, contacts, filenode, graph, scene,
   sharing, tasks, vtc servers**: the self-dev-dependency that enables
   `memory` (and `mdn`, `sieve`) for tests is now path-only, so
