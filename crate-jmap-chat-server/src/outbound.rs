@@ -41,9 +41,9 @@ pub enum OutboundEvent {
     /// The owner set `deletedForAll: true` on a Message they sent.
     /// draft-atwood-jmap-chat-federation-00 §Peer/retract "Sender
     /// Behavior": "the server MUST send `Peer/retract` to the server of
-    /// every other participant in the Chat before marking the local
-    /// record". The handler reports it before the update is written, so
-    /// the stored Message still holds its content.
+    /// every other participant in the Chat." Reported after the update is
+    /// written; the payload fields are read from the stored Message
+    /// before the update.
     Retract {
         /// The Chat that holds the Message (`Peer/retract` `chatId`).
         chat_id: Id,

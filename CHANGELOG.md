@@ -1469,6 +1469,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-server**: **BREAKING** `Message/set` reports
+  `OutboundEvent::Retract` to `ChatBackend::on_outbound_event` after the
+  `deletedForAll` update is written, not before, so a failed write sends
+  no `Peer/retract`. The ordering requirement the old docs quoted
+  ("before marking the local record") is gone from
+  draft-atwood-jmap-chat-federation-00 §Peer/retract "Sender Behavior";
+  a backend that read the Message's content at event time now sees the
+  updated record (bd JMAP-e5kx).
 - **BREAKING** **jmap-chat-server**: `handle_chat_set`,
   `message::handle_message_set`, `handle_position_set`,
   `handle_invite_set`, `handle_ban_set` and `handle_emoji_set` take a new

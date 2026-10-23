@@ -3,11 +3,11 @@
 //!
 //! Oracles, quoted from the jmap-chat-spec drafts:
 //!
-//! - draft-atwood-jmap-chat-federation-00.md L585: "When a `Message/set`
+//! - draft-atwood-jmap-chat-federation-00.md L605: "When a `Message/set`
 //!   update sets `deletedForAll: true` on a message whose `senderId` is
 //!   the owner's `accountId` ({{JMAP-CHAT}}), the server MUST send
-//!   `Peer/retract` to the server of every other participant in the Chat
-//!   before marking the local record." L574-581: the arguments are
+//!   `Peer/retract` to the server of every other participant in the
+//!   Chat." L593-601: the arguments are
 //!   `chatId` and "`senderMsgId` (String): The sender-assigned ULID of the
 //!   message to retract."
 //! - draft-atwood-jmap-chat-00.md L1175: "Otherwise, deletion is local
@@ -72,7 +72,7 @@
 
 mod common;
 
-use common::{ACCOUNT_ID, MemoryBackend};
+use common::{ACCOUNT_ID, InjectableBackend, MemoryBackend};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
     GroupUpdateAction, OutboundEvent, ReactionAction, handle_chat_set, handle_chat_typing,
@@ -256,7 +256,7 @@ fn expect(
     )
 }
 
-/// fed L585, L574-581: one Peer/retract carrying chatId and senderMsgId.
+/// fed L605, L593-601: one Peer/retract carrying chatId and senderMsgId.
 #[tokio::test]
 async fn delete_for_all_reports_one_retract() {
     let backend = backend();
@@ -276,6 +276,32 @@ async fn delete_for_all_reports_one_retract() {
             sender_msg_id: Id::from("smid-m1"),
         }]
     );
+}
+
+/// fed L605: `Peer/retract` is owed when an update "sets
+/// `deletedForAll: true`". A write the backend refuses sets nothing, so
+/// no retraction reaches peers while the local Message is unchanged.
+#[tokio::test]
+async fn failed_delete_for_all_reports_nothing() {
+    let backend = InjectableBackend::new();
+    backend.inner.register_account(&Id::from(ACCOUNT_ID));
+    seed_message(&backend.inner, "m1", ACCOUNT_ID);
+    backend.inject("Message", "update");
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": {
+                "m1": { "deletedAt": "2026-01-02T00:00:00Z", "deletedForAll": true }
+            }
+        }),
+    )
+    .await
+    .expect("Message/set");
+    assert!(resp["notUpdated"].get("m1").is_some(), "{resp}");
+    assert_eq!(backend.inner.take_outbound_events_for_test(), vec![]);
 }
 
 /// chat-00 L1175: a local delete has "no peer notification".

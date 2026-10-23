@@ -2086,12 +2086,6 @@ pub async fn handle_message_set<B: ChatBackend>(
             // tombstone) immediately after setting `readAt`." One atomic
             // backend call, so a failure commits nothing and a retry
             // burns again.
-            // draft-atwood-jmap-chat-federation-00 §Peer/retract "Sender
-            // Behavior": send `Peer/retract` "before marking the local
-            // record".
-            if let Some(event @ OutboundEvent::Retract { .. }) = &outbound {
-                backend.on_outbound_event(caller, &account_id, event).await;
-            }
             let burns = patch_sets_read_at && pre_patch_burn_on_read;
             let update_outcome = if burns {
                 backend
@@ -2113,6 +2107,14 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             // Update (or burn) succeeded.
             mutated = true;
+            // draft-atwood-jmap-chat-federation-00 §Peer/retract "Sender
+            // Behavior": an update that sets `deletedForAll: true` "MUST
+            // send `Peer/retract` to the server of every other participant
+            // in the Chat". Reported only once the update is written, so a
+            // failed write retracts nothing on peers.
+            if let Some(event @ OutboundEvent::Retract { .. }) = &outbound {
+                backend.on_outbound_event(caller, &account_id, event).await;
+            }
             // draft-atwood-jmap-chat-00 §Editing a Message: "Send
             // `Peer/deliver` carrying an `edit` payload to all
             // recipients". A patch that also deletes or burns the Message

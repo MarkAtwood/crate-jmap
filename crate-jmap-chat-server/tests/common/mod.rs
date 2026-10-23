@@ -1242,6 +1242,8 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///
 /// - `(O::TYPE_NAME, "create")` — fails the next
 ///   [`ChatBackend::create_object`] call for type `O`.
+/// - `(O::TYPE_NAME, "update")` — fails the next
+///   [`ChatBackend::update_object`] call for type `O`.
 /// - `(O::TYPE_NAME, "destroy")` — fails the next
 ///   [`ChatBackend::destroy_object`] call for type `O`.
 /// - `(O::TYPE_NAME, "get")` — fails the next
@@ -1518,6 +1520,11 @@ impl ChatBackend for InjectableBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        if self.take_fault(O::TYPE_NAME, "update") {
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected update error {INJECTABLE_BACKEND_CANARY}"
+            ))));
+        }
         self.inner
             .update_object::<O>(caller, account_id, id, patch)
             .await
@@ -1629,6 +1636,17 @@ impl ChatBackend for InjectableBackend {
         }
         self.inner
             .read_and_burn_message(caller, account_id, message_id, patch)
+            .await
+    }
+
+    async fn on_outbound_event(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        event: &jmap_chat_server::OutboundEvent,
+    ) {
+        self.inner
+            .on_outbound_event(caller, account_id, event)
             .await
     }
 }
