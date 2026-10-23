@@ -170,7 +170,7 @@ impl Inner {
 ///
 /// # Clone semantics — shared state, not independent copies
 ///
-/// `MemoryBackend: Clone` is implemented as a cheap [`Arc`] clone:
+/// The manual [`Clone`] impl is a cheap [`Arc`] clone:
 /// `b1.clone()` produces a second handle to the **same** shared state
 /// behind a [`Mutex`]. Mutating through one clone is visible through every
 /// other clone. This is the workspace pattern for `Arc<Mutex<_>>`-backed
@@ -179,10 +179,25 @@ impl Inner {
 /// To build an independent backend (e.g. for parameterized tests that need
 /// distinct state per case), construct a new instance with
 /// [`Self::new`] / [`Self::default`] rather than calling `.clone()`.
-#[derive(Clone, Default)]
+#[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
+}
+
+/// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
+///
+/// A clone copies no data. The original and the clone hold `Arc::clone`s
+/// of the same `Mutex`-guarded store and observe each other's mutations, so
+/// one handle can seed or inspect state while another serves requests. This
+/// impl must never become a deep copy; for independent state construct a
+/// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
+impl Clone for MemoryBackend {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl MemoryBackend {
@@ -1025,5 +1040,21 @@ mod memory_error_tests {
             shown.contains("decode") && shown.contains("Data"),
             "{shown}"
         );
+    }
+}
+
+#[cfg(test)]
+mod clone_tests {
+    use super::MemoryBackend;
+    use std::sync::Arc;
+
+    /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
+    /// `Arc` clone, never a deep copy, so a clone and its original hold
+    /// the same store while a fresh instance does not.
+    #[test]
+    fn clone_shares_store() {
+        let a = MemoryBackend::new();
+        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
+        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
     }
 }

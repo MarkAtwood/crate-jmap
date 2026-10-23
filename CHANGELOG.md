@@ -1432,6 +1432,12 @@ wire behaviour that a conforming peer can observe.
 ### Changed
 
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
+  **jmap-contacts-server**, **jmap-filenode-server**, **jmap-sharing-server**,
+  **jmap-graph-server**, **jmap-scene-server**, **jmap-vtc-server**:
+  `MemoryBackend` replaces `#[derive(Clone)]` with a manual `Clone` impl
+  whose docs state the shared-state contract: a clone is an `Arc` clone of
+  the same store, never a deep copy. No behaviour change (bd JMAP-q7k6).
+- **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
   **jmap-contacts-server**, **jmap-tasks-server**, **jmap-filenode-server**,
   **jmap-sharing-server**: the `MemoryBackend` module docs now state the
   lock-poisoning policy: each `Mutex::lock` ends in a deliberate
