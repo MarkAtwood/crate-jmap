@@ -3,6 +3,8 @@
 //! the draft text (examples copied byte-for-byte, quoted rules) and
 //! hand-written JSON, never the code under test.
 
+mod common;
+
 use jmap_graph_types::{
     Bound, CandidateKind, Direction, Expression, FieldTest, WhereError, QUERY_TOO_COMPLEX,
 };
@@ -13,60 +15,24 @@ use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
 /// L336-351, "Annotation tests", verbatim.
-const ANNOTATION_TESTS: &str = r##"["GraphNode/query", {
-  "accountId": "A1",
-  "filter": {
-    "graphId": "G1",
-    "where": {
-      "/annotations/com.example.status": {
-        "$in": ["open", "blocked"]
-      },
-      "/annotations/com.example.title": {
-        "$prefix": "draft",
-        "$collation": "i;unicode-casemap"
-      }
-    }
-  }
-}, "0"]"##;
+fn annotation_tests() -> String {
+    common::fixture("annotation_tests.json")
+}
 
 /// L358-372, "Descendants", verbatim.
-const DESCENDANTS: &str = r##"["GraphNode/query", {
-  "accountId": "A1",
-  "filter": {
-    "graphId": "G1",
-    "where": {
-      "$reachable": {
-        "direction": "in",
-        "type": "com.example.child",
-        "maxDepth": 10,
-        "node": { "/id": "N1" }
-      }
-    }
-  }
-}, "0"]"##;
+fn descendants() -> String {
+    common::fixture("descendants.json")
+}
 
 /// L379-390, "Edges between matching nodes", verbatim.
-const EDGES_BETWEEN: &str = r##"["GraphEdge/query", {
-  "accountId": "A1",
-  "filter": {
-    "graphId": "G1",
-    "type": "com.example.depends-on",
-    "where": {
-      "$from": { "/annotations/com.example.status": "open" },
-      "$to": { "/annotations/com.example.status": "closed" }
-    }
-  }
-}, "0"]"##;
+fn edges_between() -> String {
+    common::fixture("edges_between.json")
+}
 
 /// L406-414, "An advertised language", verbatim.
-const ADVERTISED_LANGUAGE: &str = r##"["GraphNode/query", {
-  "accountId": "A1",
-  "filter": {
-    "graphId": "G1",
-    "language": "opencypher",
-    "expression": "MATCH ... RETURN a"
-  }
-}, "0"]"##;
+fn advertised_language() -> String {
+    common::fixture("advertised_language.json")
+}
 
 fn filter<T: DeserializeOwned>(invocation: &str) -> T {
     let v: Value = serde_json::from_str(invocation).expect("invocation JSON");
@@ -109,7 +75,7 @@ fn query_too_complex_error_name() {
 /// L336-351: `$in` and `$prefix` with `$collation` on two annotations.
 #[test]
 fn annotation_tests_example() {
-    let cond: GraphNodeFilterCondition = filter(ANNOTATION_TESTS);
+    let cond: GraphNodeFilterCondition = filter(&annotation_tests());
     assert_eq!(cond.graph_id, Id::from("G1"));
     let expr = node(cond.where_.expect("where")).unwrap();
     assert_eq!(expr.fields.len(), 2);
@@ -125,7 +91,7 @@ fn annotation_tests_example() {
 /// L274: "`$reachable` counts as its `maxDepth`".
 #[test]
 fn descendants_example() {
-    let cond: GraphNodeFilterCondition = filter(DESCENDANTS);
+    let cond: GraphNodeFilterCondition = filter(&descendants());
     let expr = node(cond.where_.expect("where")).unwrap();
     let reach = expr.reachable.as_deref().expect("$reachable");
     assert_eq!(reach.direction, Direction::In);
@@ -140,7 +106,7 @@ fn descendants_example() {
 /// structural `type` filter; L274: each counts as one step.
 #[test]
 fn edges_between_matching_nodes_example() {
-    let cond: GraphEdgeFilterCondition = filter(EDGES_BETWEEN);
+    let cond: GraphEdgeFilterCondition = filter(&edges_between());
     assert_eq!(cond.edge_type.as_deref(), Some("com.example.depends-on"));
     let expr = edge(cond.where_.expect("where")).unwrap();
     let from = expr.from.as_deref().expect("$from");
@@ -154,7 +120,7 @@ fn edges_between_matching_nodes_example() {
 /// L406-414: `language` with `expression` and no `where`.
 #[test]
 fn advertised_language_example() {
-    let cond: GraphNodeFilterCondition = filter(ADVERTISED_LANGUAGE);
+    let cond: GraphNodeFilterCondition = filter(&advertised_language());
     assert_eq!(cond.language.as_deref(), Some("opencypher"));
     assert_eq!(cond.expression.as_deref(), Some("MATCH ... RETURN a"));
     assert!(cond.where_.is_none());
@@ -371,7 +337,7 @@ fn structural_operators_follow_the_candidate_kind() {
 /// L336-351's expression comes back as this hand-written JSON.
 #[test]
 fn to_value_writes_operator_objects() {
-    let cond: GraphNodeFilterCondition = filter(ANNOTATION_TESTS);
+    let cond: GraphNodeFilterCondition = filter(&annotation_tests());
     let expr = node(cond.where_.expect("where")).unwrap();
     assert_eq!(
         expr.to_value(),
@@ -383,7 +349,7 @@ fn to_value_writes_operator_objects() {
             }
         })
     );
-    let cond: GraphNodeFilterCondition = filter(DESCENDANTS);
+    let cond: GraphNodeFilterCondition = filter(&descendants());
     let expr = node(cond.where_.expect("where")).unwrap();
     assert_eq!(
         expr.to_value(),

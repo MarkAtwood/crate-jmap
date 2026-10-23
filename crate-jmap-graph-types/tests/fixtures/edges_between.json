@@ -1,0 +1,11 @@
+["GraphEdge/query", {
+  "accountId": "A1",
+  "filter": {
+    "graphId": "G1",
+    "type": "com.example.depends-on",
+    "where": {
+      "$from": { "/annotations/com.example.status": "open" },
+      "$to": { "/annotations/com.example.status": "closed" }
+    }
+  }
+}, "0"]

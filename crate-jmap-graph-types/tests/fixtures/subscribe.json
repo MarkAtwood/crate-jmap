@@ -1,0 +1,6 @@
+{
+  "@type": "GraphEditStreamEnable",
+  "nodeIds": ["N1"],
+  "dataTypes": ["ops", "cursors"],
+  "id": "sub1"
+}

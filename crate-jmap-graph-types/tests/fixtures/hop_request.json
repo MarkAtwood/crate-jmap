@@ -1,0 +1,29 @@
+{
+  "using": [
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:graph"
+  ],
+  "methodCalls": [
+    ["GraphEdge/query", {
+      "accountId": "A1",
+      "filter": { "graphId": "G1", "fromId": ["N1"] }
+    }, "0"],
+    ["GraphEdge/get", {
+      "accountId": "A1",
+      "#ids": {
+        "resultOf": "0",
+        "name": "GraphEdge/query",
+        "path": "/ids"
+      },
+      "properties": ["toId", "type"]
+    }, "1"],
+    ["GraphNode/get", {
+      "accountId": "A1",
+      "#ids": {
+        "resultOf": "1",
+        "name": "GraphEdge/get",
+        "path": "/list/*/toId"
+      }
+    }, "2"]
+  ]
+}

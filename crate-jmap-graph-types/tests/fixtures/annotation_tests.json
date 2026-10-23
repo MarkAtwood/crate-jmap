@@ -1,0 +1,15 @@
+["GraphNode/query", {
+  "accountId": "A1",
+  "filter": {
+    "graphId": "G1",
+    "where": {
+      "/annotations/com.example.status": {
+        "$in": ["open", "blocked"]
+      },
+      "/annotations/com.example.title": {
+        "$prefix": "draft",
+        "$collation": "i;unicode-casemap"
+      }
+    }
+  }
+}, "0"]

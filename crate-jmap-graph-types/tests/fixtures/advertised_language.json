@@ -1,0 +1,8 @@
+["GraphNode/query", {
+  "accountId": "A1",
+  "filter": {
+    "graphId": "G1",
+    "language": "opencypher",
+    "expression": "MATCH ... RETURN a"
+  }
+}, "0"]

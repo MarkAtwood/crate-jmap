@@ -1,0 +1,37 @@
+{
+  "using": [
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:graph"
+  ],
+  "methodCalls": [
+    ["Graph/set", {
+      "accountId": "A1",
+      "create": { "g": { "name": "Design notes" } }
+    }, "0"],
+    ["GraphNode/set", {
+      "accountId": "A1",
+      "create": {
+        "a": {
+          "graphId": "#g",
+          "annotations": { "com.example.label": "Root" }
+        },
+        "b": {
+          "graphId": "#g",
+          "blobId": "B7f3",
+          "mediaType": "text/markdown"
+        }
+      }
+    }, "1"],
+    ["GraphEdge/set", {
+      "accountId": "A1",
+      "create": {
+        "e": {
+          "graphId": "#g",
+          "fromId": "#a",
+          "toId": "#b",
+          "type": "com.example.child"
+        }
+      }
+    }, "2"]
+  ]
+}
