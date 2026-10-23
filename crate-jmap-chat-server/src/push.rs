@@ -24,7 +24,7 @@ use serde_json::{Map, Value};
 use crate::{ChatBackend, SetError, SetErrorType};
 
 /// The `PushSubscription` property this extension adds.
-const CHAT_PUSH: &str = "chatPush";
+pub(crate) const CHAT_PUSH: &str = "chatPush";
 
 /// The `ChatMessageEntry` fields a server MUST support in `properties`
 /// (draft-atwood-jmap-chat-push-00 §ChatPushConfig). `unreadCount` is a

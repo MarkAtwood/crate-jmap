@@ -273,6 +273,53 @@ async fn get_explicitly_requesting_url_or_keys_is_forbidden() {
     }
 }
 
+/// RFC 8620 §5.1 (rfc8620.txt:1609-1611): "If an invalid property is
+/// requested, the call MUST be rejected with an "invalidArguments" error."
+/// RFC 8620 §7.2 defines no `name` or `chatPush` property, and this backend
+/// declares no extension properties.
+#[tokio::test]
+async fn get_requesting_an_unknown_property_is_invalid_arguments() {
+    for properties in [json!(["id", "name"]), json!(["chatPush"])] {
+        let (name, args, call_id) = get(
+            backend_with_rfc_example("credA"),
+            "credA",
+            json!({ "ids": null, "properties": properties }),
+        )
+        .await;
+
+        assert_eq!(name, "error", "properties {properties} must be rejected");
+        assert_eq!(args["type"], "invalidArguments", "properties {properties}");
+        assert_eq!(call_id, "0");
+    }
+}
+
+/// Every RFC 8620 §7.2 property except `url` and `keys` (rfc8620.txt:
+/// 3593-3623) is a valid `properties` entry.
+#[tokio::test]
+async fn get_requesting_every_rfc_property_is_accepted() {
+    let (name, args, _) = get(
+        backend_with_rfc_example("credA"),
+        "credA",
+        json!({
+            "ids": ["f2d0aab5-e976-4e8b-ad4b-b380a5b987e4"],
+            "properties": ["id", "deviceClientId", "verificationCode", "expires", "types"]
+        }),
+    )
+    .await;
+
+    assert_eq!(name, "PushSubscription/get", "got error response: {args}");
+    assert_eq!(
+        args["list"],
+        json!([{
+            "id": "f2d0aab5-e976-4e8b-ad4b-b380a5b987e4",
+            "deviceClientId": "X8980fc",
+            "verificationCode": "f3d4618a9ae15c8b7f5582533786d531",
+            "expires": "2018-07-12T05:55:00Z",
+            "types": [ "Mailbox", "Email", "EmailDelivery" ]
+        }])
+    );
+}
+
 /// RFC 8620 §7.2.1 (rfc8620.txt:3737-3739): "The server MUST only return
 /// push subscriptions that were created using the same authentication
 /// credentials as for this "PushSubscription/get" request."

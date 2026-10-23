@@ -38,6 +38,15 @@ use crate::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, HandlerOutpu
 /// with `forbidden` when requested (RFC 8620 §7.2.1).
 const PRIVATE_PROPERTIES: [&str; 2] = ["url", "keys"];
 
+/// The RFC 8620 §7.2 properties that `PushSubscription/get` may return.
+const RFC_PROPERTIES: [&str; 5] = [
+    "id",
+    "deviceClientId",
+    "verificationCode",
+    "expires",
+    "types",
+];
+
 /// The `ids` cap for `PushSubscription/get`.
 ///
 /// ponytail: a fixed RFC 8620 §2 suggested minimum.
@@ -125,6 +134,16 @@ impl fmt::Debug for StoredPushSubscription {
 ///   [`is_deliverable`] is true, and filter each `StateChange` with
 ///   [`state_change_for`].
 pub trait PushSubscriptionBackend: JmapBackend {
+    /// The extension property names, beyond those of RFC 8620 §7.2, that
+    /// `PushSubscription/get` accepts in its `properties` argument (e.g.
+    /// `chatPush`, draft-atwood-jmap-chat-push-00).
+    ///
+    /// RFC 8620 §5.1 (rfc8620.txt:1609-1611): "If an invalid property is
+    /// requested, the call MUST be rejected with an "invalidArguments"
+    /// error." The handler rejects any name that is neither an RFC 8620
+    /// §7.2 property nor listed here.
+    const PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES: &'static [&'static str] = &[];
+
     /// Return every push subscription created with the credentials that
     /// `caller` identifies, and no others.
     ///
@@ -249,6 +268,16 @@ async fn handle_push_subscription_get<B: PushSubscriptionBackend>(
         .any(|p| PRIVATE_PROPERTIES.contains(&p.as_str()))
     {
         return Err(JmapError::forbidden());
+    }
+    // RFC 8620 §5.1 (rfc8620.txt:1609-1611): "If an invalid property is
+    // requested, the call MUST be rejected with an "invalidArguments" error."
+    if let Some(bad) = properties.iter().flatten().find(|p| {
+        !RFC_PROPERTIES.contains(&p.as_str())
+            && !B::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES.contains(&p.as_str())
+    }) {
+        return Err(JmapError::invalid_arguments(format!(
+            "unknown PushSubscription property: {bad}"
+        )));
     }
 
     let stored = backend
