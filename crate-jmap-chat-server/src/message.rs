@@ -934,7 +934,6 @@ pub enum StoreOutcome {
 /// [`BackendSetError::Other`]) or from
 /// [`ChatBackend::create_object`], unchanged.
 // Same error type as `ChatBackend::create_object`, passed through unboxed.
-#[allow(clippy::result_large_err)]
 pub async fn store_server_message<B, F>(
     backend: &B,
     caller: &B::CallerCtx,

@@ -492,14 +492,14 @@ pub(crate) mod test_support {
                 .and_then(|a| a.tasks.get(id))
                 .is_some_and(|t| t.is_draft != Some(true));
             if O::TYPE_NAME == "Task" && sets_draft && stored_not_draft {
-                return Err(BackendSetError::SetError(
+                return Err(BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidProperties)
                         .with_properties(vec!["isDraft".to_owned()]),
-                ));
+                )));
             }
-            Err(BackendSetError::SetError(SetError::new(
+            Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::Forbidden,
-            )))
+            ))))
         }
 
         async fn destroy_object<O: SetObject + Send + Sync>(
@@ -523,9 +523,9 @@ pub(crate) mod test_support {
                     return Ok(());
                 }
             }
-            Err(BackendSetError::SetError(SetError::new(
+            Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )))
+            ))))
         }
 
         fn supports_type<O: JmapObject>(

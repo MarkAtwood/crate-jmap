@@ -266,7 +266,6 @@ pub async fn check_space_quota<F: FileNodeBackend>(
 ///
 /// Returns the backend's error from `create_object`.
 // Same error type as `FileNodeBackend::create_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn create_space_file_tree<F: FileNodeBackend>(
     files: &F,
     caller: &F::CallerCtx,
@@ -347,7 +346,6 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 /// [`TreeDestroyError::Destroy`] for the first destroy that fails.
 // Carries `FileNodeBackend::destroy_object`'s error, as for
 // `create_space_file_tree`.
-#[allow(clippy::result_large_err)]
 pub async fn destroy_space_file_tree<F: FileNodeBackend>(
     files: &F,
     caller: &F::CallerCtx,

@@ -453,9 +453,9 @@ pub(crate) mod test_support {
             _patch: O::Patch,
         ) -> Result<Option<O>, BackendSetError<Self::Error>> {
             // Always return forbidden for updates to test the handler behavior.
-            Err(BackendSetError::SetError(SetError::new(
+            Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::Forbidden,
-            )))
+            ))))
         }
 
         async fn destroy_object<O: SetObject + Send + Sync>(
@@ -466,9 +466,9 @@ pub(crate) mod test_support {
         ) -> Result<(), BackendSetError<Self::Error>> {
             let mut guard = self.state.lock().unwrap();
             let Some(acct) = guard.get_mut(account_id.as_ref()) else {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )));
+                ))));
             };
 
             // Dispatch on the compile-time-known type name rather than
@@ -481,9 +481,9 @@ pub(crate) mod test_support {
                         acct.principal_state += 1;
                         Ok(())
                     } else {
-                        Err(BackendSetError::SetError(SetError::new(
+                        Err(BackendSetError::SetError(Box::new(SetError::new(
                             SetErrorType::NotFound,
-                        )))
+                        ))))
                     }
                 }
                 "ShareNotification" => {
@@ -491,9 +491,9 @@ pub(crate) mod test_support {
                         acct.notification_state += 1;
                         Ok(())
                     } else {
-                        Err(BackendSetError::SetError(SetError::new(
+                        Err(BackendSetError::SetError(Box::new(SetError::new(
                             SetErrorType::NotFound,
-                        )))
+                        ))))
                     }
                 }
                 other => Err(BackendSetError::Other(MockError::new(format!(

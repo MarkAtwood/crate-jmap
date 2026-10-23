@@ -427,9 +427,9 @@ mod tests {
                 _id: &Id,
                 _patch: O::Patch,
             ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-                Err(BackendSetError::SetError(JsSetError::new(
+                Err(BackendSetError::SetError(Box::new(JsSetError::new(
                     JsSetErrorType::NotFound,
-                )))
+                ))))
             }
 
             async fn update_per_user_properties(

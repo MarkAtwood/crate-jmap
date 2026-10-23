@@ -783,9 +783,9 @@ impl TasksBackend for MemoryBackend {
             .cloned();
 
         let Some(mut current) = existing else {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         };
 
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
@@ -812,9 +812,9 @@ impl TasksBackend for MemoryBackend {
             (&mut current, &patch_val)
         {
             apply_patch_object(base, patch_map).map_err(|e| {
-                BackendSetError::SetError(
+                BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                )
+                ))
             })?;
         }
 
@@ -839,7 +839,7 @@ impl TasksBackend for MemoryBackend {
             if heads.len() == 1 {
                 err = err.with_properties(heads);
             }
-            return Err(BackendSetError::SetError(err));
+            return Err(BackendSetError::SetError(Box::new(err)));
         }
 
         // Backend-side isDraft re-check (draft-ietf-jmap-tasks-06 §4 isDraft
@@ -853,10 +853,10 @@ impl TasksBackend for MemoryBackend {
             && !was_draft
             && current.get("isDraft").and_then(|v| v.as_bool()) == Some(true)
         {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(vec!["isDraft".to_owned()]),
-            ));
+            )));
         }
 
         let new_task_list_id = if O::TYPE_NAME == "Task" {
@@ -929,9 +929,9 @@ impl TasksBackend for MemoryBackend {
                 }
                 Ok(())
             }
-            None => Err(BackendSetError::SetError(SetError::new(
+            None => Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            ))),
+            )))),
         }
     }
 

@@ -1025,9 +1025,9 @@ impl CalendarsBackend for MemoryBackend {
             .cloned();
 
         let Some(old_value) = existing else {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         };
         let mut current = old_value.clone();
 
@@ -1043,9 +1043,9 @@ impl CalendarsBackend for MemoryBackend {
             (&mut current, &patch_val)
         {
             apply_patch_object(base, patch_map).map_err(|e| {
-                BackendSetError::SetError(
+                BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                )
+                ))
             })?;
         }
 
@@ -1053,10 +1053,10 @@ impl CalendarsBackend for MemoryBackend {
         // against the typed object so a null or wrong-typed required property
         // is rejected here instead of stored and breaking every later /get.
         O::deserialize(&current).map_err(|e| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_description(format!("patch produced invalid {}: {e}", O::TYPE_NAME)),
-            )
+            ))
         })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -1136,9 +1136,9 @@ impl CalendarsBackend for MemoryBackend {
                 }
                 Ok(())
             }
-            None => Err(BackendSetError::SetError(SetError::new(
+            None => Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            ))),
+            )))),
         }
     }
 

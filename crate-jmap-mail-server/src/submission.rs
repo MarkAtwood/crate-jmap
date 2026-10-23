@@ -837,13 +837,13 @@ pub(crate) fn check_no_crlf(s: &str) -> bool {
 /// [`server_fail_from_backend`] (which drops backend text and returns a
 /// generic serverFail) before wrapping in this variant.
 enum CreateError {
-    SetError(SetError),
+    SetError(Box<SetError>),
     Server(JmapError),
 }
 
 impl From<SetError> for CreateError {
     fn from(e: SetError) -> Self {
-        Self::SetError(e)
+        Self::SetError(Box::new(e))
     }
 }
 
@@ -851,7 +851,6 @@ impl From<SetError> for CreateError {
 ///
 /// Returns the JSON for the `created` map on success, or a typed
 /// [`CreateError`] (converted to JSON at the call site) on failure.
-#[allow(clippy::result_large_err)]
 async fn process_create<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -863,18 +862,18 @@ async fn process_create<B: MailBackend>(
         .as_object()
         .and_then(reject_server_set::<EmailSubmission>)
     {
-        return Err(CreateError::SetError(err));
+        return Err(CreateError::SetError(Box::new(err)));
     }
     // --- identityId ---
     let identity_id_str = create_args
         .get("identityId")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            CreateError::SetError(
+            CreateError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["identityId"])
                     .with_description("identityId is required"),
-            )
+            ))
         })?;
     let identity_id = Id::from(identity_id_str);
 
@@ -890,11 +889,11 @@ async fn process_create<B: MailBackend>(
         .map_err(|e| CreateError::Server(server_fail_from_backend(&e)))?;
 
     let identity = identities.into_iter().next().ok_or_else(|| {
-        CreateError::SetError(
+        CreateError::SetError(Box::new(
             SetError::new(SetErrorType::InvalidProperties)
                 .with_properties(["identityId"])
                 .with_description("identityId does not reference an existing Identity"),
-        )
+        ))
     })?;
 
     // --- emailId ---
@@ -902,11 +901,11 @@ async fn process_create<B: MailBackend>(
         .get("emailId")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            CreateError::SetError(
+            CreateError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["emailId"])
                     .with_description("emailId is required"),
-            )
+            ))
         })?;
     let email_id = Id::from(email_id_str);
 
@@ -922,11 +921,11 @@ async fn process_create<B: MailBackend>(
         .map_err(|e| CreateError::Server(server_fail_from_backend(&e)))?;
 
     let email = emails.into_iter().next().ok_or_else(|| {
-        CreateError::SetError(
+        CreateError::SetError(Box::new(
             SetError::new(SetErrorType::InvalidProperties)
                 .with_properties(["emailId"])
                 .with_description("emailId does not reference an existing Email"),
-        )
+        ))
     })?;
     let thread_id = email.thread_id.clone();
 
@@ -944,20 +943,20 @@ async fn process_create<B: MailBackend>(
             Envelope::new(mail_from, rcpt_to)
         }
         Some(v) => Envelope::deserialize(v).map_err(|e| {
-            CreateError::SetError(
+            CreateError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["envelope"])
                     .with_description(e.to_string()),
-            )
+            ))
         })?,
     };
 
     // --- noRecipients check (RFC 8621 §7.5) ---
     // Applies whether the envelope was derived or supplied by the client.
     if envelope.rcpt_to.is_empty() {
-        return Err(CreateError::SetError(SetError::new(
+        return Err(CreateError::SetError(Box::new(SetError::new(
             SetErrorType::NoRecipients,
-        )));
+        ))));
     }
 
     // --- SMTP injection defense (RFC 8621 §7.5) ---
@@ -973,11 +972,11 @@ async fn process_create<B: MailBackend>(
             }
         }
         if !invalid.is_empty() {
-            return Err(CreateError::SetError(
+            return Err(CreateError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidRecipients)
                     .with_invalid_recipients(invalid)
                     .with_description("one or more addresses contain CR or LF"),
-            ));
+            )));
         }
     }
 
@@ -1035,7 +1034,6 @@ async fn process_create<B: MailBackend>(
 ///
 /// RFC 8621 §7.5: only `undoStatus` may be updated. If the current status is
 /// already `"final"`, returns `cannotUnsend`.
-#[allow(clippy::result_large_err)]
 async fn process_update<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1052,11 +1050,11 @@ async fn process_update<B: MailBackend>(
             .map(|k| k.as_str())
             .collect();
         if !bad.is_empty() {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(bad)
                     .with_description("only undoStatus may be changed on an EmailSubmission"),
-            ));
+            )));
         }
     }
 
@@ -1067,19 +1065,19 @@ async fn process_update<B: MailBackend>(
         .map_err(BackendSetError::Other)?;
 
     if !not_found.is_empty() || existing.is_empty() {
-        return Err(BackendSetError::SetError(SetError::new(
+        return Err(BackendSetError::SetError(Box::new(SetError::new(
             SetErrorType::NotFound,
-        )));
+        ))));
     }
 
     let current = &existing[0];
 
     // Only allow updating undoStatus; if the submission is already final, reject.
     if current.undo_status == UndoStatus::Final {
-        return Err(BackendSetError::SetError(
+        return Err(BackendSetError::SetError(Box::new(
             SetError::new(SetErrorType::CannotUnsend)
                 .with_description("Submission is already in final state and cannot be undone"),
-        ));
+        )));
     }
 
     // Apply the patch via the backend.

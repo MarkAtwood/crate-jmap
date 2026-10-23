@@ -150,7 +150,6 @@ pub async fn check_calendar_id<K: CalendarsBackend>(
 ///
 /// Returns the backend's error from `create_object`.
 // Same error type as `CalendarsBackend::create_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn create_space_calendar<K: CalendarsBackend>(
     calendars: &K,
     caller: &K::CallerCtx,

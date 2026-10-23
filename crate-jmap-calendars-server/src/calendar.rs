@@ -742,9 +742,9 @@ mod tests {
                 _id: &Id,
                 _patch: O::Patch,
             ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-                Err(BackendSetError::SetError(JsSetError::new(
+                Err(BackendSetError::SetError(Box::new(JsSetError::new(
                     JsSetErrorType::NotFound,
-                )))
+                ))))
             }
 
             async fn update_per_user_properties(
@@ -755,9 +755,9 @@ mod tests {
                 _patch: PatchObject,
             ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
             {
-                Err(BackendSetError::SetError(JsSetError::new(
+                Err(BackendSetError::SetError(Box::new(JsSetError::new(
                     JsSetErrorType::NotFound,
-                )))
+                ))))
             }
 
             async fn destroy_object<O: SetObject + Send + Sync>(

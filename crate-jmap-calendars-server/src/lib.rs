@@ -737,9 +737,9 @@ pub(crate) mod test_support {
             // — no inline test relies on a successful update via MockBackend).
             let type_name = O::TYPE_NAME;
             if type_name != "CalendarEvent" {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::Forbidden,
-                )));
+                ))));
             }
             // Apply a JMAP PatchObject (RFC 8620 §5.3) all-or-nothing via the
             // shared `apply_patch_object`: keys are JSON Pointer paths.
@@ -748,38 +748,38 @@ pub(crate) mod test_support {
             })?;
             let mut guard = self.state.lock().unwrap();
             let Some(acct) = guard.get_mut(account_id.as_ref()) else {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )));
+                ))));
             };
             let Some(store) = acct.objects.get_mut("CalendarEvent") else {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )));
+                ))));
             };
             let Some(stored) = store.get_mut(id).and_then(serde_json::Value::as_object_mut) else {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )));
+                ))));
             };
             let Some(patch_map) = patch_val.as_object() else {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::InvalidPatch,
-                )));
+                ))));
             };
             // Patch a copy and re-check it against the typed object so a
             // rejected patch leaves the stored event unchanged.
             let mut patched = stored.clone();
             apply_patch_object(&mut patched, patch_map).map_err(|e| {
-                BackendSetError::SetError(
+                BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                )
+                ))
             })?;
             O::deserialize(serde_json::Value::Object(patched.clone())).map_err(|e| {
-                BackendSetError::SetError(
+                BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidProperties)
                         .with_description(format!("patch produced invalid {}: {e}", O::TYPE_NAME)),
-                )
+                ))
             })?;
             *stored = patched;
             // Echo None: this mock does not surface server-set property deltas.
@@ -815,9 +815,9 @@ pub(crate) mod test_support {
                     }
                 }
             }
-            Err(BackendSetError::SetError(SetError::new(
+            Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )))
+            ))))
         }
 
         fn supports_type<O: JmapObject>(
@@ -860,9 +860,9 @@ pub(crate) mod test_support {
             F: FnOnce(&Id) -> jmap_calendars_types::CalendarEvent + Send,
         {
             if args.send_scheduling_messages {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::from("noSupportedScheduleMethods"),
-                )));
+                ))));
             }
             // §5.9 / §5.10: privacy MUST be "public" in an account that does
             // not belong to the user.
@@ -875,7 +875,7 @@ pub(crate) mod test_support {
             if foreign && event.privacy.as_deref().is_some_and(|p| p != "public") {
                 let mut err = SetError::new(SetErrorType::InvalidProperties);
                 err.properties = Some(vec!["privacy".to_owned()]);
-                return Err(BackendSetError::SetError(err));
+                return Err(BackendSetError::SetError(Box::new(err)));
             }
             self.create_object(caller, account_id, create_id, move |id: &Id| {
                 let mut event = event;
@@ -895,9 +895,9 @@ pub(crate) mod test_support {
         ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
         {
             if args.send_scheduling_messages {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::from("noSupportedScheduleMethods"),
-                )));
+                ))));
             }
             self.update_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id, patch)
                 .await
@@ -911,9 +911,9 @@ pub(crate) mod test_support {
             args: &CalendarEventSetArgs,
         ) -> Result<(), BackendSetError<Self::Error>> {
             if args.send_scheduling_messages {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::from("noSupportedScheduleMethods"),
-                )));
+                ))));
             }
             self.destroy_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id)
                 .await

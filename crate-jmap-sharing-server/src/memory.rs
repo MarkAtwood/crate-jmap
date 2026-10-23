@@ -279,8 +279,8 @@ fn invalid_patched_properties(
         "patched {type_name} violates its type specification"
     ));
     BackendSetError::SetError(match props.as_slice() {
-        [prop] => err.with_properties([*prop]),
-        _ => err,
+        [prop] => Box::new(err.with_properties([*prop])),
+        _ => Box::new(err),
     })
 }
 
@@ -649,9 +649,9 @@ impl SharingBackend for MemoryBackend {
         // returned per RFC 8620 §5.3: an unknown account has no objects,
         // so any update target is `notFound`.
         if !inner.known_accounts.contains(account_id.as_ref()) {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         }
 
         // `.cloned()` is deliberate: it preserves atomic-on-failure
@@ -663,7 +663,9 @@ impl SharingBackend for MemoryBackend {
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .get(id)
             .cloned()
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+            .ok_or_else(|| {
+                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+            })?;
 
         // Apply the JMAP PatchObject (RFC 8620 §5.3): keys are JSON Pointer
         // paths and each value replaces the member at its path wholesale.
@@ -677,10 +679,10 @@ impl SharingBackend for MemoryBackend {
             BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
         })?;
         let serde_json::Value::Object(patch_map) = patch_val else {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidPatch)
                     .with_description("PatchObject must be a JSON object"),
-            ));
+            )));
         };
         let serde_json::Value::Object(base) = &mut current else {
             return Err(BackendSetError::Other(MemoryError::new(format!(
@@ -689,9 +691,9 @@ impl SharingBackend for MemoryBackend {
             ))));
         };
         apply_patch_object(base, &patch_map).map_err(|e| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-            )
+            ))
         })?;
         // A null or wrong-typed value on a required property must not reach
         // storage, or every later /get fails to decode it.
@@ -728,9 +730,9 @@ impl SharingBackend for MemoryBackend {
         // for the rationale; `NotFound` is the correct SetErrorType for
         // an unknown account because no object can exist there.
         if !inner.known_accounts.contains(account_id.as_ref()) {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         }
 
         let removed = inner
@@ -750,9 +752,9 @@ impl SharingBackend for MemoryBackend {
                     });
                 Ok(())
             }
-            None => Err(BackendSetError::SetError(SetError::new(
+            None => Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            ))),
+            )))),
         }
     }
 

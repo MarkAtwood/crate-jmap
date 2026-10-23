@@ -525,8 +525,8 @@ fn invalid_patched_properties(
         "patched {type_name} violates its type specification"
     ));
     BackendSetError::SetError(match props.as_slice() {
-        [prop] => err.with_properties([*prop]),
-        _ => err,
+        [prop] => Box::new(err.with_properties([*prop])),
+        _ => Box::new(err),
     })
 }
 
@@ -1218,9 +1218,9 @@ impl MailBackend for MemoryBackend {
 
         let mut inner = self.inner.lock().unwrap();
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
-        let existing = store
-            .get_mut(id)
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        let existing = store.get_mut(id).ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+        })?;
 
         // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths (e.g.
         // "mailboxIds/abc123"), applied all-or-nothing by the shared
@@ -1239,9 +1239,9 @@ impl MailBackend for MemoryBackend {
                         .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
                 }
                 apply_patch_object(&mut patched, &patch_map).map_err(|e| {
-                    BackendSetError::SetError(
+                    BackendSetError::SetError(Box::new(
                         SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                    )
+                    ))
                 })?;
                 // A null or wrong-typed value on a required property must
                 // not reach storage, or every later /get fails to decode it.
@@ -1280,9 +1280,9 @@ impl MailBackend for MemoryBackend {
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
-        store
-            .remove(id)
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        store.remove(id).ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+        })?;
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .change_log
@@ -1313,7 +1313,7 @@ impl MailBackend for MemoryBackend {
         let bytes = {
             let inner = self.inner.lock().unwrap();
             inner.blobs.get(blob_id).cloned().ok_or_else(|| {
-                BackendSetError::SetError(SetError::new(SetErrorType::BlobNotFound))
+                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::BlobNotFound)))
             })?
         };
 
@@ -1349,10 +1349,10 @@ impl MailBackend for MemoryBackend {
                 if let Some(index) = inner.message_id_index.get(account_id.as_ref()) {
                     for msg_id in msg_ids {
                         if let Some(existing_id) = index.get(msg_id) {
-                            return Err(BackendSetError::SetError(
+                            return Err(BackendSetError::SetError(Box::new(
                                 SetError::new(SetErrorType::AlreadyExists)
                                     .with_existing_id(existing_id.clone()),
-                            ));
+                            )));
                         }
                     }
                 }
@@ -1809,9 +1809,9 @@ impl MailBackend for MemoryBackend {
                     });
                 None
             } else {
-                Some(BackendSetError::SetError(SetError::new(
+                Some(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )))
+                ))))
             };
             results.push((id.clone(), err));
         }
@@ -3011,10 +3011,8 @@ mod tests {
         assert!(
             matches!(
                 result,
-                Err(BackendSetError::SetError(SetError {
-                    error_type: SetErrorType::InvalidPatch,
-                    ..
-                }))
+                Err(BackendSetError::SetError(ref se))
+                    if se.error_type == SetErrorType::InvalidPatch
             ),
             "expected invalidPatch, got {result:?}"
         );

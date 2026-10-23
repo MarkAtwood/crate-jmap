@@ -848,14 +848,14 @@ impl ContactsBackend for MemoryBackend {
         // AddressBook at all times (until destroyed). Reject the create
         // if addressBookIds is absent or empty (bd:JMAP-qz9v.16).
         if O::TYPE_NAME == "ContactCard" && !contact_card_has_address_book_ids(&val) {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["addressBookIds"])
                     .with_description(
                         "ContactCard addressBookIds must map at least one id, each to true \
                          (RFC 9610 §3)",
                     ),
-            ));
+            )));
         }
 
         // RFC 9610 §3: a ContactCard's uid MUST be unique within an
@@ -864,14 +864,14 @@ impl ContactsBackend for MemoryBackend {
         if O::TYPE_NAME == "ContactCard" {
             if let Some(new_uid) = val.get("uid").and_then(|v| v.as_str()) {
                 if account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, None) {
-                    return Err(BackendSetError::SetError(
+                    return Err(BackendSetError::SetError(Box::new(
                         SetError::new(SetErrorType::InvalidProperties)
                             .with_properties(["uid"])
                             .with_description(
                                 "ContactCard.uid must be unique within an Account \
                                  (RFC 9610 §3)",
                             ),
-                    ));
+                    )));
                 }
             }
         }
@@ -947,9 +947,9 @@ impl ContactsBackend for MemoryBackend {
             .cloned();
 
         let Some(old_value) = existing else {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         };
         let mut current = old_value.clone();
 
@@ -962,9 +962,9 @@ impl ContactsBackend for MemoryBackend {
             BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
         })?;
         let invalid_patch = |description: String| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidPatch).with_description(description),
-            )
+            ))
         };
         let (serde_json::Value::Object(target), serde_json::Value::Object(patch_map)) =
             (&mut current, &patch_val)
@@ -979,10 +979,10 @@ impl ContactsBackend for MemoryBackend {
         // against the typed object so a null or wrong-typed required property
         // is rejected here instead of stored and breaking every later /get.
         O::deserialize(&current).map_err(|e| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_description(format!("patch produced invalid {}: {e}", O::TYPE_NAME)),
-            )
+            ))
         })?;
 
         // RFC 9610 §3: a ContactCard MUST belong to at least one
@@ -991,14 +991,14 @@ impl ContactsBackend for MemoryBackend {
         // a local clone of the stored value, so a rejected patch is
         // discarded without touching storage.
         if O::TYPE_NAME == "ContactCard" && !contact_card_has_address_book_ids(&current) {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["addressBookIds"])
                     .with_description(
                         "ContactCard addressBookIds must map at least one id, each to true \
                          (RFC 9610 §3)",
                     ),
-            ));
+            )));
         }
 
         // RFC 9610 §3: uid uniqueness within an Account. If the patch
@@ -1008,14 +1008,14 @@ impl ContactsBackend for MemoryBackend {
         if O::TYPE_NAME == "ContactCard" {
             if let Some(new_uid) = current.get("uid").and_then(|v| v.as_str()) {
                 if account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, Some(id)) {
-                    return Err(BackendSetError::SetError(
+                    return Err(BackendSetError::SetError(Box::new(
                         SetError::new(SetErrorType::InvalidProperties)
                             .with_properties(["uid"])
                             .with_description(
                                 "ContactCard.uid must be unique within an Account \
                                  (RFC 9610 §3)",
                             ),
-                    ));
+                    )));
                 }
             }
         }
@@ -1123,9 +1123,9 @@ impl ContactsBackend for MemoryBackend {
                 }
                 Ok(())
             }
-            None => Err(BackendSetError::SetError(SetError::new(
+            None => Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            ))),
+            )))),
         }
     }
 
@@ -1147,9 +1147,9 @@ impl ContactsBackend for MemoryBackend {
         let mut inner = self.inner.lock().unwrap();
 
         if !inner.known_accounts.contains(from_account_id.as_ref()) {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         }
 
         inner

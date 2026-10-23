@@ -959,18 +959,18 @@ impl ChatBackend for MemoryBackend {
                 })
                 .map(|(id, _)| id.clone());
             if let Some(existing) = existing {
-                return Err(BackendSetError::SetError(
+                return Err(BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
-                ));
+                )));
             }
         }
 
         // `CustomEmoji` uniqueness contract on `create_object`.
         if O::TYPE_NAME == "CustomEmoji" {
             if let Some(existing) = emoji_name_holder(&inner, account_id, &val, None) {
-                return Err(BackendSetError::SetError(
+                return Err(BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
-                ));
+                )));
             }
         }
 
@@ -1015,9 +1015,9 @@ impl ChatBackend for MemoryBackend {
         if O::TYPE_NAME == "CustomEmoji"
             && emoji_name_holder(&inner, account_id, &current, Some(id)).is_some()
         {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
-            ));
+            )));
         }
 
         let unread_changed = if O::TYPE_NAME == "ReadPosition" {
@@ -1070,11 +1070,11 @@ impl ChatBackend for MemoryBackend {
                 )
                 .unwrap_or_default();
                 if !caller_perms.contains(&ChatPermission::ManageSpace) {
-                    return Err(BackendSetError::SetError(
+                    return Err(BackendSetError::SetError(Box::new(
                         SetError::new(SetErrorType::Forbidden).with_description(
                             "caller lacks required permission `manage_space` to destroy the Space",
                         ),
-                    ));
+                    )));
                 }
             }
         }
@@ -1089,9 +1089,9 @@ impl ChatBackend for MemoryBackend {
         };
 
         if !removed {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         }
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -1883,11 +1883,11 @@ impl PushSubscriptionBackend for MemoryBackend {
         let mut inner = self.inner.lock().unwrap();
         validate_chat_push(&new.extra, &inner.chat_push_caps).map_err(BackendSetError::SetError)?;
         if inner.push_subscriptions.len() >= MAX_PUSH_SUBSCRIPTIONS {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::OverQuota).with_description(format!(
                     "at most {MAX_PUSH_SUBSCRIPTIONS} push subscriptions per user"
                 )),
-            ));
+            )));
         }
         let id = Id::from(uuid::Uuid::new_v4().to_string());
         new.id = Some(id.clone());
@@ -1912,7 +1912,9 @@ impl PushSubscriptionBackend for MemoryBackend {
             .id
             .as_ref()
             .and_then(|id| inner.push_subscriptions.get_mut(id))
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+            .ok_or_else(|| {
+                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+            })?;
         stored.subscription = sub.clone();
         Ok(sub)
     }
@@ -1927,7 +1929,9 @@ impl PushSubscriptionBackend for MemoryBackend {
             .push_subscriptions
             .remove(id)
             .map(|_| ())
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))
+            .ok_or_else(|| {
+                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+            })
     }
 }
 
@@ -1965,7 +1969,6 @@ fn base64url_unpadded(bytes: &[u8]) -> String {
 /// `notFound` if `id` is absent; `invalidPatch` / `invalidProperties`
 /// if the patch does not apply or the result is not a valid `O`. Works
 /// on a clone, so an error leaves storage unchanged.
-#[allow(clippy::result_large_err)]
 fn patched_copy<O: SetObject>(
     inner: &mut Inner,
     account_id: &str,
@@ -1977,9 +1980,9 @@ fn patched_copy<O: SetObject>(
     let mut current = match existing {
         Some(v) => v,
         None => {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )))
+            ))))
         }
     };
 
@@ -1995,9 +1998,9 @@ fn patched_copy<O: SetObject>(
         (&mut current, &patch_val)
     {
         apply_patch_object(base, patch_map).map_err(|e| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-            )
+            ))
         })?;
     }
 
@@ -2023,7 +2026,7 @@ fn patched_copy<O: SetObject>(
         if props.len() == 1 {
             err = err.with_properties(props);
         }
-        return Err(BackendSetError::SetError(err));
+        return Err(BackendSetError::SetError(Box::new(err)));
     }
     Ok(current)
 }
@@ -2207,7 +2210,6 @@ fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
 ///
 /// See `bd:JMAP-g7wu.2.4.3` for the acceptance criteria this
 /// implements (criteria 1, 2, 4, 5, 6).
-#[allow(clippy::result_large_err)]
 fn apply_space_patch_impl(
     inner: &mut Inner,
     account_id: &Id,
@@ -2219,9 +2221,9 @@ fn apply_space_patch_impl(
         .objects_ref("Space", account_id.as_ref())
         .is_some_and(|m| m.contains_key(space_id))
     {
-        return Err(BackendSetError::SetError(SetError::new(
+        return Err(BackendSetError::SetError(Box::new(SetError::new(
             SetErrorType::NotFound,
-        )));
+        ))));
     }
 
     // ---------------------------------------------------------------
@@ -2240,7 +2242,9 @@ fn apply_space_patch_impl(
         .objects_ref("Space", account_id.as_ref())
         .and_then(|m| m.get(space_id))
         .cloned()
-        .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        .ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+        })?;
     let everyone = inner.everyone_in(&space_snapshot).clone();
 
     if let Err(e) = validate_space_patch_ops(
@@ -2260,7 +2264,7 @@ fn apply_space_patch_impl(
     // that bypass `handle_space_set`) still see caps enforced.
     let limits = inner.limits_override.unwrap_or_default();
     if let Some(set_err) = check_count_caps(&space_snapshot, &ops, &limits) {
-        return Err(BackendSetError::SetError(set_err));
+        return Err(BackendSetError::SetError(Box::new(set_err)));
     }
 
     let mut results = Vec::with_capacity(ops.len());
@@ -2340,11 +2344,14 @@ fn apply_space_patch_impl(
             // `SpacePatchOp` is `#[non_exhaustive]` upstream. A
             // future-added variant cannot be matched at compile time;
             // fail closed.
-            _ => {
-                Err(SetError::new(SetErrorType::Forbidden).with_description(stub_description(&op)))
-            }
+            _ => Err(Box::new(
+                SetError::new(SetErrorType::Forbidden).with_description(stub_description(&op)),
+            )),
         };
-        results.push(OpResult { op_index, outcome });
+        results.push(OpResult {
+            op_index,
+            outcome: outcome.map_err(|e| *e),
+        });
     }
 
     if leaving_space_manager {
@@ -2483,7 +2490,6 @@ fn space_metadata_patch_to_map(
 /// role-change that would invalidate the decision. This matches the
 /// canonical backend-side-enforcement pattern from
 /// `apply_space_patch_impl`.
-#[allow(clippy::result_large_err)]
 fn apply_space_metadata_patch_impl(
     inner: &mut Inner,
     account_id: &Id,
@@ -2497,7 +2503,9 @@ fn apply_space_metadata_patch_impl(
         .objects_ref("Space", account_id.as_ref())
         .and_then(|m| m.get(space_id))
         .cloned()
-        .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        .ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+        })?;
 
     // Permission gate: the caller's effective permissions in the
     // Space must include `manage_space`.
@@ -2506,9 +2514,9 @@ fn apply_space_metadata_patch_impl(
             .unwrap_or_default();
     if !caller_perms.contains(&ChatPermission::ManageSpace) {
         return Err(BackendSetError::SetError(
-            SetError::new(SetErrorType::Forbidden).with_description(
+            Box::new(SetError::new(SetErrorType::Forbidden).with_description(
                 "caller lacks required permission `manage_space` to mutate Space top-level metadata",
-            ),
+            )),
         ));
     }
 
@@ -2535,10 +2543,10 @@ fn apply_space_metadata_patch_impl(
     if let Err(MergePatchError::DepthExceeded) =
         json_merge_patch(&mut current, serde_json::Value::Object(patch_map))
     {
-        return Err(BackendSetError::SetError(
+        return Err(BackendSetError::SetError(Box::new(
             SetError::new(SetErrorType::InvalidPatch)
                 .with_description("patch nesting exceeds server limit"),
-        ));
+        )));
     }
 
     let new_state = inner.bump_state("Space", account_id.as_ref());
@@ -2582,12 +2590,6 @@ fn apply_space_metadata_patch_impl(
 /// also pushed into the caller's `chats_updated` set so the post-loop
 /// bookkeeping in `apply_space_patch` emits a `Chat/changes` entry for
 /// the cascade (bd:JMAP-g7wu.2.4.9).
-///
-/// The `SetError` `Err` variant is large; we tolerate this here because
-/// `SetError` is the workspace-canonical per-op result shape (matches the
-/// `OpResult.outcome` field on the trait method) and boxing would
-/// diverge from every sibling backend.
-#[allow(clippy::result_large_err)]
 fn apply_category_op(
     inner: &mut Inner,
     account_id: &str,
@@ -2595,7 +2597,7 @@ fn apply_category_op(
     op: SpacePatchOp,
     chats_updated: &mut HashSet<Id>,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     use jmap_chat_types::Category;
 
     // The Space exists (the caller verified). Pull it out as a typed
@@ -2636,12 +2638,14 @@ fn apply_category_op(
             // would create dangling references on the Space side.
             for ch_id in &cat.channel_ids {
                 if !channel_belongs_to_space(inner, account_id, ch_id, space_id) {
-                    return Err(SetError::new(SetErrorType::InvalidProperties)
-                        .with_properties(vec!["channelIds".to_owned()])
-                        .with_description(format!(
-                            "channelId {} is not a channel of this Space",
-                            ch_id.as_ref()
-                        )));
+                    return Err(Box::new(
+                        SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(vec!["channelIds".to_owned()])
+                            .with_description(format!(
+                                "channelId {} is not a channel of this Space",
+                                ch_id.as_ref()
+                            )),
+                    ));
                 }
             }
 
@@ -2708,8 +2712,10 @@ fn apply_category_op(
                 .iter()
                 .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
             let Some(pos) = pos else {
-                return Err(SetError::new(SetErrorType::NotFound)
-                    .with_description(format!("category {} not found", target_id.as_ref())));
+                return Err(Box::new(
+                    SetError::new(SetErrorType::NotFound)
+                        .with_description(format!("category {} not found", target_id.as_ref())),
+                ));
             };
             // The stored channel_ids on the category mirror the Chats'
             // category_id; scan Chats to be safe (Space-side could drift).
@@ -2761,8 +2767,10 @@ fn apply_category_op(
                 .iter()
                 .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(id.as_ref()));
             let Some(pos) = pos else {
-                return Err(SetError::new(SetErrorType::NotFound)
-                    .with_description(format!("category {} not found", id.as_ref())));
+                return Err(Box::new(
+                    SetError::new(SetErrorType::NotFound)
+                        .with_description(format!("category {} not found", id.as_ref())),
+                ));
             };
 
             // Deserialize, apply the patch, re-serialize.
@@ -2787,12 +2795,14 @@ fn apply_category_op(
                 // Validate every new id is a channel of this Space.
                 for ch_id in new_ids {
                     if !channel_belongs_to_space(inner, account_id, ch_id, space_id) {
-                        return Err(SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(vec!["channelIds".to_owned()])
-                            .with_description(format!(
-                                "channelId {} is not a channel of this Space",
-                                ch_id.as_ref()
-                            )));
+                        return Err(Box::new(
+                            SetError::new(SetErrorType::InvalidProperties)
+                                .with_properties(vec!["channelIds".to_owned()])
+                                .with_description(format!(
+                                    "channelId {} is not a channel of this Space",
+                                    ch_id.as_ref()
+                                )),
+                        ));
                     }
                 }
             }
@@ -2903,11 +2913,6 @@ fn apply_category_op(
 ///   `slowModeSeconds` and `permissionOverrides` are server-managed
 ///   and start absent (the spec does not allow the client to set them
 ///   at create time — those flow through `updateChannels` later).
-///
-/// The `SetError` `Err` variant is large; we tolerate this here because
-/// `SetError` is the workspace-canonical per-op result shape (matches
-/// the `OpResult.outcome` field on the trait method).
-#[allow(clippy::result_large_err)]
 fn apply_add_channel(
     inner: &mut Inner,
     account_id: &str,
@@ -2915,7 +2920,7 @@ fn apply_add_channel(
     op: SpacePatchOp,
     chats_created: &mut Vec<Id>,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     use jmap_chat_types::ChannelCreate;
 
     let create: ChannelCreate = match op {
@@ -2939,12 +2944,14 @@ fn apply_add_channel(
                     .any(|c| c.get("id").and_then(|s| s.as_str()) == Some(cat_id.as_ref()))
             });
         if !exists {
-            return Err(SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(vec!["categoryId".to_owned()])
-                .with_description(format!(
-                    "categoryId {} does not refer to a category of this Space",
-                    cat_id.as_ref()
-                )));
+            return Err(Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(vec!["categoryId".to_owned()])
+                    .with_description(format!(
+                        "categoryId {} does not refer to a category of this Space",
+                        cat_id.as_ref()
+                    )),
+            ));
         }
     }
 
@@ -3071,7 +3078,6 @@ fn apply_add_channel(
 /// `apply_space_patch`, so the Chat removal, the Message cascade, and
 /// the Space-side bookkeeping are atomic with respect to other
 /// `MemoryBackend` callers.
-#[allow(clippy::result_large_err)]
 fn apply_remove_channel(
     inner: &mut Inner,
     account_id: &str,
@@ -3080,7 +3086,7 @@ fn apply_remove_channel(
     chats_destroyed: &mut Vec<Id>,
     messages_destroyed: &mut Vec<Id>,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     let target_id: Id = match op {
         SpacePatchOp::RemoveChannel(id) => id,
         _ => unreachable!("apply_remove_channel called with non-RemoveChannel variant"),
@@ -3088,12 +3094,12 @@ fn apply_remove_channel(
 
     // Confirm the id names a channel-kind Chat of this Space.
     if !channel_belongs_to_space(inner, account_id, &target_id, space_id) {
-        return Err(
+        return Err(Box::new(
             SetError::new(SetErrorType::NotFound).with_description(format!(
                 "channel {} is not a channel of this Space",
                 target_id.as_ref()
             )),
-        );
+        ));
     }
 
     // Cascade Messages first so a half-completed run leaves Messages
@@ -3159,7 +3165,6 @@ fn apply_remove_channel(
 /// `channelIds` (or to `uncategorizedChannelIds` when cleared). The new
 /// category, if any, must already exist on this Space — otherwise the
 /// op fails with `invalidProperties` on `categoryId`.
-#[allow(clippy::result_large_err)]
 fn apply_update_channel(
     inner: &mut Inner,
     account_id: &str,
@@ -3167,7 +3172,7 @@ fn apply_update_channel(
     op: SpacePatchOp,
     chats_updated: &mut HashSet<Id>,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     use jmap_chat_types::ChannelPatch;
     use jmap_chat_types::Clearable;
 
@@ -3178,12 +3183,12 @@ fn apply_update_channel(
 
     // Confirm the id names a channel-kind Chat of this Space.
     if !channel_belongs_to_space(inner, account_id, &id, space_id) {
-        return Err(
+        return Err(Box::new(
             SetError::new(SetErrorType::NotFound).with_description(format!(
                 "channel {} is not a channel of this Space",
                 id.as_ref()
             )),
-        );
+        ));
     }
 
     // If categoryId is changing to a non-null value, validate that the
@@ -3202,12 +3207,14 @@ fn apply_update_channel(
                     .any(|c| c.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()))
             });
         if !exists {
-            return Err(SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(vec!["categoryId".to_owned()])
-                .with_description(format!(
-                    "categoryId {} does not refer to a category of this Space",
-                    new_cat.as_ref()
-                )));
+            return Err(Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(vec!["categoryId".to_owned()])
+                    .with_description(format!(
+                        "categoryId {} does not refer to a category of this Space",
+                        new_cat.as_ref()
+                    )),
+            ));
         }
     }
 
@@ -3226,11 +3233,13 @@ fn apply_update_channel(
         let Some(chat_val) = chat_map.get_mut(&id) else {
             // We just confirmed existence via channel_belongs_to_space;
             // this is unreachable in single-thread execution.
-            return Err(SetError::new(SetErrorType::NotFound));
+            return Err(Box::new(SetError::new(SetErrorType::NotFound)));
         };
         let serde_json::Value::Object(obj) = chat_val else {
-            return Err(SetError::new(SetErrorType::Forbidden)
-                .with_description("internal: Chat record not a JSON object"));
+            return Err(Box::new(
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("internal: Chat record not a JSON object"),
+            ));
         };
 
         if let Some(name) = patch.name {
@@ -3384,14 +3393,13 @@ fn apply_update_channel(
 /// into `space.roles`. Permission and role-position hierarchy
 /// enforcement happens in [`validate_space_patch_ops`] before this
 /// helper runs.
-#[allow(clippy::result_large_err)]
 fn apply_add_role(
     inner: &mut Inner,
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     let role = match op {
         SpacePatchOp::AddRole(r) => r,
         _ => unreachable!("apply_add_role called with non-AddRole variant"),
@@ -3434,14 +3442,13 @@ fn apply_add_role(
 /// demote any members whose only remaining role would be the removed
 /// one (draft-atwood-jmap-chat-00 §Space/set L1263). Permission
 /// and hierarchy checks happen in [`validate_space_patch_ops`].
-#[allow(clippy::result_large_err)]
 fn apply_remove_role(
     inner: &mut Inner,
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     let target_id = match op {
         SpacePatchOp::RemoveRole(id) => id,
         _ => unreachable!("apply_remove_role called with non-RemoveRole variant"),
@@ -3464,8 +3471,10 @@ fn apply_remove_role(
         .iter()
         .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
     let Some(pos) = pos else {
-        return Err(SetError::new(SetErrorType::NotFound)
-            .with_description(format!("role {} not found", target_id.as_ref())));
+        return Err(Box::new(
+            SetError::new(SetErrorType::NotFound)
+                .with_description(format!("role {} not found", target_id.as_ref())),
+        ));
     };
     roles.remove(pos);
 
@@ -3492,14 +3501,13 @@ fn apply_remove_role(
 /// Apply `SpacePatchOp::UpdateRole`: apply the [`RolePatch`] to the
 /// named role. Permission and hierarchy checks happen in
 /// [`validate_space_patch_ops`].
-#[allow(clippy::result_large_err)]
 fn apply_update_role(
     inner: &mut Inner,
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     use jmap_chat_types::Clearable;
     use jmap_chat_types::SpaceRole;
 
@@ -3525,8 +3533,10 @@ fn apply_update_role(
         .iter()
         .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
     let Some(pos) = pos else {
-        return Err(SetError::new(SetErrorType::NotFound)
-            .with_description(format!("role {} not found", target_id.as_ref())));
+        return Err(Box::new(
+            SetError::new(SetErrorType::NotFound)
+                .with_description(format!("role {} not found", target_id.as_ref())),
+        ));
     };
 
     // Deserialize, apply patch, re-serialize. The `#[non_exhaustive]`
@@ -3566,14 +3576,13 @@ fn apply_update_role(
 /// Space's `members` array and bump `memberCount`. Permission and
 /// hierarchy checks (and existence checks on each role id) happen in
 /// [`validate_space_patch_ops`].
-#[allow(clippy::result_large_err)]
 fn apply_add_member(
     inner: &mut Inner,
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     let (user_id, role_ids) = match op {
         SpacePatchOp::AddMember(create) => (create.user_id, create.role_ids),
         _ => unreachable!("apply_add_member called with non-AddMember variant"),
@@ -3596,12 +3605,14 @@ fn apply_add_member(
                 .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(user_id.as_ref()))
         })
     {
-        return Err(SetError::new(SetErrorType::InvalidProperties)
-            .with_properties(vec!["userId".to_owned()])
-            .with_description(format!(
-                "member {} is already a member of this Space",
-                user_id.as_ref()
-            )));
+        return Err(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(vec!["userId".to_owned()])
+                .with_description(format!(
+                    "member {} is already a member of this Space",
+                    user_id.as_ref()
+                )),
+        ));
     }
 
     // Validate every role_id refers to an existing SpaceRole on this
@@ -3619,12 +3630,14 @@ fn apply_add_member(
             .unwrap_or_default();
         for rid in &role_ids {
             if !existing.contains(rid.as_ref()) {
-                return Err(SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(vec!["roleIds".to_owned()])
-                    .with_description(format!(
-                        "role {} does not exist in this Space",
-                        rid.as_ref()
-                    )));
+                return Err(Box::new(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_properties(vec!["roleIds".to_owned()])
+                        .with_description(format!(
+                            "role {} does not exist in this Space",
+                            rid.as_ref()
+                        )),
+                ));
             }
         }
     }
@@ -3678,14 +3691,13 @@ fn apply_add_member(
 /// Apply `SpacePatchOp::RemoveMember`: remove the named member and
 /// decrement `memberCount`. Permission and last-admin-protection
 /// checks happen in [`validate_space_patch_ops`].
-#[allow(clippy::result_large_err)]
 fn apply_remove_member(
     inner: &mut Inner,
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     let target_id = match op {
         SpacePatchOp::RemoveMember(id) => id,
         _ => unreachable!("apply_remove_member called with non-RemoveMember variant"),
@@ -3709,8 +3721,10 @@ fn apply_remove_member(
         .iter()
         .position(|m| m.get("id").and_then(|v| v.as_str()) == Some(target_id.as_ref()));
     let Some(pos) = pos else {
-        return Err(SetError::new(SetErrorType::NotFound)
-            .with_description(format!("member {} not found", target_id.as_ref())));
+        return Err(Box::new(
+            SetError::new(SetErrorType::NotFound)
+                .with_description(format!("member {} not found", target_id.as_ref())),
+        ));
     };
     members.remove(pos);
 
@@ -3730,14 +3744,13 @@ fn apply_remove_member(
 /// Apply `SpacePatchOp::UpdateMember`: apply the [`MemberPatch`] to
 /// the named member. Permission and hierarchy checks happen in
 /// [`validate_space_patch_ops`].
-#[allow(clippy::result_large_err)]
 fn apply_update_member(
     inner: &mut Inner,
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
     space_mutated: &mut bool,
-) -> Result<Option<Id>, SetError> {
+) -> Result<Option<Id>, Box<SetError>> {
     use jmap_chat_types::Clearable;
 
     let (user_id, patch) = match op {
@@ -3764,12 +3777,14 @@ fn apply_update_member(
             .unwrap_or_default();
         for rid in role_ids {
             if !existing.contains(rid.as_ref()) {
-                return Err(SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(vec!["roleIds".to_owned()])
-                    .with_description(format!(
-                        "role {} does not exist in this Space",
-                        rid.as_ref()
-                    )));
+                return Err(Box::new(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_properties(vec!["roleIds".to_owned()])
+                        .with_description(format!(
+                            "role {} does not exist in this Space",
+                            rid.as_ref()
+                        )),
+                ));
             }
         }
     }
@@ -3786,8 +3801,10 @@ fn apply_update_member(
         .iter()
         .position(|m| m.get("id").and_then(|v| v.as_str()) == Some(user_id.as_ref()));
     let Some(pos) = pos else {
-        return Err(SetError::new(SetErrorType::NotFound)
-            .with_description(format!("member {} not found", user_id.as_ref())));
+        return Err(Box::new(
+            SetError::new(SetErrorType::NotFound)
+                .with_description(format!("member {} not found", user_id.as_ref())),
+        ));
     };
 
     // Apply the patch in place on the wire-shape JSON object. The
@@ -4004,14 +4021,13 @@ fn check_count_caps(
 /// [`check_count_caps`] above — caps are identity-independent and
 /// policy-rather-than-structural, so they are not part of this
 /// validator.
-#[allow(clippy::result_large_err)]
 fn validate_space_patch_ops(
     space_val: &serde_json::Value,
     account_id: &Id,
     ops: &[SpacePatchOp],
     protect_last_admin: bool,
     everyone: &HashSet<ChatPermission>,
-) -> Result<(), SetError> {
+) -> Result<(), Box<SetError>> {
     use crate::permissions::{required_permissions_for_op, RequiredPermissions};
 
     // Draft §Space/set `removeMembers`: a patch whose `removeMembers`
@@ -4067,14 +4083,14 @@ fn validate_space_patch_ops(
         let required = match required_permissions_for_op(op) {
             RequiredPermissions::Known(slice) => slice,
             RequiredPermissions::UnknownOp => {
-                return Err(
+                return Err(Box::new(
                     SetError::new(SetErrorType::Forbidden).with_description(format!(
                         "unknown SpacePatchOp variant `{}`; this version of \
                              the kit cannot determine its permission requirement, \
                              rejecting fail-closed",
                         variant_name(op)
                     )),
-                );
+                ));
             }
         };
         let required = if (self_removal && matches!(op, SpacePatchOp::RemoveMember(_)))
@@ -4086,13 +4102,13 @@ fn validate_space_patch_ops(
         };
         for req in required {
             if !caller_perms.contains(req) {
-                return Err(
+                return Err(Box::new(
                     SetError::new(SetErrorType::Forbidden).with_description(format!(
                         "caller lacks required permission `{}` for {}",
                         req,
                         variant_name(op)
                     )),
-                );
+                ));
             }
         }
 
@@ -4115,12 +4131,16 @@ fn validate_space_patch_ops(
         //     caller's highest.
         match op {
             SpacePatchOp::AddRole(role) if role.position >= caller_highest => {
-                return Err(hierarchy_error(role.position, caller_highest, "AddRole"));
+                return Err(Box::new(hierarchy_error(
+                    role.position,
+                    caller_highest,
+                    "AddRole",
+                )));
             }
             SpacePatchOp::RemoveRole(target_id) => {
                 if let Some(pos) = role_position(space_val, target_id.as_ref()) {
                     if pos >= caller_highest {
-                        return Err(hierarchy_error(pos, caller_highest, "RemoveRole"));
+                        return Err(Box::new(hierarchy_error(pos, caller_highest, "RemoveRole")));
                     }
                 }
                 // Nonexistent role id is a per-op NotFound, not
@@ -4130,16 +4150,16 @@ fn validate_space_patch_ops(
             SpacePatchOp::UpdateRole { id, patch } => {
                 if let Some(pos) = role_position(space_val, id.as_ref()) {
                     if pos >= caller_highest {
-                        return Err(hierarchy_error(pos, caller_highest, "UpdateRole"));
+                        return Err(Box::new(hierarchy_error(pos, caller_highest, "UpdateRole")));
                     }
                 }
                 if let Some(new_pos) = patch.position {
                     if new_pos >= caller_highest {
-                        return Err(hierarchy_error(
+                        return Err(Box::new(hierarchy_error(
                             new_pos,
                             caller_highest,
                             "UpdateRole (new position)",
-                        ));
+                        )));
                     }
                 }
             }
@@ -4147,7 +4167,11 @@ fn validate_space_patch_ops(
                 for rid in &create.role_ids {
                     if let Some(pos) = role_position(space_val, rid.as_ref()) {
                         if pos >= caller_highest {
-                            return Err(hierarchy_error(pos, caller_highest, "AddMember"));
+                            return Err(Box::new(hierarchy_error(
+                                pos,
+                                caller_highest,
+                                "AddMember",
+                            )));
                         }
                     }
                     // Nonexistent role id surfaces in apply pass
@@ -4161,7 +4185,11 @@ fn validate_space_patch_ops(
                     for rid in current.symmetric_difference(&new) {
                         if let Some(pos) = role_position(space_val, rid) {
                             if pos >= caller_highest {
-                                return Err(hierarchy_error(pos, caller_highest, "UpdateMember"));
+                                return Err(Box::new(hierarchy_error(
+                                    pos,
+                                    caller_highest,
+                                    "UpdateMember",
+                                )));
                             }
                         }
                     }
@@ -4180,12 +4208,14 @@ fn validate_space_patch_ops(
     // refusal names the patch key concerned."
     if protect_last_admin {
         if let Some(keys) = last_admin_patch_keys(space_val, ops, self_removal) {
-            return Err(SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(keys)
-                .with_description(
-                    "this patch would leave the Space with no \
+            return Err(Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(keys)
+                    .with_description(
+                        "this patch would leave the Space with no \
                      `manage_members`/`manage_space` holder (last-admin protection)",
-                ));
+                    ),
+            ));
         }
     }
 

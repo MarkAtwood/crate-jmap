@@ -90,20 +90,19 @@ const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
 ///   §ChatPushConfig: "the server MUST return an `invalidProperties`
 ///   SetError on `PushSubscription/set` whose `properties` names the
 ///   offending path (e.g., `chatPush/<id>/urgency`)".
-#[allow(clippy::result_large_err)]
 pub fn validate_chat_push(
     extra: &Map<String, Value>,
     caps: &HashMap<Id, ChatPushCapability>,
-) -> Result<(), SetError> {
+) -> Result<(), Box<SetError>> {
     let entries = match extra.get(CHAT_PUSH) {
         None | Some(Value::Null) => return Ok(()),
         Some(Value::Object(entries)) => entries,
-        Some(_) => return Err(invalid(CHAT_PUSH.to_owned())),
+        Some(_) => return Err(Box::new(invalid(CHAT_PUSH.to_owned()))),
     };
     for (account, entry) in entries.iter().filter(|(_, e)| !e.is_null()) {
         let path = format!("{CHAT_PUSH}/{account}");
         let Some(cap) = caps.get(account.as_str()) else {
-            return Err(invalid(path));
+            return Err(Box::new(invalid(path)));
         };
         let cfg: ChatPushConfig =
             serde_json::from_value(entry.clone()).map_err(|_| invalid(path.clone()))?;
@@ -113,7 +112,7 @@ pub fn validate_chat_push(
             .flatten()
             .any(|k| matches!(k, ChatKind::Other(_)))
         {
-            return Err(invalid(format!("{path}/kinds")));
+            return Err(Box::new(invalid(format!("{path}/kinds"))));
         }
         if cfg
             .properties
@@ -121,7 +120,7 @@ pub fn validate_chat_push(
             .flatten()
             .any(|p| !ENTRY_PROPERTIES.contains(&p.as_str()))
         {
-            return Err(invalid(format!("{path}/properties")));
+            return Err(Box::new(invalid(format!("{path}/properties"))));
         }
         let unsupported = |u: &Option<UrgencyLevel>| {
             u.as_ref().is_some_and(|u| {
@@ -130,10 +129,10 @@ pub fn validate_chat_push(
             })
         };
         if unsupported(&cfg.urgency) {
-            return Err(invalid(format!("{path}/urgency")));
+            return Err(Box::new(invalid(format!("{path}/urgency"))));
         }
         if unsupported(&cfg.mention_urgency) {
-            return Err(invalid(format!("{path}/mentionUrgency")));
+            return Err(Box::new(invalid(format!("{path}/mentionUrgency"))));
         }
     }
     Ok(())

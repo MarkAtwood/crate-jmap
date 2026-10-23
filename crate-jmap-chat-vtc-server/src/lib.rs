@@ -159,7 +159,6 @@ pub async fn check_call_create<C: ChatBackend>(
 ///
 /// Returns the Chat backend's error from reading or updating the Chat.
 // Same error type as `ChatBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn sync_active_call_id<C: ChatBackend>(
     chat: &C,
     caller: &C::CallerCtx,
@@ -211,7 +210,6 @@ pub async fn sync_active_call_id<C: ChatBackend>(
 /// Returns the VTC backend's error from reading or updating a call. Calls
 /// cleared before the error stay cleared.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn clear_space_references<V: VtcBackend>(
     vtc: &V,
     caller: &V::CallerCtx,
@@ -232,7 +230,6 @@ pub async fn clear_space_references<V: VtcBackend>(
 ///
 /// As for [`clear_space_references`].
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn clear_channel_references<V: VtcBackend>(
     vtc: &V,
     caller: &V::CallerCtx,
@@ -314,7 +311,6 @@ pub async fn contact_identity<C: ChatBackend>(
 /// made, and their events are lost; the VTCCall and VTCParticipant
 /// `StateChange`s still report them.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn eject_banned_user<V: VtcBackend>(
     vtc: &V,
     caller: &V::CallerCtx,
@@ -560,7 +556,6 @@ fn member_permissions(
 
 /// Set `property` to `null` on every VTCCall for which `references` holds.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 async fn clear_references<V: VtcBackend>(
     vtc: &V,
     caller: &V::CallerCtx,

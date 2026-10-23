@@ -225,7 +225,6 @@ impl Inner {
     /// The `mayWrite` check on the Graph of an item, under the lock:
     /// `missing` when the Graph does not exist or the caller lacks
     /// `mayRead`, `forbidden` when the caller lacks `mayWrite`.
-    #[allow(clippy::result_large_err)]
     fn require_write(
         &self,
         caller: &Id,
@@ -519,19 +518,19 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 fn set_error<E>(t: SetErrorType, description: &str) -> BackendSetError<E> {
-    BackendSetError::SetError(SetError::new(t).with_description(description))
+    BackendSetError::SetError(Box::new(SetError::new(t).with_description(description)))
 }
 
 fn not_found<E>() -> BackendSetError<E> {
-    BackendSetError::SetError(SetError::new(SetErrorType::NotFound))
+    BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
 }
 
 fn invalid<E>(properties: &[&str], description: &str) -> BackendSetError<E> {
-    BackendSetError::SetError(
+    BackendSetError::SetError(Box::new(
         SetError::new(SetErrorType::InvalidProperties)
             .with_description(description)
             .with_properties(properties.iter().copied()),
-    )
+    ))
 }
 
 fn other<E: std::fmt::Display>(e: E) -> BackendSetError<MemoryError> {
@@ -1130,7 +1129,6 @@ impl GraphBackend for MemoryBackend {
 /// (`invalidProperties` naming `nodeId`), `mayWrite` (`forbidden`) and
 /// `baseSeq` against the head (`invalidProperties` naming `baseSeq`), then
 /// give it the node's Graph and "the next `seq` of the node".
-#[allow(clippy::result_large_err)]
 fn sequence(
     inner: &mut Inner,
     caller: &Id,
