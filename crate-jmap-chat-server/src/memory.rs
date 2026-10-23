@@ -113,46 +113,46 @@ struct Inner {
     known_accounts: HashSet<String>,
     /// Test-only override for [`ChatBackend::limits`]. `None` means use
     /// [`ChatLimits::default`]. Set via
-    /// [`MemoryBackend::set_limits_for_test`].
+    /// `MemoryBackend::set_limits_for_test`.
     limits_override: Option<ChatLimits>,
     /// `(account_id, blobId)` → stored blob metadata reported by
     /// [`ChatBackend::attachment_blob`]. Set via
-    /// [`MemoryBackend::set_attachment_blob_for_test`].
+    /// `MemoryBackend::set_attachment_blob_for_test`.
     attachment_blobs: HashMap<(String, Id), AttachmentBlob>,
     /// Test-only override for [`ChatBackend::retains_edit_history`].
-    /// Set via [`MemoryBackend::set_retains_edit_history_for_test`].
+    /// Set via `MemoryBackend::set_retains_edit_history_for_test`.
     retains_edit_history: bool,
     /// Test-only override for [`ChatBackend::maintains_unread_count`].
-    /// Set via [`MemoryBackend::set_maintains_unread_count_for_test`].
+    /// Set via `MemoryBackend::set_maintains_unread_count_for_test`.
     maintains_unread_count: bool,
     /// Test-only override for [`ChatBackend::protect_last_admin`].
     ///
     /// Default `false` — opposite the trait default of `true` — so
     /// existing tests that do not seed admin memberships are not
     /// broken. Tests that exercise the protection path opt in via
-    /// [`MemoryBackend::set_protect_last_admin_for_test`].
+    /// `MemoryBackend::set_protect_last_admin_for_test`.
     /// Production deployments override the trait method instead.
     protect_last_admin: bool,
     /// account id → owner's identity, served by
     /// [`ChatBackend::owner_user_id`]. Set via
-    /// [`MemoryBackend::set_owner_user_id_for_test`].
+    /// `MemoryBackend::set_owner_user_id_for_test`.
     owner_user_ids: HashMap<String, String>,
     /// Push subscriptions by id. `CallerCtx = ()` means one owner, so
     /// every stored subscription belongs to every caller.
     push_subscriptions: HashMap<Id, StoredPushSubscription>,
     /// account id -> its `urn:ietf:params:jmap:chat:push` capability
     /// object. Accounts not in the map do not advertise the capability.
-    /// Set via [`MemoryBackend::set_chat_push_capability_for_test`].
+    /// Set via `MemoryBackend::set_chat_push_capability_for_test`.
     chat_push_caps: HashMap<Id, ChatPushCapability>,
     /// Served by [`ChatBackend::space_extension_properties`]. Empty by
     /// default. Set via
-    /// [`MemoryBackend::set_space_extension_properties_for_test`].
+    /// `MemoryBackend::set_space_extension_properties_for_test`.
     space_extension_properties: &'static [&'static str],
     /// Every lifecycle callback received, in call order. Drained via
-    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    /// `MemoryBackend::take_lifecycle_events_for_test`.
     lifecycle_events: Vec<LifecycleEvent>,
     /// Every [`ChatBackend::on_outbound_event`] received, in call order.
-    /// Drained via [`MemoryBackend::take_outbound_events_for_test`].
+    /// Drained via `MemoryBackend::take_outbound_events_for_test`.
     outbound_events: Vec<crate::OutboundEvent>,
     /// Permissions of the implicit `@everyone` role in every Space
     /// without an entry in `space_everyone_permissions`.
@@ -164,7 +164,7 @@ struct Inner {
 }
 
 /// One lifecycle callback received by the [`MemoryBackend`], as
-/// returned by [`MemoryBackend::take_lifecycle_events_for_test`].
+/// returned by `MemoryBackend::take_lifecycle_events_for_test`.
 #[doc(hidden)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum LifecycleEvent {
@@ -367,6 +367,7 @@ impl MemoryBackend {
     /// callers must not use this method; the API stability disclaimer
     /// on the `memory` feature applies doubly here.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_retains_edit_history_for_test(&self, retain: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.retains_edit_history = retain;
@@ -381,6 +382,7 @@ impl MemoryBackend {
     /// method; the API stability disclaimer on the `memory` feature
     /// applies doubly here.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_maintains_unread_count_for_test(&self, value: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.maintains_unread_count = value;
@@ -400,6 +402,7 @@ impl MemoryBackend {
     /// See `bd:JMAP-g7wu.2.4.3` for the design rationale (last-admin
     /// protection replacing the dropped `Space.ownerId` design).
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_protect_last_admin_for_test(&self, value: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.protect_last_admin = value;
@@ -414,6 +417,7 @@ impl MemoryBackend {
     /// [`ChatBackend::on_space_destroyed`],
     /// [`ChatBackend::on_space_ban_created`]), oldest first.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn take_lifecycle_events_for_test(&self) -> Vec<LifecycleEvent> {
         std::mem::take(&mut self.inner.lock().unwrap().lifecycle_events)
     }
@@ -421,6 +425,7 @@ impl MemoryBackend {
     /// Test-only: drain the [`ChatBackend::on_outbound_event`] events
     /// received so far, oldest first.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn take_outbound_events_for_test(&self) -> Vec<crate::OutboundEvent> {
         std::mem::take(&mut self.inner.lock().unwrap().outbound_events)
     }
@@ -431,6 +436,7 @@ impl MemoryBackend {
     /// must not use this method; the API stability disclaimer on the
     /// `memory` feature applies doubly here.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_space_extension_properties_for_test(&self, keys: &'static [&'static str]) {
         let mut inner = self.inner.lock().unwrap();
         inner.space_extension_properties = keys;
@@ -442,6 +448,7 @@ impl MemoryBackend {
     /// use this method; the API stability disclaimer on the `memory`
     /// feature applies doubly here.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_owner_user_id_for_test(&self, account_id: &Id, owner_user_id: &str) {
         let mut inner = self.inner.lock().unwrap();
         inner
@@ -460,6 +467,7 @@ impl MemoryBackend {
     /// this method; the API stability disclaimer on the `memory` feature
     /// applies doubly here.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_chat_push_capability_for_test(
         &self,
         account_id: &Id,
@@ -483,6 +491,7 @@ impl MemoryBackend {
     /// method; the API stability disclaimer on the `memory` feature
     /// applies doubly here.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_limits_for_test(&self, limits: Option<ChatLimits>) {
         let mut inner = self.inner.lock().unwrap();
         inner.limits_override = limits;
@@ -495,6 +504,7 @@ impl MemoryBackend {
     /// the size and digest; an unregistered `blobId` is reported as
     /// unchecked (`Ok(Ok(None))`).
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn set_attachment_blob_for_test(
         &self,
         account_id: &str,
@@ -519,6 +529,7 @@ impl MemoryBackend {
     /// this method; the API stability disclaimer on the `memory`
     /// feature applies doubly here.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn insert_object_for_test(
         &self,
         type_name: &'static str,
@@ -1275,7 +1286,7 @@ impl ChatBackend for MemoryBackend {
     /// Reference implementation of [`ChatBackend::limits`].
     ///
     /// Returns the test-only override set via
-    /// [`MemoryBackend::set_limits_for_test`] when present, else falls
+    /// `MemoryBackend::set_limits_for_test` when present, else falls
     /// back to [`ChatLimits::default`]. Production backends ignore the
     /// override knob and read from their own per-account
     /// configuration.
@@ -1286,7 +1297,7 @@ impl ChatBackend for MemoryBackend {
 
     /// Reference implementation of [`ChatBackend::attachment_blob`]:
     /// reports the blob registered via
-    /// [`MemoryBackend::set_attachment_blob_for_test`], else `Ok(Ok(None))`.
+    /// `MemoryBackend::set_attachment_blob_for_test`, else `Ok(Ok(None))`.
     async fn attachment_blob(
         &self,
         _caller: &(),
@@ -1303,7 +1314,7 @@ impl ChatBackend for MemoryBackend {
     /// Reference implementation of [`ChatBackend::protect_last_admin`].
     ///
     /// Returns the test-only override set via
-    /// [`MemoryBackend::set_protect_last_admin_for_test`] when set;
+    /// `MemoryBackend::set_protect_last_admin_for_test` when set;
     /// otherwise returns `false`, **opposite** the trait default of
     /// `true`. See that method's documentation and `bd:JMAP-g7wu.2.4.3`
     /// for the rationale: production deployments inherit the trait
@@ -1315,7 +1326,7 @@ impl ChatBackend for MemoryBackend {
     }
 
     /// Records the call for
-    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    /// `MemoryBackend::take_lifecycle_events_for_test`.
     fn on_chat_destroyed(
         &self,
         _caller: &(),
@@ -1327,7 +1338,7 @@ impl ChatBackend for MemoryBackend {
     }
 
     /// Records the call for
-    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    /// `MemoryBackend::take_lifecycle_events_for_test`.
     fn on_space_destroyed(
         &self,
         _caller: &(),
@@ -1339,7 +1350,7 @@ impl ChatBackend for MemoryBackend {
     }
 
     /// Records the call for
-    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    /// `MemoryBackend::take_lifecycle_events_for_test`.
     fn on_space_ban_created(
         &self,
         _caller: &(),
@@ -1351,7 +1362,7 @@ impl ChatBackend for MemoryBackend {
     }
 
     /// Records the event for
-    /// [`MemoryBackend::take_outbound_events_for_test`].
+    /// `MemoryBackend::take_outbound_events_for_test`.
     fn on_outbound_event(
         &self,
         _caller: &(),
@@ -1368,7 +1379,7 @@ impl ChatBackend for MemoryBackend {
 
     /// Reference implementation of
     /// [`ChatBackend::space_extension_properties`]: the list set via
-    /// [`MemoryBackend::set_space_extension_properties_for_test`], empty
+    /// `MemoryBackend::set_space_extension_properties_for_test`, empty
     /// by default. Values are stored unvalidated.
     fn space_extension_properties(
         &self,
@@ -1460,7 +1471,7 @@ impl ChatBackend for MemoryBackend {
     /// Reference implementation of [`ChatBackend::retains_edit_history`].
     ///
     /// Returns the test-only override set via
-    /// [`MemoryBackend::set_retains_edit_history_for_test`] when set;
+    /// `MemoryBackend::set_retains_edit_history_for_test` when set;
     /// otherwise returns `false`, matching the trait default. The
     /// reference backend does not retain edit history out of the box.
     ///
@@ -1478,7 +1489,7 @@ impl ChatBackend for MemoryBackend {
     /// Reference implementation of [`ChatBackend::owner_user_id`].
     ///
     /// Returns the value set via
-    /// [`MemoryBackend::set_owner_user_id_for_test`] for `account_id`,
+    /// `MemoryBackend::set_owner_user_id_for_test` for `account_id`,
     /// or `None` when unset.
     async fn owner_user_id(
         &self,

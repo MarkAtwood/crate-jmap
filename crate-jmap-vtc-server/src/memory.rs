@@ -447,12 +447,14 @@ impl MemoryBackend {
 
     /// The `VTCRecordingStateEvent`s delivered so far, in order.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn recording_events_for_test(&self) -> Vec<VtcRecordingStateEvent> {
         self.lock().recording_events.clone()
     }
 
     /// The [`VtcBackend::deliver_event`] events delivered so far, in order.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn events_for_test(&self) -> Vec<VtcEvent> {
         self.lock().events.clone()
     }
@@ -460,6 +462,7 @@ impl MemoryBackend {
     /// Store `value` as object `id` of `type_name` without validation or a
     /// state change, to seed states the methods cannot reach.
     #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
     pub fn insert_object_for_test(
         &self,
         type_name: &'static str,

@@ -367,6 +367,12 @@ then resolves the self-dev-dep against crates.io, failing whenever a
 feature is newer than the last published release (bd:JMAP-31o4). A
 version-less path dev-dependency is dropped from the published manifest.
 
+Test-only `MemoryBackend` seams (`*_for_test` seeding and policy knobs)
+sit behind a `test-helpers` feature (`test-helpers = ["memory"]`), never in
+the plain `memory` API. The self-dev-dependency enables it
+(`features = ["memory", "test-helpers"]`), and sibling crates whose tests
+call another crate's knobs add it to that dev-dependency (bd:JMAP-ic0j.73).
+
 **Pre-commit gate — run all of these before any commit:**
 ```bash
 cargo fmt --all

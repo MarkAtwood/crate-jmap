@@ -21,6 +21,11 @@ categories = ["network-programming", "web-programming::http-server"]
 # `generate_invite_code` impl can satisfy the CSPRNG contract documented on
 # the `ChatBackend::generate_invite_code` trait method (bd:JMAP-sc1b.93).
 memory = ["dep:getrandom", "dep:uuid"]
+# Test-only seams on MemoryBackend (the `*_for_test` methods): seeding and
+# policy knobs for integration tests, here and in sibling crates. Not part of
+# any supported API surface. Integration tests enable it via the self
+# dev-dependency below (bd:JMAP-ic0j.73).
+test-helpers = ["memory"]
 
 [dependencies]
 jmap-types = { workspace = true }
@@ -55,4 +60,4 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # reference impl without exposing it to downstream users by default.
 # Path-only, no version: cargo drops it on publish, so it never has to
 # resolve against crates.io versions that lack these features (JMAP-31o4).
-jmap-chat-server = { path = ".", features = ["memory"] }
+jmap-chat-server = { path = ".", features = ["memory", "test-helpers"] }

@@ -17,5 +17,5 @@ jmap-scene-server = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-jmap-scene-server = { workspace = true, features = ["memory"] }
+jmap-scene-server = { workspace = true, features = ["memory", "test-helpers"] }
 serde_json = { workspace = true }

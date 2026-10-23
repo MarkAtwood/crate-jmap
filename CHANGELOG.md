@@ -1431,6 +1431,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** (Rust API): **jmap-chat-server**, **jmap-scene-server** and
+  **jmap-vtc-server** move the `MemoryBackend::*_for_test` methods behind a
+  new `test-helpers` feature (implies `memory`). With only `memory` enabled
+  they no longer exist; enable `test-helpers` to keep calling them. The
+  canonical jmap-mail-server exposes no such knobs (bd JMAP-ic0j.73).
 - **BREAKING** (wire): **jmap-calendars-types**, **jmap-chat-types**,
   **jmap-contacts-types**, **jmap-filenode-types**, **jmap-sharing-types**
   and **jmap-tasks-types** comparators omit `isAscending` when it is
