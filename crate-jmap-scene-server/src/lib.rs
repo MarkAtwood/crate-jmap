@@ -168,18 +168,34 @@ pub fn register_scene_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, bac
 where
     B: SceneBackend + 'static,
 {
+    // `ids` marks a `/set` handler that resolves `#creationId` references
+    // against `CallContext::created_ids` (RFC 8620 §5.3).
     macro_rules! reg {
         ($method:expr, $handler:ident) => {{
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 Arc::clone(&backend),
                 move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
                     let CallContext {
-                        call_id: _ci,
                         args: a,
                         caller: ctx,
                         ..
                     } = cx;
                     Box::pin(async move { $handler(&*b, &ctx, a).await }) as HandlerFuture
+                },
+            ));
+            dispatcher.register($method, h);
+        }};
+        ($method:expr, $handler:ident, ids) => {{
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+                Arc::clone(&backend),
+                move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+                    let CallContext {
+                        args: a,
+                        caller: ctx,
+                        created_ids: ids,
+                        ..
+                    } = cx;
+                    Box::pin(async move { $handler(&*b, &ctx, &ids, a).await }) as HandlerFuture
                 },
             ));
             dispatcher.register($method, h);
@@ -193,7 +209,7 @@ where
     reg!("SceneAsset/queryChanges", handle_scene_asset_query_changes);
     reg!("SceneRegion/get", handle_scene_region_get);
     reg!("SceneRegion/changes", handle_scene_region_changes);
-    reg!("SceneRegion/set", handle_scene_region_set);
+    reg!("SceneRegion/set", handle_scene_region_set, ids);
     reg!("SceneRegion/query", handle_scene_region_query);
     reg!(
         "SceneRegion/queryChanges",
@@ -201,7 +217,7 @@ where
     );
     reg!("SceneObject/get", handle_scene_object_get);
     reg!("SceneObject/changes", handle_scene_object_changes);
-    reg!("SceneObject/set", handle_scene_object_set);
+    reg!("SceneObject/set", handle_scene_object_set, ids);
     reg!("SceneObject/query", handle_scene_object_query);
     reg!(
         "SceneObject/queryChanges",
@@ -210,7 +226,7 @@ where
     reg!("SceneObject/interact", handle_scene_object_interact);
     reg!("SceneAvatar/get", handle_scene_avatar_get);
     reg!("SceneAvatar/changes", handle_scene_avatar_changes);
-    reg!("SceneAvatar/set", handle_scene_avatar_set);
+    reg!("SceneAvatar/set", handle_scene_avatar_set, ids);
     reg!("SceneAvatar/query", handle_scene_avatar_query);
     reg!(
         "SceneAvatar/queryChanges",

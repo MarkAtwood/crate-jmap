@@ -1447,6 +1447,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-scene-server**: `handle_scene_region_set`,
+  `handle_scene_object_set` and `handle_scene_avatar_set` take a new third
+  argument, `created_ids: &BTreeMap<Id, Id>` (pass
+  `CallContext::created_ids`; `register_scene_handlers` does). They now
+  resolve `#creationId` references (RFC 8620 §5.3) in SceneRegion `chatId`
+  / `spaceId` / `channelId` / `activeCallId`, SceneObject `regionId` /
+  `parentId` and SceneAvatar `regionId`, on create and update.
+  `SceneObject/set` runs a create whose `parentId` is `#k` after the create
+  `k` of the same call, as §5.3 requires. An unknown reference fails that
+  entry with `invalidProperties` naming the property (bd JMAP-1p88).
 - **BREAKING** **jmap-vtc-server**: `handle_vtc_call_set`,
   `handle_vtc_participant_set`, `handle_vtc_recording_set` and
   `handle_vtc_livestream_set` take a new third argument, `created_ids:

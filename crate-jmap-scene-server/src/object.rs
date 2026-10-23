@@ -11,7 +11,7 @@
 //! the "Default sort: `createdAt` ascending" and the §Filter Validation
 //! `invalidArguments` checks.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use jmap_scene_types::SceneObjectComparator;
 use jmap_scene_types::{IDENTITY_ORIENTATION, SceneObject, SceneRegion};
@@ -26,6 +26,7 @@ use crate::helpers::{
     invalid, is_visible, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
     set_error_value,
 };
+use crate::helpers::{parents_first, resolve_refs};
 use jmap_server::{
     HandlerOutput, SetError, SetErrorType, apply_patch_object, backend_set_error_value,
     now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
@@ -128,6 +129,10 @@ fn check_filter(filter: &Value) -> Result<(), JmapError> {
     })
 }
 
+/// The SceneObject properties that hold the id of another record, which a
+/// client may set to a `#creationId` reference (RFC 8620 §5.3).
+const OBJECT_ID_PROPERTIES: &[&str] = &["regionId", "parentId"];
+
 /// Handle `SceneObject/set` (draft-atwood-jmap-scene-00 §SceneObject/set).
 ///
 /// Create requires `mayCreateObject`, validates the object, its region,
@@ -137,9 +142,16 @@ fn check_filter(filter: &Value) -> Result<(), JmapError> {
 /// [`SceneBackend::may_modify_object`]; update validates the patched
 /// object as a create, and on destroy the backend removes the object's
 /// descendants.
+///
+/// A `regionId` or `parentId` that is a `#creationId` reference names a
+/// record created earlier in the request and resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]) or
+/// against a create of this call, which runs parents first (RFC 8620
+/// §5.3). An unknown reference is `invalidProperties` naming the property.
 pub async fn handle_scene_object_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -168,12 +180,22 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
 
     let mut acc = SetAccumulators::default();
     let mut mutated = false;
+    // RFC 8620 §5.3: creates of this call join the request-wide map so
+    // later creates and updates in this call can reference them.
+    let mut created_ids = created_ids.clone();
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj) in create_map {
+        for (create_id, mut obj) in parents_first(create_map, "parentId") {
+            if let Err(err) = resolve_refs(&mut obj, OBJECT_ID_PROPERTIES, &created_ids) {
+                acc.not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             match create_scene_object(backend, caller, &account_id, &create_id, obj).await {
                 Ok(created) => {
                     mutated = true;
+                    if let Some(id) = created.get("id").and_then(Value::as_str) {
+                        created_ids.insert(Id::from(create_id.as_str()), Id::from(id));
+                    }
                     acc.created.insert(create_id, created);
                 }
                 Err(e) => {
@@ -184,7 +206,7 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
     }
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch) in update_map {
+        for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -192,6 +214,10 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_refs(&mut patch, OBJECT_ID_PROPERTIES, &created_ids) {
+                acc.not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
             match update_scene_object(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;

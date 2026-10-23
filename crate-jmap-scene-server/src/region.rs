@@ -10,11 +10,14 @@
 //! `createdAt` descending" and refuses an unknown `accessPolicy` filter
 //! value with `invalidArguments`.
 
+use std::collections::BTreeMap;
+
 use jmap_scene_types::SceneRegionComparator;
 use jmap_scene_types::{GeoAnchor, SceneRegion};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{Map, Value, json};
 
+use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, handle_get_visible, invalid, normalized_quaternion,
@@ -128,6 +131,10 @@ fn check_access_policy_filter(filter: &Value) -> Result<(), JmapError> {
     }
 }
 
+/// The SceneRegion properties that hold the id of another record, which a
+/// client may set to a `#creationId` reference (RFC 8620 §5.3).
+const REGION_ID_PROPERTIES: &[&str] = &["chatId", "spaceId", "channelId", "activeCallId"];
+
 /// Handle `SceneRegion/set` (draft-atwood-jmap-scene-00 §SceneRegion/set).
 ///
 /// Create requires `mayCreateRegion`, validates the region and its
@@ -140,9 +147,16 @@ fn check_access_policy_filter(filter: &Value) -> Result<(), JmapError> {
 /// validates the patched region as a create; destroy requires
 /// [`SceneBackend::may_destroy_region`], and the backend removes the
 /// contained objects and avatars.
+///
+/// A `chatId`, `spaceId`, `channelId` or `activeCallId` that is a
+/// `#creationId` reference names a record created earlier in the request
+/// and resolves against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3); an unknown
+/// reference is `invalidProperties` naming the property.
 pub async fn handle_scene_region_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -173,7 +187,11 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj) in create_map {
+        for (create_id, mut obj) in create_map {
+            if let Err(err) = resolve_refs(&mut obj, REGION_ID_PROPERTIES, created_ids) {
+                acc.not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
             match create_region(backend, caller, &account_id, &create_id, obj).await {
                 Ok(created) => {
                     mutated = true;
@@ -187,7 +205,7 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
     }
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch) in update_map {
+        for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -195,6 +213,10 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
                     continue;
                 }
             };
+            if let Err(err) = resolve_refs(&mut patch, REGION_ID_PROPERTIES, created_ids) {
+                acc.not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
             match update_region(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
