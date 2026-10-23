@@ -49,8 +49,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    filter_arg, resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend,
-    take_bool_arg, HandlerOutput,
+    filter_arg, reject_read_only_patch, reject_server_set, resolve_query_offset,
+    server_fail_from_backend, server_fail_value_from_backend, take_bool_arg, HandlerOutput,
 };
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
@@ -524,6 +524,13 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (creation_id, obj_val) in create_map {
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(reject_server_set::<SieveScript>)
+            {
+                not_created.insert(creation_id, set_error_value(&err));
+                continue;
+            }
             // R7: overQuota check.
             if all_scripts_before_create.len() + successful_creates >= max_scripts {
                 not_created.insert(
@@ -703,19 +710,10 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 }
             };
 
-            // R4: Reject direct isActive patches — it is server-set.
-            if patch.as_map().contains_key("isActive") {
-                not_updated.insert(
-                    id_str,
-                    set_error_value(
-                        &SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(["isActive"])
-                            .with_description(
-                                "isActive is server-set and must not be patched directly; \
-                                 use onSuccessActivateScript",
-                            ),
-                    ),
-                );
+            // R4: Reject patches to server-set properties: `id` and
+            // `isActive` (RFC 9661 §2), which onSuccessActivateScript changes.
+            if let Some(err) = reject_read_only_patch::<SieveScript>(patch.as_map()) {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 

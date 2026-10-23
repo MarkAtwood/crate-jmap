@@ -3665,7 +3665,6 @@ async fn email_set_update_immutable_field_rejected() {
             "c0": {
                 "mailboxIds": { "inbox": true },
                 "subject": "Original subject",
-                "size": 5,
             }
         }
     });
@@ -3735,7 +3734,6 @@ async fn email_set_update_keywords() {
         "create": {
             "c0": {
                 "mailboxIds": { "inbox": true },
-                "size": 7,
             }
         }
     });
@@ -3817,7 +3815,6 @@ async fn email_query_by_mailbox() {
                 "c0": {
                     "mailboxIds": { "inbox": true },
                     "subject": subject,
-                    "size": 1,
                 }
             }
         });
@@ -3831,7 +3828,6 @@ async fn email_query_by_mailbox() {
             "c0": {
                 "mailboxIds": { "sent": true },
                 "subject": "Sent 1",
-                "size": 1,
             }
         }
     });
@@ -7482,11 +7478,13 @@ fn capability_uri_vacation_response_matches_rfc() {
     );
 }
 
-/// Oracle: EmailSubmission/set create with a future sendAt is rejected when
-/// Oracle: sendAt is server-set (RFC 8621 §7.2); a client-supplied sendAt is
-/// silently ignored and the submission succeeds with server-assigned sendAt.
+/// Oracle: RFC 8621 §7 (rfc8621.txt:4233): `sendAt` is "(immutable;
+/// server-set)". RFC 8620 §1.1: "The client MUST NOT send this property when
+/// creating", and RFC 8620 §5.3 lists "a property that may only be set by the
+/// server" under `invalidProperties`. A create carrying `sendAt` is rejected
+/// with `invalidProperties` naming `sendAt`.
 #[tokio::test]
-async fn submission_set_create_send_at_ignored_from_client() {
+async fn submission_set_create_send_at_from_client_rejected() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
@@ -7520,24 +7518,14 @@ async fn submission_set_create_send_at_ignored_from_client() {
             .await
             .expect("EmailSubmission/set must return a response (not a protocol error)");
 
-    // Oracle: "s0" must be created successfully; client-supplied sendAt is ignored.
     assert!(
-        resp["notCreated"].is_null(),
-        "notCreated must be null; got: {:?}",
-        resp["notCreated"]
+        resp["created"].is_null(),
+        "created must be null; got: {resp:?}"
     );
-    let created = resp["created"]
-        .as_object()
-        .expect("created must be an object");
-    assert!(
-        created.contains_key("s0"),
-        "s0 must be in created; got: {resp:?}"
-    );
-    // sendAt in the response must be the server-set time (not the client-supplied 2099 value).
-    let stored_send_at = created["s0"]["sendAt"].as_str().expect("sendAt in created");
-    assert!(
-        stored_send_at < "2099-01-01",
-        "server-set sendAt must not equal the client-supplied future value; got: {stored_send_at}"
+    assert_eq!(
+        resp["notCreated"]["s0"],
+        serde_json::json!({"type": "invalidProperties", "properties": ["sendAt"]}),
+        "a client-supplied sendAt must be rejected; got: {resp:?}"
     );
 }
 
@@ -14966,4 +14954,71 @@ async fn mailbox_query_non_boolean_is_ascending_returns_invalid_arguments() {
         .await
         .expect_err("non-boolean isAscending must be refused");
     assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
+}
+
+/// Oracle: RFC 8621 §6 (rfc8621.txt:4039): Identity `mayDelete` is
+/// "(server-set)". RFC 8620 §1.1: "The client MUST NOT send this property
+/// when creating"; RFC 8620 §5.3 lists "a property that may only be set by
+/// the server" under `invalidProperties`.
+#[tokio::test]
+async fn identity_set_create_with_server_set_property_rejected() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let HandlerOutput { primary: resp, .. } = handle_identity_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "create": { "c0": { "email": "alice@example.com", "mayDelete": false } },
+        }),
+    )
+    .await
+    .expect("Identity/set must not return a protocol error");
+    assert!(resp["created"].is_null(), "{resp}");
+    assert_eq!(
+        resp["notCreated"]["c0"],
+        serde_json::json!({"type": "invalidProperties", "properties": ["mayDelete"]}),
+        "{resp}"
+    );
+}
+
+/// Oracle: RFC 8621 §2 (rfc8621.txt:623): Mailbox `myRights` is
+/// "(server-set)". RFC 8620 §5.3: a patch key is a JSON Pointer, so
+/// `myRights/mayDelete` changes `myRights`, and changing a server-set
+/// property is `invalidProperties`.
+#[tokio::test]
+async fn mailbox_set_update_inside_server_set_property_rejected() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_mailbox_set(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "acct1", "create": { "c0": { "name": "Keep" } } }),
+    )
+    .await
+    .expect("Mailbox/set create");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_mailbox_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "acct1",
+            "update": { &id: { "myRights/mayDelete": false } },
+        }),
+    )
+    .await
+    .expect("Mailbox/set update must not return a protocol error");
+    assert_eq!(
+        upd_resp["notUpdated"][&id],
+        serde_json::json!({"type": "invalidProperties", "properties": ["myRights"]}),
+        "{upd_resp}"
+    );
 }

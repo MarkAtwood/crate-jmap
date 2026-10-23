@@ -33,7 +33,7 @@ use crate::helpers::{
     finalize_set_response, set_error_value, SetAccumulators,
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
-use jmap_server::{server_fail_from_backend, HandlerOutput};
+use jmap_server::{reject_read_only_patch, server_fail_from_backend, HandlerOutput};
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -213,6 +213,11 @@ pub async fn handle_vacation_set<B: MailBackend>(
                     continue;
                 }
             };
+
+            if let Some(err) = reject_read_only_patch::<VacationResponse>(patch.as_map()) {
+                not_updated.insert(id.clone(), set_error_value(&err));
+                continue;
+            }
 
             let singleton_id = Id::from(SINGLETON_ID);
             match backend

@@ -30,9 +30,11 @@ use jmap_mail_types::{Email, Identity, Mdn, MdnParseRequest, MdnSendRequest};
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
-use crate::helpers::{find_immutable_patch_key, set_error_value};
+use crate::helpers::set_error_value;
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
 #[non_exhaustive]
@@ -551,14 +553,8 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 };
 
                 // Apply the same immutable-field guard as handle_email_set patches.
-                if let Some(bad_field) = find_immutable_patch_key(&patch_obj) {
-                    email_not_updated.insert(
-                        email_id.as_ref().to_owned(),
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": [bad_field],
-                        }),
-                    );
+                if let Some(err) = reject_read_only_patch::<Email>(patch_obj.as_map()) {
+                    email_not_updated.insert(email_id.as_ref().to_owned(), set_error_value(&err));
                     continue;
                 }
 

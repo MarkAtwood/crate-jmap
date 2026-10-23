@@ -36,8 +36,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
 use jmap_server::{
-    bool_arg, filter_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
-    QueryChangesParams, QueryParams,
+    bool_arg, filter_arg, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, QueryChangesParams, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -547,6 +547,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
     if let Some(Value::Object(creates)) = args.get("create") {
         for (create_id, props) in creates {
+            if let Some(err) = props.as_object().and_then(reject_server_set::<Mailbox>) {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
             // name is required.
             if props.get("name").and_then(|v| v.as_str()).is_none() {
                 not_created.insert(
@@ -678,22 +682,6 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let mut roles_successfully_vacated: std::collections::HashSet<String> =
         std::collections::HashSet::new();
 
-    // Server-set fields that may not appear in a Mailbox/set update patch.
-    //
-    // MAINTENANCE: This list must match all server-set fields of the Mailbox
-    // struct (jmap-mail-types) as defined in RFC 8621 §2.1. If a new
-    // server-set field is added to Mailbox, add its wire name here. Drift
-    // allows clients to overwrite server-managed fields — protocol misbehavior
-    // that is not a compile error.
-    const SERVER_SET: &[&str] = &[
-        "totalEmails",
-        "unreadEmails",
-        "totalThreads",
-        "unreadThreads",
-        "myRights",
-        "id",
-    ];
-
     if let Some(Value::Object(updates)) = args.remove("update") {
         // Two-pass update loop — do NOT collapse into a single pass.
         //
@@ -744,23 +732,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .is_some_and(|v| v.is_null())
         });
 
-        // Returns the InvalidProperties error value if `patch` contains any
-        // server-set field, or None if the patch is clean. Used in both passes
-        // to avoid duplicating the check block.
+        // Returns the InvalidProperties error value if `patch` names a
+        // server-set Mailbox property (RFC 8621 §2), or None if the patch is
+        // clean. Used in both passes to avoid duplicating the check block.
         let server_set_error = |patch: &PatchObject| -> Option<Value> {
-            let obj = patch.as_map();
-            let bad_props: Vec<String> = SERVER_SET
-                .iter()
-                .filter(|&&field| obj.contains_key(field))
-                .map(|&s| s.to_owned())
-                .collect();
-            if bad_props.is_empty() {
-                None
-            } else {
-                Some(set_error_value(
-                    &SetError::new(SetErrorType::InvalidProperties).with_properties(bad_props),
-                ))
-            }
+            reject_read_only_patch::<Mailbox>(patch.as_map()).map(|e| set_error_value(&e))
         };
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---

@@ -35,13 +35,13 @@ use serde_json::{json, Value};
 
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, find_immutable_patch_key, not_found_json, serialize_value,
-    set_error_value, SetAccumulators,
+    finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::{BackendSetError, MailBackend};
 use jmap_server::{
-    bool_arg, filter_arg, resolve_query_offset, server_fail_from_backend,
-    server_fail_value_from_backend, take_bool_arg, HandlerOutput, QueryChangesParams, QueryParams,
+    bool_arg, filter_arg, reject_read_only_patch, reject_server_set, resolve_query_offset,
+    server_fail_from_backend, server_fail_value_from_backend, take_bool_arg, HandlerOutput,
+    QueryChangesParams, QueryParams,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -1151,6 +1151,10 @@ pub async fn handle_email_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Email>) {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
             // Validate: at least one mailboxId with value true is required (RFC 8621 §5.5.3).
             let mailbox_ids_ok = obj_val
                 .get("mailboxIds")
@@ -1257,14 +1261,8 @@ pub async fn handle_email_set<B: MailBackend>(
             };
 
             // Check for immutable field violations in the patch keys.
-            if let Some(bad_field) = find_immutable_patch_key(&patch) {
-                not_updated.insert(
-                    id_str.clone(),
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": [bad_field],
-                    }),
-                );
+            if let Some(err) = reject_read_only_patch::<Email>(patch.as_map()) {
+                not_updated.insert(id_str.clone(), set_error_value(&err));
                 continue;
             }
 
@@ -2659,14 +2657,9 @@ pub async fn handle_email_copy<B: MailBackend>(
                         }
                     };
                     // Apply same immutable-field guard as handle_email_set patches.
-                    if let Some(bad_field) = find_immutable_patch_key(&patch) {
-                        email_not_updated.insert(
-                            source_id.as_ref().to_owned(),
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": [bad_field],
-                            }),
-                        );
+                    if let Some(err) = reject_read_only_patch::<Email>(patch.as_map()) {
+                        email_not_updated
+                            .insert(source_id.as_ref().to_owned(), set_error_value(&err));
                         continue;
                     }
                     match backend
