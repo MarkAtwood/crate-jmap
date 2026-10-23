@@ -47,15 +47,22 @@ fn one_account_backend() -> (MemoryBackend, Id) {
 }
 
 /// The `ids` form calls a `/set` handler that takes `created_ids`, with
-/// an empty map.
+/// an empty map. The `using` form calls one that takes the request's
+/// `using` list, with an empty list.
 macro_rules! over_limit_test {
+    (ids using $name:ident, $handler:ident, $shape:expr) => {
+        over_limit_test!(@ $name, $handler, $shape, [&std::collections::BTreeMap::new(),], [, &[]]);
+    };
     (ids $name:ident, $handler:ident, $shape:expr) => {
-        over_limit_test!(@ $name, $handler, $shape, [&std::collections::BTreeMap::new(),]);
+        over_limit_test!(@ $name, $handler, $shape, [&std::collections::BTreeMap::new(),], []);
+    };
+    (using $name:ident, $handler:ident, $shape:expr) => {
+        over_limit_test!(@ $name, $handler, $shape, [], [, &[]]);
     };
     ($name:ident, $handler:ident, $shape:expr) => {
-        over_limit_test!(@ $name, $handler, $shape, []);
+        over_limit_test!(@ $name, $handler, $shape, [], []);
     };
-    (@ $name:ident, $handler:ident, $shape:expr, [$($ids:tt)*]) => {
+    (@ $name:ident, $handler:ident, $shape:expr, [$($ids:tt)*], [$($using:tt)*]) => {
         #[tokio::test]
         async fn $name() {
             let (backend, account_id) = one_account_backend();
@@ -64,7 +71,7 @@ macro_rules! over_limit_test {
             for (k, v) in $shape {
                 args.insert(k.into(), v);
             }
-            let err = $handler(&backend, &(), $($ids)* Value::Object(args))
+            let err = $handler(&backend, &(), $($ids)* Value::Object(args) $($using)*)
                 .await
                 .expect_err(concat!(
                     "501-entry batch must trip maxObjectsInSet cap (",
@@ -79,13 +86,13 @@ macro_rules! over_limit_test {
 }
 
 over_limit_test!(
-    ids chat_set_over_limit,
+    ids using chat_set_over_limit,
     handle_chat_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );
 
 over_limit_test!(
-    ids message_set_over_limit,
+    ids using message_set_over_limit,
     handle_message_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );
@@ -109,7 +116,7 @@ over_limit_test!(
 );
 
 over_limit_test!(
-    space_set_over_limit,
+    using space_set_over_limit,
     handle_space_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );

@@ -61,6 +61,7 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { &id: { "kind": null } } }),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -88,6 +89,7 @@ async fn message_body_null_rejected_and_get_succeeds() {
             "accountId": ACCOUNT_ID,
             "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("Message/set create");
@@ -101,6 +103,7 @@ async fn message_body_null_rejected_and_get_succeeds() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { &id: { "body": null } } }),
+        &[],
     )
     .await
     .expect("Message/set update");

@@ -44,6 +44,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
+        &[],
     )
     .await
     .expect("Message/set update");
@@ -85,6 +86,7 @@ async fn created_message_sender_id_is_account_id() {
             "accountId": ACCOUNT_ID,
             "create": { "m": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("Message/set create");

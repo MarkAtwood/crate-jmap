@@ -84,6 +84,7 @@ async fn space_set_metadata_uses_owner_member_entry_permissions() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "renamed" } }
         }),
+        &[],
     )
     .await
     .expect("Space/set");
@@ -108,6 +109,7 @@ async fn space_set_add_members_uses_owner_member_entry_permissions() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addMembers": [{ "id": "u-new", "roleIds": [] }] } }
         }),
+        &[],
     )
     .await
     .expect("Space/set");

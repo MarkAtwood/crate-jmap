@@ -392,6 +392,7 @@ pub async fn chat_updated_since(backend: &Bound, since: &str) -> Value {
         &backend.chat,
         &(),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
+        &[],
     )
     .await
     .expect("Chat/changes");

@@ -43,6 +43,7 @@ async fn update(backend: &MemoryBackend, patch: Value) -> Value {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { CHAT: patch } }),
+        &[],
     )
     .await
     .expect("Chat/set");

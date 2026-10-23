@@ -38,7 +38,9 @@ use crate::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use subtle::ConstantTimeEq;
 
-use crate::helpers::{PropType, mistyped_create_props};
+use crate::helpers::{
+    PropType, check_metadata_entry, create_metadata, is_metadata_key, mistyped_create_props,
+};
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set,
     extract_account_id, filter_properties, finalize_set_response, iso8601_before, not_found_json,
@@ -246,13 +248,20 @@ async fn fill_reply_counts<B: ChatBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Message, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<Message, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -1064,11 +1073,18 @@ const MESSAGE_ID_PROPERTIES: &[&str] = &["chatId", "replyTo", "threadRootId"];
 /// against a create of this call, which runs replied-to messages first (RFC
 /// 8620 §5.3). An unknown reference is `invalidProperties` naming the
 /// property.
+///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
 pub async fn handle_message_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -1126,6 +1142,22 @@ pub async fn handle_message_set<B: ChatBackend>(
                 not_created.insert(create_id.clone(), serde_json::Value::from(&err));
                 continue;
             }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
+                continue;
+            }
+            // draft-ietf-jmap-metadata-04 §3.2: the create sets the
+            // metadata properties; the backend validates them.
+            let (metadata, private_metadata) = match create_metadata(obj_val) {
+                Ok(maps) => maps,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), err);
+                    continue;
+                }
+            };
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(
@@ -1580,6 +1612,8 @@ pub async fn handle_message_set<B: ChatBackend>(
                 msg.sender_expires_at = sender_expires_at;
                 msg.burn_on_read = burn_on_read;
                 msg.attachments = attachments;
+                msg.metadata = metadata;
+                msg.private_metadata = private_metadata;
                 apply_optionals(&mut msg);
                 msg
             };
@@ -1656,7 +1690,9 @@ pub async fn handle_message_set<B: ChatBackend>(
             // that are not immutable, with `reactions` changed only per
             // entry. Every other key names a server-set or immutable
             // property, so it is rejected with RFC 8620 §5.3
-            // `invalidProperties`.
+            // `invalidProperties`. draft-ietf-jmap-metadata-04 §3.2 adds
+            // `metadata` and `privateMetadata`, written whole or by patch
+            // path.
             let bad_props: Vec<&str> = patch_val
                 .as_object()
                 .map(|obj| {
@@ -1664,6 +1700,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                         .map(String::as_str)
                         .filter(|&k| {
                             !(k.starts_with("reactions/")
+                                || is_metadata_key(k)
                                 || (k != "reactions" && is_client_updatable::<Message>(k)))
                         })
                         .collect()
@@ -1674,6 +1711,13 @@ pub async fn handle_message_set<B: ChatBackend>(
                     id_str,
                     json!({ "type": "invalidProperties", "properties": bad_props }),
                 );
+                continue;
+            }
+            if let Some(Err(err)) = patch_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, false, using))
+            {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -2290,6 +2334,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("handle_message_set");
@@ -2332,6 +2377,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("handle_message_set");
@@ -2363,6 +2409,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("handle_message_set");
@@ -2398,6 +2445,7 @@ mod tests {
                 "accountId": ACCOUNT_ID,
                 "create": { "c0": { "kind": "group", "name": "test-group" } }
             }),
+            &[],
         )
         .await
         .expect("make_group_chat");
@@ -2443,6 +2491,7 @@ mod tests {
                 "accountId": ACCOUNT_ID,
                 "update": { space_id: { "addChannels": [{ "name": "general" }] } }
             }),
+            &[],
         )
         .await
         .expect("make_channel_chat: addChannels");
@@ -2487,6 +2536,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("handle_message_set");
@@ -2524,6 +2574,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("handle_message_set");
@@ -2557,6 +2608,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("handle_message_set");
@@ -2598,6 +2650,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("create message");
@@ -2625,6 +2678,7 @@ mod tests {
                     }
                 }
             }),
+            &[],
         )
         .await
         .expect("update message");

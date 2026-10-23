@@ -13,7 +13,9 @@
 //! A server that silently drops a filter clause or sort key it does not
 //! understand returns the wrong result set with no error signal. Vendors
 //! who need filterable custom fields should use `draft-ietf-jmap-metadata`
-//! (`jmap-metadata-types`, bd JMAP-ua37).
+//! (`jmap-metadata-types`, bd JMAP-ua37): [`ChatFilterCondition`],
+//! [`MessageFilterCondition`] and [`SpaceFilterCondition`] carry its six
+//! -04 §3.6 conditions as typed leaf fields (bd JMAP-s4kp.2).
 //!
 //! The condition structs carry `#[serde(deny_unknown_fields)]`, which
 //! composes with the `#[serde(untagged)]` [`Filter`]: an unknown or
@@ -36,6 +38,7 @@
 //! let filter = MessageFilter::Condition(cond);
 //! ```
 
+use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +100,46 @@ pub struct ChatFilterCondition {
     /// The Chat's `muted` property must equal this value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub muted: Option<bool>,
+
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// present at this path in the object's `metadata`. The path is a
+    /// namespace identifier, optionally followed by an RFC 6901 JSON
+    /// Pointer into the namespace value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_exists: Option<String>,
+    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// authenticated user's `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_exists: Option<String>,
+    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// `i;unicode-casemap` collation on the `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_contains: Option<MetadataTextMatch>,
+    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// `metadata_text_contains`, against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_contains: Option<MetadataTextMatch>,
+    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_equals: Option<MetadataTextMatch>,
+    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_equals: Option<MetadataTextMatch>,
+}
+
+impl ChatFilterCondition {
+    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `metadata*` / `privateMetadata*` fields is set.
+    pub fn has_metadata_condition(&self) -> bool {
+        self.metadata_exists.is_some()
+            || self.private_metadata_exists.is_some()
+            || self.metadata_text_contains.is_some()
+            || self.private_metadata_text_contains.is_some()
+            || self.metadata_text_equals.is_some()
+            || self.private_metadata_text_equals.is_some()
+    }
 }
 
 /// Filter condition for `Message/query`
@@ -127,6 +170,46 @@ pub struct MessageFilterCondition {
     /// Return messages that mention the owner.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub has_mention: Option<bool>,
+
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// present at this path in the object's `metadata`. The path is a
+    /// namespace identifier, optionally followed by an RFC 6901 JSON
+    /// Pointer into the namespace value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_exists: Option<String>,
+    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// authenticated user's `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_exists: Option<String>,
+    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// `i;unicode-casemap` collation on the `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_contains: Option<MetadataTextMatch>,
+    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// `metadata_text_contains`, against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_contains: Option<MetadataTextMatch>,
+    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_equals: Option<MetadataTextMatch>,
+    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_equals: Option<MetadataTextMatch>,
+}
+
+impl MessageFilterCondition {
+    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `metadata*` / `privateMetadata*` fields is set.
+    pub fn has_metadata_condition(&self) -> bool {
+        self.metadata_exists.is_some()
+            || self.private_metadata_exists.is_some()
+            || self.metadata_text_contains.is_some()
+            || self.private_metadata_text_contains.is_some()
+            || self.metadata_text_equals.is_some()
+            || self.private_metadata_text_equals.is_some()
+    }
 }
 
 /// Filter condition for `Space/query` (draft-atwood-jmap-chat-00 §Space/query).
@@ -142,6 +225,46 @@ pub struct SpaceFilterCondition {
     /// The Space's `isPublic` property must equal this value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_public: Option<bool>,
+
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// present at this path in the object's `metadata`. The path is a
+    /// namespace identifier, optionally followed by an RFC 6901 JSON
+    /// Pointer into the namespace value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_exists: Option<String>,
+    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// authenticated user's `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_exists: Option<String>,
+    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// `i;unicode-casemap` collation on the `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_contains: Option<MetadataTextMatch>,
+    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// `metadata_text_contains`, against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_contains: Option<MetadataTextMatch>,
+    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_equals: Option<MetadataTextMatch>,
+    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_equals: Option<MetadataTextMatch>,
+}
+
+impl SpaceFilterCondition {
+    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `metadata*` / `privateMetadata*` fields is set.
+    pub fn has_metadata_condition(&self) -> bool {
+        self.metadata_exists.is_some()
+            || self.private_metadata_exists.is_some()
+            || self.metadata_text_contains.is_some()
+            || self.private_metadata_text_contains.is_some()
+            || self.metadata_text_equals.is_some()
+            || self.private_metadata_text_equals.is_some()
+    }
 }
 
 /// Filter condition for `CustomEmoji/query`
@@ -458,5 +581,67 @@ mod tests {
                 .property,
             MessageComparatorProperty::Other("sentAt".to_owned())
         );
+    }
+
+    /// Oracle: the six wire names of draft-ietf-jmap-metadata-04 §3.6
+    /// ("metadataExists", "privateMetadataExists", "metadataTextContains",
+    /// "privateMetadataTextContains", "metadataTextEquals",
+    /// "privateMetadataTextEquals"), which extend "the FilterCondition
+    /// object for Foo/query" of each listed type. Each decodes on the
+    /// Chat, Message and Space conditions; a misspelt one is still
+    /// rejected by `deny_unknown_fields`.
+    #[test]
+    fn metadata_condition_names_decode_and_typos_reject() {
+        fn check<C: DeserializeOwned>(has: fn(&C) -> bool) {
+            let m = json!({"path": "ns/k", "value": "v"});
+            for (name, value) in [
+                ("metadataExists", json!("ns")),
+                ("privateMetadataExists", json!("ns")),
+                ("metadataTextContains", m.clone()),
+                ("privateMetadataTextContains", m.clone()),
+                ("metadataTextEquals", m.clone()),
+                ("privateMetadataTextEquals", m.clone()),
+            ] {
+                let c: C = serde_json::from_value(json!({ name: value })).expect(name);
+                assert!(has(&c), "{name}");
+            }
+            assert!(serde_json::from_value::<C>(json!({"metadataExist": "ns"})).is_err());
+        }
+        check(ChatFilterCondition::has_metadata_condition);
+        check(MessageFilterCondition::has_metadata_condition);
+        check(SpaceFilterCondition::has_metadata_condition);
+        assert!(!ChatFilterCondition::default().has_metadata_condition());
+        assert!(!MessageFilterCondition::default().has_metadata_condition());
+        assert!(!SpaceFilterCondition::default().has_metadata_condition());
+    }
+
+    /// Oracle: hand-written Message/query filter whose `AND` tree mixes a
+    /// draft-atwood-jmap-chat-00 `chatId` leaf with a -04 §3.6
+    /// `metadataTextContains` leaf. The metadata leaf survives the tree
+    /// and serializes back unchanged.
+    #[test]
+    fn metadata_condition_survives_operator_tree() {
+        let wire = json!({
+            "operator": "AND",
+            "conditions": [
+                { "chatId": "c1" },
+                { "metadataTextContains": { "path": "chat.example.com/summary", "value": "invoice" } }
+            ]
+        });
+        let filter: MessageFilter = serde_json::from_value(wire.clone()).expect("decode");
+        let Filter::Operator(op) = &filter else {
+            panic!("expected an operator, got {filter:?}");
+        };
+        let Filter::Condition(leaf) = &op.conditions[1] else {
+            panic!("expected a condition");
+        };
+        assert_eq!(
+            leaf.metadata_text_contains,
+            Some(MetadataTextMatch::new(
+                "chat.example.com/summary",
+                "invoice"
+            ))
+        );
+        assert_eq!(serde_json::to_value(&filter).expect("encode"), wire);
     }
 }

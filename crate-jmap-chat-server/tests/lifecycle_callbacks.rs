@@ -107,7 +107,7 @@ fn seeded() -> MemoryBackend {
 }
 
 async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
-    let HandlerOutput { primary, .. } = handle_space_set(backend, &(), args)
+    let HandlerOutput { primary, .. } = handle_space_set(backend, &(), args, &[])
         .await
         .expect("Space/set");
     primary
@@ -126,6 +126,7 @@ async fn chat_destroy_reports_the_chat_once() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["dm"] }),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -147,6 +148,7 @@ async fn failed_chat_destroy_reports_nothing() {
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": ["missing"] }),
+        &[],
     )
     .await
     .expect("Chat/set");

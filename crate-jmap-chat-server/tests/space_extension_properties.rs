@@ -43,7 +43,7 @@ fn backend_with(keys: &'static [&'static str]) -> MemoryBackend {
 }
 
 async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
-    let HandlerOutput { primary, .. } = handle_space_set(backend, &(), args)
+    let HandlerOutput { primary, .. } = handle_space_set(backend, &(), args, &[])
         .await
         .expect("Space/set");
     primary

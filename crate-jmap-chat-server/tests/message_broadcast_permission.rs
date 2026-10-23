@@ -25,6 +25,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s": { "name": "S" } } }),
+        &[],
     )
     .await
     .expect("Space/set create");
@@ -36,6 +37,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
             "accountId": ACCOUNT_ID,
             "update": { space_id: { "addChannels": [{ "name": "general" }] } }
         }),
+        &[],
     )
     .await
     .expect("Space/set addChannels");
@@ -61,6 +63,7 @@ async fn create_on<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": message } }),
+        &[],
     )
     .await
     .expect("Message/set create");
@@ -73,6 +76,7 @@ async fn update(backend: &TrackingBackend, msg_id: &str, patch: Value) -> Value 
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { msg_id: patch } }),
+        &[],
     )
     .await
     .expect("Message/set update");
@@ -130,6 +134,7 @@ async fn edit_retaining_broadcast_mentions_is_forbidden() {
                 "broadcastMentions": [{ "scope": "everyone", "offset": 3, "length": 9 }]
             } }
         }),
+        &[],
     )
     .await
     .expect("seed broadcastMentions");

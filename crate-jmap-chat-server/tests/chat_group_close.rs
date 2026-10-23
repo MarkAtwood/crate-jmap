@@ -28,6 +28,7 @@ async fn group_of_three(backend: &IdentityBackend) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "Team", "memberIds": ["bob", "carol"] } },
         }),
+        &[],
     )
     .await
     .expect("Chat/set create");
@@ -66,6 +67,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch
         &Id::from(caller),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { chat_id: patch } }),
+        &[],
     )
     .await
     .expect("Chat/set update");
@@ -100,6 +102,7 @@ async fn send(backend: &IdentityBackend, chat_id: &str) -> Value {
                 "sentAt": "2024-01-01T00:00:00Z",
             } },
         }),
+        &[],
     )
     .await
     .expect("Message/set");
@@ -288,6 +291,7 @@ async fn closed_group_keeps_history_prefs_and_destroy() {
         &Id::from("bob"),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [chat_id] }),
+        &[],
     )
     .await
     .expect("Chat/set destroy");

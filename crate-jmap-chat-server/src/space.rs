@@ -39,7 +39,9 @@ use jmap_types::{Id, JmapError, PatchObject, SetObject, UTCDate};
 use serde_json::{Value, json};
 use subtle::ConstantTimeEq;
 
-use crate::helpers::{PropType, mistyped_create_props};
+use crate::helpers::{
+    PropType, check_metadata_entry, create_metadata, is_metadata_key, mistyped_create_props,
+};
 use crate::helpers::{
     SetAccumulators, count_add_ops, default_sort, enforce_max_objects_in_get,
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, iso8601_before,
@@ -559,13 +561,20 @@ fn filter_object_fields<F: Fn(&str) -> bool>(value: Value, keep: F) -> Value {
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Space, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<Space, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -872,12 +881,20 @@ const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
 ///   structural patch key, which keeps its core meaning (`closedAt` in an
 ///   update is `invalidProperties`); any other unknown create or update
 ///   key is `invalidProperties`.
+/// - draft-ietf-jmap-metadata-04 `metadata` and `privateMetadata` are
+///   `invalidProperties` without `urn:ietf:params:jmap:metadata` in
+///   `using` (pass [`jmap_server::CallContext::using`]; -04 §3), as is
+///   `null` for either in a create (-04 §3.2). An update applies them as
+///   RFC 8620 §5.3 PatchObject paths through
+///   [`ChatBackend::update_object`], before the structural keys; the
+///   backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -957,6 +974,22 @@ pub async fn handle_space_set<B: ChatBackend>(
                 );
                 continue;
             }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
+                continue;
+            }
+            // draft-ietf-jmap-metadata-04 §3.2: the create sets the
+            // metadata properties; the backend validates them.
+            let (metadata, private_metadata) = match create_metadata(obj_val) {
+                Ok(maps) => maps,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), err);
+                    continue;
+                }
+            };
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(
@@ -1043,6 +1076,8 @@ pub async fn handle_space_set<B: ChatBackend>(
                 if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
                     space.description = Some(desc.to_owned());
                 }
+                space.metadata = metadata;
+                space.private_metadata = private_metadata;
                 for &key in &extension_props {
                     match obj_val.get(key) {
                         None | Some(Value::Null) => {}
@@ -1118,6 +1153,9 @@ pub async fn handle_space_set<B: ChatBackend>(
             // Walk every key on the patch object and bucket it as:
             //   - structural (parsed into SpacePatchOp values via the
             //     StructuralKey enum, defined at module top),
+            //   - draft-ietf-jmap-metadata-04 `metadata` / `privateMetadata`
+            //     (the property or a path below it), forwarded to
+            //     update_object,
             //   - metadata or a backend-registered extension property
             //     (`ChatBackend::space_extension_properties`), forwarded
             //     to apply_space_metadata_patch,
@@ -1129,6 +1167,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             // (not this loop) is canonical for ordering semantics.
             let mut ops: Vec<SpacePatchOp> = Vec::new();
             let mut clean_patch = serde_json::Map::new();
+            let mut object_metadata_patch = serde_json::Map::new();
             let mut unknown_keys: Vec<String> = Vec::new();
             let mut bad_structural_key: Option<(&'static str, String)> = None;
 
@@ -1141,6 +1180,8 @@ pub async fn handle_space_set<B: ChatBackend>(
                             break;
                         }
                     }
+                } else if is_metadata_key(&key) {
+                    object_metadata_patch.insert(key, value);
                 } else if is_client_updatable::<Space>(&key)
                     || extension_props.contains(&key.as_str())
                 {
@@ -1170,7 +1211,12 @@ pub async fn handle_space_set<B: ChatBackend>(
                 continue;
             }
 
-            if ops.is_empty() && clean_patch.is_empty() {
+            if let Err(err) = check_metadata_entry(&object_metadata_patch, false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+
+            if ops.is_empty() && clean_patch.is_empty() && object_metadata_patch.is_empty() {
                 not_updated.insert(
                     id_str,
                     json!({ "type": "invalidPatch", "description": "patch contains no valid fields" }),
@@ -1184,6 +1230,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             // themselves via `removeMembers`." The owner removes themselves
             // by the accountId (§Terminology).
             let self_removal = clean_patch.is_empty()
+                && object_metadata_patch.is_empty()
                 && matches!(ops.as_slice(), [SpacePatchOp::RemoveMember(m)] if *m == account_id);
             if !self_removal {
                 match backend
@@ -1273,8 +1320,42 @@ pub async fn handle_space_set<B: ChatBackend>(
                 }
             }
 
-            // Apply structural ops first. If any op fails, surface the first
-            // failure as a `notUpdated` entry and skip the metadata write —
+            // draft-ietf-jmap-metadata-04 §3.2: `metadata` and
+            // `privateMetadata` take RFC 8620 §5.3 PatchObject paths
+            // (`metadata/<namespace>/...`), which the RFC 7396 merge patch
+            // of `apply_space_metadata_patch` cannot express, so they go
+            // through `update_object`, whose backend runs the -04 §3.2
+            // checks. Applied before the structural ops, so a rejected
+            // metadata write leaves the Space unchanged.
+            // ponytail: like the structural ops and the top-level fields
+            // below, this is its own backend call, so a later failure
+            // leaves the metadata written; a backend needing strictness
+            // applies all three in one transaction.
+            if !object_metadata_patch.is_empty() {
+                let patch: PatchObject =
+                    match serde_json::from_value(Value::Object(object_metadata_patch)) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            not_updated.insert(
+                                id_str,
+                                json!({ "type": "invalidPatch", "description": e.to_string() }),
+                            );
+                            continue;
+                        }
+                    };
+                if let Err(e) = backend
+                    .update_object::<Space>(caller, &account_id, &id, patch)
+                    .await
+                {
+                    not_updated.insert(id_str, backend_set_error_value(e));
+                    continue;
+                }
+                mutated = true;
+            }
+
+            // Then the structural ops. If any op fails, surface the first
+            // failure as a `notUpdated` entry and skip the top-level field
+            // write —
             // RFC 8620 §5.3 requires each update target to land in exactly
             // one of `updated` / `notUpdated`, and a partial half-applied
             // outcome would be misleading.

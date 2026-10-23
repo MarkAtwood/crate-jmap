@@ -28,6 +28,82 @@ pub(crate) enum PropType {
     Array,
 }
 
+/// draft-ietf-jmap-metadata-04 checks a `Foo/set` handler applies to one
+/// create object or update patch (`entry`) before the backend sees it.
+///
+/// - -04 §3: for a request whose `using` lacks
+///   `urn:ietf:params:jmap:metadata`, "Foo/set MUST reject any write to
+///   them with an "invalidProperties" SetError".
+/// - -04 §3.2: on create, "A value of null for either property MUST be
+///   rejected with an "invalidProperties" SetError".
+///
+/// The backend validates the rest (-04 §3.2 rules 1 to 4). Mirrors the
+/// canonical `jmap-mail-server` helper (bd JMAP-s4kp.1).
+///
+/// # Errors
+///
+/// A boxed `invalidProperties` [`crate::SetError`] naming the offending
+/// key.
+pub(crate) fn check_metadata_entry(
+    entry: &Map<String, Value>,
+    is_create: bool,
+    using: &[String],
+) -> Result<(), Box<crate::SetError>> {
+    let uses_metadata = using
+        .iter()
+        .any(|u| u == jmap_metadata_types::JMAP_METADATA_URI);
+    for (key, value) in entry {
+        if !is_metadata_key(key) {
+            continue;
+        }
+        let description = if !uses_metadata {
+            "writing metadata requires urn:ietf:params:jmap:metadata in using"
+        } else if is_create && value.is_null() {
+            "null is not allowed on create; use {}"
+        } else {
+            continue;
+        };
+        return Err(Box::new(
+            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+                .with_properties([key.as_str()])
+                .with_description(description),
+        ));
+    }
+    Ok(())
+}
+
+/// Whether a `/set` key writes draft-ietf-jmap-metadata-04 `metadata` or
+/// `privateMetadata`: the property itself or a patch path below it.
+pub(crate) fn is_metadata_key(key: &str) -> bool {
+    let root = key.split_once('/').map_or(key, |(r, _)| r);
+    root == "metadata" || root == "privateMetadata"
+}
+
+/// The `metadata` and `privateMetadata` values [`create_metadata`] returns.
+pub(crate) type MetadataMaps = (Option<Map<String, Value>>, Option<Map<String, Value>>);
+
+/// The `metadata` and `privateMetadata` values of a create object, to
+/// store on the new object (draft-ietf-jmap-metadata-04 §3.2: "each
+/// property's value MUST be a complete JSON object"). Call after
+/// [`check_metadata_entry`], which rejects `null`.
+///
+/// # Errors
+///
+/// The `invalidProperties` SetError value naming a property whose value
+/// is not an object.
+pub(crate) fn create_metadata(entry: &Value) -> Result<MetadataMaps, Value> {
+    let take = |property: &str| match entry.get(property) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(m)) => Ok(Some(m.clone())),
+        Some(_) => Err(Value::from(
+            &crate::SetError::new(crate::SetErrorType::InvalidProperties)
+                .with_properties([property])
+                .with_description("value must be an object"),
+        )),
+    };
+    Ok((take("metadata")?, take("privateMetadata")?))
+}
+
 /// Largest RFC 8620 §1.3 `UnsignedInt`: 2^53-1.
 const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 

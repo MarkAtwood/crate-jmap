@@ -48,6 +48,7 @@ async fn update_space(backend: &MemoryBackend, patch: Value) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
+        &[],
     )
     .await
     .expect("Space/set");

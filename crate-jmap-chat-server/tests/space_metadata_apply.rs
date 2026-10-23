@@ -95,6 +95,7 @@ async fn owner_without_member_entry_cannot_mutate_metadata() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "renamed" } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -151,6 +152,7 @@ async fn manage_space_holder_can_mutate_description() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "renamed" } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -199,6 +201,7 @@ async fn manage_space_holder_can_mutate_all_metadata_fields() {
                 "isPubliclyPreviewable": true
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -264,6 +267,7 @@ async fn everyone_only_member_cannot_mutate_description() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "should not stick" } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -313,6 +317,7 @@ async fn non_member_caller_cannot_mutate_metadata() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "should not stick" } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -367,6 +372,7 @@ async fn other_permissions_do_not_subsume_manage_space() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "should not stick" } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -423,6 +429,7 @@ async fn mixed_patch_metadata_plus_structural_atomic_reject() {
                 "addMembers": [{ "id": "u-new", "roleIds": [] }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -485,6 +492,7 @@ async fn mixed_patch_metadata_plus_structural_admin_succeeds() {
                 "addMembers": [{ "id": "u-new", "roleIds": [] }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -545,6 +553,7 @@ async fn single_field_metadata_patch_still_gated() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "isPublic": true } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");

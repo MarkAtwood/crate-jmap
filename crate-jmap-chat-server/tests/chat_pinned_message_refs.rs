@@ -58,6 +58,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str, extra: Value) ->
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": msg } }),
+        &[],
     )
     .await
     .expect("Message/set create");
@@ -70,7 +71,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str, extra: Value) ->
 async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
-    handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
+    handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("Message/set")
         .primary
@@ -85,6 +86,7 @@ async fn set_pins(backend: &MemoryBackend, pins: Value) -> Value {
             "accountId": ACCOUNT_ID,
             "update": { CHAT: { "pinnedMessageIds": pins } },
         }),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -193,6 +195,7 @@ async fn destroying_pinned_message_unpins_it() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
+        &[],
     )
     .await
     .expect("Chat/changes");

@@ -77,6 +77,7 @@ async fn owner_without_member_entry_cannot_add_channels() {
                 "addChannels": [{ "name": "general" }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -108,6 +109,7 @@ async fn non_member_caller_lacks_manage_channels() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addChannels": [{ "name": "general" }] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -145,6 +147,7 @@ async fn everyone_only_member_cannot_add_channel() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addChannels": [{ "name": "general" }] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -176,6 +179,7 @@ async fn everyone_only_member_cannot_remove_channel() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeChannels": ["any-id"] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -209,6 +213,7 @@ async fn everyone_only_member_cannot_update_channel() {
                 "updateChannels": [{ "id": "any-id", "name": "renamed" }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -240,6 +245,7 @@ async fn everyone_only_member_cannot_add_category() {
                 }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -271,6 +277,7 @@ async fn everyone_only_member_cannot_remove_category() {
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeCategories": ["any-cat"] } }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -297,6 +304,7 @@ async fn everyone_only_member_cannot_update_category() {
                 "updateCategories": [{ "id": "any-cat", "name": "renamed" }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -343,6 +351,7 @@ async fn member_with_manage_channels_succeeds() {
                 "addChannels": [{ "name": "general" }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -405,6 +414,7 @@ async fn whole_patch_reject_on_channel_permission_failure() {
                 "addChannels": [{ "name": "should-not-create" }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -477,6 +487,7 @@ async fn mixed_channel_category_patch_atomic_reject() {
                 }]
             }}
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");

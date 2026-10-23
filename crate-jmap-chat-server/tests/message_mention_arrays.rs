@@ -25,6 +25,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s": { "name": "S" } } }),
+        &[],
     )
     .await
     .expect("Space/set create");
@@ -36,6 +37,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
             "accountId": ACCOUNT_ID,
             "update": { space_id: { "addChannels": [{ "name": "general" }] } }
         }),
+        &[],
     )
     .await
     .expect("Space/set addChannels");
@@ -61,6 +63,7 @@ async fn create_on<B: jmap_chat_server::ChatBackend<CallerCtx = ()>>(
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": message } }),
+        &[],
     )
     .await
     .expect("Message/set create");
@@ -186,6 +189,7 @@ async fn edit_adding_rich_broadcast_span_without_array_is_not_gated() {
             "accountId": ACCOUNT_ID,
             "update": { &msg_id: { "body": RICH_BROADCAST, "bodyType": RICH } }
         }),
+        &[],
     )
     .await
     .expect("Message/set update");

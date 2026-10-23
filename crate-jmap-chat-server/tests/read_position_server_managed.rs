@@ -23,6 +23,7 @@ async fn create_group<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
         }),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -41,6 +42,7 @@ async fn send<B: ChatBackend<CallerCtx = ()>>(backend: &B, chat_id: &str, key: &
             "accountId": ACCOUNT_ID,
             "create": { key: { "chatId": chat_id, "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
         }),
+        &[],
     )
     .await
     .expect("Message/set");

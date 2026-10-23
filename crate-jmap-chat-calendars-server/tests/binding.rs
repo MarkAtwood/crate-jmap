@@ -166,7 +166,7 @@ fn chat(may_bind_calendar: bool) -> ChatMemory {
 }
 
 async fn space_set(chat: &ChatMemory, args: Value) -> Value {
-    handle_space_set(chat, &(), args)
+    handle_space_set(chat, &(), args, &[])
         .await
         .expect("Space/set")
         .primary

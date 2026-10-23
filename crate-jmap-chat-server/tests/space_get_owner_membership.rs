@@ -119,6 +119,7 @@ async fn owner_without_identity_sees_full_view_of_created_space() {
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "Mine", "isPubliclyPreviewable": false } }
         }),
+        &[],
     )
     .await
     .expect("Space/set create");

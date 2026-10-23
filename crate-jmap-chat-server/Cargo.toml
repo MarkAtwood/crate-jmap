@@ -20,7 +20,7 @@ categories = ["network-programming", "web-programming::http-server"]
 # Enabling `memory` pulls in `getrandom` so the reference
 # `generate_invite_code` impl can satisfy the CSPRNG contract documented on
 # the `ChatBackend::generate_invite_code` trait method (bd:JMAP-sc1b.93).
-memory = ["dep:getrandom", "dep:ulid"]
+memory = ["dep:getrandom", "dep:ulid", "dep:jmap-metadata-server"]
 # Test-only seams on MemoryBackend (the `*_for_test` methods): seeding and
 # policy knobs for integration tests, here and in sibling crates. Not part of
 # any supported API surface. Integration tests enable it via the self
@@ -38,6 +38,9 @@ jmap-did-types = { workspace = true }
 jmap-peer-auth = { workspace = true }
 base64 = "0.22"
 jmap-server = { workspace = true }
+# draft-ietf-jmap-metadata-04 capability URI and DataTypeMetadataInfo
+# (serde-only); the /set handlers check `using` against the URI.
+jmap-metadata-types = { workspace = true }
 # `serde::de::DeserializeOwned` trait bound on Space/set patch-entry parsers;
 # matches sibling jmap-mail-server / jmap-server dep set.
 serde = { workspace = true }
@@ -51,6 +54,8 @@ subtle = { workspace = true }
 # getrandom in the workspace pins to the same version. See bd:JMAP-x2gd.66.
 getrandom = { workspace = true, optional = true }
 ulid = { version = "1", optional = true }
+# draft-ietf-jmap-metadata-04 helpers the MemoryBackend wires in (JMAP-s4kp.2).
+jmap-metadata-server = { workspace = true, optional = true }
 
 [dev-dependencies]
 http = { workspace = true }

@@ -31,7 +31,7 @@ fn admin_backend() -> IdentityBackend {
 }
 
 async fn space_set(backend: &IdentityBackend, args: Value) -> Result<Value, JmapError> {
-    handle_space_set(backend, &caller(), args)
+    handle_space_set(backend, &caller(), args, &[])
         .await
         .map(|HandlerOutput { primary, .. }| primary)
 }
@@ -269,6 +269,7 @@ async fn changes_reports_created_space() {
         &backend,
         &caller(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
+        &[],
     )
     .await
     .expect("Space/changes");

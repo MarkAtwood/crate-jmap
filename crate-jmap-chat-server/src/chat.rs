@@ -32,7 +32,7 @@ use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::helpers::{PropType, mistyped_create_props};
+use crate::helpers::{PropType, check_metadata_entry, create_metadata, mistyped_create_props};
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, now_utc_string, reject_unsupported_sort,
@@ -444,13 +444,20 @@ pub(crate) async fn record_unread_count_changes<B: ChatBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Chat, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<Chat, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -560,11 +567,18 @@ const CHAT_ID_PROPERTIES: &[&str] = &[
 /// element, that is a `#creationId` reference names a record created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3); an unknown reference is `invalidProperties` naming the property.
+///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
 pub async fn handle_chat_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -651,6 +665,22 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
             let obj_val = &resolved;
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
+                continue;
+            }
+            // draft-ietf-jmap-metadata-04 §3.2: the create sets the
+            // metadata properties; the backend validates them.
+            let (metadata, private_metadata) = match create_metadata(obj_val) {
+                Ok(maps) => maps,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), err);
+                    continue;
+                }
+            };
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(
@@ -941,6 +971,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 chat.avatar_blob_id = avatar_blob_id;
                 chat.message_expiry_seconds = message_expiry_seconds;
                 chat.members = members;
+                chat.metadata = metadata;
+                chat.private_metadata = private_metadata;
                 chat
             };
 
@@ -1108,6 +1140,13 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     id_str,
                     json!({ "type": "invalidProperties", "properties": bad_props }),
                 );
+                continue;
+            }
+            if let Some(Err(err)) = patch_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, false, using))
+            {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 

@@ -236,6 +236,7 @@ async fn space_set_all_twelve_ops_in_one_call() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");
@@ -484,6 +485,7 @@ async fn space_set_all_twelve_ops_single_user_mode() {
                 }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_space_set");

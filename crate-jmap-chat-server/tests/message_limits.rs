@@ -38,6 +38,7 @@ async fn create_group<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> String {
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "G", "memberIds": ["contact-bob"] } }
         }),
+        &[],
     )
     .await
     .expect("Chat/set");
@@ -63,6 +64,7 @@ async fn create<B: ChatBackend<CallerCtx = ()>>(
         &(),
         &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "m": obj } }),
+        &[],
     )
     .await
     .expect("Message/set");

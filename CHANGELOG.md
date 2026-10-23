@@ -14,6 +14,36 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
+  Chat, Message and Space (draft-atwood-jmap-chat-00 lets servers list
+  them). `handle_chat_set`, `handle_message_set`, `handle_space_set`,
+  `handle_chat_changes`, `handle_message_changes` and
+  `handle_space_changes` take the request's `using` list as a new last
+  argument (`register_chat_handlers` passes `CallContext::using`), with
+  the same `/changes` and `/set` checks as jmap-mail-server. Creates store
+  the `metadata` they carry; `Message/set` and `Space/set` updates accept
+  `metadata/<namespace>/...` patch paths, and `Space/set` applies them as
+  an RFC 8620 §5.3 PatchObject through `ChatBackend::update_object`
+  before its structural keys (the top-level-field path is an RFC 7396
+  merge patch, which cannot express them). The in-memory backend opts a
+  type in with `MemoryBackend::with_metadata_info("Chat" | "Message" |
+  "Space", info)` (panics for other types or `supportsPrivate: true`);
+  nothing is enabled by default. An opted-in type evaluates the -04 §3.6
+  conditions, validates writes in -04 §3.2 rule order (request-only
+  `invalidPatch`, `notFound`, namespace and `maxDepth` checks; none of
+  the three types has a rights object, so -04 §4.1 `forbidden` never
+  applies), stores an update's `metadata: null` as `{}`, and drops
+  metadata-only updates from `/changes` under `ignoreMetadataOnlyChanges`
+  without counting them toward `maxChanges`. A type that is not opted in
+  rejects metadata writes with `invalidProperties` and metadata filters
+  with `unsupportedFilter` (bd JMAP-s4kp.2).
+- **jmap-chat-types**: **BREAKING** draft-ietf-jmap-metadata-04 fields on
+  Chat, Message and Space: typed `metadata` and `privateMetadata`
+  (`Option<Map<String, Value>>`, -04 §2; `null` decodes as absent, a
+  non-object fails), classified `CLIENT_SETTABLE`. `ChatFilterCondition`,
+  `MessageFilterCondition` and `SpaceFilterCondition` carry the six -04
+  §3.6 conditions as leaf fields, with `has_metadata_condition`;
+  `deny_unknown_fields` still rejects any other key (bd JMAP-s4kp.2).
 - **jmap-server**: `check_patch_paths` reports the RFC 8620 §5.3
   PatchObject errors that the request alone determines (prefix conflict,
   invalid `~` escape, depth cap) without the target object;

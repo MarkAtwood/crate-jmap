@@ -40,7 +40,7 @@ async fn try_set<B: ChatBackend<CallerCtx = ()>>(
     backend: &B,
     args: Value,
 ) -> Result<Value, JmapError> {
-    handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args)
+    handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .map(|HandlerOutput { primary, .. }| primary)
 }

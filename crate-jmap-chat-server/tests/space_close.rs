@@ -60,6 +60,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, patch: Value) -> Val
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
+        &[],
     )
     .await
     .expect("Space/set");
@@ -184,6 +185,7 @@ async fn closed_space_rejects_channel_message_create() {
                     "sentAt": "2024-01-01T00:00:00Z",
                 } },
             }),
+            &[],
         )
         .await
         .expect("Message/set");

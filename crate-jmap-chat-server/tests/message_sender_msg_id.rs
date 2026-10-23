@@ -50,6 +50,7 @@ async fn create_m1(backend: &MemoryBackend) -> Value {
                 "sentAt": "2026-01-02T00:00:00Z",
             } },
         }),
+        &[],
     )
     .await
     .expect("Message/set");

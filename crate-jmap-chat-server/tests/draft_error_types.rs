@@ -27,6 +27,7 @@ async fn chat_set_create_channel_is_forbidden() {
                 "without": { "kind": "channel", "name": "general" }
             }
         }),
+        &[],
     )
     .await
     .expect("handle_chat_set");
@@ -60,6 +61,7 @@ async fn message_set_create_over_long_body_is_too_large() {
                 "sentAt": "2024-01-01T00:00:00Z"
             } }
         }),
+        &[],
     )
     .await
     .expect("handle_message_set");
