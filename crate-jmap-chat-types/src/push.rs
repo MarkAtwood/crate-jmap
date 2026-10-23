@@ -783,4 +783,49 @@ mod tests {
             "@type must appear exactly once in serialised output; got {occurrences} in {json}"
         );
     }
+
+    // Oracle: hand-written JSON. `new` sets only the required fields
+    // (draft-atwood-jmap-chat-push-00 §ChatMessagePush), so the wire
+    // form carries `@type`, `accountId`, `state`, `messages` and
+    // nothing else: no `unreadCount`, no extension fields.
+    #[test]
+    fn chat_message_push_new_sets_required_fields_only() {
+        let push = ChatMessagePush::new(Id::from("u1"), "s9", vec![]);
+        assert_eq!(
+            serde_json::to_value(&push).expect("serialize"),
+            serde_json::json!({
+                "@type": "ChatMessagePush",
+                "accountId": "u1",
+                "state": "s9",
+                "messages": []
+            })
+        );
+    }
+
+    // Oracle: draft-atwood-jmap-chat-push-00 §ChatMessagePush:
+    // "`@type` (String): MUST be `"ChatMessagePush"`." A different
+    // string or a non-string value is rejected.
+    #[test]
+    fn chat_message_push_rejects_wrong_type_tag() {
+        for json in [
+            r#"{"@type":"StateChange","accountId":"u1","state":"s","messages":[]}"#,
+            r#"{"@type":7,"accountId":"u1","state":"s","messages":[]}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<ChatMessagePush>(json).is_err(),
+                "must reject {json}"
+            );
+        }
+    }
+
+    // Oracle: hand-written JSON without `@type`. The type documents that an
+    // absent tag is accepted for callers that already dispatched on it.
+    #[test]
+    fn chat_message_push_accepts_absent_type_tag() {
+        let push: ChatMessagePush =
+            serde_json::from_str(r#"{"accountId":"u1","state":"s","messages":[]}"#)
+                .expect("absent @type accepted");
+        assert_eq!(push.account_id.as_ref(), "u1");
+        assert!(push.extra.is_empty());
+    }
 }
