@@ -1242,9 +1242,17 @@ impl MailBackend for MemoryBackend {
         })?;
 
         let mut inner = self.inner.lock().unwrap();
-        inner
-            .objects_mut(O::TYPE_NAME, account_id.as_ref())
-            .insert(id.clone(), val);
+        let objects = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
+        // Singleton types (backend.rs "# Singleton types"): an existing object
+        // under the key is returned unchanged, so a racing create cannot
+        // overwrite a concurrent request's update. Fresh UUID ids never hit this.
+        if let Some(existing) = objects.get(&id) {
+            let existing_obj: O = O::deserialize(existing).map_err(|e| {
+                BackendSetError::Other(MemoryError::serde("deserialize existing", &e))
+            })?;
+            return Ok((id, existing_obj));
+        }
+        objects.insert(id.clone(), val);
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -2968,6 +2976,7 @@ impl SieveBackend for MemoryBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jmap_mail_types::VacationResponse;
     use jmap_types::PatchObject;
 
     /// A stored submission that fails to deserialize sorts after every one
@@ -3046,6 +3055,51 @@ mod tests {
             .get(&id)
             .cloned();
         assert_eq!(after, Some(stored));
+    }
+
+    /// backend.rs "# Singleton types": "if an object already exists for the
+    /// given key, the implementation MUST return the existing object rather
+    /// than creating a duplicate." A second create of the VacationResponse
+    /// singleton (RFC 8621 §8 id "singleton") must neither overwrite the
+    /// stored record nor record a change.
+    #[tokio::test]
+    async fn create_object_returns_existing_singleton() {
+        let backend = MemoryBackend::new();
+        let account = Id::from("account1");
+        let stored = serde_json::json!({
+            "id": "singleton",
+            "isEnabled": true,
+            "subject": "Out of office"
+        });
+        let state_before = {
+            let mut inner = backend.inner.lock().unwrap();
+            inner
+                .objects_mut(VacationResponse::TYPE_NAME, account.as_ref())
+                .insert(Id::from("singleton"), stored.clone());
+            inner.current_state(VacationResponse::TYPE_NAME, account.as_ref())
+        };
+
+        let (id, obj) = backend
+            .create_object::<VacationResponse, _>(&(), &account, "singleton", |id: &Id| {
+                VacationResponse::new(id.clone(), false)
+            })
+            .await
+            .expect("create_object");
+
+        assert_eq!(id.as_ref(), "singleton");
+        assert!(obj.is_enabled);
+        assert_eq!(obj.subject.as_deref(), Some("Out of office"));
+        let mut inner = backend.inner.lock().unwrap();
+        assert_eq!(
+            inner.current_state(VacationResponse::TYPE_NAME, account.as_ref()),
+            state_before
+        );
+        assert_eq!(
+            inner
+                .objects_mut(VacationResponse::TYPE_NAME, account.as_ref())
+                .get(&Id::from("singleton")),
+            Some(&stored)
+        );
     }
 }
 
