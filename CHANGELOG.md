@@ -1389,6 +1389,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-server**: **BREAKING** `AvailabilityError` and
+  `QueryCalendarEventsError` are removed. `get_availability` and
+  `query_calendar_events` return `jmap_server::BackendQueryError<Self::Error>`,
+  the same shape as `query_objects` in every server crate. A backend
+  returns the draft-ietf-jmap-calendars-33 §2.2 errors (`notFound`,
+  `forbidden`, `tooLarge`, `rateLimit`) and the §10.8.3/§10.8.4 errors
+  (`expandDurationTooLarge`, `cannotCalculateOccurrences`) as
+  `BackendQueryError::Method(JmapError)`; the wire errors are unchanged.
+  The crate no longer depends on `thiserror` (bd JMAP-ic0j.37).
 - **BREAKING** **jmap-server** and every extension server crate:
   `BackendSetError::SetError` now holds `Box<SetError>`, so a backend
   `Result`'s `Err` arm is pointer-sized instead of over 200 bytes.

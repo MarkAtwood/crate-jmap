@@ -1779,7 +1779,6 @@ dependencies = [
  "jmap-server",
  "jmap-types",
  "serde_json",
- "thiserror",
  "tokio",
  "uuid",
 ]

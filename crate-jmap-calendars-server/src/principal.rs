@@ -24,7 +24,7 @@ use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{json, Value};
 
 use crate::helpers::extract_account_id;
-use crate::{AvailabilityError, CalendarsBackend};
+use crate::CalendarsBackend;
 use jmap_server::{bool_arg, server_fail_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
@@ -118,7 +118,12 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
                 .collect()
         });
 
-    match backend
+    // draft-ietf-jmap-calendars-33 §2.2 errors (notFound, forbidden,
+    // tooLarge, rateLimit) arrive as `BackendQueryError::Method` and reach
+    // the client unchanged. `Other` becomes the constant-description
+    // `serverFail` (bd:JMAP-ic0j.53): backend error text never reaches the
+    // wire.
+    let busy_list = backend
         .get_availability(
             caller,
             &account_id,
@@ -129,25 +134,12 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
             event_properties.as_deref(),
         )
         .await
-    {
-        Ok(busy_list) => {
-            let list_json = serde_json::to_value(&busy_list).unwrap_or(Value::Array(vec![]));
-            Ok(HandlerOutput::new(json!({
-                "accountId": account_id.as_ref(),
-                "list": list_json,
-            })))
-        }
-        Err(AvailabilityError::NotFound) => Err(JmapError::custom("notFound")),
-        Err(AvailabilityError::Forbidden) => Err(JmapError::forbidden()),
-        Err(AvailabilityError::TooLarge) => Err(JmapError::too_large()),
-        Err(AvailabilityError::RateLimit) => Err(JmapError::rate_limit()),
-        // bd:JMAP-ic0j.53 — match the rest of this crate (and every other
-        // handler that wraps `Self::Error`): use `server_fail_from_backend`
-        // so the wire `description` is the constant `SERVER_FAIL_INTERNAL_DESC`
-        // rather than the backend error's `Display` output. This preserves the
-        // workspace-wide rule that backend-error text MUST NOT reach the wire.
-        Err(AvailabilityError::Other(e)) => Err(server_fail_from_backend(&e)),
-    }
+        .map_err(JmapError::from)?;
+    let list_json = serde_json::to_value(&busy_list).unwrap_or(Value::Array(vec![]));
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "list": list_json,
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +271,7 @@ mod tests {
         );
     }
 
-    /// Regression for bd:JMAP-ic0j.53: `AvailabilityError::Other(e)` must
+    /// Regression for bd:JMAP-ic0j.53: `BackendQueryError::Other(e)` must
     /// surface to the wire as the constant
     /// [`jmap_server::SERVER_FAIL_INTERNAL_DESC`] description, NOT the
     /// backend error's `Display` output.
@@ -289,7 +281,7 @@ mod tests {
     /// prevent leakage of internal state (account ids, database error
     /// text, principal ids, etc.) into JMAP wire responses. Every other
     /// backend-error site in this crate already uses that helper; the
-    /// `AvailabilityError::Other` arm used to call
+    /// `Other` arm used to call
     /// `JmapError::server_fail(e.to_string())` directly, which bypassed
     /// the redaction. This test asserts the bypass is gone.
     ///
@@ -481,9 +473,9 @@ mod tests {
                 _utc_end: &UTCDate,
                 _show_details: bool,
                 _event_properties: Option<&[String]>,
-            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, AvailabilityError<Self::Error>>
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, BackendQueryError<Self::Error>>
             {
-                Err(AvailabilityError::Other(FaultyError(CANARY)))
+                Err(BackendQueryError::Other(FaultyError(CANARY)))
             }
 
             async fn parse_calendar_event_blobs(

@@ -47,9 +47,8 @@ mod participant_identity;
 mod principal;
 
 pub use backend::{
-    AvailabilityError, CalendarEventGetArgs, CalendarEventParseResult, CalendarEventQueryArgs,
-    CalendarEventSetArgs, CalendarsBackend, CalendarsLimits, PrivacyConflicts,
-    QueryCalendarEventsError, SetDefaultResult,
+    CalendarEventGetArgs, CalendarEventParseResult, CalendarEventQueryArgs, CalendarEventSetArgs,
+    CalendarsBackend, CalendarsLimits, PrivacyConflicts, SetDefaultResult,
 };
 pub use calendar::{handle_calendar_changes, handle_calendar_get, handle_calendar_set};
 pub use event::{
@@ -286,7 +285,7 @@ pub(crate) mod test_support {
 
     use crate::{
         CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
-        PrivacyConflicts, QueryCalendarEventsError,
+        PrivacyConflicts,
     };
 
     /// Minimal error type for the mock backend.
@@ -956,8 +955,8 @@ pub(crate) mod test_support {
 
         // §5.11 expandRecurrences: drive the two new error paths via
         // sentinel filter values so tests can trigger them deterministically:
-        // - in_calendar = "trigger-too-large" → ExpandDurationTooLarge
-        // - in_calendar = "trigger-cannot-calc" → CannotCalculateOccurrences
+        // - in_calendar = "trigger-too-large" → expandDurationTooLarge
+        // - in_calendar = "trigger-cannot-calc" → cannotCalculateOccurrences
         // Any other input falls through to the default (which delegates to
         // query_objects). The args themselves are forwarded for inspection
         // in tests but otherwise ignored by this mock.
@@ -967,15 +966,19 @@ pub(crate) mod test_support {
             account_id: &Id,
             params: QueryParams<'_, jmap_calendars_types::CalendarEvent>,
             args: &CalendarEventQueryArgs,
-        ) -> Result<jmap_server::QueryResult, QueryCalendarEventsError<Self::Error>> {
+        ) -> Result<jmap_server::QueryResult, BackendQueryError<Self::Error>> {
             if let Some(jmap_types::Filter::Condition(f)) = params.filter {
                 if let Some(in_cal) = f.in_calendar.as_ref() {
                     match in_cal.as_ref() {
                         "trigger-too-large" => {
-                            return Err(QueryCalendarEventsError::ExpandDurationTooLarge);
+                            return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
+                                "expandDurationTooLarge",
+                            )));
                         }
                         "trigger-cannot-calc" => {
-                            return Err(QueryCalendarEventsError::CannotCalculateOccurrences);
+                            return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
+                                "cannotCalculateOccurrences",
+                            )));
                         }
                         _ => {}
                     }
@@ -984,10 +987,6 @@ pub(crate) mod test_support {
             let _ = args; // happy path delegates to the generic backend
             self.query_objects::<jmap_calendars_types::CalendarEvent>(caller, account_id, params)
                 .await
-                .map_err(|e| match e {
-                    BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
-                    method => QueryCalendarEventsError::Method(method.into()),
-                })
         }
 
         // §4.3 onSuccessSetIsDefault for Calendar/set: track the default in
@@ -1155,17 +1154,22 @@ pub(crate) mod test_support {
             })
         }
 
+        // Sentinel principal id "trigger-not-found" → §2.2 notFound.
         async fn get_availability(
             &self,
             _caller: &(),
             _account_id: &jmap_types::Id,
-            _principal_id: &jmap_types::Id,
+            principal_id: &jmap_types::Id,
             _utc_start: &jmap_types::UTCDate,
             _utc_end: &jmap_types::UTCDate,
             _show_details: bool,
             _event_properties: Option<&[String]>,
-        ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::AvailabilityError<Self::Error>>
-        {
+        ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, BackendQueryError<Self::Error>> {
+            if principal_id.as_ref() == "trigger-not-found" {
+                return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
+                    "notFound",
+                )));
+            }
             Ok(vec![])
         }
     }
@@ -1556,6 +1560,38 @@ mod tests {
             args["list"].as_array().unwrap().is_empty(),
             "list must be empty: {args}"
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-33 §2.2 — "The following
+    /// additional errors may be returned instead of the
+    /// "Principal/getAvailability" response: *notFound* No Principal with
+    /// this id exists". A backend `BackendQueryError::Method` carrying
+    /// `notFound` reaches the wire as that method error, not `serverFail`
+    /// (bd:JMAP-ic0j.37).
+    #[tokio::test]
+    async fn get_availability_backend_method_error_passes_through() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Principal/getAvailability",
+            json!({
+                "accountId": "acc1",
+                "id": "trigger-not-found",
+                "utcStart": "2024-06-15T09:00:00Z",
+                "utcEnd": "2024-06-15T10:00:00Z"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let Invocation {
+            name,
+            arguments: args,
+            ..
+        } = &resp.method_responses[0];
+        assert_eq!(name, "error", "must be a method error: {args}");
+        assert_eq!(args["type"], "notFound", "wrong error type: {args}");
     }
 
     /// Oracle: §2.2 — missing `id` argument returns `invalidArguments`
@@ -2318,7 +2354,7 @@ mod tests {
         assert_eq!(args["type"], "invalidArguments", "{args}");
     }
 
-    /// Oracle: §10.8.3 — when the backend signals `ExpandDurationTooLarge`,
+    /// Oracle: §10.8.3 — when the backend signals `expandDurationTooLarge`,
     /// the handler MUST return a method-level `expandDurationTooLarge` error
     /// (not `serverFail`).
     ///
@@ -2326,7 +2362,7 @@ mod tests {
     /// (365 days, per `CalendarsLimits::default()`) so the handler-side
     /// pre-check (bd:JMAP-ic0j.71) passes and the request reaches the
     /// MockBackend's `trigger-too-large` sentinel branch. The point of
-    /// this test is that a BACKEND-originated `ExpandDurationTooLarge`
+    /// this test is that a BACKEND-originated `expandDurationTooLarge`
     /// maps to the wire error code; the pre-check is exercised
     /// separately by the routing-module tests in `event.rs`.
     #[tokio::test]
@@ -2359,7 +2395,7 @@ mod tests {
     }
 
     /// Oracle: §10.8.4 — when the backend signals
-    /// `CannotCalculateOccurrences`, the handler MUST return a method-level
+    /// `cannotCalculateOccurrences`, the handler MUST return a method-level
     /// `cannotCalculateOccurrences` error (not `serverFail`).
     ///
     /// Window kept under the default `maxExpandedQueryDuration` cap

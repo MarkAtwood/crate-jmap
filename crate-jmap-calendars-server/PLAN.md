@@ -341,7 +341,7 @@ pub trait CalendarsBackend: JmapBackend {
     fn query_calendar_events(
         &self,
         // ... see backend.rs for full signature
-    ) -> impl Future<Output = Result<QueryResult, QueryCalendarEventsError<Self::Error>>> + Send;
+    ) -> impl Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
 
     /// `CalendarEvent/copy` (RFC 8620 §5.4).
     fn copy_event(
@@ -409,12 +409,6 @@ pub struct SetDefaultResult {
     pub previous_default: Option<Id>,
 }
 
-/// Error type for `get_availability`.
-#[non_exhaustive]
-pub enum AvailabilityError<E: std::error::Error> {
-    NotFound, Forbidden, RangeTooLarge, /* ... */
-}
-
 /// Register all JMAP Calendars handlers with a jmap-server Dispatcher.
 ///
 /// After calling this, the dispatcher handles 19 method names (see the
@@ -432,8 +426,7 @@ src/
   lib.rs                   re-exports; register_calendars_handlers macro
   backend.rs               CalendarsBackend trait; CalendarEventGetArgs,
                            CalendarEventQueryArgs, CalendarEventSetArgs;
-                           CalendarEventParseResult, SetDefaultResult; AvailabilityError,
-                           QueryCalendarEventsError; re-exports of
+                           CalendarEventParseResult, SetDefaultResult; re-exports of
                            BackendChangesError/BackendSetError/etc. from jmap-server
   calendar.rs              Calendar/get, /changes, /set (onDestroyRemoveEvents +
                            onSuccessSetIsDefault); inline tests
