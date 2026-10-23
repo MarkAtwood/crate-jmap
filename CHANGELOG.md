@@ -21,6 +21,9 @@ wire behaviour that a conforming peer can observe.
   of its own three-arm match or private copy, and the unreachable
   `"unhandled backend error variant"` fallback is gone from those sites
   (bd JMAP-1xze).
+  The last bespoke catch-all, `jmap-chat-federation-server`'s Peer/* write
+  failure mapping, now yields the same redacted `serverFail` ("internal
+  error") instead of "the backend refused the write" (bd JMAP-510h.18).
 - **workspace**: committed public-API snapshots (`public-api/<crate>.txt`,
   `scripts/public-api.sh`) and a CI `public-api` job that fails when they
   are stale, so every public-surface change appears in review diffs
