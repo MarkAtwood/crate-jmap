@@ -37,8 +37,8 @@ use crate::helpers::{
 };
 use crate::{ContactsBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, QueryParams, backend_set_error_value, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, QueryParams, backend_set_error_value, bool_arg, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 /// RFC 9610 §7.4.1 — IANA-registered JMAP error type for AddressBook/set
@@ -146,10 +146,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     // Parse contacts-specific arguments before consuming args.
-    let on_destroy_remove_contents = args
-        .get("onDestroyRemoveContents")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_destroy_remove_contents = bool_arg(&args, "onDestroyRemoveContents", false);
     // RFC 9610 §2.3: onSuccessSetIsDefault is Id|null (a single string id or
     // null). §2.3 says "If the id is not found or if the change is not
     // permitted by the server for policy reasons, it MUST be ignored" — that

@@ -41,7 +41,7 @@ use crate::helpers::{
     resolve_map_key_refs, set_error_value,
 };
 use jmap_server::{
-    HandlerOutput, apply_patch_object, backend_set_error_value, reject_read_only_patch,
+    HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, reject_read_only_patch,
     reject_server_set, server_fail_from_backend,
 };
 
@@ -388,10 +388,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         return Err(JmapError::from_account_not_found());
     }
 
-    let on_success_destroy_original: bool = args
-        .get("onSuccessDestroyOriginal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_success_destroy_original: bool = bool_arg(&args, "onSuccessDestroyOriginal", false);
 
     let destroy_from_if_in_state: Option<String> = args
         .get("destroyFromIfInState")
