@@ -3441,6 +3441,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **BREAKING** **jmap-metadata-client**: the `jmap-metadata-types`
+  re-exports `JMAP_METADATA_URI`, `DataTypeMetadataInfo`,
+  `MetadataTextMatch`, `is_registered_namespace`, `is_valid_namespace`
+  and `is_vendor_namespace` are removed, as is the dependency on
+  `jmap-metadata-types`. Import those items from `jmap_metadata_types`.
+  The crate's API is now `&str`, `bool` and `serde_json::Value` only, so a
+  `jmap-metadata-types` major bump no longer forces one here (bd
+  JMAP-wzq9.30).
 - **BREAKING** **jmap-mail-server**: `Email/copy` no longer honours the
   non-standard `onSuccessUpdateOriginal` argument; it is ignored like any
   other unknown argument. RFC 8621 §4.7 defines Email/copy as the standard
