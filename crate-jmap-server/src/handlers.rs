@@ -31,7 +31,7 @@ use crate::backend::{
     GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryObject, QueryParams,
 };
 use crate::helpers::{
-    enforce_max_objects_in_get, extract_account_id, not_found_json, optional_arg,
+    enforce_max_objects_in_get, extract_account_id, filter_arg, not_found_json, optional_arg,
     query_anchor_args, serialize_value,
 };
 
@@ -304,8 +304,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    let filter: Option<O::Filter> =
-        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
+    let filter: Option<O::Filter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<O::Comparator>> = optional_arg(&mut args, "sort", || {
         JmapError::invalid_arguments("sort must be an array")
@@ -390,8 +389,7 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let filter: Option<O::Filter> =
-        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
+    let filter: Option<O::Filter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<O::Comparator>> = optional_arg(&mut args, "sort", || {
         JmapError::invalid_arguments("sort must be an array")
@@ -1068,5 +1066,37 @@ mod tests {
                 "collapseThreads": false,
             })
         );
+    }
+
+    /// Oracle: RFC 8620 §5.5 (rfc8620.txt L2368) types `filter` as
+    /// "FilterOperator|FilterCondition|null", and both are objects
+    /// (L2391 "A *FilterCondition* is an "object""); §5.6 (L2649) reuses
+    /// that type. A non-object value is therefore "of the wrong type"
+    /// (L1189 `invalidArguments`), not a filter that is "syntactically
+    /// valid, but the server cannot process it" (L2626
+    /// `unsupportedFilter`). The backend is never consulted.
+    #[tokio::test]
+    async fn non_object_filter_is_invalid_arguments() {
+        for filter in [json!(42), json!("text"), json!(true), json!([])] {
+            let backend = RecordingQueryBackend::default();
+            let err = handle_query::<QueryProbe, _>(
+                &backend,
+                &(),
+                json!({"accountId": "a1", "filter": filter}),
+            )
+            .await
+            .expect_err("non-object filter must be rejected");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{filter}");
+
+            let err = handle_query_changes::<QueryProbe, _>(
+                &backend,
+                &(),
+                json!({"accountId": "a1", "filter": filter, "sinceQueryState": "q1"}),
+            )
+            .await
+            .expect_err("non-object filter must be rejected");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{filter}");
+            assert!(backend.0.lock().unwrap().is_none(), "{filter}");
+        }
     }
 }

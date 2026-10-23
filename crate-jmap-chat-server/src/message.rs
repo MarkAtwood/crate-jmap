@@ -45,8 +45,8 @@ use crate::helpers::{
 };
 use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{
-    is_client_updatable, query_anchor_args, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryParams,
+    filter_arg, is_client_updatable, query_anchor_args, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -296,8 +296,7 @@ pub async fn handle_message_query<B: ChatBackend>(
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
     reject_unsupported_sort::<MessageComparator>(args.get("sort"))?;
-    let filter: Option<MessageFilter> =
-        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
+    let filter: Option<MessageFilter> = filter_arg(&mut args)?;
 
     let supports_threads = backend.limits(caller, &account_id).supports_threads;
     let top = check_message_filter(filter.as_ref(), supports_threads)?;
@@ -439,11 +438,11 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
     // §Message/query `unsupportedFilter` refusals apply here too.
     let account_id = args.get("accountId").and_then(Value::as_str).map(Id::from);
     if let Some(account_id) = &account_id {
-        let filter: Option<MessageFilter> = args
-            .get("filter")
-            .filter(|f| !f.is_null())
-            .map(|f| MessageFilter::deserialize(f).map_err(|_| JmapError::unsupported_filter()))
-            .transpose()?;
+        let mut probe = serde_json::Map::new();
+        if let Some(f) = args.get("filter") {
+            probe.insert("filter".into(), f.clone());
+        }
+        let filter: Option<MessageFilter> = filter_arg(&mut probe)?;
         let supports_threads = backend.limits(caller, account_id).supports_threads;
         check_message_filter(filter.as_ref(), supports_threads)?;
     }

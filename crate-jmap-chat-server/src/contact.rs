@@ -34,8 +34,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    is_client_updatable, query_anchor_args, reject_read_only_patch, server_fail_from_backend,
-    server_fail_value_from_backend, HandlerOutput, QueryParams,
+    filter_arg, is_client_updatable, query_anchor_args, reject_read_only_patch,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -460,8 +460,7 @@ pub async fn handle_contact_query<B: ChatBackend>(
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
     reject_unsupported_sort::<ChatContactComparator>(args.get("sort"))?;
-    let filter: Option<ChatContactFilter> =
-        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
+    let filter: Option<ChatContactFilter> = filter_arg(&mut args)?;
 
     let sort: Option<Vec<ChatContactComparator>> = optional_arg(&mut args, "sort", || {
         JmapError::invalid_arguments("sort must be an array")

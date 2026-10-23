@@ -1389,6 +1389,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server**, **jmap-chat-server**: a non-object
+  `filter` (`42`, `"x"`, `true`, `[]`) on the generic `handle_query` /
+  `handle_query_changes` (Tasks, Contacts, FileNode, Sharing, Chat and
+  every other object built on them) and on `ChatContact/query`,
+  `CustomEmoji/query`, `Message/query`, `Message/queryChanges` and
+  `Space/query` is now `invalidArguments`, not `unsupportedFilter`. RFC
+  8620 §5.5 types `filter` as "FilterOperator|FilterCondition|null", both
+  objects, and keeps `unsupportedFilter` for a filter that "is
+  syntactically valid, but the server cannot process it". This matches
+  the Mail and Calendars handlers (`jmap_server::filter_arg`); an object
+  that fails to decode is still `unsupportedFilter` (bd JMAP-98zb).
 - **jmap-server**: the `Dispatcher::dispatch` docs now state the
   cancellation contract as intended behaviour: dropping the dispatch
   future does not cancel method calls already running in their spawned
