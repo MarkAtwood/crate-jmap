@@ -63,7 +63,7 @@ impl SessionClient {
                 &self.session,
                 DownloadBlobSessionParams {
                     account_id,
-                    blob_id: blob_id.as_ref(),
+                    blob_id,
                     name: &node.name,
                     accept_type: node.media_type.as_deref(),
                     expected_sha256: node.sha256.as_ref(),

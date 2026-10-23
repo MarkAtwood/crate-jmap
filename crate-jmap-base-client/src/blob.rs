@@ -23,8 +23,8 @@ use crate::error::ClientError;
 /// ```rust,ignore
 /// client.download_blob(DownloadBlobParams {
 ///     download_url_template: &session.download_url,
-///     account_id: "A13824",
-///     blob_id: "Gbc4c...",
+///     account_id: &Id::from("A13824"),
+///     blob_id: &Id::from("Gbc4c..."),
 ///     name: "attachment.pdf",
 ///     accept_type: Some("application/pdf"),
 ///     expected_sha256: None,
@@ -42,8 +42,8 @@ use crate::error::ClientError;
 ///     // ... other fields ...
 ///     expected_sha256: Some(&expected),
 ///     # download_url_template: "",
-///     # account_id: "",
-///     # blob_id: "",
+///     # account_id: &Id::from(""),
+///     # blob_id: &Id::from(""),
 ///     # name: "",
 ///     # accept_type: None,
 /// }).await?;
@@ -56,9 +56,9 @@ pub struct DownloadBlobParams<'a> {
     /// refuses an accidental `&session.api_url` (a plain `JmapUrl`).
     pub download_url_template: &'a crate::request::JmapUrlTemplate,
     /// Account ID that owns the blob.
-    pub account_id: &'a str,
+    pub account_id: &'a Id,
     /// Server-assigned blob identifier.
-    pub blob_id: &'a str,
+    pub blob_id: &'a Id,
     /// Human-readable filename for the `{name}` template variable.
     pub name: &'a str,
     /// Optional accept type for the `{type}` template variable (e.g. `"image/png"`).
@@ -87,7 +87,7 @@ pub struct DownloadBlobParams<'a> {
 ///
 /// ```rust,ignore
 /// client.upload_blob_session(&session, UploadBlobSessionParams {
-///     account_id: "A13824",
+///     account_id: &Id::from("A13824"),
 ///     content_type: "application/pdf",
 ///     data: bytes::Bytes::from(buffer),
 /// }).await?;
@@ -95,7 +95,7 @@ pub struct DownloadBlobParams<'a> {
 #[derive(Debug, Clone)]
 pub struct UploadBlobSessionParams<'a> {
     /// Account ID that will own the uploaded blob.
-    pub account_id: &'a str,
+    pub account_id: &'a Id,
     /// Media type sent as the HTTP `Content-Type` request header.
     pub content_type: &'a str,
     /// Raw bytes to upload.
@@ -110,8 +110,8 @@ pub struct UploadBlobSessionParams<'a> {
 ///
 /// ```rust,ignore
 /// client.download_blob_session(&session, DownloadBlobSessionParams {
-///     account_id: "A13824",
-///     blob_id: "Gbc4c...",
+///     account_id: &Id::from("A13824"),
+///     blob_id: &Id::from("Gbc4c..."),
 ///     name: "attachment.pdf",
 ///     accept_type: Some("application/pdf"),
 ///     expected_sha256: None,
@@ -120,9 +120,9 @@ pub struct UploadBlobSessionParams<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct DownloadBlobSessionParams<'a> {
     /// Account ID that owns the blob.
-    pub account_id: &'a str,
+    pub account_id: &'a Id,
     /// Server-assigned blob identifier.
-    pub blob_id: &'a str,
+    pub blob_id: &'a Id,
     /// Human-readable filename for the `{name}` template variable.
     pub name: &'a str,
     /// Optional accept type for the `{type}` template variable.
@@ -141,7 +141,7 @@ pub struct DownloadBlobSessionParams<'a> {
 /// ```rust,ignore
 /// client.upload_blob(UploadBlobParams {
 ///     upload_url_template: &session.upload_url,
-///     account_id: "A13824",
+///     account_id: &Id::from("A13824"),
 ///     content_type: "application/pdf",
 ///     data: bytes::Bytes::from(buffer),
 /// }).await?;
@@ -167,7 +167,7 @@ pub struct UploadBlobParams<'a> {
     pub upload_url_template: &'a crate::request::JmapUrlTemplate,
     /// Account ID that will own the uploaded blob; substituted for
     /// `{accountId}` in the URL template.
-    pub account_id: &'a str,
+    pub account_id: &'a Id,
     /// Media type sent as the HTTP `Content-Type` request header. Must
     /// be a valid HTTP header value (no CR/LF, no leading/trailing
     /// whitespace) or upload fails with
@@ -262,7 +262,7 @@ fn exact_length_body(body: BlobUploadBody, declared: u64) -> BlobUploadBody {
 /// let len = file.metadata().await?.len();
 /// client.upload_blob_stream(UploadBlobStreamParams {
 ///     upload_url_template: &session.upload_url,
-///     account_id: "A13824",
+///     account_id: &Id::from("A13824"),
 ///     content_type: "video/mp4",
 ///     body: upload_body_from_reader(file),
 ///     content_length: Some(len),
@@ -274,7 +274,7 @@ pub struct UploadBlobStreamParams<'a> {
     pub upload_url_template: &'a crate::request::JmapUrlTemplate,
     /// Account ID that will own the uploaded blob; substituted for
     /// `{accountId}` in the URL template.
-    pub account_id: &'a str,
+    pub account_id: &'a Id,
     /// Media type sent as the HTTP `Content-Type` request header. Must
     /// be a valid HTTP header value or upload fails with
     /// [`ClientError::InvalidHeaderValue`].
@@ -709,13 +709,16 @@ impl JmapClient {
     fn upload_request(
         &self,
         upload_url_template: &crate::request::JmapUrlTemplate,
-        account_id: &str,
+        account_id: &Id,
         content_type: &str,
     ) -> Result<reqwest::RequestBuilder, ClientError> {
         crate::client::require_http_url(upload_url_template.as_str())?;
         let ct_hv =
             HeaderValue::from_str(content_type).map_err(ClientError::from_invalid_header)?;
-        let url = expand_url_template(upload_url_template.as_str(), &[("accountId", account_id)])?;
+        let url = expand_url_template(
+            upload_url_template.as_str(),
+            &[("accountId", account_id.as_ref())],
+        )?;
         Ok(self.inject_auth(
             self.http
                 .post(&url)
@@ -845,8 +848,8 @@ impl JmapClient {
         } = params;
         crate::client::require_http_url(download_url_template.as_str())?;
         let vars = [
-            ("accountId", account_id),
-            ("blobId", blob_id),
+            ("accountId", account_id.as_ref()),
+            ("blobId", blob_id.as_ref()),
             ("name", name),
             // Always supply {type} — even as empty string — so templates
             // containing `?accept={type}` expand cleanly rather than triggering

@@ -129,7 +129,7 @@ fn print_session(session: &Session) {
         println!("  - {cap}");
     }
 
-    let mut account_ids: Vec<&String> = session.accounts.keys().collect();
+    let mut account_ids: Vec<&jmap_types::Id> = session.accounts.keys().collect();
     account_ids.sort();
     println!("\naccounts ({}):", account_ids.len());
     for id in account_ids {
@@ -140,7 +140,7 @@ fn print_session(session: &Session) {
         );
     }
 
-    let mut prims: Vec<(&String, &String)> = session.primary_accounts.iter().collect();
+    let mut prims: Vec<(&String, &jmap_types::Id)> = session.primary_accounts.iter().collect();
     prims.sort();
     println!("\nprimary accounts ({}):", prims.len());
     for (cap, acct) in prims {

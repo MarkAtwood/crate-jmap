@@ -207,7 +207,7 @@ impl super::SessionClient {
     ///   under the same condition as [`Self::chat_account_id`].
     pub fn batch(&self) -> Result<Batch, jmap_base_client::ClientError> {
         Ok(Batch {
-            account_id: self.chat_account_id()?.to_owned(),
+            account_id: self.chat_account_id()?.to_string(),
             calls: Vec::new(),
         })
     }

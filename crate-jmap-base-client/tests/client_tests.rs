@@ -653,7 +653,7 @@ async fn test_upload_blob_session_routes_to_session_upload_url() {
         .upload_blob_session(
             &session,
             jmap_base_client::UploadBlobSessionParams {
-                account_id: "account1",
+                account_id: &jmap_types::Id::from("account1"),
                 content_type: "application/octet-stream",
                 data: bytes::Bytes::copy_from_slice(payload),
             },
@@ -708,8 +708,8 @@ async fn test_download_blob_session_routes_to_session_download_url() {
         .download_blob_session(
             &session,
             jmap_base_client::DownloadBlobSessionParams {
-                account_id: "account1",
-                blob_id: "blob-abc",
+                account_id: &jmap_types::Id::from("account1"),
+                blob_id: &jmap_types::Id::from("blob-abc"),
                 name: "file.bin",
                 accept_type: None,
                 expected_sha256: None,
@@ -958,7 +958,7 @@ async fn test_upload_blob_typed_params_round_trip() {
     let resp = client
         .upload_blob(jmap_base_client::UploadBlobParams {
             upload_url_template: &template,
-            account_id: "account1",
+            account_id: &jmap_types::Id::from("account1"),
             content_type: "application/octet-stream",
             data: bytes::Bytes::copy_from_slice(payload),
         })
@@ -997,7 +997,7 @@ async fn test_upload_blob_response_size_cap() {
     let err = client
         .upload_blob(jmap_base_client::UploadBlobParams {
             upload_url_template: &template,
-            account_id: "account1",
+            account_id: &jmap_types::Id::from("account1"),
             content_type: "application/octet-stream",
             data: bytes::Bytes::from(b"hello".to_vec()),
         })
@@ -1042,7 +1042,7 @@ async fn test_upload_blob_rejects_size_mismatch() {
     let err = client
         .upload_blob(jmap_base_client::UploadBlobParams {
             upload_url_template: &template,
-            account_id: "account1",
+            account_id: &jmap_types::Id::from("account1"),
             content_type: "application/octet-stream",
             data: bytes::Bytes::from(b"hello".to_vec()), // 5 bytes
         })
@@ -1093,8 +1093,8 @@ async fn test_download_blob_size_cap() {
     let err = client
         .download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &template,
-            account_id: "account1",
-            blob_id: "blob-abc",
+            account_id: &jmap_types::Id::from("account1"),
+            blob_id: &jmap_types::Id::from("blob-abc"),
             name: "file.bin",
             accept_type: None,
             expected_sha256: None,
@@ -1707,8 +1707,8 @@ async fn download_blob_with_typed_sha256_matches_succeeds() {
     let bytes = client
         .download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &template,
-            account_id: "account1",
-            blob_id: "blob-abc",
+            account_id: &jmap_types::Id::from("account1"),
+            blob_id: &jmap_types::Id::from("blob-abc"),
             name: "file.bin",
             accept_type: None,
             expected_sha256: Some(&expected),
@@ -1757,8 +1757,8 @@ async fn download_blob_with_typed_sha256_mismatch_returns_integrity_error() {
     let err = client
         .download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &template,
-            account_id: "account1",
-            blob_id: "blob-abc",
+            account_id: &jmap_types::Id::from("account1"),
+            blob_id: &jmap_types::Id::from("blob-abc"),
             name: "file.bin",
             accept_type: None,
             expected_sha256: Some(&expected),
@@ -1912,8 +1912,8 @@ async fn test_download_blob_429_without_retry_after_returns_rate_limited() {
         .download_blob_session(
             &session,
             jmap_base_client::DownloadBlobSessionParams {
-                account_id: "account1",
-                blob_id: "blob-abc",
+                account_id: &jmap_types::Id::from("account1"),
+                blob_id: &jmap_types::Id::from("blob-abc"),
                 name: "file.bin",
                 accept_type: None,
                 expected_sha256: None,

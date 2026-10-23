@@ -81,7 +81,7 @@ impl SessionClient {
     ///
     /// [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     /// when the session has no such primary account.
-    pub fn mimi_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
+    pub fn mimi_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(JMAP_CHAT_MIMI_URI)
             .ok_or_else(|| {
@@ -279,7 +279,7 @@ impl SessionClient {
     }
 
     fn account(&self) -> Result<Id, jmap_base_client::ClientError> {
-        Ok(Id::from(self.mimi_account_id()?))
+        Ok(self.mimi_account_id()?.clone())
     }
 
     async fn call<A: Serialize, R: DeserializeOwned>(

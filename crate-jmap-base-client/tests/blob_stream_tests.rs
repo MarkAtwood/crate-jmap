@@ -53,6 +53,11 @@ async fn mount_upload(server: &MockServer, response_json: &str) {
         .await;
 }
 
+static ACCOUNT_ID: std::sync::LazyLock<jmap_types::Id> =
+    std::sync::LazyLock::new(|| jmap_types::Id::from("account1"));
+static BLOB_ID: std::sync::LazyLock<jmap_types::Id> =
+    std::sync::LazyLock::new(|| jmap_types::Id::from("blob-abc"));
+
 fn params<'a>(
     template: &'a JmapUrlTemplate,
     body: BlobUploadBody,
@@ -60,7 +65,7 @@ fn params<'a>(
 ) -> UploadBlobStreamParams<'a> {
     UploadBlobStreamParams {
         upload_url_template: template,
-        account_id: "account1",
+        account_id: &ACCOUNT_ID,
         content_type: "text/plain",
         body,
         content_length,
@@ -241,8 +246,8 @@ fn download_params<'a>(
 ) -> DownloadBlobParams<'a> {
     DownloadBlobParams {
         download_url_template: template,
-        account_id: "account1",
-        blob_id: "blob-abc",
+        account_id: &ACCOUNT_ID,
+        blob_id: &BLOB_ID,
         name: "file.bin",
         accept_type: None,
         expected_sha256,
