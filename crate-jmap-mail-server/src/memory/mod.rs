@@ -595,6 +595,32 @@ fn invalid_patched_properties(
 /// `O::TYPE_NAME` dispatch guarantees. A failure means the dispatch and the
 /// `QueryObject` impls have drifted; it surfaces as `serverFail` rather than
 /// a panic or a silently dropped filter (bd:JMAP-ic0j.38).
+/// Reject a filter with any draft-ietf-jmap-metadata-04 §3.6 condition
+/// leaf as `unsupportedFilter` (RFC 8620 §5.5: "The filter is
+/// syntactically valid, but the server cannot process it").
+///
+/// ponytail: MemoryBackend does not evaluate metadata conditions yet, and
+/// ignoring them would match every record; JMAP-s4kp.1 replaces this
+/// rejection with evaluation.
+fn reject_metadata_conditions<T>(
+    filter: Option<&Filter<T>>,
+    is_metadata: fn(&T) -> bool,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    fn any_leaf<T>(f: &Filter<T>, pred: fn(&T) -> bool) -> bool {
+        match f {
+            Filter::Condition(c) => pred(c),
+            Filter::Operator(op) => op.conditions.iter().any(|f| any_leaf(f, pred)),
+            _ => false,
+        }
+    }
+    if filter.is_some_and(|f| any_leaf(f, is_metadata)) {
+        let mut err = jmap_types::JmapError::unsupported_filter();
+        err.description = Some("metadata filter conditions are not supported".to_owned());
+        return Err(BackendQueryError::Method(err));
+    }
+    Ok(())
+}
+
 fn retype<A: serde::Serialize, B: serde::de::DeserializeOwned>(
     a: A,
 ) -> Result<B, BackendQueryError<MemoryError>> {
@@ -806,6 +832,10 @@ impl JmapBackend for MemoryBackend {
             // O::Comparator are MailboxFilter and MailboxComparator (see the
             // QueryObject impl in jmap-mail-types src/backend.rs).
             let mailbox_filter: Option<MailboxFilter> = filter.map(retype).transpose()?;
+            reject_metadata_conditions(
+                mailbox_filter.as_ref(),
+                MailboxFilterCondition::has_metadata_condition,
+            )?;
             let mailbox_sort: Vec<MailboxComparator> =
                 sort.map(retype).transpose()?.unwrap_or_default();
             return self
@@ -827,6 +857,10 @@ impl JmapBackend for MemoryBackend {
         } else {
             None
         };
+        reject_metadata_conditions(
+            email_filter.as_ref(),
+            EmailFilterCondition::has_metadata_condition,
+        )?;
         let email_sort: Option<Vec<EmailComparator>> = if O::TYPE_NAME == "Email" {
             sort.map(retype).transpose()?
         } else {

@@ -3,6 +3,7 @@
 //! Provides [`Mailbox`], [`MailboxRole`], and [`MailboxRights`].
 //! Mailboxes are the folder containers for [`crate::Email`] objects.
 
+use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::{Id, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
@@ -153,6 +154,18 @@ pub struct Mailbox {
     pub my_rights: MailboxRights,
     /// Whether the user has subscribed to this Mailbox.
     pub is_subscribed: bool,
+    /// Shared metadata, keyed by namespace identifier
+    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+    /// The authenticated user's own metadata, keyed by namespace
+    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// handling as `metadata`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -192,6 +205,8 @@ impl Mailbox {
             is_subscribed,
             parent_id: None,
             role: None,
+            metadata: None,
+            private_metadata: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -256,6 +271,51 @@ pub struct MailboxFilterCondition {
     /// If `true`, only subscribed mailboxes are returned.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_subscribed: Option<bool>,
+
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// present at this path in the object's `metadata`. The path is a
+    /// namespace identifier, optionally followed by an RFC 6901 JSON
+    /// Pointer into the namespace value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_exists: Option<String>,
+
+    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// authenticated user's `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_exists: Option<String>,
+
+    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// `i;unicode-casemap` collation on the `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_contains: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// `metadata_text_contains`, against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_contains: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_equals: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_equals: Option<MetadataTextMatch>,
+}
+
+impl MailboxFilterCondition {
+    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `metadata*` / `privateMetadata*` fields is set.
+    pub fn has_metadata_condition(&self) -> bool {
+        self.metadata_exists.is_some()
+            || self.private_metadata_exists.is_some()
+            || self.metadata_text_contains.is_some()
+            || self.private_metadata_text_contains.is_some()
+            || self.metadata_text_equals.is_some()
+            || self.private_metadata_text_equals.is_some()
+    }
 }
 
 #[cfg(test)]
@@ -417,5 +477,89 @@ mod tests {
             json!({"role": "trash"})
         );
         assert!(serde_json::from_value::<MailboxFilterCondition>(json!({"role": 7})).is_err());
+    }
+
+    /// Oracle: -04 §3.6 extends the Mailbox/query FilterCondition with
+    /// `metadataTextEquals`; hand-written leaf inside a `NOT` operator.
+    /// A misspelt name is still rejected.
+    #[test]
+    fn mailbox_filter_metadata_condition_in_tree() {
+        let wire = json!({
+            "operator": "NOT",
+            "conditions": [
+                { "metadataTextEquals": { "path": "ns/tag", "value": "x" } }
+            ]
+        });
+        let filter: crate::MailboxFilter = serde_json::from_value(wire.clone()).unwrap();
+        let jmap_types::Filter::Operator(op) = &filter else {
+            panic!("expected an operator, got {filter:?}");
+        };
+        let jmap_types::Filter::Condition(leaf) = &op.conditions[0] else {
+            panic!("expected a condition");
+        };
+        assert_eq!(
+            leaf.metadata_text_equals,
+            Some(MetadataTextMatch::new("ns/tag", "x"))
+        );
+        assert!(leaf.has_metadata_condition());
+        assert!(!MailboxFilterCondition::default().has_metadata_condition());
+        assert_eq!(serde_json::to_value(&filter).unwrap(), wire);
+        assert!(
+            serde_json::from_value::<MailboxFilterCondition>(json!({"metadataEquals": {}}))
+                .is_err()
+        );
+    }
+
+    /// Oracle: -04 §2 adds `metadata` and `privateMetadata` (objects keyed
+    /// by namespace) to each listed type; hand-written Mailbox JSON. The
+    /// values land in the typed fields, not `extra`. -04 §3.2: in an update
+    /// "null is equivalent to {}", so `null` decodes as absent; a
+    /// non-object value is rejected.
+    #[test]
+    fn mailbox_metadata_properties() {
+        let mut raw = json!({
+            "id": "m1",
+            "name": "Inbox",
+            "parentId": null,
+            "role": null,
+            "totalEmails": 0,
+            "unreadEmails": 0,
+            "totalThreads": 0,
+            "unreadThreads": 0,
+            "myRights": {
+                "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+                "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+                "mayRename": true, "mayDelete": true, "maySubmit": true
+            },
+            "isSubscribed": true,
+            "metadata": {"acme.example.com": {"color": "red"}},
+            "privateMetadata": {"acme.example.com": {"memo": "mine"}}
+        });
+        let mb: Mailbox = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            mb.metadata
+                .as_ref()
+                .map(|m| &m["acme.example.com"]["color"]),
+            Some(&json!("red"))
+        );
+        assert_eq!(
+            mb.private_metadata
+                .as_ref()
+                .map(|m| &m["acme.example.com"]["memo"]),
+            Some(&json!("mine"))
+        );
+        assert!(mb.extra.is_empty());
+        assert_eq!(
+            serde_json::to_value(&mb).unwrap()["metadata"],
+            raw["metadata"]
+        );
+
+        raw["metadata"] = json!(null);
+        let mb: Mailbox = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(mb.metadata, None);
+        assert!(serde_json::to_value(&mb).unwrap().get("metadata").is_none());
+
+        raw["metadata"] = json!("red");
+        assert!(serde_json::from_value::<Mailbox>(raw).is_err());
     }
 }

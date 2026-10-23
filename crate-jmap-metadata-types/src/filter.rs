@@ -11,9 +11,10 @@
 //! `privateMetadataTextEquals`) extend each listed data type's own
 //! `/query` `FilterCondition` (§3.6). They are NOT a standalone filter
 //! type — this is the key architectural difference from -01, which had a
-//! standalone `MetadataFilterCondition`. The typed per-type filter
-//! structs in the extension-types crates (e.g. `EmailFilterCondition`)
-//! do not carry these fields (bd JMAP-ua37.4). Clients send them either
+//! standalone `MetadataFilterCondition`. `jmap_mail_types`'
+//! `EmailFilterCondition` and `MailboxFilterCondition` carry these
+//! fields directly (bd JMAP-xdp4); the other typed per-type filter
+//! structs do not yet (bd JMAP-ua37.4). Clients send them either
 //! as a `jmap_types::Filter<WithMetadata<C>>`, which the
 //! extension clients' `/query` and `/queryChanges` methods accept, or in
 //! a `serde_json::Value` filter tree built with `jmap-metadata-client`'s
@@ -80,7 +81,9 @@ impl MetadataTextMatch {
 /// §3.6: "For each data type listed in dataTypes, the FilterCondition
 /// object for Foo/query is extended with the optional fields defined
 /// below." `base` is the data type's own condition (for example
-/// `jmap_mail_types::EmailFilterCondition`); its fields are
+/// `jmap_tasks_types::TaskFilterCondition`; the Email and Mailbox
+/// conditions in `jmap_mail_types` already carry the six fields, so they
+/// need no wrapper); its fields are
 /// flattened into the same JSON object as the metadata fields. Use it as
 /// the leaf of a `jmap_types::Filter<WithMetadata<C>>` and pass that
 /// to the extension client's `/query` or `/queryChanges` method; the

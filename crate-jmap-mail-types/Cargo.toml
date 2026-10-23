@@ -16,5 +16,6 @@ sieve = []
 
 [dependencies]
 jmap-types = { workspace = true }
+jmap-metadata-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

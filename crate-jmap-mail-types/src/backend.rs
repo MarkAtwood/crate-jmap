@@ -214,7 +214,8 @@ impl GetObject for crate::Mailbox {}
 
 /// RFC 8621 §2 (rfc8621.txt:487, 554, 567, 572, 577, 623): `id` is
 /// "(immutable; server-set)"; the four counts and `myRights` are
-/// "(server-set)".
+/// "(server-set)". draft-ietf-jmap-metadata-04 §3.2: clients write
+/// `metadata` and `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Mailbox {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -225,8 +226,15 @@ impl SetObject for crate::Mailbox {
         "unreadThreads",
         "myRights",
     ];
-    const CLIENT_SETTABLE: &'static [&'static str] =
-        &["name", "parentId", "role", "sortOrder", "isSubscribed"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "name",
+        "parentId",
+        "role",
+        "sortOrder",
+        "isSubscribed",
+        "metadata",
+        "privateMetadata",
+    ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
 
@@ -253,6 +261,8 @@ impl GetObject for crate::Email {}
 /// `size`, `hasAttachment` and `preview` are "(immutable; server-set)";
 /// `mailboxIds` and `keywords` carry no attribute; every other property is
 /// "(immutable)". The `header:` forms (§4.1.3) are not struct fields.
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Email {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -284,6 +294,8 @@ impl SetObject for crate::Email {
         "textBody",
         "htmlBody",
         "attachments",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &[
         "receivedAt",
@@ -449,6 +461,8 @@ mod tests {
             unread_threads: 1,
             my_rights: crate::MailboxRights::default(),
             is_subscribed: true,
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
@@ -483,6 +497,8 @@ mod tests {
             body_structure: Some(part()),
             has_attachment: true,
             preview: Some("p".into()),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
