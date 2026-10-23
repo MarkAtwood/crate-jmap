@@ -85,9 +85,10 @@ async fn task_null_comment_message_rejected_and_get_still_succeeds() {
         "accountId": "acc1",
         "update": { "t1": { "comments/c1/message": null } }
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), set_args)
-        .await
-        .expect("/set must not return a top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), set_args)
+            .await
+            .expect("/set must not return a top-level error");
     assert_eq!(
         resp["notUpdated"]["t1"]["type"], "invalidProperties",
         "{resp}"
@@ -129,15 +130,17 @@ async fn task_is_draft_null_then_true_rejected() {
     );
 
     let clear = json!({ "accountId": "acc1", "update": { "t1": { "isDraft": null } } });
-    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), clear)
-        .await
-        .expect("/set must not return a top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), clear)
+            .await
+            .expect("/set must not return a top-level error");
     assert!(resp["updated"].get("t1").is_some(), "{resp}");
 
     let revert = json!({ "accountId": "acc1", "update": { "t1": { "isDraft": true } } });
-    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), revert)
-        .await
-        .expect("/set must not return a top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), revert)
+            .await
+            .expect("/set must not return a top-level error");
     assert_eq!(
         resp["notUpdated"]["t1"]["type"], "invalidProperties",
         "{resp}"

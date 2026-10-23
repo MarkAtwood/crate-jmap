@@ -498,9 +498,10 @@ async fn task_set_create_with_client_id_rejects() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert_eq!(
         resp["notCreated"]["c1"]["type"], "invalidProperties",
@@ -521,7 +522,7 @@ async fn task_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "create": { "c1": { "@type": "Task", "uid": "u1", "title": "x", "taskListId": "tl1" } }
     });
-    let err = handle_task_set(&backend, &(), args)
+    let err = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
         .await
         .expect_err("unknown accountId must produce method-level error");
 
@@ -587,9 +588,10 @@ async fn task_set_isdraft_revert_rejected_by_memory_backend() {
         "accountId": "acc1",
         "update": { "t1": { "isDraft": true } }
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed at the top level");
+    let HandlerOutput { primary: resp, .. } =
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed at the top level");
 
     let not_updated = resp["notUpdated"].as_object().expect("notUpdated present");
     let err = not_updated.get("t1").expect("t1 in notUpdated");
@@ -625,9 +627,10 @@ async fn task_set_isdraft_true_on_absent_rejected_by_memory_backend() {
         "accountId": "acc1",
         "update": { "t1": { "isDraft": true } }
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed at the top level");
+    let HandlerOutput { primary: resp, .. } =
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed at the top level");
 
     let err = &resp["notUpdated"]["t1"];
     assert_eq!(err["type"], "invalidProperties", "absent -> true: {resp}");
@@ -821,6 +824,7 @@ async fn task_query_changes_honours_task_list_filter() {
     let HandlerOutput { primary: set, .. } = handle_task_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": {

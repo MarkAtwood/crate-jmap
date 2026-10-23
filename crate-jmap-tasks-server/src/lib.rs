@@ -113,8 +113,11 @@ where
     // (`B::CallerCtx`) forwarded by the dispatcher; closures pass `&ctx` to the
     // inner `handle_*` fn. `$ci` is the call_id string — most handlers ignore
     // it (`_ci`); only `Task/copy` uses it.
+    // The optional `$ids` binds `CallContext::created_ids`, the
+    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
+    // use to resolve `#creationId` references.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -123,6 +126,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
+                        $(created_ids: $ids,)?
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -150,8 +154,8 @@ where
     reg!("Task/changes", backend, |b, _ci, a, ctx| {
         handle_task_changes(&*b, &ctx, a).await
     });
-    reg!("Task/set", backend, |b, _ci, a, ctx| {
-        handle_task_set(&*b, &ctx, a).await
+    reg!("Task/set", backend, |b, _ci, a, ctx, ids| {
+        handle_task_set(&*b, &ctx, &ids, a).await
     });
     reg!("Task/copy", backend, |b, ci, a, ctx| {
         handle_task_copy(&*b, &ctx, a, &ci).await
