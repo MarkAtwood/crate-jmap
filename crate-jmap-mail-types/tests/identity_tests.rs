@@ -5,16 +5,7 @@ use jmap_mail_types::Identity;
 // Oracle: RFC 8621 §6.4 example response — first identity object.
 #[test]
 fn identity_round_trips_from_rfc_example() {
-    let json = r#"{
-        "id": "XD-3301-222-11_22AAz",
-        "name": "Joe Bloggs",
-        "email": "joe@example.com",
-        "replyTo": null,
-        "bcc": [{"name": null, "email": "joe+archive@example.com"}],
-        "textSignature": "-- \nJoe Bloggs\nMaster of Email",
-        "htmlSignature": "<div><b>Joe Bloggs</b></div><div>Master of Email</div>",
-        "mayDelete": false
-    }"#;
+    let json = &common::fixture("identity_round_trips_from_rfc_example.json");
     let identity: Identity = serde_json::from_str(json).expect("deserialize");
     assert_eq!(identity.id.as_ref(), "XD-3301-222-11_22AAz");
     assert_eq!(identity.name, "Joe Bloggs");
@@ -30,16 +21,7 @@ fn identity_round_trips_from_rfc_example() {
 // Oracle: RFC 8621 §6.4 example response — second identity object.
 #[test]
 fn identity_round_trips_minimal_rfc_example() {
-    let json = r#"{
-        "id": "XD-9911312-11_22AAz",
-        "name": "Joe B",
-        "email": "*@example.com",
-        "replyTo": null,
-        "bcc": null,
-        "textSignature": "",
-        "htmlSignature": "",
-        "mayDelete": true
-    }"#;
+    let json = &common::fixture("identity_round_trips_minimal_rfc_example.json");
     let identity: Identity = serde_json::from_str(json).expect("deserialize");
     assert_eq!(identity.id.as_ref(), "XD-9911312-11_22AAz");
     assert_eq!(identity.reply_to, None);
@@ -53,9 +35,9 @@ fn identity_round_trips_minimal_rfc_example() {
 // (RFC §6 — they have defined defaults but must appear in responses).
 #[test]
 fn identity_serializes_signatures_always() {
-    let identity: Identity = serde_json::from_str(
-        r#"{"id":"test-id","name":"","email":"user@example.com","textSignature":"","htmlSignature":"","mayDelete":true}"#,
-    )
+    let identity: Identity = serde_json::from_str(&common::fixture(
+        "identity_serializes_signatures_always.json",
+    ))
     .expect("deserialize");
     let json = serde_json::to_string(&identity).expect("serialize");
     assert!(
@@ -72,9 +54,9 @@ fn identity_serializes_signatures_always() {
 // (skip_serializing_if = "Option::is_none").
 #[test]
 fn identity_null_optional_fields_serialize_as_null() {
-    let identity: Identity = serde_json::from_str(
-        r#"{"id":"test-id","name":"","email":"user@example.com","textSignature":"","htmlSignature":"","mayDelete":false}"#,
-    )
+    let identity: Identity = serde_json::from_str(&common::fixture(
+        "identity_null_optional_fields_serialize_as_null.json",
+    ))
     .expect("deserialize");
     // RFC 8621 §6: replyTo and bcc are "EmailAddress[]|null" (default:
     // null), so an unset value serializes as null.

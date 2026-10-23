@@ -1,0 +1,22 @@
+{
+        "id": "abc123",
+        "name": "FutureBox",
+        "role": "futurevalue",
+        "sortOrder": 99,
+        "totalEmails": 0,
+        "unreadEmails": 0,
+        "totalThreads": 0,
+        "unreadThreads": 0,
+        "myRights": {
+            "mayReadItems": true,
+            "mayAddItems": false,
+            "mayRemoveItems": false,
+            "maySetSeen": false,
+            "maySetKeywords": false,
+            "mayCreateChild": false,
+            "mayRename": false,
+            "mayDelete": false,
+            "maySubmit": false
+        },
+        "isSubscribed": false
+    }

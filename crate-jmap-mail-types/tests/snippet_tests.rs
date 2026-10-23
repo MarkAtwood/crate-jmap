@@ -39,9 +39,8 @@ fn snippet_no_matches_null_fields_omitted() {
 #[test]
 fn snippet_has_no_id_field() {
     // Oracle: RFC 8621 §5 — SearchSnippet has NO id field
-    let s: SearchSnippet =
-        serde_json::from_str(r#"{"emailId":"Mx","subject":"hello","preview":"world"}"#)
-            .expect("deserialize");
+    let s: SearchSnippet = serde_json::from_str(&common::fixture("snippet_has_no_id_field.json"))
+        .expect("deserialize");
     let serialized = serde_json::to_string(&s).expect("serialize");
     // Must contain emailId but NOT id
     assert!(
@@ -57,7 +56,7 @@ fn snippet_has_no_id_field() {
 #[test]
 fn snippet_email_id_wire_name() {
     // Oracle: RFC 8621 §5 — wire name is emailId
-    let json = r#"{"emailId":"Mabc123"}"#;
+    let json = &common::fixture("snippet_email_id_wire_name.json");
     let s: SearchSnippet = serde_json::from_str(json).expect("deserialize");
     let serialized = serde_json::to_string(&s).expect("serialize");
     assert!(

@@ -68,7 +68,7 @@ fn email_submission_minimal_roundtrip() {
 
 #[test]
 fn delivery_status_roundtrip() {
-    let json = r#"{"smtpReply":"250 OK","delivered":"yes","displayed":"unknown"}"#;
+    let json = &common::fixture("delivery_status_roundtrip.json");
     let ds: DeliveryStatus = serde_json::from_str(json).expect("deserialize");
     assert_eq!(ds.smtp_reply, "250 OK");
     assert_eq!(ds.delivered, Delivered::Yes);
@@ -165,11 +165,11 @@ fn email_submission_new_constructor() {
 /// correct camelCase wire names.
 #[test]
 fn submission_filter_condition_roundtrip() {
-    let json = r#"{"undoStatus":"pending","before":"2024-06-01T00:00:00Z"}"#;
+    let json = &common::fixture("submission_filter_condition_roundtrip.json");
     let f: EmailSubmissionFilterCondition = serde_json::from_str(json).expect("must parse");
     assert_eq!(f.undo_status, Some(UndoStatus::Pending));
     let back = serde_json::to_string(&f).expect("serialize");
-    assert_eq!(back, json);
+    assert_eq!(back, *json);
 }
 
 /// Oracle: empty EmailSubmissionFilterCondition serializes to `{}`.

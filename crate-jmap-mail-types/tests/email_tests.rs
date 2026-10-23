@@ -66,7 +66,7 @@ fn email_minimal_roundtrip() {
 
 #[test]
 fn email_mailbox_ids_serializes_as_object() {
-    let json = r#"{"id":"M1","blobId":"G1","threadId":"T1","mailboxIds":{"MB1":true,"MB2":true},"size":100,"receivedAt":"2024-01-01T00:00:00Z"}"#;
+    let json = &common::fixture("email_mailbox_ids_serializes_as_object.json");
     let email: Email = serde_json::from_str(json).expect("deserialize");
     assert_eq!(email.mailbox_ids.len(), 2);
     let serialized = serde_json::to_string(&email).expect("serialize");
@@ -81,7 +81,7 @@ fn email_mailbox_ids_serializes_as_object() {
 // Oracle: RFC 8621 §A.1 example — sentAt carries a +10:00 offset (non-UTC Date, not UTCDate).
 #[test]
 fn email_sent_at_accepts_non_utc_timezone() {
-    let json = r#"{"id":"M1","blobId":"G1","threadId":"T1","mailboxIds":{"MB1":true},"size":100,"receivedAt":"2024-01-01T00:00:00Z","sentAt":"2018-07-10T11:03:11+10:00"}"#;
+    let json = &common::fixture("email_sent_at_accepts_non_utc_timezone.json");
     let email: Email = serde_json::from_str(json).expect("deserialize");
     assert_eq!(
         email.sent_at.as_ref().map(Date::as_ref),
@@ -96,7 +96,7 @@ fn email_sent_at_accepts_non_utc_timezone() {
 
 #[test]
 fn email_keywords_map_serializes_as_object() {
-    let json = r#"{"id":"M1","blobId":"G1","threadId":"T1","mailboxIds":{"MB1":true},"keywords":{"$seen":true},"size":100,"receivedAt":"2024-01-01T00:00:00Z"}"#;
+    let json = &common::fixture("email_keywords_map_serializes_as_object.json");
     let email: Email = serde_json::from_str(json).expect("deserialize");
     assert!(email.keywords.contains_key("$seen"));
     let serialized = serde_json::to_string(&email).expect("serialize");
