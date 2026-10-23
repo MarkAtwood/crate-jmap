@@ -560,8 +560,7 @@ async fn update_one<B: PushSubscriptionBackend>(
 /// from now.
 ///
 /// Returns `invalidProperties` naming `expires` if `requested` is not a
-/// seconds-precision UTCDate, and `serverFail` if the system clock cannot
-/// be read.
+/// valid UTCDate, and `serverFail` if the system clock cannot be read.
 fn limit_expires(requested: Option<&UTCDate>) -> Result<UTCDate, Value> {
     let clock_fail = || server_fail_value_from_backend("system clock out of range");
     let (now, _) = signed_seconds_since_epoch(SystemTime::now()).ok_or_else(clock_fail)?;
@@ -588,8 +587,8 @@ fn limit_expires(requested: Option<&UTCDate>) -> Result<UTCDate, Value> {
 ///
 /// RFC 8620 §7.2 (rfc8620.txt:3656-3658): "If specified, the JMAP server
 /// MUST NOT make further requests to this resource after this time." A push
-/// at exactly `expires` is allowed. An `expires` that is not a
-/// seconds-precision UTCDate counts as expired.
+/// at exactly `expires` is allowed. An `expires` that is not a valid
+/// UTCDate counts as expired.
 ///
 /// This does not cover the `PushVerification` itself, which is sent before
 /// the subscription is verified.

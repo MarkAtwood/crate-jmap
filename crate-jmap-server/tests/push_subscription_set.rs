@@ -688,6 +688,57 @@ fn is_deliverable_requires_verified_and_unexpired() {
     ));
 }
 
+/// RFC 8620 §1.4 (rfc8620.txt:346-347): "the "time-secfrac" MUST always be
+/// omitted if zero", so a non-zero fraction is a valid UTCDate.
+/// 2018-07-13T02:14:29.5Z is half a second after 1531448069 seconds past
+/// the epoch: still unexpired at 1531448069, expired at 1531448070
+/// (bd:JMAP-yt1w.41).
+#[test]
+fn is_deliverable_honours_fractional_expires() {
+    let expires = Some("2018-07-13T02:14:29.5Z");
+    assert!(is_deliverable(
+        &stored_sub(Some(RFC_CODE), expires),
+        1_531_448_069
+    ));
+    assert!(!is_deliverable(
+        &stored_sub(Some(RFC_CODE), expires),
+        1_531_448_070
+    ));
+}
+
+/// RFC 8620 §1.4 (rfc8620.txt:346-347): a non-zero "time-secfrac" is a
+/// valid UTCDate, so PushSubscription/set MUST NOT reject it. The value is
+/// in the past, so it is below the 7-day limit and stored as sent
+/// (bd:JMAP-yt1w.41).
+#[tokio::test]
+async fn create_accepts_fractional_second_expires() {
+    let backend = Arc::new(MockBackend::default());
+    let (name, args, _) = set(
+        &backend,
+        "credA",
+        json!({
+            "create": {
+                "4f29": {
+                    "deviceClientId": "a889-ffea-910",
+                    "url": RFC_URL,
+                    "expires": "2018-07-13T02:14:29.5Z",
+                    "types": null
+                }
+            }
+        }),
+    )
+    .await;
+
+    assert_eq!(name, "PushSubscription/set", "got error response: {args}");
+    assert!(args.get("notCreated").is_none_or(Value::is_null), "{args}");
+    assert_eq!(args["created"]["4f29"]["id"], RFC_ID, "created: {args}");
+    let stored = backend.stored(RFC_ID).expect("subscription must be stored");
+    assert_eq!(
+        json!(stored.subscription.expires),
+        json!("2018-07-13T02:14:29.5Z")
+    );
+}
+
 fn type_state(pairs: &[(&str, &str)]) -> BTreeMap<String, State> {
     pairs
         .iter()
