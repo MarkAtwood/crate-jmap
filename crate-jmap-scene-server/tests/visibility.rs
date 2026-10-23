@@ -257,8 +257,7 @@ async fn objects_outside_the_visibility_set_are_hidden() {
 async fn set_on_a_hidden_object_is_not_found_never_forbidden() {
     let backend = scene();
     backend.hide_object(BOB, O1);
-    let update = call!(
-        handle_scene_object_set,
+    let update = call!(ids handle_scene_object_set,
         &backend,
         BOB,
         json!({ "update": {
@@ -270,8 +269,7 @@ async fn set_on_a_hidden_object_is_not_found_never_forbidden() {
     assert_eq!(update["notUpdated"][O1]["type"], "notFound", "{update}");
     assert_eq!(update["notUpdated"][SECRET]["type"], "notFound", "{update}");
     assert_eq!(update["notUpdated"][O2]["type"], "forbidden", "{update}");
-    let destroy = call!(
-        handle_scene_object_set,
+    let destroy = call!(ids handle_scene_object_set,
         &backend,
         BOB,
         json!({ "destroy": [O1, SECRET] })
@@ -293,8 +291,7 @@ async fn set_on_a_hidden_object_is_not_found_never_forbidden() {
 #[tokio::test]
 async fn region_set_without_access_is_not_found_never_forbidden() {
     let backend = scene();
-    let update = call!(
-        handle_scene_region_set,
+    let update = call!(ids handle_scene_region_set,
         &backend,
         BOB,
         json!({ "update": {
@@ -312,8 +309,7 @@ async fn region_set_without_access_is_not_found_never_forbidden() {
         update["notUpdated"][PUBLIC]["type"], "forbidden",
         "{update}"
     );
-    let destroy = call!(
-        handle_scene_region_set,
+    let destroy = call!(ids handle_scene_region_set,
         &backend,
         BOB,
         json!({ "destroy": [INVITE, PUBLIC, MISSING] })
@@ -343,8 +339,7 @@ async fn region_set_without_access_is_not_found_never_forbidden() {
 #[tokio::test]
 async fn object_create_without_region_access_is_invalid_properties() {
     let backend = scene();
-    let resp = call!(
-        handle_scene_object_set,
+    let resp = call!(ids handle_scene_object_set,
         &backend,
         BOB,
         json!({ "create": {
@@ -369,8 +364,7 @@ async fn object_create_without_region_access_is_invalid_properties() {
 #[tokio::test]
 async fn avatar_update_without_region_access_is_not_found() {
     let backend = scene();
-    let update = call!(
-        handle_scene_avatar_set,
+    let update = call!(ids handle_scene_avatar_set,
         &backend,
         BOB,
         json!({ "update": {

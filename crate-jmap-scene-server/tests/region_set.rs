@@ -57,7 +57,7 @@ fn design_review_room() -> Value {
 }
 
 async fn set(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
-    call!(handle_scene_region_set, backend, caller, args)
+    call!(ids handle_scene_region_set, backend, caller, args)
 }
 
 async fn get(backend: &MemoryBackend, id: &str) -> Value {

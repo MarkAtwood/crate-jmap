@@ -81,7 +81,7 @@ fn bare(region: &str) -> Value {
 }
 
 async fn set(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
-    call!(handle_scene_object_set, backend, caller, args)
+    call!(ids handle_scene_object_set, backend, caller, args)
 }
 
 async fn get(backend: &MemoryBackend, id: &str) -> Value {

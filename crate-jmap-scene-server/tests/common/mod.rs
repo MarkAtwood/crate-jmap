@@ -49,9 +49,23 @@ pub fn backend() -> MemoryBackend {
 }
 
 /// Run handler `$method` on [`ACCOUNT`] as `$caller` with `$args` (without
-/// `accountId`) and return the response.
+/// `accountId`) and return the response. The `ids` form calls a `/set`
+/// handler that takes `created_ids`, with an empty map.
 #[allow(unused_macros)]
 macro_rules! call {
+    (ids $method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
+        let mut args: serde_json::Value = $args;
+        args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
+        $method(
+            $backend,
+            &$caller.to_owned(),
+            &std::collections::BTreeMap::new(),
+            args,
+        )
+        .await
+        .expect("method")
+        .primary
+    }};
     ($method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
         let mut args: serde_json::Value = $args;
         args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
