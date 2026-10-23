@@ -40,7 +40,7 @@ use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, invalid, not_found, peek_filter, reject_unsupported_sort,
-    set_error_value, utc_key,
+    utc_key,
 };
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
@@ -219,7 +219,8 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in create_map {
             if let Err(err) = resolve_refs(&mut obj, PARTICIPANT_ID_PROPERTIES, created_ids) {
-                acc.not_created.insert(create_id, set_error_value(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             match create_participant(backend, caller, &account_id, &create_id, obj).await {
@@ -239,12 +240,14 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch, PARTICIPANT_ID_PROPERTIES, created_ids) {
-                acc.not_updated.insert(id_str, set_error_value(&err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
             match update_participant(backend, caller, &account_id, &id, patch).await {
@@ -276,7 +279,7 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
                 Ok(id) => id,
                 Err(err) => {
                     acc.not_destroyed
-                        .insert(id_str.to_owned(), set_error_value(&err));
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -301,8 +304,10 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
     .await
 }
 
-fn to_value<T: Serialize>(v: &T) -> Value {
-    serde_json::to_value(v).expect("derive(Serialize) on plain data is infallible")
+/// `v` as JSON, or a `serverFail` entry for a `notCreated` / `notUpdated`
+/// map if it fails to serialize.
+fn to_value<T: Serialize>(v: &T) -> Result<Value, Value> {
+    jmap_server::serialize_value(v).map_err(|e| jmap_server::server_fail_value_from_backend(&e))
 }
 
 /// Decode `v` as one of the `#[non_exhaustive]` VTC types whose every
@@ -328,7 +333,7 @@ async fn create_participant<B: VtcBackend>(
         ));
     };
     if let Some(e) = reject_server_set::<VtcParticipant>(&m) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties are set by the server"),
         ));
     }
@@ -421,7 +426,7 @@ async fn create_participant<B: VtcBackend>(
         )
         .await;
     }
-    Ok(to_value(&stored))
+    to_value(&stored)
 }
 
 /// The call states in which a participant may join `call`: §Joining
@@ -501,7 +506,7 @@ async fn join_fields<B: VtcBackend>(
                 Value::Null
             },
         ),
-        ("mediaState", to_value(&media_state)),
+        ("mediaState", to_value(&media_state)?),
         ("speakerTimeMs", json!(0)),
         ("kickedBy", Value::Null),
         ("e2eeFingerprint", Value::Null),
@@ -570,7 +575,7 @@ async fn check_concurrent_calls<B: VtcBackend>(
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
     if active >= max {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &SetError::new(SetErrorType::OverQuota)
                 .with_description("the account has reached maxConcurrentCalls"),
         ));
@@ -603,12 +608,11 @@ async fn dial_out_fields<B: VtcBackend>(
         .vtc_capability(caller, account_id)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
-    let method = to_value(join_method);
     let dialable = cap
         .gateways
         .iter()
         .flatten()
-        .any(|g| g.supports_dial_out && to_value(&g.protocol) == method);
+        .any(|g| g.supports_dial_out && g.protocol.as_str() == join_method.as_str());
     if !dialable {
         return Err(invalid(
             &["joinMethod"],
@@ -619,7 +623,7 @@ async fn dial_out_fields<B: VtcBackend>(
         return Err(invalid(&["gatewayData"], "gatewayData must be an object"));
     }
     let display_name = match m.get("displayName") {
-        None => method,
+        None => json!(join_method.as_str()),
         Some(Value::String(s)) => json!(s),
         Some(_) => return Err(invalid(&["displayName"], "displayName must be a string")),
     };
@@ -678,7 +682,9 @@ async fn update_participant<B: VtcBackend>(
     patch: Value,
 ) -> Result<Value, Value> {
     let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
     let signal = patch.as_map_mut().remove(PENDING_SIGNAL);
 
@@ -693,7 +699,7 @@ async fn update_participant<B: VtcBackend>(
     // §VTCParticipant: the immutable and server-set properties. A client
     // reaches `gatewayData` only through [`PENDING_SIGNAL`], removed above.
     if let Some(e) = reject_read_only_patch::<VtcParticipant>(patch.as_map(), None) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties cannot be updated"),
         ));
     }
@@ -737,7 +743,7 @@ async fn update_participant<B: VtcBackend>(
             return Ok(false);
         }
         let deadline = ring_deadline(&call.created_at, backend.ring_timeout())
-            .map_err(|e| set_error_value(&e))?;
+            .map_err(|e| serde_json::Value::from(&*e))?;
         Ok(SystemTime::now() >= deadline)
     };
     let now = json!(now_utc_string());
@@ -917,7 +923,7 @@ async fn update_participant<B: VtcBackend>(
         moderator_only("send a gateway signal")?;
         effects.signal = Some(gateway_signal(account_id, &old, pending)?);
         // The server "removes the key": report the stored value.
-        echo.insert("gatewayData".to_owned(), to_value(&old.gateway_data));
+        echo.insert("gatewayData".to_owned(), to_value(&old.gateway_data)?);
     }
 
     patch.as_map_mut().extend(
@@ -932,7 +938,7 @@ async fn update_participant<B: VtcBackend>(
             .await
             .map_err(backend_set_error_value)?
     {
-        echo = to_value(&obj);
+        echo = to_value(&obj)?;
     }
 
     run_effects(backend, caller, account_id, &old, &me, effects).await;
@@ -944,12 +950,14 @@ async fn update_participant<B: VtcBackend>(
 
 /// `old` with `patch` applied, as the update would store it.
 fn preview(old: &VtcParticipant, patch: &PatchObject) -> Result<VtcParticipant, Value> {
-    let mut base = match to_value(old) {
+    let mut base = match to_value(old)? {
         Value::Object(m) => m,
         _ => Map::new(),
     };
     apply_patch_object(&mut base, patch.as_map()).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
     VtcParticipant::deserialize(&Value::Object(base))
         .map_err(|e| invalid(&[], &format!("invalid VTCParticipant: {e}")))
