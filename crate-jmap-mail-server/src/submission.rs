@@ -977,10 +977,7 @@ async fn process_create<B: MailBackend>(
         .await
         .map_err(|e| match e {
             BackendSetError::SetError(set_err) => CreateError::SetError(set_err),
-            BackendSetError::Other(inner) => CreateError::Server(server_fail_from_backend(&inner)),
-            _ => CreateError::Server(JmapError::server_fail(
-                "unhandled backend error variant".to_owned(),
-            )),
+            other => CreateError::Server(server_fail_from_backend(&other)),
         })?;
 
     // create_object guarantees created_obj.id == server_id; serialize as-is.
