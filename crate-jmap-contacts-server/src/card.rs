@@ -204,8 +204,13 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -279,7 +284,13 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 continue; // unreachable: validated above
             };
             let id_str = s.to_owned();
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             match backend
                 .destroy_object::<ContactCard>(caller, &account_id, &id)
@@ -451,7 +462,13 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 );
                 continue;
             };
-            let source_id = Id::from(source_id_str);
+            let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_copied.insert(create_id, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Fetch the source card.
             let (mut cards, not_found) = backend

@@ -515,8 +515,13 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 continue;
             }
 
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             if let Some(map) = patch_val.as_object_mut() {
                 if let Err(err) = prepare_event_patch(backend, caller, &account_id, &id, map).await
@@ -763,7 +768,8 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 
     // fromAccountId is required (RFC 8620 §5.4).
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
-        Some(s) => Id::from(s),
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
     };
 
@@ -813,7 +819,13 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             // RFC 8620 §5.3 invalidProperties-conformant, but the description
             // field disambiguates them.
             let source_id: Id = match client_val.get("id") {
-                Some(Value::String(s)) => Id::from(s.as_str()),
+                Some(Value::String(s)) => match jmap_server::parse_wire_id(s, "id") {
+                    Ok(id) => id,
+                    Err(err) => {
+                        not_created.insert(create_id, set_error_value(&err));
+                        continue;
+                    }
+                },
                 Some(_) => {
                     not_created.insert(
                         create_id,

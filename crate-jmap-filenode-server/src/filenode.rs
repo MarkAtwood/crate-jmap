@@ -157,6 +157,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
                             .map(|s| s.to_owned())
                     })
                     .collect();
+                // Id::from: ids from this handler's own /get response.
                 let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();
                 (existing_ids, node_ids)
             }
@@ -209,6 +210,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     // null here (directories, and files created before the capability).
     if wants_sha256 {
         if let Some(account_id) = response.get("accountId").and_then(Value::as_str) {
+            // Id::from: the accountId this handler already validated and echoed.
             let account_id = Id::from(account_id);
             if backend
                 .cid_advertised(caller, &account_id)
@@ -947,7 +949,13 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Convert wire-format Value into a typed PatchObject FIRST so
             // the subsequent cycle check sees the same key view the backend
@@ -1145,7 +1153,14 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     continue;
                 }
                 if let Some(new_parent_str) = new_parent_val.as_str() {
-                    let new_parent_id = Id::from(new_parent_str);
+                    let new_parent_id = match jmap_server::parse_wire_id(new_parent_str, "parentId")
+                    {
+                        Ok(id) => id,
+                        Err(err) => {
+                            not_updated.insert(id_str, set_error_value(&err));
+                            continue;
+                        }
+                    };
                     // A node is trivially an ancestor of itself
                     // (draft-ietf-jmap-filenode-16 §3.2.3), and
                     // `get_descendant_ids` documents that the
@@ -1194,10 +1209,14 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // the old blob cannot outlive it.
             let new_sha256 = match patch.as_map().get("blobId").and_then(Value::as_str) {
                 Some(blob_id) => {
-                    match backend
-                        .blob_sha256(caller, &account_id, &Id::from(blob_id))
-                        .await
-                    {
+                    let blob_id = match jmap_server::parse_wire_id(blob_id, "blobId") {
+                        Ok(id) => id,
+                        Err(err) => {
+                            not_updated.insert(id_str, set_error_value(&err));
+                            continue;
+                        }
+                    };
+                    match backend.blob_sha256(caller, &account_id, &blob_id).await {
                         Ok(digest) => {
                             patch
                                 .as_map_mut()
@@ -1283,7 +1302,13 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 Some(s) => s.to_owned(),
                 None => continue, // unreachable: validated above
             };
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // If onDestroyRemoveChildren is false, check whether all
             // descendants are also in this destroy request.
@@ -1451,7 +1476,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     call_id: &str,
 ) -> Result<HandlerOutput, JmapError> {
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
-        Some(s) => Id::from(s),
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
     };
     let (account_id, mut args) = extract_account_id(args)?;
@@ -1582,7 +1608,13 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 );
                 continue;
             };
-            let source_id = Id::from(source_id_str);
+            let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_copied.insert(create_id, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Fetch the source node.
             let (mut nodes, not_found): (Vec<FileNode>, _) = backend

@@ -271,9 +271,12 @@ pub async fn handle_invite_set<B: ChatBackend>(
                 continue;
             }
             // spaceId is required on create.
-            let space_id = match obj_val.get("spaceId").and_then(|v| v.as_str()) {
-                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-                Some(s) if !s.is_empty() => Id::from(s),
+            let space_id = match obj_val
+                .get("spaceId")
+                .and_then(|v| v.as_str())
+                .and_then(|s| Id::new_validated(s).ok())
+            {
+                Some(id) => id,
                 _ => {
                     not_created.insert(
                         create_id.clone(),
@@ -443,7 +446,13 @@ pub async fn handle_invite_set<B: ChatBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             if let Some(err) = stored_invite_denied(backend, caller, &account_id, &id).await {
                 not_destroyed.insert(id_str.to_owned(), err);

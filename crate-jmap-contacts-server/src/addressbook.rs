@@ -300,8 +300,13 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -375,7 +380,13 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 continue; // unreachable: validated above
             };
             let id_str = s.to_owned();
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // RFC 9610 §2.3 onDestroyRemoveContents:
             // - `true`: cascade — for every ContactCard belonging to this
@@ -470,7 +481,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     .and_then(|v| v.as_str())
                     .map(Id::from)
             } else {
-                Some(Id::from(id_str.as_str()))
+                Id::new_validated(id_str.as_str()).ok()
             };
             if let Some(target_id) = resolved {
                 // Build a one-key PatchObject {"isDefault": true} via

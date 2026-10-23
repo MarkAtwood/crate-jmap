@@ -57,11 +57,15 @@ async fn check_endpoints<B: GraphBackend>(
 ) -> Result<(), Value> {
     let mut bad = Vec::new();
     for key in which {
-        let Some(id) = m.get(*key).and_then(Value::as_str) else {
+        let Some(id) = m
+            .get(*key)
+            .and_then(Value::as_str)
+            .and_then(|s| Id::new_validated(s).ok())
+        else {
             bad.push(*key);
             continue;
         };
-        let node: Option<GraphNode> = fetch_one(backend, caller, account_id, &Id::from(id)).await?;
+        let node: Option<GraphNode> = fetch_one(backend, caller, account_id, &id).await?;
         if node.is_none_or(|n| n.graph_id != *graph_id) {
             bad.push(*key);
         }

@@ -333,6 +333,7 @@ async fn fill_unread_counts<B: ChatBackend>(
     if backend.maintains_unread_count() {
         return Ok(());
     }
+    // Id::from: the accountId this handler already validated and echoed.
     let account_id = Id::from(response["accountId"].as_str().unwrap_or_default());
     let Some(list) = response["list"].as_array_mut() else {
         return Ok(());
@@ -1029,7 +1030,13 @@ pub async fn handle_chat_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Only the keys §Chat/set "Updating a Chat" defines may be
             // patched: the client-settable Chat properties that are not
@@ -1452,8 +1459,9 @@ pub async fn handle_chat_typing<B: ChatBackend>(
     let (account_id, args) = extract_account_id(args)?;
 
     let chat_id: Id = match args.get("chatId").and_then(|v| v.as_str()) {
-        Some(s) if !s.is_empty() => Id::from(s),
-        _ => return Err(JmapError::invalid_arguments("chatId is required")),
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("chatId: {e}")))?,
+        None => return Err(JmapError::invalid_arguments("chatId is required")),
     };
 
     let typing: bool = match args.get("typing") {

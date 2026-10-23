@@ -188,7 +188,13 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             match update_region(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
@@ -213,7 +219,15 @@ pub async fn handle_scene_region_set<B: SceneBackend>(
                 ))
             })?;
         for id_str in ids {
-            match destroy_region(backend, caller, &account_id, &Id::from(id_str)).await {
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
+            match destroy_region(backend, caller, &account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
                     acc.destroyed.push(Value::String(id_str.to_owned()));
@@ -358,7 +372,12 @@ async fn check_bindings<B: SceneBackend>(
             continue;
         };
         let target = backend
-            .region_binding(caller, account_id, *property, &Id::from(id))
+            .region_binding(
+                caller,
+                account_id,
+                *property,
+                &Id::new_validated(id).map_err(|e| invalid(&[key], &e.to_string()))?,
+            )
             .await
             .map_err(|e| server_fail_value_from_backend(&e))?;
         match (target, property) {
@@ -382,7 +401,13 @@ async fn check_bindings<B: SceneBackend>(
             m.get("spaceId").and_then(Value::as_str),
         ) {
             let in_space = backend
-                .channel_in_space(caller, account_id, &Id::from(channel), &Id::from(space))
+                .channel_in_space(
+                    caller,
+                    account_id,
+                    &Id::new_validated(channel)
+                        .map_err(|e| invalid(&["channelId"], &e.to_string()))?,
+                    &Id::new_validated(space).map_err(|e| invalid(&["spaceId"], &e.to_string()))?,
+                )
                 .await
                 .map_err(|e| server_fail_value_from_backend(&e))?;
             if !in_space {

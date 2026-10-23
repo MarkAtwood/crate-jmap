@@ -1088,7 +1088,13 @@ pub async fn handle_message_set<B: ChatBackend>(
                 );
                 continue;
             };
-            let chat_id = Id::from(chat_id_str);
+            let chat_id = match jmap_server::parse_wire_id(chat_id_str, "chatId") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             let Some(body) = obj_val
                 .get("body")
@@ -1552,7 +1558,13 @@ pub async fn handle_message_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // RFC 8620 §5.3: "There MUST NOT be two patches in the
             // PatchObject where the pointer of one is the prefix of the
@@ -2149,7 +2161,13 @@ pub async fn handle_message_set<B: ChatBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             match backend
                 .destroy_object::<Message>(caller, &account_id, &id)

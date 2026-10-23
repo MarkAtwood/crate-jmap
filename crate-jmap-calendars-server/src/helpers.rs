@@ -112,7 +112,8 @@ pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
 /// Per draft-ietf-jmap-calendars-33 §3.3 / §4.3, a `#`-prefixed string
 /// references a creation id from the same `/set` call; the resolved id is
 /// the backend-assigned id for that creation. A bare string is treated as a
-/// literal id. Any other JSON shape (number, object, array) yields `None`
+/// literal id. A bare string that is not an RFC 8620 §1.2 Id, or any
+/// other JSON shape (number, object, array), yields `None`
 /// and the caller silently skips the default-change per the spec's
 /// "no error is returned" rule for malformed/unknown ids.
 ///
@@ -129,9 +130,10 @@ pub(crate) fn resolve_on_success_set_is_default(
         // The value's "id" field is what the backend assigned.
         let entry = created.get(create_ref)?;
         let assigned = entry.get("id")?.as_str()?;
+        // Id::from: the backend assigned this id; it is not client input.
         Some(Id::from(assigned))
     } else {
-        Some(Id::from(s))
+        Id::new_validated(s).ok()
     }
 }
 

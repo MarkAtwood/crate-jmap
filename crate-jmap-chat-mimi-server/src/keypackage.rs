@@ -7,7 +7,7 @@ use jmap_server::{
     enforce_max_objects_in_set, extract_account_id, server_fail_from_backend,
     server_fail_value_from_backend, HandlerOutput,
 };
-use jmap_types::{Id, JmapError, SetObject};
+use jmap_types::{JmapError, SetObject};
 use openmls::ciphersuite::hash_ref::make_key_package_ref;
 use openmls::component::{ComponentId, ComponentType};
 use openmls::prelude::{
@@ -311,8 +311,15 @@ pub async fn handle_key_package_set<B: MimiBackend>(
                 ))
             })?;
         for id in ids {
+            let key_package_id = match jmap_server::parse_wire_id(id, "id") {
+                Ok(key_package_id) => key_package_id,
+                Err(err) => {
+                    not_destroyed.insert(id.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
             match backend
-                .destroy_key_package(caller, &account_id, &Id::from(id))
+                .destroy_key_package(caller, &account_id, &key_package_id)
                 .await
             {
                 Ok(()) => {

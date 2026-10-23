@@ -38,7 +38,7 @@
 //! within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_calendars_types::CalendarEventNotification;
-use jmap_types::{Id, JmapError};
+use jmap_types::JmapError;
 use serde_json::{json, Value};
 
 use crate::helpers::{
@@ -182,8 +182,13 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
                 Some(s) => s.to_owned(),
                 None => continue, // unreachable: validated above
             };
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             match backend
                 .destroy_object::<CalendarEventNotification>(caller, &account_id, &id)
                 .await

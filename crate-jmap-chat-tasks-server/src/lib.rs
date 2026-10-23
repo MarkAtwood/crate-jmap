@@ -183,6 +183,7 @@ pub async fn create_space_task_list<K: TasksBackend>(
     space: &mut Space,
 ) -> Result<Id, BackendSetError<K::Error>> {
     if let Some(Value::String(existing)) = space.extra.get(SPACE_TASK_LIST_ID_PROPERTY) {
+        // Id::from: this crate stored the id when it created the record.
         return Ok(Id::from(existing.as_str()));
     }
     let name = space.name.clone();
