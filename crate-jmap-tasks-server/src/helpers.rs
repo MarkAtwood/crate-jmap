@@ -95,18 +95,22 @@ where
 /// Resolve an Id-typed property value that may be a `#creationId`
 /// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
 ///
-/// A literal id is returned unchanged; its validation stays with the
-/// caller.
+/// A literal id is checked with [`jmap_server::parse_wire_id`] (RFC 8620
+/// §1.2) and returned unchanged.
 ///
 /// # Errors
 ///
 /// A boxed `invalidProperties` [`crate::SetError`] naming `property` when
-/// the reference matches no record created earlier in the request.
+/// a literal is not a valid Id, or when the reference matches no record
+/// created earlier in the request.
 pub(crate) fn resolve_ref(
     raw: &str,
     property: &str,
     created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
 ) -> Result<jmap_types::Id, Box<crate::SetError>> {
+    if !raw.starts_with('#') {
+        return jmap_server::parse_wire_id(raw, property);
+    }
     jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
         Box::new(
             crate::SetError::new(crate::SetErrorType::InvalidProperties)
@@ -120,11 +124,11 @@ pub(crate) fn resolve_ref(
 
 /// Rewrite each top-level `props` value of `obj`, a create or an update
 /// patch, that is a `#creationId` reference to the id it names, through
-/// [`resolve_ref`]. Other values are left for the caller to validate.
+/// [`resolve_ref`], which also rejects a literal value that is not an Id.
 ///
 /// # Errors
 ///
-/// As [`resolve_ref`], for the first unresolvable property.
+/// As [`resolve_ref`], for the first property it rejects.
 pub(crate) fn resolve_refs(
     obj: &mut serde_json::Value,
     props: &[&str],

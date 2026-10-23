@@ -1879,7 +1879,8 @@ wire behaviour that a conforming peer can observe.
   `parentId`, `blobId`, `regionId`, `visualRef`, `callId`,
   `parentCallId`, `nodeId`, `graphId`, Chat `memberIds`, `contactId`,
   `avatarBlobId` and `pinnedMessageIds`, Message `replyTo` and
-  `threadRootId`, SpaceInvite `defaultChannelId`, `/copy` `id`) fail with
+  `threadRootId`, SpaceInvite `defaultChannelId`, Task `taskListId`,
+  `/copy` `id`) fail with
   `invalidProperties` naming them; the CalendarEvent/copy and
   ContactCard/copy `fromAccountId`, `chatId`, Space/join `spaceId` and
   `Principal/getAvailability` `id` arguments are `invalidArguments`. A
