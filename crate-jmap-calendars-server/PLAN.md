@@ -1,6 +1,6 @@
 # jmap-calendars-server — Implementation Plan
 
-draft-ietf-jmap-calendars-26 (JMAP Calendars) method handlers. Plugs into
+draft-ietf-jmap-calendars-33 (JMAP Calendars) method handlers. Plugs into
 `jmap-server`'s `Dispatcher`. Backend-agnostic: defines a `CalendarsBackend`
 trait; consumers provide the implementation.
 
@@ -16,7 +16,7 @@ jmap-types
 ## What This Crate Is
 
 Method handler implementations for every JMAP Calendars method defined in
-draft-ietf-jmap-calendars-26: Calendar, CalendarEvent, CalendarEventNotification,
+draft-ietf-jmap-calendars-33: Calendar, CalendarEvent, CalendarEventNotification,
 ParticipantIdentity.
 
 Defines a `CalendarsBackend` trait (supertrait of `JmapBackend`) that the
@@ -39,7 +39,7 @@ storage.
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-26.txt` —
+`~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-33.txt` —
 read the relevant section before implementing each handler. Wire field names
 and method semantics come from the spec, not from memory.
 
@@ -539,7 +539,7 @@ up.)
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-26.txt` —
+- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-33.txt` —
   normative for all method handlers
 - `~/PROJECT/jmap-chat-spec/references/rfc8984.txt` — normative for
   CalendarEvent content, PatchObject semantics, recurrenceOverrides

@@ -6,7 +6,7 @@ This crate is a **sibling under the canonical `jmap-mail-server`
 extension-server template**. Module layout, `Backend` trait shape,
 handler-registration pattern, `/set` boilerplate, error-mapping
 helpers, and test-harness layout must mirror `jmap-mail-server`.
-Differences are *only* the spec content (draft-atwood-jmap-chat-00
+Differences are *only* the spec content (draft-atwood-jmap-chat
 here; RFC 8621 in mail-server).
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
@@ -25,13 +25,13 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — `ChatBackend` trait, module layout, handler pattern
-2. Read the relevant draft-atwood-jmap-chat-00 section for the method you are implementing
+2. Read the relevant draft-atwood-jmap-chat section for the method you are implementing
 3. Cross-check the canonical sibling `~/PROJECT/crate-jmap/crate-jmap-mail-server/` for the handler/backend pattern to follow
 4. Run `bd ready` — check for open issues before creating new ones
 
 ## What This Is
 
-JMAP Chat extension method handlers (draft-atwood-jmap-chat-00). Plugs
+JMAP Chat extension method handlers (draft-atwood-jmap-chat). Plugs
 into `jmap-server`'s `Dispatcher` via `register_chat_handlers`. Defines
 `ChatBackend` trait; consumers provide the storage impl. A reference
 in-memory implementation (`memory::MemoryBackend`) is gated behind
@@ -114,7 +114,7 @@ Caller identity is read via the foundation seam
 `JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
 Chat permission and role-hierarchy gates do not depend on it: the
 caller of a chat account is its owner, whose Space member entry is the
-accountId (draft-atwood-jmap-chat-00 §Terminology), so every gate
+accountId (draft-atwood-jmap-chat §Terminology), so every gate
 resolves against that entry whether `principal_id` returns `Some` or
 `None`. A `None` return no longer skips any gate. Space/get visibility
 (notFound / restricted view for non-members) keys on the same entry
@@ -158,7 +158,7 @@ Run all four before considering any work done.
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
 | Dependencies | jmap-types, jmap-chat-types, jmap-server, serde, serde_json, subtle, getrandom (optional, gated behind `memory` feature) |
-| Method names | Must match draft-atwood-jmap-chat-00 exactly (`Chat/get`, `Message/set`, `Space/set`, etc.) |
+| Method names | Must match draft-atwood-jmap-chat exactly (`Chat/get`, `Message/set`, `Space/set`, etc.) |
 | Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
 | Constant-time secret compares | Invite-code and similar credential comparisons MUST use `subtle::ConstantTimeEq::ct_eq`, never `==` |
 
@@ -175,4 +175,4 @@ Run all four before considering any work done.
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond: jmap-types, jmap-chat-types, jmap-server, serde, serde_json, subtle, getrandom (optional)
 - Do not add auth logic or role checks inside handlers (backend canonical — see section above)
-- Do not implement methods not in draft-atwood-jmap-chat-00 unless explicitly directed
+- Do not implement methods not in draft-atwood-jmap-chat unless explicitly directed
