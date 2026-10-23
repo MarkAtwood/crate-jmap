@@ -176,7 +176,6 @@ pub async fn check_task_list_id<K: TasksBackend>(
 ///
 /// Returns the backend's error from `create_object`.
 // Same error type as `TasksBackend::create_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn create_space_task_list<K: TasksBackend>(
     tasks: &K,
     caller: &K::CallerCtx,
@@ -235,7 +234,6 @@ pub async fn create_space_task_list<K: TasksBackend>(
 /// Returns the Chat backend's error from reading or updating a Space.
 /// Spaces cleared before the error stay cleared.
 // Same error type as `ChatBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn clear_space_task_list_id<C: ChatBackend>(
     chat: &C,
     caller: &C::CallerCtx,
@@ -284,7 +282,6 @@ pub async fn clear_space_task_list_id<C: ChatBackend>(
 /// Returns the Tasks backend's error from reading or updating a Task.
 /// Tasks cleared before the error stay cleared.
 // Same error type as `TasksBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn clear_task_chat_ids<K: TasksBackend>(
     tasks: &K,
     caller: &K::CallerCtx,
@@ -338,22 +335,27 @@ pub async fn clear_task_chat_ids<K: TasksBackend>(
 /// must be refused; return it without storing the Task.
 // The SetError is the refusal itself, returned verbatim in `notCreated`
 // or `notUpdated`.
-#[allow(clippy::result_large_err)]
-pub fn check_task_chat_id(capability: &ChatTasksCapability, value: &Value) -> Result<(), SetError> {
+pub fn check_task_chat_id(
+    capability: &ChatTasksCapability,
+    value: &Value,
+) -> Result<(), Box<SetError>> {
     if !capability.may_back_reference_chat {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             TASK_CHAT_ID_PROPERTY,
             "this server does not support Task chatId (mayBackReferenceChat is false)",
-        ));
+        )));
     }
     match value {
         Value::Null => Ok(()),
         Value::String(s) if Id::new_validated(s.as_str()).is_ok() => Ok(()),
-        Value::String(_) => Err(invalid(TASK_CHAT_ID_PROPERTY, "chatId must be a valid Id")),
-        _ => Err(invalid(
+        Value::String(_) => Err(Box::new(invalid(
+            TASK_CHAT_ID_PROPERTY,
+            "chatId must be a valid Id",
+        ))),
+        _ => Err(Box::new(invalid(
             TASK_CHAT_ID_PROPERTY,
             "chatId must be a String or null",
-        )),
+        ))),
     }
 }
 

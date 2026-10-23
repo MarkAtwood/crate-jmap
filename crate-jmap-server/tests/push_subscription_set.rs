@@ -174,9 +174,9 @@ impl PushSubscriptionBackend for MockBackend {
         mut new: PushSubscription,
     ) -> Result<StoredPushSubscription, BackendSetError<MockError>> {
         if self.reject_keyless && new.keys.is_none() {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties).with_properties(["keys"]),
-            ));
+            )));
         }
         new.id = Some(Id::from(RFC_ID));
         let stored = StoredPushSubscription {
@@ -199,9 +199,9 @@ impl PushSubscriptionBackend for MockBackend {
         let slot = subs
             .iter_mut()
             .find(|(owner, s)| owner == caller && s.subscription.id == sub.id)
-            .ok_or(BackendSetError::SetError(SetError::new(
+            .ok_or(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )))?;
+            ))))?;
         slot.1.subscription = sub.clone();
         Ok(sub)
     }
@@ -215,9 +215,9 @@ impl PushSubscriptionBackend for MockBackend {
         let before = subs.len();
         subs.retain(|(owner, s)| !(owner == caller && s.subscription.id.as_ref() == Some(id)));
         if subs.len() == before {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         }
         Ok(())
     }

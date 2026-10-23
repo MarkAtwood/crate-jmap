@@ -62,7 +62,7 @@ fn task(id: &str, extra: Value) -> Task {
 }
 
 /// Asserts `result` is `invalidProperties` naming exactly `chatId`.
-fn assert_invalid_chat_id(result: Result<(), jmap_tasks_server::SetError>) {
+fn assert_invalid_chat_id(result: Result<(), Box<jmap_tasks_server::SetError>>) {
     let err = result.expect_err("must be refused");
     let v = serde_json::to_value(&err).expect("SetError serializes");
     assert_eq!(err.error_type, SetErrorType::InvalidProperties, "{v}");

@@ -189,7 +189,7 @@ impl VtcBackend for Bound {
         check_call_create(&self.chat, &(), account_id, &call)
             .await
             .map_err(|e| BackendSetError::Other(chat_error(e)))?
-            .map_err(BackendSetError::SetError)?;
+            .map_err(BackendSetError::from)?;
         let build = move |id: &Id| {
             call.id = id.clone();
             call

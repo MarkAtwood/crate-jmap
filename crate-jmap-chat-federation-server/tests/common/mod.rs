@@ -400,9 +400,9 @@ impl ChatBackend for Fed {
     {
         if let (Some(cap), true) = (self.contact_cap, O::TYPE_NAME == ChatContact::TYPE_NAME) {
             if self.contacts().await.len() >= cap {
-                return Err(BackendSetError::SetError(SetError::new(
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::RateLimit,
-                )));
+                ))));
             }
         }
         self.chat

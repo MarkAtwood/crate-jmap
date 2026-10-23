@@ -649,14 +649,14 @@ impl FileNodeBackend for MemoryBackend {
     {
         // Only FileNode is supported.
         if O::TYPE_NAME != "FileNode" {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::InvalidProperties,
-            )));
+            ))));
         }
 
         let mut guard = self.inner.lock().unwrap();
         let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
-            BackendSetError::SetError(SetError::new(SetErrorType::InvalidProperties))
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::InvalidProperties)))
         })?;
         let new_id = store.next_node_id();
         let obj = build(&new_id);
@@ -687,9 +687,9 @@ impl FileNodeBackend for MemoryBackend {
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         // Only FileNode is supported.
         if O::TYPE_NAME != "FileNode" {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         }
 
         // Serialize patch as a JSON Value for JMAP-style path patching.
@@ -705,14 +705,16 @@ impl FileNodeBackend for MemoryBackend {
         })?;
 
         let mut guard = self.inner.lock().unwrap();
-        let store = guard
-            .get_mut_or_err(account_id)
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+        })?;
 
         let node = store
             .nodes
             .get(id)
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?
+            .ok_or_else(|| {
+                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+            })?
             .clone();
 
         // Serialize the stored node to JSON, apply the patch as a JMAP patch,
@@ -725,17 +727,17 @@ impl FileNodeBackend for MemoryBackend {
 
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
             apply_patch_object(obj, patch_obj).map_err(|e| {
-                BackendSetError::SetError(
+                BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                )
+                ))
             })?;
         }
 
         // A patched value of the wrong type is the client's error, not ours.
         let updated_node: FileNode = serde_json::from_value(node_val).map_err(|e| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string()),
-            )
+            ))
         })?;
 
         store.nodes.insert(id.clone(), updated_node.clone());
@@ -763,14 +765,14 @@ impl FileNodeBackend for MemoryBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut guard = self.inner.lock().unwrap();
-        let store = guard
-            .get_mut_or_err(account_id)
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+        })?;
 
         if store.nodes.remove(id).is_none() {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )));
+            ))));
         }
         store.bump_state(ChangeType::Destroyed, id.clone());
         Ok(())

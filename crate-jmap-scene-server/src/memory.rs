@@ -233,7 +233,6 @@ impl Inner {
     /// the lock: the steps of [`SceneBackend::create_object`] for a
     /// `SceneAvatar`. Returns the
     /// trait's error type unboxed, as `create_object` does.
-    #[allow(clippy::result_large_err)]
     fn enter(
         &mut self,
         account_id: &Id,
@@ -246,11 +245,11 @@ impl Inner {
             .all::<SceneAvatar>(account_id)
             .find(|a| a.user_id == avatar.user_id && a.region_id == avatar.region_id)
         {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::AlreadyExists)
                     .with_description("the user already has an avatar record in this region")
                     .with_existing_id(existing.id),
-            ));
+            )));
         }
         let (mut changes, mut regions) = self.admit(account_id, &avatar)?;
         let id = avatar.id.clone();
@@ -271,7 +270,6 @@ impl Inner {
     /// `avatar.joined_at` on the user's present avatars ("a user is
     /// present in at most one region at a time"). Returns those avatars'
     /// changes and their regions, for the caller to commit and recount.
-    #[allow(clippy::result_large_err)]
     fn admit(
         &mut self,
         account_id: &Id,
@@ -286,10 +284,10 @@ impl Inner {
             .filter(|a| a.region_id == avatar.region_id && a.left_at.is_none())
             .count() as u64;
         if max.is_some_and(|max| present >= max) {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::OverQuota)
                     .with_description("maxAvatarsPerRegion reached"),
-            ));
+            )));
         }
 
         let previous: Vec<SceneAvatar> = self
@@ -547,7 +545,7 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 fn not_found<E>() -> BackendSetError<E> {
-    BackendSetError::SetError(SetError::new(SetErrorType::NotFound))
+    BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
 }
 
 fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
@@ -841,10 +839,10 @@ impl SceneBackend for MemoryBackend {
                 let used: u64 = inner.all::<SceneAsset>(account_id).map(|a| a.size).sum();
                 let size = value.get("size").and_then(Value::as_u64).unwrap_or(0);
                 if used.saturating_add(size) > quota {
-                    return Err(BackendSetError::SetError(
+                    return Err(BackendSetError::SetError(Box::new(
                         SetError::new(SetErrorType::OverQuota)
                             .with_description("account asset storage quota exceeded"),
-                    ));
+                    )));
                 }
             }
         }
@@ -857,10 +855,10 @@ impl SceneBackend for MemoryBackend {
                 .and_then(|c| c.max_regions_per_account);
             let held = inner.all::<SceneRegion>(account_id).count() as u64;
             if max.is_some_and(|max| held >= max) {
-                return Err(BackendSetError::SetError(
+                return Err(BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::OverQuota)
                         .with_description("maxRegionsPerAccount reached"),
-                ));
+                )));
             }
         }
         // "`overQuota` when `maxObjectsPerRegion` would be exceeded",
@@ -877,10 +875,10 @@ impl SceneBackend for MemoryBackend {
                 .filter(|o| Some(o.region_id.as_ref()) == region)
                 .count() as u64;
             if max.is_some_and(|max| held >= max) {
-                return Err(BackendSetError::SetError(
+                return Err(BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::OverQuota)
                         .with_description("maxObjectsPerRegion reached"),
-                ));
+                )));
             }
             value["ownerId"] = json!(caller);
         }
@@ -914,20 +912,20 @@ impl SceneBackend for MemoryBackend {
         let patch = serde_json::to_value(&patch)
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
         let (Value::Object(patch), Value::Object(base)) = (patch, &mut current) else {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::InvalidPatch,
-            )));
+            ))));
         };
         apply_patch_object(base, &patch).map_err(|e| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-            )
+            ))
         })?;
         if O::deserialize(&current).is_err() {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_description(format!("patched {} is invalid", O::TYPE_NAME)),
-            ));
+            )));
         }
         let mut changes = Vec::new();
         let mut regions = Vec::new();
@@ -937,11 +935,11 @@ impl SceneBackend for MemoryBackend {
         if let Some(to) = left_to {
             // Leave and re-entry preconditions, re-checked under the lock.
             let refuse = |description: &str| {
-                BackendSetError::SetError(
+                BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidProperties)
                         .with_description(description)
                         .with_properties(["leftAt"]),
-                )
+                ))
             };
             match (to.is_null(), was_left) {
                 (false, true) => return Err(refuse("the avatar has already left")),

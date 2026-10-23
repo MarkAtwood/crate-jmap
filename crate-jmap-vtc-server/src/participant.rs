@@ -1117,7 +1117,6 @@ async fn call_transitions<B: VtcBackend>(
 /// The backend's error from reading the participants, from
 /// [`end_call`], or from updating the heir's `role`.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn after_leave<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,

@@ -109,26 +109,29 @@ struct MemberRoleEntry {
 /// groups by refusing to let the last admin demote themselves via
 /// `updateMemberRoles`", an `updateMemberRoles` patch that leaves members
 /// but no admin is `forbidden`.
-#[allow(clippy::result_large_err)]
 fn apply_member_patch_keys(
     chat: &Chat,
     owner_id: &Id,
     patch: &serde_json::Map<String, Value>,
     max_members: u32,
-) -> Result<(Vec<ChatMember>, bool), SetError> {
+) -> Result<(Vec<ChatMember>, bool), Box<SetError>> {
     fn parse<T: serde::de::DeserializeOwned>(
         patch: &serde_json::Map<String, Value>,
         key: &str,
-    ) -> Result<Option<T>, SetError> {
+    ) -> Result<Option<T>, Box<SetError>> {
         patch
             .get(key)
             .map(|v| serde_json::from_value(v.clone()))
             .transpose()
-            .map_err(|_| SetError::new(SetErrorType::InvalidProperties).with_properties([key]))
+            .map_err(|_| {
+                Box::new(SetError::new(SetErrorType::InvalidProperties).with_properties([key]))
+            })
     }
     let valid_role = |role: &ChatMemberRole| SPEC_CHAT_MEMBER_ROLES.contains(&role.as_str());
-    let invalid = |key: &str| SetError::new(SetErrorType::InvalidProperties).with_properties([key]);
-    let forbidden = |desc: &str| SetError::new(SetErrorType::Forbidden).with_description(desc);
+    let invalid =
+        |key: &str| Box::new(SetError::new(SetErrorType::InvalidProperties).with_properties([key]));
+    let forbidden =
+        |desc: &str| Box::new(SetError::new(SetErrorType::Forbidden).with_description(desc));
 
     let add: Option<Vec<MemberRoleEntry>> = parse(patch, "addMembers")?;
     let remove: Option<Vec<Id>> = parse(patch, "removeMembers")?;
@@ -171,8 +174,10 @@ fn apply_member_patch_keys(
             }
         }
         if members.len() > max_members as usize {
-            return Err(SetError::new(SetErrorType::OverQuota)
-                .with_description("group chat member limit exceeded"));
+            return Err(Box::new(
+                SetError::new(SetErrorType::OverQuota)
+                    .with_description("group chat member limit exceeded"),
+            ));
         }
     }
     if let Some(remove) = &remove {

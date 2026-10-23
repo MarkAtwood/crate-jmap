@@ -16,7 +16,7 @@ fn bound() -> Map<String, Value> {
     extra(json!({ "roomId": "mimi://a.example/r/k5qwmzlqmfsgk3tbnvsxi2lf4a" }))
 }
 
-fn error(result: Result<(), SetError>) -> Value {
+fn error(result: Result<(), Box<SetError>>) -> Value {
     serde_json::to_value(result.expect_err("refused")).expect("SetError JSON")
 }
 

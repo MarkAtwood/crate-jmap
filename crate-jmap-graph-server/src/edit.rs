@@ -61,51 +61,58 @@ fn prop<'a>(m: Option<&'a Map<String, Value>>, key: &str) -> &'a Value {
 ///   `snapshotSeq` is not `null`" (naming `snapshotSeq`).
 /// - "`blobId` is `null` exactly when `snapshotSeq` is `null`" (naming
 ///   `blobId`).
-#[allow(clippy::result_large_err)]
 pub(crate) fn check_node_edit(
     current: Option<&Map<String, Value>>,
     next: &Map<String, Value>,
     sets_snapshot_seq: bool,
     head: u64,
     projected: bool,
-) -> Result<(), SetError> {
+) -> Result<(), Box<SetError>> {
     let next = Some(next);
     let format = prop(next, EDIT_FORMAT);
     let seq = prop(next, SNAPSHOT_SEQ);
     if !(format.is_string() || format.is_null()) {
-        return Err(invalid(EDIT_FORMAT, "editFormat is a String or null"));
+        return Err(Box::new(invalid(
+            EDIT_FORMAT,
+            "editFormat is a String or null",
+        )));
     }
     if !(seq.is_u64() || seq.is_null()) {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             SNAPSHOT_SEQ,
             "snapshotSeq is an UnsignedInt or null",
-        ));
+        )));
     }
     let current_format = prop(current, EDIT_FORMAT);
     if !current_format.is_null() && format != current_format {
-        return Err(invalid(EDIT_FORMAT, "editFormat never changes once set"));
+        return Err(Box::new(invalid(
+            EDIT_FORMAT,
+            "editFormat never changes once set",
+        )));
     }
     if format.is_null() {
         return if seq.is_null() {
             Ok(())
         } else {
-            Err(invalid(
+            Err(Box::new(invalid(
                 SNAPSHOT_SEQ,
                 "snapshotSeq is null while editFormat is null",
-            ))
+            )))
         };
     }
     let blob = prop(next, "blobId");
     if current_format.is_null() {
         if projected {
-            return Err(SetError::new(SetErrorType::Forbidden)
-                .with_description("a node of a projected Graph has no edit log"));
+            return Err(Box::new(
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("a node of a projected Graph has no edit log"),
+            ));
         }
         if !blob.is_null() && seq.is_null() {
-            return Err(invalid(
+            return Err(Box::new(invalid(
                 EDIT_FORMAT,
                 "a node with content and no snapshot cannot be given an editFormat",
-            ));
+            )));
         }
     } else if (blob != prop(current, "blobId")) != sets_snapshot_seq {
         let missing = if sets_snapshot_seq {
@@ -113,10 +120,10 @@ pub(crate) fn check_node_edit(
         } else {
             SNAPSHOT_SEQ
         };
-        return Err(invalid(
+        return Err(Box::new(invalid(
             missing,
             "an update changes blobId if and only if it sets snapshotSeq",
-        ));
+        )));
     }
     if sets_snapshot_seq {
         let current_seq = prop(current, SNAPSHOT_SEQ).as_u64();
@@ -125,17 +132,17 @@ pub(crate) fn check_node_edit(
             Some(n) => n == 0 || n > head || current_seq.is_some_and(|c| n < c),
         };
         if bad {
-            return Err(invalid(
+            return Err(Box::new(invalid(
                 SNAPSHOT_SEQ,
                 "snapshotSeq must be between the current snapshotSeq and the head of the edit log",
-            ));
+            )));
         }
     }
     if blob.is_null() != seq.is_null() {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             "blobId",
             "blobId is null exactly when snapshotSeq is null",
-        ));
+        )));
     }
     Ok(())
 }

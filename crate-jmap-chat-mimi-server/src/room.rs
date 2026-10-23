@@ -175,7 +175,6 @@ fn decode(value: &Base64Url, name: &str) -> Result<Vec<u8>, JmapError> {
 /// server sets `name` to the `room_name` of the room metadata ... when it
 /// knows it and to the empty string otherwise").
 // JmapError is the type every method-level refusal takes.
-#[allow(clippy::result_large_err)]
 pub fn check_room_create<C: OpenMlsCrypto>(
     crypto: &C,
     capability: &MimiCapability,

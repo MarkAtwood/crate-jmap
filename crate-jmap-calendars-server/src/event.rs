@@ -2310,9 +2310,9 @@ mod tests {
                 _patch: O::Patch,
             ) -> Result<Option<O>, BackendSetError<Self::Error>> {
                 *self.update_called.lock().unwrap() = true;
-                Err(BackendSetError::SetError(SetError::new(
+                Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )))
+                ))))
             }
 
             async fn update_per_user_properties(
@@ -2324,9 +2324,9 @@ mod tests {
             ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
             {
                 *self.per_user_called.lock().unwrap() = true;
-                Err(BackendSetError::SetError(SetError::new(
+                Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )))
+                ))))
             }
 
             async fn destroy_object<O: SetObject + Send + Sync>(
@@ -2335,9 +2335,9 @@ mod tests {
                 _account_id: &Id,
                 _id: &Id,
             ) -> Result<(), BackendSetError<Self::Error>> {
-                Err(BackendSetError::SetError(SetError::new(
+                Err(BackendSetError::SetError(Box::new(SetError::new(
                     SetErrorType::NotFound,
-                )))
+                ))))
             }
 
             fn supports_type<O: JmapObject>(

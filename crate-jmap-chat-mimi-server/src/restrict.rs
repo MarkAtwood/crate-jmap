@@ -23,11 +23,10 @@ fn property(patch_key: &str) -> &str {
 /// `avatarBlobId` or that uses the `addMembers`, `removeMembers`, or
 /// `updateMemberRoles` patch key".
 // SetError is the type every `/set` refusal takes.
-#[allow(clippy::result_large_err)]
 pub fn may_update_room_chat(
     chat_extra: &Map<String, Value>,
     patch_keys: &[&str],
-) -> Result<(), SetError> {
+) -> Result<(), Box<SetError>> {
     let restricted = patch_keys.iter().any(|k| {
         matches!(
             property(k),
@@ -40,9 +39,9 @@ pub fn may_update_room_chat(
         )
     });
     if chat_room_id(chat_extra).is_some() && restricted {
-        return Err(SetError::new(SetErrorType::Forbidden).with_description(
+        return Err(Box::new(SetError::new(SetErrorType::Forbidden).with_description(
             "the participants and metadata of a room-bound Chat change only through Room/update",
-        ));
+        )));
     }
     Ok(())
 }
@@ -51,11 +50,12 @@ pub fn may_update_room_chat(
 ///
 /// §message/mls: "The server MUST reject a `Message/set` create in a Chat
 /// with a `roomId` with a `forbidden` SetError."
-#[allow(clippy::result_large_err)]
-pub fn may_create_room_message(chat_extra: &Map<String, Value>) -> Result<(), SetError> {
+pub fn may_create_room_message(chat_extra: &Map<String, Value>) -> Result<(), Box<SetError>> {
     if chat_room_id(chat_extra).is_some() {
-        return Err(SetError::new(SetErrorType::Forbidden)
-            .with_description("messages in a room-bound Chat are sent with Room/send"));
+        return Err(Box::new(
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("messages in a room-bound Chat are sent with Room/send"),
+        ));
     }
     Ok(())
 }
@@ -67,11 +67,10 @@ pub fn may_create_room_message(chat_extra: &Map<String, Value>) -> Result<(), Se
 /// a `roomId` with an `invalidProperties` SetError naming the changed
 /// properties." A patch key below one of them, such as
 /// `reactions/<senderReactionId>`, changes that property.
-#[allow(clippy::result_large_err)]
 pub fn may_update_room_message(
     chat_extra: &Map<String, Value>,
     patch_keys: &[&str],
-) -> Result<(), SetError> {
+) -> Result<(), Box<SetError>> {
     if chat_room_id(chat_extra).is_none() {
         return Ok(());
     }
@@ -82,7 +81,9 @@ pub fn may_update_room_message(
     if changed.is_empty() {
         return Ok(());
     }
-    Err(SetError::new(SetErrorType::InvalidProperties)
-        .with_properties(changed)
-        .with_description("MIMI edits, reactions and retractions are new messages"))
+    Err(Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties(changed)
+            .with_description("MIMI edits, reactions and retractions are new messages"),
+    ))
 }

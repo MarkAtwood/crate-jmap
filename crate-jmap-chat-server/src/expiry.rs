@@ -57,7 +57,6 @@ use crate::{BackendSetError, ChatBackend};
 /// patch that [`ChatBackend::update_object`] rejected. Work done before
 /// the error stays applied, so the next run continues from there.
 // Same error type as `ChatBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn sweep_expired<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

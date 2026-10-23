@@ -55,12 +55,11 @@ fn invalid(property: &str, description: &str) -> SetError {
 /// `maxKeyPackages`, last-resort replacement) are
 /// [`MimiBackend::create_key_package`]'s.
 // SetError is the type every `/set` refusal takes; boxing it buys nothing.
-#[allow(clippy::result_large_err)]
 pub fn check_key_package_create<C: OpenMlsCrypto>(
     crypto: &C,
     capability: &MimiCapability,
     create: &KeyPackageCreate,
-) -> Result<NewKeyPackage, SetError> {
+) -> Result<NewKeyPackage, Box<SetError>> {
     let not_a_key_package = || invalid("keyPackage", "keyPackage does not parse as a KeyPackage");
     let bytes = URL_SAFE_NO_PAD
         .decode(create.key_package.as_str())
@@ -79,25 +78,25 @@ pub fn check_key_package_create<C: OpenMlsCrypto>(
 
     let ciphersuite = key_package.ciphersuite();
     if !capability.cipher_suites.contains(&u16::from(ciphersuite)) {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             "keyPackage",
             "keyPackage cipher suite is not in cipherSuites",
-        ));
+        )));
     }
 
     let credential = key_package.leaf_node().credential();
     if credential.credential_type() != CredentialType::Basic {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             "keyPackage",
             "keyPackage credential is not a Basic credential",
-        ));
+        )));
     }
     let basic = BasicCredential::try_from(credential.clone()).map_err(|_| not_a_key_package())?;
     if basic.identity() != capability.user_uri.as_bytes() {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             "keyPackage",
             "keyPackage credential identity is not userUri",
-        ));
+        )));
     }
 
     let last_resort_component = ComponentId::from(ComponentType::LastResortKeyPackage);
@@ -106,10 +105,10 @@ pub fn check_key_package_create<C: OpenMlsCrypto>(
             if dict.dictionary().contains(&last_resort_component))
     });
     if create.last_resort.is_some_and(|claim| claim != last_resort) {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             "lastResort",
             "lastResort differs from the value derived from keyPackage",
-        ));
+        )));
     }
 
     let key_package_ref = make_key_package_ref(&bytes, ciphersuite, crypto)
@@ -133,23 +132,27 @@ pub fn check_key_package_create<C: OpenMlsCrypto>(
 /// Decode one `create` value: `keyPackage` is required, `lastResort` is
 /// optional, and any other property is refused (RFC 8620 §5.3: a create
 /// naming a server-set or unknown property is `invalidProperties`).
-#[allow(clippy::result_large_err)]
-fn decode_create(value: Value) -> Result<KeyPackageCreate, SetError> {
+fn decode_create(value: Value) -> Result<KeyPackageCreate, Box<SetError>> {
     let Value::Object(map) = value else {
-        return Err(SetError::new(SetErrorType::InvalidProperties)
-            .with_description("a create must be a KeyPackage object"));
+        return Err(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_description("a create must be a KeyPackage object"),
+        ));
     };
     if !matches!(map.get("keyPackage"), Some(Value::String(s)) if s.parse::<Base64Url>().is_ok()) {
-        return Err(invalid(
+        return Err(Box::new(invalid(
             "keyPackage",
             "keyPackage must be an unpadded base64url string",
-        ));
+        )));
     }
     if !matches!(
         map.get("lastResort"),
         None | Some(Value::Null | Value::Bool(_))
     ) {
-        return Err(invalid("lastResort", "lastResort must be a Boolean"));
+        return Err(Box::new(invalid(
+            "lastResort",
+            "lastResort must be a Boolean",
+        )));
     }
     // draft-atwood-jmap-chat-mimi-00 §KeyPackage Object Fields: `id` and
     // `keyPackageRef` are server-set, so only the client-settable properties
@@ -160,12 +163,16 @@ fn decode_create(value: Value) -> Result<KeyPackageCreate, SetError> {
         .filter(|k| !KeyPackage::CLIENT_SETTABLE.contains(k))
         .collect();
     if !unknown.is_empty() {
-        return Err(SetError::new(SetErrorType::InvalidProperties)
-            .with_properties(unknown)
-            .with_description("only keyPackage and lastResort may be set on create"));
+        return Err(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(unknown)
+                .with_description("only keyPackage and lastResort may be set on create"),
+        ));
     }
     serde_json::from_value(Value::Object(map)).map_err(|_| {
-        SetError::new(SetErrorType::InvalidProperties).with_description("invalid KeyPackage")
+        Box::new(
+            SetError::new(SetErrorType::InvalidProperties).with_description("invalid KeyPackage"),
+        )
     })
 }
 

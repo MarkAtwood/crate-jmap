@@ -505,9 +505,9 @@ pub(crate) mod test_support {
             let patch_val = match serde_json::to_value(&patch) {
                 Ok(v) => v,
                 Err(_) => {
-                    return Err(BackendSetError::SetError(SetError::new(
+                    return Err(BackendSetError::SetError(Box::new(SetError::new(
                         SetErrorType::NotFound,
-                    )))
+                    ))))
                 }
             };
 
@@ -547,9 +547,9 @@ pub(crate) mod test_support {
                 }
             }
 
-            Err(BackendSetError::SetError(SetError::new(
+            Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )))
+            ))))
         }
 
         async fn destroy_object<O: SetObject + Send + Sync>(
@@ -558,9 +558,9 @@ pub(crate) mod test_support {
             _account_id: &Id,
             _id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
-            Err(BackendSetError::SetError(SetError::new(
+            Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::NotFound,
-            )))
+            ))))
         }
 
         fn supports_type<O: JmapObject>(

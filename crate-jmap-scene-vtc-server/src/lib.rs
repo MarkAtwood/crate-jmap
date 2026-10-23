@@ -45,7 +45,6 @@ use serde_json::Value;
 /// Returns the Scene backend's error from reading or updating a region.
 /// Regions cleared before the error stay cleared.
 // Same error type as `SceneBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn clear_active_call_id<S: SceneBackend>(
     scene: &S,
     caller: &S::CallerCtx,

@@ -606,7 +606,6 @@ async fn create_recording<B: VtcBackend>(
 /// Returns the first backend error; recordings stopped before it stay
 /// stopped and their events are delivered.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub(crate) async fn stop_recordings<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -647,7 +646,6 @@ pub(crate) async fn stop_recordings<B: VtcBackend>(
 /// Returns the [`VtcBackend::update_object_if`] error; no event is
 /// delivered.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 async fn stop_recording<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -694,7 +692,6 @@ async fn stop_recording<B: VtcBackend>(
 /// Returns the first backend error; livestreams stopped before it stay
 /// stopped.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub(crate) async fn stop_livestreams<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -722,7 +719,6 @@ pub(crate) async fn stop_livestreams<B: VtcBackend>(
 ///
 /// Returns the [`VtcBackend::update_object_if`] error.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 async fn stop_livestream<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,

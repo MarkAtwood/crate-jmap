@@ -103,7 +103,6 @@ struct Inner {
 impl Inner {
     /// [`VtcBackend::update_object`] under the held lock.
     // Same error type as `VtcBackend::update_object`, which it implements.
-    #[allow(clippy::result_large_err)]
     fn update<O: SetObject>(
         &mut self,
         account_id: &Id,
@@ -119,20 +118,20 @@ impl Inner {
         let patch = serde_json::to_value(&patch)
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
         let (Value::Object(patch), Value::Object(base)) = (patch, &mut current) else {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::InvalidPatch,
-            )));
+            ))));
         };
         apply_patch_object(base, &patch).map_err(|e| {
-            BackendSetError::SetError(
+            BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-            )
+            ))
         })?;
         if O::deserialize(&current).is_err() {
-            return Err(BackendSetError::SetError(
+            return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_description(format!("patched {} is invalid", O::TYPE_NAME)),
-            ));
+            )));
         }
         let active = match (O::TYPE_NAME == VtcParticipant::TYPE_NAME)
             .then(|| VtcParticipant::deserialize(&current).ok())
@@ -473,7 +472,7 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 fn not_found<E>() -> BackendSetError<E> {
-    BackendSetError::SetError(SetError::new(SetErrorType::NotFound))
+    BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
 }
 
 /// "joined and not yet left" (§VTCCall `activeParticipantCount`).
@@ -482,10 +481,10 @@ fn is_active(p: &VtcParticipant) -> bool {
 }
 
 fn over_quota<E>() -> BackendSetError<E> {
-    BackendSetError::SetError(
+    BackendSetError::SetError(Box::new(
         SetError::new(SetErrorType::OverQuota)
             .with_description("the call has reached maxParticipantsPerCall"),
-    )
+    ))
 }
 
 fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
@@ -773,9 +772,9 @@ impl VtcBackend for MemoryBackend {
         let mut call = build(&id);
         let mut inner = self.lock();
         if !inner.accounts.contains_key(account_id.as_ref()) {
-            return Err(BackendSetError::SetError(SetError::new(
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::Forbidden,
-            )));
+            ))));
         }
         if let Some(Some(chat_id)) = &call.chat_id {
             let busy = inner.calls(account_id).any(|c| {
@@ -783,7 +782,9 @@ impl VtcBackend for MemoryBackend {
                     && matches!(c.state, CallState::Active | CallState::Ringing)
             });
             if busy {
-                return Err(BackendSetError::SetError(call_already_active_on_chat()));
+                return Err(BackendSetError::SetError(Box::new(
+                    call_already_active_on_chat(),
+                )));
             }
         }
 
@@ -811,10 +812,10 @@ impl VtcBackend for MemoryBackend {
                     .objects(VtcCall::TYPE_NAME, account_id)
                     .and_then(|m| m.get(pid))
                     .ok_or_else(|| {
-                        BackendSetError::SetError(
+                        BackendSetError::SetError(Box::new(
                             SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(["parentCallId"]),
-                        )
+                        ))
                     })?;
                 let mut parent: VtcCall = decode(stored).map_err(BackendSetError::Other)?;
                 parent.breakout_room_ids.push(id.clone());
@@ -891,9 +892,9 @@ impl VtcBackend for MemoryBackend {
                     .any(|c| c.id == cid && c.state == CallState::Active)
             });
             if !active {
-                return Err(BackendSetError::SetError(
+                return Err(BackendSetError::SetError(Box::new(
                     SetError::new(SetErrorType::InvalidProperties).with_properties(["callId"]),
-                ));
+                )));
             }
         }
         let stored: O = decode(&value).map_err(BackendSetError::Other)?;
@@ -909,9 +910,9 @@ impl VtcBackend for MemoryBackend {
                         .participants(account_id)
                         .find(|q| q.call_id == p.call_id && q.user_id.as_ref() == Some(u))
                 }) {
-                    return Err(BackendSetError::SetError(
+                    return Err(BackendSetError::SetError(Box::new(
                         SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing.id),
-                    ));
+                    )));
                 }
                 let count = inner
                     .active_count_within_quota(account_id, p)

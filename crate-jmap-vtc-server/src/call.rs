@@ -684,7 +684,6 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 /// end reaches the store. Otherwise the first backend error; calls ended
 /// and recordings stopped before it stay so.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn end_call<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -697,19 +696,18 @@ pub async fn end_call<B: VtcBackend>(
         .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
         .await
         .map_err(BackendSetError::Other)?;
-    let call = found
-        .into_iter()
-        .next()
-        .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+    let call = found.into_iter().next().ok_or_else(|| {
+        BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+    })?;
     if call.state == CallState::Ended {
-        return Err(BackendSetError::SetError(
+        return Err(BackendSetError::SetError(Box::new(
             SetError::new(SetErrorType::InvalidProperties)
                 .with_properties(["state"])
                 .with_description("the call is already in state \"ended\""),
-        ));
+        )));
     }
     if !from.contains(&call.state) {
-        return Err(BackendSetError::SetError(state_refused()));
+        return Err(BackendSetError::SetError(Box::new(state_refused())));
     }
     let cancelled = call.state == CallState::Ringing && end_reason == CallEndReason::Cancelled;
     let patch = ended_patch(end_reason);
@@ -758,7 +756,6 @@ pub const RING_TIMEOUT: Duration = Duration::from_secs(30);
 /// `createdAt` when the stored `createdAt` is not an RFC 8620 `UTCDate` at
 /// or after 1970. Otherwise the first backend error.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 pub async fn expire_ring<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -774,10 +771,9 @@ pub async fn expire_ring<B: VtcBackend>(
             .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
             .await
             .map_err(BackendSetError::Other)?;
-        let call = found
-            .into_iter()
-            .next()
-            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        let call = found.into_iter().next().ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+        })?;
         if call.call_type != CallType::Ring
             || !matches!(call.state, CallState::Ringing | CallState::Active)
         {
@@ -856,11 +852,10 @@ pub(crate) async fn deliver_call_end<B: VtcBackend>(
 /// `invalidProperties` naming `createdAt` when `created_at` is not an
 /// RFC 8620 `UTCDate` at or after 1970.
 // The `SetError` both callers return as is.
-#[allow(clippy::result_large_err)]
 pub(crate) fn ring_deadline(
     created_at: &UTCDate,
     timeout: Duration,
-) -> Result<SystemTime, SetError> {
+) -> Result<SystemTime, Box<SetError>> {
     // Whole seconds suffice for a period of seconds; `utc_key` drops the
     // fractional part `to_epoch_seconds` does not accept.
     UTCDate::from(format!("{}Z", utc_key(created_at)))
@@ -870,9 +865,11 @@ pub(crate) fn ring_deadline(
         .and_then(|secs| UNIX_EPOCH.checked_add(Duration::from_secs(secs)))
         .and_then(|created| created.checked_add(timeout))
         .ok_or_else(|| {
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(["createdAt"])
-                .with_description("the call's createdAt is not a UTCDate")
+            Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["createdAt"])
+                    .with_description("the call's createdAt is not a UTCDate"),
+            )
         })
 }
 
@@ -890,7 +887,6 @@ pub(crate) fn ring_deadline(
 /// read with [`VtcBackend::get_objects_unscoped`], so a room `caller`
 /// cannot access still ends.
 // Same error type as `VtcBackend::update_object`, which it propagates.
-#[allow(clippy::result_large_err)]
 async fn end_cascade<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -947,7 +943,7 @@ async fn end_cascade<B: VtcBackend>(
     let result = backend
         .update_object_if::<VtcCall>(caller, account_id, &call.id, from, patch)
         .await?
-        .map_err(|_| BackendSetError::SetError(state_refused()))?;
+        .map_err(|_| BackendSetError::SetError(Box::new(state_refused())))?;
     stop_recordings(backend, caller, account_id, &call.id).await?;
     stop_livestreams(backend, caller, account_id, &call.id).await?;
     Ok(result)

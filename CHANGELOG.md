@@ -1389,6 +1389,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-server** and every extension server crate:
+  `BackendSetError::SetError` now holds `Box<SetError>`, so a backend
+  `Result`'s `Err` arm is pointer-sized instead of over 200 bytes.
+  `From<SetError>` boxes; a new `From<Box<SetError>>` passes through, so
+  `?` and `.into()` call sites are unchanged. Code that builds the variant
+  directly needs `Box::new(..)` (or `.into()`); code that matches it gets a
+  `Box<SetError>`. Public pre-validation helpers that feed it now return
+  `Result<_, Box<SetError>>`: `validate_chat_push` (jmap-chat-server),
+  `check_task_chat_id` (jmap-chat-tasks-server), and
+  `check_key_package_create`, `may_update_room_chat`,
+  `may_create_room_message` and `may_update_room_message`
+  (jmap-chat-mimi-server). All 54 `#[allow(clippy::result_large_err)]`
+  are gone (bd JMAP-s9xo).
 - **BREAKING** **jmap-types**: `ValidationError`'s inner `String` is now
   private, matching `Id`, `UTCDate`, `Date` and `State`. Read the message
   through `Display` (`err.to_string()`) instead of `err.0` or tuple

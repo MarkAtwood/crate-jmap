@@ -14,7 +14,10 @@ pub use jmap_types::{
 pub enum BackendSetError<E> {
     /// A well-typed JMAP [`SetError`] to place verbatim in the
     /// `notCreated`/`notUpdated`/`notDestroyed` map.
-    SetError(SetError),
+    ///
+    /// Boxed so the `Err` arm of a backend `Result` stays pointer-sized
+    /// (`SetError` is over 200 bytes; clippy `result_large_err`).
+    SetError(Box<SetError>),
     /// An unexpected storage-layer error.
     Other(E),
 }
@@ -39,6 +42,12 @@ impl<E: std::error::Error + 'static> std::error::Error for BackendSetError<E> {
 
 impl<E> From<SetError> for BackendSetError<E> {
     fn from(e: SetError) -> Self {
+        Self::SetError(Box::new(e))
+    }
+}
+
+impl<E> From<Box<SetError>> for BackendSetError<E> {
+    fn from(e: Box<SetError>) -> Self {
         Self::SetError(e)
     }
 }
@@ -66,7 +75,7 @@ impl<E: std::fmt::Display> BackendSetError<E> {
     /// [`Other`](Self::Other).
     pub fn into_set_error_or_method_error(self) -> Result<SetError, jmap_types::JmapError> {
         match self {
-            Self::SetError(se) => Ok(se),
+            Self::SetError(se) => Ok(*se),
             Self::Other(e) => Err(crate::handlers::server_fail_from_backend(&e)),
         }
     }
@@ -1089,7 +1098,7 @@ mod tests {
     #[test]
     fn backend_set_error_set_error_passes_through() {
         let err: BackendSetError<std::fmt::Error> =
-            BackendSetError::SetError(SetError::new(SetErrorType::Forbidden));
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::Forbidden)));
         let se = err
             .into_set_error_or_method_error()
             .expect("SetError arm must be Ok");
