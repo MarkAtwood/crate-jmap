@@ -21,22 +21,35 @@ wires the dispatcher into HTTP / SSE / WebSocket transport themselves.
 
 ## How to use
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use jmap_sharing_server::{SharingBackend, register_sharing_handlers};
 use jmap_server::Dispatcher;
 
-// 1. Implement SharingBackend for your storage layer (see trait section below).
-struct MyBackend { /* db pool, directory client, etc. */ }
-impl SharingBackend for MyBackend { /* ... */ }
+// 1. Implement SharingBackend for your storage layer. The impl must also
+//    satisfy the JmapBackend supertrait (account_exists, get_objects,
+//    get_state, get_changes, query_objects, query_changes) and declare
+//    `type Error` and `type CallerCtx`. See the SharingBackend trait
+//    section below for the full surface.
 
-// 2. Wire all 10 RFC 9670 methods into a Dispatcher in one call.
-let mut dispatcher: Dispatcher<()> = Dispatcher::new();
-register_sharing_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));
+// 2. Construct a dispatcher parameterised on your CallerCtx type, then
+//    register all 10 RFC 9670 methods in one call.
+let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
+register_sharing_handlers(&mut dispatcher, Arc::new(my_backend));
 
 // 3. Dispatch JMAP requests (in your HTTP handler).
-// let response = dispatcher.dispatch(request, (), session_state).await;
+// let response = dispatcher.dispatch(request, caller_ctx, session_state).await;
 ```
+
+`Dispatcher<C>` requires `B::CallerCtx = C`; `register_sharing_handlers`
+enforces the match at the type level. For a single-user dev server use
+`Dispatcher<()>` with a backend whose `CallerCtx = ()`. For
+multi-tenant production, define a typed caller context (e.g. a
+principal-id newtype) and parameterise both sides on that type.
+
+For a runnable, type-checked variant of this example, see the
+[crate-level documentation](https://docs.rs/jmap-sharing-server) — the
+doctest in `lib.rs` is verified by `cargo test --doc`.
 
 After `register_sharing_handlers` returns, the dispatcher handles every method
 name listed in the [Registered methods](#registered-methods) section below. The
@@ -58,21 +71,22 @@ read-side methods (`get_objects`, `get_state`, `get_changes`, `query_objects`,
 `query_changes`) are defined on the `JmapBackend` supertrait (from
 `jmap-server`). `SharingBackend` adds write operations.
 
-```rust
+```rust,ignore
 pub trait SharingBackend: JmapBackend {
     /// Create a new Principal.
     ///
-    /// Returns (assigned_id, created_object) on success.
-    ///
-    /// The returned O MUST have its `id` field set to the server-assigned Id.
-    /// The handler relies on this to populate the `created` response map per
-    /// RFC 8620 §5.3.
-    fn create_object<O: SetObject + Send + Sync>(
+    /// `build` receives the backend-assigned id and returns the object to
+    /// store. Returns (assigned_id, created_object) on success.
+    fn create_object<O, F>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+        build: F,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing Principal.
     ///
@@ -81,6 +95,7 @@ pub trait SharingBackend: JmapBackend {
     /// verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -89,6 +104,7 @@ pub trait SharingBackend: JmapBackend {
     /// Destroy a Principal or ShareNotification by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;

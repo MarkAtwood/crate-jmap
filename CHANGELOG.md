@@ -3165,6 +3165,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server, jmap-chat-server, jmap-calendars-server,
+  jmap-tasks-server, jmap-filenode-server, jmap-sharing-server,
+  jmap-contacts-server**: README trait blocks match the source again:
+  every method shows `caller: &Self::CallerCtx`, and `create_object`
+  takes the `build` closure. The "How to use" blocks are marked
+  `rust,ignore`, use a typed `Dispatcher<MyCallerCtx>`, and point to the
+  verified `lib.rs` doctest (bd JMAP-50yd).
+
 - **jmap-mail-server**: narrowing and sign-changing `as` casts are gone
   and the clippy gate now rejects them (bd JMAP-uqhn.1).
   `maxBodyValueBytes` saturates instead of truncating on 32-bit targets,

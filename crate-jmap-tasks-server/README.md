@@ -20,22 +20,35 @@ and wires the dispatcher into HTTP / SSE / WebSocket transport themselves.
 
 ## How to use
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use jmap_tasks_server::{TasksBackend, register_tasks_handlers};
 use jmap_server::Dispatcher;
 
-// 1. Implement TasksBackend for your storage layer (see trait section below).
-struct MyBackend { /* db pool, etc. */ }
-impl TasksBackend for MyBackend { /* ... */ }
+// 1. Implement TasksBackend for your storage layer. The impl must also
+//    satisfy the JmapBackend supertrait (account_exists, get_objects,
+//    get_state, get_changes, query_objects, query_changes) and declare
+//    `type Error` and `type CallerCtx`. See the TasksBackend trait
+//    section below for the full surface.
 
-// 2. Wire all 14 Tasks methods into a Dispatcher in one call.
-let mut dispatcher: Dispatcher<()> = Dispatcher::new();
-register_tasks_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));
+// 2. Construct a dispatcher parameterised on your CallerCtx type, then
+//    register all 14 Tasks methods in one call.
+let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
+register_tasks_handlers(&mut dispatcher, Arc::new(my_backend));
 
 // 3. Dispatch JMAP requests (in your HTTP handler).
-// let response = dispatcher.dispatch(request, (), session_state).await;
+// let response = dispatcher.dispatch(request, caller_ctx, session_state).await;
 ```
+
+`Dispatcher<C>` requires `B::CallerCtx = C`; `register_tasks_handlers`
+enforces the match at the type level. For a single-user dev server use
+`Dispatcher<()>` with a backend whose `CallerCtx = ()`. For
+multi-tenant production, define a typed caller context (e.g. a
+principal-id newtype) and parameterise both sides on that type.
+
+For a runnable, type-checked variant of this example, see the
+[crate-level documentation](https://docs.rs/jmap-tasks-server) — the
+doctest in `lib.rs` is verified by `cargo test --doc`.
 
 After `register_tasks_handlers` returns, the dispatcher handles every method name listed in
 the [Registered methods](#registered-methods) section below. The same `Arc<MyBackend>` can
@@ -58,17 +71,25 @@ Implement this trait to connect the handlers to your storage system. The read-si
 the `JmapBackend` supertrait (from `jmap-server`). `TasksBackend` adds write operations and
 Tasks-specific operations.
 
-```rust
+```rust,ignore
 pub trait TasksBackend: JmapBackend {
     // --- Write operations ---
 
     /// Create a new object (TaskList or Task).
-    /// Returns (assigned_id, created_object). The implementor MUST
+    /// `build` receives the backend-assigned id and returns the object
+    /// to store. Returns (assigned_id, created_object). The implementor MUST
     /// authorise against `caller` before the mutation; see the rustdoc
     /// on the trait itself for the workspace-canonical contract.
-    fn create_object<O: SetObject + Send + Sync>(
-        &self, caller: &Self::CallerCtx, account_id: &Id, create_id: &str, obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+    fn create_object<O, F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        create_id: &str,
+        build: F,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing object.
     /// Returns Some(updated_object) if the backend modified server-set fields beyond

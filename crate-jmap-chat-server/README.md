@@ -27,35 +27,39 @@ all of them inter-depend through the workspace `JmapHandler` trait in
 
 ## How to use
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use jmap_chat_server::{ChatBackend, register_chat_handlers};
 use jmap_server::Dispatcher;
 
-// MyCallerCtx is the application's per-request context type — typically the
-// authenticated identity (user id, tenant, rate-limit token, etc.).
-// It must be `Clone + Send + 'static`. Use `()` if you have no per-request
-// context.
-#[derive(Clone)]
-struct MyCallerCtx { /* user_id, tenant, ... */ }
+// 1. Implement ChatBackend for your storage layer. The impl must also
+//    satisfy the JmapBackend supertrait (account_exists, get_objects,
+//    get_state, get_changes, query_objects, query_changes) and declare
+//    `type Error` and `type CallerCtx`. See the ChatBackend trait
+//    section below for the full surface.
 
-// 1. Implement ChatBackend for your storage.
-struct MyChatBackend { /* db pool, etc. */ }
-impl ChatBackend for MyChatBackend { /* ... */ }
-
-// 2. Wire into a Dispatcher parameterised over your CallerCtx type.
+// 2. Construct a dispatcher parameterised on your CallerCtx type, then
+//    register every Chat method in one call.
 let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
-register_chat_handlers(&mut dispatcher, Arc::new(MyChatBackend { /* ... */ }));
+register_chat_handlers(&mut dispatcher, Arc::new(my_backend));
 
-// 3. Dispatch requests in your HTTP handler.
-// let ctx = MyCallerCtx { /* ... */ };
-// let response = dispatcher.dispatch(request, ctx, session_state).await;
+// 3. Dispatch JMAP requests (in your HTTP handler).
+// let response = dispatcher.dispatch(request, caller_ctx, session_state).await;
 ```
 
-`register_chat_handlers` is generic over `<B, C>` — `B: ChatBackend` is your
-storage backend, and `C: Clone + Send + 'static` is the dispatcher's
-`CallerCtx` type. The same `Arc<B>` is shared across all registered methods;
-each request's `C` value is forwarded into the closure as `_ctx` (see
+`Dispatcher<C>` requires `B::CallerCtx = C`; `register_chat_handlers`
+enforces the match at the type level. For a single-user dev server use
+`Dispatcher<()>` with a backend whose `CallerCtx = ()`. For
+multi-tenant production, define a typed caller context (e.g. a
+principal-id newtype) and parameterise both sides on that type.
+
+For a runnable, type-checked variant of this example, see the
+[crate-level documentation](https://docs.rs/jmap-chat-server) — the
+doctest in `lib.rs` is verified by `cargo test --doc`.
+
+After `register_chat_handlers` returns, the dispatcher handles every method
+name listed in the [Registered methods](#registered-methods) section below.
+Each request's `CallerCtx` value is forwarded into the handler closure (see
 [CallerCtx](#callerctx) below).
 
 ## Registered methods
@@ -76,16 +80,21 @@ each request's `C` value is forwarded into the closure as `_ctx` (see
 
 ## `ChatBackend` trait
 
-```rust
+```rust,ignore
 pub trait ChatBackend: JmapBackend {
-    /// Create a new object. Returns `(assigned_id, created_object)` on success.
+    /// Create a new object. `build` receives the backend-assigned id and
+    /// returns the object to store. Returns `(assigned_id, created_object)`.
     /// `create_id` is the client-side creation id from the `/set` request.
-    fn create_object<O: SetObject + Send + Sync>(
+    fn create_object<O, F>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         create_id: &str,
-        obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+        build: F,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send;
 
     /// Apply a partial update (patch) to an existing object.
     /// Returns `Some(updated_object)` if the backend modified any properties beyond
@@ -93,6 +102,7 @@ pub trait ChatBackend: JmapBackend {
     /// if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -101,6 +111,7 @@ pub trait ChatBackend: JmapBackend {
     /// Destroy an existing object by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -108,14 +119,53 @@ pub trait ChatBackend: JmapBackend {
     /// Returns `true` if this backend supports JMAP object type `O` for
     /// `account_id`, as seen by `caller`.
     /// Called by the session/capability builder — NOT called internally by handlers.
-    /// Backends that support all types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 
     /// Generate a cryptographically random invite code.
     /// MUST use a CSPRNG. Do NOT use timestamps or sequential counters.
     fn generate_invite_code(
-        &self, caller: &Self::CallerCtx, account_id: &Id,
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
     ) -> impl Future<Output = Result<String, Self::Error>> + Send;
+
+    /// Redeem the SpaceInvite `invite_id` for `Space/join`: add the owner to
+    /// the invite's Space and increment the invite's `uses`.
+    fn join_space_with_invite(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        invite_id: &Id,
+        joined_at: &UTCDate,
+    ) -> impl Future<Output = Result<Result<(), InviteJoinRefusal>, Self::Error>> + Send;
+
+    /// Apply a `readAt`-setting `patch` to the `burnOnRead` Message
+    /// `message_id` and hard-delete it, as one atomic operation.
+    fn read_and_burn_message(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        message_id: &Id,
+        patch: PatchObject,
+    ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
+
+    /// Apply a sequence of structural mutations to a Space (§Space/set).
+    fn apply_space_patch(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        space_id: &Id,
+        ops: Vec<SpacePatchOp>,
+    ) -> impl Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
+
+    /// Apply a JSON Merge Patch to a Space's top-level metadata fields.
+    fn apply_space_metadata_patch(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        space_id: &Id,
+        patch: SpaceMetadataPatch,
+    ) -> impl Future<Output = Result<Option<Space>, BackendSetError<Self::Error>>> + Send;
 
     /// Permissions of the implicit `@everyone` role in `space`, the
     /// permission floor every member holds. No default.
@@ -125,8 +175,31 @@ pub trait ChatBackend: JmapBackend {
         account_id: &Id,
         space: &Space,
     ) -> impl Future<Output = Result<HashSet<ChatPermission>, Self::Error>> + Send;
+
+    /// Blob lookup consulted for each Attachment of a Message create.
+    fn attachment_blob(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> impl Future<Output = Result<Result<Option<AttachmentBlob>, SetError>, Self::Error>> + Send;
+
+    // Methods with defaults (all take `caller: &Self::CallerCtx` first
+    // except `retains_edit_history` and `maintains_unread_count`):
+    // on_chat_destroyed, on_space_destroyed, on_space_ban_created,
+    // on_outbound_event, limits, space_extension_properties,
+    // protect_last_admin, retains_edit_history, maintains_unread_count,
+    // is_contact_blocked, owner_user_id, may_set_custom_emoji,
+    // may_broadcast_mention, may_set_pinned_messages, may_set_space_ban,
+    // may_set_space_invite, may_get_space_invite, may_get_space_ban,
+    // may_send_message, may_create_message, may_update_message,
+    // may_update_chat, filenode_attachment, may_view_chat,
+    // validate_pinned_message_ids, slow_mode_check, expire_message.
 }
 ```
+
+This block lists the required methods; see `src/backend.rs` for the full
+signatures and contracts of the defaulted hooks.
 
 The read-side operations (`get_objects`, `get_state`, `get_changes`, `query_objects`,
 `query_changes`) are defined on the `JmapBackend` supertrait from `jmap-server`.
