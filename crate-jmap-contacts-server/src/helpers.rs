@@ -155,3 +155,43 @@ where
         "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
     })))
 }
+
+/// Reject a `/query` or `/queryChanges` `sort` naming a property this server
+/// does not sort on: RFC 8620 §5.5 `unsupportedSort` ("The sort is
+/// syntactically valid, but includes a property the server does not support
+/// sorting on"). A non-array `sort` or a comparator that fails to decode is
+/// not syntactically valid, so it is left for the typed decode to reject as
+/// `invalidArguments`.
+pub(crate) fn reject_unsupported_sort<C: serde::de::DeserializeOwned + KnownSort>(
+    sort: Option<&Value>,
+) -> Result<(), JmapError> {
+    if let Some(Value::Array(comparators)) = sort {
+        for c in comparators {
+            if matches!(C::deserialize(c), Ok(c) if !c.known()) {
+                return Err(JmapError::unsupported_sort());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A comparator whose `property` decodes an unknown name to `Other`
+/// (bd JMAP-wf92.11), so [`reject_unsupported_sort`] must check it.
+pub(crate) trait KnownSort {
+    /// `false` when `property` is `Other`, a name the draft does not list.
+    fn known(&self) -> bool;
+}
+
+macro_rules! known_sort {
+    ($($cmp:ty => $prop:path),+ $(,)?) => {$(
+        impl KnownSort for $cmp {
+            fn known(&self) -> bool {
+                !matches!(self.property, $prop(_))
+            }
+        }
+    )+};
+}
+
+known_sort!(
+    jmap_contacts_types::ContactCardComparator => jmap_contacts_types::ContactCardComparatorProperty::Other,
+);
