@@ -783,6 +783,17 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// to — implementations that always return all properties are correct.
     ///
     /// Returns `(found, not_found)` — objects that exist and ids that do not.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`Self::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with an empty `found` list and every requested id in `not_found`. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
     fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -792,6 +803,17 @@ pub trait JmapBackend: Send + Sync + 'static {
     ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send;
 
     /// Return the current state token for an object type in the given account.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`Self::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with the state token an empty account would report. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
     fn get_state<O: JmapObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -799,6 +821,17 @@ pub trait JmapBackend: Send + Sync + 'static {
     ) -> impl std::future::Future<Output = Result<jmap_types::State, Self::Error>> + Send;
 
     /// Return changes since `since_state`, up to `max_changes` entries.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`Self::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with a [`ChangesResult`] whose change lists are empty. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
     fn get_changes<O: JmapObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -846,6 +879,17 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// ...); handlers pass it to the client unchanged. Return
     /// [`BackendQueryError::Other`] (or use `?` on `Self::Error`) for an
     /// internal failure; handlers surface it as a redacted `serverFail`.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`Self::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with an empty [`QueryResult`] page. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
     fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -857,6 +901,17 @@ pub trait JmapBackend: Send + Sync + 'static {
     ///
     /// `params.collapse_threads` is only meaningful for `Email/queryChanges`
     /// (RFC 8621 §4.5); it is `false` for all other object types.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`Self::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with a [`QueryChangesResult`] whose `removed` and `added` lists are empty. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
     fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
