@@ -65,6 +65,14 @@
 //! minor releases" discipline as the rest of the `jmap-*` workspace.
 
 #![forbid(unsafe_code)]
+// bd:JMAP-uqhn.6 — narrowing and sign-changing `as` casts are banned;
+// use `try_from`. Widening `usize as u64` stays legal (these lints do
+// not fire on it): it is lossless on every target Rust supports.
+#![warn(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss
+)]
 
 use std::sync::Arc;
 
