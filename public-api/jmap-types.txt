@@ -488,6 +488,7 @@ pub fn jmap_types::PatchObject::len(&self) -> usize
 pub fn jmap_types::PatchObject::new() -> Self
 impl core::clone::Clone for jmap_types::PatchObject
 pub fn jmap_types::PatchObject::clone(&self) -> jmap_types::PatchObject
+impl core::cmp::Eq for jmap_types::PatchObject
 impl core::cmp::PartialEq for jmap_types::PatchObject
 pub fn jmap_types::PatchObject::eq(&self, &jmap_types::PatchObject) -> bool
 impl core::convert::From<jmap_types::PatchObject> for serde_json::map::Map<alloc::string::String, serde_json::value::Value>

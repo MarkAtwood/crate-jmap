@@ -1594,6 +1594,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-jscalendar-types**: `RecurrenceRule`, `Location`,
+  `VirtualLocation`, `Link`, `Relation`, `Participant`, `OffsetTrigger`,
+  `AbsoluteTrigger`, `AlertTrigger`, `Alert`, `TimeZoneRule` and `TimeZone`
+  derive `Eq`, matching jmap-jscontact-types.
+- **jmap-types**: `PatchObject` derives `Eq` (its inner `serde_json::Map`
+  is `Eq`), so `TimeZoneRule` and `TimeZone` can too.
+
 - **jmap-calendars-types**: **BREAKING** `CalendarEvent.keywords` and
   `categories` are `Option<BTreeMap<String, bool>>` and `reply_to` is
   `Option<BTreeMap<String, String>>`, not `Option<serde_json::Value>`,
