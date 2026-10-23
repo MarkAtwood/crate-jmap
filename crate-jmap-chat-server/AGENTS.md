@@ -171,7 +171,7 @@ Run all four before considering any work done.
 
 ## Restrictions
 
-- Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
+- Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond: jmap-types, jmap-chat-types, jmap-server, serde, serde_json, subtle, getrandom (optional)
 - Do not add auth logic or role checks inside handlers (backend canonical — see section above)
