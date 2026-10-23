@@ -60,5 +60,5 @@ pub use patch::PatchObject;
 pub use push::{PushKeys, PushSubscription, PushVerification, StateChange, Urgency};
 pub use query::{Filter, FilterOperator, Operator};
 pub use resultref::{Argument, ResultReference};
-pub use set_error::{ReservedExtrasKey, SetError, SetErrorType, RESERVED_SET_ERROR_WIRE_NAMES};
+pub use set_error::{ReservedExtrasKey, SetError, SetErrorType};
 pub use wire::{Invocation, JmapRequest, JmapResponse};

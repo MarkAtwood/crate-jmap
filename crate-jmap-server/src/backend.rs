@@ -6,7 +6,6 @@
 
 pub use jmap_types::{
     GetObject, JmapObject, QueryObject, ReservedExtrasKey, SetError, SetErrorType, SetObject,
-    RESERVED_SET_ERROR_WIRE_NAMES,
 };
 
 /// Error type returned by create/update/destroy backend methods.

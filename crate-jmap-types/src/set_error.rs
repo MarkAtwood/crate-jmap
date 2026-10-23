@@ -66,8 +66,8 @@ pub struct SetError {
     ///
     /// # Reserved-name invariant (bd:JMAP-jfia.17)
     ///
-    /// Keys in [`RESERVED_SET_ERROR_WIRE_NAMES`] MUST NOT appear in
-    /// this map. The typed fields above serialize to those names, so
+    /// Keys that the typed fields above serialize to (`type`,
+    /// `description`, `properties`, ...) MUST NOT appear in this map:
     /// a colliding extras key produces a JSON object with two keys at
     /// the same level — RFC 8259 §4 permits duplicate keys but the
     /// behaviour is implementation-defined and the resulting SetError
@@ -209,7 +209,7 @@ impl SetError {
     /// that do not collide with the typed-field wire names.
     ///
     /// In debug builds, a `with_extra(key, ...)` call where `key` is in
-    /// the reserved set [`RESERVED_SET_ERROR_WIRE_NAMES`] panics via
+    /// one of the typed-field wire names panics via
     /// `debug_assert!` to catch the bug at first test run
     /// (bd:JMAP-wlip.3). Release builds preserve the current
     /// no-validation behaviour to avoid silent runtime cost on a
@@ -233,8 +233,8 @@ impl SetError {
         self
     }
 
-    /// Validate that [`Self::extra`] does not contain any key in
-    /// [`RESERVED_SET_ERROR_WIRE_NAMES`] (bd:JMAP-jfia.17).
+    /// Validate that [`Self::extra`] does not contain any typed-field
+    /// wire name (bd:JMAP-jfia.17).
     ///
     /// [`Self::with_extra`] enforces the same invariant in debug builds
     /// via `debug_assert!`, but direct field mutation (e.g.
@@ -263,8 +263,8 @@ impl SetError {
 }
 
 /// Returned by [`SetError::validate_extras`] when [`SetError::extra`]
-/// contains a key that collides with a typed-field wire-name in
-/// [`RESERVED_SET_ERROR_WIRE_NAMES`] (bd:JMAP-jfia.17).
+/// contains a key that collides with a typed-field wire-name
+/// (bd:JMAP-jfia.17).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReservedExtrasKey {
@@ -294,10 +294,10 @@ impl std::error::Error for ReservedExtrasKey {}
 /// §4 permits duplicate keys but the behaviour is implementation-defined
 /// and the resulting SetError on the wire is malformed in practice.
 ///
-/// Kept here as a `pub const` rather than inline in the assert message
-/// so consumers can reference the same list — e.g. a future contract
-/// test, or a wire-format conformance check.
-pub const RESERVED_SET_ERROR_WIRE_NAMES: &[&str] = &[
+/// Crate-private (bd:JMAP-jfia.18) so adding a typed field to
+/// [`SetError`] stays additive: consumers rely on the `with_extra` /
+/// `validate_extras` checks, not on the list's contents.
+pub(crate) const RESERVED_SET_ERROR_WIRE_NAMES: &[&str] = &[
     "type",
     "description",
     "properties",

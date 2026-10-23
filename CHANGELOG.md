@@ -1389,6 +1389,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-types**, **jmap-server**: `RESERVED_SET_ERROR_WIRE_NAMES`
+  is no longer public, and `jmap_server` no longer re-exports it. A public
+  list would make every new typed `SetError` field a silent break for
+  code that relied on its contents. `SetError::with_extra` (debug assert)
+  and `SetError::validate_extras` still reject the reserved keys
+  (bd JMAP-jfia.18).
 - **jmap-types** and every `jmap-*-client` crate: **BREAKING**
   `SetResponse::{created, updated, destroyed, not_created, not_updated,
   not_destroyed}` and `CopyResponse::{created, not_created}` are plain
