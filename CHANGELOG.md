@@ -14,6 +14,33 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-sharing-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
+  Principal. `handle_principal_set` and `handle_principal_changes` take the
+  request's `using` list as a new last argument (`register_sharing_handlers`
+  passes `CallContext::using`), with the same `/changes` and `/set` checks
+  as jmap-mail-server. The in-memory backend opts Principal in with
+  `MemoryBackend::with_metadata_info("Principal", info)` (panics for other
+  types or `supportsPrivate: true`); nothing is enabled by default. Opted
+  in, writes are validated in -04 §3.2 rule order (request-only
+  `invalidPatch`, `notFound`, then namespace and `maxDepth` checks; a
+  Principal has no rights object and the backend no read-only accounts, so
+  -04 §4.1 never yields `forbidden`), an update's `metadata: null` is stored
+  as `{}`, and metadata-only updates are dropped from `/changes` under
+  `ignoreMetadataOnlyChanges` without counting toward `maxChanges`.
+  `Principal/query` evaluates a filter that carries -04 §3.6 conditions,
+  and any RFC 9670 condition in such a filter is `unsupportedFilter`
+  (filters without metadata are still ignored, JMAP-yt1w.47). When
+  Principal is not opted in, metadata writes are `invalidProperties` and
+  metadata filters `unsupportedFilter`. ShareNotification is left out:
+  RFC 9670 §3.3 forbids creating or updating it, so its metadata could
+  never be written (bd JMAP-s4kp.7).
+- **jmap-sharing-types**: **BREAKING** draft-ietf-jmap-metadata-04 fields
+  on Principal: typed `metadata` and `privateMetadata`
+  (`Option<Map<String, Value>>`, -04 §2; `null` decodes as absent, a
+  non-object fails, omitted when absent), classified `CLIENT_SETTABLE`.
+  `PrincipalFilterCondition` carries the six -04 §3.6 conditions as leaf
+  fields, with `has_metadata_condition`; `deny_unknown_fields` still
+  rejects any other key (bd JMAP-s4kp.7).
 - **jmap-filenode-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
   FileNode (-04 §4.1 names it among the types with a rights object).
   `handle_filenode_set` and `handle_filenode_changes` take the request's

@@ -24,7 +24,7 @@ use serde_json::{Value, json};
 const ACCOUNT: &str = "acc1";
 
 async fn set(backend: &FaultyBackend, args: Value) -> Value {
-    handle_principal_set(backend, &(), args)
+    handle_principal_set(backend, &(), args, &[])
         .await
         .expect("/set must not return a top-level error")
         .primary

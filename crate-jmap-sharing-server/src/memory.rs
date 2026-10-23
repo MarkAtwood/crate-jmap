@@ -59,7 +59,7 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -67,8 +67,17 @@ use crate::{
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
     QueryResult, SetError, SetErrorType, SetObject, SharingBackend,
 };
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
-use jmap_types::{Id, State};
+use jmap_metadata_server::{
+    ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
+    changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
+    metadata_path_exists, metadata_text_contains, metadata_text_equals,
+};
+use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_server::{
+    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+};
+use jmap_sharing_types::{Principal, PrincipalFilter};
+use jmap_types::{Filter, Id, JmapError, Operator, State};
 
 // ---------------------------------------------------------------------------
 // Internal state
@@ -82,6 +91,24 @@ struct ChangeEntry {
     created: Vec<Id>,
     updated: Vec<Id>,
     destroyed: Vec<Id>,
+    /// For a single-object update, the top-level properties it altered, or
+    /// `None` when not known (always `None` for a create or destroy).
+    /// Feeds draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`
+    /// and `updatedProperties`.
+    updated_props: Option<BTreeSet<String>>,
+}
+
+impl ChangeEntry {
+    /// `true` for an update that changed only `metadata` and/or
+    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    fn is_metadata_only_update(&self) -> bool {
+        self.created.is_empty()
+            && self.destroyed.is_empty()
+            && !self.updated.is_empty()
+            && self.updated_props.as_ref().is_some_and(|props| {
+                !props.is_empty() && props.iter().all(|p| is_metadata_property(p))
+            })
+    }
 }
 
 /// Shared inner state, behind Arc<Mutex>.
@@ -95,6 +122,10 @@ struct Inner {
     change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
+    /// The draft-ietf-jmap-metadata-04 §1.2.1 DataTypeMetadataInfo of
+    /// Principal, set by [`MemoryBackend::with_metadata_info`]. `None`:
+    /// Principal does not have the metadata properties.
+    metadata_info: Option<DataTypeMetadataInfo>,
 }
 
 impl Inner {
@@ -261,6 +292,54 @@ impl MemoryBackend {
     #[must_use]
     pub fn with_account(self, account_id: &Id) -> Self {
         self.register_account(account_id);
+        self
+    }
+
+    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// §1.2.1).
+    ///
+    /// Without this call Principal has no metadata: `Principal/set` rejects
+    /// a write to `metadata` or `privateMetadata` with `invalidProperties`
+    /// and `Principal/query` rejects a metadata filter condition with
+    /// `unsupportedFilter`. With it, `Principal/set` validates metadata
+    /// writes (-04 §3.2), `Principal/query` evaluates the -04 §3.6
+    /// conditions, and `Principal/changes` honours
+    /// `ignoreMetadataOnlyChanges` and reports `updatedProperties` (-04
+    /// §3.3). Advertising the capability in the session is the server's
+    /// job: list `info` under `"Principal"` in the account's
+    /// `urn:ietf:params:jmap:metadata` `dataTypes`.
+    ///
+    /// A Principal has no rights object and no container, so -04 §4.1
+    /// requires only that the account "is not read-only"; this backend has
+    /// no read-only accounts, so it never answers `forbidden`.
+    ///
+    /// `Principal/query` evaluates a filter that carries a `metadata*`
+    /// condition exactly: the tree may combine metadata conditions with
+    /// AND/OR/NOT, and any other Principal condition in it is
+    /// `unsupportedFilter` (RFC 8620 §5.5), because this backend evaluates
+    /// no RFC 9670 §2.4.1 condition. A filter without metadata conditions
+    /// is still ignored, as [`JmapBackend::query_objects`] documents.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `data_type` is not `"Principal"` or if
+    /// `info.supports_private` is true: this backend has no per-user
+    /// identity (`CallerCtx` is `()`) to own `privateMetadata` (-04 §2).
+    /// ShareNotification is not supported: RFC 9670 §3.3 rejects every
+    /// create and update of it with `forbidden`, so its metadata could
+    /// never be written.
+    #[must_use]
+    pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
+        assert!(
+            data_type == Principal::TYPE_NAME,
+            "MemoryBackend supports metadata only on Principal, not {data_type:?}"
+        );
+        assert!(
+            !info.supports_private,
+            "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
+        );
+        self.inner.lock().unwrap().metadata_info = Some(info);
         self
     }
 
@@ -491,6 +570,13 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
+        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // already folded a `using` without the capability into this flag.
+        let mode = if params.ignore_metadata_only_changes {
+            MetadataOnlyChanges::Ignore
+        } else {
+            MetadataOnlyChanges::Report
+        };
         let inner = self.inner.lock().unwrap();
 
         let since_n: u64 = since_state
@@ -505,7 +591,18 @@ impl JmapBackend for MemoryBackend {
             .map(Vec::as_slice)
             .unwrap_or(&[]);
 
-        let relevant: Vec<&ChangeEntry> = log.iter().filter(|e| e.new_state > since_n).collect();
+        // Under Ignore a metadata-only update entry is dropped here: each
+        // update entry names one id, so an id stays in `updated` exactly
+        // when one of its updates since sinceState touched more than
+        // metadata (-04 §3.3: "exclude from the updated array any id whose
+        // only changes since sinceState ... are confined to metadata and/or
+        // privateMetadata"), and the dropped entries do not count toward
+        // maxChanges ("Excluded ids do not count toward maxChanges").
+        let relevant: Vec<&ChangeEntry> = log
+            .iter()
+            .filter(|e| e.new_state > since_n)
+            .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
+            .collect();
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
@@ -521,6 +618,7 @@ impl JmapBackend for MemoryBackend {
         // (recycled id, bd:JMAP-3t94.3) overwrites the earlier fate.
         let mut fates: HashMap<Id, IdFate> = HashMap::new();
         let mut order: Vec<Id> = Vec::new();
+        let mut window_props = ChangedProperties::new();
         for entry in &relevant {
             for id in &entry.created {
                 if fates.insert(id.clone(), IdFate::Created).is_none() {
@@ -528,6 +626,7 @@ impl JmapBackend for MemoryBackend {
                 }
             }
             for id in &entry.updated {
+                window_props.record(id.as_ref(), entry.updated_props.as_ref());
                 let fate = match fates.get(id) {
                     Some(IdFate::Created) => IdFate::Created,
                     Some(IdFate::Destroyed) => IdFate::Destroyed,
@@ -562,13 +661,18 @@ impl JmapBackend for MemoryBackend {
             }
         }
 
+        // -04 §3.3 `updatedProperties`; Principal and ShareNotification
+        // have none of the RFC 8621 §2.2 count properties that only
+        // Mailbox/changes may list.
+        let updated_properties = window_props.updated_properties(&updated, mode, &[]);
         Ok(ChangesResult::new(
             created,
             updated,
             destroyed,
             false,
             State::from(current_state.to_string()),
-        ))
+        )
+        .with_updated_properties(updated_properties))
     }
 
     /// **Reference-only** implementation of [`JmapBackend::query_objects`].
@@ -589,6 +693,9 @@ impl JmapBackend for MemoryBackend {
     /// evaluation is required. Downstream implementors building a real
     /// backend should treat that wrapper as the contract, not this method.
     ///
+    /// Exception: a Principal filter that carries a draft-ietf-jmap-metadata-04
+    /// §3.6 condition is evaluated (see [`MemoryBackend::with_metadata_info`]).
+    ///
     /// Sibling-scope: six other `MemoryBackend` reference impls
     /// (chat, calendars, contacts, metadata, tasks, filenode) carry the
     /// same gap.
@@ -599,6 +706,7 @@ impl JmapBackend for MemoryBackend {
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let QueryParams {
+            filter,
             limit,
             position,
             anchor,
@@ -607,14 +715,49 @@ impl JmapBackend for MemoryBackend {
         } = params;
         let inner = self.inner.lock().unwrap();
 
-        let mut ids: Vec<Id> = inner
+        // draft-ietf-jmap-metadata-04 §3.6 on Principal: validate the
+        // `metadata*` conditions, then evaluate a filter that has any.
+        let metadata_filter = match filter {
+            Some(f) if O::TYPE_NAME == Principal::TYPE_NAME => {
+                let v = serde_json::to_value(f)
+                    .map_err(|e| MemoryError::serde("serialize filter", &e))?;
+                check_metadata_filter(&v, inner.metadata_info.as_ref())?;
+                let f: PrincipalFilter = serde_json::from_value(v)
+                    .map_err(|e| MemoryError::serde("parse filter", &e))?;
+                if has_metadata_condition(&f) {
+                    // Rejects an unevaluable leaf even when no object is
+                    // stored: every leaf is visited, matched against `{}`.
+                    principal_metadata_matches(&f, &serde_json::Map::new())?;
+                    Some(f)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        let empty = serde_json::Map::new();
+        let mut ids: Vec<Id> = Vec::new();
+        for (id, obj) in inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
-            .map(|m| {
-                let mut keys: Vec<Id> = m.keys().cloned().collect();
-                keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                keys
-            })
-            .unwrap_or_default();
+            .into_iter()
+            .flatten()
+        {
+            let keep = match &metadata_filter {
+                Some(f) => {
+                    let metadata = obj
+                        .get("metadata")
+                        .and_then(serde_json::Value::as_object)
+                        .unwrap_or(&empty);
+                    principal_metadata_matches(f, metadata)?
+                }
+                None => true,
+            };
+            if keep {
+                ids.push(id.clone());
+            }
+        }
+        ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
         let total = ids.len() as u64;
         let query_state = State::from(
@@ -729,6 +872,10 @@ impl SharingBackend for MemoryBackend {
 
         let mut inner = self.inner.lock().unwrap();
 
+        if let Some(obj) = val.as_object() {
+            check_metadata_create(metadata_info_for::<O>(&inner), obj)?;
+        }
+
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -741,6 +888,7 @@ impl SharingBackend for MemoryBackend {
                 created: vec![server_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
 
         Ok((server_id, stored_obj))
@@ -753,8 +901,35 @@ impl SharingBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let patch_val = serde_json::to_value(&patch)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
+        let serde_json::Value::Object(patch_map) = patch_val else {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidPatch)
+                    .with_description("PatchObject must be a JSON object"),
+            )));
+        };
+        let invalid_patch = |description: String| {
+            BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidPatch).with_description(description),
+            ))
+        };
+        // draft-ietf-jmap-metadata-04 §3.2: "Patch errors that can be
+        // determined from the request alone (for example, two paths where
+        // one is a prefix of the other) MUST be reported with
+        // "invalidPatch" before rule 1 is evaluated."
+        if patch_map.keys().any(|k| crate::helpers::is_metadata_key(k)) {
+            check_patch_paths(&patch_map)
+                .map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
+        }
 
+        let mut inner = self.inner.lock().unwrap();
+        let metadata_info = metadata_info_for::<O>(&inner).cloned();
+
+        // -04 §3.2 rule 1: "If the user cannot read the related object,
+        // reject with "notFound"". Here only a missing account or object is
+        // unreadable.
+        //
         // Backend-canonical re-check (AGENTS.md "Caller identity" /
         // "Permission enforcement: backend canonical"). The handler-layer
         // `account_exists` check is the optional pre-check; the backend
@@ -780,33 +955,57 @@ impl SharingBackend for MemoryBackend {
                 BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
             })?;
 
-        // Apply the JMAP PatchObject (RFC 8620 §5.3): keys are JSON Pointer
-        // paths and each value replaces the member at its path wholesale.
-        // Any `PatchPathError` is an RFC 8620 §5.3 "invalidPatch", including
-        // the shared helper's nesting cap on path plus value depth.
-        //
-        // `map_err` (not `.expect`) on `to_value(&patch)` because
-        // `O::Patch` is a consumer-controlled associated type — see the
-        // `create_object` comment above for the full rationale.
-        let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
-        let serde_json::Value::Object(patch_map) = patch_val else {
-            return Err(BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidPatch)
-                    .with_description("PatchObject must be a JSON object"),
-            )));
-        };
         let serde_json::Value::Object(base) = &mut current else {
             return Err(BackendSetError::Other(MemoryError::new(format!(
                 "stored {} is not a JSON object",
                 O::TYPE_NAME
             ))));
         };
-        apply_patch_object(base, &patch_map).map_err(|e| {
-            BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-            ))
-        })?;
+        // -04 §3.2 rules 2 and 3 run before the patch is applied.
+        let info = check_metadata_set(
+            metadata_info.as_ref(),
+            SetKind::Update,
+            &patch_map,
+            Some(base),
+        )?;
+        // -04 §2 `metadata` has "default: {}", so a
+        // `metadata/<namespace>` pointer finds its parent.
+        if info.is_some() {
+            base.entry("metadata")
+                .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        }
+        let before = base.clone();
+        // Apply the JMAP PatchObject (RFC 8620 §5.3): keys are JSON Pointer
+        // paths and each value replaces the member at its path wholesale.
+        // Any `PatchPathError` is an RFC 8620 §5.3 "invalidPatch", including
+        // the shared helper's nesting cap on path plus value depth. The
+        // value-dependent metadata patch errors (missing parent, path
+        // through an array) land here, after rule 3 and before rule 4 (-04
+        // §3.2).
+        //
+        // `map_err` (not `.expect`) on `to_value(&patch)` above because
+        // `O::Patch` is a consumer-controlled associated type — see the
+        // `create_object` comment above for the full rationale.
+        apply_patch_object(base, &patch_map).map_err(|e| invalid_patch(e.to_string()))?;
+        if let Some(info) = info {
+            // -04 §3.2: "In an update, null is equivalent to {}"; the patch
+            // removed the property instead.
+            for property in ["metadata", "privateMetadata"] {
+                if patch_map
+                    .get(property)
+                    .is_some_and(serde_json::Value::is_null)
+                {
+                    base.insert(
+                        property.to_owned(),
+                        serde_json::Value::Object(serde_json::Map::new()),
+                    );
+                }
+            }
+            // -04 §3.2 rule 4 runs on the value as it would be stored.
+            check_metadata_depth(&patch_map, base, info)
+                .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+        }
+        let updated_props = Some(changed_properties(&before, base));
         // A null or wrong-typed value on a required property must not reach
         // storage, or every later /get fails to decode it.
         if O::deserialize(&current).is_err() {
@@ -824,6 +1023,7 @@ impl SharingBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                updated_props,
             });
 
         Ok(None)
@@ -861,6 +1061,7 @@ impl SharingBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        updated_props: None,
                     });
                 Ok(())
             }
@@ -877,6 +1078,213 @@ impl SharingBackend for MemoryBackend {
     ) -> bool {
         true
     }
+}
+
+// ---------------------------------------------------------------------------
+// draft-ietf-jmap-metadata-04 helpers
+// ---------------------------------------------------------------------------
+
+/// The metadata configuration that applies to `O`: the one set by
+/// [`MemoryBackend::with_metadata_info`] for Principal, `None` for any
+/// other type.
+fn metadata_info_for<O: JmapObject>(inner: &Inner) -> Option<&DataTypeMetadataInfo> {
+    if O::TYPE_NAME == Principal::TYPE_NAME {
+        inner.metadata_info.as_ref()
+    } else {
+        None
+    }
+}
+
+fn invalid_metadata_property(property: &str, description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties([property])
+            .with_description(description),
+    ))
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 rules 2 and 3 for a metadata write,
+/// before the write is applied. Returns the DataTypeMetadataInfo for the
+/// rule 4 check after applying, or `None` when `entry` writes no metadata.
+///
+/// `entry` is the create object or update patch and `stored` the object
+/// before an update (`None` on create). Rule 1's `notFound` is the
+/// caller's; its `forbidden` never applies, because a Principal has no
+/// rights object and this backend has no read-only accounts (-04 §4.1).
+fn check_metadata_set<'a>(
+    info: Option<&'a DataTypeMetadataInfo>,
+    kind: SetKind,
+    entry: &serde_json::Map<String, serde_json::Value>,
+    stored: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> Result<Option<&'a DataTypeMetadataInfo>, BackendSetError<MemoryError>> {
+    let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
+        return Ok(None);
+    };
+    // -04 §1.2.1: an unlisted type "does not gain the metadata or
+    // privateMetadata properties".
+    let Some(info) = info else {
+        return Err(invalid_metadata_property(
+            first,
+            "metadata is not supported on this data type",
+        ));
+    };
+    check_metadata_write(kind, entry, stored, info)
+        .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    Ok(Some(info))
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `obj`:
+/// rules 2 and 3 on its metadata properties, then rule 4 on the stored
+/// value.
+fn check_metadata_create(
+    info: Option<&DataTypeMetadataInfo>,
+    obj: &serde_json::Map<String, serde_json::Value>,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let entry: serde_json::Map<String, serde_json::Value> = obj
+        .iter()
+        .filter(|(k, _)| is_metadata_property(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    if let Some(info) = check_metadata_set(info, SetKind::Create, &entry, None)? {
+        check_metadata_depth(&entry, obj, info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    }
+    Ok(())
+}
+
+/// The six draft-ietf-jmap-metadata-04 §3.6 FilterCondition fields.
+const METADATA_CONDITION_KEYS: [&str; 6] = [
+    "metadataExists",
+    "privateMetadataExists",
+    "metadataTextContains",
+    "privateMetadataTextContains",
+    "metadataTextEquals",
+    "privateMetadataTextEquals",
+];
+
+fn unsupported_filter(description: &str) -> BackendQueryError<MemoryError> {
+    let mut err = JmapError::unsupported_filter();
+    err.description = Some(description.to_owned());
+    BackendQueryError::Method(err)
+}
+
+/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// before any object is matched.
+///
+/// Without `info` Principal has no metadata (-04 §1.2.1: it "does not gain
+/// the metadata or privateMetadata properties"), so a metadata leaf is
+/// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
+/// but the server cannot process it"). Otherwise
+/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// `invalidArguments`, and a `privateMetadata*` condition is
+/// `unsupportedFilter` because `supportsPrivate` is false.
+fn check_metadata_filter(
+    filter: &serde_json::Value,
+    info: Option<&DataTypeMetadataInfo>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    if filter.get("operator").is_some() {
+        return filter
+            .get("conditions")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .try_for_each(|f| check_metadata_filter(f, info));
+    }
+    let Some(leaf) = filter.as_object() else {
+        return Ok(());
+    };
+    if !METADATA_CONDITION_KEYS
+        .iter()
+        .any(|k| leaf.get(*k).is_some_and(|v| !v.is_null()))
+    {
+        return Ok(());
+    }
+    let Some(info) = info else {
+        return Err(unsupported_filter(
+            "metadata filter conditions are not supported",
+        ));
+    };
+    MetadataCondition::take_from(&mut leaf.clone(), info)
+        .map(drop)
+        .map_err(|e| match e {
+            MetadataFilterError::InvalidArguments(d) => {
+                BackendQueryError::Method(JmapError::invalid_arguments(d))
+            }
+            other => unsupported_filter(&other.to_string()),
+        })
+}
+
+/// Whether any leaf of `filter` carries a draft-ietf-jmap-metadata-04 §3.6
+/// condition.
+fn has_metadata_condition(filter: &PrincipalFilter) -> bool {
+    match filter {
+        Filter::Operator(op) => op.conditions.iter().any(has_metadata_condition),
+        Filter::Condition(c) => c.has_metadata_condition(),
+        _ => false,
+    }
+}
+
+/// Evaluate `filter` against one Principal's `metadata` (absent means
+/// `{}`, -04 §2), with RFC 8620 §5.5 AND/OR/NOT. Every leaf is evaluated,
+/// so an unevaluable one is reported whatever the others match: a leaf
+/// with an RFC 9670 §2.4.1 condition is `unsupportedFilter`, as this
+/// backend evaluates none of them (RFC 8620 §5.5: a server "MUST reject the
+/// call with an unsupportedFilter error if it cannot process the given
+/// filter"). The `privateMetadata*` conditions never reach this point:
+/// [`check_metadata_filter`] rejects them while `supportsPrivate` is false.
+fn principal_metadata_matches(
+    filter: &PrincipalFilter,
+    metadata: &serde_json::Map<String, serde_json::Value>,
+) -> Result<bool, BackendQueryError<MemoryError>> {
+    match filter {
+        Filter::Operator(op) => {
+            let results = op
+                .conditions
+                .iter()
+                .map(|c| principal_metadata_matches(c, metadata))
+                .collect::<Result<Vec<bool>, _>>()?;
+            match op.operator {
+                Operator::And => Ok(results.iter().all(|m| *m)),
+                Operator::Or => Ok(results.iter().any(|m| *m)),
+                Operator::Not => Ok(!results.iter().any(|m| *m)),
+                _ => Err(unsupported_filter("unknown filter operator")),
+            }
+        }
+        Filter::Condition(c) => {
+            if c.account_ids.is_some()
+                || c.email.is_some()
+                || c.name.is_some()
+                || c.text.is_some()
+                || c.type_.is_some()
+                || c.time_zone.is_some()
+            {
+                return Err(unsupported_filter(
+                    "this backend evaluates only metadata conditions in a filter that has one",
+                ));
+            }
+            Ok(metadata_matches(
+                metadata,
+                c.metadata_exists.as_deref(),
+                c.metadata_text_contains.as_ref(),
+                c.metadata_text_equals.as_ref(),
+            ))
+        }
+        _ => Err(unsupported_filter("unknown filter shape")),
+    }
+}
+
+/// Match the draft-ietf-jmap-metadata-04 §3.6 shared-metadata conditions of
+/// one filter leaf against an object's `metadata`.
+fn metadata_matches(
+    metadata: &serde_json::Map<String, serde_json::Value>,
+    exists: Option<&str>,
+    contains: Option<&MetadataTextMatch>,
+    equals: Option<&MetadataTextMatch>,
+) -> bool {
+    exists.is_none_or(|p| metadata_path_exists(metadata, p))
+        && contains.is_none_or(|m| metadata_text_contains(metadata, m))
+        && equals.is_none_or(|m| metadata_text_equals(metadata, m))
 }
 
 // ---------------------------------------------------------------------------
@@ -953,18 +1361,21 @@ mod tests {
                 created: vec![recycled.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 2,
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![recycled.clone()],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 3,
                 created: vec![recycled.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
             inner
                 .states
@@ -1054,12 +1465,14 @@ mod tests {
                 created: vec![ephemeral.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 2,
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![ephemeral.clone()],
+                updated_props: None,
             });
             inner
                 .states

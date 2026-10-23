@@ -36,7 +36,7 @@ async fn principal_set_rejects_malformed_update_and_destroy_ids() {
         "update": { "bad id": { "name": "x" } },
         "destroy": ["bad id"]
     });
-    let resp = handle_principal_set(&backend, &(), args_with_account(args))
+    let resp = handle_principal_set(&backend, &(), args_with_account(args), &[])
         .await
         .expect("/set must not fail as a method")
         .primary;
