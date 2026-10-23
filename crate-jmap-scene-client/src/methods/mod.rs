@@ -66,20 +66,6 @@ pub(crate) fn build_request(
     jmap_types::JmapRequest::new(using_vec, vec![invocation], None)
 }
 
-/// Serialize a caller-supplied argument, mapping failure to
-/// `InvalidArgument` naming the method and argument.
-fn to_arg<T: Serialize + ?Sized>(
-    method: &str,
-    name: &str,
-    value: &T,
-) -> Result<serde_json::Value, jmap_base_client::ClientError> {
-    serde_json::to_value(value).map_err(|e| {
-        jmap_base_client::ClientError::InvalidArgument(format!(
-            "{method}: serializing {name} failed: {e}"
-        ))
-    })
-}
-
 // ---------------------------------------------------------------------------
 // SessionClient — session-bound client
 // ---------------------------------------------------------------------------
@@ -246,10 +232,10 @@ impl SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(ids) = ids {
-            args["ids"] = to_arg(method, "ids", ids)?;
+            args["ids"] = jmap_base_client::to_args(ids)?;
         }
         if let Some(props) = properties {
-            args["properties"] = to_arg(method, "properties", props)?;
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         self.invoke(api_url, method, args).await
     }
@@ -303,10 +289,10 @@ impl SessionClient {
             args["create"] = c;
         }
         if let Some(u) = update {
-            args["update"] = to_arg(method, "update", &u)?;
+            args["update"] = jmap_base_client::to_args(&u)?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = to_arg(method, "destroy", &d)?;
+            args["destroy"] = jmap_base_client::to_args(&d)?;
         }
         self.invoke(api_url, method, args).await
     }
@@ -322,10 +308,10 @@ impl SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
-            args["filter"] = to_arg(method, "filter", f)?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] = to_arg(method, "sort", s)?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         self.invoke(api_url, method, args).await
     }
@@ -354,16 +340,16 @@ impl SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = to_arg(method, "filter", f)?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] = to_arg(method, "sort", s)?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
         }
         if let Some(id) = up_to_id {
-            args["upToId"] = to_arg(method, "upToId", id)?;
+            args["upToId"] = jmap_base_client::to_args(id)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();

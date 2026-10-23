@@ -700,13 +700,15 @@ pub enum ClientError {
     #[error("JMAP method error: {0}")]
     MethodError(jmap_types::JmapError),
 
-    /// A JMAP request could not be serialized to JSON when sending over
-    /// WebSocket. Indicates a caller bug — the data structure contains
-    /// non-serializable values. Not retriable.
+    /// A caller-supplied value could not be serialized to JSON. Indicates
+    /// a caller bug — the data structure contains values JSON cannot
+    /// represent. Not retriable.
     ///
-    /// This error is only returned by [`WsSession::send_request`](crate::WsSession::send_request); the HTTP
-    /// `call()` path delegates serialization to reqwest, which surfaces
-    /// serialization failures as [`ClientError::Http`].
+    /// Returned by [`to_args`](crate::to_args) (and so by every extension
+    /// client method that serializes a caller-supplied argument) and by
+    /// [`WsSession::send_request`](crate::WsSession::send_request). The
+    /// HTTP `call()` path delegates request serialization to reqwest,
+    /// which surfaces serialization failures as [`ClientError::Http`].
     ///
     /// The payload is an opaque [`SerializeError`] that does not expose the
     /// underlying JSON serializer's error type. Construct explicitly:
@@ -883,6 +885,24 @@ impl ClientError {
             retry_after: utcdate_from_epoch(at.unwrap_or(now_secs)),
         }
     }
+}
+
+/// Serialize a method argument to a [`serde_json::Value`] for a JMAP
+/// method call's `arguments` object.
+///
+/// Every extension client uses this to put a caller-supplied value
+/// (filter, sort, patch map, id list, params struct) into a request, so
+/// a value that cannot be represented as JSON is an error, never a
+/// panic. Filter and comparator types are often caller-supplied
+/// generics whose `Serialize` impl this crate cannot see.
+///
+/// # Errors
+///
+/// [`ClientError::Serialize`] when `value`'s `Serialize` impl fails, for
+/// example a map whose keys do not serialize as strings (JSON object
+/// keys are strings, RFC 8259 §4).
+pub fn to_args<T: serde::Serialize + ?Sized>(value: &T) -> Result<serde_json::Value, ClientError> {
+    serde_json::to_value(value).map_err(ClientError::from_serialize)
 }
 
 /// Format seconds since the Unix epoch as an RFC 8620 §1.4 `UTCDate`,
@@ -1154,6 +1174,30 @@ mod tests {
             debug.starts_with("ParseError("),
             "Debug must use the wrapper tuple-struct name: {debug}"
         );
+    }
+
+    /// `to_args` maps a serialize failure to `ClientError::Serialize`.
+    /// Oracle: JSON object keys MUST be strings (RFC 8259 §4), so a
+    /// tuple-keyed map has no JSON form; serde_json documents this as
+    /// `Error::key_must_be_a_string`.
+    #[test]
+    fn to_args_maps_failure_to_serialize_variant() {
+        let mut map: std::collections::BTreeMap<(i32, i32), &str> =
+            std::collections::BTreeMap::new();
+        map.insert((1, 2), "value");
+        let err = to_args(&map).expect_err("tuple-keyed map has no JSON form");
+        assert!(
+            matches!(err, ClientError::Serialize(_)),
+            "must be Serialize variant, got {err:?}"
+        );
+    }
+
+    /// `to_args` returns the JSON form of a serializable value. Oracle:
+    /// the hand-written JSON a JMAP `ids` argument carries.
+    #[test]
+    fn to_args_returns_json_value() {
+        let v = to_args(&["a1", "b2"][..]).expect("string slice serializes");
+        assert_eq!(v, serde_json::json!(["a1", "b2"]));
     }
 
     /// `SerializeError` Debug format mirror.

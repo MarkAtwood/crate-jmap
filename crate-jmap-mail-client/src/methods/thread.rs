@@ -28,6 +28,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -50,11 +52,10 @@ impl super::SessionClient {
         // `email_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         if let Some(props) = properties {
-            args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         let req = super::build_request("Thread/get", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;

@@ -34,6 +34,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -56,12 +58,10 @@ impl super::SessionClient {
         // `chat_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice)
-                .map_err(jmap_base_client::ClientError::from_parse)?;
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         if let Some(props) = properties {
-            args["properties"] =
-                serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         let req = super::build_request("Space/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -166,9 +166,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing `filter` or `sort` fails (a caller-supplied condition
-    ///   type `C` whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -187,11 +186,9 @@ impl super::SessionClient {
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = params.to_arguments(account_id);
-        args["filter"] =
-            serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?;
+        args["filter"] = jmap_base_client::to_args(&filter)?;
         if let Some(s) = sort {
-            args["sort"] =
-                serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         let req = super::build_request("Space/query", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -222,9 +219,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing `filter` fails (a caller-supplied condition type `C`
-    ///   whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::space_changes`]).
@@ -259,19 +255,16 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] =
-                serde_json::to_value(f).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] =
-                serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
         }
         if let Some(uti) = up_to_id {
-            args["upToId"] =
-                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["upToId"] = jmap_base_client::to_args(uti)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -406,11 +399,8 @@ impl super::SessionClient {
     ///   if any new channel, role, or category in the patch has an
     ///   empty `name` (caller-precondition guards on `add_channels`,
     ///   `add_roles`, `add_categories`).
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing a typed sub-field (a `Clearable` entry on
-    ///   `description` / `icon_blob_id` / `update_*.*` / role color, a
-    ///   typed `permission_overrides` value, etc.) fails (pathological
-    ///   conditions only).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -431,18 +421,10 @@ impl super::SessionClient {
         if let Some(n) = patch.name {
             patch_map.insert("name".into(), n.into());
         }
-        if let Some(entry) = patch
-            .description
-            .map_entry()
-            .map_err(jmap_base_client::ClientError::from_parse)?
-        {
+        if let Some(entry) = patch.description.map_entry()? {
             patch_map.insert("description".into(), entry);
         }
-        if let Some(entry) = patch
-            .icon_blob_id
-            .map_entry()
-            .map_err(jmap_base_client::ClientError::from_parse)?
-        {
+        if let Some(entry) = patch.icon_blob_id.map_entry()? {
             patch_map.insert("iconBlobId".into(), entry);
         }
         if let Some(ip) = patch.is_public {
@@ -463,8 +445,7 @@ impl super::SessionClient {
                         > {
                             let mut obj = serde_json::json!({ "id": m.id });
                             if let Some(role_ids) = m.role_ids {
-                                obj["roleIds"] = serde_json::to_value(role_ids)
-                                    .map_err(jmap_base_client::ClientError::from_parse)?;
+                                obj["roleIds"] = jmap_base_client::to_args(role_ids)?;
                             }
                             Ok(obj)
                         },
@@ -475,10 +456,7 @@ impl super::SessionClient {
         if let Some(rm) = patch.remove_members
             && !rm.is_empty()
         {
-            patch_map.insert(
-                "removeMembers".into(),
-                serde_json::to_value(rm).map_err(jmap_base_client::ClientError::from_parse)?,
-            );
+            patch_map.insert("removeMembers".into(), jmap_base_client::to_args(rm)?);
         }
         if let Some(um) = patch.update_members
             && !um.is_empty()
@@ -492,13 +470,11 @@ impl super::SessionClient {
                         > {
                             let mut obj = serde_json::json!({ "id": u.id });
                             if let Some(role_ids) = u.role_ids {
-                                obj["roleIds"] = serde_json::to_value(role_ids)
-                                    .map_err(jmap_base_client::ClientError::from_parse)?;
+                                obj["roleIds"] = jmap_base_client::to_args(role_ids)?;
                             }
                             if let Some(entry) = u
                                 .nick
-                                .map_entry()
-                                .map_err(jmap_base_client::ClientError::from_parse)?
+                                .map_entry()?
                             {
                                 obj["nick"] = entry;
                             }
@@ -537,10 +513,7 @@ impl super::SessionClient {
         if let Some(rc) = patch.remove_channels
             && !rc.is_empty()
         {
-            patch_map.insert(
-                "removeChannels".into(),
-                serde_json::to_value(rc).map_err(jmap_base_client::ClientError::from_parse)?,
-            );
+            patch_map.insert("removeChannels".into(), jmap_base_client::to_args(rc)?);
         }
         if let Some(uc) = patch.update_channels
             && !uc.is_empty()
@@ -552,18 +525,10 @@ impl super::SessionClient {
                     if let Some(n) = c.name {
                         obj["name"] = n.into();
                     }
-                    if let Some(entry) = c
-                        .topic
-                        .map_entry()
-                        .map_err(jmap_base_client::ClientError::from_parse)?
-                    {
+                    if let Some(entry) = c.topic.map_entry()? {
                         obj["topic"] = entry;
                     }
-                    if let Some(entry) = c
-                        .category_id
-                        .map_entry()
-                        .map_err(jmap_base_client::ClientError::from_parse)?
-                    {
+                    if let Some(entry) = c.category_id.map_entry()? {
                         obj["categoryId"] = entry;
                     }
                     if let Some(p) = c.position {
@@ -573,8 +538,7 @@ impl super::SessionClient {
                         obj["slowModeSeconds"] = s.into();
                     }
                     if let Some(po) = c.permission_overrides {
-                        obj["permissionOverrides"] = serde_json::to_value(po)
-                            .map_err(jmap_base_client::ClientError::from_parse)?;
+                        obj["permissionOverrides"] = jmap_base_client::to_args(po)?;
                     }
                     Ok(obj)
                 })
@@ -608,10 +572,7 @@ impl super::SessionClient {
         if let Some(rr) = patch.remove_roles
             && !rr.is_empty()
         {
-            patch_map.insert(
-                "removeRoles".into(),
-                serde_json::to_value(rr).map_err(jmap_base_client::ClientError::from_parse)?,
-            );
+            patch_map.insert("removeRoles".into(), jmap_base_client::to_args(rr)?);
         }
         if let Some(ur) = patch.update_roles
             && !ur.is_empty()
@@ -623,11 +584,7 @@ impl super::SessionClient {
                     if let Some(n) = r.name {
                         obj["name"] = n.into();
                     }
-                    if let Some(entry) = r
-                        .color
-                        .map_entry()
-                        .map_err(jmap_base_client::ClientError::from_parse)?
-                    {
+                    if let Some(entry) = r.color.map_entry()? {
                         obj["color"] = entry;
                     }
                     if let Some(perms) = r.permissions {
@@ -659,8 +616,7 @@ impl super::SessionClient {
                         obj["position"] = p.into();
                     }
                     if let Some(cids) = c.channel_ids {
-                        obj["channelIds"] = serde_json::to_value(cids)
-                            .map_err(jmap_base_client::ClientError::from_parse)?;
+                        obj["channelIds"] = jmap_base_client::to_args(cids)?;
                     }
                     Ok(obj)
                 })
@@ -670,10 +626,7 @@ impl super::SessionClient {
         if let Some(rc) = patch.remove_categories
             && !rc.is_empty()
         {
-            patch_map.insert(
-                "removeCategories".into(),
-                serde_json::to_value(rc).map_err(jmap_base_client::ClientError::from_parse)?,
-            );
+            patch_map.insert("removeCategories".into(), jmap_base_client::to_args(rc)?);
         }
         if let Some(uc) = patch.update_categories
             && !uc.is_empty()
@@ -689,8 +642,7 @@ impl super::SessionClient {
                         obj["position"] = p.into();
                     }
                     if let Some(cids) = c.channel_ids {
-                        obj["channelIds"] = serde_json::to_value(cids)
-                            .map_err(jmap_base_client::ClientError::from_parse)?;
+                        obj["channelIds"] = jmap_base_client::to_args(cids)?;
                     }
                     Ok(obj)
                 })

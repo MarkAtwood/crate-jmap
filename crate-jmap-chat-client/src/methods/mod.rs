@@ -274,18 +274,18 @@ impl<T: serde::Serialize> Patch<T> {
     /// `Some(Value::Null)` when `Clear`, or `Some(serialized_value)` when `Set`.
     ///
     /// Crate-internal helper for the `*_set` / `*_update` builders. Not
-    /// exposed publicly because (a) the return type would leak
-    /// `serde_json::Error` into the public SemVer surface (per
-    /// bd:JMAP-26di.35) and (b) external callers construct `Patch<T>`
+    /// exposed publicly because external callers construct `Patch<T>`
     /// via `Patch::from(v)` / `Patch::Clear` and let serde + the
     /// `#[serde(skip_serializing_if = "Patch::is_keep")]` attribute
     /// handle wire serialization — they have no reason to call this
     /// helper directly.
-    pub(crate) fn map_entry(&self) -> Result<Option<serde_json::Value>, serde_json::Error> {
+    pub(crate) fn map_entry(
+        &self,
+    ) -> Result<Option<serde_json::Value>, jmap_base_client::ClientError> {
         match self {
             Patch::Keep => Ok(None),
             Patch::Clear => Ok(Some(serde_json::Value::Null)),
-            Patch::Set(v) => serde_json::to_value(v).map(Some),
+            Patch::Set(v) => jmap_base_client::to_args(v).map(Some),
         }
     }
 }

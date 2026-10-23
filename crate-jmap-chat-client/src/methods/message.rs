@@ -56,6 +56,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -78,12 +80,10 @@ impl super::SessionClient {
         // `chat_get` for the rationale.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice)
-                .map_err(jmap_base_client::ClientError::from_parse)?;
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         if let Some(props) = properties {
-            args["properties"] =
-                serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         let req = super::build_request("Message/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -117,9 +117,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `filter` is `None`: an unfiltered query has neither `chatId`
     ///   nor `hasMention: true`, so the server must reject it.
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing `filter` or `sort` fails (a caller-supplied condition
-    ///   type `C` whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -216,10 +215,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing the typed `body_type` enum or the `attachments`,
-    ///   `mentions`, `broadcastMentions` or `actions` arrays fails
-    ///   (pathological conditions only).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::RateLimited`](jmap_base_client::ClientError::RateLimited)
     ///   if the server rejects the message with
     ///   [`SetErrorType::RateLimit`](jmap_types::SetErrorType::RateLimit)
@@ -250,28 +247,23 @@ impl super::SessionClient {
         let mut create_obj = serde_json::json!({
             "chatId": input.chat_id,
             "body": input.body,
-            "bodyType": serde_json::to_value(&input.body_type)
-                .map_err(jmap_base_client::ClientError::from_parse)?,
+            "bodyType": jmap_base_client::to_args(&input.body_type)?,
             "sentAt": input.sent_at.as_ref(),
         });
         if let Some(rt) = input.reply_to {
             create_obj["replyTo"] = rt.as_ref().into();
         }
         if let Some(v) = input.attachments {
-            create_obj["attachments"] =
-                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+            create_obj["attachments"] = jmap_base_client::to_args(v)?;
         }
         if let Some(v) = input.mentions {
-            create_obj["mentions"] =
-                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+            create_obj["mentions"] = jmap_base_client::to_args(v)?;
         }
         if let Some(v) = input.broadcast_mentions {
-            create_obj["broadcastMentions"] =
-                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+            create_obj["broadcastMentions"] = jmap_base_client::to_args(v)?;
         }
         if let Some(v) = input.actions {
-            create_obj["actions"] =
-                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+            create_obj["actions"] = jmap_base_client::to_args(v)?;
         }
         if let Some(v) = input.thread_root_id {
             create_obj["threadRootId"] = v.as_ref().into();
@@ -345,9 +337,8 @@ impl super::SessionClient {
     ///   (RFC 6901 JSON Pointer reserved characters that would
     ///   misinterpret the patch path), or if `read_disposition` is set
     ///   without `read_at`.
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing the typed `body_type` or `read_disposition` enums
-    ///   fails (pathological conditions only).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -376,19 +367,13 @@ impl super::SessionClient {
             patch_map.insert("body".into(), b.into());
         }
         if let Some(bt) = &patch.body_type {
-            patch_map.insert(
-                "bodyType".into(),
-                serde_json::to_value(bt).map_err(jmap_base_client::ClientError::from_parse)?,
-            );
+            patch_map.insert("bodyType".into(), jmap_base_client::to_args(bt)?);
         }
         if let Some(ra) = patch.read_at {
             patch_map.insert("readAt".into(), ra.as_ref().into());
         }
         if let Some(rd) = &patch.read_disposition {
-            patch_map.insert(
-                "readDisposition".into(),
-                serde_json::to_value(rd).map_err(jmap_base_client::ClientError::from_parse)?,
-            );
+            patch_map.insert("readDisposition".into(), jmap_base_client::to_args(rd)?);
         }
         if let Some(da) = patch.deleted_at {
             patch_map.insert("deletedAt".into(), da.as_ref().into());
@@ -399,15 +384,11 @@ impl super::SessionClient {
         if let Some(broadcast_mentions) = &patch.broadcast_mentions {
             patch_map.insert(
                 "broadcastMentions".into(),
-                serde_json::to_value(broadcast_mentions)
-                    .expect("BroadcastMention serializes infallibly"),
+                jmap_base_client::to_args(broadcast_mentions)?,
             );
         }
         if let Some(mentions) = &patch.mentions {
-            patch_map.insert(
-                "mentions".into(),
-                serde_json::to_value(mentions).expect("Mention serializes infallibly"),
-            );
+            patch_map.insert("mentions".into(), jmap_base_client::to_args(mentions)?);
         }
         for change in patch.reaction_changes.unwrap_or(&[]) {
             match change {
@@ -515,9 +496,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing `filter` fails (a caller-supplied condition type `C`
-    ///   whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::message_changes`]).
@@ -552,19 +532,16 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] =
-                serde_json::to_value(f).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] =
-                serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
         }
         if let Some(uti) = up_to_id {
-            args["upToId"] =
-                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::from_parse)?;
+            args["upToId"] = jmap_base_client::to_args(uti)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -591,11 +568,9 @@ pub(super) fn message_query_args<C: Serialize>(
         ));
     };
     let mut args = params.to_arguments(account_id);
-    args["filter"] =
-        serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?;
+    args["filter"] = jmap_base_client::to_args(filter)?;
     if let Some(s) = sort {
-        args["sort"] =
-            serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+        args["sort"] = jmap_base_client::to_args(s)?;
     }
     Ok(args)
 }

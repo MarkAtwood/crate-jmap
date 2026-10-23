@@ -708,5 +708,6 @@ pub fn jmap_base_client::expand_url_template(&str, &[(&str, &str)]) -> core::res
 pub fn jmap_base_client::extract_response<T: serde_core::de::DeserializeOwned>(&jmap_types::wire::JmapResponse, &str) -> core::result::Result<T, jmap_base_client::ClientError>
 pub fn jmap_base_client::method_error_details<'a>(&'a jmap_types::wire::JmapResponse, &str) -> core::option::Option<&'a serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub fn jmap_base_client::parse_sse_block(&str) -> jmap_base_client::SseFrame
+pub fn jmap_base_client::to_args<T: serde_core::ser::Serialize + ?core::marker::Sized>(&T) -> core::result::Result<serde_json::value::Value, jmap_base_client::ClientError>
 pub fn jmap_base_client::upload_body_from_reader<R>(R) -> jmap_base_client::BlobUploadBody where R: tokio::io::async_read::AsyncRead + core::marker::Send + 'static
 pub type jmap_base_client::BlobUploadBody = core::pin::Pin<alloc::boxed::Box<(dyn futures_core::stream::Stream<Item = core::result::Result<bytes::bytes::Bytes, core::io::error::Error>> + core::marker::Send)>>

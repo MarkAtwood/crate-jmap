@@ -25,10 +25,8 @@ impl SessionClient {
     ///
     /// - [`ClientError::InvalidSession`] if the bound session has no
     ///   primary account for `urn:ietf:params:jmap:calendars`.
-    /// - [`ClientError::InvalidArgument`] if `params` is `Some` and
-    ///   serializing it to JSON fails (pathological conditions only —
-    ///   allocation failure, or a vendor value in `params.extra` that
-    ///   itself fails to serialize).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](ClientError::Http),
@@ -60,11 +58,7 @@ impl SessionClient {
             // overwrites `p`'s own typed fields inside `to_value`. It is
             // merged last below so typed values win on collision.
             let extra = std::mem::take(&mut p.extra);
-            let pv = serde_json::to_value(&p).map_err(|e| {
-                ClientError::InvalidArgument(format!(
-                    "principal_get_availability: failed to serialize params: {e}"
-                ))
-            })?;
+            let pv = jmap_base_client::to_args(&p)?;
             if let serde_json::Value::Object(map) = pv {
                 // Use `entry().or_insert()` so a caller who put a typed
                 // wire key (e.g. "accountId", "id", "utcStart", "utcEnd")

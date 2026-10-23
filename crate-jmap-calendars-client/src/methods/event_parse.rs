@@ -16,10 +16,10 @@ impl SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`] if `blob_ids` is empty, or if
-    ///   `params` is `Some` and serializing it to JSON fails
-    ///   (pathological conditions only — allocation failure, or a vendor
-    ///   value in `params.extra` that itself fails to serialize).
+    /// - [`ClientError::InvalidArgument`]
+    ///   if `blob_ids` is empty.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`] if the bound session has no
     ///   primary account for `urn:ietf:params:jmap:calendars`.
     /// - Any transport / protocol variant returned by
@@ -47,19 +47,14 @@ impl SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "blobIds": serde_json::to_value(blob_ids)
-                .expect("Id slice Serialize is infallible"),
+            "blobIds": jmap_base_client::to_args(blob_ids)?,
         });
         if let Some(mut p) = params {
             // Take `extra` out before serializing `p`: a flattened map
             // overwrites `p`'s own typed fields inside `to_value`. It is
             // merged last below so typed values win on collision.
             let extra = std::mem::take(&mut p.extra);
-            let pv = serde_json::to_value(&p).map_err(|e| {
-                ClientError::InvalidArgument(format!(
-                    "calendar_event_parse: failed to serialize params: {e}"
-                ))
-            })?;
+            let pv = jmap_base_client::to_args(&p)?;
             if let serde_json::Value::Object(map) = pv {
                 // Use `entry().or_insert()` so a caller who put a typed
                 // wire key (e.g. "accountId", "blobIds", "properties")

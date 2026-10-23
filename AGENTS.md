@@ -422,6 +422,10 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
 - **Crate naming**: crate name = `jmap-*`, directory name = `crate-jmap-*`.
 - **`#[forbid(unsafe_code)]`** at every crate root.
 - **No `.unwrap()` or `.expect()`** in library code — propagate errors with `?`.
+- **Serializing method arguments** in client crates: always
+  `jmap_base_client::to_args(&value)?`, never `serde_json::to_value` with
+  `.map_err` or `.expect`. A failure is `ClientError::Serialize`; document
+  it in `# Errors` as "if serializing a caller-supplied value fails".
 - **Wire format**: camelCase JSON — `#[serde(rename_all = "camelCase")]` on all structs.
 - **Licensing**: the workspace `Cargo.toml` declares
   `license = "MIT OR Apache-2.0"` at the workspace level, and every crate

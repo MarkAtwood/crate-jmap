@@ -45,6 +45,8 @@ impl super::SessionClient {
     ///   `urn:ietf:params:jmap:mail`. (EmailSubmission/* uses
     ///   `urn:ietf:params:jmap:submission` in its `using` array but is
     ///   keyed on the mail primary account.)
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -67,11 +69,10 @@ impl super::SessionClient {
         // `email_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         if let Some(props) = properties {
-            args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         let req = super::build_request("EmailSubmission/get", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;
@@ -143,9 +144,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing `filter` fails (a caller-supplied condition type
-    ///   `C` whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
@@ -165,18 +165,10 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = params.to_arguments(account_id);
         if let Some(f) = filter {
-            args["filter"] = serde_json::to_value(f).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_submission_query: serializing filter failed: {e}"
-                ))
-            })?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] = serde_json::to_value(s).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_submission_query: serializing sort failed: {e}"
-                ))
-            })?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         let req = super::build_request("EmailSubmission/query", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;
@@ -213,9 +205,8 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if serializing `filter` fails (a caller-supplied condition type
-    ///   `C` whose `Serialize` impl errors).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::email_submission_changes`]).
@@ -250,24 +241,16 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = serde_json::to_value(f).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_submission_query_changes: serializing filter failed: {e}"
-                ))
-            })?;
+            args["filter"] = jmap_base_client::to_args(f)?;
         }
         if let Some(s) = sort {
-            args["sort"] = serde_json::to_value(s).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_submission_query_changes: serializing sort failed: {e}"
-                ))
-            })?;
+            args["sort"] = jmap_base_client::to_args(s)?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
         }
         if let Some(uti) = up_to_id {
-            args["upToId"] = serde_json::to_value(uti).expect("Id Serialize is infallible");
+            args["upToId"] = jmap_base_client::to_args(uti)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -302,11 +285,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
-    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `serde_json::to_value` fails on `update` or on
-    ///   `params.on_success_update_email` (pathological conditions only;
-    ///   see [`Self::email_set`] for the memory-cost discussion that
-    ///   applies identically here).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::email_submission_get`].
@@ -335,11 +315,7 @@ impl super::SessionClient {
         // These are method-level arguments, not nested under a key.
         if let Some(p) = params {
             if let Some(v) = p.on_success_update_email {
-                args["onSuccessUpdateEmail"] = serde_json::to_value(&v).map_err(|e| {
-                    jmap_base_client::ClientError::InvalidArgument(format!(
-                        "email_submission_set: serializing onSuccessUpdateEmail failed: {e}"
-                    ))
-                })?;
+                args["onSuccessUpdateEmail"] = jmap_base_client::to_args(&v)?;
             }
             if let Some(v) = p.on_success_destroy_email {
                 args["onSuccessDestroyEmail"] = serde_json::Value::Array(
@@ -357,14 +333,10 @@ impl super::SessionClient {
             args["create"] = c;
         }
         if let Some(u) = update {
-            args["update"] = serde_json::to_value(&u).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "email_submission_set: serializing update map failed: {e}"
-                ))
-            })?;
+            args["update"] = jmap_base_client::to_args(&u)?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
+            args["destroy"] = jmap_base_client::to_args(&d)?;
         }
         // Route caller-supplied vendor extras onto the wire (workspace
         // extras-preservation policy). Use `entry().or_insert()` so a

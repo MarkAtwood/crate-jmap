@@ -15,6 +15,8 @@ impl super::SessionClient {
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -38,11 +40,10 @@ impl super::SessionClient {
         // `calendar_get` for the rationale.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] = jmap_base_client::to_args(id_slice)?;
         }
         if let Some(props) = properties {
-            args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+            args["properties"] = jmap_base_client::to_args(props)?;
         }
         let req = super::build_request("ParticipantIdentity/get", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
@@ -115,11 +116,10 @@ impl super::SessionClient {
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if any key in `create` is the empty string (caller-precondition
-    ///   guard — RFC 8620 §5.3 requires non-empty creation ids), or if
-    ///   `serde_json::to_value` fails on the `update` map
-    ///   (pathological conditions only; see [`Self::calendar_set`] for
-    ///   the memory-cost discussion that applies identically here).
+    ///   if any key in `create` is the empty string (caller-precondition guard
+    ///   — RFC 8620 §5.3 requires non-empty creation ids).
+    /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
+    ///   if serializing a caller-supplied value fails.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
@@ -160,14 +160,10 @@ impl super::SessionClient {
             args["create"] = c;
         }
         if let Some(u) = update {
-            args["update"] = serde_json::to_value(&u).map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "participant_identity_set: serializing update map failed: {e}"
-                ))
-            })?;
+            args["update"] = jmap_base_client::to_args(&u)?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::to_value(d).expect("Id Vec Serialize is infallible");
+            args["destroy"] = jmap_base_client::to_args(&d)?;
         }
         if let Some(s) = if_in_state {
             args["ifInState"] = s.as_ref().into();

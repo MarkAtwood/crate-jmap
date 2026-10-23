@@ -123,8 +123,7 @@ impl SessionClient {
     ) -> Result<GetResponse<KeyPackage>, jmap_base_client::ClientError> {
         let mut args = serde_json::json!({ "accountId": self.mimi_account_id()? });
         if let Some(ids) = ids {
-            args["ids"] =
-                serde_json::to_value(ids).map_err(jmap_base_client::ClientError::from_serialize)?;
+            args["ids"] = jmap_base_client::to_args(ids)?;
         }
         self.call("KeyPackage/get", args).await
     }
@@ -151,12 +150,10 @@ impl SessionClient {
             args["ifInState"] = s.as_ref().into();
         }
         if !create.is_empty() {
-            args["create"] = serde_json::to_value(create)
-                .map_err(jmap_base_client::ClientError::from_serialize)?;
+            args["create"] = jmap_base_client::to_args(create)?;
         }
         if !destroy.is_empty() {
-            args["destroy"] = serde_json::to_value(destroy)
-                .map_err(jmap_base_client::ClientError::from_serialize)?;
+            args["destroy"] = jmap_base_client::to_args(destroy)?;
         }
         self.call("KeyPackage/set", args).await
     }
@@ -287,8 +284,7 @@ impl SessionClient {
         method: &str,
         args: A,
     ) -> Result<R, jmap_base_client::ClientError> {
-        let args =
-            serde_json::to_value(args).map_err(jmap_base_client::ClientError::from_serialize)?;
+        let args = jmap_base_client::to_args(&args)?;
         let using = USING_MIMI.iter().map(|&s| s.to_owned()).collect();
         let req = jmap_types::JmapRequest::new(
             using,

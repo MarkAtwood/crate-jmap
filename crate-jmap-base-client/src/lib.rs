@@ -88,7 +88,7 @@ pub use client::{
 };
 pub use error::{
     ClientError, HttpError, HttpErrorKind, InvalidHeaderValueError, ParseCategory, ParseError,
-    SerializeError, WebSocketError, WebSocketErrorKind,
+    SerializeError, WebSocketError, WebSocketErrorKind, to_args,
 };
 pub use push::StateChange;
 pub use query::QueryParams;

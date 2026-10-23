@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-base-client**: `to_args(&impl Serialize) -> Result<Value,
+  ClientError>` serializes a method argument, mapping failure to
+  `ClientError::Serialize` (bd JMAP-tjvm.11). It is the one way extension
+  clients put a caller-supplied value into a request.
 - **jmap-server**: `json_type_name(&Value) -> &'static str` names a JSON
   value's top-level type (`null`, `boolean`, `number`, `string`, `array`,
   `object`) for error descriptions (bd JMAP-zegc).
@@ -1431,6 +1435,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-mail-client**, **jmap-chat-client**,
+  **jmap-chat-mimi-client**, **jmap-calendars-client**,
+  **jmap-tasks-client**, **jmap-contacts-client**,
+  **jmap-filenode-client**, **jmap-sharing-client**, **jmap-graph-client**,
+  **jmap-scene-client**, **jmap-vtc-client**: a method argument that fails
+  to serialize (for example a caller-supplied filter condition type whose
+  `Serialize` impl errors) now returns `ClientError::Serialize`. Before, it
+  returned `ClientError::InvalidArgument` or `ClientError::Parse` depending
+  on the method, and `ids` / `properties` / `destroy` / `upToId` arguments
+  panicked through `.expect`. Code that matched `InvalidArgument` or
+  `Parse` for this case must match `Serialize` (bd JMAP-tjvm.11).
 - **BREAKING** (Rust API): **jmap-chat-server**, **jmap-scene-server** and
   **jmap-vtc-server** move the `MemoryBackend::*_for_test` methods behind a
   new `test-helpers` feature (implies `memory`). With only `memory` enabled
