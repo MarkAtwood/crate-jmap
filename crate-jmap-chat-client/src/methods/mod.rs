@@ -468,7 +468,7 @@ pub struct SessionClient {
     pub(crate) session: jmap_base_client::Session,
     /// Account targeted by every method; `None` means the session's
     /// primary chat account. Set only by [`SessionClient::for_account`].
-    pub(crate) account_id: Option<String>,
+    pub(crate) account_id: Option<jmap_types::Id>,
 }
 
 impl std::fmt::Debug for SessionClient {
@@ -519,7 +519,7 @@ impl SessionClient {
     ///   session has no primary account for the chat capability URI.
     ///   This is the only failure mode — the method is a pure accessor
     ///   on the captured session and does no network I/O.
-    pub fn chat_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
+    pub fn chat_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         if let Some(id) = &self.account_id {
             return Ok(id);
         }
@@ -561,7 +561,7 @@ impl SessionClient {
             )));
         }
         Ok(Self {
-            account_id: Some(account_id.to_owned()),
+            account_id: Some(jmap_types::Id::from(account_id)),
             ..self.clone()
         })
     }
@@ -571,7 +571,10 @@ impl SessionClient {
     /// Returns `Err(InvalidSession)` under the same condition as
     /// [`Self::chat_account_id`].
     pub(crate) fn session_parts(&self) -> Result<(&str, &str), jmap_base_client::ClientError> {
-        Ok((self.session.api_url.as_str(), self.chat_account_id()?))
+        Ok((
+            self.session.api_url.as_str(),
+            self.chat_account_id()?.as_ref(),
+        ))
     }
 
     /// The JMAP API URL from the bound session.

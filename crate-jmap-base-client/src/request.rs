@@ -13,7 +13,7 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
-use jmap_types::{Invocation, JmapRequest, State};
+use jmap_types::{Id, Invocation, JmapRequest, State};
 
 use crate::error::ClientError;
 
@@ -428,10 +428,10 @@ pub struct Session {
     pub capabilities: BTreeMap<String, serde_json::Value>,
 
     /// Map of account ID → [`AccountInfo`] (RFC 8620 §2).
-    pub accounts: BTreeMap<String, AccountInfo>,
+    pub accounts: BTreeMap<Id, AccountInfo>,
 
     /// Map of capability URI → primary account ID (RFC 8620 §2).
-    pub primary_accounts: BTreeMap<String, String>,
+    pub primary_accounts: BTreeMap<String, Id>,
 
     /// Username associated with the current credentials (RFC 8620 §2).
     ///
@@ -517,8 +517,8 @@ impl Session {
     /// Returns the primary account ID for the given capability URI, if set.
     ///
     /// Example: `session.primary_account_id("urn:ietf:params:jmap:mail")`
-    pub fn primary_account_id(&self, capability: &str) -> Option<&str> {
-        self.primary_accounts.get(capability).map(String::as_str)
+    pub fn primary_account_id(&self, capability: &str) -> Option<&Id> {
+        self.primary_accounts.get(capability)
     }
 
     /// Returns the parsed [`WebSocketCapability`] for the JMAP WebSocket
@@ -1011,11 +1011,15 @@ mod tests {
 
         // Oracle: RFC 8620 §2.1 — primaryAccounts
         assert_eq!(
-            session.primary_account_id("urn:ietf:params:jmap:mail"),
+            session
+                .primary_account_id("urn:ietf:params:jmap:mail")
+                .map(AsRef::as_ref),
             Some("A13824")
         );
         assert_eq!(
-            session.primary_account_id("urn:ietf:params:jmap:contacts"),
+            session
+                .primary_account_id("urn:ietf:params:jmap:contacts")
+                .map(AsRef::as_ref),
             Some("A13824")
         );
         assert_eq!(

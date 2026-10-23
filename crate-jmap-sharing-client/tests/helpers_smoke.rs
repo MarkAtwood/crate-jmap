@@ -22,7 +22,9 @@ async fn build_session_has_correct_primary_account() {
     let server = MockServer::start().await;
     let session = common::make_session(&server);
     assert_eq!(
-        session.primary_account_id("urn:ietf:params:jmap:principals"),
+        session
+            .primary_account_id("urn:ietf:params:jmap:principals")
+            .map(AsRef::as_ref),
         Some("u33084183"),
         "primary account must be u33084183"
     );

@@ -113,9 +113,12 @@ async fn for_account_targets_named_chat_account() {
         json!(SHARED_CHAT_ACCOUNT),
         "request must target the for_account account"
     );
-    assert_eq!(shared.chat_account_id().ok(), Some(SHARED_CHAT_ACCOUNT));
     assert_eq!(
-        sc.chat_account_id().ok(),
+        shared.chat_account_id().ok().map(AsRef::as_ref),
+        Some(SHARED_CHAT_ACCOUNT)
+    );
+    assert_eq!(
+        sc.chat_account_id().ok().map(AsRef::as_ref),
         Some(TEST_ACCOUNT_ID),
         "the original handle keeps the primary account"
     );

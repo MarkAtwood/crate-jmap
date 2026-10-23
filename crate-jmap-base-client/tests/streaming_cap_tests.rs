@@ -241,7 +241,7 @@ async fn upload_blob_streams_with_cap_against_chunked_hostile_server() {
         Duration::from_secs(2),
         client.upload_blob(jmap_base_client::UploadBlobParams {
             upload_url_template: &upload_url,
-            account_id: "account1",
+            account_id: &jmap_types::Id::from("account1"),
             content_type: "application/octet-stream",
             data: bytes::Bytes::from_static(b"payload"),
         }),
@@ -277,8 +277,8 @@ async fn download_blob_streams_with_cap_against_chunked_hostile_server() {
         Duration::from_secs(2),
         client.download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &download_url,
-            account_id: "account1",
-            blob_id: "blob-abc",
+            account_id: &jmap_types::Id::from("account1"),
+            blob_id: &jmap_types::Id::from("blob-abc"),
             name: "file.bin",
             accept_type: None,
             expected_sha256: None,
@@ -320,8 +320,8 @@ async fn download_blob_stream_caps_chunked_hostile_server() {
         Duration::from_secs(2),
         client.download_blob_stream(jmap_base_client::DownloadBlobParams {
             download_url_template: &download_url,
-            account_id: "account1",
-            blob_id: "blob-abc",
+            account_id: &jmap_types::Id::from("account1"),
+            blob_id: &jmap_types::Id::from("blob-abc"),
             name: "file.bin",
             accept_type: None,
             expected_sha256: None,

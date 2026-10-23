@@ -134,7 +134,7 @@ pub struct SessionClient {
     pub(crate) session: jmap_base_client::Session,
     /// Account targeted by every method; `None` means the session's
     /// primary Graph account. Set only by [`SessionClient::for_account`].
-    pub(crate) account_id: Option<String>,
+    pub(crate) account_id: Option<jmap_types::Id>,
 }
 
 impl std::fmt::Debug for SessionClient {
@@ -180,7 +180,7 @@ impl SessionClient {
     ///   if no account was chosen with [`Self::for_account`] and the
     ///   session has no primary account for `urn:ietf:params:jmap:graph`.
     ///   No network I/O is done.
-    pub fn graph_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
+    pub fn graph_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         if let Some(id) = &self.account_id {
             return Ok(id);
         }
@@ -222,7 +222,7 @@ impl SessionClient {
             )));
         }
         Ok(Self {
-            account_id: Some(account_id.to_owned()),
+            account_id: Some(jmap_types::Id::from(account_id)),
             ..self.clone()
         })
     }
@@ -233,7 +233,7 @@ impl SessionClient {
     /// [`Self::graph_account_id`].
     pub(crate) fn session_parts(&self) -> Result<(&str, &str), jmap_base_client::ClientError> {
         let account_id = self.graph_account_id()?;
-        Ok((self.session.api_url.as_str(), account_id))
+        Ok((self.session.api_url.as_str(), account_id.as_ref()))
     }
 
     /// Send `args` as a single `method` invocation under `using` and

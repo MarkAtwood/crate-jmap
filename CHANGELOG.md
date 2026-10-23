@@ -1385,6 +1385,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-base-client** and every `jmap-*-client` crate: **BREAKING**
+  account and blob ids are typed `jmap_types::Id` on the client side, as
+  they already are in server backend traits and in `BlobUploadResponse`.
+  `Session.accounts` is a `BTreeMap<Id, AccountInfo>`,
+  `Session.primary_accounts` is a `BTreeMap<String, Id>`,
+  `Session::primary_account_id` returns `Option<&Id>`, and the
+  `account_id` / `blob_id` fields of `UploadBlobParams`,
+  `UploadBlobSessionParams`, `UploadBlobStreamParams`,
+  `DownloadBlobParams` and `DownloadBlobSessionParams` are `&Id`, so a
+  `BlobUploadResponse.blob_id` passes straight into a download. The
+  `*_account_id()` accessors on every extension `SessionClient` return
+  `Result<&Id, ClientError>`, and `ChatSessionExt::chat_account_id`
+  returns `Option<&Id>`. Map lookups by `&str` still work through
+  `Id: Borrow<str>`; use `.as_ref()` where a `&str` is needed
+  (bd JMAP-ops7.49).
 - **jmap-types** and every types crate: **BREAKING** `SetObject` has
   three required associated consts, `SERVER_SET`, `CLIENT_SETTABLE` and
   `IMMUTABLE`, naming each property's RFC 8620 §1.1 attribute from its

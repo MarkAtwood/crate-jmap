@@ -122,7 +122,7 @@ async fn session_discovery_yields_usable_chat_account() {
         .expect("primaryAccounts must name a chat account")
         .to_owned();
     let cap = session
-        .chat_capability(&account_id)
+        .chat_capability(account_id.as_ref())
         .expect("chat account capability must parse")
         .expect("chat account capability must be present");
     assert!(cap.supported_body_types.contains(&BodyType::Plain));
@@ -130,7 +130,7 @@ async fn session_discovery_yields_usable_chat_account() {
     // The discovered apiUrl actually serves chat methods.
     let sc = client.with_chat_session(session);
     let chats = sc.chat_get(None, None).await.expect("Chat/get via apiUrl");
-    assert_eq!(chats.account_id.as_ref(), account_id);
+    assert_eq!(chats.account_id, account_id);
     assert!(chats.list.is_empty(), "fresh jig has no chats");
 }
 
@@ -478,7 +478,7 @@ async fn message_create_query_get_round_trip() {
     assert_eq!(m1.chat_id, chat_id);
     assert_eq!(
         m1.sender_id.as_ref(),
-        sc.chat_account_id().expect("chat account")
+        sc.chat_account_id().expect("chat account").as_ref()
     );
     let m3 = by_id(&third);
     assert_eq!(m3.reply_to.as_ref(), Some(&first));
@@ -692,7 +692,7 @@ async fn message_unsupported_body_type_is_invalid_properties() {
     let html = BodyType::Other("text/html".to_owned());
     let account_id = session.chat_account_id().expect("chat account").to_owned();
     let cap = session
-        .chat_capability(&account_id)
+        .chat_capability(account_id.as_ref())
         .expect("chat capability must parse")
         .expect("chat capability must be present");
     assert!(
@@ -875,7 +875,7 @@ async fn reactions_add_then_remove() {
     assert_eq!(reaction.emoji, "\u{1F44D}");
     assert_eq!(
         reaction.sender_id.as_ref(),
-        sc.chat_account_id().expect("chat account")
+        sc.chat_account_id().expect("chat account").as_ref()
     );
 
     let remove = [ReactionChange::Remove {
@@ -1021,7 +1021,7 @@ async fn chat_changes_reports_created_chat() {
 #[tokio::test]
 async fn space_join_rejects_banned_caller() {
     let (_jig, client, session) = connect().await;
-    let account_id = Id::from(session.chat_account_id().expect("chat account"));
+    let account_id = session.chat_account_id().expect("chat account").clone();
     let sc = client.with_chat_session(session);
 
     let resp = sc

@@ -44,7 +44,7 @@ pub trait ChatSessionExt: sealed::Sealed {
     /// Reads `primaryAccounts["urn:ietf:params:jmap:chat"]`.
     ///
     /// Returns `None` when the server does not declare a primary chat account.
-    fn chat_account_id(&self) -> Option<&str>;
+    fn chat_account_id(&self) -> Option<&jmap_types::Id>;
 
     /// Returns the parsed [`ChatCapability`] for the given account, if present.
     ///
@@ -162,7 +162,7 @@ mod sealed {
 // ---------------------------------------------------------------------------
 
 impl ChatSessionExt for jmap_base_client::Session {
-    fn chat_account_id(&self) -> Option<&str> {
+    fn chat_account_id(&self) -> Option<&jmap_types::Id> {
         self.primary_account_id("urn:ietf:params:jmap:chat")
     }
 
@@ -291,7 +291,7 @@ mod tests {
             json!({}),
             json!({"urn:ietf:params:jmap:chat": "acct1"}),
         );
-        assert_eq!(session.chat_account_id(), Some("acct1"));
+        assert_eq!(session.chat_account_id().map(AsRef::as_ref), Some("acct1"));
     }
 
     // -----------------------------------------------------------------------

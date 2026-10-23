@@ -156,7 +156,7 @@ let bytes = client
     .download_blob(DownloadBlobParams {
         download_url_template: &session.download_url,
         account_id,
-        blob_id: "Gbc4c377-...",
+        blob_id: &upload_resp.blob_id,
         name: "photo.jpg",
         accept_type: Some("image/jpeg"),
         expected_sha256: None, // pass Some("hex...") to verify integrity
@@ -494,7 +494,7 @@ Helper methods:
 
 ```rust
 // Primary account ID for a capability
-session.primary_account_id("urn:ietf:params:jmap:mail") -> Option<&str>
+session.primary_account_id("urn:ietf:params:jmap:mail") -> Option<&Id>
 
 // WebSocket capability object (RFC 8887)
 session.websocket_capability() -> Result<Option<WebSocketCapability>, ClientError>

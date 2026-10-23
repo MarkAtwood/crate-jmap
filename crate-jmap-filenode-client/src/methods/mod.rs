@@ -144,7 +144,7 @@ impl SessionClient {
     /// Return the primary account id for `urn:ietf:params:jmap:filenode`,
     /// or `Err(InvalidSession)` if the session has no primary account for
     /// that capability.
-    pub fn filenode_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
+    pub fn filenode_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_filenode_types::JMAP_FILENODE_URI)
             .ok_or_else(|| {
@@ -168,7 +168,7 @@ impl SessionClient {
                     "no primary account for urn:ietf:params:jmap:filenode".into(),
                 )
             })?;
-        Ok((api_url, account_id))
+        Ok((api_url, account_id.as_ref()))
     }
 
     /// Forward a JMAP request to the underlying HTTP client.

@@ -229,7 +229,7 @@ impl SessionClient {
     /// Return the primary account id for `urn:ietf:params:jmap:contacts`,
     /// or `Err(InvalidSession)` if the session has no primary account for
     /// that capability.
-    pub fn contacts_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
+    pub fn contacts_account_id(&self) -> Result<&jmap_types::Id, jmap_base_client::ClientError> {
         self.session
             .primary_account_id(jmap_contacts_types::JMAP_CONTACTS_URI)
             .ok_or_else(|| {
@@ -253,7 +253,7 @@ impl SessionClient {
                     "no primary account for urn:ietf:params:jmap:contacts".into(),
                 )
             })?;
-        Ok((api_url, account_id))
+        Ok((api_url, account_id.as_ref()))
     }
 
     /// Forward a JMAP request to the underlying HTTP client.
