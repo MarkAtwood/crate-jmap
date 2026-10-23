@@ -1,4 +1,5 @@
-//! `/query` honours `anchor` and `anchorOffset` (bd:JMAP-yt1w.22).
+//! `/query` honours `anchor` and `anchorOffset` (bd:JMAP-yt1w.22) and
+//! saturates extreme `position` / `limit` values (bd:JMAP-uqhn.2).
 //!
 //! Exercised through `Chat/query`, which delegates to the generic
 //! `jmap_server::handle_query`, against the reference
@@ -194,4 +195,35 @@ async fn emoji_query_wrongly_typed_args_do_not_echo_value() {
         assert!(desc.contains("got object"), "{desc}");
         assert!(!desc.contains("CANARY"), "{desc}");
     }
+}
+
+/// RFC 8620 §1.3 bounds `Int` to "-2^53+1 <= value <= 2^53-1" and
+/// `UnsignedInt` to "0 <= value <= 2^53-1". §5.5 position: "the negative
+/// value MUST be added to the total number of results given the filter,
+/// and if still negative, it's clamped to "0"", so the most negative
+/// legal `position` starts at index 0, and the largest legal `limit`
+/// returns all five results (bd:JMAP-uqhn.2).
+#[tokio::test]
+async fn extreme_position_and_limit_saturate() {
+    let backend = seeded_backend();
+    let resp = query(
+        &backend,
+        json!({ "position": -9_007_199_254_740_991_i64, "limit": 9_007_199_254_740_991_u64 }),
+    )
+    .await
+    .expect("Chat/query");
+    assert_eq!(ids(&resp), ["c1", "c2", "c3", "c4", "c5"]);
+    assert_eq!(resp["position"], 0);
+}
+
+/// RFC 8620 §5.5 position: "If the index is greater than or equal to the
+/// total number of objects in the results list, then the "ids" array in
+/// the response will be empty, but this is not an error."
+#[tokio::test]
+async fn largest_position_is_empty_page_not_error() {
+    let backend = seeded_backend();
+    let resp = query(&backend, json!({ "position": 9_007_199_254_740_991_i64 }))
+        .await
+        .expect("Chat/query");
+    assert!(ids(&resp).is_empty());
 }
