@@ -517,9 +517,7 @@ async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
         .await
         .expect("custom_emoji_update: must succeed");
     assert!(
-        resp.updated
-            .as_ref()
-            .is_some_and(|m| m.contains_key(&Id::from("emoji-1"))),
+        resp.updated.contains_key(&Id::from("emoji-1")),
         "updated map must carry emoji-1"
     );
 

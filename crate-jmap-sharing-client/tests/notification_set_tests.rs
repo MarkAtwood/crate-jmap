@@ -53,10 +53,7 @@ async fn share_notification_set_destroy_only_wire() {
         .await
         .expect("share_notification_set_destroy_only_wire: must succeed");
 
-    let destroyed = resp
-        .destroyed
-        .as_ref()
-        .expect("share_notification_set_destroy_only_wire: destroyed must be Some");
+    let destroyed = &resp.destroyed;
     assert!(
         destroyed.iter().any(|id| id.as_ref() == "notif-1"),
         "destroyed must contain notif-1"
@@ -135,7 +132,7 @@ async fn share_notification_set_empty_destroy() {
     // Old and new state are equal — no changes occurred.
     assert_eq!(resp.new_state, "n-s1", "newState mismatch");
     assert!(
-        resp.destroyed.is_none(),
+        resp.destroyed.is_empty(),
         "destroyed must be None when nothing was destroyed"
     );
 

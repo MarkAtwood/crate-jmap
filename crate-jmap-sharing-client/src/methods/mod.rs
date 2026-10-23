@@ -332,7 +332,7 @@ mod tests {
         let resp: SetResponse<PartialObject> =
             serde_json::from_value(json).expect("SetResponse must deserialize");
         assert_eq!(resp.new_state, "s11");
-        assert_eq!(resp.destroyed.as_deref(), Some(["id1".into()].as_slice()));
+        assert_eq!(resp.destroyed, [jmap_types::Id::from("id1")]);
     }
 
     /// Oracle: QueryChangesResponse deserializes from RFC 8620 §5.6 shape.

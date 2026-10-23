@@ -72,13 +72,13 @@ async fn email_submission_set_create_round_trip() {
         .await
         .expect("email_submission_set_create_round_trip: must succeed");
 
-    let created = resp.created.as_ref().expect("created must be Some");
+    let created = &resp.created;
     assert_eq!(
         created["k1490"].id.as_ref().map(|i| i.as_ref()),
         Some("ES-3bab7f9a"),
         "created[k1490].id must match"
     );
-    assert!(resp.not_created.is_none(), "notCreated must be absent");
+    assert!(resp.not_created.is_empty(), "notCreated must be absent");
 }
 
 /// Test 2: EmailSubmission/set with onSuccessUpdateEmail sends the key at the top level.

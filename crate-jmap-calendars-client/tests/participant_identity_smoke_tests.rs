@@ -207,7 +207,7 @@ async fn participant_identity_set_create_round_trip() {
         .expect("participant_identity_set: must succeed");
 
     assert_eq!(resp.new_state, "ps3", "newState mismatch");
-    let created = resp.created.expect("created map must be present");
+    let created = resp.created;
     assert!(
         created.contains_key("newPi"),
         "created must contain 'newPi' creation-id key"

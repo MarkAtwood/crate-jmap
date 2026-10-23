@@ -151,7 +151,7 @@ async fn calendar_event_set_smoke() {
         .expect("calendar_event_set_smoke: must succeed");
 
     assert_eq!(resp.new_state, "s2", "newState mismatch");
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert!(
         created.contains_key("newEv"),
         "created must contain 'newEv' key"
@@ -354,8 +354,8 @@ async fn calendar_set_on_destroy_remove_events_true_passthrough() {
         .await
         .expect("calendar_set: must succeed");
     assert_eq!(
-        resp.destroyed.as_deref(),
-        Some(&[Id::from("cal-doomed")][..]),
+        resp.destroyed,
+        (&[Id::from("cal-doomed")][..]),
         "destroyed must contain the calendar id"
     );
 
@@ -549,7 +549,7 @@ async fn calendar_set_created_omits_client_sent_properties() {
         )
         .await
         .expect("a partial created object must parse");
-    let k1 = &resp.created.expect("created")["k1"];
+    let k1 = &resp.created["k1"];
     assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("cal-9"));
     assert_eq!(k1.extra["sortOrder"], 0);
     assert!(!k1.extra.contains_key("name"));

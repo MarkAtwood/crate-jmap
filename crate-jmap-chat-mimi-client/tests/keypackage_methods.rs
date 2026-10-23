@@ -44,7 +44,7 @@ async fn key_package_set_matches_draft_example() {
         .await
         .expect("KeyPackage/set");
     assert_eq!(resp.new_state.as_ref(), "s8");
-    let created = resp.created.expect("created");
+    let created = resp.created;
     assert_eq!(created["k1"].id.as_ref(), "kp42");
     assert_eq!(created["k1"].key_package_ref.as_str(), KP_REF);
 
@@ -78,7 +78,7 @@ async fn key_package_set_destroy_only() {
         .key_package_set(&BTreeMap::new(), &[Id::from("kp42")], None)
         .await
         .expect("KeyPackage/set");
-    assert_eq!(resp.destroyed.expect("destroyed")[0].as_ref(), "kp42");
+    assert_eq!(resp.destroyed[0].as_ref(), "kp42");
 
     let (using, call) = sent(&server).await;
     assert_using(&using);
@@ -143,8 +143,8 @@ async fn key_package_set_over_quota_is_not_created() {
         .key_package_set(&create, &[], None)
         .await
         .expect("a SetError is not a method error");
-    assert!(resp.created.is_none());
-    let not_created = resp.not_created.expect("notCreated");
+    assert!(resp.created.is_empty());
+    let not_created = resp.not_created;
     assert_eq!(
         serde_json::to_value(&not_created["k1"]).unwrap()["type"],
         "overQuota"

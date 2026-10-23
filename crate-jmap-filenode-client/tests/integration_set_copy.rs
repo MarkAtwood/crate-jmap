@@ -85,7 +85,7 @@ async fn filenode_set_create_with_params() {
         .expect("filenode_set_create_with_params: must succeed");
 
     assert_eq!(resp.new_state, "s11", "newState mismatch");
-    let created = resp.created.expect("created must be Some");
+    let created = resp.created;
     assert!(created.contains_key("c1"), "created must contain key c1");
     // Decode the partial object as a full FileNode (this fixture carries
     // every required property) to check the typed field mapping.
@@ -180,14 +180,12 @@ async fn filenode_set_destroy_node_has_children_error() {
 
     // destroyed must be absent (server rejected the operation).
     assert!(
-        resp.destroyed.is_none() || resp.destroyed.as_ref().is_none_or(|v| v.is_empty()),
+        resp.destroyed.is_empty() || resp.destroyed.is_empty(),
         "destroyed must be empty or None when destroy fails"
     );
 
     // notDestroyed must be present and contain the nodeHasChildren error.
-    let not_destroyed = resp
-        .not_destroyed
-        .expect("notDestroyed must be Some when destroy fails");
+    let not_destroyed = resp.not_destroyed;
     let err = not_destroyed
         .get("node-abc")
         .expect("notDestroyed must contain node-abc");
@@ -270,7 +268,7 @@ async fn filenode_copy_with_on_exists_rename() {
         .expect("filenode_copy_with_on_exists_rename: must succeed");
 
     assert_eq!(resp.new_state, "s11", "newState mismatch");
-    let created = resp.created.expect("created must be Some");
+    let created = resp.created;
     assert!(created.contains_key("copy1"), "created must contain copy1");
 
     // The -16 wire keys must land in typed FileNode fields, not in
@@ -331,7 +329,7 @@ async fn filenode_copy_with_on_exists_rename() {
 // ---------------------------------------------------------------------------
 
 /// A FileNode/copy response carrying `destroyed` decodes into
-/// `SetResponse::destroyed`, and one without it decodes to `None`.
+/// `SetResponse::destroyed`, and one without it decodes as empty.
 ///
 /// Oracle: draft-ietf-jmap-filenode-16 L677-679 ("the server MUST include
 /// the id of the replaced item in the destroyed response list"), applied to
@@ -342,9 +340,9 @@ async fn filenode_copy_decodes_destroyed() {
     for (destroyed, expected) in [
         (
             Some(json!(["old-dir", "old-child"])),
-            Some(vec![Id::from("old-dir"), Id::from("old-child")]),
+            vec![Id::from("old-dir"), Id::from("old-child")],
         ),
-        (None, None),
+        (None, Vec::new()),
     ] {
         let server = MockServer::start().await;
         let mut args = json!({
@@ -540,7 +538,7 @@ async fn filenode_set_created_omits_client_sent_properties() {
         )
         .await
         .expect("a partial created object must parse");
-    let k1 = &resp.created.expect("created")["k1"];
+    let k1 = &resp.created["k1"];
     assert_eq!(k1.id.as_ref().map(|i| i.as_ref()), Some("n-9"));
     assert_eq!(k1.extra["size"], 1024);
     assert!(!k1.extra.contains_key("name"));

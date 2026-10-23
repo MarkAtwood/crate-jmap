@@ -152,7 +152,7 @@ async fn graph_set_create_matches_example() {
         )
         .await
         .expect("Graph/set must succeed");
-    assert_eq!(resp.created.expect("created")["g"].id, Some(Id::from("G1")));
+    assert_eq!(resp.created["g"].id, Some(Id::from("G1")));
 
     let (using, call) = sent_call(&server).await;
     assert_eq!(using, using_graph());

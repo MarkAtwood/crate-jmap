@@ -611,7 +611,7 @@ async fn message_create_serializes_create_object() {
         .message_create(&input, None)
         .await
         .expect("message_create: must succeed");
-    let created = resp.created.expect("created must be present");
+    let created = resp.created;
     assert!(created.contains_key("client-msg-1"));
 
     let args = recorded_args(&server).await;
@@ -830,8 +830,7 @@ async fn message_create_legacy_rate_limited_is_not_created_not_error() {
         .expect("legacy rateLimited must not map to ClientError::RateLimited");
     let err = set_resp
         .not_created
-        .as_ref()
-        .and_then(|m| m.get("client-msg-1"))
+        .get("client-msg-1")
         .expect("creation key must be in notCreated");
     assert_eq!(err.error_type.to_string(), "rateLimited");
 }

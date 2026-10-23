@@ -303,22 +303,20 @@ impl super::SessionClient {
         let set_resp: SetResponse<PartialObject> =
             jmap_base_client::extract_response(&resp, super::CALL_ID)?;
         // Check for server-side rate limiting on the creation key.
-        if let Some(not_created) = &set_resp.not_created {
-            if let Some(err) = not_created.get(client_id_str) {
-                if err.error_type == jmap_types::SetErrorType::RateLimit {
-                    let retry_after = match super::server_retry_after(err) {
-                        Ok(Some(t)) => t,
-                        Ok(None) => jmap_types::UTCDate::from(
-                            chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                        ),
-                        Err(super::ServerRetryAfterError::Malformed(raw)) => {
-                            return Err(jmap_base_client::ClientError::UnexpectedResponse(
-                                format!("rateLimit SetError has malformed serverRetryAfter: {raw}"),
-                            ));
-                        }
-                    };
-                    return Err(jmap_base_client::ClientError::RateLimited { retry_after });
-                }
+        if let Some(err) = set_resp.not_created.get(client_id_str) {
+            if err.error_type == jmap_types::SetErrorType::RateLimit {
+                let retry_after = match super::server_retry_after(err) {
+                    Ok(Some(t)) => t,
+                    Ok(None) => jmap_types::UTCDate::from(
+                        chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                    ),
+                    Err(super::ServerRetryAfterError::Malformed(raw)) => {
+                        return Err(jmap_base_client::ClientError::UnexpectedResponse(format!(
+                            "rateLimit SetError has malformed serverRetryAfter: {raw}"
+                        )));
+                    }
+                };
+                return Err(jmap_base_client::ClientError::RateLimited { retry_after });
             }
         }
         Ok(set_resp)

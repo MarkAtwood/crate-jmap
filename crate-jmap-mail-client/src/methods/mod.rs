@@ -830,7 +830,7 @@ mod tests {
         let resp: SetResponse<PartialObject> =
             serde_json::from_value(json).expect("SetResponse must deserialize");
         assert_eq!(resp.new_state, "s11");
-        assert_eq!(resp.destroyed.as_deref(), Some(["id1".into()].as_slice()));
+        assert_eq!(resp.destroyed, [jmap_types::Id::from("id1")]);
     }
 
     /// Oracle: SetResponse<T>.updated must accept null values per RFC 8620
@@ -856,7 +856,7 @@ mod tests {
         });
         let resp: SetResponse<jmap_mail_types::Email> = serde_json::from_value(json)
             .expect("SetResponse must accept Id[Foo|null] per RFC 8620 §5.3");
-        let updated = resp.updated.expect("updated must be Some");
+        let updated = resp.updated;
         assert_eq!(updated.len(), 2, "two ids in updated map");
         assert!(
             updated
@@ -890,7 +890,7 @@ mod tests {
         });
         let resp: SetResponse<serde_json::Value> = serde_json::from_value(json)
             .expect("SetResponse must accept Id[Foo] per RFC 8620 §5.3");
-        let updated = resp.updated.expect("updated must be Some");
+        let updated = resp.updated;
         let m1 = updated
             .get(&Id::from("M1"))
             .expect("M1 key present")

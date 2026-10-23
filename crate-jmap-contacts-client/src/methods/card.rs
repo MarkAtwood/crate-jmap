@@ -522,7 +522,7 @@ mod tests {
         let resp: SetResponse<jmap_contacts_types::ContactCard> =
             serde_json::from_value(json).expect("SetResponse<ContactCard> must deserialize");
         assert_eq!(resp.new_state, "s2");
-        let created = resp.created.expect("created must be present");
+        let created = resp.created;
         assert!(
             created.contains_key("newCard"),
             "created must contain 'newCard'"
