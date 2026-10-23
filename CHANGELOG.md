@@ -1389,6 +1389,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-types**: `ValidationError`'s inner `String` is now
+  private, matching `Id`, `UTCDate`, `Date` and `State`. Read the message
+  through `Display` (`err.to_string()`) instead of `err.0` or tuple
+  destructuring.
 - **BREAKING** **jmap-server**, **jmap-chat-server**, **jmap-vtc-server**:
   a non-object `filter` (`42`, `"x"`, `true`, `[]`) on the generic
   `handle_query` / `handle_query_changes` (Tasks, Contacts, FileNode,

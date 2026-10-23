@@ -5,9 +5,17 @@ use std::fmt;
 
 /// Error returned by the fallible constructors [`Id::new_validated`],
 /// [`UTCDate::new_validated`], and [`State::new_validated`].
+///
+/// The message is reachable only through [`fmt::Display`]; the inner
+/// field is private, like the other newtypes in this module:
+///
+/// ```compile_fail
+/// let err = jmap_types::Id::new_validated("").unwrap_err();
+/// let jmap_types::ValidationError(msg) = err;
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct ValidationError(pub String);
+pub struct ValidationError(String);
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
