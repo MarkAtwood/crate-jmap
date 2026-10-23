@@ -70,7 +70,7 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -79,8 +79,16 @@ use crate::{
     QueryResult, SetError, SetErrorType, SetObject,
 };
 use crate::{CalendarsBackend, SetDefaultResult};
-use jmap_calendars_types::CalendarEventFilter;
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
+use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilter};
+use jmap_metadata_server::{
+    ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
+    changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
+    metadata_path_exists, metadata_text_contains, metadata_text_equals,
+};
+use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_server::{
+    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+};
 use jmap_types::{Id, JmapError, State};
 
 // ---------------------------------------------------------------------------
@@ -181,6 +189,23 @@ struct ChangeEntry {
     created: Vec<Id>,
     updated: Vec<Id>,
     destroyed: Vec<Id>,
+    /// The top-level properties this change altered on every id in
+    /// `updated`, or `None` when not known. Feeds
+    /// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges` and
+    /// `updatedProperties`.
+    updated_props: Option<BTreeSet<String>>,
+}
+
+impl ChangeEntry {
+    /// `true` for an update that changed only `metadata` and/or
+    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    fn is_metadata_only_update(&self) -> bool {
+        self.created.is_empty()
+            && self.destroyed.is_empty()
+            && self.updated_props.as_ref().is_some_and(|props| {
+                !props.is_empty() && props.iter().all(|p| is_metadata_property(p))
+            })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +257,10 @@ struct Inner {
     aux: HashMap<String, AccountAux>,
     /// Explicitly registered account ids (accounts may exist with no objects yet).
     known_accounts: HashSet<String>,
+    /// `type_name` → the draft-ietf-jmap-metadata-04 §1.2.1
+    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// A type without an entry does not have the metadata properties.
+    metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
 }
 
 impl Inner {
@@ -398,7 +427,9 @@ impl Inner {
 ///   in CI; production tests must.
 /// - **Filter coverage is narrow.** Only the `inCalendar` condition (alone
 ///   or in an operator tree) is honored on `CalendarEvent/query` (used by
-///   `Calendar/set` cleanup); a filter naming any other
+///   `Calendar/set` cleanup), plus the draft-ietf-jmap-metadata-04 §3.6
+///   shared-metadata conditions once [`MemoryBackend::with_metadata_info`]
+///   opts CalendarEvent in; a filter naming any other
 ///   `CalendarEventFilterCondition` field, and any non-empty filter on
 ///   another type, is rejected with `unsupportedFilter`. Production
 ///   backends MUST honor every documented filter.
@@ -468,6 +499,54 @@ impl MemoryBackend {
     #[must_use]
     pub fn with_account(self, account_id: &str) -> Self {
         self.register_account(&Id::from(account_id));
+        self
+    }
+
+    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// §1.2.1).
+    ///
+    /// Without this call a type has no metadata: `Foo/set` rejects a
+    /// write to `metadata` or `privateMetadata` with `invalidProperties`
+    /// and `Foo/query` rejects a metadata filter condition with
+    /// `unsupportedFilter`. With it, `Foo/set` validates metadata writes
+    /// (-04 §3.2, §4.1), `CalendarEvent/query` evaluates the -04 §3.6
+    /// conditions, and `Foo/changes` honours `ignoreMetadataOnlyChanges`
+    /// and reports `updatedProperties` (-04 §3.3). Advertising the
+    /// capability in the session is the server's job: list `info` under
+    /// `data_type` in the account's `urn:ietf:params:jmap:metadata`
+    /// `dataTypes`.
+    ///
+    /// Calendar writes need `myRights.maySetMetadata` on the Calendar, and
+    /// CalendarEvent writes need it on every Calendar the event is in
+    /// before and after the update, or on the `calendarIds` of a create
+    /// (-04 §4.1). An absent `maySetMetadata` allows the write (fail-open,
+    /// JMAP-bghk). This backend never sets `updated`, so a metadata-only
+    /// change leaves it alone, as -04 §3.1 requires.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `data_type` is not `"Calendar"` or `"CalendarEvent"`, the
+    /// two types draft-ietf-jmap-metadata-04 §4.1 names for this
+    /// extension, or if `info.supports_private` is true: this backend has
+    /// no per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
+    /// (-04 §2).
+    #[must_use]
+    pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
+        let type_name = metadata_type_name(data_type).unwrap_or_else(|| {
+            panic!(
+                "MemoryBackend supports metadata only on Calendar and CalendarEvent, not {data_type:?}"
+            )
+        });
+        assert!(
+            !info.supports_private,
+            "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
+        );
+        self.inner
+            .lock()
+            .unwrap()
+            .metadata_info
+            .insert(type_name, info);
         self
     }
 
@@ -705,6 +784,13 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
+        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // already folded a `using` without the capability into this flag.
+        let mode = if params.ignore_metadata_only_changes {
+            MetadataOnlyChanges::Ignore
+        } else {
+            MetadataOnlyChanges::Report
+        };
         let inner = self.inner.lock().unwrap();
 
         let since_n: u64 = since_state
@@ -723,8 +809,15 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
+        // Each entry counts as one change toward the limit, except a
+        // metadata-only update under Ignore: -04 §3.3 "Excluded ids do not
+        // count toward maxChanges".
+        let counted = relevant
+            .iter()
+            .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
+            .count();
         if let Some(max) = max_changes
-            && relevant.len() as u64 > max
+            && counted as u64 > max
         {
             return Err(BackendChangesError::TooManyChanges { limit: max });
         }
@@ -752,6 +845,7 @@ impl JmapBackend for MemoryBackend {
         // `ever_destroyed`.
         let mut fates: HashMap<Id, IdFate> = HashMap::new();
         let mut ever_destroyed: HashSet<Id> = HashSet::new();
+        let mut window_props = ChangedProperties::new();
         for entry in &relevant {
             for id in &entry.created {
                 // Under bd:JMAP-ic0j.2's monotonic-counter invariant a
@@ -781,6 +875,7 @@ impl JmapBackend for MemoryBackend {
                      entry.destroyed. This indicates id recycling in the \
                      demo id minter (regression of bd:JMAP-ic0j.2)."
                 );
+                window_props.record(id.as_ref(), entry.updated_props.as_ref());
                 let fate = match fates.get(id) {
                     Some(IdFate::Created) => IdFate::Created,
                     Some(IdFate::Destroyed) => IdFate::Destroyed,
@@ -811,6 +906,12 @@ impl JmapBackend for MemoryBackend {
         for (id, fate) in fates {
             match fate {
                 IdFate::Created => created.push(id),
+                // -04 §3.3: under Ignore, "exclude from the updated array
+                // any id whose only changes since sinceState ... are
+                // confined to metadata and/or privateMetadata".
+                IdFate::Updated
+                    if mode == MetadataOnlyChanges::Ignore
+                        && window_props.is_metadata_only(id.as_ref()) => {}
                 IdFate::Updated => updated.push(id),
                 IdFate::Destroyed => destroyed.push(id),
             }
@@ -823,13 +924,17 @@ impl JmapBackend for MemoryBackend {
         updated.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
         destroyed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
+        // -04 §3.3 `updatedProperties`; no calendars type has the RFC 8621
+        // §2.2 count properties that only Mailbox/changes may list.
+        let updated_properties = window_props.updated_properties(&updated, mode, &[]);
         Ok(ChangesResult::new(
             created,
             updated,
             destroyed,
             false,
             State::from(current_state.to_string()),
-        ))
+        )
+        .with_updated_properties(updated_properties))
     }
 
     /// Reference query_objects impl — see the module-level "Caveats" doc
@@ -872,11 +977,26 @@ impl JmapBackend for MemoryBackend {
         // QueryObject impl in jmap-calendars-types src/backend.rs). A failure
         // of either half means that dispatch has drifted; it surfaces as
         // serverFail rather than a panic or a silently dropped filter.
-        let is_event = O::TYPE_NAME == "CalendarEvent";
+        //
+        // draft-ietf-jmap-metadata-04 §3.6: the shared `metadata*` conditions
+        // are evaluable too once the type is opted in
+        // ([`MemoryBackend::with_metadata_info`]); [`check_metadata_filter`]
+        // validates them first, so a malformed path is `invalidArguments`.
+        let is_event = O::TYPE_NAME == CalendarEvent::TYPE_NAME;
         let mut event_filter: Option<CalendarEventFilter> = None;
         if let Some(f) = filter {
             let v = jmap_server::serialize_value(f).map_err(BackendQueryError::Method)?;
-            let evaluable: &[&str] = if is_event { &["inCalendar"] } else { &[] };
+            check_metadata_filter(&v, inner.metadata_info.get(O::TYPE_NAME))?;
+            let evaluable: &[&str] = if is_event {
+                &[
+                    "inCalendar",
+                    "metadataExists",
+                    "metadataTextContains",
+                    "metadataTextEquals",
+                ]
+            } else {
+                &[]
+            };
             if !filter_is_evaluable(&v, evaluable, is_event) {
                 return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
             }
@@ -901,7 +1021,12 @@ impl JmapBackend for MemoryBackend {
                                     v.get("calendarIds")
                                         .and_then(|ids| ids.as_object())
                                         .is_some_and(|map| map.contains_key(target.as_ref()))
-                                })
+                                }) && metadata_matches(
+                                    v.get("metadata").and_then(serde_json::Value::as_object),
+                                    c.metadata_exists.as_deref(),
+                                    c.metadata_text_contains.as_ref(),
+                                    c.metadata_text_equals.as_ref(),
+                                )
                             })
                         })
                     })
@@ -1015,6 +1140,244 @@ fn filter_is_evaluable(filter: &serde_json::Value, evaluable: &[&str], trees: bo
     })
 }
 
+/// The `TYPE_NAME` of the type named `data_type` if it is one this backend
+/// can give draft-ietf-jmap-metadata-04 properties: -04 §4.1 names
+/// Calendar, and CalendarEvent among the types that take the right from
+/// their containers.
+fn metadata_type_name(data_type: &str) -> Option<&'static str> {
+    [Calendar::TYPE_NAME, CalendarEvent::TYPE_NAME]
+        .into_iter()
+        .find(|t| *t == data_type)
+}
+
+fn invalid_metadata_property(property: &str, description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties([property])
+            .with_description(description),
+    ))
+}
+
+impl Inner {
+    /// draft-ietf-jmap-metadata-04 §3.2 rules 1 to 3 for a metadata write
+    /// on a `type_name` object, before the write is applied. Returns the
+    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// or `None` when `entry` writes no metadata.
+    ///
+    /// `entry` is the create object or update patch, `stored` the object
+    /// before an update (`None` on create), and `containers` the Calendar
+    /// ids whose `maySetMetadata` a CalendarEvent write needs (-04 §4.1).
+    /// Rule 1's `notFound` is the caller's: this backend has no read
+    /// rights, so only a missing object is unreadable.
+    fn check_metadata_set(
+        &self,
+        type_name: &'static str,
+        account_id: &str,
+        kind: SetKind,
+        entry: &serde_json::Map<String, serde_json::Value>,
+        stored: Option<&serde_json::Map<String, serde_json::Value>>,
+        containers: &[&str],
+    ) -> Result<Option<DataTypeMetadataInfo>, BackendSetError<MemoryError>> {
+        let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
+            return Ok(None);
+        };
+        // -04 §1.2.1: an unlisted type "does not gain the metadata or
+        // privateMetadata properties".
+        let Some(info) = self.metadata_info.get(type_name) else {
+            return Err(invalid_metadata_property(
+                first,
+                "metadata is not supported on this data type",
+            ));
+        };
+        // Rule 1 / -04 §4.1: "A write to metadata without maySetMetadata
+        // MUST be rejected with a "forbidden" SetError". A Calendar has
+        // its own rights; a CalendarEvent "takes the right from its
+        // containers". An absent right or container allows the write
+        // (fail-open, JMAP-bghk).
+        let writes_shared = entry.keys().any(|k| {
+            crate::helpers::is_metadata_key(k)
+                && k.split_once('/').map_or(k.as_str(), |(root, _)| root) == "metadata"
+        });
+        let denies = |rights: Option<&serde_json::Value>| {
+            rights
+                .and_then(|r| r.get("maySetMetadata"))
+                .and_then(serde_json::Value::as_bool)
+                == Some(false)
+        };
+        let forbidden = writes_shared
+            && if type_name == Calendar::TYPE_NAME {
+                denies(stored.and_then(|c| c.get("myRights")))
+            } else {
+                let calendars = self.objects_ref(Calendar::TYPE_NAME, account_id);
+                containers.iter().any(|id| {
+                    denies(
+                        calendars
+                            .and_then(|c| c.get(*id))
+                            .and_then(|cal| cal.get("myRights")),
+                    )
+                })
+            };
+        if forbidden {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("maySetMetadata is required to write metadata"),
+            )));
+        }
+        check_metadata_write(kind, entry, stored, info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+        Ok(Some(info.clone()))
+    }
+}
+
+/// The Calendar ids a CalendarEvent update's metadata write needs
+/// `maySetMetadata` on: every Calendar the event is in before the update
+/// and every one `patch` adds (-04 §4.1: "on every container both before
+/// and after the change").
+fn event_update_containers<'a>(
+    stored: &'a serde_json::Map<String, serde_json::Value>,
+    patch: &'a serde_json::Map<String, serde_json::Value>,
+) -> Vec<&'a str> {
+    let before = stored
+        .get("calendarIds")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flat_map(|m| m.keys().map(String::as_str));
+    let replaced = patch
+        .get("calendarIds")
+        .and_then(serde_json::Value::as_object)
+        .into_iter()
+        .flat_map(|m| m.iter())
+        .filter(|(_, v)| v.as_bool() == Some(true))
+        .map(|(k, _)| k.as_str());
+    let added = patch.iter().filter_map(|(k, v)| {
+        k.strip_prefix("calendarIds/")
+            .filter(|_| v.as_bool() == Some(true))
+    });
+    before.chain(replaced).chain(added).collect()
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
+/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
+/// on the stored value. A CalendarEvent needs `maySetMetadata` on the
+/// Calendars of its `calendarIds` (-04 §4.1: "on create, on the
+/// containers given in the create"). Types without the -04 properties
+/// pass unchecked.
+fn check_metadata_create(
+    inner: &Inner,
+    type_name: &'static str,
+    account_id: &str,
+    val: &serde_json::Value,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let (Some(type_name), Some(obj)) = (metadata_type_name(type_name), val.as_object()) else {
+        return Ok(());
+    };
+    let entry: serde_json::Map<String, serde_json::Value> = obj
+        .iter()
+        .filter(|(k, _)| is_metadata_property(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let containers: Vec<&str> = if type_name == CalendarEvent::TYPE_NAME {
+        obj.get("calendarIds")
+            .and_then(serde_json::Value::as_object)
+            .map(|m| m.keys().map(String::as_str).collect())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    if let Some(info) = inner.check_metadata_set(
+        type_name,
+        account_id,
+        SetKind::Create,
+        &entry,
+        None,
+        &containers,
+    )? {
+        check_metadata_depth(&entry, obj, &info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    }
+    Ok(())
+}
+
+/// The six draft-ietf-jmap-metadata-04 §3.6 FilterCondition fields.
+const METADATA_CONDITION_KEYS: [&str; 6] = [
+    "metadataExists",
+    "privateMetadataExists",
+    "metadataTextContains",
+    "privateMetadataTextContains",
+    "metadataTextEquals",
+    "privateMetadataTextEquals",
+];
+
+/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// before any object is matched.
+///
+/// A type without `info` has no metadata (-04 §1.2.1: it "does not gain
+/// the metadata or privateMetadata properties"), so a metadata leaf is
+/// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
+/// but the server cannot process it"). Otherwise
+/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// `invalidArguments`, and a `privateMetadata*` condition is
+/// `unsupportedFilter` because `supportsPrivate` is false.
+fn check_metadata_filter(
+    filter: &serde_json::Value,
+    info: Option<&DataTypeMetadataInfo>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    let unsupported = |description: String| {
+        let mut err = JmapError::unsupported_filter();
+        err.description = Some(description);
+        BackendQueryError::Method(err)
+    };
+    if filter.get("operator").is_some() {
+        return filter
+            .get("conditions")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .try_for_each(|f| check_metadata_filter(f, info));
+    }
+    let Some(leaf) = filter.as_object() else {
+        return Ok(());
+    };
+    if !METADATA_CONDITION_KEYS
+        .iter()
+        .any(|k| leaf.get(*k).is_some_and(|v| !v.is_null()))
+    {
+        return Ok(());
+    }
+    let Some(info) = info else {
+        return Err(unsupported(
+            "metadata filter conditions are not supported".to_owned(),
+        ));
+    };
+    MetadataCondition::take_from(&mut leaf.clone(), info)
+        .map(drop)
+        .map_err(|e| match e {
+            MetadataFilterError::InvalidArguments(d) => {
+                BackendQueryError::Method(JmapError::invalid_arguments(d))
+            }
+            other => unsupported(other.to_string()),
+        })
+}
+
+/// Match the draft-ietf-jmap-metadata-04 §3.6 shared-metadata conditions of
+/// one filter leaf against an object's `metadata` (absent means `{}`, -04
+/// §2). The `privateMetadata*` conditions never reach this point:
+/// [`check_metadata_filter`] rejects them, since this backend has
+/// `supportsPrivate` false.
+fn metadata_matches(
+    metadata: Option<&serde_json::Map<String, serde_json::Value>>,
+    exists: Option<&str>,
+    contains: Option<&MetadataTextMatch>,
+    equals: Option<&MetadataTextMatch>,
+) -> bool {
+    let empty = serde_json::Map::new();
+    let metadata = metadata.unwrap_or(&empty);
+    exists.is_none_or(|p| metadata_path_exists(metadata, p))
+        && contains.is_none_or(|m| metadata_text_contains(metadata, m))
+        && equals.is_none_or(|m| metadata_text_equals(metadata, m))
+}
+
 // ---------------------------------------------------------------------------
 // CalendarsBackend impl
 // ---------------------------------------------------------------------------
@@ -1044,6 +1407,7 @@ impl CalendarsBackend for MemoryBackend {
         let stored_obj = build(&server_id);
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
+        check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val)?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         // bd:JMAP-ic0j.8 — for CalendarEvent, feed the new value to the
@@ -1063,6 +1427,7 @@ impl CalendarsBackend for MemoryBackend {
                 created: vec![server_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
 
         Ok((server_id, stored_obj))
@@ -1075,8 +1440,26 @@ impl CalendarsBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        let patch_val = serde_json::to_value(&patch)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
+        let invalid_patch = |e: PatchPathError| {
+            BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+            ))
+        };
+        // draft-ietf-jmap-metadata-04 §3.2: "Patch errors that can be
+        // determined from the request alone (for example, two paths where
+        // one is a prefix of the other) MUST be reported with
+        // "invalidPatch" before rule 1 is evaluated."
+        if let serde_json::Value::Object(patch_map) = &patch_val {
+            check_patch_paths(patch_map).map_err(invalid_patch)?;
+        }
+
         let mut inner = self.inner.lock().unwrap();
 
+        // -04 §3.2 rule 1: "If the user cannot read the related object,
+        // reject with "notFound"" comes before "forbidden". Here only a
+        // missing object is unreadable.
         let existing = inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .get(id)
@@ -1094,16 +1477,57 @@ impl CalendarsBackend for MemoryBackend {
         // the shared `apply_patch_object`, so an invalidPatch leaves the
         // stored object unchanged. Values replace wholesale; the helper caps
         // path plus value nesting depth.
-        let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
+        let mut updated_props = None;
         if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
             (&mut current, &patch_val)
         {
-            apply_patch_object(base, patch_map).map_err(|e| {
-                BackendSetError::SetError(Box::new(
-                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                ))
-            })?;
+            // -04 §3.2 rules 1 to 3 run before the patch is applied.
+            let metadata_info = if metadata_type_name(O::TYPE_NAME).is_some() {
+                let containers = if O::TYPE_NAME == CalendarEvent::TYPE_NAME {
+                    event_update_containers(base, patch_map)
+                } else {
+                    Vec::new()
+                };
+                inner.check_metadata_set(
+                    O::TYPE_NAME,
+                    account_id.as_ref(),
+                    SetKind::Update,
+                    patch_map,
+                    Some(base),
+                    &containers,
+                )?
+            } else {
+                None
+            };
+            // -04 §2 `metadata` has "default: {}", so a
+            // `metadata/<namespace>` pointer finds its parent.
+            if metadata_info.is_some() {
+                base.entry("metadata")
+                    .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+            }
+            let before = base.clone();
+            // The value-dependent patch errors (missing parent, path through
+            // an array) land here, after rule 3 and before rule 4 (-04 §3.2).
+            apply_patch_object(base, patch_map).map_err(invalid_patch)?;
+            if let Some(info) = &metadata_info {
+                // -04 §3.2: "In an update, null is equivalent to {}"; the
+                // patch removed the property instead.
+                for property in ["metadata", "privateMetadata"] {
+                    if patch_map
+                        .get(property)
+                        .is_some_and(serde_json::Value::is_null)
+                    {
+                        base.insert(
+                            property.to_owned(),
+                            serde_json::Value::Object(serde_json::Map::new()),
+                        );
+                    }
+                }
+                // -04 §3.2 rule 4 runs on the value as it would be stored.
+                check_metadata_depth(patch_map, base, info)
+                    .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+            }
+            updated_props = Some(changed_properties(&before, base));
         }
 
         // RFC 8620 §5.3: the patched object must still be valid. Re-check it
@@ -1138,6 +1562,7 @@ impl CalendarsBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                updated_props,
             });
 
         Ok(None)
@@ -1180,6 +1605,7 @@ impl CalendarsBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        updated_props: None,
                     });
                 // bd:JMAP-ic0j.8 — for CalendarEvent, feed the removed
                 // value as `old` (and no `new`) so the reverse-index
@@ -1371,6 +1797,7 @@ mod change_log_dedup_tests {
                     created: vec![recycled.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    updated_props: None,
                 },
                 // Entry K=2: destroyed it.
                 ChangeEntry {
@@ -1378,6 +1805,7 @@ mod change_log_dedup_tests {
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![recycled.clone()],
+                    updated_props: None,
                 },
                 // Entry K=3: re-mints the SAME id (the bug we are
                 // guarding against; impossible under bd:JMAP-ic0j.2's
@@ -1387,6 +1815,7 @@ mod change_log_dedup_tests {
                     created: vec![recycled.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    updated_props: None,
                 },
             ],
         );
@@ -1423,18 +1852,21 @@ mod change_log_dedup_tests {
                     created: vec![recycled.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    updated_props: None,
                 },
                 ChangeEntry {
                     new_state: 2,
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![recycled.clone()],
+                    updated_props: None,
                 },
                 ChangeEntry {
                     new_state: 3,
                     created: vec![],
                     updated: vec![recycled.clone()],
                     destroyed: vec![],
+                    updated_props: None,
                 },
             ],
         );
@@ -1468,12 +1900,14 @@ mod change_log_dedup_tests {
                     created: vec![id_a.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    updated_props: None,
                 },
                 ChangeEntry {
                     new_state: 2,
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![id_a.clone()],
+                    updated_props: None,
                 },
                 // A DIFFERENT id, not the destroyed one.
                 ChangeEntry {
@@ -1481,6 +1915,7 @@ mod change_log_dedup_tests {
                     created: vec![id_b.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    updated_props: None,
                 },
             ],
         );

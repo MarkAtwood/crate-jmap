@@ -73,7 +73,7 @@ fn backend_with_identity() -> MemoryBackend {
 
 async fn update_calendar(backend: &MemoryBackend, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "cal1": patch } });
-    handle_calendar_set(backend, &(), args)
+    handle_calendar_set(backend, &(), args, &[])
         .await
         .expect("/set must not return a top-level error")
         .primary

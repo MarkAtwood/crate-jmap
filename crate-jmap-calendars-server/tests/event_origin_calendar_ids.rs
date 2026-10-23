@@ -58,7 +58,7 @@ fn event(extra: Value) -> Value {
 }
 
 async fn set(backend: &MemoryBackend, args: Value) -> Value {
-    handle_calendar_event_set(backend, &(), &std::collections::BTreeMap::new(), args)
+    handle_calendar_event_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("/set must not return a top-level error")
         .primary

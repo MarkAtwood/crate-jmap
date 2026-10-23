@@ -46,6 +46,8 @@ pub jmap_calendars_types::CalendarEventComparatorProperty::Other(alloc::string::
 pub jmap_calendars_types::CalendarEventComparatorProperty::Start
 pub jmap_calendars_types::CalendarEventComparatorProperty::Uid
 pub jmap_calendars_types::CalendarEventComparatorProperty::Updated
+impl jmap_calendars_types::CalendarEventComparatorProperty
+pub fn jmap_calendars_types::CalendarEventComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_calendars_types::CalendarEventComparatorProperty
 pub fn jmap_calendars_types::CalendarEventComparatorProperty::clone(&self) -> jmap_calendars_types::CalendarEventComparatorProperty
 impl core::cmp::Eq for jmap_calendars_types::CalendarEventComparatorProperty
@@ -69,6 +71,8 @@ pub fn jmap_calendars_types::CalendarEventComparatorProperty::deserialize<D: ser
 #[non_exhaustive] pub enum jmap_calendars_types::CalendarEventNotificationComparatorProperty
 pub jmap_calendars_types::CalendarEventNotificationComparatorProperty::Created
 pub jmap_calendars_types::CalendarEventNotificationComparatorProperty::Other(alloc::string::String)
+impl jmap_calendars_types::CalendarEventNotificationComparatorProperty
+pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_calendars_types::CalendarEventNotificationComparatorProperty
 pub fn jmap_calendars_types::CalendarEventNotificationComparatorProperty::clone(&self) -> jmap_calendars_types::CalendarEventNotificationComparatorProperty
 impl core::cmp::Eq for jmap_calendars_types::CalendarEventNotificationComparatorProperty
@@ -186,6 +190,8 @@ pub jmap_calendars_types::NotificationType::Created
 pub jmap_calendars_types::NotificationType::Destroyed
 pub jmap_calendars_types::NotificationType::Other(alloc::string::String)
 pub jmap_calendars_types::NotificationType::Updated
+impl jmap_calendars_types::NotificationType
+pub fn jmap_calendars_types::NotificationType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_calendars_types::NotificationType
 pub fn jmap_calendars_types::NotificationType::clone(&self) -> jmap_calendars_types::NotificationType
 impl core::cmp::Eq for jmap_calendars_types::NotificationType
@@ -250,8 +256,10 @@ pub jmap_calendars_types::Calendar::include_in_availability: jmap_calendars_type
 pub jmap_calendars_types::Calendar::is_default: bool
 pub jmap_calendars_types::Calendar::is_subscribed: bool
 pub jmap_calendars_types::Calendar::is_visible: bool
+pub jmap_calendars_types::Calendar::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_calendars_types::Calendar::my_rights: jmap_calendars_types::CalendarRights
 pub jmap_calendars_types::Calendar::name: alloc::string::String
+pub jmap_calendars_types::Calendar::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_calendars_types::Calendar::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_calendars_types::CalendarRights>>
 pub jmap_calendars_types::Calendar::sort_order: u32
 pub jmap_calendars_types::Calendar::time_zone: core::option::Option<alloc::string::String>
@@ -322,10 +330,12 @@ pub jmap_calendars_types::CalendarEvent::localizations: core::option::Option<all
 pub jmap_calendars_types::CalendarEvent::locations: core::option::Option<serde_json::value::Value>
 pub jmap_calendars_types::CalendarEvent::may_invite_others: core::option::Option<bool>
 pub jmap_calendars_types::CalendarEvent::may_invite_self: core::option::Option<bool>
+pub jmap_calendars_types::CalendarEvent::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_calendars_types::CalendarEvent::organizer_calendar_address: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEvent::participants: core::option::Option<serde_json::value::Value>
 pub jmap_calendars_types::CalendarEvent::priority: core::option::Option<u8>
 pub jmap_calendars_types::CalendarEvent::privacy: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEvent::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_calendars_types::CalendarEvent::prod_id: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEvent::recurrence_id: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEvent::recurrence_id_time_zone: core::option::Option<alloc::string::String>
@@ -396,11 +406,19 @@ pub jmap_calendars_types::CalendarEventFilterCondition::before: core::option::Op
 pub jmap_calendars_types::CalendarEventFilterCondition::description: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEventFilterCondition::in_calendar: core::option::Option<jmap_types::id::Id>
 pub jmap_calendars_types::CalendarEventFilterCondition::location: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_calendars_types::CalendarEventFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_calendars_types::CalendarEventFilterCondition::owner: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEventFilterCondition::participant: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_calendars_types::CalendarEventFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_calendars_types::CalendarEventFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_calendars_types::CalendarEventFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEventFilterCondition::title: core::option::Option<alloc::string::String>
 pub jmap_calendars_types::CalendarEventFilterCondition::uid: core::option::Option<alloc::string::String>
+impl jmap_calendars_types::CalendarEventFilterCondition
+pub fn jmap_calendars_types::CalendarEventFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_calendars_types::CalendarEventFilterCondition
 pub fn jmap_calendars_types::CalendarEventFilterCondition::clone(&self) -> jmap_calendars_types::CalendarEventFilterCondition
 impl core::default::Default for jmap_calendars_types::CalendarEventFilterCondition

@@ -75,7 +75,7 @@ async fn calendar_set_over_limit_create_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_calendar_set(&backend, &(), args)
+    let err = handle_calendar_set(&backend, &(), args, &[])
         .await
         .expect_err("501-entry Calendar/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
@@ -94,9 +94,10 @@ async fn calendar_event_set_over_limit_create_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-        .await
-        .expect_err("501-entry CalendarEvent/set create batch must trip maxObjectsInSet cap");
+    let err =
+        handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+            .await
+            .expect_err("501-entry CalendarEvent/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
     assert_eq!(err.error_type.to_string(), etype);
     assert_eq!(err.description.as_deref(), Some(edesc));
@@ -157,7 +158,7 @@ async fn calendar_set_at_limit_passes_cap_check() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP),
     });
-    let result = handle_calendar_set(&backend, &(), args).await;
+    let result = handle_calendar_set(&backend, &(), args, &[]).await;
     if let Err(ref err) = result {
         assert_ne!(
             err.error_type.to_string(),
