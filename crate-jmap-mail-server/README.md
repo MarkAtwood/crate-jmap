@@ -129,6 +129,30 @@ pub trait MailBackend: JmapBackend {
 
     // --- Mail-specific operations ---
 
+    /// Store an Email/set create (RFC 8621 §4.6): store `message` (the
+    /// RFC 5322 message the handler composed) as a new blob, mint the
+    /// Email id, call build(&email_id, &blob_id, &message) once and store
+    /// the returned Email, atomically. Returns (email_id, email).
+    fn create_email<F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        create_id: &str,
+        message: Vec<u8>,
+        build: F,
+    ) -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>> + Send
+    where
+        F: FnOnce(&Id, &Id, &[u8]) -> Email + Send;
+
+    /// Return the bytes of a blob, or None if absent. Email/set create reads
+    /// the blobs that body parts reference by blobId.
+    fn read_blob(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> impl Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
+
     /// Import a raw message blob as an Email (RFC 8621 §5.7).
     /// The blob must already be present in the blob store.
     fn import_email(

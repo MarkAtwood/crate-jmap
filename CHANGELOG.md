@@ -1475,6 +1475,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**: **BREAKING** `MailBackend` gains `create_email`
+  and `read_blob`, and `Email/set` create no longer calls
+  `create_object::<Email>`. The handler composes the RFC 5322 message the
+  create describes (`jmap_mime::compose_email`), reads `blobId` parts with
+  `read_blob`, and `create_email` stores the message as a blob and the
+  Email built by parsing it, atomically. The `"placeholder-blob"` blobId
+  and size 0 that backends had to replace in `create_object` are gone:
+  `blobId` and `size` describe the stored message (RFC 8621 §4.1.1).
+  Created Emails now carry `from`, `to`, `cc`, `bcc`, `sender`,
+  `replyTo`, `messageId`, `sentAt` and the body properties; a create
+  without `messageId` or `sentAt` gets a generated Message-ID and a Date
+  equal to `receivedAt` (RFC 8621 §4.6); a missing `blobId` fails with
+  `blobNotFound` listing every one in `notFound`. `jmap-mime` is now a
+  required dependency (bd JMAP-u6c5).
 - **jmap-chat-server**: **BREAKING** `Message/set` reports
   `OutboundEvent::Retract` to `ChatBackend::on_outbound_event` after the
   `deletedForAll` update is written, not before, so a failed write sends
@@ -3315,6 +3329,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: `Email/import`, `Email/parse` and `Email/set`
+  create decode RFC 2047 encoded words in `subject` and fill `sender`,
+  `replyTo`, `bcc` and `sentAt` from the message (RFC 8621 §4.1.3), and
+  take `preview` from the MIME-decoded text instead of the raw body
+  (bd JMAP-u6c5).
 - **jmap-chat-server**: **BREAKING** `MemoryBackend::get_changes` lists a
   `Message` created and destroyed in the same window (burnOnRead,
   senderExpiresAt) in `destroyed` again, per draft-atwood-jmap-chat-00

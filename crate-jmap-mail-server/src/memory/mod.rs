@@ -80,20 +80,17 @@ pub mod seed;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-// MIME body parsing (jmap-mime + mime-tree) — used in import_email and parse_email.
-use jmap_mime::message_to_jmap_body;
-
 use crate::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, MailBackend, QueryChangesParams, QueryChangesResult, QueryObject,
     QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_mail_types::{
-    ComparatorProperty, Email, EmailAddress, EmailComparator, EmailFilter, EmailFilterCondition,
-    EmailHeader, EmailSubmission, EmailSubmissionComparator, EmailSubmissionComparatorProperty,
-    EmailSubmissionFilter, EmailSubmissionFilterCondition, Filter, Keyword, Mailbox,
-    MailboxComparator, MailboxComparatorProperty, MailboxFilter, MailboxFilterCondition,
-    MailboxRole, Operator, SearchSnippet,
+    ComparatorProperty, Email, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmission,
+    EmailSubmissionComparator, EmailSubmissionComparatorProperty, EmailSubmissionFilter,
+    EmailSubmissionFilterCondition, Filter, Keyword, Mailbox, MailboxComparator,
+    MailboxComparatorProperty, MailboxFilter, MailboxFilterCondition, MailboxRole, Operator,
+    SearchSnippet,
 };
 use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
@@ -1210,38 +1207,8 @@ impl MailBackend for MemoryBackend {
         } else {
             Id::from(uuid::Uuid::new_v4().to_string())
         };
-        let mut val = serde_json::to_value(build(&id))
+        let val = serde_json::to_value(build(&id))
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
-        // Replace placeholder blobId with a server-assigned UUID. The Email/set
-        // create handler sets blobId to [`crate::helpers::PLACEHOLDER_BLOB_ID`]
-        // because it has no raw bytes to hash; the backend is responsible for
-        // assigning the real value. MemoryBackend uses a UUID since it does
-        // not store raw blobs on this path. Real backends should store the
-        // blob and use a content hash here.
-        if val.get("blobId").and_then(|v| v.as_str()) == Some(crate::helpers::PLACEHOLDER_BLOB_ID)
-            && let serde_json::Value::Object(ref mut map) = val
-        {
-            let blob_uuid = Id::from(uuid::Uuid::new_v4().to_string());
-            map.insert(
-                "blobId".to_owned(),
-                serde_json::Value::String(blob_uuid.to_string()),
-            );
-        }
-        // Update size from the serialized JSON length. email.rs sets size=0 as a
-        // placeholder (it has no raw bytes on the Email/set create path); the backend
-        // is responsible for assigning the real value. MemoryBackend uses the
-        // serialized-JSON byte length as a proxy — non-zero and stable within a test.
-        if val.get("size").and_then(|v| v.as_u64()) == Some(0)
-            && let serde_json::Value::Object(ref mut map) = val
-        {
-            let json_size = serde_json::to_vec(&serde_json::Value::Object(map.clone()))
-                .map(|b| b.len() as u64)
-                .unwrap_or(1);
-            map.insert(
-                "size".to_owned(),
-                serde_json::Value::Number(json_size.into()),
-            );
-        }
         let created_obj: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("deserialize after create", &e))
         })?;
@@ -1269,6 +1236,53 @@ impl MailBackend for MemoryBackend {
             });
 
         Ok((id, created_obj))
+    }
+
+    // -----------------------------------------------------------------------
+    // create_email / read_blob
+    // -----------------------------------------------------------------------
+
+    async fn create_email<F>(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        _create_id: &str,
+        message: Vec<u8>,
+        build: F,
+    ) -> Result<(Id, Email), BackendSetError<Self::Error>>
+    where
+        F: FnOnce(&Id, &Id, &[u8]) -> Email + Send,
+    {
+        let email_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let blob_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let email = build(&email_id, &blob_id, &message);
+        let val = serde_json::to_value(&email)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
+
+        let mut inner = self.inner.lock().unwrap();
+        inner.blobs.insert(blob_id, message);
+        inner
+            .objects_mut("Email", account_id.as_ref())
+            .insert(email_id.clone(), val);
+        let new_state = inner.bump_state("Email", account_id.as_ref());
+        inner
+            .change_log_mut("Email", account_id.as_ref())
+            .push(ChangeEntry {
+                new_state,
+                created: vec![email_id.clone()],
+                updated: vec![],
+                destroyed: vec![],
+            });
+        Ok((email_id, email))
+    }
+
+    async fn read_blob(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Option<Vec<u8>>, Self::Error> {
+        Ok(self.inner.lock().unwrap().blobs.get(blob_id).cloned())
     }
 
     // -----------------------------------------------------------------------
@@ -1383,7 +1397,7 @@ impl MailBackend for MemoryBackend {
         };
 
         // Parse message headers from raw bytes (best-effort RFC 5322 parsing).
-        let parsed = parse_rfc5322_headers(&bytes);
+        let parsed = crate::parse::parse_rfc5322_headers(&bytes);
 
         // Build the Email object outside the lock (uses only local data).
         let email_id = Id::from(uuid::Uuid::new_v4().to_string());
@@ -1437,36 +1451,7 @@ impl MailBackend for MemoryBackend {
                 received,
             );
             email.keywords = kw_map;
-            email.subject = parsed.subject;
-            email.message_id = parsed.message_id;
-            email.in_reply_to = (!parsed.in_reply_to.is_empty()).then_some(parsed.in_reply_to);
-            email.references = (!parsed.references.is_empty()).then_some(parsed.references);
-            email.from = parsed.from;
-            email.to = parsed.to;
-            email.cc = parsed.cc;
-            email.headers = parsed.raw_headers;
-            if let Some(preview) = parsed.preview {
-                email.preview = Some(preview);
-            }
-
-            // Populate body structure fields using the MIME parser.
-            if let Ok(parsed_msg) = mime_tree::parse(&bytes) {
-                let part_counter = std::cell::Cell::new(0usize);
-                let blob_id_str = blob_id.to_string();
-                let body_fields = message_to_jmap_body(&parsed_msg, |_part| {
-                    let i = part_counter.get();
-                    part_counter.set(i + 1);
-                    jmap_types::Id::from(format!("{blob_id_str}-part-{i}"))
-                });
-                email.text_body = body_fields.text_body;
-                email.html_body = body_fields.html_body;
-                email.attachments = body_fields.attachments.clone();
-                email.body_structure = Some(body_fields.body_structure);
-                email.has_attachment = !body_fields.attachments.is_empty();
-                if email.preview.is_none() {
-                    email.preview = body_fields.preview;
-                }
-            }
+            crate::parse::fill_from_message(&mut email, parsed, &bytes, blob_id);
 
             // Ensure the Thread object exists.
             let thread_val = serde_json::json!({
@@ -1642,7 +1627,7 @@ impl MailBackend for MemoryBackend {
                 .ok_or_else(|| MemoryError::new(format!("blob not found: {blob_id}")))?
         };
 
-        let parsed = parse_rfc5322_headers(&bytes);
+        let parsed = crate::parse::parse_rfc5322_headers(&bytes);
 
         // parse_email does not store — use a synthetic id.
         let email_id = Id::from(format!("parse-{blob_id}"));
@@ -1662,36 +1647,7 @@ impl MailBackend for MemoryBackend {
             bytes.len() as u64,
             received,
         );
-        email.subject = parsed.subject;
-        email.message_id = parsed.message_id;
-        email.in_reply_to = (!parsed.in_reply_to.is_empty()).then_some(parsed.in_reply_to);
-        email.references = (!parsed.references.is_empty()).then_some(parsed.references);
-        email.from = parsed.from;
-        email.to = parsed.to;
-        email.cc = parsed.cc;
-        email.headers = parsed.raw_headers;
-        if let Some(preview) = parsed.preview {
-            email.preview = Some(preview);
-        }
-
-        // Populate body structure fields using the MIME parser.
-        if let Ok(parsed_msg) = mime_tree::parse(&bytes) {
-            let part_counter = std::cell::Cell::new(0usize);
-            let blob_id_str = blob_id.to_string();
-            let body_fields = message_to_jmap_body(&parsed_msg, |_part| {
-                let i = part_counter.get();
-                part_counter.set(i + 1);
-                jmap_types::Id::from(format!("{blob_id_str}-part-{i}"))
-            });
-            email.text_body = body_fields.text_body;
-            email.html_body = body_fields.html_body;
-            email.attachments = body_fields.attachments.clone();
-            email.body_structure = Some(body_fields.body_structure);
-            email.has_attachment = !body_fields.attachments.is_empty();
-            if email.preview.is_none() {
-                email.preview = body_fields.preview;
-            }
-        }
+        crate::parse::fill_from_message(&mut email, parsed, &bytes, blob_id);
 
         Ok(email)
     }
@@ -1883,171 +1839,6 @@ impl MailBackend for MemoryBackend {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Minimal parsed fields from an RFC 5322 message header block.
-struct ParsedHeaders {
-    subject: Option<String>,
-    message_id: Option<Vec<String>>,
-    in_reply_to: Vec<String>,
-    references: Vec<String>,
-    from: Option<Vec<EmailAddress>>,
-    to: Option<Vec<EmailAddress>>,
-    cc: Option<Vec<EmailAddress>>,
-    /// Short preview of the body (first 256 bytes of the text body, if any).
-    preview: Option<String>,
-    /// Raw header fields in order, for `Email.headers` (RFC 8621 §4.1.3).
-    raw_headers: Vec<EmailHeader>,
-}
-
-/// Bare-minimum RFC 5322 header parser.
-///
-/// Reads raw bytes as UTF-8 (lossy), splits on the blank line that separates
-/// headers from the body, and extracts the fields needed for threading and
-/// snippet generation. Folded header lines (CRLF + whitespace) are unfolded.
-///
-/// This is intentionally simple — it handles the common cases in tests. A
-/// production implementation would use a proper MIME library.
-fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
-    let text = String::from_utf8_lossy(bytes);
-
-    // Split headers from body at the first blank line.
-    let (header_block, body_block) = if let Some(idx) = text.find("\r\n\r\n") {
-        (&text[..idx], &text[idx + 4..])
-    } else if let Some(idx) = text.find("\n\n") {
-        (&text[..idx], &text[idx + 2..])
-    } else {
-        (text.as_ref(), "")
-    };
-
-    // Build raw_headers: fold continuation lines back into the preceding header.
-    // A line beginning with whitespace is a continuation of the previous header value.
-    let mut raw_headers: Vec<EmailHeader> = Vec::new();
-    for line in header_block.lines() {
-        if line.starts_with(' ') || line.starts_with('\t') {
-            // Continuation line — append to previous header value.
-            if let Some(last) = raw_headers.last_mut() {
-                last.value.push('\n');
-                last.value.push_str(line);
-            }
-        } else if let Some(colon_pos) = line.find(':') {
-            let name = line[..colon_pos].to_owned();
-            let value = line[colon_pos + 1..].to_owned();
-            raw_headers.push(EmailHeader::new(name, value));
-        }
-        // Lines with no colon and no leading whitespace (malformed) are skipped.
-    }
-
-    // Unfold header lines for the structured field extraction below.
-    let unfolded = header_block
-        .replace("\r\n ", " ")
-        .replace("\r\n\t", " ")
-        .replace("\n ", " ")
-        .replace("\n\t", " ");
-
-    let mut subject = None;
-    let mut message_id: Option<Vec<String>> = None;
-    let mut in_reply_to: Vec<String> = Vec::new();
-    let mut references: Vec<String> = Vec::new();
-    let mut from_header: Option<String> = None;
-    let mut to_header: Option<String> = None;
-    let mut cc_header: Option<String> = None;
-
-    for line in unfolded.lines() {
-        // RFC 5322 §2.2: header field names are case-insensitive. Split on the
-        // first ':' and compare the field name case-insensitively.
-        if let Some(colon) = line.find(':') {
-            let name = &line[..colon];
-            let rest = &line[colon + 1..];
-            if name.eq_ignore_ascii_case("Subject") {
-                subject = Some(rest.trim().to_owned());
-            } else if name.eq_ignore_ascii_case("Message-ID") {
-                let ids = parse_msg_ids_via_mime_tree(rest);
-                if !ids.is_empty() {
-                    message_id = Some(ids);
-                }
-            } else if name.eq_ignore_ascii_case("In-Reply-To") {
-                in_reply_to = parse_msg_ids_via_mime_tree(rest);
-            } else if name.eq_ignore_ascii_case("References") {
-                references = parse_msg_ids_via_mime_tree(rest);
-            } else if name.eq_ignore_ascii_case("From") {
-                from_header = Some(rest.trim().to_owned());
-            } else if name.eq_ignore_ascii_case("To") {
-                to_header = Some(rest.trim().to_owned());
-            } else if name.eq_ignore_ascii_case("Cc") {
-                cc_header = Some(rest.trim().to_owned());
-            }
-        }
-    }
-
-    let from = from_header.as_deref().map(parse_address_list_via_mime_tree);
-    let to = to_header.as_deref().map(parse_address_list_via_mime_tree);
-    let cc = cc_header.as_deref().map(parse_address_list_via_mime_tree);
-
-    // Extract a short preview from the body.
-    let preview = if body_block.trim().is_empty() {
-        None
-    } else {
-        let trimmed = body_block.trim();
-        let end = trimmed
-            .char_indices()
-            .take(256)
-            .last()
-            .map(|(i, c)| i + c.len_utf8())
-            .unwrap_or(trimmed.len());
-        Some(trimmed[..end].to_owned())
-    };
-
-    ParsedHeaders {
-        subject,
-        message_id,
-        in_reply_to,
-        references,
-        from,
-        to,
-        cc,
-        preview,
-        raw_headers,
-    }
-}
-
-/// Parse `<id>` tokens from a Message-ID / In-Reply-To / References
-/// header value via mime-tree.
-///
-/// This shares the workspace's single RFC 5322 parsing gateway with
-/// `email.rs::apply_header_form` so the Email/get `messageId` /
-/// `inReplyTo` / `references` properties stay consistent with
-/// `header:<name>:asMessageIds` results on identical input
-/// (`bd:JMAP-j7pa.10`).
-fn parse_msg_ids_via_mime_tree(s: &str) -> Vec<String> {
-    match mime_tree::parse_header_typed(mime_tree::HeaderForm::MessageIds, s.as_bytes()) {
-        mime_tree::HeaderValueTyped::MessageIds(ids) => ids,
-        _ => Vec::new(),
-    }
-}
-
-/// Parse an RFC 5322 address-list header value (From / To / Cc) via
-/// mime-tree.
-///
-/// Handles RFC 2047 encoded-words, RFC 5322 groups, and quoted-string
-/// display names with embedded commas — all cases the previous
-/// hand-rolled split-on-comma parser mis-handled. Shares the workspace's
-/// single RFC 5322 parsing gateway with `email.rs::apply_header_form` so
-/// the Email/get `from` / `to` / `cc` properties stay consistent with
-/// `header:<name>:asAddresses` results on identical input
-/// (`bd:JMAP-j7pa.10`).
-fn parse_address_list_via_mime_tree(s: &str) -> Vec<EmailAddress> {
-    match mime_tree::parse_header_typed(mime_tree::HeaderForm::Addresses, s.as_bytes()) {
-        mime_tree::HeaderValueTyped::Addresses(list) => list
-            .into_iter()
-            .map(|addr| {
-                let mut ea = EmailAddress::new(addr.address.unwrap_or_default());
-                ea.name = addr.name;
-                ea
-            })
-            .collect(),
-        _ => Vec::new(),
-    }
-}
 
 /// Assign a thread id for an email being imported or copied.
 ///

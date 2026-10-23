@@ -39,16 +39,17 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_mail_types::{Email, EmailAddress, EmailAddressGroup, Keyword};
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
+use jmap_mime::{ComposeError, EmailDraft, compose_email};
+use jmap_types::{Date, Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     filter_properties, finalize_set_response, not_found_json, resolve_ref, serialize_value,
     set_error_value,
 };
+use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
     limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_offset,
@@ -444,7 +445,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
 /// to `mime_tree::parse_header_typed`.
 ///
 /// The JMAP "Raw" storage form has already collapsed `\r\n` to `\n` (RFC
-/// 8621 §4.1.3), and the memory backend's `parse_rfc5322_headers` also
+/// 8621 §4.1.3), and `parse::parse_rfc5322_headers` also
 /// folds continuation lines using `\n` as the separator. mail-parser
 /// (mime-tree's underlying parser) expects RFC 5322 wire bytes with CRLF
 /// line endings, so we re-expand `\n` → `\r\n` to give the parser the
@@ -1209,31 +1210,21 @@ pub async fn handle_email_set<B: MailBackend>(
                 continue;
             }
 
-            // Build the Email object from the creation payload.
-            let build = match build_email_from_create(obj_val, &account_id, backend, caller).await {
-                Ok(b) => b,
-                Err(desc) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "invalidProperties",
-                            "description": desc,
-                        }),
-                    );
-                    continue;
-                }
-            };
+            // Compose the message and the builder for the stored Email.
+            let (message, build) =
+                match build_email_from_create(obj_val, &account_id, backend, caller).await {
+                    Ok(b) => b,
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), err);
+                        continue;
+                    }
+                };
 
             match backend
-                .create_object::<Email, _>(caller, &account_id, create_id, build)
+                .create_email(caller, &account_id, create_id, message, build)
                 .await
             {
                 Ok((server_id, created_obj)) => {
-                    // backend.create_object MUST replace the placeholder blobId; see MailBackend doc.
-                    debug_assert!(
-                        created_obj.blob_id.as_ref() != crate::helpers::PLACEHOLDER_BLOB_ID,
-                        "create_object returned a placeholder blobId — backend must assign a real blobId"
-                    );
                     mutated = true;
                     // RFC 8621 §5.5: created map contains only server-set fields.
                     created.insert(
@@ -1731,30 +1722,49 @@ fn validate_body_part(
     Ok(())
 }
 
-/// Validate a creation payload (`obj_val`) and return a builder that makes
-/// the [`Email`] for the id the backend assigns.
+/// Compose the RFC 5322 message an `Email/set` create (`obj_val`)
+/// describes, and return it with the builder that
+/// [`MailBackend::create_email`] calls to make the stored [`Email`]
+/// (RFC 8621 §4.6).
 ///
-/// Extracts `mailboxIds`, `keywords`, and optional header fields from the
-/// creation object. Sets `blobId` to [`crate::helpers::PLACEHOLDER_BLOB_ID`];
-/// per RFC 8621 §5.5 `blobId` is server-set, so the backend replaces it with
-/// the real value inside `create_object`. Assigns a thread id by searching
-/// existing emails for matching `inReplyTo`/`references`.
+/// The builder parses the stored message, so the Email's header and body
+/// properties are the ones the message carries, as for `Email/import`.
+/// `mailboxIds`, `keywords` and `receivedAt` come from the create; the
+/// thread id comes from a stored Email whose `messageId` matches
+/// `inReplyTo` or `references`, else a fresh one. When the create gives
+/// no `messageId` or `sentAt`, the message gets a generated Message-ID and
+/// a Date equal to `receivedAt`: RFC 8621 §4.6 "If not included, the
+/// server MUST generate and set a Message-ID header field ... and a Date
+/// header field".
+///
+/// On failure returns the SetError for `notCreated`: `blobNotFound` with
+/// `notFound` listing every missing `blobId`, `invalidProperties` for a
+/// malformed create, or `serverFail`.
 async fn build_email_from_create<B: MailBackend>(
     obj_val: &Value,
     account_id: &Id,
     backend: &B,
     caller: &B::CallerCtx,
-) -> Result<impl FnOnce(&Id) -> Email + Send + use<B>, String> {
-    // NOTE: The following fields are validated (body structure / envelope
-    // rules are checked) but are NOT yet stored in the returned Email object:
-    //   Envelope: from, to, cc, bcc, sender, replyTo, messageId
-    //   Body:     textBody, htmlBody, attachments, bodyStructure, bodyValues
-    // Wiring these fields into the stored Email requires jmap-mime integration
-    // (tracked in JMAP-wgbh). Until then, clients that read back a created
-    // Email will not see these fields even if they were supplied on create.
-    //
-    // Sentinel value: blob_id="placeholder-blob" is set below. The backend
-    // MUST replace it — see MailBackend::create_object.
+) -> Result<
+    (
+        Vec<u8>,
+        impl FnOnce(&Id, &Id, &[u8]) -> Email + Send + use<B>,
+    ),
+    Value,
+> {
+    fn invalid(property: &str, description: impl std::fmt::Display) -> Value {
+        json!({
+            "type": "invalidProperties",
+            "properties": [property],
+            "description": format!("{property}: {description}"),
+        })
+    }
+    fn field<T: serde::de::DeserializeOwned>(obj: &Value, name: &str) -> Result<Option<T>, Value> {
+        match obj.get(name) {
+            None | Some(Value::Null) => Ok(None),
+            Some(v) => T::deserialize(v).map(Some).map_err(|e| invalid(name, e)),
+        }
+    }
 
     // mailboxIds: required (already validated non-empty by caller).
     // RFC 8621 §5.5.3: values MUST be true; false means absent — filter out false entries,
@@ -1770,32 +1780,32 @@ async fn build_email_from_create<B: MailBackend>(
     let raw_keywords: BTreeMap<String, bool> = match obj_val.get("keywords") {
         None | Some(Value::Null) => BTreeMap::new(),
         Some(v) => BTreeMap::<String, bool>::deserialize(v)
-            .map_err(|_| "keywords: invalid keyword or format".to_owned())?,
+            .map_err(|_| invalid("keywords", "invalid keyword or format"))?,
     };
     let keywords =
-        validate_and_normalize_keywords(raw_keywords).map_err(|e| format!("keywords: {e}"))?;
+        validate_and_normalize_keywords(raw_keywords).map_err(|e| invalid("keywords", e))?;
 
-    // Subject, inReplyTo, references — used for thread assignment.
-    let subject: Option<String> = obj_val
-        .get("subject")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_owned());
+    validate_email_body(obj_val).map_err(
+        |description| json!({ "type": "invalidProperties", "description": description }),
+    )?;
 
-    let in_reply_to: Option<Vec<String>> = match obj_val.get("inReplyTo") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            Vec::<String>::deserialize(v)
-                .map_err(|_| "inReplyTo: must be an array of strings".to_owned())?,
-        ),
-    };
-
-    let references: Option<Vec<String>> = match obj_val.get("references") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            Vec::<String>::deserialize(v)
-                .map_err(|_| "references: must be an array of strings".to_owned())?,
-        ),
-    };
+    let mut draft = EmailDraft::default();
+    draft.from = field(obj_val, "from")?;
+    draft.sender = field(obj_val, "sender")?;
+    draft.reply_to = field(obj_val, "replyTo")?;
+    draft.to = field(obj_val, "to")?;
+    draft.cc = field(obj_val, "cc")?;
+    draft.bcc = field(obj_val, "bcc")?;
+    draft.subject = field(obj_val, "subject")?;
+    draft.sent_at = field(obj_val, "sentAt")?;
+    draft.message_id = field(obj_val, "messageId")?;
+    draft.in_reply_to = field(obj_val, "inReplyTo")?;
+    draft.references = field(obj_val, "references")?;
+    draft.text_body = field(obj_val, "textBody")?.unwrap_or_default();
+    draft.html_body = field(obj_val, "htmlBody")?.unwrap_or_default();
+    draft.attachments = field(obj_val, "attachments")?.unwrap_or_default();
+    draft.body_structure = field(obj_val, "bodyStructure")?;
+    draft.body_values = field(obj_val, "bodyValues")?.unwrap_or_default();
 
     // Thread assignment: look for an existing email whose messageId matches
     // any of the inReplyTo/references tokens.
@@ -1803,54 +1813,76 @@ async fn build_email_from_create<B: MailBackend>(
         backend,
         caller,
         account_id,
-        in_reply_to.as_deref().unwrap_or(&[]),
-        references.as_deref().unwrap_or(&[]),
+        draft.in_reply_to.as_deref().unwrap_or(&[]),
+        draft.references.as_deref().unwrap_or(&[]),
     )
     .await
-    .map_err(|e| e.to_string())?;
-
-    // size is server-set per RFC 8621 §5.5.3 — this handler always sets size=0 as a
-    // placeholder. The backend MUST update this field to the actual blob size before
-    // returning the created object from create_object. Backends that do not store raw
-    // bytes on the Email/set create path (e.g. MemoryBackend) should use the length
-    // of the serialized email JSON as a proxy. Never read size from the client.
-    let size: u64 = 0;
+    .map_err(|e| server_fail_value_from_backend(&e))?;
 
     // receivedAt: use provided value or now (RFC 8621 §5.5.3).
     // The caller is required to have run `parse_received_at_field` to
     // reject malformed values up-front (see handle_email_set), so this
     // helper only sees either a valid UTCDate string or no field at all.
-    // `UTCDate::from` is therefore safe: it cannot silently truncate
-    // here because the input has already been validated.
     let received_at: UTCDate = obj_val
         .get("receivedAt")
         .and_then(|v| v.as_str())
         .map(UTCDate::from)
         .unwrap_or_else(|| UTCDate::from(crate::helpers::now_utc_string().as_ref()));
 
-    // blobId: always use a placeholder. Per RFC 8621 §5.5, blobId is server-set
-    // and must not be accepted from the client on Email/set create (accepting it
-    // would allow clients to reference blobs they do not own). The backend
-    // assigns the real blobId in create_object.
-    let blob_id: Id = Id::from(crate::helpers::PLACEHOLDER_BLOB_ID);
+    if draft.sent_at.is_none() {
+        draft.sent_at = Some(Date::from(received_at.as_ref()));
+    }
+    if draft.message_id.is_none() {
+        // RFC 5322 §3.6.4: a unique id-left at a domain; the sender's
+        // domain when the create names one.
+        let domain = draft
+            .from
+            .iter()
+            .flatten()
+            .find_map(|a| a.email.rsplit_once('@').map(|(_, d)| d.to_owned()))
+            .unwrap_or_else(|| "jmap.invalid".to_owned());
+        draft.message_id = Some(vec![format!("{}@{domain}", next_id())]);
+    }
 
-    validate_email_body(obj_val)?;
+    let mut blobs = BTreeMap::new();
+    let mut missing = Vec::new();
+    for blob_id in draft.blob_ids() {
+        match backend
+            .read_blob(caller, account_id, blob_id)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?
+        {
+            Some(bytes) => {
+                blobs.insert(blob_id.clone(), bytes);
+            }
+            None => missing.push(blob_id.clone()),
+        }
+    }
+    if !missing.is_empty() {
+        return Err(set_error_value(
+            &SetError::new(SetErrorType::BlobNotFound).with_not_found(missing),
+        ));
+    }
 
-    Ok(move |id: &Id| {
+    let message = compose_email(&draft, &blobs).map_err(|e| match e {
+        ComposeError::InvalidDate(_) => invalid("sentAt", e),
+        _ => json!({ "type": "invalidProperties", "description": e.to_string() }),
+    })?;
+
+    Ok((message, move |id: &Id, blob_id: &Id, bytes: &[u8]| {
         let mut email = Email::new(
             id.clone(),
-            blob_id,
+            blob_id.clone(),
             thread_id,
             mailbox_ids,
-            size,
+            bytes.len() as u64,
             received_at,
         );
         email.keywords = keywords;
-        email.subject = subject;
-        email.in_reply_to = in_reply_to;
-        email.references = references;
+        let parsed = crate::parse::parse_rfc5322_headers(bytes);
+        crate::parse::fill_from_message(&mut email, parsed, bytes, blob_id);
         email
-    })
+    }))
 }
 
 /// Validate the body-related fields of an Email creation payload (RFC 8621 §4.6).
